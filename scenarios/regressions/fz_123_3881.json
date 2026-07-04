@@ -1,0 +1,85 @@
+{
+  "drl": "rule \"R0\"\nsalience 3\nwhen\n    T1(f1 != true, $b0_0_0 : f1, $b0_0_1 : f0)\n    T1(f0 <= 1.5, f0 == $b0_0_1)\n    T0(f2 != -2.5, f2 <= $b0_0_1, $b0_2_0 : f3)\nthen\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f1)\n    T0()\nthen\nend\nrule \"R2\"\nsalience -2\nwhen\n    T1(f1 != false, f1 in (false, true))\nthen\nend\nrule \"R3\"\nwhen\n    T1($b3_0_0 : f1)\n    T0()\n    not T1(f1 == true, f1 == true)\nthen\nend\nrule \"R4\"\nwhen\n    T0(f3 != false, $b4_0_0 : f2)\nthen\nend\nrule \"R5\"\nwhen\n    $p5_0 : T0(f2 > 11, $b5_0_0 : f3)\nthen\n    insert(new T1($p5_0.getF2(), $p5_0.isF3()));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 5.5,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": 6,
+        "f2": 0.5,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7,
+        "f1": -1000000007,
+        "f2": 1.0,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": -2,
+        "f2": 0.5,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1,
+        "f1": 4,
+        "f2": -1.0,
+        "f3": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_123_3881",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

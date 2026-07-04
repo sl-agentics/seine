@@ -4,13 +4,16 @@ A Rust reimplementation of a **bounded subset** of the Drools DRL
 forward-chaining rule semantics, proven faithful by **differential testing
 against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
-> Status: Phases 0–2 complete; curated corpus (145 scenarios, incl. 75+
-> named fuzz regressions) at 100% with NO subset wall (mutation and
-> 3-pattern rules mix freely). The engine core is a behavioral port of
-> the PHREAK node algorithm (`engine/src/phreak.rs`) — staging sets,
-> beta memories with child-list cursor threading, property-miss reAdd,
-> and agenda-item lifecycle, each pinned by probe scenarios. See
-> `DECISIONS.md` (D-001…D-028) for every oracle-pinned semantic.
+> Status: Phases 0–2 complete, plus the Phase-3 stretch items
+> `matches`/`contains`/`in` and `not`/`exists` (accumulate/collect not
+> started). Curated corpus (199 scenarios, incl. 80+ named fuzz
+> regressions) at 100% with NO subset wall (mutation, 3-pattern rules and
+> CEs mix freely). The engine core is a behavioral port of the PHREAK
+> node algorithm (`engine/src/phreak.rs`) — staging sets, beta memories
+> with child-list cursor threading, existential blocker lists with
+> comparison (range) indexes, property-miss reAdd, and agenda-item
+> lifecycle incl. queue-on-unlink, each pinned by probe scenarios. See
+> `DECISIONS.md` (D-001…D-033) for every oracle-pinned semantic.
 
 ## What this is
 
@@ -37,8 +40,17 @@ log** for every in-subset program.
   sync-walks, and agenda-item lifecycle — see `DECISIONS.md`
   D-013…D-028). The former mutation/3-pattern subset wall (D-017) is
   lifted.
-- Phase 3 (stretch): `not`/`exists`, `accumulate`/`collect`, `matches`/
-  `contains`/`in`.
+- Phase 3 (stretch, landed): operators `matches` (full-string
+  java.util.regex semantics over a tame regex subset: literals, `.`,
+  classes with ranges/negation, groups, `|`, `* + ?`), `contains`
+  (String substring), `in`/`not in` (literal lists) — String fields only
+  for matches/contains, literal-only operands (D-030); `not`/`exists`
+  conditional elements, including first-position CEs (matched on
+  `InitialFact`), constrained CEs with hash- or range-indexed blocker
+  search, and oracle-pinned cancellation/refire lifecycle (D-031/D-032).
+  Bindings inside CE patterns are rejected; the type name `InitialFact`
+  is reserved.
+- Phase 3 not started: `accumulate`/`collect`, salience expressions.
 
 ## Explicit non-goals (hard walls)
 

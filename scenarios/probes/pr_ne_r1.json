@@ -1,0 +1,14 @@
+{
+  "name": "ne_r1",
+  "types": [
+    {"name": "A", "fields": [{"name": "s", "type": "String"}]},
+    {"name": "B", "fields": [{"name": "t", "type": "String"}, {"name": "g", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"s": "b"}},
+    {"type": "B", "fields": {"t": "a", "g": false}},
+    {"type": "B", "fields": {"t": "c", "g": true}},
+    {"type": "B", "fields": {"t": "alpha", "g": true}}
+  ],
+  "drl": "rule R when $a : A($s : s) not B(t < $s) then end\nrule R2 salience 20 when $a : A($s : s) exists B(t > $s) then end\nrule U salience 10 when $b : B(g == false) then modify($b) { setT(\"zz\"), setG(true) } end\n"
+}

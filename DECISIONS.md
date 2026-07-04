@@ -371,6 +371,60 @@ clean after this fix.
 
 ## Phase 3 (stretch: operators, not/exists — 2026-07-04)
 
+### D-033: CE fuzz wave 2 — NODE-SHARING SEGMENT FLIPS (fz_123_3881,
+### fz_7_6245; probes ne_s1..ne_s10) — a pre-existing latent gap closed
+Seeds 7/123 each found one divergence; both minimized to rules SHARING a
+beta prefix. Discriminator ladder ne_s1..ne_s10 pinned a mechanism that
+affects PURE-JOIN programs too (ne_s3!) and had simply never been drawn
+observably in the previous ~130k fuzz cases (needs two rules with
+structurally identical pattern prefixes, diverging continuations, and
+>=2 facts on a shared non-first pattern):
+- **Rules with structurally equal pattern prefixes share beta nodes.**
+  Binding names are irrelevant (ne_s5); literals compare by their D-029
+  alpha-node identity; each rule's terminal is always its own sink.
+- **Where sharers diverge, the shared node is a segment tip: the
+  FIRST-declared sink's continuation receives the staged propagation
+  as-is; every LATER sink receives a REVERSED copy.** Consequences, all
+  oracle-pinned: a 3-pattern extension of a shared 2-pattern prefix
+  fires its tuples in the OPPOSITE order of the unshared control
+  (ne_s3 vs ne_s4); identical-LHS twin rules fire in opposite orders
+  (ne_s7: R1 ascending, R1b descending); swapping declaration order
+  swaps who is preserved (ne_s8: both DESCEND — the not-rule, now the
+  first sink, keeps the unshared order while the 2-pattern rule flips);
+  three sinks each flip once (ne_s9); boundaries stack per depth
+  (ne_s10). Trailing not/exists after a shared prefix (the original
+  fz_123_3881) is just this flip passing through the CE node.
+- Engine: compute_segment_flips derives per-(rule, node) flip flags at
+  build time (prefix keys on the pre-D-029-rewrite compiled patterns);
+  evaluate_rule reverses a node's staged output lists when its
+  continuation is a non-first sink. Per-rule networks otherwise remain
+  independent — sharing is modeled ONLY as this boundary flip.
+- The D-028-era "proven" claim implicitly excluded shared-prefix
+  programs; the corpus (203 scenarios) passes unchanged with the flip in
+  place, confirming no prior scenario exercised the shape observably.
+
+### D-034: Phase 3 DONE-BAR (operators + not/exists; accumulate NOT started)
+- Curated corpus: **215/215 PASS** (`make diff`) — D-028's 156 plus
+  pr_op_* (14), pr_ne_* (39 incl. the ne_s sharing ladder), and 6 CE
+  fuzz regressions with minimized twins.
+- Operator grammar fuzz: seeds 42/7/123 x 10,000 = 30k cases, zero
+  divergences (before the CE grammar landed).
+- CE grammar fuzz (not/exists + operators + mutation + 3-pattern rules
+  mixing freely): seeds 42, 7, 123, 777, 999 x 10,000 = 50k cases at
+  zero divergences after the D-032/D-033 fixes.
+- Generator termination discipline extended for CEs (D-032): RHS insert
+  types must exceed ALL pattern type indices including not/exists CE
+  types, so consequence chains can never re-insert a blocker/support at
+  or below their own LHS; refire counts stay bounded by the finite event
+  pool of lower types (induction over the type order). CE patterns carry
+  no bindings; mutation targets and RHS getters reference positive
+  patterns only; first-position CEs generated at low probability
+  (InitialFact path).
+- NOT started (documented out of this run's scope): accumulate/collect
+  (largest remaining PHREAK node; needs oracle-side Number rendering in
+  match lists), salience expressions (dynamic-salience agenda queue).
+  Both remain independently optional per brief §2 Phase 3.
+
 ### D-030: matches/contains/in semantics PINNED (probes op_m*/op_c*/op_i*)
 Oracle-verified on Drools 9.44.0.Final; probe files promoted to
 scenarios/probes/pr_op_*.json:

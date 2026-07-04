@@ -110,6 +110,10 @@ struct CompiledRule {
     def: RuleDef,
     patterns: Vec<CompiledPattern>,
     actions: Vec<CompiledAction>,
+    /// Per-node segment-boundary flips (D-033/ne_s*): node j's staged
+    /// output is REVERSED before the next node / terminal when this
+    /// rule's continuation is not the FIRST-built sink of a shared node.
+    flips: Vec<bool>,
 }
 
 use crate::phreak::{self, Origin, Staged, Tup};
@@ -183,6 +187,7 @@ impl Engine {
         self.rule_order = (0..self.rules.len()).collect();
         self.rule_order
             .sort_by_key(|&ri| (-self.rules[ri].def.salience, ri));
+        self.compute_segment_flips();
         self.share_and_hash_alphas();
         // CE-first rules match on InitialFact: assert the synthetic fact
         // ahead of scenario facts, as Drools does at session init.
@@ -196,6 +201,90 @@ impl Engine {
             self.init_fact = Some(self.store.insert(init_tid, Vec::new()).map_err(EngineError)?);
         }
         Ok(())
+    }
+
+    /// Node-sharing segment boundaries (D-033, probes ne_s1..ne_s10):
+    /// rules with structurally equal pattern PREFIXES share beta nodes
+    /// (binding names are irrelevant; literals compare by their D-029
+    /// alpha-node identity). Where sharers diverge, the shared node has
+    /// multiple sinks and a segment boundary forms: the FIRST-declared
+    /// sink's continuation receives the staged list as-is, every later
+    /// sink gets a REVERSED copy (identical-LHS twins fire in opposite
+    /// orders, ne_s7; declaration order picks the preserved one, ne_s8;
+    /// boundaries stack per depth, ne_s10).
+    fn compute_segment_flips(&mut self) {
+        let keys: Vec<Vec<String>> = self
+            .rules
+            .iter()
+            .map(|r| r.patterns.iter().map(|p| self.pattern_key(p)).collect())
+            .collect();
+        for ri in 0..self.rules.len() {
+            let k = self.rules[ri].patterns.len();
+            let mut flips = vec![false; k.saturating_sub(1)];
+            for j in 1..k {
+                let sharers: Vec<usize> = (0..self.rules.len())
+                    .filter(|&rb| keys[rb].len() > j && keys[rb][..=j] == keys[ri][..=j])
+                    .collect();
+                if sharers.len() < 2 {
+                    continue;
+                }
+                // extension identity at j+1; a rule ENDING here is its own
+                // sink (each rule has its own terminal node)
+                let ext = |rb: usize| {
+                    keys[rb].get(j + 1).cloned().unwrap_or_else(|| format!("__end_{rb}"))
+                };
+                let my_ext = ext(ri);
+                if sharers.iter().all(|&rb| ext(rb) == my_ext) {
+                    continue; // single sink: the boundary is deeper
+                }
+                let first = sharers[0]; // min rule index builds sink 1
+                if ext(first) != my_ext {
+                    flips[j - 1] = true;
+                }
+            }
+            self.rules[ri].flips = flips;
+        }
+    }
+
+    /// Structural identity of a pattern for node sharing: type, CE kind,
+    /// and the ordered non-binding constraints — var references by
+    /// (tuple pos, field), eq literals coerced to the field type (the
+    /// D-029 alpha-node key), other literals as written.
+    fn pattern_key(&self, p: &CompiledPattern) -> String {
+        use std::fmt::Write as _;
+        let mut s = format!("{}|{:?}", p.type_id.0, p.ce);
+        for c in &p.cmps {
+            let _ = write!(s, ";{}", c.field_idx);
+            match &c.test {
+                Test::Cmp { op, rhs: Src::Lit(v) } => {
+                    let ft = self.store.field_type(p.type_id, c.field_idx);
+                    let vv = if *op == CmpOp::Eq {
+                        match (v, ft) {
+                            (Value::F64(x), FieldType::I64) => Value::I64(*x as i64),
+                            (Value::I64(n), FieldType::F64) => Value::F64(*n as f64),
+                            (v, _) => v.clone(),
+                        }
+                    } else {
+                        v.clone()
+                    };
+                    let _ = write!(s, "{op:?}{vv:?}");
+                }
+                Test::Cmp { op, rhs: Src::Field(ti, fi) } => {
+                    let _ = write!(s, "{op:?}v{ti}.{fi}");
+                }
+                Test::Cmp { .. } => {}
+                Test::Matches(r) => {
+                    let _ = write!(s, "m{}", r.source());
+                }
+                Test::Contains(n) => {
+                    let _ = write!(s, "c{n}");
+                }
+                Test::InList { items, negated } => {
+                    let _ = write!(s, "in{negated}{items:?}");
+                }
+            }
+        }
+        s
     }
 
     /// Alpha-network build semantics for `field == literal` constraints
@@ -544,7 +633,7 @@ impl Engine {
                 }
             }
         }
-        Ok(CompiledRule { def, patterns, actions })
+        Ok(CompiledRule { def, patterns, actions, flips: Vec::new() })
     }
 
     fn compile_arg(
@@ -921,6 +1010,13 @@ impl Engine {
             let sr = net.nodes[j].s_right.take();
             let mut trg: Staged<Tup> = Staged::default();
             phreak::do_node(&env, j, &mut net.nodes[j], src, sr, &mut trg);
+            // Segment-boundary flip (D-033): a non-first sink of a shared
+            // node receives the staged propagation REVERSED.
+            if self.rules[ri].flips[j] {
+                trg.ins.reverse();
+                trg.upd.reverse();
+                trg.del.reverse();
+            }
             src = trg;
         }
         // Consuming the batch spends any not-node link pulses

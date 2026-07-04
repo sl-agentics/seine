@@ -1,0 +1,80 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T2(f0 <= 6.0, f2 contains \"zz\", $b0_0_0 : f2, $b0_0_1 : f1)\nthen\nend\nrule \"R1\"\nsalience -1\nwhen\n    $p1_0 : T2($b1_0_0 : f2, $b1_0_1 : f2)\n    T0()\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nsalience 9\nwhen\n    $p2_0 : T0(f1 != false, f0 >= 8, $b2_0_0 : f0, $b2_0_1 : f0)\nthen\n    insert(new T1($p2_0.isF1(), $b2_0_0));\nend\nrule \"R3\"\nwhen\n    T2($b3_0_0 : f2)\n    T0()\n    T0()\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 100,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3.5,
+        "f1": true,
+        "f2": ""
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": -5,
+        "f1": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_6245",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

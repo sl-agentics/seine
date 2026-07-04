@@ -1,0 +1,15 @@
+{
+  "name": "ne_r2",
+  "types": [
+    {"name": "A", "fields": [{"name": "x", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "y", "type": "f64"}, {"name": "g", "type": "bool"}]},
+    {"name": "T", "fields": [{"name": "t", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"x": 2}},
+    {"type": "B", "fields": {"y": 2.5, "g": false}},
+    {"type": "B", "fields": {"y": 1.5, "g": true}},
+    {"type": "T", "fields": {"t": true}}
+  ],
+  "drl": "rule R when $a : A($x : x) not B(y >= $x) then end\nrule R2 salience 20 when $a : A($x : x) exists B(y <= $x) then end\nrule U salience 10 when $b : B(g == false) T() then delete($b); end\n"
+}

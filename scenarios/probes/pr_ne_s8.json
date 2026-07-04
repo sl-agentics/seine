@@ -1,0 +1,65 @@
+{
+ "name": "ne_s8",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "n": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "m": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "m": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "m": 3
+   }
+  },
+  {
+   "type": "C",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "drl": "rule R3 when A() B() not C(k > 100) then end\nrule R1 when A() B() then end\n"
+}
