@@ -61,6 +61,9 @@ public final class OracleRunner {
 
     static JsonNode run(JsonNode scenario) throws Exception {
         String drl = "package " + PKG + ";\n"
+                + "import java.util.List;\n"
+                + "import java.util.ArrayList;\n"
+                + "import java.util.Collection;\n"
                 + declareBlocks(scenario.path("types"))
                 + "\n"
                 + scenario.path("drl").asText();
@@ -161,6 +164,28 @@ public final class OracleRunner {
         if (simpleName.equals("InitialFactImpl")) {
             node.put("type", "InitialFact");
             node.putObject("fields");
+            return node;
+        }
+        // Accumulate results are Numbers; collect results are Collections
+        // (D-038). Canonicalize both — collection classes normalize to
+        // "Collection" with an ORDER-SIGNIFICANT element array.
+        if (o instanceof Number || o instanceof Boolean) {
+            node.put("type", simpleName);
+            ObjectNode f = node.putObject("fields");
+            if (o instanceof Long l) f.put("value", l);
+            else if (o instanceof Integer i) f.put("value", (long) (int) i);
+            else if (o instanceof Double d) f.put("value", d);
+            else if (o instanceof Float fl) f.put("value", (double) (float) fl);
+            else if (o instanceof Boolean b) f.put("value", b);
+            else f.put("value", o.toString());
+            return node;
+        }
+        if (o instanceof java.util.Collection<?> c) {
+            node.put("type", "Collection");
+            ArrayNode arr = node.putObject("fields").putArray("value");
+            for (Object e : c) {
+                arr.add(render(kbase, session, e));
+            }
             return node;
         }
         FactType ft = kbase.getFactType(PKG, simpleName);

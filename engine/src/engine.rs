@@ -18,7 +18,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::drl::{self, Action, CeKind, CmpOp, CmpRhs, Constraint, Literal, RhsArg, RuleDef};
+use crate::drl::{self, AccFunc, Action, CeKind, CmpOp, CmpRhs, Constraint, Literal, RhsArg, RuleDef};
 use crate::store::{FactId, FactStore, FactView, FieldType, TypeId, TypeSchema, Value};
 
 /// Reserved type name backing first-position not/exists CEs (D-031):
@@ -26,6 +26,14 @@ use crate::store::{FactId, FactStore, FactView, FieldType, TypeId, TypeSchema, V
 /// synthetic fact of this hidden zero-field type; it renders in match
 /// lists but never in the final fact set.
 pub(crate) const INITIAL_FACT: &str = "InitialFact";
+/// Hidden types backing accumulate results (D-038): each accumulate
+/// context owns one synthetic fact of the matching type, updated in
+/// place as the set mutates; collect results carry their element list
+/// in an engine side table.
+pub(crate) const ACC_LONG: &str = "Long";
+pub(crate) const ACC_DOUBLE: &str = "Double";
+pub(crate) const ACC_COLLECTION: &str = "Collection";
+const RESERVED_TYPES: [&str; 4] = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION];
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EngineError(pub String);
@@ -106,6 +114,22 @@ struct CompiledPattern {
     /// identity (D-036/ne_t1..t10 — binding names, order, duplicates and
     /// fact-level bindings are irrelevant; the bound-field SET is not).
     bind_fields: u64,
+    /// Accumulate/collect spec (D-038): the pattern describes the SOURCE;
+    /// the node emits one synthetic result per left context.
+    acc: Option<CompiledAcc>,
+}
+
+#[derive(Clone)]
+struct CompiledAcc {
+    func: AccFunc,
+    /// Source field accumulated over (None for count/collect).
+    arg_field: Option<usize>,
+    arg_ft: FieldType,
+    /// Hidden result type (ACC_LONG / ACC_DOUBLE / ACC_COLLECTION).
+    result_tid: TypeId,
+    /// Original arg variable name — identity-significant like any
+    /// referenced variable (D-037 spirit; conservative).
+    arg_name: Option<String>,
 }
 
 enum CompiledAction {
@@ -167,6 +191,159 @@ struct TrieNode {
     s0_in: Staged<FactId>,
     /// Child sinks in build order (first = preserved propagation).
     sinks: Vec<Sink>,
+    /// Accumulate contexts per left tuple (D-038).
+    acc: HashMap<Tup, AccCtx>,
+    /// Lefts holding a match on each right source fact, in match order.
+    acc_by_right: HashMap<FactId, Vec<Tup>>,
+    /// LEVEL-1 COLLECT only (D-040): pattern-0 fields referenced anywhere
+    /// downstream (collect beta constraints, later patterns, RHS args).
+    /// The LIA drops a pattern-0 property MODIFY into this child unless
+    /// the modification mask intersects — CollectAccumulator is known to
+    /// read nothing from the left, so its left inferred mask is just the
+    /// inherited interest (unlike inline accumulates, whose opaque
+    /// lambdas force ALL-SET and always re-propagate).
+    collect_left_gate: Option<u64>,
+}
+
+/// One accumulate context: the function state, the stored per-match
+/// contributions (reverse operates on these, never on live fields), and
+/// the reused synthetic result fact (D-038).
+struct AccCtx {
+    result: Option<FactId>,
+    propagated: bool,
+    /// (right fact, stored contribution) in match order.
+    matches: Vec<(FactId, Value)>,
+    sum_i: i64,
+    sum_f: f64,
+    count: i64,
+    minmax: Option<Value>,
+    list: Vec<FactId>,
+}
+
+impl AccCtx {
+    fn new() -> AccCtx {
+        AccCtx {
+            result: None,
+            propagated: false,
+            matches: Vec::new(),
+            sum_i: 0,
+            sum_f: 0.0,
+            count: 0,
+            minmax: None,
+            list: Vec::new(),
+        }
+    }
+
+    /// reinit (fresh function state; the result fact and propagation
+    /// flag survive — the handle is reused).
+    fn reset_state(&mut self) {
+        self.sum_i = 0;
+        self.sum_f = 0.0;
+        self.count = 0;
+        self.minmax = None;
+        self.list.clear();
+    }
+
+    /// accumulate(): the exact op sequence (D-038).
+    fn apply(&mut self, func: AccFunc, f: FactId, v: &Value) {
+        match func {
+            AccFunc::Sum => match v {
+                Value::I64(x) => self.sum_i += x,
+                Value::F64(x) => self.sum_f += x,
+                _ => {}
+            },
+            AccFunc::Count => self.count += 1,
+            AccFunc::Average => {
+                let x = match v {
+                    Value::I64(n) => *n as f64,
+                    Value::F64(n) => *n,
+                    _ => 0.0,
+                };
+                self.sum_f += x;
+                self.count += 1;
+            }
+            AccFunc::Min | AccFunc::Max => {
+                let better = match &self.minmax {
+                    None => true,
+                    Some(cur) => {
+                        let ord = match (v, cur) {
+                            (Value::I64(a), Value::I64(b)) => a.cmp(b),
+                            (Value::F64(a), Value::F64(b)) => {
+                                a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                            }
+                            _ => std::cmp::Ordering::Equal,
+                        };
+                        if func == AccFunc::Min {
+                            ord == std::cmp::Ordering::Less
+                        } else {
+                            ord == std::cmp::Ordering::Greater
+                        }
+                    }
+                };
+                if better {
+                    self.minmax = Some(v.clone());
+                }
+            }
+            AccFunc::Collect => self.list.push(f),
+        }
+    }
+
+    /// tryReverse(): true when reversed in place; min/max cannot reverse
+    /// and require a reinit + refold over the remaining matches (D-038).
+    fn try_reverse(&mut self, func: AccFunc, f: FactId, v: &Value) -> bool {
+        match func {
+            AccFunc::Sum => {
+                match v {
+                    Value::I64(x) => self.sum_i -= x,
+                    Value::F64(x) => self.sum_f -= x,
+                    _ => {}
+                }
+                true
+            }
+            AccFunc::Count => {
+                self.count -= 1;
+                true
+            }
+            AccFunc::Average => {
+                let x = match v {
+                    Value::I64(n) => *n as f64,
+                    Value::F64(n) => *n,
+                    _ => 0.0,
+                };
+                self.sum_f -= x;
+                self.count -= 1;
+                true
+            }
+            AccFunc::Min | AccFunc::Max => false,
+            AccFunc::Collect => {
+                if let Some(i) = self.list.iter().position(|x| *x == f) {
+                    self.list.remove(i);
+                }
+                true
+            }
+        }
+    }
+
+    /// getResult(): None (average/min/max of an empty set) blocks
+    /// propagation and retracts an existing child (D-038).
+    fn result_value(&self, func: AccFunc, arg_ft: FieldType) -> Option<Value> {
+        match func {
+            AccFunc::Sum => Some(match arg_ft {
+                FieldType::I64 => Value::I64(self.sum_i),
+                _ => Value::F64(self.sum_f),
+            }),
+            AccFunc::Count => Some(Value::I64(self.count)),
+            AccFunc::Average => {
+                if self.count == 0 {
+                    None
+                } else {
+                    Some(Value::F64(self.sum_f / self.count as f64))
+                }
+            }
+            AccFunc::Min | AccFunc::Max => self.minmax.clone(),
+            AccFunc::Collect => Some(Value::I64(0)), // list lives in collect_vals
+        }
+    }
 }
 
 /// Per-rule agenda/terminal state (the beta network itself is shared).
@@ -179,6 +356,11 @@ struct RuleNet {
     /// Terminal staging propagated from the last path node (per-sink
     /// copy); consumed into `queue` at this rule's evaluation.
     term_pending: Staged<Tup>,
+    /// PEER-sink terminals only (D-041/fz_7_5773): tuples with a live
+    /// peer object at this terminal. processPeerInserts on an existing
+    /// unstaged peer stages an UPDATE (hasNodeMemory(RTN) is false), so
+    /// a kind-preserved re-insert must not re-activate.
+    peer_live: HashSet<Tup>,
     queue: Vec<Tup>,
     /// Agenda-item lifecycle: set when the rule links (or re-dirties
     /// while linked), cleared when its evaluation leaves the queue empty.
@@ -186,6 +368,50 @@ struct RuleNet {
     /// (fz_42_1464); an unqueued rule accumulates staged input
     /// (fz_42_124, fz_7_145).
     queued: bool,
+}
+
+impl RuleNet {
+    /// Peer-copy of a batch into this TERMINAL's staging (D-041,
+    /// SegmentPropagator.processPeer* for an RTN sink): per-entry
+    /// prepends (batch reversal, LIFO stacking); update clashes SKIP;
+    /// insert clashes move to the head; an insert whose peer object is
+    /// LIVE at this terminal arrives as an UPDATE instead
+    /// (updateChildLeftTupleDuringInsert with hasNodeMemory == false,
+    /// fz_7_5773); deletes (incl. normalized) end the peer lifetime.
+    fn peer_merge_term(&mut self, fresh: &Staged<Tup>) {
+        let mut pending = self.term_pending.take();
+        for (t, o, _) in fresh.del.iter().chain(fresh.norm_del.iter()) {
+            self.peer_live.remove(t);
+            pending.add_del(t.clone(), *o);
+        }
+        for (t, o, ph) in &fresh.upd {
+            let staged = pending.ins.iter().any(|(x, _, _)| x == t)
+                || pending.upd.iter().any(|(x, _, _)| x == t)
+                || pending.del.iter().any(|(x, _, _)| x == t);
+            if !staged {
+                pending.upd.insert(0, (t.clone(), *o, *ph));
+            }
+        }
+        for (t, o, ph) in &fresh.ins {
+            if let Some(i) = pending.ins.iter().position(|(x, _, _)| x == t) {
+                let e = pending.ins.remove(i);
+                pending.ins.insert(0, e);
+                continue;
+            }
+            if let Some(i) = pending.upd.iter().position(|(x, _, _)| x == t) {
+                pending.upd.remove(i);
+                pending.upd.insert(0, (t.clone(), *o, *ph));
+                continue;
+            }
+            if self.peer_live.contains(t) {
+                pending.upd.insert(0, (t.clone(), *o, *ph));
+                continue;
+            }
+            self.peer_live.insert(t.clone());
+            pending.ins.insert(0, (t.clone(), *o, *ph));
+        }
+        self.term_pending = pending;
+    }
 }
 
 pub struct Engine {
@@ -202,6 +428,9 @@ pub struct Engine {
     /// The synthetic InitialFact (inserted before scenario facts once a
     /// CE-first rule compiles — Drools asserts it at session init).
     init_fact: Option<FactId>,
+    /// Collect results: synthetic Collection fact -> current element
+    /// list, updated at each result evaluation (D-038).
+    collect_vals: HashMap<FactId, Vec<FactId>>,
 }
 
 impl Engine {
@@ -211,15 +440,25 @@ impl Engine {
             if !seen.insert(s.name.clone()) {
                 return Err(EngineError(format!("duplicate type {}", s.name)));
             }
-            if s.name == INITIAL_FACT {
-                return Err(EngineError(format!("type name {INITIAL_FACT} is reserved")));
+            if RESERVED_TYPES.contains(&s.name.as_str()) {
+                return Err(EngineError(format!("type name {} is reserved", s.name)));
             }
             if s.fields.len() > 64 {
                 return Err(EngineError(format!("type {}: more than 64 fields", s.name)));
             }
         }
-        // Hidden zero-field type backing first-position CEs (D-031).
+        // Hidden types: first-position CEs (D-031) + accumulate results
+        // (D-038).
         schemas.push(TypeSchema { name: INITIAL_FACT.into(), fields: Vec::new() });
+        schemas.push(TypeSchema {
+            name: ACC_LONG.into(),
+            fields: vec![("value".into(), FieldType::I64)],
+        });
+        schemas.push(TypeSchema {
+            name: ACC_DOUBLE.into(),
+            fields: vec![("value".into(), FieldType::F64)],
+        });
+        schemas.push(TypeSchema { name: ACC_COLLECTION.into(), fields: Vec::new() });
         Ok(Engine {
             store: FactStore::new(schemas),
             rules: Vec::new(),
@@ -229,6 +468,7 @@ impl Engine {
             nets: Vec::new(),
             lists_built: false,
             init_fact: None,
+            collect_vals: HashMap::new(),
         })
     }
 
@@ -299,10 +539,14 @@ impl Engine {
                         Some(&nid) => nid,
                         None => {
                             let pat = &self.rules[ri].patterns[j];
-                            let kind = match pat.ce {
-                                CeKind::Positive => phreak::Kind::Join,
-                                CeKind::Not => phreak::Kind::Not,
-                                CeKind::Exists => phreak::Kind::Exists,
+                            let kind = if pat.acc.is_some() {
+                                phreak::Kind::Acc
+                            } else {
+                                match pat.ce {
+                                    CeKind::Positive => phreak::Kind::Join,
+                                    CeKind::Not => phreak::Kind::Not,
+                                    CeKind::Exists => phreak::Kind::Exists,
+                                }
                             };
                             self.trie.push(TrieNode {
                                 node: phreak::Node::new(pat.pindex, kind),
@@ -311,6 +555,9 @@ impl Engine {
                                 pulse: false,
                                 s0_in: Staged::default(),
                                 sinks: Vec::new(),
+                                acc: HashMap::new(),
+                                acc_by_right: HashMap::new(),
+                                collect_left_gate: None,
                             });
                             let nid = self.trie.len() - 1;
                             trie_index.insert(prefix.clone(), nid);
@@ -331,9 +578,38 @@ impl Engine {
                 lia,
                 path,
                 term_pending: Staged::default(),
+                peer_live: HashSet::new(),
                 queue: Vec::new(),
                 queued: false,
             });
+        }
+        // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
+        // matrix): the mask a pattern-0 MODIFY must intersect =
+        // pattern-0's CONSTRAINT fields (its listened properties;
+        // bare bindings do NOT count) + the collect's own beta
+        // references into pattern 0. Later patterns' and the
+        // consequence's usage do NOT inherit through the collect
+        // (mg8, mg2). Unioned across every rule sharing the node.
+        for ri in 0..self.rules.len() {
+            let Some(&first) = self.nets[ri].path.first() else { continue };
+            let (eri, epos) = self.trie[first].env;
+            let is_collect = self.rules[eri].patterns[epos]
+                .acc
+                .as_ref()
+                .is_some_and(|a| a.func == AccFunc::Collect);
+            if !is_collect {
+                continue;
+            }
+            let mut gate = 0u64;
+            for c in &self.rules[ri].patterns[0].cmps {
+                gate |= 1 << c.field_idx;
+            }
+            for c in &self.rules[ri].patterns[1].cmps {
+                if let Test::Cmp { rhs: Src::Field(0, fi), .. } = &c.test {
+                    gate |= 1 << fi;
+                }
+            }
+            *self.trie[first].collect_left_gate.get_or_insert(0) |= gate;
         }
     }
 
@@ -377,6 +653,15 @@ impl Engine {
                     let _ = write!(s, "in{negated}{items:?}");
                 }
             }
+        }
+        if let Some(acc) = &p.acc {
+            let _ = write!(
+                s,
+                "|acc{:?}:{}:{:?}",
+                acc.func,
+                acc.arg_name.as_deref().unwrap_or(""),
+                acc.arg_field
+            );
         }
         s
     }
@@ -473,12 +758,18 @@ impl Engine {
         // order. CE patterns own no tuple slot (D-031).
         let mut fact_binds: HashMap<String, (usize, TypeId)> = HashMap::new();
         let mut field_binds: HashMap<String, (usize, usize, FieldType)> = HashMap::new();
+        // Accumulate results carry their natural compile-time type
+        // (Double/Long) EXCEPT min/max over double args, which Drools
+        // types opaquely (Comparable/Number) — those results compile
+        // nowhere: not in comparisons, not as RHS args (D-039).
+        let mut acc_opaque: HashSet<String> = HashSet::new();
         let mut patterns = Vec::new();
         let mut tuple_len = 0usize;
 
-        // A rule whose first pattern is a CE matches on InitialFact
-        // (ne_f1): inject the synthetic positive position 0.
-        if def.patterns[0].ce != CeKind::Positive {
+        // A rule whose first pattern is a CE (or an accumulate, which is
+        // a beta node needing a left input) matches on InitialFact
+        // (ne_f1/acc1): inject the synthetic positive position 0.
+        if def.patterns[0].ce != CeKind::Positive || def.patterns[0].acc.is_some() {
             let tid = self
                 .store
                 .type_id(INITIAL_FACT)
@@ -493,6 +784,7 @@ impl Engine {
                 pindex: phreak::Index::None,
                 index_ci: None,
                 bind_fields: 0,
+                acc: None,
             });
             tuple_len = 1;
         }
@@ -531,6 +823,11 @@ impl Engine {
                         listen_mask |= 1 << fi;
                         bind_fields |= 1 << fi;
                         let ft = self.store.field_type(type_id, fi);
+                        if p.acc.is_some() {
+                            // the accumulate arg binding is scoped INSIDE
+                            // the source (D-038); nothing registers outward
+                            continue;
+                        }
                         let t = tpos.ok_or_else(|| err("binding in a CE pattern".into()))?;
                         if field_binds.insert(var.clone(), (t, fi, ft)).is_some() {
                             return Err(err(format!("duplicate binding {var}")));
@@ -546,6 +843,11 @@ impl Engine {
                         let (src, rhs_ft, rhs_var) = match rhs {
                             CmpRhs::Lit(l) => (Src::Lit(lit_value(l)), lit_type(l), None),
                             CmpRhs::Var(v) => {
+                                if acc_opaque.contains(v) {
+                                    return Err(err(format!(
+                                        "{v}: min/max over double is not comparable downstream (Drools Number typing, D-039)"
+                                    )));
+                                }
                                 let (bpi, bfi, bft) = field_binds
                                     .get(v)
                                     .copied()
@@ -615,6 +917,68 @@ impl Engine {
                     }
                 }
             }
+            let acc = match &p.acc {
+                None => None,
+                Some(spec) => {
+                    let (arg_field, arg_ft) = match &spec.arg {
+                        None => (None, FieldType::I64),
+                        Some(a) => {
+                            let fi = p
+                                .constraints
+                                .iter()
+                                .find_map(|c| match c {
+                                    Constraint::Bind { var, field } if var == a => {
+                                        self.store.field_index(type_id, field)
+                                    }
+                                    _ => None,
+                                })
+                                .ok_or_else(|| err(format!("unknown accumulate arg {a}")))?;
+                            (Some(fi), self.store.field_type(type_id, fi))
+                        }
+                    };
+                    let numeric = matches!(arg_ft, FieldType::I64 | FieldType::F64);
+                    if spec.arg.is_some() && !numeric && spec.func != AccFunc::Count {
+                        // count ignores its argument; the value-bearing
+                        // functions stay numeric-only (subset wall)
+                        return Err(err(format!(
+                            "{:?} requires a numeric argument (subset wall)",
+                            spec.func
+                        )));
+                    }
+                    // result type per D-038 pins
+                    let (result_name, result_ft) = match spec.func {
+                        AccFunc::Count => (ACC_LONG, FieldType::I64),
+                        AccFunc::Average => (ACC_DOUBLE, FieldType::F64),
+                        AccFunc::Sum | AccFunc::Min | AccFunc::Max => match arg_ft {
+                            FieldType::I64 => (ACC_LONG, FieldType::I64),
+                            _ => (ACC_DOUBLE, FieldType::F64),
+                        },
+                        AccFunc::Collect => (ACC_COLLECTION, FieldType::I64),
+                    };
+                    let result_tid = self.store.type_id(result_name).unwrap();
+                    let t = tpos.ok_or_else(|| err("accumulate cannot be a CE".into()))?;
+                    if spec.func != AccFunc::Collect {
+                        if field_binds
+                            .insert(spec.result_var.clone(), (t, 0, result_ft))
+                            .is_some()
+                        {
+                            return Err(err(format!("duplicate binding {}", spec.result_var)));
+                        }
+                        if matches!(spec.func, AccFunc::Min | AccFunc::Max)
+                            && arg_ft == FieldType::F64
+                        {
+                            acc_opaque.insert(spec.result_var.clone());
+                        }
+                    }
+                    Some(CompiledAcc {
+                        func: spec.func,
+                        arg_field,
+                        arg_ft,
+                        result_tid,
+                        arg_name: spec.arg.clone(),
+                    })
+                }
+            };
             let beta = cmps
                 .iter()
                 .any(|c| matches!(c.test, Test::Cmp { rhs: Src::Field(..), .. }));
@@ -667,6 +1031,7 @@ impl Engine {
                 pindex,
                 index_ci,
                 bind_fields,
+                acc,
             });
         }
 
@@ -696,6 +1061,7 @@ impl Engine {
                             arg,
                             &fact_binds,
                             &field_binds,
+                            &acc_opaque,
                             &def,
                             &patterns,
                         )?;
@@ -718,7 +1084,7 @@ impl Engine {
                         .ok_or_else(|| err(format!("no field {field} for setter on {var}")))?;
                     let ftype = self.store.field_type(tid, fi);
                     let (src, src_ft) =
-                        self.compile_arg(&rname, arg, &fact_binds, &field_binds, &def, &patterns)?;
+                        self.compile_arg(&rname, arg, &fact_binds, &field_binds, &acc_opaque, &def, &patterns)?;
                     if !assignable(src_ft, ftype) {
                         return Err(err(format!("setter {var}.{field}: wrong arg type")));
                     }
@@ -747,12 +1113,18 @@ impl Engine {
         arg: &RhsArg,
         fact_binds: &HashMap<String, (usize, TypeId)>,
         field_binds: &HashMap<String, (usize, usize, FieldType)>,
+        acc_opaque: &HashSet<String>,
         _def: &RuleDef,
         _patterns: &[CompiledPattern],
     ) -> Result<(Src, FieldType), EngineError> {
         match arg {
             RhsArg::Lit(l) => Ok((Src::Lit(lit_value(l)), lit_type(l))),
             RhsArg::Var(v) => {
+                if acc_opaque.contains(v) {
+                    return Err(EngineError(format!(
+                        "rule {rname}: {v}: min/max over double compiles nowhere (Drools Number typing, D-039)"
+                    )));
+                }
                 let (pi, fi, ft) = field_binds
                     .get(v)
                     .copied()
@@ -821,8 +1193,19 @@ impl Engine {
             // RuleExecutor.getNextTuple: removeFirst + setQueued(false).
             let tuple = self.nets[ri].queue.remove(0);
             self.execute_rhs(ri, &tuple)?;
-            // Post-RHS rendering (D-013 / j03).
-            let matches: Vec<FactView> = tuple.iter().map(|&f| self.store.render(f)).collect();
+            // Post-RHS rendering (D-013 / j03); collect results carry
+            // their CURRENT element list (D-038).
+            let matches: Vec<FactView> = tuple
+                .iter()
+                .map(|&f| {
+                    let mut fv = self.store.render(f);
+                    if let Some(elems) = self.collect_vals.get(&f) {
+                        fv.elems =
+                            Some(elems.iter().map(|&e| self.store.render(e)).collect());
+                    }
+                    fv
+                })
+                .collect();
             firings.push(Firing { rule: self.rules[ri].def.name.clone(), matches });
         }
         Ok(firings)
@@ -941,7 +1324,17 @@ impl Engine {
                 match stage {
                     1 => self.trie[c].s0_in.add_ins(f, origin),
                     2 => self.trie[c].s0_in.add_del(f, origin),
-                    _ => self.trie[c].s0_in.add_upd(f, origin),
+                    _ => {
+                        // LIA sink masking for level-1 COLLECT children
+                        // (D-040): a pattern-0 MODIFY is dropped unless
+                        // the mask intersects the downstream interest.
+                        if let Some(gate) = self.trie[c].collect_left_gate {
+                            if mask != u64::MAX && mask & gate == 0 {
+                                continue;
+                            }
+                        }
+                        self.trie[c].s0_in.add_upd(f, origin)
+                    }
                 }
             }
             self.note_link_effects(&mut was);
@@ -1041,6 +1434,10 @@ impl Engine {
         let pat = &self.rules[ri].patterns[pos];
         if pos == 0 {
             return !self.lias[self.nets[ri].lia].active.is_empty();
+        }
+        if pat.acc.is_some() {
+            // AccumulateNode canBeDisabled == false: never gates the path.
+            return true;
         }
         let node = &self.trie[self.nets[ri].path[pos - 1]];
         match pat.ce {
@@ -1162,36 +1559,51 @@ impl Engine {
             if src.is_empty() && sr.is_empty() {
                 continue;
             }
+            // Cross-window child clashes resolve against the FIRST
+            // sink's pending at touch time (D-041) — take it out for
+            // the node evaluation, then blind-append the batch (addAll).
+            let first_sink = self.trie[ni].sinks.first().copied();
+            let mut first_pending = match first_sink {
+                Some(Sink::Node(c)) => self.trie[c].node.s_left.take(),
+                Some(Sink::Term(rb)) => self.nets[rb].term_pending.take(),
+                None => Staged::default(),
+            };
             let mut trg: Staged<Tup> = Staged::default();
-            {
+            if self.trie[ni].node.kind == phreak::Kind::Acc {
+                trg = self.eval_acc_node(ni, env_ri, env_pos, src, sr, &mut first_pending);
+            } else {
                 let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
-                phreak::do_node(&env, env_pos - 1, &mut self.trie[ni].node, src, sr, &mut trg);
+                phreak::do_node(
+                    &env,
+                    env_pos - 1,
+                    &mut self.trie[ni].node,
+                    src,
+                    sr,
+                    &mut trg,
+                    &mut first_pending,
+                );
             }
             // Consuming the batch spends the not-node link pulse
             // (unlinkNotNodeOnRightInsert, D-031).
             self.trie[ni].pulse = false;
-            if trg.is_empty() {
-                continue;
-            }
             for si in 0..self.trie[ni].sinks.len() {
                 let sink = self.trie[ni].sinks[si];
-                let batch = trg.clone();
                 match sink {
                     Sink::Node(c) => {
-                        let pending = self.trie[c].node.s_left.take();
-                        self.trie[c].node.s_left = if si == 0 {
-                            Staged::append_into_pending(pending, batch)
-                        } else {
-                            Staged::peer_merge_into_pending(pending, batch)
-                        };
+                        if si == 0 {
+                            self.trie[c].node.s_left =
+                                Staged::append_into_pending(first_pending.take(), trg.clone());
+                        } else if !trg.is_empty() {
+                            self.trie[c].node.peer_merge_left(&trg);
+                        }
                     }
                     Sink::Term(rb) => {
-                        let pending = self.nets[rb].term_pending.take();
-                        self.nets[rb].term_pending = if si == 0 {
-                            Staged::append_into_pending(pending, batch)
-                        } else {
-                            Staged::peer_merge_into_pending(pending, batch)
-                        };
+                        if si == 0 {
+                            self.nets[rb].term_pending =
+                                Staged::append_into_pending(first_pending.take(), trg.clone());
+                        } else if !trg.is_empty() {
+                            self.nets[rb].peer_merge_term(&trg);
+                        }
                     }
                 }
             }
@@ -1203,6 +1615,10 @@ impl Engine {
         // queued activation keeps its position; an unqueued (fired) one
         // is effectively recreated.
         let src = self.nets[ri].term_pending.take();
+        if std::env::var("SEINE_TRACE").is_ok() && !src.is_empty() {
+            eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
+        }
+        let src = src;
         let net = &mut self.nets[ri];
         for (t, _, _) in src.del.iter() {
             net.queue.retain(|x| x != t);
@@ -1221,6 +1637,300 @@ impl Engine {
                 continue;
             }
             net.queue.push(t.clone());
+        }
+    }
+
+    /// PhreakAccumulateNode.doNode (D-038): leftDel, rightDel, rightUpd,
+    /// leftUpd, rightIns, leftIns; touched lefts collect into a temp set
+    /// and results evaluate at the END (temp inserts head-first, then
+    /// updates). Deletes REVERSE the stored per-match contribution;
+    /// updates are reverse(stored)+accumulate(new); min/max reinit and
+    /// refold when reverse is unsupported. The single result child per
+    /// left reuses its synthetic fact, updating the value in place.
+    fn eval_acc_node(
+        &mut self,
+        ni: usize,
+        env_ri: usize,
+        env_pos: usize,
+        src: Staged<Tup>,
+        sr: Staged<FactId>,
+        first_pending: &mut Staged<Tup>,
+    ) -> Staged<Tup> {
+        let spec = self.rules[env_ri].patterns[env_pos].acc.clone().unwrap();
+        let node_idx = env_pos - 1;
+        let indexed = self.rules[env_ri].patterns[env_pos].pindex != phreak::Index::None;
+        let mut trg: Staged<Tup> = Staged::default();
+        let mut temp: Staged<Tup> = Staged::default();
+
+        // Phase A: left deletes — discard the context, retract the child.
+        for (l, o, _) in src.del.iter() {
+            self.trie[ni].node.remove_left(l);
+            if let Some(ctx) = self.trie[ni].acc.remove(l) {
+                for (rf, _) in &ctx.matches {
+                    if let Some(v) = self.trie[ni].acc_by_right.get_mut(rf) {
+                        v.retain(|x| x != l);
+                    }
+                }
+                if ctx.propagated {
+                    if let Some(res) = ctx.result {
+                        let mut child = l.clone();
+                        child.push(res);
+                        if first_pending.remove_ins(&child) {
+                            trg.norm_del.push((child, *o, 0));
+                        } else {
+                            first_pending.remove_upd(&child);
+                            trg.add_del(child, *o);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Phase B: right deletes — reverse each stored contribution.
+        for (f, o, _) in sr.del.iter() {
+            self.trie[ni].node.remove_right(*f);
+            for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default() {
+                self.acc_remove_match(ni, spec.func, &l, *f);
+                temp.add_upd(l, *o);
+            }
+        }
+
+        // Phase C: right updates — reorder (re-key, move to END), then
+        // reverse(stored)+accumulate(new) per still/newly allowed left.
+        for (f, _, _) in sr.upd.iter() {
+            let key = {
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                phreak::JoinEnv::key_of_right(&env, node_idx, *f)
+            };
+            self.trie[ni].node.re_add_right_tuple(*f, key);
+        }
+        for (f, o, _) in sr.upd.iter() {
+            let fkey = self.trie[ni].node.right_key_pub(*f);
+            let bucket = self.trie[ni].node.lefts_bucket_pub(fkey.as_ref());
+            let matched = self.trie[ni].acc_by_right.get(f).cloned().unwrap_or_default();
+            if indexed && !matched.is_empty() && !bucket.contains(&matched[0]) {
+                // index moved: remove all previous matches
+                for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default() {
+                    self.acc_remove_match(ni, spec.func, &l, *f);
+                    temp.add_upd(l, *o);
+                }
+            }
+            for l in bucket {
+                let allowed = {
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                    phreak::JoinEnv::allowed(&env, node_idx, &l, *f)
+                };
+                let had = self.trie[ni].acc_by_right.get(f).is_some_and(|v| v.contains(&l));
+                if allowed {
+                    temp.add_upd(l.clone(), *o);
+                    if had {
+                        self.acc_remove_match(ni, spec.func, &l, *f);
+                    }
+                    let v = self.acc_contribution(&spec, *f);
+                    self.acc_add_match(ni, spec.func, &l, *f, v);
+                } else if had {
+                    self.acc_remove_match(ni, spec.func, &l, *f);
+                    temp.add_upd(l.clone(), *o);
+                }
+            }
+        }
+
+        // Phase D: left updates — reorder, re-derive this left's matches.
+        // Still-matching matches KEEP their stored contributions (our
+        // functions take no left declarations, D-038/acc11).
+        for (l, _, _) in src.upd.iter() {
+            let key = {
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                phreak::JoinEnv::key_of_left(&env, node_idx, l)
+            };
+            self.trie[ni].node.re_add_left_tuple(l, key);
+        }
+        for (l, o, _) in src.upd.iter() {
+            let lkey = self.trie[ni].node.left_key_pub(l);
+            let bucket = self.trie[ni].node.rights_bucket_pub(lkey.as_ref());
+            let matched: Vec<FactId> = self.trie[ni]
+                .acc
+                .get(l)
+                .map(|c| c.matches.iter().map(|(f, _)| *f).collect())
+                .unwrap_or_default();
+            if indexed && !matched.is_empty() && !bucket.contains(&matched[0]) {
+                // index moved: unlink all previous matches + reinit
+                for rf in &matched {
+                    if let Some(v) = self.trie[ni].acc_by_right.get_mut(rf) {
+                        v.retain(|x| x != l);
+                    }
+                }
+                if let Some(ctx) = self.trie[ni].acc.get_mut(l) {
+                    ctx.matches.clear();
+                    ctx.reset_state();
+                }
+            }
+            for f in bucket {
+                let allowed = {
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                    phreak::JoinEnv::allowed(&env, node_idx, l, f)
+                };
+                let had = self.trie[ni]
+                    .acc
+                    .get(l)
+                    .is_some_and(|c| c.matches.iter().any(|(rf, _)| *rf == f));
+                if allowed && !had {
+                    let v = self.acc_contribution(&spec, f);
+                    self.acc_add_match(ni, spec.func, l, f, v);
+                } else if !allowed && had {
+                    self.acc_remove_match(ni, spec.func, l, f);
+                }
+            }
+            temp.add_upd(l.clone(), *o);
+        }
+
+        // Phase E: right inserts (before left inserts).
+        for (f, o, _) in sr.ins.iter() {
+            let key = {
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                phreak::JoinEnv::key_of_right(&env, node_idx, *f)
+            };
+            self.trie[ni].node.push_right(*f, key.clone());
+            for l in self.trie[ni].node.lefts_bucket_pub(key.as_ref()) {
+                let allowed = {
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                    phreak::JoinEnv::allowed(&env, node_idx, &l, *f)
+                };
+                if allowed {
+                    let v = self.acc_contribution(&spec, *f);
+                    self.acc_add_match(ni, spec.func, &l, *f, v);
+                    temp.add_upd(l, *o);
+                }
+            }
+        }
+
+        // Phase F: left inserts — init context, fold the matching bucket.
+        for (l, o, _) in src.ins.iter() {
+            let lkey = {
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                phreak::JoinEnv::key_of_left(&env, node_idx, l)
+            };
+            self.trie[ni].node.push_left(l.clone(), lkey.clone());
+            self.trie[ni].acc.insert(l.clone(), AccCtx::new());
+            for f in self.trie[ni].node.rights_bucket_pub(lkey.as_ref()) {
+                let allowed = {
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                    phreak::JoinEnv::allowed(&env, node_idx, l, f)
+                };
+                if allowed {
+                    let v = self.acc_contribution(&spec, f);
+                    self.acc_add_match(ni, spec.func, l, f, v);
+                }
+            }
+            temp.add_ins(l.clone(), *o);
+        }
+
+        // Phase G: result evaluation — temp inserts head-first, then
+        // updates; null results retract, others insert/update the child.
+        let ins: Vec<(Tup, Origin)> = temp.ins.iter().map(|(l, o, _)| (l.clone(), *o)).collect();
+        let upd: Vec<(Tup, Origin)> = temp.upd.iter().map(|(l, o, _)| (l.clone(), *o)).collect();
+        for (l, o) in ins.into_iter().chain(upd) {
+            let Some(ctx) = self.trie[ni].acc.get(&l) else { continue };
+            let rv = ctx.result_value(spec.func, spec.arg_ft);
+            let (existing, propagated) = (ctx.result, ctx.propagated);
+            match rv {
+                None => {
+                    if propagated {
+                        let res = existing.unwrap();
+                        let mut child = l.clone();
+                        child.push(res);
+                        // propagateDelete: normalize against the first
+                        // sink's pending, then stage the retract (D-041);
+                        // a cancelled pending insert still reaches peers.
+                        if first_pending.remove_ins(&child) {
+                            trg.norm_del.push((child, o, 0));
+                        } else {
+                            first_pending.remove_upd(&child);
+                            trg.add_del(child, o);
+                        }
+                        self.trie[ni].acc.get_mut(&l).unwrap().propagated = false;
+                    }
+                }
+                Some(v) => {
+                    let res = match existing {
+                        Some(r) => {
+                            if spec.func != AccFunc::Collect {
+                                self.store.set_value(r, 0, v).expect("acc result set");
+                            }
+                            r
+                        }
+                        None => {
+                            let vals =
+                                if spec.func == AccFunc::Collect { vec![] } else { vec![v] };
+                            let r = self
+                                .store
+                                .insert(spec.result_tid, vals)
+                                .expect("acc result insert");
+                            self.trie[ni].acc.get_mut(&l).unwrap().result = Some(r);
+                            r
+                        }
+                    };
+                    if spec.func == AccFunc::Collect {
+                        let list = self.trie[ni].acc[&l].list.clone();
+                        self.collect_vals.insert(res, list);
+                    }
+                    let mut child = l.clone();
+                    child.push(res);
+                    if propagated {
+                        // propagateResult: normalizeStagedTuples against
+                        // the first sink's pending, THEN addUpdate — a
+                        // pending insert re-stages as an UPDATE here,
+                        // unlike updateChildLeftTuple (D-041).
+                        if first_pending.remove_ins(&child) {
+                            trg.add_ins_ph(child, o, 0);
+                        } else {
+                            first_pending.remove_upd(&child);
+                            trg.add_upd_ph(child, o, 2);
+                        }
+                    } else {
+                        trg.add_ins_ph(child, o, 0);
+                        self.trie[ni].acc.get_mut(&l).unwrap().propagated = true;
+                    }
+                }
+            }
+        }
+        trg
+    }
+
+    /// accumulate(): apply the contribution and record the match.
+    fn acc_add_match(&mut self, ni: usize, func: AccFunc, l: &Tup, f: FactId, v: Value) {
+        let ctx = self.trie[ni].acc.get_mut(l).expect("acc ctx");
+        ctx.apply(func, f, &v);
+        ctx.matches.push((f, v));
+        self.trie[ni].acc_by_right.entry(f).or_default().push(l.clone());
+    }
+
+    /// removeMatch(): reverse the STORED contribution; when the function
+    /// cannot reverse (min/max), reinit and refold the remaining matches.
+    fn acc_remove_match(&mut self, ni: usize, func: AccFunc, l: &Tup, f: FactId) {
+        if let Some(v) = self.trie[ni].acc_by_right.get_mut(&f) {
+            if let Some(i) = v.iter().position(|x| x == l) {
+                v.remove(i);
+            }
+        }
+        let ctx = self.trie[ni].acc.get_mut(l).expect("acc ctx");
+        let Some(i) = ctx.matches.iter().position(|(rf, _)| *rf == f) else { return };
+        let (_, stored) = ctx.matches.remove(i);
+        if !ctx.try_reverse(func, f, &stored) {
+            ctx.reset_state();
+            let remaining = ctx.matches.clone();
+            for (rf, vv) in &remaining {
+                ctx.apply(func, *rf, vv);
+            }
+        }
+    }
+
+    /// The value a source fact contributes (live field read at
+    /// accumulate time; reverses use the stored copy).
+    fn acc_contribution(&self, spec: &CompiledAcc, f: FactId) -> Value {
+        match spec.arg_field {
+            Some(fi) => self.store.value(f, fi),
+            None => Value::I64(0),
         }
     }
 
@@ -1316,11 +2026,17 @@ impl Engine {
     }
 
     /// All live facts, in insertion order, rendered. The synthetic
-    /// InitialFact never appears here (matches session.getObjects()).
+    /// InitialFact and accumulate-result facts never appear here
+    /// (matches session.getObjects(): result Numbers/Collections are not
+    /// working-memory objects).
     pub fn facts(&self) -> Vec<FactView> {
+        let hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION]
+            .iter()
+            .filter_map(|n| self.store.type_id(n))
+            .collect();
         self.store
             .live_facts()
-            .filter(|f| Some(*f) != self.init_fact)
+            .filter(|f| !hidden.contains(&self.store.fact_type(*f)))
             .map(|f| self.store.render(f))
             .collect()
     }

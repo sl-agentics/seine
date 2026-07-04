@@ -1,0 +1,90 @@
+{
+  "drl": "rule \"R0\"\nsalience 4\nwhen\n    $p0_0 : T1()\n    T1(f1 > -1.5, $b0_1_0 : f2, $b0_1_1 : f1)\n    T1(f2 matches \"(a|a)\", f1 > $b0_1_1, $b0_2_0 : f2)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nsalience 1\nwhen\n    $p1_0 : T1()\n    T1(f1 > -1.5, $b1_1_0 : f2, $b1_1_1 : f1)\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nwhen\n    T1()\n    T1(f1 > -1.5, $b2_1_0 : f2, $b2_1_1 : f1)\nthen\nend\nrule \"R3\"\nwhen\n    T1(f0 == 1.0, f1 in (3))\nthen\nend\nrule \"R4\"\nsalience -2\nwhen\n    T0($b4_0_0 : f0)\n    T1(f2 not in (\"a\", \"ab\"), f0 != $b4_0_0, $b4_1_0 : f2)\n    exists T0(f0 != 5.5, f2 in (false, true, true), f0 <= $b4_0_0)\nthen\nend\nrule \"R5\"\nsalience 5\nwhen\n    $p5_0 : T1()\n    T1(f1 > -1.5, $b5_1_0 : f2, $b5_1_1 : f1)\nthen\n    delete($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 3.0,
+        "f1": -1,
+        "f2": ""
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 5.0,
+        "f1": 0,
+        "f2": "ab"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 5,
+        "f1": "b",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1.0,
+        "f1": 12,
+        "f2": "zz"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": "alpha",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -2.5,
+        "f1": -5,
+        "f2": "a"
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_2748",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

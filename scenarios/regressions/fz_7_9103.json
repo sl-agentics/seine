@@ -1,0 +1,101 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T1(f0 <= -0.5, $b0_0_0 : f0)\nthen\n    insert(new T2($p0_0.getF0(), false, 8));\nend\nrule \"R1\"\nno-loop\nwhen\n    T1()\n    T2(f1 != true, $b1_1_0 : f2, $b1_1_1 : f1)\n    T1(f1 in (-1000000007, 4, -1000000007), f1 > 2, f1 > $b1_1_0, $b1_2_0 : f1)\nthen\nend\nrule \"R2\"\nsalience -10\nwhen\n    $p2_0 : T1()\n    T2(f1 != true, $b2_1_0 : f2, $b2_1_1 : f1)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nwhen\n    T1()\n    T2(f1 != true, $b3_1_0 : f2, $b3_1_1 : f1)\nthen\nend\nrule \"R4\"\nwhen\n    T1()\n    T2(f1 != true, $b4_1_0 : f2, $b4_1_1 : f1)\n    not T1(f1 <= 5, f1 <= 9, f0 == $b4_1_0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": -1000000007,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": -1000000007
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 0,
+        "f1": false,
+        "f2": -1000000007
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": -2,
+        "f1": -3
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 2,
+        "f1": true,
+        "f2": -4
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": true,
+        "f2": -1000000007
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_7_9103",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

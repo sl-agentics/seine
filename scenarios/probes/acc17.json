@@ -1,0 +1,44 @@
+{
+ "name": "acc17",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.5
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.25
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule R salience -10 when accumulate( P($a : v); $m : min($a) ) then end\nrule S when $p : P() T() then delete($p); end\n"
+}

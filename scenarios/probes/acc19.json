@@ -1,0 +1,44 @@
+{
+ "name": "acc19",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.5
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.25
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule R when T(t == true) accumulate( P($a : v); $c : count($a) ) $t : T() then $t.setT(false); update($t); end\n"
+}

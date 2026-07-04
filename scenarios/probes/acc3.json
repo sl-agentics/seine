@@ -1,0 +1,56 @@
+{
+ "name": "acc3",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.3
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 3
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 5
+   }
+  }
+ ],
+ "drl": "rule C1 when $l : ArrayList() from collect( P(v > 0.15) ) then end\nrule C2 when $l2 : List() from collect( Q() ) then end\n"
+}

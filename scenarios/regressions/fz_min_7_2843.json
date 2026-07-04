@@ -1,0 +1,71 @@
+{
+ "drl": "rule \"R1\"\nsalience 2\nwhen\n    $p1_0 : T2($b1_0_0 : f1)\n    $a1_1 : ArrayList() from collect( T0() )\nthen\n    insert(new T3($b1_0_0, $b1_0_0));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T2()\nthen\n    modify($p2_0) { setF1(true) }\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 100,
+    "f1": false
+   },
+   "type": "T2"
+  }
+ ],
+ "name": "fz_min_7_2843",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}

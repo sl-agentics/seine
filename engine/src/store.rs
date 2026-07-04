@@ -122,6 +122,9 @@ pub struct FactView {
     pub fields: Vec<(String, Value)>,
     /// The fact's global handle (insertion sequence) — diagnostic only.
     pub handle: u32,
+    /// Collect results render as an ORDER-significant element array
+    /// (D-038); None for ordinary facts.
+    pub elems: Option<Vec<FactView>>,
 }
 
 impl FactStore {
@@ -241,6 +244,7 @@ impl FactStore {
                 .enumerate()
                 .map(|(i, (n, _))| (n.clone(), td.columns[i].get(h.row as usize)))
                 .collect(),
+            elems: None,
         }
     }
 }

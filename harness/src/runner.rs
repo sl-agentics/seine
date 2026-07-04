@@ -128,5 +128,12 @@ fn fact_view_to_json(fv: &FactView) -> J {
         };
         fields.insert(name.clone(), jv);
     }
+    if let Some(elems) = &fv.elems {
+        // collect results: ORDER-significant element array (D-038)
+        fields.insert(
+            "value".into(),
+            J::Array(elems.iter().map(fact_view_to_json).collect()),
+        );
+    }
     json!({"type": fv.type_name, "fields": fields})
 }

@@ -1,0 +1,56 @@
+{
+ "name": "acc13",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.1,
+    "w": 0,
+    "g": true
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.2,
+    "w": 0,
+    "g": false
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule R1 when accumulate( P($a : v); $s : sum($a) ) then end\nrule U salience -5 when $p : P(g == false) T() then modify($p) { setW(9), setG(true) } end\n"
+}

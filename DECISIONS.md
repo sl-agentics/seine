@@ -369,6 +369,172 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-042: OPEN — not-CE unblock REFIRE ORDER in >=3-pattern rules
+Round-4 fuzz (the accumulate-era grammar reshuffle) drew two cases the
+engine gets wrong ONLY in the relative refire ORDER of tuples unblocked
+together at a not node inside a >=3-pattern rule under churn
+(fz_7_2364: [T0, T1-join, not]; fz_999_8145: [T0, not-in-list, T2-join],
+no-loop). All values, sets and counts agree; the order of exactly two
+simultaneously-reactivated activations is swapped.
+- Probe matrix (nb1..nb6, promoted where passing): level-1 nots agree
+  in all entry styles (nb1 modify-entry, nb2 delete-of-a-left-blocker);
+  level-2 nots agree for INSERT-entering blockers (nb5/nb6) but diverge
+  for MODIFY-entering blockers whose delete also removes a blocked left
+  (nb3 = minimal: 2 rules, 4 facts).
+- Mechanism NOT yet pinned: PhreakNotNode doRightInserts/doRightUpdates
+  /doRightDeletes all walk memories FORWARD per source, addBlocked
+  prepends, TupleList.add appends, and BetaNode.modifyObject turns an
+  alpha-entering modify into assertObject — every combination derived
+  from those primitives reproduces the ENGINE's order, not the oracle's.
+  Reversing our unblock walk fixes nb3/fz_7_2364 but breaks
+  nb1/nb2/nb6 and 4 corpus cases (tried, reverted). Suspects for next
+  session: the temp-blocked machinery (updateBlockersAndPropagate) and
+  segment-level staging interleave for the modify-entry window.
+- Quarantine: scenarios/xfail/ holds the four artifacts + nb3; make
+  diff excludes the directory; fuzz reports drawn xfail cases as XFAIL
+  (name match) without recording them as failures. The certification
+  claim is CLEAN MODULO these documented xfails.
+- RESOLUTION (user decision, 2026-07-04): the carve-out is ACCEPTED as
+  documented rather than pursued — the class is rare (2 in 50k draws),
+  order-only, and mechanism-ambiguous after deep source reading. The
+  quarantine and this record ARE the fix of record; revisit only if
+  fuzz surfaces a VALUE-bearing variant or new evidence pins the
+  mechanism.
+
+### D-041: addAll is BLIND; clashes resolve at child-touch time (fz_123_8822, fz_7_2843, fz_999_7966, fz_999_4371, mg1..mg8, mn1..mn7)
+The accumulate-era fuzz waves exposed four intertwined pins:
+- **Cross-window child clashes (fz_123_8822 kernel 1, fz_7_2843,
+  fz_999_7966):** TupleSetsImpl.addAll is a BLIND tail concatenation.
+  A child touched in a later window is reconciled at TOUCH TIME inside
+  doNode against the FIRST sink's pending staging
+  (updateChildLeftTuple / deleteChildLeftTuple / normalizeStagedTuples):
+  a pending INSERT moves INTO the current batch keeping its insert
+  kind (positioned by the new batch's order); a pending UPDATE moves
+  as an update; a delete of a pending insert cancels outright.
+  Engine: do_node threads the first sink's pending (Out::child_*);
+  append_into_pending is now pure concatenation. The accumulate
+  result-child staging mirrors propagateResult (normalize + addUpdate
+  — the kind is NOT preserved there, unlike updateChildLeftTuple).
+- **Materialized peers (fz_123_8822 kernel 2):** processPeerInserts on
+  an EXISTING peer runs updateChildLeftTupleDuringInsert; when the
+  peer is unstaged and already lives in the peer node's LEFT MEMORY,
+  the net effect is a memory removeAdd (move to the END, key kept)
+  with NOTHING staged: the re-delivered peer neither re-joins nor
+  refires, but subsequent right-inserts see the moved position
+  (Node::peer_merge_left). Terminal peers in the same corner would
+  arrive as UPDATEs (hasNodeMemory=false) — not yet exercised by any
+  case; noted as a watch item.
+- **Collect gate correction (mg1..mg8, superseding D-040's first cut):**
+  the LIA->collect modify gate = pattern-0's CONSTRAINT fields (its
+  listened properties — bare bindings do NOT count) + the collect
+  source's beta references into pattern 0. Consequence usage (mg2) and
+  later patterns' references (mg8) do NOT inherit through the collect.
+- **Subnetwork fence (fz_999_4371, mn1..mn7):** a collect source
+  referencing outer bindings builds an RIA SUBNETWORK; there Drools
+  false-admits a pattern-0 fact that FAILS its alpha when a mask-missed
+  property modify arrives (mn6: `T0($b : f1, f0 == false)` matched a
+  fact with f0=true after a setF1 modify; the inline-accumulate
+  equivalent mn7 behaves correctly). Subnetworks are unported; the
+  parser now rejects variable references inside collect sources and the
+  generator no longer emits them.
+
+### D-040: COLLECT swallows unreferenced left MODIFIES (lu_a..lu_h)
+fz_42_2091: a rule `T2($b : f1) collect(T0(...)) accumulate(...)` did
+not refire in Drools when another rule property-updated the T2, but the
+engine refired. Discriminators:
+- plain-join control refires (lu_b); inline accumulate FIRST refires
+  (lu_c, lu_e); collect at level >=2 refires (lu_d); collect FIRST
+  swallows (lu_f, lu_h) even when the update writes a DIFFERENT value
+  (lu_a — not value-comparison);
+- giving the collect source a beta constraint on the left binding
+  restores the refire (lu_g).
+Mechanism: `from collect` builds an AccumulateNode around
+CollectAccumulator (CollectBuilder), which is structurally known to
+read NOTHING from the left, so the node's left declared mask is just
+its beta constraints' left references plus inherited downstream
+interest; the LIA's per-sink mask check then DROPS pattern-0 modifies
+that miss it. Inline accumulates compile opaque lambdas -> ALL-SET
+left masks -> always re-propagate. Engine: level-1 collect trie nodes
+carry `collect_left_gate` (union over sharing rules of pattern-0
+fields referenced by later patterns' constraints and RHS args); the
+LIA skips staging a MODIFY into such a child unless the mask
+intersects (bare updates = ALL-SET pass). Deeper collects are
+unfiltered — inter-beta propagation carries no masks.
+
+### D-039: accumulate-result compile TYPING (27-case matrix, tc_*/rc_*)
+Inline-accumulate results carry a compile-time Java type:
+sum(double)->Double, sum(long)->Long, count->Long, average->Double,
+min/max(long)->Long, but **min/max(double) -> opaque Comparable/Number**.
+Usability follows Java assignability exactly:
+- Downstream comparisons (`field <op> $r`, MVEL): Double/Long results
+  compile against ANY numeric field; opaque results compile against
+  NOTHING (fz_4242_490, tc_m1/m5/m6/m7 vs tc_s1..s4/c1/c2/a1/a2/m2/m3/m4).
+- RHS constructor args: Long -> long or double (widening), Double ->
+  double only (never long: rc_sf_i/rc_a_i errors), opaque -> nothing
+  (rc_mf_f/rc_mf_i; fz_4242_99).
+- Engine wall: min/max-over-f64 results error in comparisons AND RHS
+  args; all other results flow with their natural field type (the
+  existing I64->F64 widening matches Long->double). Generator mirror:
+  min/max-over-f64 results are not bound outward; other results join
+  and feed RHS args freely.
+- The 19 COMPILING matrix combinations are corpus probes; erroring ones
+  stay out (both-error cases are flagged by the judge as likely out of
+  subset, by design).
+- collect results are bound but referenced nowhere downstream (not
+  registered as field bindings; List constraints fenced at parse).
+
+### D-038: accumulate/collect semantics PINNED (probes acc1..acc16)
+Phase 3b scope: inline `accumulate( <src> ; $r : func($a) )` with the
+built-ins sum/count/average/min/max, plus `ArrayList()/List() from
+collect( <src> )`. Custom accumulate functions, multi-function
+accumulates, `from accumulate`, result-pattern constraints, and fact/
+extra bindings inside the source are FENCED (parse errors). Pins:
+- **Match rendering:** the accumulate CE contributes its RESULT object
+  to the match (a Number; collect: a Collection) — a leading accumulate
+  is CE-first and matches on InitialFact too (acc1). The oracle
+  canonicalizes Numbers as {type: Long|Double, fields:{value}} and any
+  Collection as {type: "Collection", fields:{value:[<renderings>]}}
+  with ORDER-significant elements; java.util imports are added to the
+  oracle prelude.
+- **Result types:** sum(i64)->Long, sum(f64)->Double, count->Long,
+  average->Double, min/max -> the argument's type (acc1).
+- **Empty-source results:** sum->0/0.0 and count->0 still fire;
+  average/min/max of an empty set return NULL and the tuple does NOT
+  propagate (no firing; a previously-propagated child is retracted) —
+  default accumulateNullPropagation=false (acc2/acc10).
+- **EXACT float sequencing (the heart of the port):**
+  - initial fold consumes staged inserts NEWEST-FIRST: sum{0.1,0.2,0.3}
+    printed exactly 0.6 = (0.3+0.2)+0.1, and average's total matched the
+    same order (0.6/3 = 0.19999999999999998) (acc1);
+  - deletes REVERSE the stored per-match contribution: 0.6 - 0.2 =
+    0.39999999999999997, not a 0.4 recompute (acc4);
+  - updates are reverse(stored)+accumulate(new): (0.6-0.2)+0.25 =
+    0.6499999999999999 (acc5); inserts add to the running total (acc6);
+  - min/max do not support reverse: a removal reinits and REFOLDS over
+    the remaining match list (order-insensitive result);
+  - a value-unchanged mask-overlapping update still runs the
+    reverse+accumulate pair AND refires (acc7); a mask-miss update
+    (fields outside source constraints + arg binding) does nothing
+    (acc13).
+- **collect:** ArrayList semantics — initial fold appends newest-first
+  ([0.3,0.2,0.1] for insertion order 0.1,0.2,0.3), reverse removes
+  IN PLACE preserving order, later inserts APPEND ([0.3,0.1,0.4])
+  (acc8). Empty collect propagates an empty list.
+- **Per-left contexts** with beta-constrained sources (k == $x), the
+  result usable in later patterns and RHS args (acc9); accumulate
+  composes with not/exists and multiple accumulates per rule
+  (acc14..16). Left updates: bucket-unchanged still-matching matches
+  KEEP their stored contributions (our functions have no required
+  left declarations); a join-key change reinits and refolds over the
+  new bucket (acc12: 0.7); a dying left just discards its context
+  (acc11).
+- PhreakAccumulateNode phase order (sources): leftDel, rightDel,
+  rightUpd (join-style right reorder), leftUpd (left reorder),
+  rightIns, leftIns; touched lefts collect into a temp TupleSets and
+  results evaluate at the END (temp inserts head-first, then updates),
+  each ensuring/updating a REUSED result fact handle and staging the
+  single result child as insert/update/delete-on-null.
+
 ### D-037: TRUE SHARED-NODE TRIE + name-sensitive constraint identity
 ### (fz_42_297/580/952, probes ne_t13..t15) — supersedes D-036's
 ### "per-rule copies suffice" conclusion
@@ -472,6 +638,28 @@ Session 5. Re-examining the D-035 xfails with fresh probes disproved the
   scaffolding is deleted. Dead code cleanup: the unused FIFO staging
   variants and Node.first are gone.
 - Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
+
+**HANDOFF @ Phase 3b close (Session 5, 2026-07-04)** — accumulate/
+collect landed on the `accumulate` branch (D-038..D-041) with the exact
+float op-sequence port (stored per-match contributions, reverse/
+reaccumulate, result-handle reuse, null retraction), the result-typing
+walls, the collect left-modify gate, the subnetwork fence, and three
+deep propagation corrections the new grammar exposed in PRE-EXISTING
+paths: blind addAll with touch-time clash resolution, the normalized-
+delete peer channel, and materialized-peer semantics at nodes and
+terminals. Certification: corpus 337/337, `make test` green, 5-seed x
+10k campaign = 0 divergences, 2 documented xfails (D-042).
+- D-042 is OPEN: not-CE unblock refire ORDER in >=3-pattern rules with
+  modify-entering blockers (nb3 is the 2-rule/4-fact minimal). The
+  quarantine (scenarios/xfail/ + fuzz XFAIL reporting) keeps the gate
+  honest. Next session: pin the mechanism (suspects: temp-blocked /
+  updateBlockersAndPropagate machinery, segment staging interleave for
+  the modify-entry window), fix, dissolve the quarantine.
+- MERGED to main with the D-042 carve-out accepted as documented
+  (user decision): clean-modulo-2-documented-xfails is the certified
+  state of record.
+- Remaining unstarted: salience expressions; custom accumulate
+  functions and `from accumulate` stay fenced by design.
 
 **HANDOFF @ D-037 close (Session 5, 2026-07-04)** — The node-sharing
 model is now a TRUE shared prefix trie (one node instance per

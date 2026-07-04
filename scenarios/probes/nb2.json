@@ -1,0 +1,50 @@
+{
+ "name": "nb2",
+ "types": [
+  {
+   "name": "L",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "G",
+   "fields": [
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "L",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 2
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 3
+   }
+  },
+  {
+   "type": "G",
+   "fields": {
+    "g": true
+   }
+  }
+ ],
+ "drl": "rule R when $l : L($i : id) not L(id > 50) then end\nrule I salience -5 when G(g == true) $x : G() then insert(new L(99)); $x.setG(false); update($x); end\nrule D salience -10 when $l : L(id > 50) then delete($l); end\n"
+}

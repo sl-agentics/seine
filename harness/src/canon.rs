@@ -127,6 +127,13 @@ fn canon_scalar(v: &J) -> Result<String, String> {
                 Err(format!("integer out of i64 range: {n}"))
             }
         }
+        // collect results: an ORDER-significant array of fact renderings
+        // (D-038)
+        J::Array(items) => {
+            let parts: Vec<String> =
+                items.iter().map(canon_fact).collect::<Result<_, String>>()?;
+            Ok(format!("[{}]", parts.join(",")))
+        }
         other => Err(format!("unsupported scalar {other}")),
     }
 }

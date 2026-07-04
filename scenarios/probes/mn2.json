@@ -1,0 +1,28 @@
+{
+ "name": "mn2",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": true,
+    "f1": false
+   }
+  }
+ ],
+ "drl": "rule R1 when $p1_0 : T0() then modify($p1_0) { setF1(true) } end\nrule R2 when $p : T0($b : f1, f0 == false) $a : ArrayList() from collect( T0() ) then end\n"
+}

@@ -1,0 +1,74 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0()\n    T1(f0 < \"zz\", $b0_1_0 : f1)\n    T1(f0 matches \"tha+\", f1 == $b0_1_0, $b0_2_0 : f2)\nthen\nend\nrule \"R1\"\nwhen\n    T0()\n    T1(f0 < \"zz\", $b1_1_0 : f1)\n    T1(f0 matches \"tha+\", f1 == $b1_1_0, $b1_2_0 : f2)\nthen\nend\nrule \"R2\"\nsalience 8\nno-loop\nwhen\n    $p2_0 : T0()\n    T1(f0 < \"zz\", $b2_1_0 : f1)\n    T0(f1 in (\"ab\", \"b\"))\nthen\n    delete($p2_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": ""
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "b"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": "b"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": -3,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": "ab"
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_123_4546",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

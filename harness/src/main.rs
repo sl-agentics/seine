@@ -34,6 +34,7 @@ fn main() -> ExitCode {
         "oracle" => cmd_oracle(&paths),
         "diff" => cmd_diff(&paths),
         "fuzz" => cmd_fuzz(&paths),
+        "gen" => cmd_gen(&paths),
         other => {
             eprintln!("unknown subcommand {other:?}");
             ExitCode::from(2)
@@ -108,6 +109,18 @@ fn cmd_diff(paths: &[String]) -> ExitCode {
     }
 }
 
+/// `gen <count> [seed]`: print generated scenarios as NDJSON (grammar
+/// inspection; the same stream fuzz consumes).
+fn cmd_gen(paths: &[String]) -> ExitCode {
+    let count: u64 = paths[0].parse().expect("gen <count> [seed]");
+    let seed: u64 = paths.get(1).map(|s| s.parse().expect("seed")).unwrap_or(1);
+    for case in 0..count {
+        let (_, scenario) = gen::gen_scenario(seed, case);
+        println!("{scenario}");
+    }
+    ExitCode::SUCCESS
+}
+
 fn cmd_fuzz(args: &[String]) -> ExitCode {
     let count: u64 = match args.first().map(|s| s.parse()) {
         Some(Ok(n)) => n,
@@ -125,10 +138,12 @@ fn cmd_fuzz(args: &[String]) -> ExitCode {
 
     let fuzz_dir = std::path::PathBuf::from("target/fuzz");
     let fail_dir = std::path::PathBuf::from("scenarios/failures");
+    let xfail_dir = std::path::PathBuf::from("scenarios/xfail");
     std::fs::create_dir_all(&fuzz_dir).expect("mkdir target/fuzz");
 
     let started = std::time::Instant::now();
     let mut failures = 0usize;
+    let mut xfails = 0usize;
     let mut done = 0u64;
     let mut case = 0u64;
     while done < count {
@@ -155,6 +170,12 @@ fn cmd_fuzz(args: &[String]) -> ExitCode {
                 Err((n, e)) => (n, Err(e)),
             };
             if let Err(msgs) = judge(&name, &engine_result, oracle_results.get(&name)) {
+                if xfail_dir.join(format!("{name}.json")).is_file() {
+                    // documented-open divergence (D-042): counted apart
+                    xfails += 1;
+                    println!("XFAIL {name} (documented, scenarios/xfail/)");
+                    continue;
+                }
                 failures += 1;
                 std::fs::create_dir_all(&fail_dir).ok();
                 std::fs::copy(path, fail_dir.join(format!("{name}.json"))).ok();
@@ -175,7 +196,7 @@ fn cmd_fuzz(args: &[String]) -> ExitCode {
         );
     }
     println!(
-        "--- fuzz complete: {count} cases, seed {seed}, {failures} divergences, {:.0}s",
+        "--- fuzz complete: {count} cases, seed {seed}, {failures} divergences, {xfails} xfail, {:.0}s",
         started.elapsed().as_secs_f64()
     );
     if failures > 0 {

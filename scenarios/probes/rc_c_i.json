@@ -1,0 +1,46 @@
+{
+ "name": "rc_c_i",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "OutF",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "OutI",
+   "fields": [
+    {
+     "name": "y",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.5,
+    "k": 2
+   }
+  }
+ ],
+ "drl": "rule R when accumulate( P($a : v); $r : count($a) ) then insert(new OutI($r)); end\n"
+}

@@ -1,0 +1,68 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    T1(f1 == true, $b0_0_0 : f2)\nthen\nend\nrule \"R1\"\nwhen\n    T1()\nthen\nend\nrule \"R2\"\nsalience -2\nwhen\n    T1()\n    T0(f1 != false, f0 != 11)\n    not T1(f0 <= -0.5, f0 == -1000000007)\nthen\nend\nrule \"R3\"\nwhen\n    $p3_0 : T1()\n    T0(f1 != false, f0 != 11)\n    not T1(f0 <= -0.5, f0 == -1000000007)\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nwhen\n    $p4_0 : T1(f2 != false)\nthen\n    delete($p4_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 2,
+        "f1": false,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -2,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_777_8284",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

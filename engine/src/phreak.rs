@@ -31,17 +31,26 @@ pub struct Staged<T: Clone + PartialEq> {
     pub ins: Vec<(T, Origin, u8)>,
     pub upd: Vec<(T, Origin, u8)>,
     pub del: Vec<(T, Origin, u8)>,
+    /// NORMALIZED deletes (D-041/fz_123_2748): a delete that cancelled a
+    /// pending INSERT at the first sink still reaches the PEERS as a
+    /// delete (TupleSetsImpl normalizedDeleteFirst / processPeerDeletes).
+    /// Never consumed by the first sink; folded into peers' dels at
+    /// propagation and dropped afterward.
+    pub norm_del: Vec<(T, Origin, u8)>,
 }
 
 impl<T: Clone + PartialEq> Default for Staged<T> {
     fn default() -> Self {
-        Staged { ins: Vec::new(), upd: Vec::new(), del: Vec::new() }
+        Staged { ins: Vec::new(), upd: Vec::new(), del: Vec::new(), norm_del: Vec::new() }
     }
 }
 
 impl<T: Clone + PartialEq> Staged<T> {
     pub fn is_empty(&self) -> bool {
-        self.ins.is_empty() && self.upd.is_empty() && self.del.is_empty()
+        self.ins.is_empty()
+            && self.upd.is_empty()
+            && self.del.is_empty()
+            && self.norm_del.is_empty()
     }
 
     pub fn take(&mut self) -> Staged<T> {
@@ -111,6 +120,24 @@ impl<T: Clone + PartialEq> Staged<T> {
         pending
     }
 
+    /// Unstage a pending INSERT of `t` (true when found) — the
+    /// cross-window clash primitive (updateChildLeftTuple, D-041).
+    pub fn remove_ins(&mut self, t: &T) -> bool {
+        if let Some(i) = self.ins.iter().position(|(x, _, _)| x == t) {
+            self.ins.remove(i);
+            return true;
+        }
+        false
+    }
+
+    pub fn remove_upd(&mut self, t: &T) -> bool {
+        if let Some(i) = self.upd.iter().position(|(x, _, _)| x == t) {
+            self.upd.remove(i);
+            return true;
+        }
+        false
+    }
+
     pub fn add_del(&mut self, t: T, origin: Origin) {
         if let Some(i) = self.ins.iter().position(|(x, _, _)| *x == t) {
             self.ins.remove(i); // never materialized: cancel
@@ -125,35 +152,17 @@ impl<T: Clone + PartialEq> Staged<T> {
         self.del.insert(0, (t, origin, 0));
     }
 
-    /// Segment propagation to the FIRST-built sink (D-036/D-037):
-    /// TupleSetsImpl.addAll APPENDS the incoming lists at the tail, so a
-    /// lagging first sink accumulates batches FIFO (fz_42_580's oracle:
-    /// batch 1 fires before batch 2), with the same same-tuple clash
-    /// folds as merge_into_pending.
+    /// Segment propagation to the FIRST-built sink (D-036/D-037/D-041):
+    /// TupleSetsImpl.addAll is a BLIND tail concatenation — batches stack
+    /// FIFO for a lagging first sink (fz_42_580) and cross-window clashes
+    /// were already resolved at child-touch time inside do_node against
+    /// this pending (updateChildLeftTuple, fz_123_8822).
     pub fn append_into_pending(mut pending: Staged<T>, fresh: Staged<T>) -> Staged<T> {
-        for (t, o, _) in fresh.del.into_iter().rev() {
-            pending.add_del(t, o);
-        }
-        for (t, o, ph) in fresh.upd {
-            if let Some(i) = pending.ins.iter().position(|(x, _, _)| *x == t) {
-                let e = pending.ins.remove(i);
-                pending.ins.push(e); // stays an insert, moves to the tail
-                continue;
-            }
-            if let Some(i) = pending.upd.iter().position(|(x, _, _)| *x == t) {
-                pending.upd.remove(i);
-            }
-            if pending.del.iter().any(|(x, _, _)| *x == t) {
-                continue;
-            }
-            pending.upd.push((t, o, ph));
-        }
-        for (t, o, ph) in fresh.ins {
-            if pending.ins.iter().any(|(x, _, _)| *x == t) {
-                continue;
-            }
-            pending.ins.push((t, o, ph));
-        }
+        pending.ins.extend(fresh.ins);
+        pending.del.extend(fresh.del);
+        pending.upd.extend(fresh.upd);
+        // norm_del is a peer-only signal: the first sink's pending
+        // insert was already cancelled at touch time
         pending
     }
 
@@ -168,6 +177,9 @@ impl<T: Clone + PartialEq> Staged<T> {
     pub fn peer_merge_into_pending(mut pending: Staged<T>, fresh: Staged<T>) -> Staged<T> {
         for (t, o, _) in fresh.del {
             pending.add_del(t, o); // prepends; folds staged ins/upd
+        }
+        for (t, o, _) in fresh.norm_del {
+            pending.add_del(t, o); // processPeerDeletes(normalized)
         }
         for (t, o, ph) in fresh.upd {
             let staged = pending.ins.iter().any(|(x, _, _)| *x == t)
@@ -203,6 +215,10 @@ pub enum Kind {
     Join,
     Not,
     Exists,
+    /// Accumulate/collect (D-038): memories and staging live here; the
+    /// per-left contexts and result propagation are engine-side
+    /// (eval_acc_node) because results are synthetic store facts.
+    Acc,
 }
 
 /// Beta-memory index kind (D-032). Equality hash indexes apply to every
@@ -294,6 +310,102 @@ impl Node {
             temp_next: HashMap::new(),
             index,
         }
+    }
+
+    /// Accumulate-node memory accessors (D-038): the engine-side
+    /// evaluator manages contexts and results but reuses the node's
+    /// memories, staging and bucket conventions.
+    pub fn lefts_bucket_pub(&self, key: Option<&Vec<Value>>) -> Vec<Tup> {
+        self.lefts_bucket(key)
+    }
+
+    pub fn rights_bucket_pub(&self, key: Option<&Vec<Value>>) -> Vec<FactId> {
+        self.rights_bucket(key)
+    }
+
+    pub fn left_key_pub(&self, l: &Tup) -> Option<Vec<Value>> {
+        self.left_key(l).cloned()
+    }
+
+    pub fn right_key_pub(&self, f: FactId) -> Option<Vec<Value>> {
+        self.rights.iter().find(|(x, _)| *x == f).and_then(|(_, k)| k.clone())
+    }
+
+    pub fn push_left(&mut self, l: Tup, key: Option<Vec<Value>>) {
+        self.lefts.push((l, key));
+    }
+
+    pub fn remove_left(&mut self, l: &Tup) {
+        if let Some(i) = self.lefts.iter().position(|(x, _)| x == l) {
+            self.lefts.remove(i);
+        }
+    }
+
+    /// removeAdd for a staged left update: re-key and move to the END.
+    pub fn re_add_left_tuple(&mut self, l: &Tup, key: Option<Vec<Value>>) {
+        self.remove_left(l);
+        self.lefts.push((l.clone(), key));
+    }
+
+    /// Peer-copy of a batch into THIS node's left staging (D-041,
+    /// SegmentPropagator.processPeer* for a beta-node sink): per-entry
+    /// prepends (batch reversal, LIFO stacking); update clashes SKIP
+    /// (keep position and kind); insert clashes move to the head
+    /// (updateChildLeftTupleDuringInsert); an insert whose tuple is
+    /// ALREADY MATERIALIZED in this node's left memory is a memory
+    /// removeAdd (move to the END, key kept) with NOTHING staged — the
+    /// re-delivered peer neither re-joins nor refires (fz_123_8822).
+    pub fn peer_merge_left(&mut self, fresh: &Staged<Tup>) {
+        let mut pending = self.s_left.take();
+        for (t, o, _) in &fresh.del {
+            pending.add_del(t.clone(), *o);
+        }
+        for (t, o, _) in &fresh.norm_del {
+            pending.add_del(t.clone(), *o); // processPeerDeletes(normalized)
+        }
+        for (t, o, ph) in &fresh.upd {
+            let staged = pending.ins.iter().any(|(x, _, _)| x == t)
+                || pending.upd.iter().any(|(x, _, _)| x == t)
+                || pending.del.iter().any(|(x, _, _)| x == t);
+            if !staged {
+                pending.upd.insert(0, (t.clone(), *o, *ph));
+            }
+        }
+        for (t, o, ph) in &fresh.ins {
+            if let Some(i) = pending.ins.iter().position(|(x, _, _)| x == t) {
+                let e = pending.ins.remove(i);
+                pending.ins.insert(0, e);
+                continue;
+            }
+            if let Some(i) = pending.upd.iter().position(|(x, _, _)| x == t) {
+                pending.upd.remove(i);
+                pending.upd.insert(0, (t.clone(), *o, *ph));
+                continue;
+            }
+            if let Some(i) = self.lefts.iter().position(|(x, _)| x == t) {
+                let e = self.lefts.remove(i);
+                self.lefts.push(e);
+                continue;
+            }
+            pending.ins.insert(0, (t.clone(), *o, *ph));
+        }
+        self.s_left = pending;
+    }
+
+    pub fn push_right(&mut self, f: FactId, key: Option<Vec<Value>>) {
+        self.rights.push((f, key));
+    }
+
+    pub fn remove_right(&mut self, f: FactId) {
+        if let Some(i) = self.rights.iter().position(|(x, _)| *x == f) {
+            self.rights.remove(i);
+        }
+    }
+
+    /// removeAdd for a staged right update: re-key and move to the END.
+    pub fn re_add_right_tuple(&mut self, f: FactId, key: Option<Vec<Value>>) {
+        self.remove_right(f);
+        self.rights.push((f, key));
     }
 
     fn eq_indexed(&self) -> bool {
@@ -542,6 +654,46 @@ fn sr_ins_iter<T>(v: &[T]) -> Box<dyn Iterator<Item = &T> + '_> {
 
 /// Run one node's doNode phases. `trg` receives the child deltas for the
 /// next node (or the terminal). Dispatches on the node kind.
+/// Child staging with CROSS-WINDOW clash handling (D-041): Drools
+/// resolves a touched child against the FIRST sink's pending staging at
+/// touch time (updateChildLeftTuple / deleteChildLeftTuple /
+/// normalizeStagedTuples) and restages it inside the CURRENT batch —
+/// batch propagation itself (addAll) is a blind list concatenation.
+pub struct Out<'a> {
+    pub trg: &'a mut Staged<Tup>,
+    pub pending: &'a mut Staged<Tup>,
+}
+
+impl<'a> Out<'a> {
+    fn child_ins(&mut self, t: Tup, o: Origin, ph: u8) {
+        self.trg.add_ins_ph(t, o, ph);
+    }
+
+    /// updateChildLeftTuple: a child staged as INSERT in the pending
+    /// moves into the current batch KEEPING its insert kind; a pending
+    /// UPDATE moves as an update; otherwise stage an update normally.
+    fn child_upd(&mut self, t: Tup, o: Origin, ph: u8) {
+        if self.pending.remove_ins(&t) {
+            self.trg.add_ins_ph(t, o, ph);
+        } else {
+            self.pending.remove_upd(&t);
+            self.trg.add_upd_ph(t, o, ph);
+        }
+    }
+
+    /// deleteChildLeftTuple: a never-consumed pending INSERT cancels at
+    /// the first sink but still reaches the peers as a NORMALIZED delete
+    /// (fz_123_2748); a pending UPDATE is unstaged before the delete.
+    fn child_del(&mut self, t: Tup, o: Origin) {
+        if self.pending.remove_ins(&t) {
+            self.trg.norm_del.push((t, o, 0));
+            return;
+        }
+        self.pending.remove_upd(&t);
+        self.trg.add_del(t, o);
+    }
+}
+
 pub fn do_node<E: JoinEnv>(
     env: &E,
     node_idx: usize,
@@ -549,10 +701,13 @@ pub fn do_node<E: JoinEnv>(
     sl: Staged<Tup>,
     sr: Staged<FactId>,
     trg: &mut Staged<Tup>,
+    pending: &mut Staged<Tup>,
 ) {
+    let mut out = Out { trg, pending };
     match node.kind {
-        Kind::Join => do_join_node(env, node_idx, node, sl, sr, trg),
-        Kind::Not | Kind::Exists => do_existential_node(env, node_idx, node, sl, sr, trg),
+        Kind::Join => do_join_node(env, node_idx, node, sl, sr, &mut out),
+        Kind::Not | Kind::Exists => do_existential_node(env, node_idx, node, sl, sr, &mut out),
+        Kind::Acc => unreachable!("accumulate nodes evaluate engine-side"),
     }
 }
 
@@ -563,7 +718,7 @@ fn do_join_node<E: JoinEnv>(
     node: &mut Node,
     sl: Staged<Tup>,
     sr: Staged<FactId>,
-    trg: &mut Staged<Tup>,
+    out: &mut Out<'_>,
 ) {
     let trace = std::env::var("SEINE_TRACE").is_ok();
     if trace {
@@ -581,7 +736,7 @@ fn do_join_node<E: JoinEnv>(
             for c in ids {
                 if !node.children[c].dead {
                     let t = node.kill_child(c);
-                    trg.add_del(t, *o);
+                    out.child_del(t, *o);
                 }
             }
         }
@@ -595,7 +750,7 @@ fn do_join_node<E: JoinEnv>(
             for c in ids {
                 if !node.children[c].dead {
                     let t = node.kill_child(c);
-                    trg.add_del(t, *o);
+                    out.child_del(t, *o);
                 }
             }
         }
@@ -656,7 +811,7 @@ fn do_join_node<E: JoinEnv>(
                         for c in ids {
                             if !node.children[c].dead {
                                 let t = node.kill_child(c);
-                                trg.add_del(t, *o);
+                                out.child_del(t, *o);
                             }
                         }
                     }
@@ -678,7 +833,7 @@ fn do_join_node<E: JoinEnv>(
                 }
                 if env.allowed(node_idx, l, *f) {
                     let t = node.create_child(l, *f, None, None);
-                    trg.add_ins_ph(t, *o, 2);
+                    out.child_ins(t, *o, 2);
                 }
             }
         } else {
@@ -694,19 +849,19 @@ fn do_join_node<E: JoinEnv>(
                 if env.allowed(node_idx, l, *f) {
                     match cur {
                         Some(c) if node.children[c].left == *l => {
-                            trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
+                            out.child_upd(node.children[c].tuple.clone(), *o, 2);
                             node.re_add_left(c);
                             ci += 1;
                         }
                         _ => {
                             let t = node.create_child(l, *f, None, cur);
-                            trg.add_ins_ph(t, *o, 2);
+                            out.child_ins(t, *o, 2);
                         }
                     }
                 } else if let Some(c) = cur {
                     if node.children[c].left == *l {
                         let t = node.kill_child(c);
-                        trg.add_del(t, *o);
+                        out.child_del(t, *o);
                         ci += 1;
                     }
                 }
@@ -737,7 +892,7 @@ fn do_join_node<E: JoinEnv>(
                     };
                     if bucket.is_empty() || !same {
                         let t = node.kill_child(c);
-                        trg.add_del(t, *o);
+                        out.child_del(t, *o);
                     }
                 }
             }
@@ -750,7 +905,7 @@ fn do_join_node<E: JoinEnv>(
             for f in &bucket {
                 if env.allowed(node_idx, l, *f) {
                     let t = node.create_child(l, *f, None, None);
-                    trg.add_ins_ph(t, *o, 2);
+                    out.child_ins(t, *o, 2);
                 }
             }
         } else {
@@ -762,19 +917,19 @@ fn do_join_node<E: JoinEnv>(
                 if env.allowed(node_idx, l, *f) {
                     match cur {
                         Some(c) if node.children[c].right == Some(*f) => {
-                            trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
+                            out.child_upd(node.children[c].tuple.clone(), *o, 2);
                             node.re_add_right(c);
                             ci += 1;
                         }
                         _ => {
                             let t = node.create_child(l, *f, cur, None);
-                            trg.add_ins_ph(t, *o, 2);
+                            out.child_ins(t, *o, 2);
                         }
                     }
                 } else if let Some(c) = cur {
                     if node.children[c].right == Some(*f) {
                         let t = node.kill_child(c);
-                        trg.add_del(t, *o);
+                        out.child_del(t, *o);
                         ci += 1;
                     }
                 }
@@ -790,7 +945,7 @@ fn do_join_node<E: JoinEnv>(
         for l in node.lefts_bucket(rkey.as_ref()) {
             if env.allowed(node_idx, &l, *f) {
                 let t = node.create_child(&l, *f, None, None);
-                trg.add_ins_ph(t, *o, 1);
+                out.child_ins(t, *o, 1);
             }
         }
     }
@@ -801,12 +956,12 @@ fn do_join_node<E: JoinEnv>(
         for f in node.rights_bucket(lkey.as_ref()) {
             if env.allowed(node_idx, l, f) {
                 let t = node.create_child(l, f, None, None);
-                trg.add_ins(t, *o);
+                out.child_ins(t, *o, 0);
             }
         }
     }
     if trace {
-        eprintln!("  trg ins={:?} upd={:?} del={:?}", trg.ins, trg.upd, trg.del);
+        eprintln!("  trg ins={:?} upd={:?} del={:?}", out.trg.ins, out.trg.upd, out.trg.del);
         eprintln!("  rights={:?} lefts={:?}", node.rights, node.lefts);
         for (f, ids) in &node.by_right {
             let alive: Vec<&Tup> =
@@ -834,7 +989,7 @@ fn do_existential_node<E: JoinEnv>(
     node: &mut Node,
     sl: Staged<Tup>,
     sr: Staged<FactId>,
-    trg: &mut Staged<Tup>,
+    out: &mut Out<'_>,
 ) {
     let is_not = node.kind == Kind::Not;
     let trace = std::env::var("SEINE_TRACE").is_ok();
@@ -854,7 +1009,7 @@ fn do_existential_node<E: JoinEnv>(
             if !is_not {
                 if let Some(c) = node.ce_child_of(l) {
                     let t = node.kill_child(c);
-                    trg.add_del(t, *o);
+                    out.child_del(t, *o);
                 }
             }
         } else {
@@ -864,7 +1019,7 @@ fn do_existential_node<E: JoinEnv>(
             if is_not {
                 if let Some(c) = node.ce_child_of(l) {
                     let t = node.kill_child(c);
-                    trg.add_del(t, *o);
+                    out.child_del(t, *o);
                 }
             }
         }
@@ -987,11 +1142,11 @@ fn do_existential_node<E: JoinEnv>(
                     if is_not {
                         if let Some(c) = node.ce_child_of(&l) {
                             let t = node.kill_child(c);
-                            trg.add_del(t, *o);
+                            out.child_del(t, *o);
                         }
                     } else {
                         let t = node.create_ce_child(&l);
-                        trg.add_ins_ph(t, *o, 1);
+                        out.child_ins(t, *o, 1);
                     }
                 }
             }
@@ -1021,11 +1176,11 @@ fn do_existential_node<E: JoinEnv>(
                     if is_not {
                         if let Some(c) = node.ce_child_of(&l) {
                             let t = node.kill_child(c);
-                            trg.add_del(t, *o);
+                            out.child_del(t, *o);
                         }
                     } else {
                         let t = node.create_ce_child(&l);
-                        trg.add_ins_ph(t, *o, 2);
+                        out.child_ins(t, *o, 2);
                     }
                 }
             }
@@ -1057,10 +1212,10 @@ fn do_existential_node<E: JoinEnv>(
                     node.lefts.push((l.clone(), env.key_of_left(node_idx, &l)));
                     if is_not {
                         let t = node.create_ce_child(&l);
-                        trg.add_ins_ph(t, *o, 2);
+                        out.child_ins(t, *o, 2);
                     } else if let Some(c) = node.ce_child_of(&l) {
                         let t = node.kill_child(c);
-                        trg.add_del(t, *o);
+                        out.child_del(t, *o);
                     }
                 }
             }
@@ -1091,10 +1246,10 @@ fn do_existential_node<E: JoinEnv>(
                     node.lefts.push((l.clone(), env.key_of_left(node_idx, &l)));
                     if is_not {
                         let t = node.create_ce_child(&l);
-                        trg.add_ins_ph(t, *o, 2);
+                        out.child_ins(t, *o, 2);
                     } else if let Some(c) = node.ce_child_of(&l) {
                         let t = node.kill_child(c);
-                        trg.add_del(t, *o);
+                        out.child_del(t, *o);
                     }
                 }
             }
@@ -1175,15 +1330,15 @@ fn do_existential_node<E: JoinEnv>(
             if blocked_now {
                 if let Some(c) = child {
                     let t = node.kill_child(c);
-                    trg.add_del(t, *o);
+                    out.child_del(t, *o);
                 }
             } else if child.is_none() {
                 node.lefts.push((l.clone(), lkey.clone()));
                 let t = node.create_ce_child(l);
-                trg.add_ins_ph(t, *o, 2);
+                out.child_ins(t, *o, 2);
             } else {
                 let c = child.unwrap();
-                trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
+                out.child_upd(node.children[c].tuple.clone(), *o, 2);
                 node.lefts.push((l.clone(), lkey.clone()));
             }
         } else {
@@ -1191,14 +1346,14 @@ fn do_existential_node<E: JoinEnv>(
                 node.lefts.push((l.clone(), lkey.clone()));
                 if let Some(c) = child {
                     let t = node.kill_child(c);
-                    trg.add_del(t, *o);
+                    out.child_del(t, *o);
                 }
             } else if child.is_none() {
                 let t = node.create_ce_child(l);
-                trg.add_ins_ph(t, *o, 2);
+                out.child_ins(t, *o, 2);
             } else {
                 let c = child.unwrap();
-                trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
+                out.child_upd(node.children[c].tuple.clone(), *o, 2);
             }
         }
     }
@@ -1214,21 +1369,21 @@ fn do_existential_node<E: JoinEnv>(
                 node.blocked.entry(b).or_default().insert(0, l.clone());
                 if !is_not {
                     let t = node.create_ce_child(l);
-                    trg.add_ins(t, *o);
+                    out.child_ins(t, *o, 0);
                 }
             }
             None => {
                 node.lefts.push((l.clone(), lkey));
                 if is_not {
                     let t = node.create_ce_child(l);
-                    trg.add_ins(t, *o);
+                    out.child_ins(t, *o, 0);
                 }
             }
         }
     }
 
     if trace {
-        eprintln!("  trg ins={:?} upd={:?} del={:?}", trg.ins, trg.upd, trg.del);
+        eprintln!("  trg ins={:?} upd={:?} del={:?}", out.trg.ins, out.trg.upd, out.trg.del);
         eprintln!(
             "  rights={:?} lefts={:?} blocked={:?}",
             node.rights, node.lefts, node.blocked

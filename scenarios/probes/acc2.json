@@ -1,0 +1,32 @@
+{
+ "name": "acc2",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule R1 when accumulate( P($a : v); $s : sum($a) ) then end\nrule R2 when accumulate( P($a : v); $c : count($a) ) then end\nrule R3 when accumulate( P($a : v); $m : average($a) ) then end\nrule R4 when accumulate( P($a : v); $lo : min($a) ) then end\n"
+}

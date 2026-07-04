@@ -1,0 +1,63 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f0 <= -4)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nsalience -2\nwhen\n    T1(f0 != false, f1 == 100, $b1_0_0 : f0)\n    T1($b1_1_0 : f1)\n    T1(f0 in (true, false), f1 >= -2.5, f1 > $b1_1_0, $b1_2_0 : f1, $b1_2_1 : f0)\nthen\nend\nrule \"R2\"\nsalience 5\nwhen\n    $a2_0 : ArrayList() from collect( T0() )\nthen\nend\nrule \"R3\"\nsalience -10\nwhen\n    T1()\n    T1($b3_1_0 : f1, $b3_1_1 : f1)\n    T1(f1 == $b3_1_0, $b3_2_0 : f0, $b3_2_1 : f1)\nthen\nend\nrule \"R4\"\nsalience -8\nwhen\n    $p4_0 : T1()\n    T1($b4_1_0 : f1, $b4_1_1 : f1)\nthen\n    delete($p4_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": 1
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -1000000007
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 9
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_9064",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

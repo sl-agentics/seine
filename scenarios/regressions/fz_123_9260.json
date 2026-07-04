@@ -1,0 +1,87 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0($b0_0_0 : f1, $b0_0_1 : f1, f1 == false)\n    exists T2()\n    exists T2(f1 != 0, f0 < 100)\nthen\n    $p0_0.setF1(true);\n    $p0_0.setF0(true);\n    update($p0_0);\nend\nrule \"R1\"\nwhen\n    T0($b1_0_0 : f1, $b1_0_1 : f1, f1 == false)\n    exists T2()\nthen\nend\nrule \"R2\"\nwhen\n    T0(f1 != false, $b2_0_0 : f1, $b2_0_1 : f0)\nthen\nend\nrule \"R3\"\nwhen\n    T0(f0 == false, f1 != false)\nthen\n    insert(new T2(8, 8));\nend\nrule \"R4\"\nsalience 6\nwhen\n    $p4_0 : T0($b4_0_0 : f1, $b4_0_1 : f1, f1 == false)\n    exists T2()\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nsalience 5\nwhen\n    accumulate( T2(f0 not in (1, -1000000007), $s5_0 : f0); $a5_0 : min($s5_0) )\n    $p5_1 : T1($b5_1_0 : f2, $b5_1_1 : f0, f2 == false)\nthen\n    $p5_1.setF2(true);\n    update($p5_1);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": "a",
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3,
+        "f1": -3
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 5,
+        "f1": -2
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_123_9260",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

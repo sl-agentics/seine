@@ -1,0 +1,57 @@
+{
+ "name": "acc8",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.1,
+    "g": true
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.2,
+    "g": false
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.3,
+    "g": true
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule C1 when $l : ArrayList() from collect( P(v > 0.05) ) then end\nrule S salience -5 when $p : P(g == false) T() then delete($p); end\nrule S2 salience -9 when T() then insert(new P(0.4, true)); end\n"
+}

@@ -1,0 +1,57 @@
+{
+ "name": "mg6",
+ "types": [
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T3",
+   "fields": [
+    {
+     "name": "x",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T2",
+   "fields": {
+    "f0": 100,
+    "f1": 5,
+    "g": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "drl": "rule R salience 5 when T2($b : f1, f0 == 100) $l : ArrayList() from collect( T0() ) then  end\nrule U salience -5 when $p : T2(g == false) then modify($p) { setG(true), setF1($p.getF1()) } end\n"
+}
