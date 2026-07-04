@@ -172,13 +172,13 @@ impl Engine {
         Ok(firings)
     }
 
-    /// PROVISIONAL conflict resolution (Phase 0): scan for the not-yet-fired
-    /// activation with (highest salience, then lowest fact handle, then rule
-    /// declaration order). Matches D-006's observed insertion-order firing for
-    /// the single-rule case; multi-rule/salience order must be probed before
-    /// Phase 1 relies on it.
+    /// Conflict resolution, pinned by oracle probes pr01–pr08 (DECISIONS.md
+    /// D-008): after EVERY firing the next activation is the minimum of
+    /// (salience descending, rule declaration index ascending, fact
+    /// insertion/handle order ascending), re-evaluated globally — a firing
+    /// that activates an earlier-declared rule is preempted by it (pr06).
     fn next_activation(&self) -> Option<(usize, Vec<FactId>)> {
-        let mut best: Option<((i64, u32, usize), (usize, Vec<FactId>))> = None;
+        let mut best: Option<((i64, usize, u32), (usize, Vec<FactId>))> = None;
         for (ri, rule) in self.rules.iter().enumerate() {
             let pat = &rule.patterns[0];
             for fact in self.store.live_facts_of(pat.type_id) {
@@ -189,9 +189,9 @@ impl Engine {
                 if self.fired.contains(&(ri, tuple.clone())) {
                     continue;
                 }
-                // Lexicographic: highest salience, then lowest handle, then
-                // rule declaration order.
-                let key = (-rule.def.salience, fact.0, ri);
+                // Lexicographic: highest salience, then rule declaration
+                // order, then lowest fact handle (pr01–pr08).
+                let key = (-rule.def.salience, ri, fact.0);
                 if best.as_ref().map_or(true, |(bk, _)| key < *bk) {
                     best = Some((key, (ri, tuple)));
                 }

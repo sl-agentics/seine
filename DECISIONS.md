@@ -90,6 +90,26 @@ blocks + rule), 2 firings captured, canonical JSON emitted, stderr clean.
 - `make diff` = single command differential run (builds oracle if stale):
   PASS p0_trivial_adult, 1/1. `make test` = pure-Rust tests (6 passing).
 
+## Phase 1
+
+### D-008: Conflict resolution PINNED via probes pr01–pr08 (oracle-verified)
+Drools 9.44.0.Final, all facts via insert, fireAllRules(), java dialect:
+- **Order key = (salience DESC, rule declaration index ASC, fact insertion
+  order ASC), re-evaluated globally after every firing.**
+- pr01: equal salience → rule declaration order (A before B).
+- pr02: salience descending across B(20) > A(10) > D(0,default) > C(-5).
+- pr03/pr05: equal salience is rule-major: ALL of an earlier rule's
+  activations (facts in insertion order) fire before the next rule's.
+- pr06: **preemption**: if a firing inserts a fact that activates an
+  earlier-declared rule, that rule fires NEXT, before the current rule's
+  remaining activations (B(1),A(1),B(2),A(2)).
+- pr07: declaration order, NOT rule-name order (Zeta fired before Alpha).
+- pr08: fact insertion order, NOT field-value order (9,1,5).
+- Engine `next_activation` implements exactly this key. All probes are
+  permanent regression scenarios under scenarios/probes/.
+- NOT yet pinned (Phase 2): tuple ordering for multi-pattern activations,
+  behavior under update/delete, timestamp/recency tie-breaks after mutation.
+
 ---
 
 **HANDOFF @ checkpoint 2** — Phase 0 COMPLETE. Proven: full pipeline

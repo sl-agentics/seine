@@ -1,0 +1,11 @@
+{
+  "name": "pr05_salience_two_facts",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } },
+    { "type": "P", "fields": { "n": 2 } }
+  ],
+  "drl": "rule \"A\" salience 5 when P(n > 0) then end\nrule \"B\" when P(n > 0) then end\nrule \"C\" salience 5 when P(n > 1) then end\n"
+}
