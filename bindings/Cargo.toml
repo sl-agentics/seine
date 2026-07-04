@@ -1,0 +1,25 @@
+[package]
+name = "seine-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "seine"
+crate-type = ["cdylib"]
+
+[dependencies]
+seine-engine = { path = "../engine" }
+pyo3 = { version = "0.23", features = ["abi3-py39"] }
+arrow-array = "56"
+arrow-schema = "56"
+arrow-data = "56"
+arrow-buffer = "56"
+arrow-cast = "56"
+serde_json = "1"
+# C data interface (PyCapsule interop) lives in arrow-array::ffi /
+# arrow-array::ffi_stream via the `ffi` feature
+[dependencies.arrow]
+version = "56"
+default-features = false
+features = ["ffi"]

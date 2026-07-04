@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.5,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "seine"
+version = "0.1.0"
+description = "Differentially certified Drools-subset rule engine over Arrow dataframes"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+
+[tool.maturin]
+manifest-path = "Cargo.toml"
+module-name = "seine"
+features = ["pyo3/extension-module"]

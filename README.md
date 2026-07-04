@@ -62,6 +62,11 @@ log** for every in-subset program.
   order corner (D-042, scenarios/xfail/).
 - Salience expressions landed (D-043): computed salience over bindings with
   the full dynamic-agenda lifecycle, certified zero divergences over 5 seeds.
+- Python bindings, Layer 1 (D-044): `pip`-able `seine` module — Arrow
+  tables in (polars/pyarrow zero-copy), one-shot sessions, WM-delta +
+  firing-audit results, observer callbacks. The boundary adds zero
+  semantics (bit-exact marshaling, loud null/type rejection, native-
+  parity tests).
 
 ## Explicit non-goals (hard walls)
 
