@@ -67,6 +67,10 @@ log** for every in-subset program.
   firing-audit results, observer callbacks. The boundary adds zero
   semantics (bit-exact marshaling, loud null/type rejection, native-
   parity tests).
+- Python bindings, Layer 2 (D-045): Pythonic authoring — @seine.fact
+  classes and a Rule builder that COMPILE TO DRL TEXT, so the
+  differential guarantees cover Python-authored rules verbatim; every
+  certified wall is a definition-time CompileError.
 
 ## Explicit non-goals (hard walls)
 
