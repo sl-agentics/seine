@@ -139,7 +139,73 @@ impl Engine {
         self.rule_order = (0..self.rules.len()).collect();
         self.rule_order
             .sort_by_key(|&ri| (-self.rules[ri].def.salience, ri));
+        self.share_and_hash_alphas();
         Ok(())
+    }
+
+    /// Alpha-network build semantics for `field == literal` constraints
+    /// (probe series w1-w18 / pr_lit / u15, D-029):
+    /// - node identity is (type, preceding-literal-chain, field, literal
+    ///   COERCED to the field's type): a later rule whose coerced literal
+    ///   collides SHARES the first-built node and inherits its ORIGINAL
+    ///   literal (w10: `n == 1.5` after `n == 1` matches n=1; w16
+    ///   reversed: `n == 1` after `n == 1.5` matches nothing);
+    /// - with >= 3 sibling eq-nodes (post-sharing) on one field, the sink
+    ///   adapter hashes: membership uses the COERCED key, i.e. a double
+    ///   literal on a long field truncates (w5/w8/w12, fz_777_4504);
+    /// - below the threshold each node compares its first-built literal
+    ///   with double promotion (w4/w6/u15).
+    fn share_and_hash_alphas(&mut self) {
+        use std::collections::HashMap as Map;
+        // group key -> members (rule, pattern, cmp index, coerced key,
+        // original literal), in build order
+        let mut groups: Map<(TypeId, String, usize), Vec<(usize, usize, usize, String, Value)>> =
+            Map::new();
+        for ri in 0..self.rules.len() {
+            for pi in 0..self.rules[ri].patterns.len() {
+                let pat = &self.rules[ri].patterns[pi];
+                let mut prefix = String::new();
+                for ci in 0..pat.cmps.len() {
+                    let c = &pat.cmps[ci];
+                    let Src::Lit(v) = &c.rhs else { continue };
+                    if c.op == CmpOp::Eq {
+                        let ft = self.store.field_type(pat.type_id, c.field_idx);
+                        let coerced = match (v, ft) {
+                            (Value::F64(x), FieldType::I64) => Value::I64(*x as i64),
+                            (Value::I64(n), FieldType::F64) => Value::F64(*n as f64),
+                            (v, _) => v.clone(),
+                        };
+                        groups
+                            .entry((pat.type_id, prefix.clone(), c.field_idx))
+                            .or_default()
+                            .push((ri, pi, ci, format!("{coerced:?}"), v.clone()));
+                    }
+                    prefix.push_str(&format!("{}|{:?}|{:?};", c.field_idx, c.op, v));
+                }
+            }
+        }
+        for (_, members) in groups {
+            // first-built literal per coerced node key
+            let mut node_lit: Map<String, Value> = Map::new();
+            for (_, _, _, key, lit) in &members {
+                node_lit.entry(key.clone()).or_insert_with(|| lit.clone());
+            }
+            let hashed = node_lit.len() >= 3;
+            for (ri, pi, ci, key, _) in members {
+                let pat = &mut self.rules[ri].patterns[pi];
+                let ft = self.store.field_type(pat.type_id, pat.cmps[ci].field_idx);
+                let new_lit = if hashed {
+                    // hashed membership: coerced key comparison
+                    match (&node_lit[&key], ft) {
+                        (Value::F64(x), FieldType::I64) => Value::I64(*x as i64),
+                        (v, _) => v.clone(),
+                    }
+                } else {
+                    node_lit[&key].clone() // shared node's original literal
+                };
+                pat.cmps[ci].rhs = Src::Lit(new_lit);
+            }
+        }
     }
 
     fn compile_rule(&self, def: RuleDef) -> Result<CompiledRule, EngineError> {

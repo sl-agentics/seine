@@ -1,0 +1,41 @@
+{
+ "name": "pr_w7",
+ "types": [
+  {
+   "name": "I",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "I",
+   "fields": {
+    "n": -1
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 0
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 1
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 2
+   }
+  }
+ ],
+ "drl": "rule \"eq0\" when I(n == 1.5) then end\nrule \"eq1\" when I(n == 1.5) then end\nrule \"eq2\" when I(n == 1.5) then end\n"
+}
