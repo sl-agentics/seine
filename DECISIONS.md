@@ -369,6 +369,37 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-043: salience EXPRESSIONS pinned (se1..se15) — implementation contract
+Scope: `salience( <term> [op <term>] )` with op in {+,-,*}, terms = int
+literals or numeric LHS bindings (i64/f64). Method calls, full MVEL
+bodies, float literals and non-numeric bindings are fenced (parse or
+compile error), like custom accumulate functions. Pins:
+- **Per-activation salience, GLOBAL interleave:** each activation
+  carries its own computed salience; the agenda fires strictly by
+  (activation salience DESC, rule decl-index ASC) across rules —
+  RA(7), RB-static(5), RA(3) (se1/se2/se5). Mechanism: dynamic-salience
+  RuleExecutors keep a per-activation priority queue; the OUTER
+  RuleAgendaItem's salience continuously tracks its queue TOP (0 when
+  empty or not yet evaluated), re-sorting the item (RuleExecutor.
+  updateSalience / getNextTuple / MatchConflictResolver).
+- **Evaluated at activation CREATION and at RE-ADD of a fired
+  activation; a QUEUED activation keeps its ORIGINAL salience through
+  property restages** (se3/se4; PhreakRuleTerminalNode.doLeftUpdates
+  only calls update(salienceInt) on the !isQueued path). Late high
+  activations jump the line (se10).
+- **Within-rule ties (dynamic only): NEWEST activation first**
+  (activation-number DESC, se13) — unlike static rules' FIFO tupleList.
+  Cross-rule ties: decl order (se6).
+- **Numerics:** the expression evaluates in the binding's type and the
+  result passes through Java Number.intValue(): i64 results take the
+  LOW 32 BITS (se14: 3e9 wraps negative), f64 results truncate toward
+  zero with i32 saturation, NaN -> 0 (se8: 6.5 -> 6; se15: -0.5 -> 0).
+- Static `salience N` rules keep the FIFO executor (no queue) — all
+  existing corpus semantics unchanged.
+- Accumulate-result bindings are excluded from generated salience
+  expressions (typing unprobed); a salience expression with only
+  literals still marks the rule DYNAMIC (Drools isDynamic()).
+
 ### D-042: OPEN — not-CE unblock REFIRE ORDER in >=3-pattern rules
 Round-4 fuzz (the accumulate-era grammar reshuffle) drew two cases the
 engine gets wrong ONLY in the relative refire ORDER of tuples unblocked

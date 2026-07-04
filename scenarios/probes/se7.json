@@ -1,0 +1,38 @@
+{
+ "name": "se7",
+ "types": [
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "F",
+   "fields": {
+    "d": 7.9
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 5
+   }
+  }
+ ],
+ "drl": "rule RA salience($d) when F($d : d) then end\nrule RB salience 6 when Q() then end\n"
+}

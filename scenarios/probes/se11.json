@@ -1,0 +1,54 @@
+{
+ "name": "se11",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 5,
+    "w": 0,
+    "g": false
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 1
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 2
+   }
+  }
+ ],
+ "drl": "rule RS salience 60 no-loop when $q : Q() then $q.setN(9); update($q); end\nrule RA salience($x) when $p : P($x : v) then end\nrule U salience 3 when $p : P(g == false) then modify($p) { setV(100), setG(true) } end\n"
+}

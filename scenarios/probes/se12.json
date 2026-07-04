@@ -1,0 +1,56 @@
+{
+ "name": "se12",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 4,
+    "w": 2,
+    "g": false
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 6,
+    "w": 3,
+    "g": false
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 5
+   }
+  }
+ ],
+ "drl": "rule RA salience($x * 10) when P($x : v, $y : w) Q() then end\nrule RC no-loop when P($x : v, $y : w) Q() then end\nrule U salience -5 when $p : P(g == false) then modify($p) { setV($p.getW()), setG(true) } end\n"
+}

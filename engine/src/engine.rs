@@ -143,6 +143,35 @@ struct CompiledRule {
     def: RuleDef,
     patterns: Vec<CompiledPattern>,
     actions: Vec<CompiledAction>,
+    salience: EngineSalience,
+}
+
+/// Compiled rule salience (D-043). Dynamic expressions evaluate per
+/// activation over the tuple; results pass through Java
+/// Number.intValue(): i64 -> low 32 bits, f64 -> trunc toward zero with
+/// i32 saturation, NaN -> 0.
+#[derive(Clone)]
+enum EngineSalience {
+    Static(i32),
+    Dyn { a: SalSrc, op: Option<(char, SalSrc)> },
+}
+
+#[derive(Clone, Copy)]
+enum SalSrc {
+    Lit(i64),
+    /// (tuple index, field index, is_f64)
+    Field(usize, usize, bool),
+}
+
+/// One agenda activation: the tuple, its salience (computed at CREATION
+/// or fired-re-add; kept through queued restages — D-043), and a global
+/// creation sequence for tie order (static rules: FIFO oldest-first via
+/// position; dynamic ties: NEWEST first).
+#[derive(Clone)]
+struct Act {
+    t: Tup,
+    sal: i32,
+    seq: u64,
 }
 
 use crate::phreak::{self, Origin, Staged, Tup};
@@ -361,7 +390,7 @@ struct RuleNet {
     /// unstaged peer stages an UPDATE (hasNodeMemory(RTN) is false), so
     /// a kind-preserved re-insert must not re-activate.
     peer_live: HashSet<Tup>,
-    queue: Vec<Tup>,
+    queue: Vec<Act>,
     /// Agenda-item lifecycle: set when the rule links (or re-dirties
     /// while linked), cleared when its evaluation leaves the queue empty.
     /// An unlinked-but-queued rule still evaluates when reached
@@ -431,6 +460,8 @@ pub struct Engine {
     /// Collect results: synthetic Collection fact -> current element
     /// list, updated at each result evaluation (D-038).
     collect_vals: HashMap<FactId, Vec<FactId>>,
+    /// Global activation sequence (D-043 tie order).
+    act_seq: u64,
 }
 
 impl Engine {
@@ -469,6 +500,7 @@ impl Engine {
             lists_built: false,
             init_fact: None,
             collect_vals: HashMap::new(),
+            act_seq: 0,
         })
     }
 
@@ -479,7 +511,15 @@ impl Engine {
         }
         self.rule_order = (0..self.rules.len()).collect();
         self.rule_order
-            .sort_by_key(|&ri| (-self.rules[ri].def.salience, ri));
+            .sort_by_key(|&ri| {
+                let base = match self.rules[ri].salience {
+                    EngineSalience::Static(n) => n,
+                    // dynamic items enter the agenda at DEFAULT salience 0
+                    // until their queue tops re-sort them (D-043)
+                    EngineSalience::Dyn { .. } => 0,
+                };
+                (-(base as i64), ri)
+            });
         // Structural node identity uses the PRE-rewrite constraint values
         // (the D-029 literal rewrite itself groups by these same keys).
         let keys: Vec<Vec<String>> = self
@@ -1104,7 +1144,38 @@ impl Engine {
                 }
             }
         }
-        Ok(CompiledRule { def, patterns, actions })
+        // Salience (D-043): static, or a per-activation expression over
+        // numeric LHS bindings.
+        let salience = match &def.salience {
+            drl::SalienceSpec::Static(n) => EngineSalience::Static(*n as i32),
+            drl::SalienceSpec::Expr { a, op } => {
+                let mut resolve = |t: &drl::SalTerm| -> Result<SalSrc, EngineError> {
+                    match t {
+                        drl::SalTerm::Lit(n) => Ok(SalSrc::Lit(*n)),
+                        drl::SalTerm::Var(v) => {
+                            let (ti, fi, ft) = field_binds
+                                .get(v)
+                                .copied()
+                                .ok_or_else(|| err(format!("salience: unknown binding {v}")))?;
+                            match ft {
+                                FieldType::I64 => Ok(SalSrc::Field(ti, fi, false)),
+                                FieldType::F64 => Ok(SalSrc::Field(ti, fi, true)),
+                                _ => Err(err(format!(
+                                    "salience: {v} must be numeric (subset wall)"
+                                ))),
+                            }
+                        }
+                    }
+                };
+                let a = resolve(a)?;
+                let op = match op {
+                    None => None,
+                    Some((c, b)) => Some((*c, resolve(b)?)),
+                };
+                EngineSalience::Dyn { a, op }
+            }
+        };
+        Ok(CompiledRule { def, patterns, actions, salience })
     }
 
     fn compile_arg(
@@ -1190,8 +1261,20 @@ impl Engine {
                     "fire limit {limit} reached (non-terminating?)"
                 )));
             }
-            // RuleExecutor.getNextTuple: removeFirst + setQueued(false).
-            let tuple = self.nets[ri].queue.remove(0);
+            // RuleExecutor.getNextTuple: static rules removeFirst (FIFO);
+            // dynamic-salience rules pop the queue MAX — ties NEWEST
+            // first (MatchConflictResolver, D-043).
+            let idx = match self.rules[ri].salience {
+                EngineSalience::Static(_) => 0,
+                EngineSalience::Dyn { .. } => self.nets[ri]
+                    .queue
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|(_, a)| (a.sal, a.seq))
+                    .map(|(i, _)| i)
+                    .unwrap_or(0),
+            };
+            let tuple = self.nets[ri].queue.remove(idx).t;
             self.execute_rhs(ri, &tuple)?;
             // Post-RHS rendering (D-013 / j03); collect results carry
             // their CURRENT element list (D-038).
@@ -1224,21 +1307,57 @@ impl Engine {
         }
         for i in 0..self.rule_order.len() {
             let ri = self.rule_order[i];
-            if self.rules[ri].def.no_loop {
+            // The eager list: no-loop rules AND dynamic-salience rules
+            // (RuleImpl.setSalience -> setEager(true)) — their networks
+            // evaluate per flush so item saliences are current before
+            // the agenda pop (D-043/se1).
+            if self.rules[ri].def.no_loop
+                || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
+            {
                 self.evaluate_rule(ri, false, true);
             }
         }
-        for i in 0..self.rule_order.len() {
-            let ri = self.rule_order[i];
+        // Agenda pop (D-008/D-043): items order by (item salience DESC,
+        // decl index ASC). Static items carry their constant; DYNAMIC
+        // items track their queue top (0 while empty/unevaluated) and
+        // re-sort after their network evaluates
+        // (RuleExecutor.updateSalience / haltRuleFiring). Evaluation
+        // stays lazy: only the popped item's network runs, so window
+        // claiming keeps its pinned order.
+        loop {
+            let mut best: Option<(i32, usize)> = None;
+            for i in 0..self.rule_order.len() {
+                let ri = self.rule_order[i];
+                if !self.nets[ri].queued {
+                    continue;
+                }
+                let sal = self.item_salience(ri);
+                let better = match best {
+                    None => true,
+                    Some((bs, bri)) => sal > bs || (sal == bs && ri < bri),
+                };
+                if better {
+                    best = Some((sal, ri));
+                }
+            }
+            let Some((_, ri)) = best else { return None };
             self.evaluate_rule(ri, false, false);
-            if !self.nets[ri].queue.is_empty() {
+            if self.nets[ri].queue.is_empty() {
+                self.nets[ri].queued = false; // evaluated empty: removed
+                continue;
+            }
+            // dynamic salience may have moved this item; re-check.
+            let now = self.item_salience(ri);
+            let preempted = (0..self.rules.len()).any(|rj| {
+                rj != ri && self.nets[rj].queued && {
+                    let sj = self.item_salience(rj);
+                    sj > now || (sj == now && rj < ri)
+                }
+            });
+            if !preempted {
                 return Some(ri);
             }
-            if self.nets[ri].queued {
-                self.nets[ri].queued = false; // evaluated empty: removed
-            }
         }
-        None
     }
 
     /// WM insert: stage into the SHARED network once per LIA / trie node.
@@ -1498,7 +1617,7 @@ impl Engine {
                 .collect();
             self.nets[ri]
                 .queue
-                .retain(|t| positives.iter().all(|(pos, ti)| alive[*pos].contains(&t[*ti])));
+                .retain(|a| positives.iter().all(|(pos, ti)| alive[*pos].contains(&a.t[*ti])));
         }
         // Agenda-item gate: only a queued item evaluates (the just-fired
         // rule is force-evaluated, fz_42_5243).
@@ -1512,25 +1631,24 @@ impl Engine {
             // LIA -> terminal directly; working-memory staging consumed
             // OLDEST-first (pr08/pr04 pin).
             let s0 = self.nets[ri].s0.take();
-            let net = &mut self.nets[ri];
             for (f, _, _) in s0.del.iter().rev() {
-                net.queue.retain(|t| t[0] != *f);
+                self.nets[ri].queue.retain(|a| a.t[0] != *f);
             }
             for (f, o, _) in s0.upd.iter().rev() {
-                let queued = net.queue.iter().any(|t| t[0] == *f);
+                let queued = self.nets[ri].queue.iter().any(|a| a.t[0] == *f);
                 if queued {
-                    continue; // pending: keep position
+                    continue; // pending: keep position AND salience (se3)
                 }
                 if no_loop && *o == Some(ri) {
                     continue; // own update does not re-activate (j04)
                 }
-                net.queue.push(vec![*f]);
+                self.push_activation(ri, vec![*f]);
             }
             for (f, o, _) in s0.ins.iter().rev() {
                 if no_loop && *o == Some(ri) {
                     continue;
                 }
-                net.queue.push(vec![*f]);
+                self.push_activation(ri, vec![*f]);
             }
             return;
         }
@@ -1618,25 +1736,24 @@ impl Engine {
         if std::env::var("SEINE_TRACE").is_ok() && !src.is_empty() {
             eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
         }
-        let src = src;
-        let net = &mut self.nets[ri];
         for (t, _, _) in src.del.iter() {
-            net.queue.retain(|x| x != t);
+            self.nets[ri].queue.retain(|a| a.t != *t);
         }
         for (t, o, _) in src.upd.iter() {
-            if net.queue.iter().any(|x| x == t) {
-                continue;
+            if self.nets[ri].queue.iter().any(|a| a.t == *t) {
+                continue; // queued: keep position AND salience (se3)
             }
             if no_loop && *o == Some(ri) {
                 continue;
             }
-            net.queue.push(t.clone());
+            // fired activation re-added: salience RE-EVALUATED (D-043)
+            self.push_activation(ri, t.clone());
         }
         for (t, o, _) in src.ins.iter() {
             if no_loop && *o == Some(ri) {
                 continue;
             }
-            net.queue.push(t.clone());
+            self.push_activation(ri, t.clone());
         }
     }
 
@@ -1931,6 +2048,74 @@ impl Engine {
         match spec.arg_field {
             Some(fi) => self.store.value(f, fi),
             None => Value::I64(0),
+        }
+    }
+
+    /// Enqueue an activation with salience computed NOW (activation
+    /// creation / fired-re-add; queued restages never reach here — se3).
+    fn push_activation(&mut self, ri: usize, t: Tup) {
+        let sal = self.eval_salience(ri, &t);
+        self.act_seq += 1;
+        let seq = self.act_seq;
+        self.nets[ri].queue.push(Act { t, sal, seq });
+    }
+
+    /// Per-activation salience (D-043): i64 math WRAPS to the low 32
+    /// bits (Number.intValue of a Long); any f64 operand switches to
+    /// double math with trunc-toward-zero, i32 saturation, NaN -> 0.
+    fn eval_salience(&self, ri: usize, t: &Tup) -> i32 {
+        let (a, op) = match &self.rules[ri].salience {
+            EngineSalience::Static(n) => return *n,
+            EngineSalience::Dyn { a, op } => (a, op),
+        };
+        let read = |src: &SalSrc| -> (f64, i64, bool) {
+            match src {
+                SalSrc::Lit(n) => (*n as f64, *n, false),
+                SalSrc::Field(ti, fi, is_f) => match self.store.value(t[*ti], *fi) {
+                    Value::I64(n) => (n as f64, n, *is_f),
+                    Value::F64(x) => (x, x as i64, true),
+                    _ => (0.0, 0, *is_f),
+                },
+            }
+        };
+        let (af, ai, a_is_f) = read(a);
+        let (result_f, result_i, any_f) = match op {
+            None => (af, ai, a_is_f),
+            Some((c, b)) => {
+                let (bf, bi, b_is_f) = read(b);
+                let rf = match c {
+                    '+' => af + bf,
+                    '-' => af - bf,
+                    _ => af * bf,
+                };
+                let ri64 = match c {
+                    '+' => ai.wrapping_add(bi),
+                    '-' => ai.wrapping_sub(bi),
+                    _ => ai.wrapping_mul(bi),
+                };
+                (rf, ri64, a_is_f || b_is_f)
+            }
+        };
+        if any_f {
+            if result_f.is_nan() {
+                0
+            } else {
+                result_f.trunc().clamp(i32::MIN as f64, i32::MAX as f64) as i32
+            }
+        } else {
+            result_i as i32 // low 32 bits (se14)
+        }
+    }
+
+    /// A rule item's CURRENT agenda salience (D-043): static rules use
+    /// their constant; dynamic rules track their queue TOP (default 0
+    /// when empty or not yet evaluated — RuleExecutor.updateSalience).
+    fn item_salience(&self, ri: usize) -> i32 {
+        match self.rules[ri].salience {
+            EngineSalience::Static(n) => n,
+            EngineSalience::Dyn { .. } => {
+                self.nets[ri].queue.iter().map(|a| a.sal).max().unwrap_or(0)
+            }
         }
     }
 
