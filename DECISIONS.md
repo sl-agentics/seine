@@ -369,6 +369,43 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-041: addAll is BLIND; clashes resolve at child-touch time (fz_123_8822, fz_7_2843, fz_999_7966, fz_999_4371, mg1..mg8, mn1..mn7)
+The accumulate-era fuzz waves exposed four intertwined pins:
+- **Cross-window child clashes (fz_123_8822 kernel 1, fz_7_2843,
+  fz_999_7966):** TupleSetsImpl.addAll is a BLIND tail concatenation.
+  A child touched in a later window is reconciled at TOUCH TIME inside
+  doNode against the FIRST sink's pending staging
+  (updateChildLeftTuple / deleteChildLeftTuple / normalizeStagedTuples):
+  a pending INSERT moves INTO the current batch keeping its insert
+  kind (positioned by the new batch's order); a pending UPDATE moves
+  as an update; a delete of a pending insert cancels outright.
+  Engine: do_node threads the first sink's pending (Out::child_*);
+  append_into_pending is now pure concatenation. The accumulate
+  result-child staging mirrors propagateResult (normalize + addUpdate
+  — the kind is NOT preserved there, unlike updateChildLeftTuple).
+- **Materialized peers (fz_123_8822 kernel 2):** processPeerInserts on
+  an EXISTING peer runs updateChildLeftTupleDuringInsert; when the
+  peer is unstaged and already lives in the peer node's LEFT MEMORY,
+  the net effect is a memory removeAdd (move to the END, key kept)
+  with NOTHING staged: the re-delivered peer neither re-joins nor
+  refires, but subsequent right-inserts see the moved position
+  (Node::peer_merge_left). Terminal peers in the same corner would
+  arrive as UPDATEs (hasNodeMemory=false) — not yet exercised by any
+  case; noted as a watch item.
+- **Collect gate correction (mg1..mg8, superseding D-040's first cut):**
+  the LIA->collect modify gate = pattern-0's CONSTRAINT fields (its
+  listened properties — bare bindings do NOT count) + the collect
+  source's beta references into pattern 0. Consequence usage (mg2) and
+  later patterns' references (mg8) do NOT inherit through the collect.
+- **Subnetwork fence (fz_999_4371, mn1..mn7):** a collect source
+  referencing outer bindings builds an RIA SUBNETWORK; there Drools
+  false-admits a pattern-0 fact that FAILS its alpha when a mask-missed
+  property modify arrives (mn6: `T0($b : f1, f0 == false)` matched a
+  fact with f0=true after a setF1 modify; the inline-accumulate
+  equivalent mn7 behaves correctly). Subnetworks are unported; the
+  parser now rejects variable references inside collect sources and the
+  generator no longer emits them.
+
 ### D-040: COLLECT swallows unreferenced left MODIFIES (lu_a..lu_h)
 fz_42_2091: a rule `T2($b : f1) collect(T0(...)) accumulate(...)` did
 not refire in Drools when another rule property-updated the T2, but the

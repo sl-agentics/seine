@@ -404,8 +404,10 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 let c = gen_alpha_constraint(&mut rng, &fname, ft);
                 pats[pi].constraints.push(c);
             }
-            // Join constraint against an earlier binding.
-            if pi > 0 && rng.chance(55) {
+            // Join constraint against an earlier binding. Collect
+            // patterns are excluded: a var-referencing collect source
+            // is an RIA subnetwork, out of subset (D-041).
+            if pi > 0 && pats[pi].ce != 4 && rng.chance(55) {
                 let earlier: Vec<(String, Ft)> = pats[..pi]
                     .iter()
                     .flat_map(|p| p.bindings.iter().map(|(v, _, ft)| (v.clone(), *ft)))

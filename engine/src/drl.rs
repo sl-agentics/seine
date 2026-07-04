@@ -478,6 +478,16 @@ impl Parser {
                     "bindings inside a collect source are not in subset".into(),
                 ));
             }
+            // A collect source referencing outer bindings builds an RIA
+            // SUBNETWORK — unported territory with its own quirks
+            // (D-041/fz_999_4371): alpha-only sources stay in subset.
+            if src.constraints.iter().any(
+                |c| matches!(c, Constraint::Cmp { rhs: CmpRhs::Var(_), .. }),
+            ) {
+                return Err(DrlError(
+                    "variable references inside a collect source are not in subset (subnetwork, D-041)".into(),
+                ));
+            }
             return Ok(Pattern {
                 binding: None,
                 type_name: src.type_name,

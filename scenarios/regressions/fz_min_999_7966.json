@@ -1,0 +1,64 @@
+{
+ "drl": "rule \"R0\"\nsalience 8\nwhen\n    T0(f2 in (\"b\", \"zz\"))\n    $a0_1 : ArrayList() from collect( T2(f0 < 100, f0 > 4) )\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0()\nthen\n    modify($p1_0) { setF0(true), setF2($p1_0.getF2()) }\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": "b",
+    "f3": true
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_min_999_7966",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    }
+   ],
+   "name": "T2"
+  }
+ ]
+}

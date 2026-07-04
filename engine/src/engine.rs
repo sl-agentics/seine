@@ -533,8 +533,13 @@ impl Engine {
                 queued: false,
             });
         }
-        // LEVEL-1 COLLECT gates (D-040): pattern-0 fields referenced
-        // downstream, unioned across every rule sharing the node.
+        // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
+        // matrix): the mask a pattern-0 MODIFY must intersect =
+        // pattern-0's CONSTRAINT fields (its listened properties;
+        // bare bindings do NOT count) + the collect's own beta
+        // references into pattern 0. Later patterns' and the
+        // consequence's usage do NOT inherit through the collect
+        // (mg8, mg2). Unioned across every rule sharing the node.
         for ri in 0..self.rules.len() {
             let Some(&first) = self.nets[ri].path.first() else { continue };
             let (eri, epos) = self.trie[first].env;
@@ -546,23 +551,12 @@ impl Engine {
                 continue;
             }
             let mut gate = 0u64;
-            for pat in &self.rules[ri].patterns[1..] {
-                for c in &pat.cmps {
-                    if let Test::Cmp { rhs: Src::Field(0, fi), .. } = &c.test {
-                        gate |= 1 << fi;
-                    }
-                }
+            for c in &self.rules[ri].patterns[0].cmps {
+                gate |= 1 << c.field_idx;
             }
-            for a in &self.rules[ri].actions {
-                let mut note = |src: &Src| {
-                    if let Src::Field(0, fi) | Src::SnapField(0, fi) = src {
-                        gate |= 1 << fi;
-                    }
-                };
-                match a {
-                    CompiledAction::Insert { args, .. } => args.iter().for_each(&mut note),
-                    CompiledAction::Set { arg, .. } => note(arg),
-                    _ => {}
+            for c in &self.rules[ri].patterns[1].cmps {
+                if let Test::Cmp { rhs: Src::Field(0, fi), .. } = &c.test {
+                    gate |= 1 << fi;
                 }
             }
             *self.trie[first].collect_left_gate.get_or_insert(0) |= gate;
@@ -893,7 +887,9 @@ impl Engine {
                         }
                     };
                     let numeric = matches!(arg_ft, FieldType::I64 | FieldType::F64);
-                    if spec.arg.is_some() && !numeric {
+                    if spec.arg.is_some() && !numeric && spec.func != AccFunc::Count {
+                        // count ignores its argument; the value-bearing
+                        // functions stay numeric-only (subset wall)
                         return Err(err(format!(
                             "{:?} requires a numeric argument (subset wall)",
                             spec.func
@@ -1513,38 +1509,53 @@ impl Engine {
             if src.is_empty() && sr.is_empty() {
                 continue;
             }
+            // Cross-window child clashes resolve against the FIRST
+            // sink's pending at touch time (D-041) — take it out for
+            // the node evaluation, then blind-append the batch (addAll).
+            let first_sink = self.trie[ni].sinks.first().copied();
+            let mut first_pending = match first_sink {
+                Some(Sink::Node(c)) => self.trie[c].node.s_left.take(),
+                Some(Sink::Term(rb)) => self.nets[rb].term_pending.take(),
+                None => Staged::default(),
+            };
             let mut trg: Staged<Tup> = Staged::default();
             if self.trie[ni].node.kind == phreak::Kind::Acc {
-                trg = self.eval_acc_node(ni, env_ri, env_pos, src, sr);
+                trg = self.eval_acc_node(ni, env_ri, env_pos, src, sr, &mut first_pending);
             } else {
                 let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
-                phreak::do_node(&env, env_pos - 1, &mut self.trie[ni].node, src, sr, &mut trg);
+                phreak::do_node(
+                    &env,
+                    env_pos - 1,
+                    &mut self.trie[ni].node,
+                    src,
+                    sr,
+                    &mut trg,
+                    &mut first_pending,
+                );
             }
             // Consuming the batch spends the not-node link pulse
             // (unlinkNotNodeOnRightInsert, D-031).
             self.trie[ni].pulse = false;
-            if trg.is_empty() {
-                continue;
-            }
             for si in 0..self.trie[ni].sinks.len() {
                 let sink = self.trie[ni].sinks[si];
-                let batch = trg.clone();
                 match sink {
                     Sink::Node(c) => {
-                        let pending = self.trie[c].node.s_left.take();
-                        self.trie[c].node.s_left = if si == 0 {
-                            Staged::append_into_pending(pending, batch)
-                        } else {
-                            Staged::peer_merge_into_pending(pending, batch)
-                        };
+                        if si == 0 {
+                            self.trie[c].node.s_left =
+                                Staged::append_into_pending(first_pending.take(), trg.clone());
+                        } else if !trg.is_empty() {
+                            self.trie[c].node.peer_merge_left(&trg);
+                        }
                     }
                     Sink::Term(rb) => {
-                        let pending = self.nets[rb].term_pending.take();
-                        self.nets[rb].term_pending = if si == 0 {
-                            Staged::append_into_pending(pending, batch)
-                        } else {
-                            Staged::peer_merge_into_pending(pending, batch)
-                        };
+                        if si == 0 {
+                            self.nets[rb].term_pending =
+                                Staged::append_into_pending(first_pending.take(), trg.clone());
+                        } else if !trg.is_empty() {
+                            let pending = self.nets[rb].term_pending.take();
+                            self.nets[rb].term_pending =
+                                Staged::peer_merge_into_pending(pending, trg.clone());
+                        }
                     }
                 }
             }
@@ -1556,6 +1567,10 @@ impl Engine {
         // queued activation keeps its position; an unqueued (fired) one
         // is effectively recreated.
         let src = self.nets[ri].term_pending.take();
+        if std::env::var("SEINE_TRACE").is_ok() && !src.is_empty() {
+            eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
+        }
+        let src = src;
         let net = &mut self.nets[ri];
         for (t, _, _) in src.del.iter() {
             net.queue.retain(|x| x != t);
@@ -1591,6 +1606,7 @@ impl Engine {
         env_pos: usize,
         src: Staged<Tup>,
         sr: Staged<FactId>,
+        first_pending: &mut Staged<Tup>,
     ) -> Staged<Tup> {
         let spec = self.rules[env_ri].patterns[env_pos].acc.clone().unwrap();
         let node_idx = env_pos - 1;
@@ -1611,7 +1627,10 @@ impl Engine {
                     if let Some(res) = ctx.result {
                         let mut child = l.clone();
                         child.push(res);
-                        trg.add_del(child, *o);
+                        if !first_pending.remove_ins(&child) {
+                            first_pending.remove_upd(&child);
+                            trg.add_del(child, *o);
+                        }
                     }
                 }
             }
@@ -1770,7 +1789,12 @@ impl Engine {
                         let res = existing.unwrap();
                         let mut child = l.clone();
                         child.push(res);
-                        trg.add_del(child, o);
+                        // propagateDelete: normalize against the first
+                        // sink's pending, then stage the retract (D-041).
+                        if !first_pending.remove_ins(&child) {
+                            first_pending.remove_upd(&child);
+                            trg.add_del(child, o);
+                        }
                         self.trie[ni].acc.get_mut(&l).unwrap().propagated = false;
                     }
                 }
@@ -1800,7 +1824,16 @@ impl Engine {
                     let mut child = l.clone();
                     child.push(res);
                     if propagated {
-                        trg.add_upd_ph(child, o, 2);
+                        // propagateResult: normalizeStagedTuples against
+                        // the first sink's pending, THEN addUpdate — a
+                        // pending insert re-stages as an UPDATE here,
+                        // unlike updateChildLeftTuple (D-041).
+                        if first_pending.remove_ins(&child) {
+                            trg.add_ins_ph(child, o, 0);
+                        } else {
+                            first_pending.remove_upd(&child);
+                            trg.add_upd_ph(child, o, 2);
+                        }
                     } else {
                         trg.add_ins_ph(child, o, 0);
                         self.trie[ni].acc.get_mut(&l).unwrap().propagated = true;
