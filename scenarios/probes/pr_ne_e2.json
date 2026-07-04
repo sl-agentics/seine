@@ -1,0 +1,14 @@
+{
+  "name": "ne_e2",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "T", "fields": [{"name": "t", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 1}},
+    {"type": "A", "fields": {"n": 2}},
+    {"type": "T", "fields": {"t": true}}
+  ],
+  "drl": "rule S salience 10 when T() then insert(new B(1)); end\nrule R when A() exists B() then end\n"
+}

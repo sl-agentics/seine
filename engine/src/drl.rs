@@ -8,7 +8,8 @@
 //! rule       := "rule" name attr* "when" pattern* "then" action* "end"
 //! name       := STRING | IDENT
 //! attr       := "salience" ["-"] INT | "no-loop" [BOOL]
-//! pattern    := [ "$id" ":" ] IDENT "(" [constraint ("," constraint)*] ")"
+//! pattern    := ["not"|"exists"] [ "$id" ":" ] IDENT "(" [constraint ("," constraint)*] ")"
+//!               (bindings are rejected inside not/exists patterns — D-031)
 //! constraint := "$id" ":" IDENT            (field binding)
 //!             | IDENT cmpop (literal|"$id") (field test, RHS literal or binding)
 //!             | IDENT "matches" STRING      (literal regex, String fields)
@@ -87,11 +88,20 @@ pub enum Constraint {
     InList { field: String, items: Vec<Literal>, negated: bool },
 }
 
+/// Conditional-element kind of a pattern (D-031).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CeKind {
+    Positive,
+    Not,
+    Exists,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pattern {
     pub binding: Option<String>,
     pub type_name: String,
     pub constraints: Vec<Constraint>,
+    pub ce: CeKind,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -363,6 +373,15 @@ impl Parser {
     }
 
     fn pattern(&mut self) -> Result<Pattern, DrlError> {
+        let ce = if self.at_kw("not") {
+            self.next()?;
+            CeKind::Not
+        } else if self.at_kw("exists") {
+            self.next()?;
+            CeKind::Exists
+        } else {
+            CeKind::Positive
+        };
         let first = self.ident()?;
         let (binding, type_name) = if first.starts_with('$') {
             self.expect_sym(":")?;
@@ -377,15 +396,27 @@ impl Parser {
                 constraints.push(self.constraint()?);
                 match self.next()? {
                     Tok::Sym(",") => continue,
-                    Tok::Sym(")") => return Ok(Pattern { binding, type_name, constraints }),
+                    Tok::Sym(")") => break,
                     other => {
                         return Err(DrlError(format!("expected ',' or ')', got {other}")))
                     }
                 }
             }
+        } else {
+            self.next()?;
         }
-        self.expect_sym(")")?;
-        Ok(Pattern { binding, type_name, constraints })
+        if ce != CeKind::Positive {
+            // Bindings inside not/exists are scoped out in Drools; the
+            // subset rejects them outright (D-031).
+            if binding.is_some()
+                || constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
+            {
+                return Err(DrlError(
+                    "bindings are not allowed in not/exists patterns".into(),
+                ));
+            }
+        }
+        Ok(Pattern { binding, type_name, constraints, ce })
     }
 
     fn constraint(&mut self) -> Result<Constraint, DrlError> {
@@ -711,8 +742,24 @@ mod tests {
     }
 
     #[test]
+    fn parses_ce_patterns() {
+        let rules = parse_rules(
+            "rule R when $a : A($x : n) not B(m == $x) exists C(k > 1) then end",
+        )
+        .unwrap();
+        let pats = &rules[0].patterns;
+        assert_eq!(pats.len(), 3);
+        assert_eq!(pats[0].ce, CeKind::Positive);
+        assert_eq!(pats[1].ce, CeKind::Not);
+        assert_eq!(pats[1].type_name, "B");
+        assert_eq!(pats[2].ce, CeKind::Exists);
+        // bindings inside CE patterns are rejected (D-031)
+        assert!(parse_rules("rule R when A() not B($x : n) then end").is_err());
+        assert!(parse_rules("rule R when A() exists $b : B() then end").is_err());
+    }
+
+    #[test]
     fn rejects_out_of_subset() {
-        assert!(parse_rules("rule R when not Person() then end").is_err());
         assert!(parse_rules("rule R when accumulate(Person(), $n: count()) then end").is_err());
         // in-lists, matches and contains take literals only (D-030 wall)
         assert!(parse_rules("rule R when P(n in ($a, 2)) then end").is_err());

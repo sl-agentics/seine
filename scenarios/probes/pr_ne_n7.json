@@ -1,0 +1,15 @@
+{
+  "name": "ne_n7",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "T", "fields": [{"name": "t", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 1}},
+    {"type": "B", "fields": {"n": 1}},
+    {"type": "B", "fields": {"n": 2}},
+    {"type": "T", "fields": {"t": true}}
+  ],
+  "drl": "rule R when A() not B() then end\nrule S salience 5 when $b : B(n == 1) T() then delete($b); end\nrule S2 salience 3 when $b : B(n == 2) T() then delete($b); end\n"
+}

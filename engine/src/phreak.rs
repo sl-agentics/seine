@@ -160,11 +160,22 @@ impl<T: Clone + PartialEq> Staged<T> {
     }
 }
 
-/// One child tuple of a join (a tuple of length j+1 at node j).
+/// Node behavior kind. Join extends tuples by the matched right fact;
+/// Not/Exists (D-031) propagate the LEFT tuple unchanged, gated on blocker
+/// absence/presence.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Kind {
+    Join,
+    Not,
+    Exists,
+}
+
+/// One child tuple of a node (join: left extended by the right fact;
+/// not/exists: a copy of the left, `right` = None).
 struct Child {
     tuple: Tup,
     left: Tup,
-    right: FactId,
+    right: Option<FactId>,
     dead: bool,
 }
 
@@ -173,7 +184,10 @@ struct Child {
 /// semantics — constraints always evaluate live values, the bucket lookup
 /// uses the stored key).
 pub struct Node {
-    /// (left prefix, stored key). List order is memory order.
+    pub kind: Kind,
+    /// (left prefix, stored key). List order is memory order. For
+    /// not/exists this holds UNBLOCKED lefts only (blocked lefts live on
+    /// their blocker's blocked list — PhreakNot/ExistsNode semantics).
     lefts: Vec<(Tup, Option<Vec<Value>>)>,
     rights: Vec<(FactId, Option<Vec<Value>>)>,
     pub s_left: Staged<Tup>,
@@ -182,6 +196,15 @@ pub struct Node {
     child_ix: HashMap<Tup, usize>,
     by_left: HashMap<Tup, Vec<usize>>,
     by_right: HashMap<FactId, Vec<usize>>,
+    /// Existential blocker state: per-right blocked lefts (index 0 = most
+    /// recently blocked; RightTuple.addBlocked PREPENDS), plus the reverse
+    /// pointer. Empty for join nodes.
+    blocked: HashMap<FactId, Vec<Tup>>,
+    blocker_of: HashMap<Tup, FactId>,
+    /// Existential-reorder capture for staged right updates
+    /// (tempBlocked / tempNextRightTuple).
+    temp_blocked: HashMap<FactId, Vec<Tup>>,
+    temp_next: HashMap<FactId, Option<FactId>>,
     /// Whether this join has an equality join constraint (indexed).
     pub indexed: bool,
     /// True for the first join node (left input fed by the LIA/segment
@@ -210,8 +233,9 @@ impl Node {
         }
     }
 
-    pub fn new(indexed: bool, first: bool) -> Node {
+    pub fn new(indexed: bool, first: bool, kind: Kind) -> Node {
         Node {
+            kind,
             lefts: Vec::new(),
             rights: Vec::new(),
             s_left: Staged::default(),
@@ -220,6 +244,10 @@ impl Node {
             child_ix: HashMap::new(),
             by_left: HashMap::new(),
             by_right: HashMap::new(),
+            blocked: HashMap::new(),
+            blocker_of: HashMap::new(),
+            temp_blocked: HashMap::new(),
+            temp_next: HashMap::new(),
             indexed,
             first,
         }
@@ -252,7 +280,8 @@ impl Node {
         let mut t = l.clone();
         t.push(f);
         let idx = self.children.len();
-        self.children.push(Child { tuple: t.clone(), left: l.clone(), right: f, dead: false });
+        self.children
+            .push(Child { tuple: t.clone(), left: l.clone(), right: Some(f), dead: false });
         self.child_ix.insert(t.clone(), idx);
         let lv = self.by_left.entry(l.clone()).or_default();
         match before_left.and_then(|c| lv.iter().position(|&x| x == c)) {
@@ -265,6 +294,22 @@ impl Node {
             None => rv.push(idx),
         }
         t
+    }
+
+    /// Not/exists child: the LEFT tuple propagates unchanged (CE patterns
+    /// contribute no tuple element, D-031); no right parent.
+    fn create_ce_child(&mut self, l: &Tup) -> Tup {
+        let t = l.clone();
+        let idx = self.children.len();
+        self.children.push(Child { tuple: t.clone(), left: l.clone(), right: None, dead: false });
+        self.child_ix.insert(t.clone(), idx);
+        self.by_left.entry(l.clone()).or_default().push(idx);
+        t
+    }
+
+    /// The single live CE child of a left tuple, if propagated.
+    fn ce_child_of(&self, l: &Tup) -> Option<usize> {
+        self.by_left.get(l).and_then(|v| self.alive_children(v).next())
     }
 
     fn kill_child(&mut self, idx: usize) -> Tup {
@@ -285,7 +330,8 @@ impl Node {
 
     /// reAddRight: move the child to the END of its RIGHT parent's list.
     fn re_add_right(&mut self, idx: usize) {
-        if let Some(v) = self.by_right.get_mut(&self.children[idx].right) {
+        let Some(r) = self.children[idx].right else { return };
+        if let Some(v) = self.by_right.get_mut(&r) {
             if let Some(p) = v.iter().position(|&x| x == idx) {
                 v.remove(p);
                 v.push(idx);
@@ -353,6 +399,10 @@ pub trait JoinEnv {
     fn key_of_left(&self, node: usize, l: &Tup) -> Option<Vec<Value>>;
     /// Index key of the RIGHT side (fact field values), live.
     fn key_of_right(&self, node: usize, f: FactId) -> Option<Vec<Value>>;
+    /// isLeftUpdateOptimizationAllowed for this node's beta constraints:
+    /// a still-allowed blocker survives a left update iff there is <=1
+    /// beta constraint or every one is an equality (D-031).
+    fn left_update_optimization(&self, node: usize) -> bool;
 }
 
 fn sr_ins_iter<T>(v: &[T]) -> Box<dyn Iterator<Item = &T> + '_> {
@@ -363,9 +413,24 @@ fn sr_ins_iter<T>(v: &[T]) -> Box<dyn Iterator<Item = &T> + '_> {
     }
 }
 
-/// Run one join node's doNode phases. `trg` receives the child deltas for
-/// the next node (or the terminal).
+/// Run one node's doNode phases. `trg` receives the child deltas for the
+/// next node (or the terminal). Dispatches on the node kind.
 pub fn do_node<E: JoinEnv>(
+    env: &E,
+    node_idx: usize,
+    node: &mut Node,
+    sl: Staged<Tup>,
+    sr: Staged<FactId>,
+    trg: &mut Staged<Tup>,
+) {
+    match node.kind {
+        Kind::Join => do_join_node(env, node_idx, node, sl, sr, trg),
+        Kind::Not | Kind::Exists => do_existential_node(env, node_idx, node, sl, sr, trg),
+    }
+}
+
+/// PhreakJoinNode.doNode phase order.
+fn do_join_node<E: JoinEnv>(
     env: &E,
     node_idx: usize,
     node: &mut Node,
@@ -536,7 +601,7 @@ pub fn do_node<E: JoinEnv>(
                     if node.children[c].dead {
                         continue;
                     }
-                    let rp = node.children[c].right;
+                    let rp = node.children[c].right.expect("join child has a right parent");
                     let rp_key =
                         node.rights.iter().find(|(x, _)| *x == rp).and_then(|(_, k)| k.clone());
                     let same = match (&rp_key, &lkey) {
@@ -569,7 +634,7 @@ pub fn do_node<E: JoinEnv>(
                 let cur = alive.get(ci).copied();
                 if env.allowed(node_idx, l, *f) {
                     match cur {
-                        Some(c) if node.children[c].right == *f => {
+                        Some(c) if node.children[c].right == Some(*f) => {
                             trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
                             node.re_add_right(c);
                             ci += 1;
@@ -580,7 +645,7 @@ pub fn do_node<E: JoinEnv>(
                         }
                     }
                 } else if let Some(c) = cur {
-                    if node.children[c].right == *f {
+                    if node.children[c].right == Some(*f) {
                         let t = node.kill_child(c);
                         trg.add_del(t, *o);
                         ci += 1;
@@ -620,6 +685,499 @@ pub fn do_node<E: JoinEnv>(
             let alive: Vec<&Tup> =
                 ids.iter().filter(|&&i| !node.children[i].dead).map(|&i| &node.children[i].tuple).collect();
             eprintln!("  post by_right[{f:?}] alive={alive:?}");
+        }
+    }
+}
+
+/// PhreakNotNode / PhreakExistsNode doNode — behavioral port (D-031).
+///
+/// Blocker model: every left tuple has at most one blocker (the first
+/// matching right in bucket order); blocked lefts leave the left memory
+/// and live on the blocker's blocked list (PREPEND). `not` propagates a
+/// child while UNBLOCKED, `exists` while BLOCKED.
+///
+/// Phase order (both kinds): leftDel, existential-reorder-left,
+/// existential-reorder-right, rightIns, rightUpd, rightDel, leftUpd,
+/// leftIns. Staged-UPDATE lefts are skipped by every right-side walk
+/// ("children cannot be processed twice") and re-attached to the walked
+/// right's blocked list.
+fn do_existential_node<E: JoinEnv>(
+    env: &E,
+    node_idx: usize,
+    node: &mut Node,
+    sl: Staged<Tup>,
+    sr: Staged<FactId>,
+    trg: &mut Staged<Tup>,
+) {
+    let is_not = node.kind == Kind::Not;
+    let trace = std::env::var("SEINE_TRACE").is_ok();
+    if trace {
+        eprintln!(
+            "do_exist[{node_idx}:{:?}] sl(ins={:?} upd={:?} del={:?}) sr(ins={:?} upd={:?} del={:?})",
+            node.kind, sl.ins, sl.upd, sl.del, sr.ins, sr.upd, sr.del
+        );
+    }
+
+    // --- left deletes (BEFORE right processing — Not/Exists phase order) ---
+    for (l, o, _) in &sl.del {
+        if let Some(b) = node.blocker_of.remove(l) {
+            if let Some(list) = node.blocked.get_mut(&b) {
+                list.retain(|x| x != l);
+            }
+            if !is_not {
+                if let Some(c) = node.ce_child_of(l) {
+                    let t = node.kill_child(c);
+                    trg.add_del(t, *o);
+                }
+            }
+        } else {
+            if let Some(i) = node.lefts.iter().position(|(x, _)| x == l) {
+                node.lefts.remove(i);
+            }
+            if is_not {
+                if let Some(c) = node.ce_child_of(l) {
+                    let t = node.kill_child(c);
+                    trg.add_del(t, *o);
+                }
+            }
+        }
+    }
+
+    // --- existential reorder LEFT memory: remove all staged-upd lefts,
+    // re-add the unblocked ones at the END (re-keyed); a blocked left
+    // whose blocker is itself staged is detached to force a fresh search
+    // in the left-update phase ---
+    for (l, _, _) in &sl.upd {
+        if let Some(i) = node.lefts.iter().position(|(x, _)| x == l) {
+            node.lefts.remove(i);
+        }
+    }
+    for (l, _, _) in &sl.upd {
+        match node.blocker_of.get(l).copied() {
+            None => {
+                node.lefts.push((l.clone(), env.key_of_left(node_idx, l)));
+            }
+            Some(b) => {
+                let b_staged = sr.upd.iter().any(|(x, _, _)| *x == b)
+                    || sr.del.iter().any(|(x, _, _)| *x == b);
+                if b_staged {
+                    node.blocker_of.remove(l);
+                    if let Some(list) = node.blocked.get_mut(&b) {
+                        list.retain(|x| x != l);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- existential reorder RIGHT memory (only when updates staged):
+    // indexed memories temporarily remove staged deletes so a not-yet-
+    // moved delete cannot split a bucket; each staged update captures its
+    // blocked list (tempBlocked) and resume point (tempNextRightTuple =
+    // next non-staged neighbor in its OLD bucket forward, else backward),
+    // then re-keys to the END ---
+    if !sr.upd.is_empty() {
+        let staged_right_any = |f: FactId| {
+            sr.del.iter().any(|(x, _, _)| *x == f) || sr.upd.iter().any(|(x, _, _)| *x == f)
+        };
+        let mut del_saved: Vec<(FactId, Option<Vec<Value>>)> = Vec::new();
+        if node.indexed {
+            for (f, _, _) in &sr.del {
+                if let Some(i) = node.rights.iter().position(|(x, _)| x == f) {
+                    del_saved.push(node.rights.remove(i));
+                }
+            }
+        }
+        let mut readd: Vec<FactId> = Vec::new();
+        for (f, _, _) in &sr.upd {
+            let Some(i) = node.rights.iter().position(|(x, _)| x == f) else { continue };
+            let f_key = node.rights[i].1.clone();
+            let in_bucket = |k: &Option<Vec<Value>>| {
+                !node.indexed
+                    || match (k, &f_key) {
+                        (Some(a), Some(b)) => Node::keys_match(a, b),
+                        _ => false,
+                    }
+            };
+            if node.blocked.get(f).map(|v| !v.is_empty()).unwrap_or(false) {
+                let mut tnext: Option<FactId> = None;
+                for (g, k) in node.rights[i + 1..].iter() {
+                    if in_bucket(k) && !staged_right_any(*g) {
+                        tnext = Some(*g);
+                        break;
+                    }
+                }
+                if tnext.is_none() {
+                    for (g, k) in node.rights[..i].iter().rev() {
+                        if in_bucket(k) && !staged_right_any(*g) {
+                            tnext = Some(*g);
+                            break;
+                        }
+                    }
+                }
+                node.temp_next.insert(*f, tnext);
+                let bl = node.blocked.remove(f).unwrap_or_default();
+                for l in &bl {
+                    node.blocker_of.remove(l);
+                }
+                node.temp_blocked.insert(*f, bl);
+            }
+            node.rights.remove(i);
+            readd.push(*f);
+        }
+        for f in readd {
+            node.rights.push((f, env.key_of_right(node_idx, f)));
+        }
+        for e in del_saved {
+            node.rights.push(e);
+        }
+    }
+
+    let staged_left_upd = |l: &Tup| sl.upd.iter().any(|(x, _, _)| x == l);
+
+    // --- right inserts: add to memory, then block matching UNBLOCKED
+    // lefts (bucket walk, staged-upd lefts skipped). not: kill the child;
+    // exists: propagate one ---
+    for (f, o, _) in sr_ins_iter(&sr.ins) {
+        let rkey = env.key_of_right(node_idx, *f);
+        node.rights.push((*f, rkey.clone()));
+        if !node.lefts.is_empty() {
+            for l in node.lefts_bucket(rkey.as_ref()) {
+                if staged_left_upd(&l) {
+                    continue;
+                }
+                if env.allowed(node_idx, &l, *f) {
+                    node.blocker_of.insert(l.clone(), *f);
+                    node.blocked.entry(*f).or_default().insert(0, l.clone());
+                    if let Some(i) = node.lefts.iter().position(|(x, _)| x == &l) {
+                        node.lefts.remove(i);
+                    }
+                    if is_not {
+                        if let Some(c) = node.ce_child_of(&l) {
+                            let t = node.kill_child(c);
+                            trg.add_del(t, *o);
+                        }
+                    } else {
+                        let t = node.create_ce_child(&l);
+                        trg.add_ins_ph(t, *o, 1);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- right updates: (1) block matching unblocked lefts like an
+    // insert; (2) walk the tempBlocked lefts, re-searching from the
+    // captured resume point (a missing resume point flips a loop-wide
+    // from-start flag that PERSISTS for later staged updates) ---
+    let mut iterate_from_start = false; // equality-indexed / plain lists
+    for (f, o, _) in &sr.upd {
+        let fkey = node.rights.iter().find(|(x, _)| x == f).and_then(|(_, k)| k.clone());
+        if !node.lefts.is_empty() {
+            for l in node.lefts_bucket(fkey.as_ref()) {
+                if staged_left_upd(&l) {
+                    continue;
+                }
+                if env.allowed(node_idx, &l, *f) {
+                    node.blocker_of.insert(l.clone(), *f);
+                    node.blocked.entry(*f).or_default().insert(0, l.clone());
+                    if let Some(i) = node.lefts.iter().position(|(x, _)| x == &l) {
+                        node.lefts.remove(i);
+                    }
+                    if is_not {
+                        if let Some(c) = node.ce_child_of(&l) {
+                            let t = node.kill_child(c);
+                            trg.add_del(t, *o);
+                        }
+                    } else {
+                        let t = node.create_ce_child(&l);
+                        trg.add_ins_ph(t, *o, 2);
+                    }
+                }
+            }
+        }
+        let temp = node.temp_blocked.remove(f).unwrap_or_default();
+        if temp.is_empty() {
+            continue;
+        }
+        let root = node.temp_next.remove(f).flatten();
+        if root.is_none() {
+            iterate_from_start = true;
+        }
+        for l in temp {
+            if staged_left_upd(&l) {
+                // re-attach so the left-update phase starts from a
+                // consistent blocked state
+                node.blocker_of.insert(l.clone(), *f);
+                node.blocked.entry(*f).or_default().insert(0, l.clone());
+                continue;
+            }
+            let start = if iterate_from_start { None } else { root };
+            let nb = node.find_blocker(env, node_idx, &l, start, &sr);
+            match nb {
+                Some(b) => {
+                    node.blocker_of.insert(l.clone(), b);
+                    node.blocked.entry(b).or_default().insert(0, l.clone());
+                }
+                None => {
+                    node.lefts.push((l.clone(), env.key_of_left(node_idx, &l)));
+                    if is_not {
+                        let t = node.create_ce_child(&l);
+                        trg.add_ins_ph(t, *o, 2);
+                    } else if let Some(c) = node.ce_child_of(&l) {
+                        let t = node.kill_child(c);
+                        trg.add_del(t, *o);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- right deletes: remove from memory; each blocked left re-searches
+    // from its bucket start (rights still staged for deletion are
+    // ineligible). not: newly-unblocked lefts propagate; exists: their
+    // child dies ---
+    for (f, o, _) in &sr.del {
+        if let Some(i) = node.rights.iter().position(|(x, _)| x == f) {
+            node.rights.remove(i);
+        }
+        let bl = node.blocked.remove(f).unwrap_or_default();
+        for l in bl {
+            node.blocker_of.remove(&l);
+            if staged_left_upd(&l) {
+                continue; // handled by the left-update phase
+            }
+            let nb = node.find_blocker(env, node_idx, &l, None, &sr);
+            match nb {
+                Some(b) => {
+                    node.blocker_of.insert(l.clone(), b);
+                    node.blocked.entry(b).or_default().insert(0, l.clone());
+                }
+                None => {
+                    node.lefts.push((l.clone(), env.key_of_left(node_idx, &l)));
+                    if is_not {
+                        let t = node.create_ce_child(&l);
+                        trg.add_ins_ph(t, *o, 2);
+                    } else if let Some(c) = node.ce_child_of(&l) {
+                        let t = node.kill_child(c);
+                        trg.add_del(t, *o);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- left updates: keep a still-allowed blocker when every beta
+    // constraint is equality-indexable (isLeftUpdateOptimizationAllowed),
+    // else drop and re-search from the bucket start; propagate the state
+    // transition ---
+    let left_opt = env.left_update_optimization(node_idx);
+    for (l, o, _) in &sl.upd {
+        let lkey = env.key_of_left(node_idx, l);
+        let mut blocker = node.blocker_of.get(l).copied();
+        // memory can hold it (re-added by the reorder) — remove; it is
+        // re-added on the propagation paths to keep iteration order
+        if blocker.is_none() {
+            if let Some(i) = node.lefts.iter().position(|(x, _)| x == l) {
+                node.lefts.remove(i);
+            }
+        } else if node.indexed {
+            // bucket-change check against the blocker's stored key
+            let b = blocker.unwrap();
+            let bkey = node.rights.iter().find(|(x, _)| *x == b).and_then(|(_, k)| k.clone());
+            let same = match (&bkey, &lkey) {
+                (Some(bk), Some(lk)) => Node::keys_match(bk, lk),
+                _ => false,
+            };
+            if !same {
+                node.detach_blocked(l, b);
+                blocker = None;
+            }
+        }
+        if !left_opt {
+            if let Some(b) = blocker {
+                node.detach_blocked(l, b);
+                blocker = None;
+            }
+        }
+        let still_allowed = blocker.map(|b| env.allowed(node_idx, l, b)).unwrap_or(false);
+        if !still_allowed {
+            if let Some(b) = blocker {
+                node.detach_blocked(l, b);
+            }
+            // re-search from the beginning (it's a modify)
+            let nb = node.find_blocker_plain(env, node_idx, l, lkey.as_ref());
+            if let Some(b) = nb {
+                node.blocker_of.insert(l.clone(), b);
+                node.blocked.entry(b).or_default().insert(0, l.clone());
+            }
+        }
+        let blocked_now = node.blocker_of.contains_key(l);
+        let child = node.ce_child_of(l);
+        if is_not {
+            if blocked_now {
+                if let Some(c) = child {
+                    let t = node.kill_child(c);
+                    trg.add_del(t, *o);
+                }
+            } else if child.is_none() {
+                node.lefts.push((l.clone(), lkey.clone()));
+                let t = node.create_ce_child(l);
+                trg.add_ins_ph(t, *o, 2);
+            } else {
+                let c = child.unwrap();
+                trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
+                node.lefts.push((l.clone(), lkey.clone()));
+            }
+        } else {
+            if !blocked_now {
+                node.lefts.push((l.clone(), lkey.clone()));
+                if let Some(c) = child {
+                    let t = node.kill_child(c);
+                    trg.add_del(t, *o);
+                }
+            } else if child.is_none() {
+                let t = node.create_ce_child(l);
+                trg.add_ins_ph(t, *o, 2);
+            } else {
+                let c = child.unwrap();
+                trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
+            }
+        }
+    }
+
+    // --- left inserts: find the first matching blocker in bucket order;
+    // not propagates when none, exists when one is found ---
+    for (l, o, _) in &sl.ins {
+        let lkey = env.key_of_left(node_idx, l);
+        let nb = node.find_blocker_plain(env, node_idx, l, lkey.as_ref());
+        match nb {
+            Some(b) => {
+                node.blocker_of.insert(l.clone(), b);
+                node.blocked.entry(b).or_default().insert(0, l.clone());
+                if !is_not {
+                    let t = node.create_ce_child(l);
+                    trg.add_ins(t, *o);
+                }
+            }
+            None => {
+                node.lefts.push((l.clone(), lkey));
+                if is_not {
+                    let t = node.create_ce_child(l);
+                    trg.add_ins(t, *o);
+                }
+            }
+        }
+    }
+
+    if trace {
+        eprintln!("  trg ins={:?} upd={:?} del={:?}", trg.ins, trg.upd, trg.del);
+        eprintln!(
+            "  rights={:?} lefts={:?} blocked={:?}",
+            node.rights, node.lefts, node.blocked
+        );
+    }
+}
+
+impl Node {
+    fn detach_blocked(&mut self, l: &Tup, b: FactId) {
+        self.blocker_of.remove(l);
+        if let Some(list) = self.blocked.get_mut(&b) {
+            list.retain(|x| x != l);
+        }
+    }
+
+    /// Blocker search from the bucket start (left inserts, left updates,
+    /// right-delete rebinds use the staged-delete guard via `sr`).
+    fn find_blocker_plain<E: JoinEnv>(
+        &self,
+        env: &E,
+        node_idx: usize,
+        l: &Tup,
+        lkey: Option<&Vec<Value>>,
+    ) -> Option<FactId> {
+        self.rights_bucket(lkey)
+            .into_iter()
+            .find(|f| env.allowed(node_idx, l, *f))
+    }
+
+    /// Blocker search for existential right-update/right-delete walks:
+    /// starts at `start` (a right fact in the left's bucket) or the bucket
+    /// start, skipping rights staged for deletion.
+    fn find_blocker<E: JoinEnv>(
+        &self,
+        env: &E,
+        node_idx: usize,
+        l: &Tup,
+        start: Option<FactId>,
+        sr: &Staged<FactId>,
+    ) -> Option<FactId> {
+        let lkey = env.key_of_left(node_idx, l);
+        let bucket = self.rights_bucket(lkey.as_ref());
+        let begin = match start {
+            Some(s) => bucket.iter().position(|f| *f == s).unwrap_or(0),
+            None => 0,
+        };
+        bucket[begin..]
+            .iter()
+            .copied()
+            .find(|f| {
+                !sr.del.iter().any(|(x, _, _)| x == f) && env.allowed(node_idx, l, *f)
+            })
+    }
+
+    /// NotNode property-MISS reAdd (BetaNode.modifyObject with a
+    /// non-intersecting mask -> NotNode.reorderRightTuple): the right
+    /// tuple re-keys to the END of memory, its blocked lefts re-search
+    /// from the captured resume point, and — faithfully to the null-sink
+    /// call — lefts that find NO new blocker are NOT propagated and NOT
+    /// returned to the left memory (D-031).
+    pub fn not_mask_miss_re_add<E: JoinEnv>(&mut self, env: &E, node_idx: usize, f: FactId) {
+        let Some(i) = self.rights.iter().position(|(x, _)| x == &f) else { return };
+        let f_key = self.rights[i].1.clone();
+        let in_bucket = |k: &Option<Vec<Value>>| {
+            !self.indexed
+                || match (k, &f_key) {
+                    (Some(a), Some(b)) => Node::keys_match(a, b),
+                    _ => false,
+                }
+        };
+        let mut tnext: Option<FactId> = None;
+        let has_blocked = self.blocked.get(&f).map(|v| !v.is_empty()).unwrap_or(false);
+        if has_blocked {
+            for (g, k) in self.rights[i + 1..].iter() {
+                if in_bucket(k) {
+                    tnext = Some(*g);
+                    break;
+                }
+            }
+            if tnext.is_none() {
+                for (g, k) in self.rights[..i].iter().rev() {
+                    if in_bucket(k) {
+                        tnext = Some(*g);
+                        break;
+                    }
+                }
+            }
+        }
+        self.rights.remove(i);
+        self.rights.push((f, env.key_of_right(node_idx, f)));
+        if !has_blocked {
+            return;
+        }
+        let bl = self.blocked.remove(&f).unwrap_or_default();
+        for l in &bl {
+            self.blocker_of.remove(l);
+        }
+        let empty_sr: Staged<FactId> = Staged::default();
+        for l in bl {
+            let start = tnext; // None -> from-start
+            let nb = self.find_blocker(env, node_idx, &l, start, &empty_sr);
+            if let Some(b) = nb {
+                self.blocker_of.insert(l.clone(), b);
+                self.blocked.entry(b).or_default().insert(0, l.clone());
+            }
+            // no new blocker: null sink/ltm — the left stays detached
         }
     }
 }

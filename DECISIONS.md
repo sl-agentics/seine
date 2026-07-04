@@ -410,6 +410,57 @@ scenarios/probes/pr_op_*.json:
   cannot arise. Everything else (`{n,m}`, `\d`, anchors, `$`-vars) is a
   parse error = subset wall.
 
+### D-031: not/exists CE semantics PINNED (probe ladder ne_n*/ne_e*/ne_f*/ne_l*)
+Oracle-verified on Drools 9.44.0.Final; drools-core sources re-fetched for
+READING (behavior reference only — no code copied). Pins:
+- **Match rendering:** not/exists CEs contribute NO element to the firing's
+  match list (ne_n1/ne_e1); a rule whose FIRST pattern is a CE matches on
+  Drools' InitialFactImpl, which appears in the match objects (ne_f1) but
+  never in the final fact set. The oracle canonicalizes it as
+  `{"type":"InitialFact","fields":{}}` (raw toString carries an identity
+  hash — nondeterministic); the engine mirrors with a synthetic reserved
+  InitialFact fact inserted before scenario facts when needed.
+- **Blocker model** (from sources, behavior confirmed by probes): each left
+  tuple holds <=1 blocker (first matching right in bucket order); blocked
+  lefts leave the left memory; a right's blocked-list PREPENDS. not
+  propagates unblocked lefts, exists propagates blocked ones.
+- **Cancellation/refire:** blocker arrival cancels pending not-activations
+  (ne_n3); losing the last exists-support cancels pending exists ones
+  (ne_e3). Support/blocker HANDOVER (another matching right remains) keeps
+  state without firing or cancelling (ne_n7/ne_n10/ne_e3b/ne_e6). Unblocking
+  REFIRES an already-fired not match (ne_n5); a mass unblock fires in
+  REVERSE left-arrival order (ne_n4: A3,A2,A1).
+- **No refire on in-place updates:** a property-relevant update of the
+  blocking/supporting fact that leaves the block state unchanged does NOT
+  refire the rule (ne_e5: exists refired neither, contrast join j12; not is
+  trivially inert while blocked). Only alpha/bucket TRANSITIONS act (as
+  right ins/del: ne_n8 fires R after the blocker leaves its alpha).
+- **Chains:** CE children pass through later joins as ordinary tuples with
+  the standard D-013 prefix reversal (ne_j1 fired A2C7,A2C8,A1C7,A1C8).
+- **Linking:** not nodes start LINKED; only UNCONSTRAINED (no join
+  constraint) not nodes can unlink — they unlink while rights exist (with
+  a one-evaluation link pulse on the 0->1 right insert so the blocking
+  batch processes) and re-link when the right count returns to 0. exists
+  links like a join (rights nonempty). ne_l1/ne_l2: lefts staged while
+  unlinked accumulate; the re-link batch processes right-delete unblocks
+  BEFORE accumulated left inserts (ne_l2 fired A0 then A1).
+- **doNode phase order (sources):** leftDel, existential-reorder-left,
+  existential-reorder-right (captures tempBlocked + tempNextRightTuple =
+  next non-staged neighbor forward else backward; re-added updates with
+  empty tempNext become their own resume point), rightIns, rightUpd
+  (unblocked-pass then tempBlocked walk; a null tempNext flips a loop-wide
+  iterate-from-start flag that persists for later rights), rightDel
+  (re-search from bucket start, staged-deleted rights ineligible), leftUpd
+  (keep still-allowed blocker iff every beta constraint is
+  equality-indexable or there is <=1 — isLeftUpdateOptimizationAllowed),
+  leftIns. Staged-UPDATE lefts are skipped by every right-side walk
+  ("children cannot be processed twice") and re-attached to the current
+  right's blocked list when met in a tempBlocked walk.
+- Subset walls: bindings ($x : f or fact binds) inside not/exists patterns
+  are rejected (Drools scopes them out anyway); bare `not T(...)` /
+  `exists T(...)` forms only (no parenthesized CE groups, no nesting); the
+  type name InitialFact is reserved.
+
 ### D-028: PHREAK port LANDED — corpus 145/145, all xfails closed, wall lifted
 The faithful port (branch `phreak-port`) replaced the fitted merge engine.
 `engine/src/phreak.rs` implements the node algorithm; `engine.rs` keeps

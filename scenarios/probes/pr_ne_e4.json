@@ -1,0 +1,13 @@
+{
+  "name": "ne_e4",
+  "types": [
+    {"name": "A", "fields": [{"name": "x", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "y", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"x": 1}},
+    {"type": "A", "fields": {"x": 2}},
+    {"type": "B", "fields": {"y": 2}}
+  ],
+  "drl": "rule R when $a : A($x : x) exists B(y == $x) then end\nrule R2 when $a : A($x : x) exists B(y >= $x) then end\n"
+}

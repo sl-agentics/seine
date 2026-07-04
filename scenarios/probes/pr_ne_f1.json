@@ -1,0 +1,11 @@
+{
+  "name": "ne_f1",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "n", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 1}}
+  ],
+  "drl": "rule R when not B() then end\nrule R2 when exists A() then end\nrule R3 when not B() A() then end\n"
+}

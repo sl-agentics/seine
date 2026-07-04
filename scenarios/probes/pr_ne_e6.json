@@ -1,0 +1,13 @@
+{
+  "name": "ne_e6",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "v", "type": "i64"}, {"name": "g", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 1}},
+    {"type": "B", "fields": {"v": 1, "g": false}},
+    {"type": "B", "fields": {"v": 2, "g": true}}
+  ],
+  "drl": "rule R salience 20 when A() exists B(v > 0) then end\nrule U salience 10 when $b : B(g == false) then modify($b) { setV(-5), setG(true) } end\n"
+}

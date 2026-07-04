@@ -123,6 +123,103 @@ fn lit_drl(rng: &mut Rng, ft: Ft, only_true_bools: bool) -> String {
     }
 }
 
+/// One alpha (literal-only) constraint on `fname` of type `ft`, over the
+/// Phase 1-3 operator grammar: the six cmpops, and per D-030 `matches` /
+/// `contains` (String fields), `in` / `not in` (all field types;
+/// cross-type numeric items exercise the promote-only pin of op_i3).
+fn gen_alpha_constraint(rng: &mut Rng, fname: &str, ft: Ft) -> String {
+    match ft {
+        Ft::Str => match rng.below(10) {
+            0..=3 => {
+                let op = *rng.pick(OPS_ORD);
+                let lit = lit_drl(rng, Ft::Str, false);
+                format!("{fname} {op} {lit}")
+            }
+            4..=5 => format!("{fname} matches \"{}\"", gen_regex(rng)),
+            6..=7 => format!("{fname} contains \"{}\"", gen_needle(rng)),
+            _ => format!("{fname}{}", gen_in_list(rng, Ft::Str)),
+        },
+        Ft::I64 | Ft::F64 => {
+            if rng.chance(25) {
+                format!("{fname}{}", gen_in_list(rng, ft))
+            } else {
+                let op = *rng.pick(OPS_ORD);
+                let lit_ft = match ft {
+                    Ft::I64 if rng.chance(20) => Ft::F64,
+                    Ft::F64 if rng.chance(20) => Ft::I64,
+                    other => other,
+                };
+                let lit = lit_drl(rng, lit_ft, false);
+                format!("{fname} {op} {lit}")
+            }
+        }
+        Ft::Bool => {
+            if rng.chance(10) {
+                format!("{fname}{}", gen_in_list(rng, Ft::Bool))
+            } else {
+                let op = *rng.pick(OPS_EQ);
+                let lit = lit_drl(rng, Ft::Bool, false);
+                format!("{fname} {op} {lit}")
+            }
+        }
+    }
+}
+
+/// ` in (a, b)` / ` not in (a, b)` suffix. Numeric lists mix i64/f64
+/// literals (promote-only semantics pinned by op_i3/op_i4).
+fn gen_in_list(rng: &mut Rng, ft: Ft) -> String {
+    let neg = if rng.chance(35) { " not" } else { "" };
+    let n = 1 + rng.below(3);
+    let items: Vec<String> = (0..n)
+        .map(|_| {
+            let lit_ft = match ft {
+                Ft::I64 if rng.chance(20) => Ft::F64,
+                Ft::F64 if rng.chance(20) => Ft::I64,
+                other => other,
+            };
+            lit_drl(rng, lit_ft, false)
+        })
+        .collect();
+    format!("{neg} in ({})", items.join(", "))
+}
+
+fn gen_needle(rng: &mut Rng) -> String {
+    (*rng.pick(&["a", "b", "ab", "z", "zz", "alpha", "", "l", "ph", "et"])).to_string()
+}
+
+/// Tame regex over the corpus alphabet (subset of both java.util.regex and
+/// engine/src/rx.rs): literals, `.`, simple classes, groups, `|`, `* + ?`.
+fn gen_regex(rng: &mut Rng) -> String {
+    if rng.chance(4) {
+        return String::new(); // `matches ""` (op_m5)
+    }
+    let n = 1 + rng.below(3);
+    let mut s = String::new();
+    for _ in 0..n {
+        s.push_str(&gen_regex_piece(rng));
+    }
+    s
+}
+
+fn gen_regex_piece(rng: &mut Rng) -> String {
+    let atom = match rng.below(8) {
+        0 => ".".to_string(),
+        1 => (*rng.pick(&["[ab]", "[a-z]", "[^b]", "[al]", "[b-t]"])).to_string(),
+        2 => format!(
+            "({}|{})",
+            rng.pick(&["a", "b", "zz", "al", "et", ""]),
+            rng.pick(&["a", "b", "z", "ph", "be"])
+        ),
+        _ => (*rng.pick(&["a", "b", "z", "l", "e", "t", "al", "zz", "ab", "ha", "p"])).to_string(),
+    };
+    match rng.below(6) {
+        0 => format!("{atom}*"),
+        1 => format!("{atom}+"),
+        2 => format!("{atom}?"),
+        _ => atom,
+    }
+}
+
 fn accessor(name: &str, ft: Ft, prefix: &str) -> String {
     let mut cs = name.chars();
     let head = cs.next().unwrap().to_ascii_uppercase();
@@ -216,17 +313,8 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     let fs = &types[pats[pi].ti].fields;
                     fs[rng.below(fs.len())].clone()
                 };
-                let op = match ft {
-                    Ft::Bool => *rng.pick(OPS_EQ),
-                    _ => *rng.pick(OPS_ORD),
-                };
-                let lit_ft = match ft {
-                    Ft::I64 if rng.chance(20) => Ft::F64,
-                    Ft::F64 if rng.chance(20) => Ft::I64,
-                    other => other,
-                };
-                let lit = lit_drl(&mut rng, lit_ft, false);
-                pats[pi].constraints.push(format!("{fname} {op} {lit}"));
+                let c = gen_alpha_constraint(&mut rng, &fname, ft);
+                pats[pi].constraints.push(c);
             }
             // Join constraint against an earlier binding.
             if pi > 0 && rng.chance(55) {

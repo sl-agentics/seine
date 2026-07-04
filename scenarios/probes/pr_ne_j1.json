@@ -1,0 +1,15 @@
+{
+  "name": "ne_j1",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 1}},
+    {"type": "A", "fields": {"n": 2}},
+    {"type": "C", "fields": {"m": 7}},
+    {"type": "C", "fields": {"m": 8}}
+  ],
+  "drl": "rule R when $a : A() not B() $c : C() then end\nrule R2 when $a : A($x : n) exists B() $c : C(m > $x) then end\n"
+}

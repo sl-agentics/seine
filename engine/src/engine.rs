@@ -18,8 +18,14 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::drl::{self, Action, CmpOp, CmpRhs, Constraint, Literal, RhsArg, RuleDef};
+use crate::drl::{self, Action, CeKind, CmpOp, CmpRhs, Constraint, Literal, RhsArg, RuleDef};
 use crate::store::{FactId, FactStore, FactView, FieldType, TypeId, TypeSchema, Value};
+
+/// Reserved type name backing first-position not/exists CEs (D-031):
+/// Drools matches those rules on InitialFactImpl. The engine keeps one
+/// synthetic fact of this hidden zero-field type; it renders in match
+/// lists but never in the final fact set.
+pub(crate) const INITIAL_FACT: &str = "InitialFact";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EngineError(pub String);
@@ -78,6 +84,13 @@ struct CompiledPattern {
     /// Bit i set = this pattern's constraints reference field i (listen mask
     /// for property reactivity, D-013).
     listen_mask: u64,
+    ce: CeKind,
+    /// This pattern's index into rule tuples (None for not/exists — CE
+    /// patterns contribute no tuple element, D-031).
+    tpos: Option<usize>,
+    /// Whether any constraint references an earlier pattern's binding
+    /// (beta constraint) — drives not-node linking (D-031).
+    beta: bool,
 }
 
 enum CompiledAction {
@@ -110,6 +123,11 @@ struct RuleNet {
     /// (fz_42_1464); an unqueued rule accumulates staged input
     /// (fz_42_124, fz_7_145).
     queued: bool,
+    /// Per-position transient link pulse for UNCONSTRAINED not nodes: the
+    /// first right insert force-links the node so its blocking batch
+    /// evaluates, after which it unlinks again (D-031,
+    /// unlinkNotNodeOnRightInsert). Cleared when the rule evaluates.
+    pulse: Vec<bool>,
 }
 
 pub struct Engine {
@@ -120,25 +138,34 @@ pub struct Engine {
     /// Per-rule join networks (phreak behavioral port).
     nets: Vec<RuleNet>,
     lists_built: bool,
+    /// The synthetic InitialFact (inserted before scenario facts once a
+    /// CE-first rule compiles — Drools asserts it at session init).
+    init_fact: Option<FactId>,
 }
 
 impl Engine {
-    pub fn new(schemas: Vec<TypeSchema>) -> Result<Engine, EngineError> {
+    pub fn new(mut schemas: Vec<TypeSchema>) -> Result<Engine, EngineError> {
         let mut seen = HashSet::new();
         for s in &schemas {
             if !seen.insert(s.name.clone()) {
                 return Err(EngineError(format!("duplicate type {}", s.name)));
             }
+            if s.name == INITIAL_FACT {
+                return Err(EngineError(format!("type name {INITIAL_FACT} is reserved")));
+            }
             if s.fields.len() > 64 {
                 return Err(EngineError(format!("type {}: more than 64 fields", s.name)));
             }
         }
+        // Hidden zero-field type backing first-position CEs (D-031).
+        schemas.push(TypeSchema { name: INITIAL_FACT.into(), fields: Vec::new() });
         Ok(Engine {
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_order: Vec::new(),
             nets: Vec::new(),
             lists_built: false,
+            init_fact: None,
         })
     }
 
@@ -151,6 +178,17 @@ impl Engine {
         self.rule_order
             .sort_by_key(|&ri| (-self.rules[ri].def.salience, ri));
         self.share_and_hash_alphas();
+        // CE-first rules match on InitialFact: assert the synthetic fact
+        // ahead of scenario facts, as Drools does at session init.
+        let init_tid = self.store.type_id(INITIAL_FACT).unwrap();
+        if self.init_fact.is_none()
+            && self
+                .rules
+                .iter()
+                .any(|r| r.patterns.iter().any(|p| p.type_id == init_tid))
+        {
+            self.init_fact = Some(self.store.insert(init_tid, Vec::new()).map_err(EngineError)?);
+        }
         Ok(())
     }
 
@@ -241,19 +279,50 @@ impl Engine {
         if def.patterns.is_empty() {
             return Err(err("empty LHS not in subset".into()));
         }
-        // Bindings visible so far: fact bindings ($p -> position) and field
-        // bindings ($a -> (position, field, type)), declaration order.
+        // Bindings visible so far: fact bindings ($p -> tuple index) and
+        // field bindings ($a -> (tuple index, field, type)), declaration
+        // order. CE patterns own no tuple slot (D-031).
         let mut fact_binds: HashMap<String, usize> = HashMap::new();
         let mut field_binds: HashMap<String, (usize, usize, FieldType)> = HashMap::new();
         let mut patterns = Vec::new();
+        let mut tuple_len = 0usize;
 
-        for (pi, p) in def.patterns.iter().enumerate() {
+        // A rule whose first pattern is a CE matches on InitialFact
+        // (ne_f1): inject the synthetic positive position 0.
+        if def.patterns[0].ce != CeKind::Positive {
+            let tid = self
+                .store
+                .type_id(INITIAL_FACT)
+                .ok_or_else(|| err("internal: InitialFact type missing".into()))?;
+            patterns.push(CompiledPattern {
+                type_id: tid,
+                cmps: Vec::new(),
+                listen_mask: 0,
+                ce: CeKind::Positive,
+                tpos: Some(0),
+                beta: false,
+            });
+            tuple_len = 1;
+        }
+
+        for p in def.patterns.iter() {
+            if p.type_name == INITIAL_FACT {
+                return Err(err(format!("type name {INITIAL_FACT} is reserved")));
+            }
             let type_id = self
                 .store
                 .type_id(&p.type_name)
                 .ok_or_else(|| err(format!("unknown type {}", p.type_name)))?;
+            let tpos = if p.ce == CeKind::Positive {
+                let t = tuple_len;
+                tuple_len += 1;
+                Some(t)
+            } else {
+                None
+            };
             if let Some(b) = &p.binding {
-                if fact_binds.insert(b.clone(), pi).is_some() {
+                let t = tpos.ok_or_else(|| err("binding on a CE pattern".into()))?;
+                if fact_binds.insert(b.clone(), t).is_some() {
                     return Err(err(format!("duplicate binding {b}")));
                 }
             }
@@ -268,7 +337,8 @@ impl Engine {
                             .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
                         listen_mask |= 1 << fi;
                         let ft = self.store.field_type(type_id, fi);
-                        if field_binds.insert(var.clone(), (pi, fi, ft)).is_some() {
+                        let t = tpos.ok_or_else(|| err("binding in a CE pattern".into()))?;
+                        if field_binds.insert(var.clone(), (t, fi, ft)).is_some() {
                             return Err(err(format!("duplicate binding {var}")));
                         }
                     }
@@ -344,13 +414,19 @@ impl Engine {
                     }
                 }
             }
-            patterns.push(CompiledPattern { type_id, cmps, listen_mask });
+            let beta = cmps
+                .iter()
+                .any(|c| matches!(c.test, Test::Cmp { rhs: Src::Field(..), .. }));
+            patterns.push(CompiledPattern { type_id, cmps, listen_mask, ce: p.ce, tpos, beta });
         }
 
         let mut actions = Vec::new();
         for a in &def.actions {
             match a {
                 Action::Insert { type_name, args } => {
+                    if type_name == INITIAL_FACT {
+                        return Err(err(format!("type name {INITIAL_FACT} is reserved")));
+                    }
                     let tid = self
                         .store
                         .type_id(type_name)
@@ -452,6 +528,9 @@ impl Engine {
         type_name: &str,
         mut fields: Vec<(String, Value)>,
     ) -> Result<FactId, EngineError> {
+        if type_name == INITIAL_FACT {
+            return Err(EngineError(format!("type name {INITIAL_FACT} is reserved")));
+        }
         let tid = self
             .store
             .type_id(type_name)
@@ -485,15 +564,22 @@ impl Engine {
                         s0: Staged::default(),
                         nodes: (1..k)
                             .map(|j| {
-                                let indexed = r.patterns[j].cmps.iter().any(|c| {
-                                    matches!(&c.test, Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(pi, _) } if *pi != j)
+                                let pat = &r.patterns[j];
+                                let indexed = pat.cmps.iter().any(|c| {
+                                    matches!(&c.test, Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(ti, _) } if Some(*ti) != pat.tpos)
                                 });
-                                phreak::Node::new(indexed, j == 1)
+                                let kind = match pat.ce {
+                                    CeKind::Positive => phreak::Kind::Join,
+                                    CeKind::Not => phreak::Kind::Not,
+                                    CeKind::Exists => phreak::Kind::Exists,
+                                };
+                                phreak::Node::new(indexed, j == 1, kind)
                             })
                             .collect(),
                         queue: Vec::new(),
                         active: vec![HashSet::new(); k],
                         queued: false,
+                        pulse: vec![false; k],
                     }
                 })
                 .collect();
@@ -557,6 +643,7 @@ impl Engine {
             for pos in 0..self.rules[ri].patterns.len() {
                 if self.alpha_passes(ri, pos, f) {
                     self.nets[ri].active[pos].insert(f);
+                    self.maybe_pulse(ri, pos);
                     if pos == 0 {
                         self.nets[ri].s0.add_ins(f, origin);
                     } else {
@@ -565,6 +652,20 @@ impl Engine {
                 }
             }
             self.refresh_linked(ri);
+        }
+    }
+
+    /// The first right insert into an UNCONSTRAINED not node force-links
+    /// it for one evaluation so the blocking batch processes, after which
+    /// it unlinks again (D-031, NotNode.assertObject).
+    fn maybe_pulse(&mut self, ri: usize, pos: usize) {
+        let pat = &self.rules[ri].patterns[pos];
+        if pos > 0
+            && pat.ce == CeKind::Not
+            && !pat.beta
+            && self.nets[ri].active[pos].len() == 1
+        {
+            self.nets[ri].pulse[pos] = true;
         }
     }
 
@@ -582,6 +683,7 @@ impl Engine {
                 match (was, now) {
                     (false, true) => {
                         self.nets[ri].active[pos].insert(f);
+                        self.maybe_pulse(ri, pos);
                         if pos == 0 {
                             self.nets[ri].s0.add_ins(f, origin);
                         } else {
@@ -607,11 +709,19 @@ impl Engine {
                             }
                         } else if pos > 0 {
                             // mask miss: immediate right-memory reAdd, no
-                            // staging (fz_42_4359)
+                            // staging (fz_42_4359). Not nodes use the
+                            // existential variant: blocked lefts re-search
+                            // and unmatched ones stay DETACHED (D-031,
+                            // NotNode.reorderRightTuple's null sink).
                             let env =
                                 JoinEnvImpl { store: &self.store, rule: &self.rules[ri] };
-                            let key = phreak::JoinEnv::key_of_right(&env, pos - 1, f);
-                            self.nets[ri].nodes[pos - 1].re_add_right_fact(f, key);
+                            if self.rules[ri].patterns[pos].ce == CeKind::Not {
+                                self.nets[ri].nodes[pos - 1]
+                                    .not_mask_miss_re_add(&env, pos - 1, f);
+                            } else {
+                                let key = phreak::JoinEnv::key_of_right(&env, pos - 1, f);
+                                self.nets[ri].nodes[pos - 1].re_add_right_fact(f, key);
+                            }
                         }
                     }
                     (false, false) => {}
@@ -632,16 +742,36 @@ impl Engine {
                     }
                 }
             }
+            // A delete can LINK a rule: an unconstrained not node re-links
+            // when its right input empties (D-031, NotNode.doDeleteRightTuple).
+            self.refresh_linked(ri);
         }
+    }
+
+    /// Per-position segment-linking requirement (D-031): positive and
+    /// exists positions need alpha data; a constrained not is always
+    /// linked; an unconstrained not is linked while its right input is
+    /// EMPTY (or transiently via the insert pulse).
+    fn pos_linked(&self, ri: usize, pos: usize) -> bool {
+        let pat = &self.rules[ri].patterns[pos];
+        match pat.ce {
+            CeKind::Positive | CeKind::Exists => !self.nets[ri].active[pos].is_empty(),
+            CeKind::Not => {
+                pat.beta
+                    || self.nets[ri].active[pos].is_empty()
+                    || self.nets[ri].pulse[pos]
+            }
+        }
+    }
+
+    fn rule_linked(&self, ri: usize) -> bool {
+        (0..self.rules[ri].patterns.len()).all(|p| self.pos_linked(ri, p))
     }
 
     /// Dirty-notification: (re)queue the rule's agenda item if the rule
     /// is currently linked.
     fn refresh_linked(&mut self, ri: usize) {
-        if !self.nets[ri].queued
-            && self.nets[ri].active.iter().all(|a| !a.is_empty())
-            && self.rule_dirty(ri)
-        {
+        if !self.nets[ri].queued && self.rule_linked(ri) && self.rule_dirty(ri) {
             self.nets[ri].queued = true;
         }
     }
@@ -659,13 +789,19 @@ impl Engine {
         // Segment linking: an unlinked rule still evaluates its network
         // when reached (memories advance, fz_42_1464) unless it was NEVER
         // linked (fz_7_145: staged input accumulates until first link).
-        // The queue is pruned of deactivated facts either way (j05).
-        // The queue is pruned of deactivated facts (j05).
-        if (0..k).any(|p| self.nets[ri].active[p].is_empty()) {
+        // The queue is pruned of deactivated facts (j05); tuples hold
+        // POSITIVE positions only, so map pattern -> tuple index.
+        if !self.rule_linked(ri) {
             let active = self.nets[ri].active.clone();
+            let positives: Vec<(usize, usize)> = self.rules[ri]
+                .patterns
+                .iter()
+                .enumerate()
+                .filter_map(|(pos, p)| p.tpos.map(|t| (pos, t)))
+                .collect();
             self.nets[ri]
                 .queue
-                .retain(|t| !t.iter().enumerate().any(|(p, f)| !active[p].contains(f)));
+                .retain(|t| positives.iter().all(|(pos, ti)| active[*pos].contains(&t[*ti])));
         }
         // Agenda-item gate: only a queued item evaluates (the just-fired
         // rule is force-evaluated, fz_42_5243).
@@ -722,6 +858,11 @@ impl Engine {
             phreak::do_node(&env, j, &mut net.nodes[j], src, sr, &mut trg);
             src = trg;
         }
+        // Consuming the batch spends any not-node link pulses
+        // (unlinkNotNodeOnRightInsert, D-031).
+        for p in net.pulse.iter_mut() {
+            *p = false;
+        }
 
         // Terminal (PhreakRuleTerminalNode + RuleExecutor):
         // deletes, then updates, then inserts. Lazy evaluations append in
@@ -760,7 +901,7 @@ impl Engine {
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
                 Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
-                Test::Cmp { op, rhs: Src::Field(pi, fi) } if *pi == pos => {
+                Test::Cmp { op, rhs: Src::Field(ti, fi) } if Some(*ti) == pat.tpos => {
                     eval_cmp_join(&lhs, *op, &self.store.value(f, *fi))
                 }
                 // join constraint, checked with prefix; SnapField never
@@ -842,9 +983,14 @@ impl Engine {
         }
     }
 
-    /// All live facts, in insertion order, rendered.
+    /// All live facts, in insertion order, rendered. The synthetic
+    /// InitialFact never appears here (matches session.getObjects()).
     pub fn facts(&self) -> Vec<FactView> {
-        self.store.live_facts().map(|f| self.store.render(f)).collect()
+        self.store
+            .live_facts()
+            .filter(|f| Some(*f) != self.init_fact)
+            .map(|f| self.store.render(f))
+            .collect()
     }
 }
 
@@ -918,8 +1064,8 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
                 Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
-                Test::Cmp { op, rhs: Src::Field(pi, fi) } => {
-                    let other = if *pi == pos { f } else { l[*pi] };
+                Test::Cmp { op, rhs: Src::Field(ti, fi) } => {
+                    let other = if Some(*ti) == pat.tpos { f } else { l[*ti] };
                     eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
                 }
                 Test::Cmp { .. } => true,
@@ -933,11 +1079,11 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pat = &self.rule.patterns[pos];
         let mut out = Vec::new();
         for c in &pat.cmps {
-            if let Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(pi, fi) } = &c.test {
-                if *pi != pos {
+            if let Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(ti, fi) } = &c.test {
+                if Some(*ti) != pat.tpos {
                     // stored in the binding's natural type; coercion
                     // happens at probe time (u14 / fz_123_3057)
-                    out.push(self.store.value(l[*pi], *fi));
+                    out.push(self.store.value(l[*ti], *fi));
                 }
             }
         }
@@ -953,8 +1099,8 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pat = &self.rule.patterns[pos];
         let mut out = Vec::new();
         for c in &pat.cmps {
-            if let Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(pi, _) } = &c.test {
-                if *pi != pos {
+            if let Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(ti, _) } = &c.test {
+                if Some(*ti) != pat.tpos {
                     out.push(self.store.value(f, c.field_idx));
                 }
             }
@@ -964,6 +1110,23 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         } else {
             Some(out)
         }
+    }
+
+    /// <=1 beta constraint always allows the optimization (Single/Empty
+    /// BetaConstraints); with more, every one must be an equality (D-031).
+    fn left_update_optimization(&self, node: usize) -> bool {
+        let pat = &self.rule.patterns[node + 1];
+        let betas: Vec<&CompiledCmp> = pat
+            .cmps
+            .iter()
+            .filter(|c| {
+                matches!(&c.test, Test::Cmp { rhs: Src::Field(ti, _), .. } if Some(*ti) != pat.tpos)
+            })
+            .collect();
+        betas.len() <= 1
+            || betas
+                .iter()
+                .all(|c| matches!(&c.test, Test::Cmp { op: CmpOp::Eq, .. }))
     }
 }
 

@@ -1,0 +1,12 @@
+{
+  "name": "ne_n2",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "n", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 1}},
+    {"type": "B", "fields": {"n": 1}}
+  ],
+  "drl": "rule R when A() not B() then end\nrule S when A() not B(n > 3) then end\n"
+}

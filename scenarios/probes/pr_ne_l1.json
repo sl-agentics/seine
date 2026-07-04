@@ -1,0 +1,15 @@
+{
+  "name": "ne_l1",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "T0", "fields": [{"name": "t", "type": "bool"}]},
+    {"name": "T1", "fields": [{"name": "t", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "B", "fields": {"n": 1}},
+    {"type": "T0", "fields": {"t": true}},
+    {"type": "T1", "fields": {"t": true}}
+  ],
+  "drl": "rule R when A() not B() then end\nrule S salience 10 when T0() then insert(new A(1)); end\nrule U salience 5 when $b : B() T1() then delete($b); end\n"
+}

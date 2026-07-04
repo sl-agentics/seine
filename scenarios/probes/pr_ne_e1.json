@@ -1,0 +1,15 @@
+{
+  "name": "ne_e1",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "n", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 1}},
+    {"type": "A", "fields": {"n": 2}},
+    {"type": "B", "fields": {"n": 1}},
+    {"type": "B", "fields": {"n": 2}}
+  ],
+  "drl": "rule R when $a : A() exists B() then end\nrule R2 when A() exists C() then end\n"
+}

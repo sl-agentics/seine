@@ -155,8 +155,15 @@ public final class OracleRunner {
      *  the comparator canonicalizes semantically anyway}} */
     static ObjectNode render(KieBase kbase, KieSession session, Object o) {
         String simpleName = o.getClass().getSimpleName();
-        FactType ft = kbase.getFactType(PKG, simpleName);
         ObjectNode node = M.createObjectNode();
+        // Rules with a leading not/exists CE match on InitialFactImpl;
+        // its toString carries an identity hash, so canonicalize (D-031).
+        if (simpleName.equals("InitialFactImpl")) {
+            node.put("type", "InitialFact");
+            node.putObject("fields");
+            return node;
+        }
+        FactType ft = kbase.getFactType(PKG, simpleName);
         node.put("type", simpleName);
         ObjectNode fields = node.putObject("fields");
         if (System.getenv("SEINE_HANDLES") != null) {
