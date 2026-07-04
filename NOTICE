@@ -1,11 +1,14 @@
 Seine
 Copyright 2026 Bryan McGuire
 
-This product is a clean-room-adjacent reimplementation, in Rust, of the
-observable behavior of a bounded subset of the Drools rule engine's DRL
-forward-chaining semantics. It is developed by differential testing against
-Drools 9.44.0.Final as a behavioral oracle; no Drools source code has been
-copied or transliterated into this project.
+This product is a reimplementation, in Rust, of the observable behavior of
+a bounded subset of the Drools rule engine's DRL forward-chaining
+semantics. It is developed primarily by differential testing against
+Drools 9.44.0.Final as a behavioral oracle. The upstream Drools source
+code (Apache License 2.0) has been consulted for comprehension of internal
+data structures and algorithms; no Drools source code has been copied or
+transliterated into this project, and every implemented behavior is
+validated against the oracle rather than derived from the source text.
 
 Drools is developed by Red Hat, Inc. and the KIE community and is licensed
 under the Apache License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0).

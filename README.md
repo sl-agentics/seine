@@ -73,6 +73,10 @@ semantic documented in `DECISIONS.md`).
 Licensed **Apache-2.0** (see `LICENSE`, `NOTICE`). This is a behavioral
 reimplementation: semantics are captured from the observable behavior of
 Drools 9.44.0.Final via probe scenarios (all kept in-repo as regression
-tests), not by porting Drools source. No Drools source code is copied or
-transliterated here. "Drools" is a Red Hat trademark; this project is not
-affiliated with or endorsed by Red Hat or the KIE project.
+tests). The upstream Drools sources (Apache-2.0) have been consulted to
+understand internal data structures where black-box probing hit its limits
+(see `DECISIONS.md` D-026); no Drools source code is copied or
+transliterated here, and every implemented behavior is pinned by an oracle
+probe or regression scenario, not by the source text. "Drools" is a Red
+Hat trademark; this project is not affiliated with or endorsed by Red Hat
+or the KIE project.
