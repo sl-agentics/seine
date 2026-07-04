@@ -394,6 +394,12 @@ simultaneously-reactivated activations is swapped.
   diff excludes the directory; fuzz reports drawn xfail cases as XFAIL
   (name match) without recording them as failures. The certification
   claim is CLEAN MODULO these documented xfails.
+- RESOLUTION (user decision, 2026-07-04): the carve-out is ACCEPTED as
+  documented rather than pursued — the class is rare (2 in 50k draws),
+  order-only, and mechanism-ambiguous after deep source reading. The
+  quarantine and this record ARE the fix of record; revisit only if
+  fuzz surfaces a VALUE-bearing variant or new evidence pins the
+  mechanism.
 
 ### D-041: addAll is BLIND; clashes resolve at child-touch time (fz_123_8822, fz_7_2843, fz_999_7966, fz_999_4371, mg1..mg8, mn1..mn7)
 The accumulate-era fuzz waves exposed four intertwined pins:
@@ -649,8 +655,9 @@ terminals. Certification: corpus 337/337, `make test` green, 5-seed x
   honest. Next session: pin the mechanism (suspects: temp-blocked /
   updateBlockersAndPropagate machinery, segment staging interleave for
   the modify-entry window), fix, dissolve the quarantine.
-- The branch is NOT merged: the cert gate says "merge only when clean"
-  and clean-modulo-2-documented-xfails is the user's call.
+- MERGED to main with the D-042 carve-out accepted as documented
+  (user decision): clean-modulo-2-documented-xfails is the certified
+  state of record.
 - Remaining unstarted: salience expressions; custom accumulate
   functions and `from accumulate` stay fenced by design.
 
