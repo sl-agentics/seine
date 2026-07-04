@@ -326,6 +326,49 @@ DIRECTLY contradict each other under every simple placement rule tried:
   (still validated only through oracle probes; no code copied), replacing
   the fitted emission heuristics in merge_staged.
 
+**HANDOFF @ phreak-port MERGE (Session 3 close)** — The behavioral port of
+the PHREAK node algorithm is the engine (engine/src/phreak.rs + engine.rs
+integration). Proven state at merge:
+- Corpus: 156/156 (was 106; +26 graduated ex-xfails, +24 new probes and
+  regressions from this session's discriminator ladders).
+- Fuzz, UNWALLED grammar (mutation + 3-pattern rules mix freely): seeds
+  42, 7, 123, 777, 999 x 10,000 cases = 50k cases, ZERO divergences.
+- All 26 parked xfail cases from D-025 resolved and graduated; xfail/ is
+  gone; D-016/D-017/D-025 walls retired.
+- `make test` green; tree clean at every commit on the branch.
+New pinned mechanism classes this session: eager/lazy evaluation windows
+(the j01-vs-9462 discriminator), bucket-change vs same-bucket child
+sync-walks with cursor threading, object-identity staging folds,
+downstream-pending clash-moves, property-miss right-tuple reAdd with
+child realignment, side-aware index-key coercion, agenda-item lifecycle,
+and build-time alpha literal sharing/hashing (D-027..D-029).
+Next session candidates: Phase 3 stretch (not/exists, accumulate,
+matches/contains/in) — restrict the generator first, probe before
+implementing; or scale campaigns (more seeds, larger CASES) for the
+current subset.
+
+### D-029: Alpha-node literal sharing + hash-threshold coercion (seed 777)
+fz_777_4504 (first unwalled multi-seed campaign find) exposed BUILD-TIME
+alpha-network semantics for `field == literal`, pinned by probe series
+w1-w18 + the pr_lit matrix:
+- Node identity: (type, preceding-literal-constraint chain, field,
+  literal COERCED to the field's type). A later rule whose coerced
+  literal collides SHARES the first-built node and inherits its ORIGINAL
+  literal: after `n == 1`, `n == 1.5` matches n=1 (w10); built the other
+  way around, `n == 1` matches NOTHING (w16 — first-built 1.5 wins).
+- Hashed sinks: >= 3 sibling eq-nodes (post-sharing) on one field switch
+  membership to the COERCED key — a double literal on a long field
+  truncates: `f0 == 2.5` matches f0 == 2 (w5/w8/w12, fz_777_4504's
+  {1, -2, 2.5} group). Three IDENTICAL literals share one node and stay
+  below the threshold (w7).
+- Below the threshold each node evaluates its first-built literal with
+  double promotion: standalone `n == 2.5` matches nothing (w4/u15).
+`!=` and relationals always promote to double (pr_lit: `f0 != 2.5` and
+`f0 == 2.5` BOTH match f0 == 2 when the eq-group is hashed).
+Implemented as a compile-time literal rewrite (share_and_hash_alphas).
+Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
+clean after this fix.
+
 ### D-028: PHREAK port LANDED — corpus 145/145, all xfails closed, wall lifted
 The faithful port (branch `phreak-port`) replaced the fitted merge engine.
 `engine/src/phreak.rs` implements the node algorithm; `engine.rs` keeps
