@@ -1,0 +1,68 @@
+{
+ "name": "u14_cross_type_join_eq",
+ "types": [
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "I",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "F",
+   "fields": {
+    "v": -0.5
+   }
+  },
+  {
+   "type": "F",
+   "fields": {
+    "v": 1.5
+   }
+  },
+  {
+   "type": "F",
+   "fields": {
+    "v": 2.0
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": -1
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 0
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 1
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 2
+   }
+  }
+ ],
+ "drl": "rule \"eq\" when F($x : v) I(n == $x) then end\nrule \"ge\" when F($x : v) I(n >= $x) then end\nrule \"lt\" when F($x : v) I(n < $x) then end\nrule \"eqr\" when I($m : n) F(v == $m) then end\n"
+}

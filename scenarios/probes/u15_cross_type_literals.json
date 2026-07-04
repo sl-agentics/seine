@@ -1,0 +1,62 @@
+{
+ "name": "u15_cross_type_literals",
+ "types": [
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "I",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "I",
+   "fields": {
+    "n": -1
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 0
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 1
+   }
+  },
+  {
+   "type": "I",
+   "fields": {
+    "n": 2
+   }
+  },
+  {
+   "type": "F",
+   "fields": {
+    "v": 2.0
+   }
+  },
+  {
+   "type": "F",
+   "fields": {
+    "v": 1.5
+   }
+  }
+ ],
+ "drl": "rule \"liteq\" when I(n == 1.5) then end\nrule \"liteqneg\" when I(n == -0.5) then end\nrule \"litne\" when I(n != 1.5) then end\nrule \"feliteq\" when F(v == 2) then end\nrule \"jne\" when F($x : v) I(n != $x) then end\n"
+}

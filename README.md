@@ -4,9 +4,10 @@ A Rust reimplementation of a **bounded subset** of the Drools DRL
 forward-chaining rule semantics, proven faithful by **differential testing
 against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
-> Status: Phase 2 (joins + mutation) implemented; curated corpus green;
-> fuzz campaigns in progress. See `DECISIONS.md` for the running log of
-> every oracle-pinned semantic.
+> Status: Phases 0–2 complete. Curated corpus (95 scenarios) at 100%;
+> property fuzzing at 10,000 cases per phase with zero divergences over
+> the proven subset. Two documented xfails outside the subset (`xfail/`).
+> See `DECISIONS.md` for the running log of every oracle-pinned semantic.
 
 ## What this is
 
@@ -55,14 +56,15 @@ Prereqs: Rust stable, JDK 17+, Maven with access to Maven Central (Drools
 ```sh
 make diff          # run every curated scenario through both engines and compare
 make test          # pure-Rust unit + characterization tests (no JVM)
+make fuzz          # 10k-case differential fuzz (SEED=n CASES=n to vary)
 make oracle        # build the Java oracle runner (once)
-
-# property-based differential fuzzing (seeded, deterministic):
-cargo run -q -p seine-harness -- fuzz 10000 42
 ```
 
-Divergent fuzz cases are saved to `scenarios/failures/` automatically; every
-resolved divergence graduates to a named regression scenario.
+The fuzzer is seeded and deterministic (case k of seed s is always the same
+program). Divergent cases are saved to `scenarios/failures/` automatically;
+every resolved divergence graduates to a named regression scenario in
+`scenarios/regressions/` (41 of them so far — each one pinned a real PHREAK
+semantic documented in `DECISIONS.md`).
 
 ## Provenance & licensing
 

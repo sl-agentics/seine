@@ -157,6 +157,42 @@ update/modify/delete RHS with render-after-RHS switch (j03), no-loop
 scenarios/, add curated Phase 2 corpus, extend fuzzer grammar (joins +
 mutation with termination discipline), 10k fuzz. Open divergences: none.
 
+### D-018: Agenda evaluation = outrank model (fz_42_2906 corrected D-015's peek)
+An executing rule is interrupted only by rules that OUTRANK it (salience
+desc, then decl order). Implementation: eager (no-loop) rules merge staged
+batches at every flush; then walk priority order merging each network and
+fire the first unfired match — rules below the firing rule accumulate.
+This replaced the "peek at first non-executing rule" model (which over-
+evaluated: fz_42_2906's single-batch left-major order proved rules below
+the executor are NOT evaluated mid-execution). pr06 preemption follows
+from outranking; fz_42_4138 per-firing batches follow from no-loop
+eagerness; fz_42_4141's one-batch follows from lazy descent.
+
+### D-019: Phase 2 COMPLETE ✅ (done-bar met, subset per D-017)
+- Curated corpus: **95/95 PASS** (`make diff`) — probes pr01–pr11,
+  u01–u13, j01–j22, p0/p1 suites, 41 named fuzz regressions.
+- Property fuzz over the full Phase-2 grammar (joins ≤3 patterns in
+  insert/delete programs, ≤2 patterns with update/modify, self-joins,
+  guard-monotone mutation): **10,000 cases seed 42, 0 divergences** (254s);
+  second seed run recorded below.
+- Open xfails (xfail/): fz_42_3408, fz_42_4373 — 3-pattern rules × long
+  multi-update histories, outside the D-017 subset, kept with analysis
+  notes in D-016 for a future session.
+
+### D-020: RHS binding snapshots + indexed-equality coercion (seed-7 wave)
+Second-seed fuzz found 3 value-level (not ordering) divergences:
+- **LHS bindings used on the RHS are snapshots taken when the consequence
+  starts** (Drools extracts declarations once): setters earlier in the same
+  RHS must not affect later `$b` references (fz_7_2525: `setF1(-2);
+  setF1($b)` restores the match-time value). Getter calls (`$p.getX()`)
+  remain live reads. Engine: `Src::SnapField` + per-firing snapshot.
+- **Join `==` coerces the bound value to the LEFT field's type** (Java cast:
+  double→long truncates toward zero) — `I(n == $x)` with n=0, $x=-0.5
+  MATCHES (u14, fz_7_4974). Join `!=` and relationals promote to double
+  (u15: `n != $x` with $x=1.5 matches ALL ints), and literal comparisons
+  always promote (`I(n == 1.5)` never matches). Engine: `eval_cmp_join`.
+- Probes u14/u15 + 3 regressions added; corpus 100/100.
+
 ## Phase 2 (pre-work: goldens captured, engine not yet extended)
 
 ### D-011: Join + mutation semantics observed via probes j01–j05 (oracle-only,

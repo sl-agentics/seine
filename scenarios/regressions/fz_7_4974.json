@@ -1,0 +1,94 @@
+{
+  "drl": "rule \"R0\"\nsalience -7\nwhen\n    T0()\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T2($b1_0_0 : f0, $b1_0_1 : f0, f2 == false)\n    T0(f1 >= 0, f1 == $b1_0_1, $b1_1_0 : f0)\nthen\n    modify($p1_0) { setF2(true), setF1($p1_0.getF1()) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 11,
+        "f1": 0
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 8,
+        "f1": -1000000007
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 11,
+        "f1": 9
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -0.5,
+        "f1": "b",
+        "f2": false
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_7_4974",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

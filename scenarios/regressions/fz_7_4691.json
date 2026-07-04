@@ -1,0 +1,74 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T1()\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    $p1_0 : T2($b1_0_0 : f1, $b1_0_1 : f0, f2 == false)\nthen\n    $p1_0.setF2(true);\n    $p1_0.setF0($b1_0_0);\n    $p1_0.setF0($b1_0_1);\n    update($p1_0);\nend\nrule \"R2\"\nwhen\n    T1(f1 == true, $b2_0_0 : f1, $b2_0_1 : f1)\n    T1(f1 == true)\nthen\n    insert(new T2(4.0, 3.0, false));\n    insert(new T2(-2.0, 0.0, true));\nend\nrule \"R3\"\nsalience -6\nwhen\n    $p3_0 : T2(f1 == 1.0, f0 <= 6.0, $b3_0_0 : f2, $b3_0_1 : f1, f2 == false)\nthen\n    $p3_0.setF2(true);\n    update($p3_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 0
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -3.0,
+        "f1": 1.5,
+        "f2": false
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_7_4691",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

@@ -46,8 +46,13 @@ pub struct Firing {
 #[derive(Clone)]
 enum Src {
     Lit(Value),
-    /// Field of the fact bound at tuple position `.0`, field index `.1`.
+    /// Field of the fact bound at tuple position `.0`, field index `.1`,
+    /// read LIVE from the store (getter calls, LHS join constraints).
     Field(usize, usize),
+    /// LHS binding used on the RHS: Drools extracts declarations when the
+    /// consequence starts, so the value is a SNAPSHOT taken at RHS start —
+    /// setters earlier in the same RHS must not affect it (fz_7_2525).
+    SnapField(usize, usize),
 }
 
 struct CompiledCmp {
@@ -328,7 +333,7 @@ impl Engine {
                     .get(v)
                     .copied()
                     .ok_or_else(|| EngineError(format!("rule {rname}: unknown binding {v}")))?;
-                Ok((Src::Field(pi, fi), ft))
+                Ok((Src::SnapField(pi, fi), ft))
             }
             RhsArg::Getter { var, field } => {
                 let pos = *fact_binds.get(var).ok_or_else(|| {
@@ -881,9 +886,11 @@ impl Engine {
             Src::Lit(v) => eval_cmp(&self.store.value(f, c.field_idx), c.op, v),
             Src::Field(pi, fi) if *pi == pos => {
                 let rhs = self.store.value(f, *fi);
-                eval_cmp(&self.store.value(f, c.field_idx), c.op, &rhs)
+                eval_cmp_join(&self.store.value(f, c.field_idx), c.op, &rhs)
             }
-            Src::Field(..) => true, // join constraint, checked with prefix
+            // join constraint, checked with prefix; SnapField never occurs
+            // in LHS constraints
+            Src::Field(..) | Src::SnapField(..) => true,
         })
     }
 
@@ -900,7 +907,7 @@ impl Engine {
                 if let Src::Field(pi, fi) = &c.rhs {
                     if *pi != pos {
                         let rhs = self.store.value(tuple[*pi], *fi);
-                        if !eval_cmp(&self.store.value(f, c.field_idx), c.op, &rhs) {
+                        if !eval_cmp_join(&self.store.value(f, c.field_idx), c.op, &rhs) {
                             return false;
                         }
                     }
@@ -924,6 +931,17 @@ impl Engine {
     }
 
     fn execute_rhs(&mut self, ri: usize, tuple: &[FactId]) -> Result<(), EngineError> {
+        // Declaration snapshot: binding values are extracted once when the
+        // consequence starts (fz_7_2525).
+        let snapshot: Vec<Vec<Value>> = tuple
+            .iter()
+            .map(|&f| {
+                let tid = self.store.fact_type(f);
+                (0..self.store.schema(tid).fields.len())
+                    .map(|fi| self.store.value(f, fi))
+                    .collect()
+            })
+            .collect();
         // Pending modification masks: setters accumulate, update() consumes.
         let mut pending: HashMap<FactId, u64> = HashMap::new();
         let n_actions = self.rules[ri].actions.len();
@@ -938,7 +956,7 @@ impl Engine {
                             .iter()
                             .zip(schema.fields.iter())
                             .map(|(a, (_, ft))| {
-                                coerce(self.eval_src(a, tuple), *ft).ok_or_else(|| {
+                                coerce(self.eval_src(a, tuple, &snapshot), *ft).ok_or_else(|| {
                                     EngineError("RHS insert: arg type mismatch".into())
                                 })
                             })
@@ -952,7 +970,7 @@ impl Engine {
                     let fi = *field_idx;
                     let tid = self.store.fact_type(f);
                     let ft = self.store.field_type(tid, fi);
-                    let v = coerce(self.eval_src(&arg.clone(), tuple), ft)
+                    let v = coerce(self.eval_src(&arg.clone(), tuple, &snapshot), ft)
                         .ok_or_else(|| EngineError("RHS setter: arg type mismatch".into()))?;
                     self.store.set_value(f, fi, v).map_err(EngineError)?;
                     *pending.entry(f).or_insert(0) |= 1 << fi;
@@ -975,10 +993,11 @@ impl Engine {
         Ok(())
     }
 
-    fn eval_src(&self, src: &Src, tuple: &[FactId]) -> Value {
+    fn eval_src(&self, src: &Src, tuple: &[FactId], snapshot: &[Vec<Value>]) -> Value {
         match src {
             Src::Lit(v) => v.clone(),
             Src::Field(pi, fi) => self.store.value(tuple[*pi], *fi),
+            Src::SnapField(pi, fi) => snapshot[*pi][*fi].clone(),
         }
     }
 
@@ -1039,6 +1058,20 @@ fn check_cmp_types(
             "rule {rule}: constraint type mismatch ({lhs:?} {op:?} {rhs:?})"
         )))
     }
+}
+
+/// Variable (join) constraint evaluation: Drools' indexed `==` coerces the
+/// bound value to the LEFT field's type — a double binding compared to a
+/// long field is CAST (truncated toward zero), so `n == $x` with n=0,
+/// $x=-0.5 MATCHES (u14/fz_7_4974). `!=` and relational joins promote to
+/// double like literals do (u14/u15).
+fn eval_cmp_join(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
+    if op == CmpOp::Eq {
+        if let (Value::I64(a), Value::F64(b)) = (lhs, rhs) {
+            return *a == (*b as i64); // Java (long) cast: truncate toward zero
+        }
+    }
+    eval_cmp(lhs, op, rhs)
 }
 
 fn eval_cmp(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
