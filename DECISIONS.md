@@ -369,6 +369,29 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-040: COLLECT swallows unreferenced left MODIFIES (lu_a..lu_h)
+fz_42_2091: a rule `T2($b : f1) collect(T0(...)) accumulate(...)` did
+not refire in Drools when another rule property-updated the T2, but the
+engine refired. Discriminators:
+- plain-join control refires (lu_b); inline accumulate FIRST refires
+  (lu_c, lu_e); collect at level >=2 refires (lu_d); collect FIRST
+  swallows (lu_f, lu_h) even when the update writes a DIFFERENT value
+  (lu_a — not value-comparison);
+- giving the collect source a beta constraint on the left binding
+  restores the refire (lu_g).
+Mechanism: `from collect` builds an AccumulateNode around
+CollectAccumulator (CollectBuilder), which is structurally known to
+read NOTHING from the left, so the node's left declared mask is just
+its beta constraints' left references plus inherited downstream
+interest; the LIA's per-sink mask check then DROPS pattern-0 modifies
+that miss it. Inline accumulates compile opaque lambdas -> ALL-SET
+left masks -> always re-propagate. Engine: level-1 collect trie nodes
+carry `collect_left_gate` (union over sharing rules of pattern-0
+fields referenced by later patterns' constraints and RHS args); the
+LIA skips staging a MODIFY into such a child unless the mask
+intersects (bare updates = ALL-SET pass). Deeper collects are
+unfiltered — inter-beta propagation carries no masks.
+
 ### D-039: accumulate-result compile TYPING (27-case matrix, tc_*/rc_*)
 Inline-accumulate results carry a compile-time Java type:
 sum(double)->Double, sum(long)->Long, count->Long, average->Double,

@@ -1,0 +1,85 @@
+{
+ "drl": "rule \"R2\"\nwhen\n    T2($b2_0_1 : f1)\n    accumulate( T0($s2_2 : f1); $a2_2 : average($s2_2) )\nthen\nend\nrule \"R3\"\nwhen\n    $p3_0 : T2($b3_0_0 : f1, f3 == false)\nthen\n    $p3_0.setF3(true);\n    $p3_0.setF1($b3_0_0);\n    update($p3_0);\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0()\nthen\n    insert(new T2($p4_0.getF1(), $p4_0.getF1(), -3.0, $p4_0.isF2()));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": "alpha",
+    "f1": -1,
+    "f2": false,
+    "f3": false
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "lu_c",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}

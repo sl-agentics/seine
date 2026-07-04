@@ -195,6 +195,14 @@ struct TrieNode {
     acc: HashMap<Tup, AccCtx>,
     /// Lefts holding a match on each right source fact, in match order.
     acc_by_right: HashMap<FactId, Vec<Tup>>,
+    /// LEVEL-1 COLLECT only (D-040): pattern-0 fields referenced anywhere
+    /// downstream (collect beta constraints, later patterns, RHS args).
+    /// The LIA drops a pattern-0 property MODIFY into this child unless
+    /// the modification mask intersects — CollectAccumulator is known to
+    /// read nothing from the left, so its left inferred mask is just the
+    /// inherited interest (unlike inline accumulates, whose opaque
+    /// lambdas force ALL-SET and always re-propagate).
+    collect_left_gate: Option<u64>,
 }
 
 /// One accumulate context: the function state, the stored per-match
@@ -500,6 +508,7 @@ impl Engine {
                                 sinks: Vec::new(),
                                 acc: HashMap::new(),
                                 acc_by_right: HashMap::new(),
+                                collect_left_gate: None,
                             });
                             let nid = self.trie.len() - 1;
                             trie_index.insert(prefix.clone(), nid);
@@ -523,6 +532,40 @@ impl Engine {
                 queue: Vec::new(),
                 queued: false,
             });
+        }
+        // LEVEL-1 COLLECT gates (D-040): pattern-0 fields referenced
+        // downstream, unioned across every rule sharing the node.
+        for ri in 0..self.rules.len() {
+            let Some(&first) = self.nets[ri].path.first() else { continue };
+            let (eri, epos) = self.trie[first].env;
+            let is_collect = self.rules[eri].patterns[epos]
+                .acc
+                .as_ref()
+                .is_some_and(|a| a.func == AccFunc::Collect);
+            if !is_collect {
+                continue;
+            }
+            let mut gate = 0u64;
+            for pat in &self.rules[ri].patterns[1..] {
+                for c in &pat.cmps {
+                    if let Test::Cmp { rhs: Src::Field(0, fi), .. } = &c.test {
+                        gate |= 1 << fi;
+                    }
+                }
+            }
+            for a in &self.rules[ri].actions {
+                let mut note = |src: &Src| {
+                    if let Src::Field(0, fi) | Src::SnapField(0, fi) = src {
+                        gate |= 1 << fi;
+                    }
+                };
+                match a {
+                    CompiledAction::Insert { args, .. } => args.iter().for_each(&mut note),
+                    CompiledAction::Set { arg, .. } => note(arg),
+                    _ => {}
+                }
+            }
+            *self.trie[first].collect_left_gate.get_or_insert(0) |= gate;
         }
     }
 
@@ -1235,7 +1278,17 @@ impl Engine {
                 match stage {
                     1 => self.trie[c].s0_in.add_ins(f, origin),
                     2 => self.trie[c].s0_in.add_del(f, origin),
-                    _ => self.trie[c].s0_in.add_upd(f, origin),
+                    _ => {
+                        // LIA sink masking for level-1 COLLECT children
+                        // (D-040): a pattern-0 MODIFY is dropped unless
+                        // the mask intersects the downstream interest.
+                        if let Some(gate) = self.trie[c].collect_left_gate {
+                            if mask != u64::MAX && mask & gate == 0 {
+                                continue;
+                            }
+                        }
+                        self.trie[c].s0_in.add_upd(f, origin)
+                    }
                 }
             }
             self.note_link_effects(&mut was);
