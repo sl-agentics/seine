@@ -1,0 +1,72 @@
+{
+ "name": "nb6",
+ "types": [
+  {
+   "name": "L",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "G",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "L",
+   "fields": {
+    "id": 1,
+    "g": false
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 2,
+    "g": false
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "m": 7
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 3,
+    "g": false
+   }
+  },
+  {
+   "type": "G",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule R0 when $p : L(g == true) then delete($p); end\nrule R1 salience -3 when $g : G(t == true) then insert(new L(99, true)); $g.setT(false); update($g); end\nrule R2 salience 5 when $p : L(g == false) M() not L(g == true) then end\n"
+}

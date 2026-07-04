@@ -1,0 +1,62 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0(f1 == true, $b0_0_0 : f0, $b0_0_1 : f0)\n    T1(f0 != 2.0, f1 == false, $b0_1_0 : f1, $b0_1_1 : f0)\n    not T0(f0 contains \"b\", f0 == \"b\", f0 >= $b0_0_1)\nthen\nend\nrule \"R1\"\nno-loop\nwhen\n    $p1_0 : T1(f0 == 3.5, f0 > -3.0, f1 == false)\nthen\n    modify($p1_0) { setF1(true) }\nend\nrule \"R2\"\nwhen\n    T1(f1 in (false, false, true), $b2_0_0 : f1)\nthen\nend\nrule \"R3\"\nwhen\n    T0(f1 == true, $b3_0_0 : f0, $b3_0_1 : f0)\n    T1(f0 != 2.0, f1 == false, $b3_1_0 : f1, $b3_1_1 : f0)\n    T1(f0 not in (5.0), f0 < $b3_1_1, $b3_2_0 : f0)\nthen\nend\nrule \"R4\"\nsalience 10\nwhen\n    T0(f1 == true, $b4_0_0 : f0, $b4_0_1 : f0)\n    $p4_1 : T1(f0 != 2.0, f1 == false, $b4_1_0 : f1, $b4_1_1 : f0)\nthen\n    delete($p4_1);\nend\nrule \"R5\"\nwhen\n    $a5_0 : ArrayList() from collect( T0(f1 != false, f1 == true) )\nthen\n    insert(new T1(6.0, false));\n    insert(new T1(3.5, true));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -3.0,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3.5,
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_777_9122",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

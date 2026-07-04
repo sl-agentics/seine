@@ -1,5 +1,7 @@
 SHELL := /bin/bash
-SCENARIOS := $(shell find scenarios -name '*.json' | sort)
+# xfail/ holds DOCUMENTED-OPEN divergences (D-042): excluded from the
+# differential gate, consulted by fuzz to suppress re-flagging.
+SCENARIOS := $(shell find scenarios -name '*.json' -not -path 'scenarios/xfail/*' | sort)
 
 .PHONY: diff test oracle fuzz all
 

@@ -1,0 +1,58 @@
+{
+ "drl": "rule \"R2\"\nwhen\n    T1()\n    T1(f1 > -1.5, $b2_1_0 : f2, $b2_1_1 : f1)\nthen\nend\nrule \"R5\"\nsalience 5\nwhen\n    $p5_0 : T1()\n    T1(f1 > -1.5, $b5_1_0 : f2, $b5_1_1 : f1)\nthen\n    delete($p5_0);\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 5.0,
+    "f1": 0,
+    "f2": "ab"
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": -1.0,
+    "f1": 12,
+    "f2": "zz"
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_min_2748",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

@@ -369,6 +369,32 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-042: OPEN — not-CE unblock REFIRE ORDER in >=3-pattern rules
+Round-4 fuzz (the accumulate-era grammar reshuffle) drew two cases the
+engine gets wrong ONLY in the relative refire ORDER of tuples unblocked
+together at a not node inside a >=3-pattern rule under churn
+(fz_7_2364: [T0, T1-join, not]; fz_999_8145: [T0, not-in-list, T2-join],
+no-loop). All values, sets and counts agree; the order of exactly two
+simultaneously-reactivated activations is swapped.
+- Probe matrix (nb1..nb6, promoted where passing): level-1 nots agree
+  in all entry styles (nb1 modify-entry, nb2 delete-of-a-left-blocker);
+  level-2 nots agree for INSERT-entering blockers (nb5/nb6) but diverge
+  for MODIFY-entering blockers whose delete also removes a blocked left
+  (nb3 = minimal: 2 rules, 4 facts).
+- Mechanism NOT yet pinned: PhreakNotNode doRightInserts/doRightUpdates
+  /doRightDeletes all walk memories FORWARD per source, addBlocked
+  prepends, TupleList.add appends, and BetaNode.modifyObject turns an
+  alpha-entering modify into assertObject — every combination derived
+  from those primitives reproduces the ENGINE's order, not the oracle's.
+  Reversing our unblock walk fixes nb3/fz_7_2364 but breaks
+  nb1/nb2/nb6 and 4 corpus cases (tried, reverted). Suspects for next
+  session: the temp-blocked machinery (updateBlockersAndPropagate) and
+  segment-level staging interleave for the modify-entry window.
+- Quarantine: scenarios/xfail/ holds the four artifacts + nb3; make
+  diff excludes the directory; fuzz reports drawn xfail cases as XFAIL
+  (name match) without recording them as failures. The certification
+  claim is CLEAN MODULO these documented xfails.
+
 ### D-041: addAll is BLIND; clashes resolve at child-touch time (fz_123_8822, fz_7_2843, fz_999_7966, fz_999_4371, mg1..mg8, mn1..mn7)
 The accumulate-era fuzz waves exposed four intertwined pins:
 - **Cross-window child clashes (fz_123_8822 kernel 1, fz_7_2843,

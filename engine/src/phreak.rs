@@ -31,17 +31,26 @@ pub struct Staged<T: Clone + PartialEq> {
     pub ins: Vec<(T, Origin, u8)>,
     pub upd: Vec<(T, Origin, u8)>,
     pub del: Vec<(T, Origin, u8)>,
+    /// NORMALIZED deletes (D-041/fz_123_2748): a delete that cancelled a
+    /// pending INSERT at the first sink still reaches the PEERS as a
+    /// delete (TupleSetsImpl normalizedDeleteFirst / processPeerDeletes).
+    /// Never consumed by the first sink; folded into peers' dels at
+    /// propagation and dropped afterward.
+    pub norm_del: Vec<(T, Origin, u8)>,
 }
 
 impl<T: Clone + PartialEq> Default for Staged<T> {
     fn default() -> Self {
-        Staged { ins: Vec::new(), upd: Vec::new(), del: Vec::new() }
+        Staged { ins: Vec::new(), upd: Vec::new(), del: Vec::new(), norm_del: Vec::new() }
     }
 }
 
 impl<T: Clone + PartialEq> Staged<T> {
     pub fn is_empty(&self) -> bool {
-        self.ins.is_empty() && self.upd.is_empty() && self.del.is_empty()
+        self.ins.is_empty()
+            && self.upd.is_empty()
+            && self.del.is_empty()
+            && self.norm_del.is_empty()
     }
 
     pub fn take(&mut self) -> Staged<T> {
@@ -152,6 +161,8 @@ impl<T: Clone + PartialEq> Staged<T> {
         pending.ins.extend(fresh.ins);
         pending.del.extend(fresh.del);
         pending.upd.extend(fresh.upd);
+        // norm_del is a peer-only signal: the first sink's pending
+        // insert was already cancelled at touch time
         pending
     }
 
@@ -166,6 +177,9 @@ impl<T: Clone + PartialEq> Staged<T> {
     pub fn peer_merge_into_pending(mut pending: Staged<T>, fresh: Staged<T>) -> Staged<T> {
         for (t, o, _) in fresh.del {
             pending.add_del(t, o); // prepends; folds staged ins/upd
+        }
+        for (t, o, _) in fresh.norm_del {
+            pending.add_del(t, o); // processPeerDeletes(normalized)
         }
         for (t, o, ph) in fresh.upd {
             let staged = pending.ins.iter().any(|(x, _, _)| *x == t)
@@ -345,6 +359,9 @@ impl Node {
         let mut pending = self.s_left.take();
         for (t, o, _) in &fresh.del {
             pending.add_del(t.clone(), *o);
+        }
+        for (t, o, _) in &fresh.norm_del {
+            pending.add_del(t.clone(), *o); // processPeerDeletes(normalized)
         }
         for (t, o, ph) in &fresh.upd {
             let staged = pending.ins.iter().any(|(x, _, _)| x == t)
@@ -664,10 +681,12 @@ impl<'a> Out<'a> {
         }
     }
 
-    /// deleteChildLeftTuple: a never-consumed pending INSERT cancels
-    /// outright; a pending UPDATE is unstaged before the delete.
+    /// deleteChildLeftTuple: a never-consumed pending INSERT cancels at
+    /// the first sink but still reaches the peers as a NORMALIZED delete
+    /// (fz_123_2748); a pending UPDATE is unstaged before the delete.
     fn child_del(&mut self, t: Tup, o: Origin) {
         if self.pending.remove_ins(&t) {
+            self.trg.norm_del.push((t, o, 0));
             return;
         }
         self.pending.remove_upd(&t);

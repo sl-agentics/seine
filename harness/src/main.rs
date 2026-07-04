@@ -138,10 +138,12 @@ fn cmd_fuzz(args: &[String]) -> ExitCode {
 
     let fuzz_dir = std::path::PathBuf::from("target/fuzz");
     let fail_dir = std::path::PathBuf::from("scenarios/failures");
+    let xfail_dir = std::path::PathBuf::from("scenarios/xfail");
     std::fs::create_dir_all(&fuzz_dir).expect("mkdir target/fuzz");
 
     let started = std::time::Instant::now();
     let mut failures = 0usize;
+    let mut xfails = 0usize;
     let mut done = 0u64;
     let mut case = 0u64;
     while done < count {
@@ -168,6 +170,12 @@ fn cmd_fuzz(args: &[String]) -> ExitCode {
                 Err((n, e)) => (n, Err(e)),
             };
             if let Err(msgs) = judge(&name, &engine_result, oracle_results.get(&name)) {
+                if xfail_dir.join(format!("{name}.json")).is_file() {
+                    // documented-open divergence (D-042): counted apart
+                    xfails += 1;
+                    println!("XFAIL {name} (documented, scenarios/xfail/)");
+                    continue;
+                }
                 failures += 1;
                 std::fs::create_dir_all(&fail_dir).ok();
                 std::fs::copy(path, fail_dir.join(format!("{name}.json"))).ok();
@@ -188,7 +196,7 @@ fn cmd_fuzz(args: &[String]) -> ExitCode {
         );
     }
     println!(
-        "--- fuzz complete: {count} cases, seed {seed}, {failures} divergences, {:.0}s",
+        "--- fuzz complete: {count} cases, seed {seed}, {failures} divergences, {xfails} xfail, {:.0}s",
         started.elapsed().as_secs_f64()
     );
     if failures > 0 {

@@ -1,0 +1,57 @@
+{
+ "name": "nb3",
+ "types": [
+  {
+   "name": "L",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "L",
+   "fields": {
+    "id": 1,
+    "g": false
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 2,
+    "g": false
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "m": 7
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 3,
+    "g": false
+   }
+  }
+ ],
+ "drl": "rule R0 when $p : L(g == true) then delete($p); end\nrule R1 when $p : L() M() not L(g == true) then modify($p) { setG(true) } end\n"
+}

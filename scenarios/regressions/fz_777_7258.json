@@ -1,0 +1,72 @@
+{
+  "drl": "rule \"R0\"\nsalience -2\nwhen\n    not T0(f0 in (-0.5, -1000000007), f1 in (\"a\"))\n    $p0_1 : T1(f3 == false)\n    T1(f2 >= \"alpha\", $b0_2_0 : f1)\nthen\n    modify($p0_1) { setF3(true) }\nend\nrule \"R1\"\nsalience -3\nwhen\n    not T0(f0 in (-0.5, -1000000007), f1 in (\"a\"))\n    T1(f3 == false)\nthen\nend\nrule \"R2\"\nsalience 1\nwhen\n    not T0(f0 in (-0.5, -1000000007), f1 in (\"a\"))\n    T1(f3 == false)\n    $p2_2 : T1(f3 == false)\nthen\n    modify($p2_2) { setF3(true), setF1(\"\") }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -3,
+        "f1": "alpha"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -4,
+        "f1": "zz"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": "ab"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -5,
+        "f1": "ab",
+        "f2": "zz",
+        "f3": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_777_7258",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

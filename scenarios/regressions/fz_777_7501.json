@@ -1,0 +1,63 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f1 not in (9, 2, 7), f0 in (false, false), $b0_0_0 : f1, $b0_0_1 : f1)\n    T1(f1 > 6, $b0_1_0 : f1, $b0_1_1 : f1)\n    T0(f3 == false)\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0()\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nwhen\n    $p2_0 : T1(f1 not in (9, 2, 7), f0 in (false, false), $b2_0_0 : f1, $b2_0_1 : f1)\n    T1(f1 > 6, $b2_1_0 : f1, $b2_1_1 : f1)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nwhen\n    T1(f1 not in (9, 2, 7), f0 in (false, false), $b3_0_0 : f1, $b3_0_1 : f1)\n    T1(f1 > 6, $b3_1_0 : f1, $b3_1_1 : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": 8,
+        "f2": -2.5
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 3,
+        "f1": -2.5,
+        "f2": "",
+        "f3": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_777_7501",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

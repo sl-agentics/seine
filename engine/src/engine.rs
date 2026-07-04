@@ -356,6 +356,11 @@ struct RuleNet {
     /// Terminal staging propagated from the last path node (per-sink
     /// copy); consumed into `queue` at this rule's evaluation.
     term_pending: Staged<Tup>,
+    /// PEER-sink terminals only (D-041/fz_7_5773): tuples with a live
+    /// peer object at this terminal. processPeerInserts on an existing
+    /// unstaged peer stages an UPDATE (hasNodeMemory(RTN) is false), so
+    /// a kind-preserved re-insert must not re-activate.
+    peer_live: HashSet<Tup>,
     queue: Vec<Tup>,
     /// Agenda-item lifecycle: set when the rule links (or re-dirties
     /// while linked), cleared when its evaluation leaves the queue empty.
@@ -363,6 +368,50 @@ struct RuleNet {
     /// (fz_42_1464); an unqueued rule accumulates staged input
     /// (fz_42_124, fz_7_145).
     queued: bool,
+}
+
+impl RuleNet {
+    /// Peer-copy of a batch into this TERMINAL's staging (D-041,
+    /// SegmentPropagator.processPeer* for an RTN sink): per-entry
+    /// prepends (batch reversal, LIFO stacking); update clashes SKIP;
+    /// insert clashes move to the head; an insert whose peer object is
+    /// LIVE at this terminal arrives as an UPDATE instead
+    /// (updateChildLeftTupleDuringInsert with hasNodeMemory == false,
+    /// fz_7_5773); deletes (incl. normalized) end the peer lifetime.
+    fn peer_merge_term(&mut self, fresh: &Staged<Tup>) {
+        let mut pending = self.term_pending.take();
+        for (t, o, _) in fresh.del.iter().chain(fresh.norm_del.iter()) {
+            self.peer_live.remove(t);
+            pending.add_del(t.clone(), *o);
+        }
+        for (t, o, ph) in &fresh.upd {
+            let staged = pending.ins.iter().any(|(x, _, _)| x == t)
+                || pending.upd.iter().any(|(x, _, _)| x == t)
+                || pending.del.iter().any(|(x, _, _)| x == t);
+            if !staged {
+                pending.upd.insert(0, (t.clone(), *o, *ph));
+            }
+        }
+        for (t, o, ph) in &fresh.ins {
+            if let Some(i) = pending.ins.iter().position(|(x, _, _)| x == t) {
+                let e = pending.ins.remove(i);
+                pending.ins.insert(0, e);
+                continue;
+            }
+            if let Some(i) = pending.upd.iter().position(|(x, _, _)| x == t) {
+                pending.upd.remove(i);
+                pending.upd.insert(0, (t.clone(), *o, *ph));
+                continue;
+            }
+            if self.peer_live.contains(t) {
+                pending.upd.insert(0, (t.clone(), *o, *ph));
+                continue;
+            }
+            self.peer_live.insert(t.clone());
+            pending.ins.insert(0, (t.clone(), *o, *ph));
+        }
+        self.term_pending = pending;
+    }
 }
 
 pub struct Engine {
@@ -529,6 +578,7 @@ impl Engine {
                 lia,
                 path,
                 term_pending: Staged::default(),
+                peer_live: HashSet::new(),
                 queue: Vec::new(),
                 queued: false,
             });
@@ -1552,9 +1602,7 @@ impl Engine {
                             self.nets[rb].term_pending =
                                 Staged::append_into_pending(first_pending.take(), trg.clone());
                         } else if !trg.is_empty() {
-                            let pending = self.nets[rb].term_pending.take();
-                            self.nets[rb].term_pending =
-                                Staged::peer_merge_into_pending(pending, trg.clone());
+                            self.nets[rb].peer_merge_term(&trg);
                         }
                     }
                 }
@@ -1627,7 +1675,9 @@ impl Engine {
                     if let Some(res) = ctx.result {
                         let mut child = l.clone();
                         child.push(res);
-                        if !first_pending.remove_ins(&child) {
+                        if first_pending.remove_ins(&child) {
+                            trg.norm_del.push((child, *o, 0));
+                        } else {
                             first_pending.remove_upd(&child);
                             trg.add_del(child, *o);
                         }
@@ -1790,8 +1840,11 @@ impl Engine {
                         let mut child = l.clone();
                         child.push(res);
                         // propagateDelete: normalize against the first
-                        // sink's pending, then stage the retract (D-041).
-                        if !first_pending.remove_ins(&child) {
+                        // sink's pending, then stage the retract (D-041);
+                        // a cancelled pending insert still reaches peers.
+                        if first_pending.remove_ins(&child) {
+                            trg.norm_del.push((child, o, 0));
+                        } else {
                             first_pending.remove_upd(&child);
                             trg.add_del(child, o);
                         }
