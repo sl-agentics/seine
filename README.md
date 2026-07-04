@@ -4,7 +4,9 @@ A Rust reimplementation of a **bounded subset** of the Drools DRL
 forward-chaining rule semantics, proven faithful by **differential testing
 against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
-> Status: Phase 0 (walking skeleton). See `DECISIONS.md` for the running log.
+> Status: Phase 2 (joins + mutation) implemented; curated corpus green;
+> fuzz campaigns in progress. See `DECISIONS.md` for the running log of
+> every oracle-pinned semantic.
 
 ## What this is
 

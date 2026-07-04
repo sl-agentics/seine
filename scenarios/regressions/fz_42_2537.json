@@ -1,0 +1,53 @@
+{
+  "drl": "rule \"R0\"\nsalience 4\nwhen\n    T1($b0_0_0 : f1, $b0_0_1 : f1)\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T1(f1 != true, f0 == 1, $b1_0_0 : f1, $b1_0_1 : f2, f1 == false)\nthen\n    modify($p1_0) { setF1(true) }\nend\nrule \"R2\"\nsalience 1\nno-loop\nwhen\n    T0()\n    T1(f2 < \"b\", $b2_1_0 : f1)\n    T0(f0 != \"ab\", $b2_2_0 : f1)\nthen\nend\nrule \"R3\"\nsalience 9\nwhen\n    T0($b3_0_0 : f0)\nthen\n    insert(new T1(-3, true, $b3_0_0));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "a",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 10,
+        "f1": false,
+        "f2": "alpha"
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_2537",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "drl": "rule \"R0\"\nsalience -5\nno-loop\nwhen\n    T0(f1 <= 100, $b0_0_0 : f3, $b0_0_1 : f0)\n    T0($b0_1_0 : f0)\n    T2(f0 < 5)\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T2(f2 == true, $b1_0_0 : f2, $b1_0_1 : f0, f2 == false)\nthen\n    modify($p1_0) { setF2(true), setF0(4.0) }\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0(f1 > -4, $b2_0_0 : f2)\nthen\n    insert(new T2($p2_0.getF0(), $p2_0.getF1(), true));\nend\nrule \"R3\"\nsalience 5\nwhen\n    T2($b3_0_0 : f1, $b3_0_1 : f2)\n    T2(f1 < 5)\nthen\nend\nrule \"R4\"\nwhen\n    T0()\n    T0(f3 != false, f2 != \"b\", $b4_1_0 : f3, $b4_1_1 : f3)\n    T2(f2 == false, f0 >= 5.5, $b4_2_0 : f1, $b4_2_1 : f2)\nthen\nend\nrule \"R5\"\nno-loop\nwhen\n    T2(f1 >= -1000000007, $b5_0_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1.5,
+        "f1": 9,
+        "f2": "ab",
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3.0,
+        "f1": 100,
+        "f2": "ab",
+        "f3": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_42_2285",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

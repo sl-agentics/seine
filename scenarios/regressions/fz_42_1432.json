@@ -1,0 +1,68 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0(f1 != true)\n    T1(f0 > -1)\n    $p0_2 : T1(f0 >= -1.0, f0 >= 0, f2 == false)\nthen\n    modify($p0_2) { setF2(true) }\nend\nrule \"R1\"\nwhen\n    T1(f0 < -5, $b1_0_0 : f2)\n    T0(f0 <= \"alpha\", f0 == \"beta\")\nthen\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0(f0 <= \"\", f0 >= \"\")\nthen\n    insert(new T1(100, -1000000007, $p2_0.isF1()));\nend\nrule \"R3\"\nwhen\n    $p3_0 : T1(f1 == 11, $b3_0_0 : f0, $b3_0_1 : f1, f2 == false)\nthen\n    modify($p3_0) { setF2(true) }\nend\nrule \"R4\"\nwhen\n    T0(f0 != \"beta\", f1 != true, $b4_0_0 : f1, $b4_0_1 : f1)\n    T1($b4_1_0 : f2, $b4_1_1 : f0)\n    T0(f0 != \"b\", $b4_2_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": 0,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": -2,
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_1432",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

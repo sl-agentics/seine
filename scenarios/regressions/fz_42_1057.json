@@ -1,0 +1,106 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0(f0 <= \"beta\", f0 >= \"b\", $b0_0_0 : f0)\n    $p0_1 : T1(f1 == \"zz\")\nthen\n    delete($p0_1);\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f1)\n    $p1_1 : T1(f2 >= -4, f1 != \"a\")\nthen\n    insert(new T2($p1_1.getF2()));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T1(f2 >= 1, f3 == false, f3 == false)\nthen\n    modify($p2_0) { setF3(true), setF1($p2_0.getF1()), setF1(\"\") }\nend\nrule \"R3\"\nsalience 3\nwhen\n    T1(f1 < \"alpha\", $b3_0_0 : f0)\n    T3(f2 <= $b3_0_0)\n    T2(f0 == $b3_0_0, $b3_2_0 : f0, $b3_2_1 : f0)\nthen\nend\nrule \"R4\"\nwhen\n    $p4_0 : T1(f0 != 7, f2 != 12, $b4_0_0 : f2, $b4_0_1 : f0)\nthen\n    delete($p4_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1,
+        "f1": "alpha",
+        "f2": 8,
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": "ab",
+        "f2": 6,
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "zz"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "zz"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -3.0
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_42_1057",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

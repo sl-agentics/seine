@@ -1,0 +1,84 @@
+{
+  "drl": "rule \"R0\"\nsalience -5\nwhen\n    T1(f0 != -2.0, $b0_0_0 : f0, $b0_0_1 : f2)\n    $p0_1 : T1(f0 >= $b0_0_0)\n    T1(f0 != $b0_0_0, $b0_2_0 : f1, $b0_2_1 : f2)\nthen\n    delete($p0_1);\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f0 > \"a\")\n    T0(f1 < -2.5, f1 == 0, $b1_1_0 : f1, $b1_1_1 : f1)\nthen\n    insert(new T1(4.0, \"alpha\", true));\n    insert(new T1(-2.0, $p1_0.getF0(), true));\nend\nrule \"R2\"\nwhen\n    T1(f0 != 4.0, $b2_0_0 : f0)\n    $p2_1 : T1($b2_1_0 : f2, f2 == false)\nthen\n    modify($p2_1) { setF2(true) }\nend\nrule \"R3\"\nsalience -3\nwhen\n    T0($b3_0_0 : f1, $b3_0_1 : f1)\n    T0(f0 == \"zz\", f1 != 5.5, f1 >= $b3_0_0, $b3_1_0 : f0, $b3_1_1 : f0)\n    T1(f0 == 2)\nthen\nend\nrule \"R4\"\nwhen\n    T0(f0 > \"zz\", f1 == 3.0, $b4_0_0 : f0, $b4_0_1 : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 2.0,
+        "f1": "",
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": 5.5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": -2.5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 1.0,
+        "f1": "a",
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 1.0,
+        "f1": "ab",
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 2.5,
+        "f1": "ab",
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_1294",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

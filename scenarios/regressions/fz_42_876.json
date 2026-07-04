@@ -1,0 +1,73 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f1 == false)\nthen\n    insert(new T1($p0_0.getF0(), \"\", $p0_0.isF1()));\n    $p0_0.setF1(true);\n    update($p0_0);\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f0 >= 0.0, $b1_0_0 : f1)\n    T0(f0 <= 8)\n    $p1_2 : T0($b1_2_0 : f1)\nthen\n    insert(new T1($p1_0.getF0(), \"ab\", false));\n    insert(new T1($p1_2.getF0(), \"zz\", false));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T1(f0 >= 2.5, f2 != false, f2 == false)\nthen\n    modify($p2_0) { setF2(true), setF1(\"a\") }\nend\nrule \"R3\"\nwhen\n    T1(f0 == 0.0, f2 == true, $b3_0_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 12,
+        "f1": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_42_876",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

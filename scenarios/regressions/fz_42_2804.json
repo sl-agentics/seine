@@ -1,0 +1,62 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f0 != \"\", f0 == \"b\", $b0_0_0 : f0, f1 == false)\n    T0(f0 > \"beta\", $b0_1_0 : f1)\nthen\n    insert(new T1(11, \"ab\"));\n    $p0_0.setF1(true);\n    $p0_0.setF0(\"b\");\n    update($p0_0);\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f0, $b1_0_1 : f0)\n    T0($b1_1_0 : f0)\n    T0(f0 > \"alpha\", $b1_2_0 : f1)\nthen\nend\nrule \"R2\"\nsalience -8\nwhen\n    $p2_0 : T0(f0 != \"ab\", f0 > \"\", $b2_0_0 : f1, f1 == false)\nthen\n    insert(new T1(9, $p2_0.getF0()));\n    $p2_0.setF1(true);\n    $p2_0.setF0($p2_0.getF0());\n    update($p2_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 10,
+        "f1": "ab"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -2,
+        "f1": "a"
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_2804",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -248,6 +248,38 @@ per-rule join network:
   iteration order after unlink/relink cycles; setters without a following
   update() (Drools leaves stale matches; generator always pairs them).
 
+### D-015: Second fuzz wave — full PHREAK agenda/staging model (probes u11,
+### regressions fz_42_*, 17 resolved + 3 open xfails)
+Phase-2 fuzz (seed 42) found 20 divergences by case ~4400; resolving 17
+pinned the deepest layer of PHREAK semantics:
+- **Eager vs lazy rule evaluation:** no-loop rules evaluate their staged
+  batch at EVERY flush window (their activations must be known); plain
+  rules evaluate via the agenda peek — walk priority order, merging dirty
+  networks, stopping after the first rule other than the one that just
+  fired that has an unfired match. Rules beyond keep accumulating batches
+  (fz_42_4138 vs fz_42_4141 — same shape, differ only in no-loop).
+- **Hot updates move facts to the FRONT of their alpha memories**
+  (fz_42_388/1057), while pending activations keep agenda position.
+- **Fired activations re-created by an update lose their agenda position**:
+  they requeue during the update phase (before insert-derived appends),
+  ordered per hot event, hot positions ascending, terminal-join left-memory
+  order within, hot-moved rights first (fz_42_2804/2055/1057).
+- Left-update child iteration follows tuple CREATION order, not memory
+  order (u11, fz_42_1176): creation seqs tracked per prefix/match entry.
+- Emission phases per join: LI (staged lefts x full rights), RI (staged
+  rights x [hot lefts creation-order, cold lefts memory-order]), LU (hot
+  lefts x full rights, missing only), RU (hot rights, missing only).
+- Corpus: 72/72 green (`make diff`), including 17 fz_42_* regressions.
+
+### D-016: OPEN xfails (xfail/, excluded from make diff)
+fz_42_3408, fz_42_3433, fz_42_4373 still diverge (first divergences at
+firings 58/18/391) — all combine self-joins, updates and multi-rule
+interleaving; the remaining gap is believed to be in refire/emission
+interleaving for tuples where the SAME fact is hot at several positions of
+a self-join. Time-boxed per brief §7; next session: trace fz_42_3433
+(earliest divergence, firing 18) with the same golden-log dump used for
+the others.
+
 ---
 
 **HANDOFF @ checkpoint 2** — Phase 0 COMPLETE. Proven: full pipeline

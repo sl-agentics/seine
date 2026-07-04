@@ -84,6 +84,10 @@ struct CompiledRule {
 struct MatchEntry {
     tuple: Vec<FactId>,
     fired: bool,
+    /// Child-list order key (fz_42_2055/2804): creations get +seq (appends),
+    /// requeued refires get -seq (recreations move to the list front), and
+    /// refire requeue order sorts ascending on this key.
+    key: i64,
 }
 
 /// A working-memory delta staged for a rule, merged lazily the next time the
@@ -119,8 +123,11 @@ enum StagedEv {
 /// The full-length tuples live in `matches` (with refraction flags); kept
 /// entries hold position, new emissions append (terminal never reorders).
 struct RuleNet {
-    alpha: Vec<Vec<FactId>>,
-    prefixes: Vec<Vec<Vec<FactId>>>,
+    /// (creation seq, fact) — memory order is block-prepend; creation order
+    /// (seq asc) is what hot-update iteration follows (u11/fz_42_1176).
+    alpha: Vec<Vec<(u64, FactId)>>,
+    /// (creation seq, prefix tuple) per level l (tuples of length l+1).
+    prefixes: Vec<Vec<(u64, Vec<FactId>)>>,
     matches: Vec<MatchEntry>,
     /// Eager mirror of alpha membership (alpha lists update only at merge;
     /// this set updates at event time so transitions are detected eagerly).
@@ -136,6 +143,8 @@ pub struct Engine {
     nets: Vec<RuleNet>,
     /// Per-rule staged deltas awaiting merge.
     staged: Vec<Vec<StagedEv>>,
+    /// Global creation-sequence counter for network entries.
+    seq: u64,
     lists_built: bool,
 }
 
@@ -156,6 +165,7 @@ impl Engine {
             rule_order: Vec::new(),
             nets: Vec::new(),
             staged: Vec::new(),
+            seq: 0,
             lists_built: false,
         })
     }
@@ -382,7 +392,9 @@ impl Engine {
             }
         }
         let mut firings = Vec::new();
-        while let Some((ri, idx)) = self.next_activation() {
+        let mut last_fired: Option<usize> = None;
+        while let Some((ri, idx)) = self.next_activation(last_fired) {
+            last_fired = Some(ri);
             if firings.len() >= limit {
                 return Err(EngineError(format!(
                     "fire limit {limit} reached (non-terminating?)"
@@ -399,10 +411,30 @@ impl Engine {
         Ok(firings)
     }
 
-    fn next_activation(&mut self) -> Option<(usize, usize)> {
+    /// Agenda evaluation model (fz_42_4138 vs fz_42_4141):
+    /// - EAGER rules (no-loop, whose activations must be known for the
+    ///   attribute's semantics) evaluate their staged batch at EVERY flush
+    ///   window — per-firing batches;
+    /// - lazy rules are evaluated by the agenda peek: walk priority order,
+    ///   merging each dirty network, and stop after the first rule OTHER
+    ///   than the one that just fired that has an unfired match. Rules
+    ///   beyond the stop keep accumulating their staged batches.
+    fn next_activation(&mut self, last: Option<usize>) -> Option<(usize, usize)> {
+        for i in 0..self.rule_order.len() {
+            let ri = self.rule_order[i];
+            if self.rules[ri].def.no_loop {
+                self.merge_staged(ri);
+            }
+        }
         for i in 0..self.rule_order.len() {
             let ri = self.rule_order[i];
             self.merge_staged(ri);
+            if Some(ri) != last && self.nets[ri].matches.iter().any(|e| !e.fired) {
+                break;
+            }
+        }
+        for i in 0..self.rule_order.len() {
+            let ri = self.rule_order[i];
             if let Some(idx) = self.nets[ri].matches.iter().position(|e| !e.fired) {
                 return Some((ri, idx));
             }
@@ -487,45 +519,43 @@ impl Engine {
     }
 
     /// Merge this rule's staged delta batch into its join network (D-014).
-    /// Mirrors PHREAK's per-node batch processing:
-    ///  1. prune everything invalidated by the batch (values are current);
-    ///  2. block-prepend newly alpha-passing facts into alpha memories;
-    ///  3. cascade emissions join by join: update-driven pairs first, then
-    ///     staged-left inserts against the full right memory, then staged
-    ///     rights against pre-batch lefts; emissions REVERSE when propagated
-    ///     to the next join, and append unreversed at the terminal;
-    ///  4. kept full matches hold position; hot updates clear their fired
-    ///     flag (no-loop's own tuple excepted).
+    /// Mirrors PHREAK's per-node batch processing; every ordering below is
+    /// oracle-pinned (probes u01-u11, regressions fz_7_*, fz_42_1176):
+    ///  - segment linking: unlinked rules accumulate one batch;
+    ///  - prune first (values are current), then block-prepend newly
+    ///    alpha-passing facts into alpha memories;
+    ///  - per join, phases in order: LI (staged lefts x full rights),
+    ///    RI (staged rights x [hot lefts in creation order, then old lefts
+    ///    in memory order]), LU (hot lefts in creation order x full rights,
+    ///    missing pairs only), RU (hot rights x old lefts, missing only);
+    ///  - emissions REVERSE when propagated to the next join, append
+    ///    unreversed at the terminal; kept matches hold position and hot
+    ///    updates clear their fired flag (no-loop's own tuple excepted).
     fn merge_staged(&mut self, ri: usize) {
         if self.staged[ri].is_empty() {
             return;
         }
         let k = self.rules[ri].patterns.len();
 
-        // ---- 0. segment linking (D-014/fz_7_145): while any pattern
-        // position has no alpha-active facts, the rule is UNLINKED — staged
-        // events accumulate into one batch that is only processed once every
-        // position has data. Pruning (cancellations) still happens.
+        // ---- 0. segment linking (fz_7_145) ----
         if (0..k).any(|p| self.nets[ri].active[p].is_empty()) {
             for p in 0..k {
                 let active = self.nets[ri].active[p].clone();
-                let kept: Vec<FactId> = self.nets[ri].alpha[p]
+                let kept: Vec<(u64, FactId)> = self.nets[ri].alpha[p]
                     .iter()
                     .copied()
-                    .filter(|f| active.contains(f) && self.alpha_passes(ri, p, *f))
+                    .filter(|(_, f)| active.contains(f) && self.alpha_passes(ri, p, *f))
                     .collect();
                 self.nets[ri].alpha[p] = kept;
             }
             for l in 0..k.saturating_sub(1) {
-                let kept: Vec<Vec<FactId>> = self.nets[ri].prefixes[l]
+                let kept: Vec<(u64, Vec<FactId>)> = self.nets[ri].prefixes[l]
                     .iter()
-                    .filter(|t| self.prefix_valid(ri, t))
+                    .filter(|(_, t)| self.prefix_valid(ri, t))
                     .cloned()
                     .collect();
                 self.nets[ri].prefixes[l] = kept;
             }
-            // An unlinked rule can have no valid full match (some position
-            // is empty), so validity pruning clears the agenda entries.
             let old_matches = std::mem::take(&mut self.nets[ri].matches);
             self.nets[ri].matches = old_matches
                 .into_iter()
@@ -543,9 +573,7 @@ impl Engine {
         for ev in &events {
             match ev {
                 StagedEv::Act { fact, pos } => {
-                    // Re-staging moves the fact to the end of the batch.
                     staged_at[*pos].retain(|x| x != fact);
-                    // Only if the activation still stands right now.
                     if self.nets[ri].active[*pos].contains(fact)
                         && self.alpha_passes(ri, *pos, *fact)
                     {
@@ -564,10 +592,10 @@ impl Engine {
         for p in 0..k {
             let staged = staged_at[p].clone();
             let active = self.nets[ri].active[p].clone();
-            let kept: Vec<FactId> = self.nets[ri].alpha[p]
+            let kept: Vec<(u64, FactId)> = self.nets[ri].alpha[p]
                 .iter()
                 .copied()
-                .filter(|f| {
+                .filter(|(_, f)| {
                     active.contains(f) && self.alpha_passes(ri, p, *f) && !staged.contains(f)
                 })
                 .collect();
@@ -577,23 +605,106 @@ impl Engine {
             t.iter().enumerate().any(|(p, f)| staged_at[p].contains(f))
         };
         for l in 0..k.saturating_sub(1) {
-            let kept: Vec<Vec<FactId>> = self.nets[ri].prefixes[l]
+            let kept: Vec<(u64, Vec<FactId>)> = self.nets[ri].prefixes[l]
                 .iter()
-                .filter(|t| self.prefix_valid(ri, t) && !restaged(t, &staged_at))
+                .filter(|(_, t)| self.prefix_valid(ri, t) && !restaged(t, &staged_at))
                 .cloned()
                 .collect();
             self.nets[ri].prefixes[l] = kept;
         }
         let old_matches = std::mem::take(&mut self.nets[ri].matches);
         let mut kept_matches: Vec<MatchEntry> = Vec::new();
+        let mut refire_pool: Vec<(i64, Vec<FactId>)> = Vec::new();
         for mut e in old_matches {
             if !self.prefix_valid(ri, &e.tuple) || restaged(&e.tuple, &staged_at) {
                 continue;
             }
             if self.tuple_hot(ri, &e.tuple, &events) {
-                e.fired = false; // re-created activation, refires (D-013)
+                if e.fired {
+                    // A FIRED activation re-created by an update loses its
+                    // agenda position: it re-queues during the update phase,
+                    // before any insert-derived appends (fz_42_2804).
+                    refire_pool.push((e.key, e.tuple));
+                    continue;
+                }
+                e.fired = false; // pending hot activation: updated in place,
+                                 // position kept (u01–u04)
             }
             kept_matches.push(e);
+        }
+        // Re-queue refires: per hot event (FIFO), hot positions ascending;
+        // within a position, iterate the terminal join's LEFT memory in
+        // memory order and requeue that prefix's affected tuples
+        // (fz_42_2055: block-prepended lefts requeue first; fz_42_2804:
+        // prefix-memory order, not original agenda order).
+        if !refire_pool.is_empty() && k == 1 {
+            refire_pool.sort_by_key(|(key, _)| *key);
+            for (_, t) in refire_pool.drain(..) {
+                let key = -(self.seq as i64);
+                self.seq += 1;
+                kept_matches.push(MatchEntry { tuple: t, fired: false, key });
+            }
+        }
+        // Hot-updated facts move to the front of their alpha memories BEFORE
+        // refire requeueing (fz_42_1057: the hot fact's own pairs requeue
+        // first within a prefix).
+        for p in 0..k {
+            for ev in &events {
+                let StagedEv::Hot { fact, positions, .. } = ev else { continue };
+                if positions.contains(&p) {
+                    if let Some(i) =
+                        self.nets[ri].alpha[p].iter().position(|(_, x)| x == fact)
+                    {
+                        let e = self.nets[ri].alpha[p].remove(i);
+                        self.nets[ri].alpha[p].insert(0, e);
+                    }
+                }
+            }
+        }
+        if !refire_pool.is_empty() {
+            let prefix_order: Vec<Vec<FactId>> = if k == 2 {
+                self.nets[ri].alpha[0].iter().map(|&(_, f)| vec![f]).collect()
+            } else {
+                self.nets[ri].prefixes[k - 2].iter().map(|(_, t)| t.clone()).collect()
+            };
+            let last_rights: Vec<FactId> =
+                self.nets[ri].alpha[k - 1].iter().map(|&(_, f)| f).collect();
+            let pool_set: HashSet<&[FactId]> =
+                refire_pool.iter().map(|(_, t)| t.as_slice()).collect();
+            let mut requeued: HashSet<Vec<FactId>> = HashSet::new();
+            let push_requeue =
+                |t: Vec<FactId>, requeued: &mut HashSet<Vec<FactId>>, out: &mut Vec<MatchEntry>, seq: &mut u64| {
+                    if requeued.insert(t.clone()) {
+                        let key = -(*seq as i64);
+                        *seq += 1;
+                        out.push(MatchEntry { tuple: t, fired: false, key });
+                    }
+                };
+            for ev in &events {
+                let StagedEv::Hot { fact, positions, .. } = ev else { continue };
+                for &p in positions {
+                    for pre in &prefix_order {
+                        if p < k - 1 {
+                            if pre.get(p) != Some(fact) {
+                                continue;
+                            }
+                            for &r in &last_rights {
+                                let mut t = pre.clone();
+                                t.push(r);
+                                if pool_set.contains(t.as_slice()) {
+                                    push_requeue(t, &mut requeued, &mut kept_matches, &mut self.seq);
+                                }
+                            }
+                        } else {
+                            let mut t = pre.clone();
+                            t.push(*fact);
+                            if pool_set.contains(t.as_slice()) {
+                                push_requeue(t, &mut requeued, &mut kept_matches, &mut self.seq);
+                            }
+                        }
+                    }
+                }
+            }
         }
         self.nets[ri].matches = kept_matches;
 
@@ -601,43 +712,70 @@ impl Engine {
             return;
         }
 
-        // ---- 3. commit alpha memories: block-prepend (u09/fz_7_159: every
-        // memory iterates [new batch, processing order..., older batches]) ----
+        // ---- 3. commit alpha memories: block-prepend (u09/fz_7_159); hot
+        // facts already moved to front pre-requeue (fz_42_388/1057) ----
         for p in 0..k {
-            let mut merged = staged_at[p].clone();
+            let mut merged: Vec<(u64, FactId)> = Vec::new();
+            for &f in &staged_at[p] {
+                merged.push((self.seq, f));
+                self.seq += 1;
+            }
             merged.extend(self.nets[ri].alpha[p].iter().copied());
             self.nets[ri].alpha[p] = merged;
         }
 
         // ---- 4. emission cascade ----
-        // Level l holds prefixes of length l+1. L = staged left tuples.
+        // Hot positions per fact, for prefix-hotness tests.
+        let hot_at = |t: &[FactId], upto: usize| -> bool {
+            hot_events.iter().any(|(f, poss)| {
+                poss.iter().any(|&hp| hp < upto && t.get(hp) == Some(f))
+            })
+        };
+
         let mut staged_lefts: Vec<Vec<FactId>> =
             staged_at[0].iter().map(|&f| vec![f]).collect();
         if k == 1 {
             for t in staged_lefts {
-                self.nets[ri].matches.push(MatchEntry { tuple: t, fired: false });
+                let key = self.seq as i64;
+                self.seq += 1;
+                self.nets[ri].matches.push(MatchEntry { tuple: t, fired: false, key });
             }
             return;
         }
         for join_pos in 1..k {
             let terminal = join_pos == k - 1;
-            // Existing tuples of length join_pos+1 (kept, pre-append).
             let existing: HashSet<Vec<FactId>> = if terminal {
                 self.nets[ri].matches.iter().map(|e| e.tuple.clone()).collect()
             } else {
-                self.nets[ri].prefixes[join_pos].iter().cloned().collect()
+                self.nets[ri].prefixes[join_pos]
+                    .iter()
+                    .map(|(_, t)| t.clone())
+                    .collect()
             };
-            // Old lefts (kept, pre-batch) at this join.
-            let old_lefts: Vec<Vec<FactId>> = if join_pos == 1 {
+            // Kept (pre-batch) lefts at this join, in memory order, with seq.
+            let old_lefts: Vec<(u64, Vec<FactId>)> = if join_pos == 1 {
                 self.nets[ri].alpha[0]
                     .iter()
-                    .filter(|f| !staged_at[0].contains(f))
-                    .map(|&f| vec![f])
+                    .filter(|(_, f)| !staged_at[0].contains(f))
+                    .map(|&(s, f)| (s, vec![f]))
                     .collect()
             } else {
                 self.nets[ri].prefixes[join_pos - 1].clone()
             };
-            let rights: Vec<FactId> = self.nets[ri].alpha[join_pos].clone();
+            // Hot lefts in CREATION order (u11: G1 = B20,B10,B30,B40).
+            let mut hot_lefts: Vec<(u64, Vec<FactId>)> = old_lefts
+                .iter()
+                .filter(|(_, t)| hot_at(t, join_pos))
+                .cloned()
+                .collect();
+            hot_lefts.sort_by_key(|(s, _)| *s);
+            let cold_lefts: Vec<Vec<FactId>> = old_lefts
+                .iter()
+                .filter(|(_, t)| !hot_at(t, join_pos))
+                .map(|(_, t)| t.clone())
+                .collect();
+            let rights: Vec<FactId> =
+                self.nets[ri].alpha[join_pos].iter().map(|&(_, f)| f).collect();
             let mut emitted: HashSet<Vec<FactId>> = HashSet::new();
             let mut emit: Vec<Vec<FactId>> = Vec::new();
 
@@ -648,32 +786,7 @@ impl Engine {
                     }
                 };
 
-            // 4a. update-driven pairs (u07: appended in update-event order).
-            for (f, hot_pos) in &hot_events {
-                // left-update: existing prefixes holding f at a hot position.
-                for l in &old_lefts {
-                    if hot_pos.iter().any(|&hp| hp < join_pos && l.get(hp) == Some(f)) {
-                        for &r in &rights {
-                            let mut t = l.clone();
-                            t.push(r);
-                            if self.prefix_valid(ri, &t) {
-                                push(t, &mut emit, &mut emitted);
-                            }
-                        }
-                    }
-                }
-                // right-update: f itself at this join's right side.
-                if hot_pos.contains(&join_pos) {
-                    for l in &old_lefts {
-                        let mut t = l.clone();
-                        t.push(*f);
-                        if self.prefix_valid(ri, &t) {
-                            push(t, &mut emit, &mut emitted);
-                        }
-                    }
-                }
-            }
-            // 4b. staged left tuples against the FULL right memory.
+            // Phase LI: staged left tuples x full right memory.
             for l in &staged_lefts {
                 for &r in &rights {
                     let mut t = l.clone();
@@ -683,11 +796,46 @@ impl Engine {
                     }
                 }
             }
-            // 4c. staged rights against pre-batch lefts.
+            // Phase RI: staged rights x [hot lefts creation-order, then old
+            // lefts memory-order] (u11: G1 before G2).
             for &f in &staged_at[join_pos] {
-                for l in &old_lefts {
+                for (_, l) in &hot_lefts {
                     let mut t = l.clone();
                     t.push(f);
+                    if self.prefix_valid(ri, &t) {
+                        push(t, &mut emit, &mut emitted);
+                    }
+                }
+                for l in &cold_lefts {
+                    let mut t = l.clone();
+                    t.push(f);
+                    if self.prefix_valid(ri, &t) {
+                        push(t, &mut emit, &mut emitted);
+                    }
+                }
+            }
+            // Phase LU: hot lefts (creation order) x full rights, missing
+            // pairs only (u11: G3 last).
+            for (_, l) in &hot_lefts {
+                for &r in &rights {
+                    let mut t = l.clone();
+                    t.push(r);
+                    if self.prefix_valid(ri, &t) {
+                        push(t, &mut emit, &mut emitted);
+                    }
+                }
+            }
+            // Phase RU: hot rights x kept lefts, missing pairs only.
+            for (f, poss) in &hot_events {
+                if !poss.contains(&join_pos) {
+                    continue;
+                }
+                for (_, l) in hot_lefts.iter().chain(
+                    // memory order for cold lefts
+                    old_lefts.iter().filter(|(_, t)| !hot_at(t, join_pos)),
+                ) {
+                    let mut t = l.clone();
+                    t.push(*f);
                     if self.prefix_valid(ri, &t) {
                         push(t, &mut emit, &mut emitted);
                     }
@@ -696,16 +844,22 @@ impl Engine {
 
             if terminal {
                 for t in emit {
-                    self.nets[ri].matches.push(MatchEntry { tuple: t, fired: false });
+                    let key = self.seq as i64;
+                    self.seq += 1;
+                    self.nets[ri].matches.push(MatchEntry { tuple: t, fired: false, key });
                 }
                 break;
             }
-            // Propagate: reverse into the next join's staged-left list, and
-            // BLOCK-PREPEND (processing order within the block) into this
-            // level's prefix memory (fz_7_159: batch-2 prefixes iterate
-            // before batch-1 for later right-staged joins).
+            // Propagate: reverse into the next join's staged-left list;
+            // BLOCK-PREPEND into this level's prefix memory with creation
+            // seqs following PROCESSING order (fz_42_1176: creation order =
+            // reversed-emission order at commit time).
             emit.reverse();
-            let mut merged = emit.clone();
+            let mut merged: Vec<(u64, Vec<FactId>)> = Vec::new();
+            for t in &emit {
+                merged.push((self.seq, t.clone()));
+                self.seq += 1;
+            }
             merged.extend(self.nets[ri].prefixes[join_pos].iter().cloned());
             self.nets[ri].prefixes[join_pos] = merged;
             staged_lefts = emit;
