@@ -399,6 +399,9 @@ compile error), like custom accumulate functions. Pins:
 - Accumulate-result bindings are excluded from generated salience
   expressions (typing unprobed); a salience expression with only
   literals still marks the rule DYNAMIC (Drools isDynamic()).
+- CERTIFIED: zero divergences over 5 seeds (42/7/123/777/999 x 10,000
+  = 50,000 cases with salience expressions in the grammar; round 2,
+  witnessed to completion; not a single xfail drawn).
 - Campaign pins (round 1): re-added fired activations KEEP their
   original activation number — dynamic ties order by FIRST creation,
   not re-add time (fz_7_6534); removeRuleAgendaItemWhenEmpty applies
@@ -683,6 +686,18 @@ Session 5. Re-examining the D-035 xfails with fresh probes disproved the
   scaffolding is deleted. Dead code cleanup: the unused FIFO staging
   variants and Node.first are gone.
 - Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
+
+**HANDOFF @ salience-expressions close (Session 6, 2026-07-04)** —
+D-043 landed on `salience-expr` and merged: computed salience over
+numeric bindings with the full agenda lifecycle (per-activation values
+fixed at creation/re-add, sticky item salience, newest-first dynamic
+ties by PERSISTENT activation number, eager dynamic rules, intValue()
+numerics). Certified zero divergences over 5 seeds x 10k. The engine
+subset is now feature-complete per the original Phase-3 scope: joins,
+property reactivity, CEs, operators, accumulate/collect, salience
+expressions. Open: the D-042 order-only carve-out (3 quarantined
+instances). Fenced by design: custom accumulate functions, `from
+accumulate`, subnetwork collects, MVEL salience bodies.
 
 **HANDOFF @ Phase 3b close (Session 5, 2026-07-04)** — accumulate/
 collect landed on the `accumulate` branch (D-038..D-041) with the exact

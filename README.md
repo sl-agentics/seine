@@ -7,7 +7,7 @@ against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 > Status: Phases 0–2 complete, plus the Phase-3 stretch items
 > `matches`/`contains`/`in`, `not`/`exists` and `accumulate`/`collect`
 > with the built-in functions (custom accumulate functions not
-> started). Curated corpus (337 scenarios, incl. 129 named fuzz
+> started). Curated corpus (360 scenarios, incl. 137 named fuzz
 > regressions) at 100% with NO subset wall (mutation, 3-pattern rules and
 > CEs mix freely). The engine core is a behavioral port of the PHREAK
 > node algorithm (`engine/src/phreak.rs`) — staging sets, beta memories
@@ -59,7 +59,9 @@ log** for every in-subset program.
   activations in opposite orders, faithfully). No sharing wall remains.
 - Phase 3b landed: `accumulate` (sum/count/average/min/max) + `from collect`
   with bit-exact float op sequencing (D-038..D-041). One documented-open
-  order corner (D-042, scenarios/xfail/). Not started: salience expressions.
+  order corner (D-042, scenarios/xfail/).
+- Salience expressions landed (D-043): computed salience over bindings with
+  the full dynamic-agenda lifecycle, certified zero divergences over 5 seeds.
 
 ## Explicit non-goals (hard walls)
 
@@ -87,7 +89,7 @@ make oracle        # build the Java oracle runner (once)
 The fuzzer is seeded and deterministic (case k of seed s is always the same
 program). Divergent cases are saved to `scenarios/failures/` automatically;
 every resolved divergence graduates to a named regression scenario in
-`scenarios/regressions/` (129 of them — each one pinned a real PHREAK
+`scenarios/regressions/` (137 of them — each one pinned a real PHREAK
 semantic documented in `DECISIONS.md`).
 
 ## Provenance & licensing
