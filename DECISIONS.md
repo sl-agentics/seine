@@ -633,6 +633,27 @@ Session 5. Re-examining the D-035 xfails with fresh probes disproved the
   variants and Node.first are gone.
 - Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
 
+**HANDOFF @ Phase 3b close (Session 5, 2026-07-04)** — accumulate/
+collect landed on the `accumulate` branch (D-038..D-041) with the exact
+float op-sequence port (stored per-match contributions, reverse/
+reaccumulate, result-handle reuse, null retraction), the result-typing
+walls, the collect left-modify gate, the subnetwork fence, and three
+deep propagation corrections the new grammar exposed in PRE-EXISTING
+paths: blind addAll with touch-time clash resolution, the normalized-
+delete peer channel, and materialized-peer semantics at nodes and
+terminals. Certification: corpus 337/337, `make test` green, 5-seed x
+10k campaign = 0 divergences, 2 documented xfails (D-042).
+- D-042 is OPEN: not-CE unblock refire ORDER in >=3-pattern rules with
+  modify-entering blockers (nb3 is the 2-rule/4-fact minimal). The
+  quarantine (scenarios/xfail/ + fuzz XFAIL reporting) keeps the gate
+  honest. Next session: pin the mechanism (suspects: temp-blocked /
+  updateBlockersAndPropagate machinery, segment staging interleave for
+  the modify-entry window), fix, dissolve the quarantine.
+- The branch is NOT merged: the cert gate says "merge only when clean"
+  and clean-modulo-2-documented-xfails is the user's call.
+- Remaining unstarted: salience expressions; custom accumulate
+  functions and `from accumulate` stay fenced by design.
+
 **HANDOFF @ D-037 close (Session 5, 2026-07-04)** — The node-sharing
 model is now a TRUE shared prefix trie (one node instance per
 structurally-equal prefix, evaluated once per agenda window, per-batch
