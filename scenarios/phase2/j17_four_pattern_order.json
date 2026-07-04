@@ -1,0 +1,20 @@
+{
+  "name": "j17_four_pattern_order",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "Q", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "R", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "S", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } },
+    { "type": "P", "fields": { "n": 2 } },
+    { "type": "Q", "fields": { "n": 1 } },
+    { "type": "Q", "fields": { "n": 2 } },
+    { "type": "R", "fields": { "n": 1 } },
+    { "type": "R", "fields": { "n": 2 } },
+    { "type": "S", "fields": { "n": 1 } },
+    { "type": "S", "fields": { "n": 2 } }
+  ],
+  "drl": "rule \"J\" when P($a : n) Q(n > 0) R(n > 0) S(n > 0) then end\n"
+}

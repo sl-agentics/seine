@@ -1,0 +1,13 @@
+{
+  "name": "j15_join_update_refire",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "Q", "fields": [ { "name": "n", "type": "i64" }, { "name": "t", "type": "bool" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } },
+    { "type": "Q", "fields": { "n": 1, "t": false } },
+    { "type": "Q", "fields": { "n": 1, "t": true } }
+  ],
+  "drl": "rule \"J\" salience 10 when P($a : n) Q(n >= $a) then end\nrule \"bump\" when $q : Q(t == false) then $q.setN(2); $q.setT(true); update($q); end\n"
+}

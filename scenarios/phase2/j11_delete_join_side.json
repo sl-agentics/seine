@@ -1,0 +1,16 @@
+{
+  "name": "j11_delete_join_side",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "Q", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "K", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } },
+    { "type": "P", "fields": { "n": 2 } },
+    { "type": "Q", "fields": { "n": 1 } },
+    { "type": "Q", "fields": { "n": 2 } },
+    { "type": "K", "fields": { "n": 1 } }
+  ],
+  "drl": "rule \"kill\" salience 10 when $k : K($n : n) $q : Q(n == $n) then delete($q); end\nrule \"J\" when P($a : n) Q(n == $a) then end\n"
+}

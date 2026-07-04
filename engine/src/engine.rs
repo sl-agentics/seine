@@ -1,15 +1,24 @@
 //! Match/fire loop.
 //!
-//! Conflict-resolution policy is *pinned by oracle probes*, never assumed.
-//! Current pinned facts (see DECISIONS.md):
-//!   - D-006 (preliminary): with all facts inserted before fire_all, same-rule
-//!     activations fire in fact insertion (handle) order.
-//! Everything else (multi-rule tie-break, mid-fire insertion ordering,
-//! salience interaction) is provisional until its Phase 1 probe exists.
+//! Every semantic here is pinned by oracle probes (DECISIONS.md D-008,
+//! D-011, D-013), never assumed:
+//! - Agenda key: (salience desc, rule declaration index asc, tuple position
+//!   in PHREAK candidate order asc), re-picked globally after every firing.
+//! - Candidate (join) order: prefix list for pattern 1 = pattern 0's facts
+//!   ascending; before joining pattern i (i >= 2) the accumulated prefix
+//!   list is REVERSED; right-side facts iterate ascending. Self-join tuples
+//!   may repeat a fact across positions.
+//! - Property reactivity: a pattern listens to the fields its constraints
+//!   (incl. bindings) reference; update() carries the mask of setters run
+//!   since the last update of that fact (no setters => all fields). Fired
+//!   activations whose tuple contains the updated fact at a listening
+//!   position are re-created (refraction entry cleared) — except the firing
+//!   rule's own current tuple when it has no-loop.
+//! - Matches are rendered AFTER the RHS runs (post-mutation values).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use crate::drl::{self, Action, CmpOp, Constraint, Literal, RhsArg, RuleDef};
+use crate::drl::{self, Action, CmpOp, CmpRhs, Constraint, Literal, RhsArg, RuleDef};
 use crate::store::{FactId, FactStore, FactView, FieldType, TypeId, TypeSchema, Value};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,27 +42,46 @@ pub struct Firing {
     pub matches: Vec<FactView>,
 }
 
-/// A compiled single-pattern test: field index + op + literal, resolved
-/// against the schema at rule-add time so firing does no name lookups.
+/// Where an RHS argument / constraint RHS value comes from.
+#[derive(Clone)]
+enum Src {
+    Lit(Value),
+    /// Field of the fact bound at tuple position `.0`, field index `.1`.
+    Field(usize, usize),
+}
+
 struct CompiledCmp {
     field_idx: usize,
     op: CmpOp,
-    rhs: Literal,
+    rhs: Src,
 }
 
 struct CompiledPattern {
     type_id: TypeId,
     cmps: Vec<CompiledCmp>,
+    /// Bit i set = this pattern's constraints reference field i (listen mask
+    /// for property reactivity, D-013).
+    listen_mask: u64,
+}
+
+enum CompiledAction {
+    Insert { type_id: TypeId, args: Vec<Src> },
+    Set { pos: usize, field_idx: usize, arg: Src },
+    Update { pos: usize },
+    Delete { pos: usize },
 }
 
 struct CompiledRule {
     def: RuleDef,
     patterns: Vec<CompiledPattern>,
+    actions: Vec<CompiledAction>,
 }
 
 pub struct Engine {
     store: FactStore,
     rules: Vec<CompiledRule>,
+    /// Rule indices sorted by (salience desc, declaration order).
+    rule_order: Vec<usize>,
     /// Refraction memory: (rule index, matched fact tuple) that already fired.
     fired: HashSet<(usize, Vec<FactId>)>,
 }
@@ -65,8 +93,16 @@ impl Engine {
             if !seen.insert(s.name.clone()) {
                 return Err(EngineError(format!("duplicate type {}", s.name)));
             }
+            if s.fields.len() > 64 {
+                return Err(EngineError(format!("type {}: more than 64 fields", s.name)));
+            }
         }
-        Ok(Engine { store: FactStore::new(schemas), rules: Vec::new(), fired: HashSet::new() })
+        Ok(Engine {
+            store: FactStore::new(schemas),
+            rules: Vec::new(),
+            rule_order: Vec::new(),
+            fired: HashSet::new(),
+        })
     }
 
     pub fn add_rules_drl(&mut self, src: &str) -> Result<(), EngineError> {
@@ -74,58 +110,172 @@ impl Engine {
             let compiled = self.compile_rule(def)?;
             self.rules.push(compiled);
         }
+        self.rule_order = (0..self.rules.len()).collect();
+        self.rule_order
+            .sort_by_key(|&ri| (-self.rules[ri].def.salience, ri));
         Ok(())
     }
 
     fn compile_rule(&self, def: RuleDef) -> Result<CompiledRule, EngineError> {
+        let rname = def.name.clone();
+        let err = |m: String| EngineError(format!("rule {rname}: {m}"));
         if def.patterns.is_empty() {
-            return Err(EngineError(format!("rule {}: empty LHS not in subset", def.name)));
+            return Err(err("empty LHS not in subset".into()));
         }
-        if def.patterns.len() > 1 {
-            return Err(EngineError(format!(
-                "rule {}: multi-pattern rules not implemented yet (Phase 2)",
-                def.name
-            )));
-        }
+        // Bindings visible so far: fact bindings ($p -> position) and field
+        // bindings ($a -> (position, field, type)), declaration order.
+        let mut fact_binds: HashMap<String, usize> = HashMap::new();
+        let mut field_binds: HashMap<String, (usize, usize, FieldType)> = HashMap::new();
         let mut patterns = Vec::new();
-        for p in &def.patterns {
-            let type_id = self.store.type_id(&p.type_name).ok_or_else(|| {
-                EngineError(format!("rule {}: unknown type {}", def.name, p.type_name))
-            })?;
+
+        for (pi, p) in def.patterns.iter().enumerate() {
+            let type_id = self
+                .store
+                .type_id(&p.type_name)
+                .ok_or_else(|| err(format!("unknown type {}", p.type_name)))?;
+            if let Some(b) = &p.binding {
+                if fact_binds.insert(b.clone(), pi).is_some() {
+                    return Err(err(format!("duplicate binding {b}")));
+                }
+            }
             let mut cmps = Vec::new();
+            let mut listen_mask = 0u64;
             for c in &p.constraints {
                 match c {
-                    Constraint::Bind { field, .. } => {
-                        // Field bindings are resolved lazily on the RHS; just
-                        // validate the field exists.
-                        self.store.field_index(type_id, field).ok_or_else(|| {
-                            EngineError(format!(
-                                "rule {}: type {} has no field {}",
-                                def.name, p.type_name, field
-                            ))
-                        })?;
+                    Constraint::Bind { var, field } => {
+                        let fi = self
+                            .store
+                            .field_index(type_id, field)
+                            .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
+                        listen_mask |= 1 << fi;
+                        let ft = self.store.field_type(type_id, fi);
+                        if field_binds.insert(var.clone(), (pi, fi, ft)).is_some() {
+                            return Err(err(format!("duplicate binding {var}")));
+                        }
                     }
                     Constraint::Cmp { field, op, rhs } => {
-                        let field_idx =
-                            self.store.field_index(type_id, field).ok_or_else(|| {
-                                EngineError(format!(
-                                    "rule {}: type {} has no field {}",
-                                    def.name, p.type_name, field
-                                ))
-                            })?;
-                        check_cmp_types(
-                            &def.name,
-                            self.store.field_type(type_id, field_idx),
-                            *op,
-                            rhs,
-                        )?;
-                        cmps.push(CompiledCmp { field_idx, op: *op, rhs: rhs.clone() });
+                        let fi = self
+                            .store
+                            .field_index(type_id, field)
+                            .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
+                        listen_mask |= 1 << fi;
+                        let lhs_ft = self.store.field_type(type_id, fi);
+                        let (src, rhs_ft) = match rhs {
+                            CmpRhs::Lit(l) => (Src::Lit(lit_value(l)), lit_type(l)),
+                            CmpRhs::Var(v) => {
+                                let (bpi, bfi, bft) = field_binds
+                                    .get(v)
+                                    .copied()
+                                    .ok_or_else(|| err(format!("unknown binding {v} (must be declared before use)")))?;
+                                (Src::Field(bpi, bfi), bft)
+                            }
+                        };
+                        check_cmp_types(&rname, lhs_ft, *op, rhs_ft)?;
+                        cmps.push(CompiledCmp { field_idx: fi, op: *op, rhs: src });
                     }
                 }
             }
-            patterns.push(CompiledPattern { type_id, cmps });
+            patterns.push(CompiledPattern { type_id, cmps, listen_mask });
         }
-        Ok(CompiledRule { def, patterns })
+
+        let mut actions = Vec::new();
+        for a in &def.actions {
+            match a {
+                Action::Insert { type_name, args } => {
+                    let tid = self
+                        .store
+                        .type_id(type_name)
+                        .ok_or_else(|| err(format!("RHS insert: unknown type {type_name}")))?;
+                    let schema = self.store.schema(tid);
+                    if args.len() != schema.fields.len() {
+                        return Err(err(format!(
+                            "insert new {type_name}: expected {} args, got {}",
+                            schema.fields.len(),
+                            args.len()
+                        )));
+                    }
+                    let mut srcs = Vec::new();
+                    for (arg, (fname, ftype)) in args.iter().zip(schema.fields.clone()) {
+                        let (src, src_ft) = self.compile_arg(
+                            &rname,
+                            arg,
+                            &fact_binds,
+                            &field_binds,
+                            &def,
+                            &patterns,
+                        )?;
+                        if !assignable(src_ft, ftype) {
+                            return Err(err(format!(
+                                "insert new {type_name}: arg for {fname} has wrong type"
+                            )));
+                        }
+                        srcs.push(src);
+                    }
+                    actions.push(CompiledAction::Insert { type_id: tid, args: srcs });
+                }
+                Action::Set { var, field, arg } => {
+                    let pos = *fact_binds
+                        .get(var)
+                        .ok_or_else(|| err(format!("unknown fact binding {var}")))?;
+                    let tid = patterns[pos].type_id;
+                    let fi = self
+                        .store
+                        .field_index(tid, field)
+                        .ok_or_else(|| err(format!("no field {field} for setter on {var}")))?;
+                    let ftype = self.store.field_type(tid, fi);
+                    let (src, src_ft) =
+                        self.compile_arg(&rname, arg, &fact_binds, &field_binds, &def, &patterns)?;
+                    if !assignable(src_ft, ftype) {
+                        return Err(err(format!("setter {var}.{field}: wrong arg type")));
+                    }
+                    actions.push(CompiledAction::Set { pos, field_idx: fi, arg: src });
+                }
+                Action::Update { var } => {
+                    let pos = *fact_binds
+                        .get(var)
+                        .ok_or_else(|| err(format!("unknown fact binding {var}")))?;
+                    actions.push(CompiledAction::Update { pos });
+                }
+                Action::Delete { var } => {
+                    let pos = *fact_binds
+                        .get(var)
+                        .ok_or_else(|| err(format!("unknown fact binding {var}")))?;
+                    actions.push(CompiledAction::Delete { pos });
+                }
+            }
+        }
+        Ok(CompiledRule { def, patterns, actions })
+    }
+
+    fn compile_arg(
+        &self,
+        rname: &str,
+        arg: &RhsArg,
+        fact_binds: &HashMap<String, usize>,
+        field_binds: &HashMap<String, (usize, usize, FieldType)>,
+        _def: &RuleDef,
+        patterns: &[CompiledPattern],
+    ) -> Result<(Src, FieldType), EngineError> {
+        match arg {
+            RhsArg::Lit(l) => Ok((Src::Lit(lit_value(l)), lit_type(l))),
+            RhsArg::Var(v) => {
+                let (pi, fi, ft) = field_binds
+                    .get(v)
+                    .copied()
+                    .ok_or_else(|| EngineError(format!("rule {rname}: unknown binding {v}")))?;
+                Ok((Src::Field(pi, fi), ft))
+            }
+            RhsArg::Getter { var, field } => {
+                let pos = *fact_binds.get(var).ok_or_else(|| {
+                    EngineError(format!("rule {rname}: unknown fact binding {var}"))
+                })?;
+                let tid = patterns[pos].type_id;
+                let fi = self.store.field_index(tid, field).ok_or_else(|| {
+                    EngineError(format!("rule {rname}: no field {field} behind getter on {var}"))
+                })?;
+                Ok((Src::Field(pos, fi), self.store.field_type(tid, fi)))
+            }
+        }
     }
 
     pub fn insert(
@@ -164,136 +314,157 @@ impl Engine {
                 )));
             }
             self.fired.insert((ri, tuple.clone()));
-            let matches: Vec<FactView> = tuple.iter().map(|&f| self.store.render(f)).collect();
-            let rule_name = self.rules[ri].def.name.clone();
             self.execute_rhs(ri, &tuple)?;
-            firings.push(Firing { rule: rule_name, matches });
+            // Post-RHS rendering (D-013 / j03): values reflect the mutations
+            // this firing just performed.
+            let matches: Vec<FactView> = tuple.iter().map(|&f| self.store.render(f)).collect();
+            firings.push(Firing { rule: self.rules[ri].def.name.clone(), matches });
         }
         Ok(firings)
     }
 
-    /// Conflict resolution, pinned by oracle probes pr01–pr08 (DECISIONS.md
-    /// D-008): after EVERY firing the next activation is the minimum of
-    /// (salience descending, rule declaration index ascending, fact
-    /// insertion/handle order ascending), re-evaluated globally — a firing
-    /// that activates an earlier-declared rule is preempted by it (pr06).
     fn next_activation(&self) -> Option<(usize, Vec<FactId>)> {
-        let mut best: Option<((i64, usize, u32), (usize, Vec<FactId>))> = None;
-        for (ri, rule) in self.rules.iter().enumerate() {
-            let pat = &rule.patterns[0];
-            for fact in self.store.live_facts_of(pat.type_id) {
-                if !self.matches_pattern(pat, fact) {
-                    continue;
-                }
-                let tuple = vec![fact];
-                if self.fired.contains(&(ri, tuple.clone())) {
-                    continue;
-                }
-                // Lexicographic: highest salience, then rule declaration
-                // order, then lowest fact handle (pr01–pr08).
-                let key = (-rule.def.salience, ri, fact.0);
-                if best.as_ref().map_or(true, |(bk, _)| key < *bk) {
-                    best = Some((key, (ri, tuple)));
+        for &ri in &self.rule_order {
+            for tuple in self.candidates(ri) {
+                if !self.fired.contains(&(ri, tuple.clone())) {
+                    return Some((ri, tuple));
                 }
             }
         }
-        best.map(|(_, act)| act)
+        None
     }
 
-    fn matches_pattern(&self, pat: &CompiledPattern, fact: FactId) -> bool {
+    /// All currently-matching tuples of a rule, in pinned PHREAK firing
+    /// order (D-013): p0 ascending; reverse the prefix list before joining
+    /// pattern i for i >= 2; right side ascending.
+    fn candidates(&self, ri: usize) -> Vec<Vec<FactId>> {
+        let rule = &self.rules[ri];
+        let mut tuples: Vec<Vec<FactId>> = Vec::new();
+        for (pi, pat) in rule.patterns.iter().enumerate() {
+            if pi == 0 {
+                for f in self.store.live_facts_of(pat.type_id) {
+                    if self.pattern_matches(pat, f, &[]) {
+                        tuples.push(vec![f]);
+                    }
+                }
+                continue;
+            }
+            if pi >= 2 {
+                tuples.reverse();
+            }
+            let mut next = Vec::new();
+            for prefix in &tuples {
+                for f in self.store.live_facts_of(pat.type_id) {
+                    if self.pattern_matches(pat, f, prefix) {
+                        let mut t = prefix.clone();
+                        t.push(f);
+                        next.push(t);
+                    }
+                }
+            }
+            tuples = next;
+        }
+        tuples
+    }
+
+    fn pattern_matches(&self, pat: &CompiledPattern, fact: FactId, prefix: &[FactId]) -> bool {
         pat.cmps.iter().all(|c| {
             let lhs = self.store.value(fact, c.field_idx);
-            eval_cmp(&lhs, c.op, &c.rhs)
+            let rhs = match &c.rhs {
+                Src::Lit(v) => v.clone(),
+                Src::Field(pi, fi) => self.store.value(prefix[*pi], *fi),
+            };
+            eval_cmp(&lhs, c.op, &rhs)
         })
     }
 
     fn execute_rhs(&mut self, ri: usize, tuple: &[FactId]) -> Result<(), EngineError> {
-        let actions = self.rules[ri].def.actions.clone();
-        for action in &actions {
-            match action {
-                Action::Insert { type_name, args } => {
-                    let tid = self.store.type_id(type_name).ok_or_else(|| {
-                        EngineError(format!("RHS insert: unknown type {type_name}"))
-                    })?;
-                    let schema = self.store.schema(tid).clone();
-                    if args.len() != schema.fields.len() {
-                        return Err(EngineError(format!(
-                            "RHS insert new {type_name}: expected {} args, got {}",
-                            schema.fields.len(),
-                            args.len()
-                        )));
-                    }
-                    let mut values = Vec::with_capacity(args.len());
-                    for (arg, (fname, ftype)) in args.iter().zip(&schema.fields) {
-                        let v = self.eval_rhs_arg(ri, tuple, arg)?;
-                        let v = coerce(v, *ftype).ok_or_else(|| {
-                            EngineError(format!(
-                                "RHS insert new {type_name}: arg for {fname} has wrong type"
-                            ))
-                        })?;
-                        values.push(v);
-                    }
+        // Pending modification masks: setters accumulate, update() consumes.
+        let mut pending: HashMap<FactId, u64> = HashMap::new();
+        let n_actions = self.rules[ri].actions.len();
+        for ai in 0..n_actions {
+            // (indices instead of iterating borrows: actions may mutate self)
+            match &self.rules[ri].actions[ai] {
+                CompiledAction::Insert { type_id, args } => {
+                    let tid = *type_id;
+                    let values: Vec<Value> = {
+                        let schema = self.store.schema(tid).clone();
+                        args.clone()
+                            .iter()
+                            .zip(schema.fields.iter())
+                            .map(|(a, (_, ft))| {
+                                coerce(self.eval_src(a, tuple), *ft).ok_or_else(|| {
+                                    EngineError("RHS insert: arg type mismatch".into())
+                                })
+                            })
+                            .collect::<Result<_, _>>()?
+                    };
                     self.store.insert(tid, values).map_err(EngineError)?;
+                }
+                CompiledAction::Set { pos, field_idx, arg } => {
+                    let f = tuple[*pos];
+                    let fi = *field_idx;
+                    let tid = self.store.fact_type(f);
+                    let ft = self.store.field_type(tid, fi);
+                    let v = coerce(self.eval_src(&arg.clone(), tuple), ft)
+                        .ok_or_else(|| EngineError("RHS setter: arg type mismatch".into()))?;
+                    self.store.set_value(f, fi, v).map_err(EngineError)?;
+                    *pending.entry(f).or_insert(0) |= 1 << fi;
+                }
+                CompiledAction::Update { pos } => {
+                    let f = tuple[*pos];
+                    if !self.store.is_alive(f) {
+                        continue;
+                    }
+                    // No setters before update => all-fields mask (D-013/j21).
+                    let mask = pending.remove(&f).unwrap_or(u64::MAX);
+                    self.apply_update(f, mask, ri, tuple);
+                }
+                CompiledAction::Delete { pos } => {
+                    self.store.kill(tuple[*pos]);
                 }
             }
         }
         Ok(())
     }
 
-    fn eval_rhs_arg(
-        &self,
-        ri: usize,
-        tuple: &[FactId],
-        arg: &RhsArg,
-    ) -> Result<Value, EngineError> {
-        let rule = &self.rules[ri];
-        match arg {
-            RhsArg::Lit(l) => Ok(lit_value(l)),
-            RhsArg::Getter { var, field } => {
-                let (pi, _) = self.resolve_fact_binding(rule, var)?;
-                let fact = tuple[pi];
-                let tid = self.store.fact_type(fact);
-                let idx = self.store.field_index(tid, field).ok_or_else(|| {
-                    EngineError(format!(
-                        "RHS: type {} has no field {field}",
-                        self.store.schema(tid).name
-                    ))
-                })?;
-                Ok(self.store.value(fact, idx))
-            }
-            RhsArg::Var(var) => {
-                // A field binding `$a : age` from some pattern.
-                for (pi, p) in rule.def.patterns.iter().enumerate() {
-                    for c in &p.constraints {
-                        if let Constraint::Bind { var: v, field } = c {
-                            if v == var {
-                                let fact = tuple[pi];
-                                let tid = self.store.fact_type(fact);
-                                let idx =
-                                    self.store.field_index(tid, field).ok_or_else(|| {
-                                        EngineError(format!("RHS: no field {field}"))
-                                    })?;
-                                return Ok(self.store.value(fact, idx));
-                            }
-                        }
-                    }
-                }
-                Err(EngineError(format!("RHS: unknown binding {var}")))
+    /// Property-reactivity bookkeeping (D-013): clear refraction entries for
+    /// every activation whose tuple holds `f` at a position whose listen
+    /// mask overlaps `mask` — except the currently-firing tuple when its
+    /// rule is no-loop.
+    fn apply_update(&mut self, f: FactId, mask: u64, cur_ri: usize, cur_tuple: &[FactId]) {
+        let ftype = self.store.fact_type(f);
+        // (rule idx -> positions that listen to this update)
+        let mut hot: Vec<(usize, Vec<usize>)> = Vec::new();
+        for (rj, rule) in self.rules.iter().enumerate() {
+            let positions: Vec<usize> = rule
+                .patterns
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| p.type_id == ftype && p.listen_mask & mask != 0)
+                .map(|(i, _)| i)
+                .collect();
+            if !positions.is_empty() {
+                hot.push((rj, positions));
             }
         }
+        let no_loop_guard = self.rules[cur_ri].def.no_loop;
+        self.fired.retain(|(rj, t)| {
+            if no_loop_guard && *rj == cur_ri && t.as_slice() == cur_tuple {
+                return true; // no-loop: own tuple's refraction survives own update
+            }
+            match hot.iter().find(|(r, _)| r == rj) {
+                None => true,
+                Some((_, positions)) => !positions.iter().any(|&p| t[p] == f),
+            }
+        });
     }
 
-    fn resolve_fact_binding(
-        &self,
-        rule: &CompiledRule,
-        var: &str,
-    ) -> Result<(usize, TypeId), EngineError> {
-        for (pi, p) in rule.def.patterns.iter().enumerate() {
-            if p.binding.as_deref() == Some(var) {
-                return Ok((pi, rule.patterns[pi].type_id));
-            }
+    fn eval_src(&self, src: &Src, tuple: &[FactId]) -> Value {
+        match src {
+            Src::Lit(v) => v.clone(),
+            Src::Field(pi, fi) => self.store.value(tuple[*pi], *fi),
         }
-        Err(EngineError(format!("RHS: unknown fact binding {var}")))
     }
 
     /// All live facts, in insertion order, rendered.
@@ -311,6 +482,20 @@ fn lit_value(l: &Literal) -> Value {
     }
 }
 
+fn lit_type(l: &Literal) -> FieldType {
+    match l {
+        Literal::I64(_) => FieldType::I64,
+        Literal::F64(_) => FieldType::F64,
+        Literal::Str(_) => FieldType::Str,
+        Literal::Bool(_) => FieldType::Bool,
+    }
+}
+
+/// Java-style: exact match, or i64 widening into f64.
+fn assignable(src: FieldType, dst: FieldType) -> bool {
+    src == dst || (src == FieldType::I64 && dst == FieldType::F64)
+}
+
 /// Java-style widening: i64 -> f64 is allowed, nothing else converts.
 fn coerce(v: Value, target: FieldType) -> Option<Value> {
     match (v, target) {
@@ -322,37 +507,36 @@ fn coerce(v: Value, target: FieldType) -> Option<Value> {
 
 fn check_cmp_types(
     rule: &str,
-    field: FieldType,
+    lhs: FieldType,
     op: CmpOp,
-    rhs: &Literal,
+    rhs: FieldType,
 ) -> Result<(), EngineError> {
-    let ok = match (field, rhs) {
-        (FieldType::I64 | FieldType::F64, Literal::I64(_) | Literal::F64(_)) => true,
-        (FieldType::Str, Literal::Str(_)) => true,
-        (FieldType::Bool, Literal::Bool(_)) => matches!(op, CmpOp::Eq | CmpOp::Ne),
-        _ => false,
-    };
+    let numeric = |t| matches!(t, FieldType::I64 | FieldType::F64);
+    let ok = (numeric(lhs) && numeric(rhs))
+        || (lhs == FieldType::Str && rhs == FieldType::Str)
+        || (lhs == FieldType::Bool
+            && rhs == FieldType::Bool
+            && matches!(op, CmpOp::Eq | CmpOp::Ne));
     if ok {
         Ok(())
     } else {
         Err(EngineError(format!(
-            "rule {rule}: constraint type mismatch ({field:?} {op:?} {rhs:?})"
+            "rule {rule}: constraint type mismatch ({lhs:?} {op:?} {rhs:?})"
         )))
     }
 }
 
-fn eval_cmp(lhs: &Value, op: CmpOp, rhs: &Literal) -> bool {
+fn eval_cmp(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
     use std::cmp::Ordering;
     let ord: Option<Ordering> = match (lhs, rhs) {
-        (Value::I64(a), Literal::I64(b)) => Some(a.cmp(b)),
-        (Value::I64(a), Literal::F64(b)) => (*a as f64).partial_cmp(b),
-        (Value::F64(a), Literal::I64(b)) => a.partial_cmp(&(*b as f64)),
-        (Value::F64(a), Literal::F64(b)) => a.partial_cmp(b),
-        // String comparison order = Java String.compareTo (UTF-16 code units).
-        // For ASCII corpus data this equals Rust byte order; non-ASCII is
-        // restricted at the generator until probed.
-        (Value::Str(a), Literal::Str(b)) => Some(a.as_str().cmp(b.as_str())),
-        (Value::Bool(a), Literal::Bool(b)) => Some(a.cmp(b)),
+        (Value::I64(a), Value::I64(b)) => Some(a.cmp(b)),
+        (Value::I64(a), Value::F64(b)) => (*a as f64).partial_cmp(b),
+        (Value::F64(a), Value::I64(b)) => a.partial_cmp(&(*b as f64)),
+        (Value::F64(a), Value::F64(b)) => a.partial_cmp(b),
+        // String comparison order = Java String.compareTo (UTF-16 code
+        // units); equals Rust byte order for the ASCII-only corpus.
+        (Value::Str(a), Value::Str(b)) => Some(a.as_str().cmp(b.as_str())),
+        (Value::Bool(a), Value::Bool(b)) => Some(a.cmp(b)),
         _ => None,
     };
     match ord {

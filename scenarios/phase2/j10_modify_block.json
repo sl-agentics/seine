@@ -1,0 +1,10 @@
+{
+  "name": "j10_modify_block",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "t", "type": "bool" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "t": false } }
+  ],
+  "drl": "rule \"m\" when $p : P(t == false) then modify($p) { setT(true), setN(9) } end\nrule \"see\" when P(t == true) then end\n"
+}

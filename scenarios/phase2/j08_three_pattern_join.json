@@ -1,0 +1,17 @@
+{
+  "name": "j08_three_pattern_join",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "Q", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "R", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } },
+    { "type": "P", "fields": { "n": 2 } },
+    { "type": "Q", "fields": { "n": 1 } },
+    { "type": "Q", "fields": { "n": 2 } },
+    { "type": "R", "fields": { "n": 1 } },
+    { "type": "R", "fields": { "n": 2 } }
+  ],
+  "drl": "rule \"J\" when P($a : n) Q(n >= $a) R(n >= $a) then end\n"
+}

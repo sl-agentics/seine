@@ -1,0 +1,12 @@
+{
+  "name": "j16_refire_order_preempt",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "t", "type": "bool" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "t": false } },
+    { "type": "P", "fields": { "n": 2, "t": false } },
+    { "type": "P", "fields": { "n": 3, "t": false } }
+  ],
+  "drl": "rule \"see\" salience 30 when P(n > 0) then end\nrule \"upd3\" salience 20 when $p : P(n == 3, t == false) then $p.setT(true); $p.setN(30); update($p); end\nrule \"upd1\" salience 10 when $p : P(n == 1, t == false) then $p.setT(true); $p.setN(10); update($p); end\n"
+}

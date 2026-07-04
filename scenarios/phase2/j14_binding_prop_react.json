@@ -1,0 +1,11 @@
+{
+  "name": "j14_binding_prop_react",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "t", "type": "bool" } ] },
+    { "name": "H", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "t": false } }
+  ],
+  "drl": "rule \"see\" salience 10 when $p : P($x : n) then insert(new H($x)); end\nrule \"bump\" when $p : P(t == false) then $p.setT(true); $p.setN(5); update($p); end\n"
+}

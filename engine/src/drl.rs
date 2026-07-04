@@ -10,11 +10,16 @@
 //! attr       := "salience" ["-"] INT | "no-loop" [BOOL]
 //! pattern    := [ "$id" ":" ] IDENT "(" [constraint ("," constraint)*] ")"
 //! constraint := "$id" ":" IDENT            (field binding)
-//!             | IDENT cmpop literal        (field test)
+//!             | IDENT cmpop (literal|"$id") (field test, RHS literal or binding)
 //! cmpop      := "==" | "!=" | "<" | "<=" | ">" | ">="
 //! literal    := ["-"] INT | ["-"] FLOAT | STRING | "true" | "false"
 //! action     := "insert" "(" "new" IDENT "(" [arg ("," arg)*] ")" ")" ";"
-//! arg        := literal | "$id" | "$id" "." "get" IDENT "(" ")"
+//!             | "$id" "." "set" IDENT "(" arg ")" ";"
+//!             | "update" "(" "$id" ")" ";"
+//!             | ("delete"|"retract") "(" "$id" ")" ";"
+//!             | "modify" "(" "$id" ")" "{" [ "set"IDENT "(" arg ")" ("," ...)* ] "}"
+//!               (desugars to setters followed by update)
+//! arg        := literal | "$id" | "$id" "." ("get"|"is") IDENT "(" ")"
 //! ```
 
 use std::fmt;
@@ -59,11 +64,18 @@ pub enum Literal {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum CmpRhs {
+    Lit(Literal),
+    /// A field binding declared earlier (same or previous pattern).
+    Var(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Constraint {
     /// `$a : age`
     Bind { var: String, field: String },
-    /// `age > 18`
-    Cmp { field: String, op: CmpOp, rhs: Literal },
+    /// `age > 18` or `age > $a`
+    Cmp { field: String, op: CmpOp, rhs: CmpRhs },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -85,6 +97,13 @@ pub enum RhsArg {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     Insert { type_name: String, args: Vec<RhsArg> },
+    /// `$p.setX(arg);` — mutates immediately, contributes X to the pending
+    /// modification mask consumed by the next `update($p)`.
+    Set { var: String, field: String, arg: RhsArg },
+    /// `update($p);`
+    Update { var: String },
+    /// `delete($p);` / `retract($p);`
+    Delete { var: String },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -206,6 +225,8 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                 _ => match c {
                     '(' => "(",
                     ')' => ")",
+                    '{' => "{",
+                    '}' => "}",
                     ',' => ",",
                     ';' => ";",
                     ':' => ":",
@@ -326,7 +347,7 @@ impl Parser {
         self.expect_kw("then")?;
         let mut actions = Vec::new();
         while !self.at_kw("end") {
-            actions.push(self.action()?);
+            actions.extend(self.actions()?);
         }
         self.expect_kw("end")?;
         Ok(RuleDef { name, salience, no_loop, patterns, actions })
@@ -374,34 +395,111 @@ impl Parser {
             Tok::Sym(">=") => CmpOp::Ge,
             other => return Err(DrlError(format!("expected comparison operator, got {other}"))),
         };
-        let rhs = self.literal()?;
+        let rhs = match self.peek() {
+            Some(Tok::Ident(w)) if w.starts_with('$') => CmpRhs::Var(self.ident()?),
+            _ => CmpRhs::Lit(self.literal()?),
+        };
         Ok(Constraint::Cmp { field: first, op, rhs })
     }
 
-    fn action(&mut self) -> Result<Action, DrlError> {
-        self.expect_kw("insert")?;
-        self.expect_sym("(")?;
-        self.expect_kw("new")?;
-        let type_name = self.ident()?;
-        self.expect_sym("(")?;
-        let mut args = Vec::new();
-        if !matches!(self.peek(), Some(Tok::Sym(")"))) {
-            loop {
-                args.push(self.rhs_arg()?);
-                match self.next()? {
-                    Tok::Sym(",") => continue,
-                    Tok::Sym(")") => break,
-                    other => {
-                        return Err(DrlError(format!("expected ',' or ')', got {other}")))
+    /// Parse one RHS statement; `modify` desugars to several actions.
+    fn actions(&mut self) -> Result<Vec<Action>, DrlError> {
+        match self.peek() {
+            Some(Tok::Ident(w)) if w == "insert" => {
+                self.next()?;
+                self.expect_sym("(")?;
+                self.expect_kw("new")?;
+                let type_name = self.ident()?;
+                self.expect_sym("(")?;
+                let mut args = Vec::new();
+                if !matches!(self.peek(), Some(Tok::Sym(")"))) {
+                    loop {
+                        args.push(self.rhs_arg()?);
+                        match self.next()? {
+                            Tok::Sym(",") => continue,
+                            Tok::Sym(")") => break,
+                            other => {
+                                return Err(DrlError(format!("expected ',' or ')', got {other}")))
+                            }
+                        }
                     }
+                } else {
+                    self.next()?;
                 }
+                self.expect_sym(")")?;
+                self.expect_sym(";")?;
+                Ok(vec![Action::Insert { type_name, args }])
             }
-        } else {
-            self.next()?;
+            Some(Tok::Ident(w)) if w == "update" => {
+                self.next()?;
+                self.expect_sym("(")?;
+                let var = self.dollar_ident()?;
+                self.expect_sym(")")?;
+                self.expect_sym(";")?;
+                Ok(vec![Action::Update { var }])
+            }
+            Some(Tok::Ident(w)) if w == "delete" || w == "retract" => {
+                self.next()?;
+                self.expect_sym("(")?;
+                let var = self.dollar_ident()?;
+                self.expect_sym(")")?;
+                self.expect_sym(";")?;
+                Ok(vec![Action::Delete { var }])
+            }
+            Some(Tok::Ident(w)) if w == "modify" => {
+                self.next()?;
+                self.expect_sym("(")?;
+                let var = self.dollar_ident()?;
+                self.expect_sym(")")?;
+                self.expect_sym("{")?;
+                let mut out = Vec::new();
+                if !matches!(self.peek(), Some(Tok::Sym("}"))) {
+                    loop {
+                        let setter = self.ident()?;
+                        let field = setter_field(&setter)?;
+                        self.expect_sym("(")?;
+                        let arg = self.rhs_arg()?;
+                        self.expect_sym(")")?;
+                        out.push(Action::Set { var: var.clone(), field, arg });
+                        match self.next()? {
+                            Tok::Sym(",") => continue,
+                            Tok::Sym("}") => break,
+                            other => {
+                                return Err(DrlError(format!("expected ',' or '}}', got {other}")))
+                            }
+                        }
+                    }
+                } else {
+                    self.next()?;
+                }
+                out.push(Action::Update { var });
+                Ok(out)
+            }
+            Some(Tok::Ident(w)) if w.starts_with('$') => {
+                let var = self.ident()?;
+                self.expect_sym(".")?;
+                let setter = self.ident()?;
+                let field = setter_field(&setter)?;
+                self.expect_sym("(")?;
+                let arg = self.rhs_arg()?;
+                self.expect_sym(")")?;
+                self.expect_sym(";")?;
+                Ok(vec![Action::Set { var, field, arg }])
+            }
+            other => Err(DrlError(format!(
+                "expected RHS statement, got {:?}",
+                other.map(|t| t.to_string())
+            ))),
         }
-        self.expect_sym(")")?;
-        self.expect_sym(";")?;
-        Ok(Action::Insert { type_name, args })
+    }
+
+    fn dollar_ident(&mut self) -> Result<String, DrlError> {
+        let id = self.ident()?;
+        if id.starts_with('$') {
+            Ok(id)
+        } else {
+            Err(DrlError(format!("expected $binding, got {id}")))
+        }
     }
 
     fn rhs_arg(&mut self) -> Result<RhsArg, DrlError> {
@@ -436,6 +534,18 @@ impl Parser {
     }
 }
 
+fn setter_field(setter: &str) -> Result<String, DrlError> {
+    setter
+        .strip_prefix("set")
+        .filter(|r| !r.is_empty())
+        .map(|r| {
+            let mut cs = r.chars();
+            let head = cs.next().unwrap().to_ascii_lowercase();
+            format!("{head}{}", cs.as_str())
+        })
+        .ok_or_else(|| DrlError(format!("expected setter, got {setter}")))
+}
+
 pub fn parse_rules(src: &str) -> Result<Vec<RuleDef>, DrlError> {
     let mut p = Parser { toks: lex(src)?, pos: 0 };
     let mut rules = Vec::new();
@@ -464,7 +574,11 @@ mod tests {
         assert_eq!(r.patterns[0].type_name, "Person");
         assert_eq!(
             r.patterns[0].constraints,
-            vec![Constraint::Cmp { field: "age".into(), op: CmpOp::Gt, rhs: Literal::I64(18) }]
+            vec![Constraint::Cmp {
+                field: "age".into(),
+                op: CmpOp::Gt,
+                rhs: CmpRhs::Lit(Literal::I64(18))
+            }]
         );
         assert_eq!(
             r.actions,
@@ -484,6 +598,36 @@ mod tests {
         assert_eq!(rules[0].salience, -5);
         assert!(rules[0].no_loop);
         assert_eq!(rules[0].patterns[0].constraints.len(), 2);
+    }
+
+    #[test]
+    fn parses_phase2_grammar() {
+        let rules = parse_rules(
+            "rule J when $p : P($a : n, t == false) Q(m > $a) then \
+             $p.setT(true); update($p); delete($p); \
+             modify($p) { setN(5), setT(false) } end",
+        )
+        .unwrap();
+        let r = &rules[0];
+        assert_eq!(r.patterns.len(), 2);
+        assert_eq!(
+            r.patterns[1].constraints,
+            vec![Constraint::Cmp {
+                field: "m".into(),
+                op: CmpOp::Gt,
+                rhs: CmpRhs::Var("$a".into())
+            }]
+        );
+        assert_eq!(r.actions.len(), 6); // set, update, delete, set, set, update
+        assert_eq!(
+            r.actions[0],
+            Action::Set {
+                var: "$p".into(),
+                field: "t".into(),
+                arg: RhsArg::Lit(Literal::Bool(true))
+            }
+        );
+        assert_eq!(r.actions[5], Action::Update { var: "$p".into() });
     }
 
     #[test]

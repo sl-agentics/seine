@@ -1,0 +1,13 @@
+{
+  "name": "j22_left_side_update",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "t", "type": "bool" } ] },
+    { "name": "Q", "fields": [ { "name": "m", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "t": false } },
+    { "type": "Q", "fields": { "m": 5 } },
+    { "type": "Q", "fields": { "m": 2 } }
+  ],
+  "drl": "rule \"J\" salience 10 when P($a : n) Q(m > $a) then end\nrule \"bump\" when $p : P(t == false) then $p.setT(true); $p.setN(3); update($p); end\n"
+}

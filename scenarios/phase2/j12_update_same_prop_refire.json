@@ -1,0 +1,10 @@
+{
+  "name": "j12_update_same_prop_refire",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "t", "type": "bool" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "t": false } }
+  ],
+  "drl": "rule \"see\" salience 10 when P(n > 0) then end\nrule \"bump\" when $p : P(t == false) then $p.setT(true); $p.setN(5); update($p); end\n"
+}

@@ -77,6 +77,17 @@ impl Column {
         Ok(())
     }
 
+    fn set(&mut self, row: usize, v: Value) -> Result<(), String> {
+        match (self, v) {
+            (Column::I64(c), Value::I64(x)) => c[row] = x,
+            (Column::F64(c), Value::F64(x)) => c[row] = x,
+            (Column::Str(c), Value::Str(x)) => c[row] = x,
+            (Column::Bool(c), Value::Bool(x)) => c[row] = x,
+            (_, v) => return Err(format!("column type mismatch for value {v:?}")),
+        }
+        Ok(())
+    }
+
     fn get(&self, row: usize) -> Value {
         match self {
             Column::I64(c) => Value::I64(c[row]),
@@ -177,6 +188,19 @@ impl FactStore {
 
     pub fn is_alive(&self, id: FactId) -> bool {
         self.handles[id.0 as usize].alive
+    }
+
+    /// In-place field mutation (RHS setter). Values of retracted facts stay
+    /// readable in the arena, matching Drools where a Java object outlives
+    /// its retraction for rendering purposes.
+    pub fn set_value(&mut self, id: FactId, field_idx: usize, v: Value) -> Result<(), String> {
+        let h = self.handles[id.0 as usize];
+        self.data[h.type_id as usize].columns[field_idx].set(h.row as usize, v)
+    }
+
+    /// Retract: mark dead. Idempotent; the row's values remain readable.
+    pub fn kill(&mut self, id: FactId) {
+        self.handles[id.0 as usize].alive = false;
     }
 
     pub fn value(&self, id: FactId, field_idx: usize) -> Value {

@@ -1,0 +1,10 @@
+{
+  "name": "j13_empty_pattern_react",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "t", "type": "bool" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "t": false } }
+  ],
+  "drl": "rule \"see\" salience 10 when P() then end\nrule \"bump\" when $p : P(t == false) then $p.setT(true); update($p); end\n"
+}

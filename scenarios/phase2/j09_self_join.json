@@ -1,0 +1,11 @@
+{
+  "name": "j09_self_join",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } },
+    { "type": "P", "fields": { "n": 2 } }
+  ],
+  "drl": "rule \"SJ\" when P($a : n) P(n >= $a) then end\n"
+}

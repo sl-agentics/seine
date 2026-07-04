@@ -1,0 +1,12 @@
+{
+  "name": "j18_refire_position",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "t", "type": "bool" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "t": false } },
+    { "type": "P", "fields": { "n": 2, "t": false } },
+    { "type": "P", "fields": { "n": 3, "t": false } }
+  ],
+  "drl": "rule \"upd\" salience 10 when $p : P(n == 2, t == false) then $p.setT(true); $p.setN(20); update($p); end\nrule \"see\" when P(n > 0) then end\n"
+}

@@ -176,6 +176,46 @@ files in probes_pending/ — move into scenarios/ once the engine supports them)
   of the deleting rule (Java object outlives retraction; our arena keeps
   values under a dead alive-flag, so same capability).
 
+### D-013: Phase 2 semantics FULLY PINNED via probes j01–j22 (oracle-verified)
+**Join activation order (j01, j02, j08, j09, j17):** for patterns p0..pk-1,
+enumerate left-major with a twist: prefix list for p1 = p0's facts ascending
+(alpha→first-join is NOT reversed); before joining each pattern pi with i≥2,
+REVERSE the accumulated prefix list (PHREAK prepends tuples into the next
+join's staged list); right-side facts always iterate in ascending handle
+order. Firing order within a rule = final list order. Verified exactly on
+2-, 3- (j08: P2Q2R2 first), and 4-pattern (j17, all 16 tuples) joins.
+Self-joins include same-fact-in-multiple-positions tuples (j09: (P1,P1)).
+Match rendering lists facts in pattern declaration order, values POST-RHS.
+
+**Property reactivity (ON by default; j06, j07, j12, j13, j14):**
+- Pattern listen-mask = fields referenced in its constraints, INCLUDING
+  field bindings (j14). Empty pattern `P()` listens to NOTHING (j13: no
+  refire ever).
+- update() modification mask = union of fields written by setters on that
+  fact in the RHS before the update call; **no setters ⇒ ALL-fields mask**
+  (j21: bare update() self-loops infinitely — fire-limit parity required).
+- On update: every activation (fired or pending) whose tuple contains the
+  fact at a position whose listen-mask overlaps the modification mask is
+  cancelled & re-created if still matching — fired ones fire AGAIN (j12),
+  non-overlapping ones do NOT refire (j06/j07: mask {t} vs listen {n}).
+- Re-created activations occupy their natural (handle-order) position in
+  the rule's candidate order, not last (j18: see fired 1, 20, 3).
+- Refires preempt by the normal agenda key immediately (j16).
+- no-loop: suppresses ONLY the same rule-instance's re-creation caused by
+  its own update (j04); other rules and other tuples unaffected.
+
+**Mutation misc:** modify($p){ setX(..), setY(..) } ≡ setters+update with
+the block's mask (j10). delete() cancels pending activations (j05, j11);
+deleted facts still render in the deleting rule's own firing entry (arena
+keeps values under a dead flag). j22: left-side updates re-join and refire
+with re-evaluated bindings.
+
+**Termination discipline for the Phase-2 generator:** update rules must be
+guard-monotone (pattern requires `g == false`, RHS sets g=true before
+update; bool setters only ever write true), inserts keep the type-index
+DAG rule (target index > max pattern index). Bare update() (all-fields
+mask) is NEVER generated — it non-terminates (j21).
+
 ---
 
 **HANDOFF @ checkpoint 2** — Phase 0 COMPLETE. Proven: full pipeline

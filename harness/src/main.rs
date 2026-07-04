@@ -200,8 +200,16 @@ fn judge(
         (Ok(_), oracle::OracleEntry::Error(oe)) => {
             Err(vec![format!("oracle errored but engine succeeded: {oe}")])
         }
-        (Err(e), oracle::OracleEntry::Error(oe)) => Err(vec![format!(
-            "both sides errored (scenario likely out of subset): engine={e}; oracle={oe}"
-        )]),
+        (Err(e), oracle::OracleEntry::Error(oe)) => {
+            // Non-termination parity (D-013/j21): both engines hitting the
+            // fire limit is agreement, not divergence.
+            if e.contains("fire limit") && oe.contains("fire limit") {
+                Ok(())
+            } else {
+                Err(vec![format!(
+                    "both sides errored (scenario likely out of subset): engine={e}; oracle={oe}"
+                )])
+            }
+        }
     }
 }
