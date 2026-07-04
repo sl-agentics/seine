@@ -8,6 +8,9 @@
 //! rule       := "rule" name attr* "when" pattern* "then" action* "end"
 //! name       := STRING | IDENT
 //! attr       := "salience" ["-"] INT | "no-loop" [BOOL]
+//!             | "salience" "(" salterm [("+"|"-"|"*") salterm] ")"
+//! salterm    := ["-"] INT | "$id"      (numeric bindings only — D-043;
+//!               method calls / full MVEL salience bodies out of subset)
 //! pattern    := ["not"|"exists"] [ "$id" ":" ] IDENT "(" [constraint ("," constraint)*] ")"
 //!               (bindings are rejected inside not/exists patterns — D-031)
 //!             | "accumulate" "(" pattern ";" "$id" ":" accfunc "(" ["$id"] ")" ")"
@@ -156,10 +159,25 @@ pub enum Action {
     Delete { var: String },
 }
 
+/// One term of a salience expression (D-043).
+#[derive(Debug, Clone, PartialEq)]
+pub enum SalTerm {
+    Lit(i64),
+    Var(String),
+}
+
+/// Rule salience: a static int, or a computed expression over LHS
+/// bindings — evaluated per activation (D-043).
+#[derive(Debug, Clone, PartialEq)]
+pub enum SalienceSpec {
+    Static(i64),
+    Expr { a: SalTerm, op: Option<(char, SalTerm)> },
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuleDef {
     pub name: String,
-    pub salience: i64,
+    pub salience: SalienceSpec,
     pub no_loop: bool,
     pub patterns: Vec<Pattern>,
     pub actions: Vec<Action>,
@@ -284,6 +302,8 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                     '<' => "<",
                     '>' => ">",
                     '-' => "-",
+                    '+' => "+",
+                    '*' => "*",
                     other => return Err(DrlError(format!("unexpected character {other:?}"))),
                 },
             };
@@ -362,17 +382,34 @@ impl Parser {
             Tok::Ident(s) => s,
             other => Err(DrlError(format!("expected rule name, got {other}")))?,
         };
-        let mut salience = 0i64;
+        let mut salience = SalienceSpec::Static(0);
         let mut no_loop = false;
         loop {
             if self.at_kw("salience") {
                 self.next()?;
-                salience = match self.literal()? {
-                    Literal::I64(n) => n,
-                    other => {
-                        return Err(DrlError(format!("salience must be an int, got {other:?}")))
-                    }
-                };
+                if matches!(self.peek(), Some(Tok::Sym("("))) {
+                    self.next()?;
+                    let a = self.sal_term()?;
+                    let op = match self.peek() {
+                        Some(Tok::Sym(o @ ("+" | "-" | "*"))) => {
+                            let c = o.chars().next().unwrap();
+                            self.next()?;
+                            Some((c, self.sal_term()?))
+                        }
+                        _ => None,
+                    };
+                    self.expect_sym(")")?;
+                    salience = SalienceSpec::Expr { a, op };
+                } else {
+                    salience = match self.literal()? {
+                        Literal::I64(n) => SalienceSpec::Static(n),
+                        other => {
+                            return Err(DrlError(format!(
+                                "salience must be an int or (expr), got {other:?}"
+                            )))
+                        }
+                    };
+                }
             } else if self.at_kw("no-loop") {
                 self.next()?;
                 no_loop = true;
@@ -401,6 +438,24 @@ impl Parser {
         }
         self.expect_kw("end")?;
         Ok(RuleDef { name, salience, no_loop, patterns, actions })
+    }
+
+    /// One salience-expression term: int literal or `$binding` (D-043).
+    /// Anything else (method calls, floats, parens) is out of subset.
+    fn sal_term(&mut self) -> Result<SalTerm, DrlError> {
+        match self.peek() {
+            Some(Tok::IntLit(_)) | Some(Tok::Sym("-")) => match self.literal()? {
+                Literal::I64(n) => Ok(SalTerm::Lit(n)),
+                other => Err(DrlError(format!(
+                    "salience terms are int literals or bindings, got {other:?}"
+                ))),
+            },
+            Some(Tok::Ident(w)) if w.starts_with('$') => Ok(SalTerm::Var(self.dollar_ident()?)),
+            other => Err(DrlError(format!(
+                "salience terms are int literals or bindings, got {:?}",
+                other.map(|t| t.to_string())
+            ))),
+        }
     }
 
     fn pattern(&mut self) -> Result<Pattern, DrlError> {
@@ -806,7 +861,7 @@ mod tests {
         assert_eq!(rules.len(), 1);
         let r = &rules[0];
         assert_eq!(r.name, "Adult");
-        assert_eq!(r.salience, 0);
+        assert_eq!(r.salience, SalienceSpec::Static(0));
         assert_eq!(r.patterns.len(), 1);
         assert_eq!(r.patterns[0].binding.as_deref(), Some("$p"));
         assert_eq!(r.patterns[0].type_name, "Person");
@@ -833,7 +888,7 @@ mod tests {
             "rule R salience -5 no-loop when Person(name == \"bob\", age <= 3) then insert(new Adult(\"x\")); end",
         )
         .unwrap();
-        assert_eq!(rules[0].salience, -5);
+        assert_eq!(rules[0].salience, SalienceSpec::Static(-5));
         assert!(rules[0].no_loop);
         assert_eq!(rules[0].patterns[0].constraints.len(), 2);
     }

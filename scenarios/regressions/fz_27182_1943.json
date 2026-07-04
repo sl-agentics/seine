@@ -1,0 +1,81 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1($b0_0_0 : f1)\nthen\n    insert(new T2(-2.5, -3.0, 0.0, true));\n    insert(new T2(0.5, -2.5, -3.0, true));\nend\nrule \"R1\"\nwhen\n    T2(f2 < 10, $b1_0_0 : f1, $b1_0_1 : f3)\nthen\nend\nrule \"R2\"\nsalience -2\nwhen\n    T1(f0 in (false, true), f1 == true)\nthen\nend\nrule \"R3\"\nsalience($b3_0_1)\nwhen\n    T2(f3 in (false, true), $b3_0_0 : f0, $b3_0_1 : f2)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -2.0,
+        "f1": 6.0,
+        "f2": 6.0,
+        "f3": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true,
+        "f2": false,
+        "f3": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_27182_1943",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

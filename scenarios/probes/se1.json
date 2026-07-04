@@ -1,0 +1,56 @@
+{
+ "name": "se1",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 3,
+    "w": 0,
+    "g": true
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 7,
+    "w": 0,
+    "g": true
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 5
+   }
+  }
+ ],
+ "drl": "rule RA salience($x) when P($x : v) then end\nrule RB salience 5 when Q() then end\n"
+}

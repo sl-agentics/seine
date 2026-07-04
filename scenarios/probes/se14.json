@@ -1,0 +1,38 @@
+{
+ "name": "se14",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 3000000000
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 5
+   }
+  }
+ ],
+ "drl": "rule RA salience($x) when P($x : v) then end\nrule RB salience 1000 when Q() then end\n"
+}

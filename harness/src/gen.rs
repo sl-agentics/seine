@@ -575,13 +575,48 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         }
 
         // Render the rule.
-        let salience = if rng.chance(35) {
+        // Salience: static int, or a computed expression over this
+        // rule's numeric bindings (D-043). Accumulate-result bindings
+        // ($a…) are excluded (typing unprobed).
+        let numeric_binds: Vec<String> = pats
+            .iter()
+            .flat_map(|p| {
+                p.bindings
+                    .iter()
+                    .filter(|(v, _, ft)| {
+                        !v.starts_with("$a") && matches!(ft, Ft::I64 | Ft::F64)
+                    })
+                    .map(|(v, _, _)| v.clone())
+            })
+            .collect();
+        let sal_expr = if !numeric_binds.is_empty() && rng.chance(15) {
+            let a = rng.pick(&numeric_binds).clone();
+            let form = rng.below(3);
+            Some(match form {
+                0 => format!("salience({a})\n"),
+                1 => {
+                    let op = *rng.pick(&["+", "-", "*"]);
+                    let lit = (rng.below(9) as i64) - 4;
+                    format!("salience({a} {op} {lit})\n")
+                }
+                _ => {
+                    let b = rng.pick(&numeric_binds).clone();
+                    let op = *rng.pick(&["+", "-"]);
+                    format!("salience({a} {op} {b})\n")
+                }
+            })
+        } else {
+            None
+        };
+        let salience = if sal_expr.is_none() && rng.chance(35) {
             (rng.below(21) as i64) - 10
         } else {
             0
         };
         drl.push_str(&format!("rule \"R{ri}\"\n"));
-        if salience != 0 {
+        if let Some(se) = sal_expr {
+            drl.push_str(&se);
+        } else if salience != 0 {
             drl.push_str(&format!("salience {salience}\n"));
         }
         if rng.chance(10) {

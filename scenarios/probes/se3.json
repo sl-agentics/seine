@@ -1,0 +1,48 @@
+{
+ "name": "se3",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1,
+    "w": 0,
+    "g": false
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 5
+   }
+  }
+ ],
+ "drl": "rule U salience 100 when $p : P(g == false) then modify($p) { setV(100), setG(true) } end\nrule RA salience($x) when $p : P($x : v) then end\nrule RB salience 50 when Q() then end\n"
+}

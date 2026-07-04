@@ -1,0 +1,48 @@
+{
+ "name": "se10",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1,
+    "w": 0,
+    "g": true
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 5
+   }
+  }
+ ],
+ "drl": "rule U salience 100 when Q(n == 5) $q : Q() then insert(new P(90, 0, true)); $q.setN(0); update($q); end\nrule RB salience 50 when Q() then end\nrule RA salience($x) when P($x : v) then end\n"
+}

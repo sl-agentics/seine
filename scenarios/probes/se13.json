@@ -1,0 +1,35 @@
+{
+ "name": "se13",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 5,
+    "w": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 5,
+    "w": 2
+   }
+  }
+ ],
+ "drl": "rule RA salience($x) when P($x : v, $y : w) then end\n"
+}

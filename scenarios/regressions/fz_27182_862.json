@@ -1,0 +1,72 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f0 != -5)\nthen\nend\nrule \"R1\"\nwhen\n    accumulate( T1(f0 != 7, f0 in (9, 3.5)); $a1_0 : count() )\nthen\nend\nrule \"R2\"\nsalience($b2_0_0 + $b2_0_1)\nno-loop\nwhen\n    T1($b2_0_0 : f0, $b2_0_1 : f0)\nthen\nend\nrule \"R3\"\nsalience 1\nwhen\n    $p3_0 : T0(f1 not in (\"\", \"\", \"zz\"), f1 not in (\"b\"))\nthen\n    insert(new T1($p3_0.getF2()));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": "b",
+        "f2": 11
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "beta",
+        "f2": 0
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 9
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": "b",
+        "f2": -3
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "alpha",
+        "f2": 3
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_27182_862",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}
