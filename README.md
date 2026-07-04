@@ -6,7 +6,7 @@ against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
 > Status: Phases 0–2 complete, plus the Phase-3 stretch items
 > `matches`/`contains`/`in` and `not`/`exists` (accumulate/collect not
-> started). Curated corpus (241 scenarios, incl. 95 named fuzz
+> started). Curated corpus (245 scenarios, incl. 99 named fuzz
 > regressions) at 100% with NO subset wall (mutation, 3-pattern rules and
 > CEs mix freely). The engine core is a behavioral port of the PHREAK
 > node algorithm (`engine/src/phreak.rs`) — staging sets, beta memories
@@ -84,7 +84,7 @@ make oracle        # build the Java oracle runner (once)
 The fuzzer is seeded and deterministic (case k of seed s is always the same
 program). Divergent cases are saved to `scenarios/failures/` automatically;
 every resolved divergence graduates to a named regression scenario in
-`scenarios/regressions/` (95 of them — each one pinned a real PHREAK
+`scenarios/regressions/` (99 of them — each one pinned a real PHREAK
 semantic documented in `DECISIONS.md`).
 
 ## Provenance & licensing

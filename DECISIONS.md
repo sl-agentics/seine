@@ -411,7 +411,29 @@ cannot reproduce:
 - ne_t11's clean result was circumstantial (single batch); D-036's
   claim that per-rule copies suffice is RETRACTED — the trie is the
   faithful model.
-- Corpus: **241/241** (3 fuzz regressions + 2 minimized twins + ne_t13..15).
+- Wave 4 (fz_7_2122, fz_999_3298 — the first trie campaign):
+  - **Per-event link effects:** within ONE WM action, Drools propagates
+    through the alpha sinks sequentially, so an intermediate node link
+    (a not node re-linking on its blocker's delete) transiently links a
+    path and QUEUES its item even though a LATER node of the same action
+    unlinks the path again (fz_7_2122: the queued sharer then claims the
+    unblock window, splitting batches). The engine now runs link/queue
+    bookkeeping after EVERY node staging event instead of once per
+    action.
+  - **Peer-merge clash semantics (fz_999_3298):** a peer-copy UPDATE
+    that touches an already-staged tuple is SKIPPED — the entry keeps
+    its position AND kind (processPeerUpdates' staged-type check) —
+    unlike the intra-chain merge where an update moves a pending insert
+    to the head. Peer INSERT clashes do move to the head
+    (updateChildLeftTupleDuringInsert). peer_merge_into_pending walks
+    the source lists head-first with per-entry prepends, so the
+    batch-reversal and LIFO batch stacking emerge rather than being
+    applied as a wholesale flip.
+- Corpus: **245/245** (5 fuzz regressions + 4 minimized twins + ne_t13..15).
+- Final campaign over the FULLY-unwalled, reuse-enabled grammar (shared
+  prefixes x mutation x CEs x salience mixing freely, ~1% of cases with
+  true shared >=2-pattern prefixes): seeds 42/7/123/777/999 x 10,000 =
+  **50k cases, ZERO divergences**.
 
 ### D-036: Sharing identity CORRECTED (bound-field set); D-035 wall LIFTED;
 ### window-claim theory RETRACTED (probes ne_t1..ne_t11)
@@ -450,6 +472,30 @@ Session 5. Re-examining the D-035 xfails with fresh probes disproved the
   scaffolding is deleted. Dead code cleanup: the unused FIFO staging
   variants and Node.first are gone.
 - Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
+
+**HANDOFF @ D-037 close (Session 5, 2026-07-04)** — The node-sharing
+model is now a TRUE shared prefix trie (one node instance per
+structurally-equal prefix, evaluated once per agenda window, per-batch
+propagation to all sinks). Proven state at close:
+- Corpus 245/245 (`make diff`); `make test` green. No xfails, no walls:
+  mutation, 3-pattern rules, CEs, and shared prefixes (incl. the
+  generator's deliberate ~15% prefix reuse) all mix freely.
+- Fuzz: 50k cases (5 seeds x 10k) on the final grammar, zero
+  divergences.
+- Sharing identity (D-036/D-037): type + CE kind + ordered constraints
+  (var references compare BY NAME, ne_t13/t14) + the bound-field SET
+  (ne_t1..t10); binding names/order/duplicates and fact-level bindings
+  irrelevant unless referenced.
+- Propagation (D-037): first-built sink gets addAll-appended batches
+  (FIFO for laggards); later sinks get per-entry prepend peer copies
+  (reversed per batch, LIFO stacking) with skip-if-staged update clashes;
+  link/queue effects run per node event within a WM action.
+- If resuming: (1) accumulate/collect remain unstarted (largest PHREAK
+  node; oracle needs a Number-rendering canonicalization like
+  InitialFact's); (2) salience expressions (dynamic-salience agenda);
+  (3) scale campaigns stay cheap insurance — this session's classes
+  (D-033/D-035..37) all hid below ~1/10k draw rates until the generator
+  was taught to draw them.
 
 **HANDOFF @ Phase 3 close (Session 4, 2026-07-04)** — Stretch items
 `matches`/`contains`/`in` and `not`/`exists` are DONE per D-034's bar;
