@@ -236,13 +236,17 @@ fn accessor(name: &str, ft: Ft, prefix: &str) -> String {
 /// One LHS pattern being generated.
 struct GenPattern {
     ti: usize,
-    /// 0 = positive, 1 = not, 2 = exists. CE patterns never carry
-    /// bindings or fact vars (D-031).
+    /// 0 = positive, 1 = not, 2 = exists, 3 = accumulate, 4 = collect.
+    /// CE/accumulate patterns never carry fact vars; an accumulate's
+    /// only outward binding is its RESULT (D-031/D-038).
     ce: u8,
     fact_var: Option<String>,
     constraints: Vec<String>,
     /// (var name, field idx, field type) — usable by later patterns/RHS.
+    /// For accumulate patterns this holds the RESULT binding.
     bindings: Vec<(String, usize, Ft)>,
+    /// Accumulate rendering: (function name, arg render, result var).
+    acc: Option<(String, String, String)>,
 }
 
 pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
@@ -287,8 +291,13 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         let mut pats: Vec<GenPattern> = Vec::new();
         // Prefix reuse (true node sharing): copy 2..all leading patterns
         // from an earlier rule, renaming its binding vars to this rule.
-        let reusable: Vec<usize> =
-            (0..prev_rules.len()).filter(|&i| prev_rules[i].len() >= 2).collect();
+        // Accumulate-bearing prefixes are excluded from reuse: their
+        // sharing identity (arg names, contexts) is unprobed (D-038).
+        let reusable: Vec<usize> = (0..prev_rules.len())
+            .filter(|&i| {
+                prev_rules[i].len() >= 2 && prev_rules[i].iter().all(|p| p.ce < 3)
+            })
+            .collect();
         let mut copied = 0usize;
         if !reusable.is_empty() && rng.chance(15) {
             let src = *rng.pick(&reusable);
@@ -314,6 +323,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                         .iter()
                         .map(|(v, fi, ft)| (v.replace(&from, &to), *fi, *ft))
                         .collect(),
+                    acc: None,
                 });
             }
             copied = take;
@@ -337,12 +347,17 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             } else {
                 0
             };
+            // ~10% of fresh patterns become accumulate/collect; the
+            // function (incl. collect) is picked once constraints are
+            // generated (D-038).
+            let ce = if rng.chance(10) { 3 } else { ce };
             pats.push(GenPattern {
                 ti: rng.below(ntypes),
                 ce,
                 fact_var: None,
                 constraints: Vec::new(),
                 bindings: Vec::new(),
+                acc: None,
             });
         }
 
@@ -427,6 +442,44 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     pats[pi].bindings.push((var, fi, ft));
                 }
             }
+            // Accumulate/collect materialization (D-038): pick the
+            // function by the source's numeric supply; the result var is
+            // an ordinary downstream binding (except collect).
+            if pats[pi].ce == 3 {
+                let numeric: Vec<(usize, String, Ft)> = types[pats[pi].ti]
+                    .fields
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (_, ft))| matches!(ft, Ft::I64 | Ft::F64))
+                    .map(|(i, (n, ft))| (i, n.clone(), *ft))
+                    .collect();
+                let choice = rng.below(100);
+                if choice < 15 || (numeric.is_empty() && choice < 55) {
+                    // collect
+                    pats[pi].ce = 4;
+                    let rvar = format!("$a{ri}_{pi}");
+                    pats[pi].acc = Some(("collect".into(), String::new(), rvar));
+                } else if choice < 35 || numeric.is_empty() {
+                    // count()
+                    let rvar = format!("$a{ri}_{pi}");
+                    pats[pi].acc = Some(("count".into(), String::new(), rvar.clone()));
+                    pats[pi].bindings.push((rvar, usize::MAX, Ft::I64));
+                } else {
+                    let (fi, fname, ft) = rng.pick(&numeric).clone();
+                    let func = *rng.pick(&["sum", "average", "min", "max"]);
+                    let avar = format!("$s{ri}_{pi}");
+                    pats[pi].constraints.push(format!("{avar} : {fname}"));
+                    let rvar = format!("$a{ri}_{pi}");
+                    let rft = if func == "average" { Ft::F64 } else { ft };
+                    pats[pi].acc = Some((func.into(), avar, rvar.clone()));
+                    // min/max over double args do not COMPILE in
+                    // downstream comparisons (Drools Number typing,
+                    // D-039) — leave those results unbound outward.
+                    if !(matches!(func, "min" | "max") && ft == Ft::F64) {
+                        pats[pi].bindings.push((rvar, fi, rft));
+                    }
+                }
+            }
         }
 
         // Guard constraint for the update rule.
@@ -455,6 +508,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     fact_var: None,
                     constraints: p.constraints.clone(),
                     bindings: p.bindings.clone(),
+                    acc: None,
                 })
                 .collect(),
         );
@@ -523,6 +577,18 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         }
         drl.push_str("when\n");
         for p in &pats {
+            if let Some((func, avar, rvar)) = &p.acc {
+                let src = format!("{}({})", types[p.ti].name, p.constraints.join(", "));
+                if p.ce == 4 {
+                    drl.push_str(&format!("    {rvar} : ArrayList() from collect( {src} )\n"));
+                } else {
+                    let arg = if func == "count" { String::new() } else { avar.clone() };
+                    drl.push_str(&format!(
+                        "    accumulate( {src}; {rvar} : {func}({arg}) )\n"
+                    ));
+                }
+                continue;
+            }
             let ce = match p.ce {
                 1 => "not ",
                 2 => "exists ",

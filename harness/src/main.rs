@@ -34,6 +34,7 @@ fn main() -> ExitCode {
         "oracle" => cmd_oracle(&paths),
         "diff" => cmd_diff(&paths),
         "fuzz" => cmd_fuzz(&paths),
+        "gen" => cmd_gen(&paths),
         other => {
             eprintln!("unknown subcommand {other:?}");
             ExitCode::from(2)
@@ -106,6 +107,18 @@ fn cmd_diff(paths: &[String]) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// `gen <count> [seed]`: print generated scenarios as NDJSON (grammar
+/// inspection; the same stream fuzz consumes).
+fn cmd_gen(paths: &[String]) -> ExitCode {
+    let count: u64 = paths[0].parse().expect("gen <count> [seed]");
+    let seed: u64 = paths.get(1).map(|s| s.parse().expect("seed")).unwrap_or(1);
+    for case in 0..count {
+        let (_, scenario) = gen::gen_scenario(seed, case);
+        println!("{scenario}");
+    }
+    ExitCode::SUCCESS
 }
 
 fn cmd_fuzz(args: &[String]) -> ExitCode {

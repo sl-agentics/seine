@@ -671,6 +671,11 @@ impl Engine {
         // order. CE patterns own no tuple slot (D-031).
         let mut fact_binds: HashMap<String, (usize, TypeId)> = HashMap::new();
         let mut field_binds: HashMap<String, (usize, usize, FieldType)> = HashMap::new();
+        // Accumulate results carry their natural compile-time type
+        // (Double/Long) EXCEPT min/max over double args, which Drools
+        // types opaquely (Comparable/Number) — those results compile
+        // nowhere: not in comparisons, not as RHS args (D-039).
+        let mut acc_opaque: HashSet<String> = HashSet::new();
         let mut patterns = Vec::new();
         let mut tuple_len = 0usize;
 
@@ -751,6 +756,11 @@ impl Engine {
                         let (src, rhs_ft, rhs_var) = match rhs {
                             CmpRhs::Lit(l) => (Src::Lit(lit_value(l)), lit_type(l), None),
                             CmpRhs::Var(v) => {
+                                if acc_opaque.contains(v) {
+                                    return Err(err(format!(
+                                        "{v}: min/max over double is not comparable downstream (Drools Number typing, D-039)"
+                                    )));
+                                }
                                 let (bpi, bfi, bft) = field_binds
                                     .get(v)
                                     .copied()
@@ -865,6 +875,11 @@ impl Engine {
                         {
                             return Err(err(format!("duplicate binding {}", spec.result_var)));
                         }
+                        if matches!(spec.func, AccFunc::Min | AccFunc::Max)
+                            && arg_ft == FieldType::F64
+                        {
+                            acc_opaque.insert(spec.result_var.clone());
+                        }
                     }
                     Some(CompiledAcc {
                         func: spec.func,
@@ -957,6 +972,7 @@ impl Engine {
                             arg,
                             &fact_binds,
                             &field_binds,
+                            &acc_opaque,
                             &def,
                             &patterns,
                         )?;
@@ -979,7 +995,7 @@ impl Engine {
                         .ok_or_else(|| err(format!("no field {field} for setter on {var}")))?;
                     let ftype = self.store.field_type(tid, fi);
                     let (src, src_ft) =
-                        self.compile_arg(&rname, arg, &fact_binds, &field_binds, &def, &patterns)?;
+                        self.compile_arg(&rname, arg, &fact_binds, &field_binds, &acc_opaque, &def, &patterns)?;
                     if !assignable(src_ft, ftype) {
                         return Err(err(format!("setter {var}.{field}: wrong arg type")));
                     }
@@ -1008,12 +1024,18 @@ impl Engine {
         arg: &RhsArg,
         fact_binds: &HashMap<String, (usize, TypeId)>,
         field_binds: &HashMap<String, (usize, usize, FieldType)>,
+        acc_opaque: &HashSet<String>,
         _def: &RuleDef,
         _patterns: &[CompiledPattern],
     ) -> Result<(Src, FieldType), EngineError> {
         match arg {
             RhsArg::Lit(l) => Ok((Src::Lit(lit_value(l)), lit_type(l))),
             RhsArg::Var(v) => {
+                if acc_opaque.contains(v) {
+                    return Err(EngineError(format!(
+                        "rule {rname}: {v}: min/max over double compiles nowhere (Drools Number typing, D-039)"
+                    )));
+                }
                 let (pi, fi, ft) = field_binds
                     .get(v)
                     .copied()

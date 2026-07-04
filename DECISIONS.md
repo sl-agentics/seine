@@ -369,6 +369,28 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-039: accumulate-result compile TYPING (27-case matrix, tc_*/rc_*)
+Inline-accumulate results carry a compile-time Java type:
+sum(double)->Double, sum(long)->Long, count->Long, average->Double,
+min/max(long)->Long, but **min/max(double) -> opaque Comparable/Number**.
+Usability follows Java assignability exactly:
+- Downstream comparisons (`field <op> $r`, MVEL): Double/Long results
+  compile against ANY numeric field; opaque results compile against
+  NOTHING (fz_4242_490, tc_m1/m5/m6/m7 vs tc_s1..s4/c1/c2/a1/a2/m2/m3/m4).
+- RHS constructor args: Long -> long or double (widening), Double ->
+  double only (never long: rc_sf_i/rc_a_i errors), opaque -> nothing
+  (rc_mf_f/rc_mf_i; fz_4242_99).
+- Engine wall: min/max-over-f64 results error in comparisons AND RHS
+  args; all other results flow with their natural field type (the
+  existing I64->F64 widening matches Long->double). Generator mirror:
+  min/max-over-f64 results are not bound outward; other results join
+  and feed RHS args freely.
+- The 19 COMPILING matrix combinations are corpus probes; erroring ones
+  stay out (both-error cases are flagged by the judge as likely out of
+  subset, by design).
+- collect results are bound but referenced nowhere downstream (not
+  registered as field bindings; List constraints fenced at parse).
+
 ### D-038: accumulate/collect semantics PINNED (probes acc1..acc16)
 Phase 3b scope: inline `accumulate( <src> ; $r : func($a) )` with the
 built-ins sum/count/average/min/max, plus `ArrayList()/List() from

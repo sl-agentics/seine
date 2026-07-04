@@ -1,0 +1,46 @@
+{
+ "name": "rc_si_f",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "OutF",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "OutI",
+   "fields": [
+    {
+     "name": "y",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.5,
+    "k": 2
+   }
+  }
+ ],
+ "drl": "rule R when accumulate( P($b : k); $r : sum($b) ) then insert(new OutF($r)); end\n"
+}
