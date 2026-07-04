@@ -148,22 +148,24 @@ Probe: `$s.getOk()` on a declared type with `ok : boolean` is a Drools
 
 **HANDOFF @ FINAL checkpoint (Phases 0–2 COMPLETE)** — Definition of Done
 per brief §6, against the D-017 subset:
-- Curated corpus: **100/100 PASS** (`make diff`): 2 phase-0/1 seed suites,
-  probes pr01–pr11 + u01–u15 + j01–j22, 46 named fuzz regressions. Every
+- Curated corpus: **102/102 PASS** (`make diff`): phase-0/1 seed suites,
+  probes pr01–pr11 + u01–u16 + j01–j22, 47 named fuzz regressions. Every
   scenario asserts final-fact-set AND ordered-firing-log equivalence
   against real Drools 9.44.0.Final.
-- Fuzz: **20,000 cases (seeds 42 + 7) at zero divergences** over the
-  Phase-1+2 grammar (`make fuzz SEED=n`). Runs are deterministic.
-- Two out-of-subset xfails (xfail/, D-016) with analysis notes; the subset
-  wall (D-017: mutation programs ≤2-pattern rules) is enforced by the
-  generator and documented in the README.
+- Fuzz: **30,000 full cases (seeds 42, 7, 123) + 8k spot cases, all at
+  zero divergences** over the Phase-1+2 grammar (`make fuzz SEED=n`).
+  Runs are deterministic (SplitMix64; case k of seed s always identical).
+- ONE out-of-subset xfail (xfail/fz_42_4373, D-016/D-022) with an
+  automated delta-minimizer (xfail/minimize.py) and analysis notes; the
+  subset wall (D-017: mutation programs ≤2-pattern rules) is enforced by
+  the generator and documented in the README.
 - `make test` = 6 pure-Rust tests, no JVM needed.
 - Environment for a fresh session: PATH needs `~/.cargo/bin`; JVM 21 +
   Maven resolve Drools from `~/.m2` (pinned 9.44.0.Final in oracle/pom.xml).
-- If resuming: Phase 3 stretch items (brief §2: not/exists, accumulate,
-  extra operators) were NOT started — Phases 1–2 solidity was prioritized
-  per the brief. The other open thread is D-016 (two 3-pattern×deep-update
-  xfails; start from a u16 probe = u13 + a second update event).
+- If resuming: (1) the open xfail — extend minimize.py to drop constraints
+  and RHS actions, shrink values, then hand-trace the ~15-update swap;
+  (2) Phase 3 stretch items (not/exists, accumulate, matches/contains/in)
+  were NOT started — Phases 1–2 solidity was prioritized per the brief.
 
 **HANDOFF @ checkpoint 3** — Phase 1 COMPLETE (single-pattern rules: all six
 operators × 4 field types, bindings, salience, preemption, chains, no-loop
