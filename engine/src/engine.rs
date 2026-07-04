@@ -403,7 +403,7 @@ impl Engine {
                 if self.alpha_passes(ri, pos, f) {
                     self.nets[ri].active[pos].insert(f);
                     if pos == 0 {
-                        self.nets[ri].s0.add_ins_back(f, origin);
+                        self.nets[ri].s0.add_ins(f, origin);
                     } else {
                         self.nets[ri].nodes[pos - 1].s_right.add_ins(f, origin);
                     }
@@ -427,7 +427,7 @@ impl Engine {
                     (false, true) => {
                         self.nets[ri].active[pos].insert(f);
                         if pos == 0 {
-                            self.nets[ri].s0.add_ins_back(f, origin);
+                            self.nets[ri].s0.add_ins(f, origin);
                         } else {
                             self.nets[ri].nodes[pos - 1].s_right.add_ins(f, origin);
                         }
@@ -435,7 +435,7 @@ impl Engine {
                     (true, false) => {
                         self.nets[ri].active[pos].remove(&f);
                         if pos == 0 {
-                            self.nets[ri].s0.add_del_back(f, origin);
+                            self.nets[ri].s0.add_del(f, origin);
                         } else {
                             self.nets[ri].nodes[pos - 1].s_right.add_del(f, origin);
                         }
@@ -445,7 +445,7 @@ impl Engine {
                         // (fz_42_3311); property masks need intersection.
                         if mask == u64::MAX || pat.listen_mask & mask != 0 {
                             if pos == 0 {
-                                self.nets[ri].s0.add_upd_back(f, origin);
+                                self.nets[ri].s0.add_upd(f, origin);
                             } else {
                                 self.nets[ri].nodes[pos - 1].s_right.add_upd(f, origin);
                             }
@@ -462,7 +462,7 @@ impl Engine {
             for pos in 0..self.rules[ri].patterns.len() {
                 if self.nets[ri].active[pos].remove(&f) {
                     if pos == 0 {
-                        self.nets[ri].s0.add_del_back(f, origin);
+                        self.nets[ri].s0.add_del(f, origin);
                     } else {
                         self.nets[ri].nodes[pos - 1].s_right.add_del(f, origin);
                     }
@@ -498,10 +498,10 @@ impl Engine {
             // LIA -> terminal directly; working-memory staging consumed
             // OLDEST-first (pr08/pr04 pin).
             let net = &mut self.nets[ri];
-            for (f, _, _) in s0.del.iter() {
+            for (f, _, _) in s0.del.iter().rev() {
                 net.queue.retain(|t| t[0] != *f);
             }
-            for (f, o, _) in s0.upd.iter() {
+            for (f, o, _) in s0.upd.iter().rev() {
                 let queued = net.queue.iter().any(|t| t[0] == *f);
                 if queued {
                     continue; // pending: keep position
@@ -511,7 +511,7 @@ impl Engine {
                 }
                 net.queue.push(vec![*f]);
             }
-            for (f, o, _) in s0.ins.iter() {
+            for (f, o, _) in s0.ins.iter().rev() {
                 if no_loop && *o == Some(ri) {
                     continue;
                 }
@@ -531,17 +531,10 @@ impl Engine {
         src.del = s0.del.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
 
         for j in 0..net.nodes.len() {
-            // fold any left-staged remainder (from unlinked accumulation)
+            // merge this batch into any left-staged remainder (from
+            // unlinked accumulation), with clash-move semantics
             let pending = net.nodes[j].s_left.take();
-            for (t, o, _) in pending.del {
-                src.add_del(t, o);
-            }
-            for (t, o, p) in pending.upd {
-                src.add_upd_ph(t, o, p);
-            }
-            for (t, o, p) in pending.ins {
-                src.add_ins_ph(t, o, p);
-            }
+            src = Staged::merge_into_pending(pending, src);
             let sr = net.nodes[j].s_right.take();
             let mut trg: Staged<Tup> = Staged::default();
             phreak::do_node(&env, j, &mut net.nodes[j], src, sr, &mut trg);
@@ -555,37 +548,24 @@ impl Engine {
         for (t, _, _) in src.del.iter() {
             net.queue.retain(|x| x != t);
         }
-        // Terminal consumption order (D-027 calibration), independent of
-        // eager/lazy:
-        //   1. update-derived (phase 2) INSERTS, newest-first
-        //      (c10/c13/9462/u16-flip4);
-        //   2. terminal UPDATES, chronological (u12/u13/u16-flip2);
-        //   3. left-insert-derived, then right-insert-derived inserts,
-        //      each chronological (j01/u09/c12/fz_7_87).
-        let mut appends: Vec<(Tup, Origin)> = src
-            .ins
-            .iter()
-            .filter(|(_, _, ph)| *ph == 2)
-            .map(|(t, o, _)| (t.clone(), *o))
-            .collect();
-        for (t, o, _) in src.upd.iter().rev() {
-            let queued = net.queue.iter().any(|x| x == t);
-            if queued {
-                continue; // pending activation keeps its position
-            }
-            appends.push((t.clone(), *o)); // fired: effectively recreated
-        }
-        appends.extend(
-            src.ins.iter().rev().filter(|(_, _, ph)| *ph == 0).map(|(t, o, _)| (t.clone(), *o)),
-        );
-        appends.extend(
-            src.ins.iter().rev().filter(|(_, _, ph)| *ph == 1).map(|(t, o, _)| (t.clone(), *o)),
-        );
-        for (t, o) in appends {
-            if no_loop && o == Some(ri) {
+        // Terminal (PhreakRuleTerminalNode): updates then inserts, each
+        // consumed staged-list head-first, appending to the executor's
+        // tuple list. A queued activation keeps its position; an unqueued
+        // (fired) one is effectively recreated.
+        for (t, o, _) in src.upd.iter() {
+            if net.queue.iter().any(|x| x == t) {
                 continue;
             }
-            net.queue.push(t);
+            if no_loop && *o == Some(ri) {
+                continue;
+            }
+            net.queue.push(t.clone());
+        }
+        for (t, o, _) in src.ins.iter() {
+            if no_loop && *o == Some(ri) {
+                continue;
+            }
+            net.queue.push(t.clone());
         }
     }
 

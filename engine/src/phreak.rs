@@ -68,13 +68,47 @@ impl<T: Clone + PartialEq> Staged<T> {
     }
 
     pub fn add_upd_ph(&mut self, t: T, origin: Origin, phase: u8) {
+        // TupleSetsImpl.addUpdate: already staged (any list) -> no-op.
         if self.ins.iter().any(|(x, _, _)| *x == t)
             || self.upd.iter().any(|(x, _, _)| *x == t)
             || self.del.iter().any(|(x, _, _)| *x == t)
         {
-            return; // folds: pending insert/update already schedules it
+            return;
         }
         self.upd.insert(0, (t, origin, phase));
+    }
+
+    /// Merge a downstream node's PENDING staging with a fresh trg batch.
+    /// updateChildLeftTuple semantics: an event re-touching a tuple that
+    /// is staged in PENDING removes it there and re-stages it fresh
+    /// (moving it to the head); same-kind staging keeps its kind
+    /// (a pending INSERT touched by an update stays an INSERT).
+    pub fn merge_into_pending(mut pending: Staged<T>, trg: Staged<T>) -> Staged<T> {
+        for (t, o, ph) in trg.del.into_iter().rev() {
+            pending.add_del(t, o);
+            let _ = ph;
+        }
+        for (t, o, ph) in trg.upd.into_iter().rev() {
+            if let Some(i) = pending.ins.iter().position(|(x, _, _)| *x == t) {
+                let e = pending.ins.remove(i);
+                pending.ins.insert(0, e); // stays an insert, moves to head
+                continue;
+            }
+            if let Some(i) = pending.upd.iter().position(|(x, _, _)| *x == t) {
+                pending.upd.remove(i);
+            }
+            if pending.del.iter().any(|(x, _, _)| *x == t) {
+                continue;
+            }
+            pending.upd.insert(0, (t, o, ph));
+        }
+        for (t, o, ph) in trg.ins.into_iter().rev() {
+            if pending.ins.iter().any(|(x, _, _)| *x == t) {
+                continue;
+            }
+            pending.ins.insert(0, (t, o, ph));
+        }
+        pending
     }
 
     pub fn add_del(&mut self, t: T, origin: Origin) {
@@ -331,28 +365,19 @@ pub fn do_node<E: JoinEnv>(
             }
         }
     }
-    // --- reorder left memory: the LIA-fed first node re-adds at the END
-    // (staged order); join-fed nodes re-add at the FRONT, processed
-    // oldest-first (u12/u13) ---
-    let reorder_lefts: Vec<Tup> = if node.first {
-        sl.upd.iter().map(|(l, _, _)| l.clone()).collect()
-    } else {
-        sl.upd.iter().rev().map(|(l, _, _)| l.clone()).collect()
-    };
-    for l in &reorder_lefts {
+    // --- reorder left memory: remove all staged, re-add at the END in
+    // staged-list order; children reAddRight ---
+    for (l, _, _) in &sl.upd {
         if let Some(i) = node.lefts.iter().position(|(x, _)| x == l) {
             node.lefts.remove(i);
-            let entry = (l.clone(), env.key_of_left(node_idx, l));
-            if node.first {
-                node.lefts.push(entry);
-            } else {
-                node.lefts.insert(0, entry);
-            }
-            if let Some(ids) = node.by_left.get(l).cloned() {
-                for c in ids {
-                    if !node.children[c].dead {
-                        node.re_add_right(c);
-                    }
+        }
+    }
+    for (l, _, _) in &sl.upd {
+        node.lefts.push((l.clone(), env.key_of_left(node_idx, l)));
+        if let Some(ids) = node.by_left.get(l).cloned() {
+            for c in ids {
+                if !node.children[c].dead {
+                    node.re_add_right(c);
                 }
             }
         }
@@ -499,15 +524,12 @@ pub fn do_node<E: JoinEnv>(
             }
         }
     }
-    // --- right inserts: processed OLDEST-first (FIFO) and inserted as a
-    // BLOCK at the memory head in processing order (iteration becomes
-    // [new batch FIFO..., old...], u09/fz_7_159); joined against
-    // pre-batch lefts ---
-    let mut ri_pos = 0usize;
-    for (f, o, _) in sr.ins.iter().rev() {
+    // --- right inserts: staged list head-first (newest staged first),
+    // each APPENDED to memory (TupleList.add); joined against pre-batch
+    // lefts ---
+    for (f, o, _) in sr.ins.iter() {
         let rkey = env.key_of_right(node_idx, *f);
-        node.rights.insert(ri_pos, (*f, rkey.clone()));
-        ri_pos += 1;
+        node.rights.push((*f, rkey.clone()));
         for l in node.lefts_bucket(rkey.as_ref()) {
             if env.allowed(node_idx, &l, *f) {
                 let t = node.create_child(&l, *f, None, None);
@@ -527,6 +549,8 @@ pub fn do_node<E: JoinEnv>(
         }
     }
     if trace {
+        eprintln!("  trg ins={:?} upd={:?} del={:?}", trg.ins, trg.upd, trg.del);
+        eprintln!("  rights={:?} lefts={:?}", node.rights, node.lefts);
         for (f, ids) in &node.by_right {
             let alive: Vec<&Tup> =
                 ids.iter().filter(|&&i| !node.children[i].dead).map(|&i| &node.children[i].tuple).collect();
