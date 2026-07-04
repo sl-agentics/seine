@@ -4,12 +4,13 @@ A Rust reimplementation of a **bounded subset** of the Drools DRL
 forward-chaining rule semantics, proven faithful by **differential testing
 against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
-> Status: Phases 0–2; curated corpus (106 scenarios, incl. 50+ named fuzz
-> regressions) at 100%. One documented open divergence class remains
-> (~2 per 10k fuzz cases): activation requeue placement after repeated
-> updates in join rules (`xfail/`, D-025 — next step is a faithful port of
-> the PHREAK node algorithm's staging structures). See `DECISIONS.md` for
-> the running log of every oracle-pinned semantic (D-001…D-025).
+> Status: Phases 0–2 complete; curated corpus (145 scenarios, incl. 75+
+> named fuzz regressions) at 100% with NO subset wall (mutation and
+> 3-pattern rules mix freely). The engine core is a behavioral port of
+> the PHREAK node algorithm (`engine/src/phreak.rs`) — staging sets,
+> beta memories with child-list cursor threading, property-miss reAdd,
+> and agenda-item lifecycle, each pinned by probe scenarios. See
+> `DECISIONS.md` (D-001…D-028) for every oracle-pinned semantic.
 
 ## What this is
 
@@ -32,10 +33,10 @@ log** for every in-subset program.
 - Phase 2: multi-pattern joins on bound variables (up to 3 patterns,
   self-joins included); `update`/`modify`/`delete` with oracle-pinned
   re-evaluation and re-firing semantics (PHREAK property reactivity,
-  staging batches, eager/lazy agenda evaluation, and the unified update
-  cascade — see `DECISIONS.md` D-013…D-025). Subset wall: programs using
-  `update`/`modify` are proven for rules of up to 2 patterns; 3-pattern
-  rules are proven for insert/delete-only programs (D-017/D-025).
+  staging batches, eager/lazy evaluation windows, beta-memory child
+  sync-walks, and agenda-item lifecycle — see `DECISIONS.md`
+  D-013…D-028). The former mutation/3-pattern subset wall (D-017) is
+  lifted.
 - Phase 3 (stretch): `not`/`exists`, `accumulate`/`collect`, `matches`/
   `contains`/`in`.
 
@@ -65,7 +66,7 @@ make oracle        # build the Java oracle runner (once)
 The fuzzer is seeded and deterministic (case k of seed s is always the same
 program). Divergent cases are saved to `scenarios/failures/` automatically;
 every resolved divergence graduates to a named regression scenario in
-`scenarios/regressions/` (41 of them so far — each one pinned a real PHREAK
+`scenarios/regressions/` (75+ of them — each one pinned a real PHREAK
 semantic documented in `DECISIONS.md`).
 
 ## Provenance & licensing

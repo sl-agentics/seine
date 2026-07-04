@@ -1,0 +1,56 @@
+{
+ "name": "pr_lit",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f1",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 2
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": -1
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 0
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f1": 2.5
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f1": 2.0
+   }
+  }
+ ],
+ "drl": "rule \"eq_a\" when T0(f0 == 2.5) then end\nrule \"ne_a\" when T0(f0 != 2.5) then end\nrule \"eq_b\" when T0(f0 == -1.5) then end\nrule \"ne_b\" when T0(f0 != -1.5) then end\nrule \"eq_c\" when T0(f0 == -0.5) then end\nrule \"ne_c\" when T0(f0 != -0.5) then end\nrule \"eq_d\" when T0(f0 == 2.0) then end\nrule \"ne_d\" when T0(f0 != 2.0) then end\nrule \"feq\" when T1(f1 == 2) then end\n"
+}

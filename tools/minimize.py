@@ -1,6 +1,6 @@
 import json, subprocess, re, sys, copy, os
 
-BASE = 'xfail/fz_42_4373.json'
+BASE = sys.argv[1] if len(sys.argv) > 1 else 'xfail/fz_42_4373.json'
 TMP = '/tmp/claude-1000/-home-bryan-rust-rules/b62fbc2b-c6af-47e8-b5cf-b8d205378766/scratchpad/min_case.json'
 
 def diverges(d):

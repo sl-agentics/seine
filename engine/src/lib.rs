@@ -6,6 +6,7 @@
 //! probe result the implementation relies on.
 
 pub mod drl;
+mod phreak;
 pub mod engine;
 pub mod store;
 

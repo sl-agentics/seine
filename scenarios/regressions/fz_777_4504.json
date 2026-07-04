@@ -1,0 +1,50 @@
+{
+  "drl": "rule \"R0\"\nsalience -6\nwhen\n    T0(f0 == 1)\nthen\n    insert(new T1(5));\nend\nrule \"R1\"\nwhen\n    T1(f0 >= 6)\n    T0(f0 < 0.5, f0 < 10)\n    T1($b1_2_0 : f0, $b1_2_1 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0(f0 == -2)\nthen\n    insert(new T1($p2_0.getF0()));\nend\nrule \"R3\"\nsalience -6\nwhen\n    T1(f0 < -3, $b3_0_0 : f0, $b3_0_1 : f0)\nthen\nend\nrule \"R4\"\nwhen\n    T0(f0 == 2.5, $b4_0_0 : f0, $b4_0_1 : f0)\nthen\n    insert(new T1($b4_0_0));\nend\nrule \"R5\"\nsalience -2\nwhen\n    T1(f0 > 2, f0 != 9)\n    T1()\n    $p5_2 : T1(f0 >= 11)\nthen\n    delete($p5_2);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 12
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 2
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_777_4504",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

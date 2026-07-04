@@ -1,0 +1,57 @@
+{
+ "name": "pr_d4",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "f0": 1,
+    "f1": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "f0": 2,
+    "f1": 0
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "f0": 3,
+    "f1": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "w": 0
+   }
+  }
+ ],
+ "drl": "rule \"K\" when A($x : f0) A() then end\nrule \"M\" salience -5 when $a : A(f1 == 0) then modify($a) { setF1(9) } end\nrule \"I\" salience -10 when B() then insert(new A(7, 7)); end\n"
+}
