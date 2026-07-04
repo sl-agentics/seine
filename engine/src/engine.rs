@@ -687,47 +687,72 @@ impl Engine {
             }
         }
         if !refire_pool.is_empty() {
-            let prefix_order: Vec<Vec<FactId>> = if k == 2 {
-                self.nets[ri].alpha[0].iter().map(|&(_, f)| vec![f]).collect()
-            } else {
-                self.nets[ri].prefixes[k - 2].iter().map(|(_, t)| t.clone()).collect()
-            };
-            let last_rights: Vec<FactId> =
-                self.nets[ri].alpha[k - 1].iter().map(|&(_, f)| f).collect();
-            let pool_set: HashSet<&[FactId]> =
-                refire_pool.iter().map(|(_, t)| t.as_slice()).collect();
+            // Cascade-based requeue (fz_42_4373 minimized case): refires
+            // propagate exactly like inserts — the left-update stream walks
+            // existing extensions in right-memory order, emissions REVERSE
+            // between joins, then the right-update stream walks the left
+            // memory; the terminal requeues in arrival order (dedup).
+            let pool_set: HashSet<Vec<FactId>> =
+                refire_pool.iter().map(|(_, t)| t.clone()).collect();
+            let level_sets: Vec<HashSet<Vec<FactId>>> = (0..k.saturating_sub(1))
+                .map(|l| self.nets[ri].prefixes[l].iter().map(|(_, t)| t.clone()).collect())
+                .collect();
             let mut requeued: HashSet<Vec<FactId>> = HashSet::new();
-            let push_requeue =
-                |t: Vec<FactId>, requeued: &mut HashSet<Vec<FactId>>, out: &mut Vec<MatchEntry>, seq: &mut u64| {
-                    if requeued.insert(t.clone()) {
-                        let key = -(*seq as i64);
-                        *seq += 1;
-                        out.push(MatchEntry { tuple: t, fired: false, key });
-                    }
-                };
             for ev in &events {
                 let StagedEv::Hot { fact, positions, .. } = ev else { continue };
-                for &p in positions {
-                    for pre in &prefix_order {
-                        if p < k - 1 {
-                            if pre.get(p) != Some(fact) {
-                                continue;
-                            }
-                            for &r in &last_rights {
-                                let mut t = pre.clone();
-                                t.push(r);
-                                if pool_set.contains(t.as_slice()) {
-                                    push_requeue(t, &mut requeued, &mut kept_matches, &mut self.seq);
-                                }
-                            }
+                let mut u: Vec<Vec<FactId>> = if positions.contains(&0) {
+                    vec![vec![*fact]]
+                } else {
+                    Vec::new()
+                };
+                for j in 1..k {
+                    let terminal = j == k - 1;
+                    let lefts_mem: Vec<Vec<FactId>> = if j == 1 {
+                        self.nets[ri].alpha[0].iter().map(|&(_, f)| vec![f]).collect()
+                    } else {
+                        self.nets[ri].prefixes[j - 1].iter().map(|(_, t)| t.clone()).collect()
+                    };
+                    let rights: Vec<FactId> =
+                        self.nets[ri].alpha[j].iter().map(|&(_, f)| f).collect();
+                    let exists = |t: &Vec<FactId>| -> bool {
+                        if terminal {
+                            pool_set.contains(t)
                         } else {
-                            let mut t = pre.clone();
-                            t.push(*fact);
-                            if pool_set.contains(t.as_slice()) {
-                                push_requeue(t, &mut requeued, &mut kept_matches, &mut self.seq);
+                            level_sets[j].contains(t)
+                        }
+                    };
+                    let mut emit: Vec<Vec<FactId>> = Vec::new();
+                    let mut seen: HashSet<Vec<FactId>> = HashSet::new();
+                    for uu in &u {
+                        for &r in &rights {
+                            let mut t = uu.clone();
+                            t.push(r);
+                            if exists(&t) && seen.insert(t.clone()) {
+                                emit.push(t);
                             }
                         }
                     }
+                    if positions.contains(&j) {
+                        for l in &lefts_mem {
+                            let mut t = l.clone();
+                            t.push(*fact);
+                            if exists(&t) && seen.insert(t.clone()) {
+                                emit.push(t);
+                            }
+                        }
+                    }
+                    if terminal {
+                        for t in emit {
+                            if requeued.insert(t.clone()) {
+                                let key = -(self.seq as i64);
+                                self.seq += 1;
+                                kept_matches.push(MatchEntry { tuple: t, fired: false, key });
+                            }
+                        }
+                        break;
+                    }
+                    emit.reverse();
+                    u = emit;
                 }
             }
         }

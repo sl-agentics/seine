@@ -220,10 +220,23 @@ holding a fact that is HOT at one of their positions move to the front of
 their level's prefix memory (relative order kept) — gated by hot positions,
 unlike the right-memory move which is ungated (D-018/fz_42_3433 vs 4359).
 fz_42_3408 now passes and is a regression; corpus 102/102.
-**fz_42_4373 remains the single open xfail** (diverges at firing 391 of
-1040, boolean-heavy self-joins with ambiguous renderings — needs a fresh
-minimization pass, not hand-tracing). The D-017 generator wall stays until
-it is resolved.
+
+### D-022: Cascade-based refire requeue (fz_42_4373 minimization, round 1)
+A delta-minimizer (xfail/minimize round) shrank fz_42_4373 to 3 rules /
+2 facts and pinned the requeue mechanism exactly: refires propagate like
+inserts — the left-update stream walks a hot tuple's existing extensions
+in RIGHT-MEMORY order, emissions REVERSE between joins, then the
+right-update stream walks the left memory; the terminal requeues in
+arrival order with dedup. This replaced the position-ascending
+approximation (which coincidentally matched all shallower pins — the new
+cascade reproduces every one of them; corpus 102/102, spot fuzz 8k more
+cases clean). The minimized round-1 case passes.
+**fz_42_4373 (full) remains the single open xfail**: divergence moved from
+firing 391 to 665; a second minimization round leaves a 4-fact/3-rule case
+diverging at firing 109 of 172 — a positional swap between a requeued
+refire and a pending entry after ~15 update events. Next session: extend
+the minimizer to also drop individual constraints/actions and shrink fact
+fields, then hand-trace. The D-017 generator wall stays until resolved.
 
 ## Phase 2 (pre-work: goldens captured, engine not yet extended)
 
