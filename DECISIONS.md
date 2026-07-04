@@ -326,6 +326,51 @@ DIRECTLY contradict each other under every simple placement rule tried:
   (still validated only through oracle probes; no code copied), replacing
   the fitted emission heuristics in merge_staged.
 
+### D-028: PHREAK port LANDED — corpus 145/145, all xfails closed, wall lifted
+The faithful port (branch `phreak-port`) replaced the fitted merge engine.
+`engine/src/phreak.rs` implements the node algorithm; `engine.rs` keeps
+compile/RHS/agenda. Everything below is oracle-pinned (probes pr_c*, pr_d*,
+pr_v*, pr_coerce + 20 graduated fz_123_* regressions):
+- Staging: TupleSets prepend (LIFO), consumed head-first everywhere; the
+  staged-type folds are by OBJECT identity, so a killed-and-recreated child
+  is del+ins, never an in-place update (c13). Same-list re-staging is a
+  no-op; a walk touching a tuple staged in the DOWNSTREAM pending set moves
+  it to the head (updateChildLeftTuple clash rule; merge_into_pending).
+- Memories: TupleList append; removeAdd re-keys and moves to the END.
+  Child tuples link at the END of both parents' lists; the sync-walk
+  insert case threads a cursor (insert-before-cursor keeps alignment).
+  Bucket-change vs same-bucket branches per doRightUpdates/doLeftUpdates,
+  including the staged-update-left skip ("children cannot be processed
+  twice") — right-insert processing has NO effective skip (flags cleared).
+- k=1 rules: WM staging consumed OLDEST-first (pr08/pr04 pin).
+- Terminal: updates then inserts, head-first, appending to the executor
+  queue; queued activations keep position; unqueued (fired) re-append.
+- Eagerness is real but only controls WHEN evaluation happens (per flush
+  for no-loop rules); it does NOT change consumption order (c7 vs c10-c13
+  probe ladder: the j01-vs-9462 "contradiction" was eager evaluation
+  windows, not staging conventions).
+- Property-miss reAdd: a modify whose mask MISSES a right input still
+  removeAdds the right tuple (re-keyed, to memory END) immediately and
+  re-appends its children in their left parents' lists — no staging, no
+  child updates (fz_42_4359/3433 vs fz_42_1057/fz_123_1438; probes d4-d7).
+- Indexed join keys are stored in each side's NATURAL type; the probing
+  side coerces to the stored side's type: left-probes-right truncates
+  (u14), right-probes-left widens, so long -1 does not find double -1.5
+  (fz_123_3057; pr_coerce matrix).
+- Agenda-item lifecycle (fz_42_1464 vs fz_42_124): the item is created on
+  first LINK; once queued it EVALUATES whenever reached even if currently
+  unlinked (memories advance, nothing fires); it is removed when its
+  activation queue empties; new staging re-queues it ONLY while linked;
+  never-linked rules accumulate staged input unevaluated (fz_7_145).
+  The just-fired rule is still force-evaluated (fz_42_5243).
+- A 64-combo grid search over staging/consumption directions confirmed
+  the source-literal conventions are uniquely optimal; every remaining
+  divergence was a missing MECHANISM, not a direction.
+D-016/D-017/D-025 are RETIRED: the generator wall is lifted permanently
+(gen.rs allows mutation + 3-pattern rules together). D-021/D-022 cascade
+heuristics are superseded by the port. xfail/ is gone — all 26 cases are
+regressions now.
+
 ### D-026: Faithful node-algorithm port — attempted, reverted, groundwork
 ### banked for next session
 A full behavioral port of PhreakJoinNode/PhreakRuleTerminalNode was built
