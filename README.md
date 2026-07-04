@@ -4,10 +4,11 @@ A Rust reimplementation of a **bounded subset** of the Drools DRL
 forward-chaining rule semantics, proven faithful by **differential testing
 against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
-> Status: Phases 0–2 complete. Curated corpus (95 scenarios) at 100%;
-> property fuzzing at 10,000 cases per phase with zero divergences over
-> the proven subset. Two documented xfails outside the subset (`xfail/`).
-> See `DECISIONS.md` for the running log of every oracle-pinned semantic.
+> Status: Phases 0–2 complete. Curated corpus (100 scenarios) at 100%;
+> property fuzzing at 20,000 cases (two independent seeds) with zero
+> divergences over the proven subset. Two documented xfails outside the
+> subset (`xfail/`). See `DECISIONS.md` for the running log of every
+> oracle-pinned semantic (D-001…D-020).
 
 ## What this is
 

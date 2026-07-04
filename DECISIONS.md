@@ -146,6 +146,25 @@ Probe: `$s.getOk()` on a declared type with `ok : boolean` is a Drools
 
 ---
 
+**HANDOFF @ FINAL checkpoint (Phases 0–2 COMPLETE)** — Definition of Done
+per brief §6, against the D-017 subset:
+- Curated corpus: **100/100 PASS** (`make diff`): 2 phase-0/1 seed suites,
+  probes pr01–pr11 + u01–u15 + j01–j22, 46 named fuzz regressions. Every
+  scenario asserts final-fact-set AND ordered-firing-log equivalence
+  against real Drools 9.44.0.Final.
+- Fuzz: **20,000 cases (seeds 42 + 7) at zero divergences** over the
+  Phase-1+2 grammar (`make fuzz SEED=n`). Runs are deterministic.
+- Two out-of-subset xfails (xfail/, D-016) with analysis notes; the subset
+  wall (D-017: mutation programs ≤2-pattern rules) is enforced by the
+  generator and documented in the README.
+- `make test` = 6 pure-Rust tests, no JVM needed.
+- Environment for a fresh session: PATH needs `~/.cargo/bin`; JVM 21 +
+  Maven resolve Drools from `~/.m2` (pinned 9.44.0.Final in oracle/pom.xml).
+- If resuming: Phase 3 stretch items (brief §2: not/exists, accumulate,
+  extra operators) were NOT started — Phases 1–2 solidity was prioritized
+  per the brief. The other open thread is D-016 (two 3-pattern×deep-update
+  xfails; start from a u16 probe = u13 + a second update event).
+
 **HANDOFF @ checkpoint 3** — Phase 1 COMPLETE (single-pattern rules: all six
 operators × 4 field types, bindings, salience, preemption, chains, no-loop
 (inert for inserts), 10k fuzz cases zero divergences). Phase 2 goldens
@@ -173,8 +192,9 @@ eagerness; fz_42_4141's one-batch follows from lazy descent.
   u01–u13, j01–j22, p0/p1 suites, 41 named fuzz regressions.
 - Property fuzz over the full Phase-2 grammar (joins ≤3 patterns in
   insert/delete programs, ≤2 patterns with update/modify, self-joins,
-  guard-monotone mutation): **10,000 cases seed 42, 0 divergences** (254s);
-  second seed run recorded below.
+  guard-monotone mutation): **10,000 cases seed 42 AND 10,000 cases seed 7,
+  both 0 divergences** (~255s each; final run after D-020 fixes, corpus at
+  100/100).
 - Open xfails (xfail/): fz_42_3408, fz_42_4373 — 3-pattern rules × long
   multi-update histories, outside the D-017 subset, kept with analysis
   notes in D-016 for a future session.
