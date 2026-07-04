@@ -198,6 +198,16 @@ impl Node {
             self.rights.remove(i);
             self.rights.push((f, key));
         }
+        // RightTuple.reAdd also re-appends its children in their LEFT
+        // parents' child lists, preserving sync-walk alignment
+        // (fz_123_1438 vs fz_42_4359/fz_42_1057 pins).
+        if let Some(ids) = self.by_right.get(&f).cloned() {
+            for c in ids {
+                if !self.children[c].dead {
+                    self.re_add_left(c);
+                }
+            }
+        }
     }
 
     pub fn new(indexed: bool, first: bool) -> Node {
@@ -283,23 +293,52 @@ impl Node {
         }
     }
 
+    /// Compare a stored index key against a probe key from the OTHER
+    /// side: the probe is coerced to the stored component's type
+    /// (fz_123_3057: a long probing a double-keyed memory widens, so
+    /// -1 != -1.5; u14: a double probing a long-keyed memory truncates,
+    /// so -1.5 == -1).
+    fn keys_match(stored: &[Value], probe: &[Value]) -> bool {
+        stored.len() == probe.len()
+            && stored.iter().zip(probe).all(|(s, p)| match (s, p) {
+                (Value::I64(a), Value::F64(b)) => *a == *b as i64,
+                (Value::F64(a), Value::I64(b)) => *a == *b as f64,
+                (a, b) => a == b,
+            })
+    }
+
     fn left_key(&self, l: &Tup) -> Option<&Vec<Value>> {
         self.lefts.iter().find(|(t, _)| t == l).and_then(|(_, k)| k.as_ref())
     }
 
     /// Lefts matching a probe key (indexed) or all lefts, memory order.
+    /// The probe (a right-side key) coerces to each stored left key's type.
     fn lefts_bucket(&self, key: Option<&Vec<Value>>) -> Vec<Tup> {
         self.lefts
             .iter()
-            .filter(|(_, k)| !self.indexed || k.as_ref().map(|x| Some(x) == key).unwrap_or(false))
+            .filter(|(_, k)| {
+                !self.indexed
+                    || match (k, key) {
+                        (Some(sk), Some(pk)) => Node::keys_match(sk, pk),
+                        _ => false,
+                    }
+            })
             .map(|(t, _)| t.clone())
             .collect()
     }
 
+    /// Rights matching a probe key (a left-side key), coerced to each
+    /// stored right key's type.
     fn rights_bucket(&self, key: Option<&Vec<Value>>) -> Vec<FactId> {
         self.rights
             .iter()
-            .filter(|(_, k)| !self.indexed || k.as_ref().map(|x| Some(x) == key).unwrap_or(false))
+            .filter(|(_, k)| {
+                !self.indexed
+                    || match (k, key) {
+                        (Some(sk), Some(pk)) => Node::keys_match(sk, pk),
+                        _ => false,
+                    }
+            })
             .map(|(f, _)| *f)
             .collect()
     }
@@ -407,7 +446,11 @@ pub fn do_node<E: JoinEnv>(
         if node.indexed {
             if let Some(fc) = first_child {
                 let parent_key = node.left_key(&node.children[fc].left).cloned();
-                if bucket.is_empty() || parent_key.as_ref() != rkey.as_ref() {
+                let same = match (&parent_key, &rkey) {
+                    (Some(pk), Some(rk)) => Node::keys_match(pk, rk),
+                    _ => false,
+                };
+                if bucket.is_empty() || !same {
                     // index changed: delete all previous propagations
                     if let Some(ids) = node.by_right.get(f).cloned() {
                         for c in ids {
@@ -488,7 +531,11 @@ pub fn do_node<E: JoinEnv>(
                     let rp = node.children[c].right;
                     let rp_key =
                         node.rights.iter().find(|(x, _)| *x == rp).and_then(|(_, k)| k.clone());
-                    if bucket.is_empty() || rp_key.as_ref() != lkey.as_ref() {
+                    let same = match (&rp_key, &lkey) {
+                        (Some(rk), Some(lk)) => Node::keys_match(rk, lk),
+                        _ => false,
+                    };
+                    if bucket.is_empty() || !same {
                         let t = node.kill_child(c);
                         trg.add_del(t, *o);
                     }

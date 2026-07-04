@@ -732,14 +732,6 @@ struct JoinEnvImpl<'a> {
     rule: &'a CompiledRule,
 }
 
-fn norm_key(v: Value, ft: FieldType) -> Value {
-    match (v, ft) {
-        (Value::F64(x), FieldType::I64) => Value::I64(x as i64),
-        (Value::I64(n), FieldType::F64) => Value::F64(n as f64),
-        (v, _) => v,
-    }
-}
-
 impl phreak::JoinEnv for JoinEnvImpl<'_> {
     fn allowed(&self, node: usize, l: &Tup, f: FactId) -> bool {
         let pos = node + 1;
@@ -767,9 +759,9 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             }
             if let Src::Field(pi, fi) = &c.rhs {
                 if *pi != pos {
-                    // normalize to the RIGHT-side field's type (u14)
-                    let field_ft = self.store.field_type(pat.type_id, c.field_idx);
-                    out.push(norm_key(self.store.value(l[*pi], *fi), field_ft));
+                    // stored in the binding's natural type; coercion
+                    // happens at probe time (u14 / fz_123_3057)
+                    out.push(self.store.value(l[*pi], *fi));
                 }
             }
         }
