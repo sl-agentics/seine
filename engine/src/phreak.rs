@@ -157,15 +157,41 @@ impl<T: Clone + PartialEq> Staged<T> {
         pending
     }
 
-    /// Peer-copy of a staged batch for later sinks: SegmentPropagator
-    /// walks the source lists head-first and PREPENDS into the peer's
-    /// staging, so each list arrives REVERSED (one flip per boundary).
-    pub fn flipped(&self) -> Staged<T> {
-        let mut out = self.clone();
-        out.ins.reverse();
-        out.upd.reverse();
-        out.del.reverse();
-        out
+    /// Peer-copy of a staged batch into a LATER sink's pending
+    /// (SegmentPropagator.processPeer*): each source list is walked
+    /// head-first and PREPENDED into the peer staging, so a batch arrives
+    /// REVERSED and batches stack LIFO. Clash rules differ from the
+    /// intra-chain merge (D-037/fz_999_3298): an UPDATE touching an
+    /// already-staged peer is SKIPPED — it keeps its existing position
+    /// and kind (processPeerUpdates' staged-type check) — while an INSERT
+    /// clash moves the entry to the head (updateChildLeftTupleDuringInsert).
+    pub fn peer_merge_into_pending(mut pending: Staged<T>, fresh: Staged<T>) -> Staged<T> {
+        for (t, o, _) in fresh.del {
+            pending.add_del(t, o); // prepends; folds staged ins/upd
+        }
+        for (t, o, ph) in fresh.upd {
+            let staged = pending.ins.iter().any(|(x, _, _)| *x == t)
+                || pending.upd.iter().any(|(x, _, _)| *x == t)
+                || pending.del.iter().any(|(x, _, _)| *x == t);
+            if staged {
+                continue; // already scheduled: keep position and kind
+            }
+            pending.upd.insert(0, (t, o, ph));
+        }
+        for (t, o, ph) in fresh.ins {
+            if let Some(i) = pending.ins.iter().position(|(x, _, _)| *x == t) {
+                let e = pending.ins.remove(i);
+                pending.ins.insert(0, e); // stays an insert, moves to head
+                continue;
+            }
+            if let Some(i) = pending.upd.iter().position(|(x, _, _)| *x == t) {
+                pending.upd.remove(i);
+                pending.upd.insert(0, (t, o, ph)); // re-staged as update at head
+                continue;
+            }
+            pending.ins.insert(0, (t, o, ph));
+        }
+        pending
     }
 }
 

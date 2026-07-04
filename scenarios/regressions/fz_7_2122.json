@@ -1,0 +1,83 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    not T0(f0 == false)\n    $p0_1 : T1(f2 not in (-2, 1.0, 9), $b0_1_0 : f0, $b0_1_1 : f0)\n    T0(f1 == true, f0 != $b0_1_1, $b0_2_0 : f0, $b0_2_1 : f0)\nthen\n    insert(new T2($p0_1.getF1()));\n    insert(new T2(3.0));\nend\nrule \"R1\"\nsalience -10\nno-loop\nwhen\n    $p1_0 : T0(f0 in (false, false), f1 == true, $b1_0_0 : f1)\nthen\n    insert(new T1(true, -2, 10));\n    insert(new T1($p1_0.isF1(), 100, 6));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0(f1 == true, f1 == true, $b2_0_0 : f1)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nsalience -7\nwhen\n    not T0(f0 == false)\n    $p3_1 : T1(f2 not in (-2, 1.0, 9), $b3_1_0 : f0, $b3_1_1 : f0)\nthen\n    insert(new T2($p3_1.getF2()));\n    insert(new T2(2.5));\nend\nrule \"R4\"\nwhen\n    T0(f0 == true, $b4_0_0 : f1, $b4_0_1 : f1)\nthen\n    insert(new T1(false, 2, -1000000007));\n    insert(new T2(4.0));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 2.5
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": -2,
+        "f2": 7
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": 11,
+        "f2": 11
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_2122",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

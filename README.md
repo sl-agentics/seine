@@ -6,14 +6,14 @@ against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
 > Status: Phases 0–2 complete, plus the Phase-3 stretch items
 > `matches`/`contains`/`in` and `not`/`exists` (accumulate/collect not
-> started). Curated corpus (233 scenarios, incl. 90 named fuzz
+> started). Curated corpus (241 scenarios, incl. 95 named fuzz
 > regressions) at 100% with NO subset wall (mutation, 3-pattern rules and
 > CEs mix freely). The engine core is a behavioral port of the PHREAK
 > node algorithm (`engine/src/phreak.rs`) — staging sets, beta memories
 > with child-list cursor threading, existential blocker lists with
 > comparison (range) indexes, property-miss reAdd, and agenda-item
 > lifecycle incl. queue-on-unlink, each pinned by probe scenarios. See
-> `DECISIONS.md` (D-001…D-036) for every oracle-pinned semantic.
+> `DECISIONS.md` (D-001…D-037) for every oracle-pinned semantic.
 
 ## What this is
 
@@ -49,11 +49,13 @@ log** for every in-subset program.
   `InitialFact`), constrained CEs with hash- or range-indexed blocker
   search, and oracle-pinned cancellation/refire lifecycle (D-031/D-032).
   Bindings inside CE patterns are rejected; the type name `InitialFact`
-  is reserved. Node-sharing segment boundaries (rules with structurally
-  equal pattern prefixes — a per-pattern identity that includes the SET
-  of bound fields, D-036) reproduce Drools' build-order propagation
-  flips faithfully: identical-LHS rules fire their activations in
-  opposite orders (D-033), and no sharing wall remains.
+  is reserved. Node sharing is modeled with a TRUE shared prefix trie
+  (D-037): rules with structurally equal pattern prefixes — identity
+  includes the bound-field SET and the names of any variables referenced
+  in constraints (D-036/D-037) — share one node instance that evaluates
+  once per agenda window; the first-built sink receives each batch
+  preserved, later sinks reversed (identical-LHS rules fire their
+  activations in opposite orders, faithfully). No sharing wall remains.
 - Phase 3 not started: `accumulate`/`collect`, salience expressions.
 
 ## Explicit non-goals (hard walls)
@@ -82,7 +84,7 @@ make oracle        # build the Java oracle runner (once)
 The fuzzer is seeded and deterministic (case k of seed s is always the same
 program). Divergent cases are saved to `scenarios/failures/` automatically;
 every resolved divergence graduates to a named regression scenario in
-`scenarios/regressions/` (90 of them — each one pinned a real PHREAK
+`scenarios/regressions/` (95 of them — each one pinned a real PHREAK
 semantic documented in `DECISIONS.md`).
 
 ## Provenance & licensing

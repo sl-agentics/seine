@@ -858,10 +858,13 @@ impl Engine {
         None
     }
 
-    /// WM insert: stage into the SHARED network once per LIA / trie node,
-    /// then run per-rule linking transitions.
+    /// WM insert: stage into the SHARED network once per LIA / trie node.
+    /// Link effects run after EVERY node event — Drools propagates a WM
+    /// action through the alpha sinks sequentially, and an intermediate
+    /// link (e.g. a not node re-linking before a later join unlinks)
+    /// transiently links the path and QUEUES its items (D-037/fz_7_2122).
     fn on_insert(&mut self, f: FactId, origin: Origin) {
-        let was_linked: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
+        let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
             let (ri, pos) = self.lias[li].env;
             if self.alpha_passes(ri, pos, f) {
@@ -874,6 +877,7 @@ impl Engine {
                     let c = self.lias[li].children[i];
                     self.trie[c].s0_in.add_ins(f, origin);
                 }
+                self.note_link_effects(&mut was);
             }
         }
         for ni in 0..self.trie.len() {
@@ -882,9 +886,9 @@ impl Engine {
                 self.trie[ni].active.insert(f);
                 self.maybe_pulse(ni);
                 self.trie[ni].node.s_right.add_ins(f, origin);
+                self.note_link_effects(&mut was);
             }
         }
-        self.linking_transitions(&was_linked);
     }
 
     /// The first right insert into an UNCONSTRAINED not node force-links
@@ -901,16 +905,16 @@ impl Engine {
     fn on_update(&mut self, f: FactId, mask: u64, src_ri: usize) {
         let ftype = self.store.fact_type(f);
         let origin = Some(src_ri);
-        let was_linked: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
+        let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
             let (ri, pos) = self.lias[li].env;
             if self.rules[ri].patterns[pos].type_id != ftype {
                 continue;
             }
-            let was = self.lias[li].active.contains(&f);
+            let was_in = self.lias[li].active.contains(&f);
             let now = self.alpha_passes(ri, pos, f);
             let listen = self.rules[ri].patterns[pos].listen_mask;
-            let stage: u8 = match (was, now) {
+            let stage: u8 = match (was_in, now) {
                 (false, true) => 1,
                 (true, false) => 2,
                 (true, true) if mask == u64::MAX || listen & mask != 0 => 3,
@@ -940,6 +944,7 @@ impl Engine {
                     _ => self.trie[c].s0_in.add_upd(f, origin),
                 }
             }
+            self.note_link_effects(&mut was);
         }
         for ni in 0..self.trie.len() {
             let (ri, pos) = self.trie[ni].env;
@@ -947,9 +952,9 @@ impl Engine {
             if pat.type_id != ftype {
                 continue;
             }
-            let was = self.trie[ni].active.contains(&f);
+            let was_in = self.trie[ni].active.contains(&f);
             let now = self.alpha_passes(ri, pos, f);
-            match (was, now) {
+            match (was_in, now) {
                 (false, true) => {
                     self.trie[ni].active.insert(f);
                     self.maybe_pulse(ni);
@@ -981,12 +986,12 @@ impl Engine {
                 }
                 (false, false) => {}
             }
+            self.note_link_effects(&mut was);
         }
-        self.linking_transitions(&was_linked);
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
-        let was_linked: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
+        let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
             if self.lias[li].active.remove(&f) {
                 for i in 0..self.lias[li].k1_rules.len() {
@@ -997,28 +1002,34 @@ impl Engine {
                     let c = self.lias[li].children[i];
                     self.trie[c].s0_in.add_del(f, origin);
                 }
+                self.note_link_effects(&mut was);
             }
         }
         for ni in 0..self.trie.len() {
             if self.trie[ni].active.remove(&f) {
                 self.trie[ni].node.s_right.add_del(f, origin);
+                self.note_link_effects(&mut was);
             }
         }
-        self.linking_transitions(&was_linked);
     }
 
-    /// Per-rule agenda transitions after a WM action:
+    /// Per-rule agenda effects after ONE node event:
     /// PathMemory.doUnlinkRule (D-031/ne_x2) — a LINKED->UNLINKED
     /// transition queues the agenda item so cancellations and unblocks
-    /// evaluate in their own window; and the usual dirty-while-linked
-    /// (re)queue (a delete can also LINK an unconstrained not node whose
-    /// right input emptied, NotNode.doDeleteRightTuple).
-    fn linking_transitions(&mut self, was_linked: &[bool]) {
+    /// evaluate in their own window; the usual dirty-while-linked
+    /// (re)queue covers LINK transitions (incl. a not node re-linking on
+    /// its last right's delete, NotNode.doDeleteRightTuple). Tracking is
+    /// incremental per node event: an INTERMEDIATE link inside one WM
+    /// action queues the item even if a later node unlinks the path
+    /// again (D-037/fz_7_2122).
+    fn note_link_effects(&mut self, was: &mut [bool]) {
         for ri in 0..self.rules.len() {
-            if was_linked[ri] && !self.rule_linked(ri) {
+            let now = self.rule_linked(ri);
+            if was[ri] && !now {
                 self.nets[ri].queued = true;
             }
             self.refresh_linked(ri);
+            was[ri] = now;
         }
     }
 
@@ -1162,17 +1173,16 @@ impl Engine {
             if trg.is_empty() {
                 continue;
             }
-            let flipped = trg.flipped();
             for si in 0..self.trie[ni].sinks.len() {
                 let sink = self.trie[ni].sinks[si];
-                let batch = if si == 0 { trg.clone() } else { flipped.clone() };
+                let batch = trg.clone();
                 match sink {
                     Sink::Node(c) => {
                         let pending = self.trie[c].node.s_left.take();
                         self.trie[c].node.s_left = if si == 0 {
                             Staged::append_into_pending(pending, batch)
                         } else {
-                            Staged::merge_into_pending(pending, batch)
+                            Staged::peer_merge_into_pending(pending, batch)
                         };
                     }
                     Sink::Term(rb) => {
@@ -1180,7 +1190,7 @@ impl Engine {
                         self.nets[rb].term_pending = if si == 0 {
                             Staged::append_into_pending(pending, batch)
                         } else {
-                            Staged::merge_into_pending(pending, batch)
+                            Staged::peer_merge_into_pending(pending, batch)
                         };
                     }
                 }

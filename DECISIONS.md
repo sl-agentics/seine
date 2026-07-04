@@ -369,6 +369,50 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-037: TRUE SHARED-NODE TRIE + name-sensitive constraint identity
+### (fz_42_297/580/952, probes ne_t13..t15) — supersedes D-036's
+### "per-rule copies suffice" conclusion
+The D-036 wall-lift exposed a coverage hole: with the corrected identity,
+random constraint draws essentially never collide, so 3000 unwalled cases
+contained ZERO true shared prefixes. The generator now REUSES an earlier
+rule's pattern prefix (~15% of rules, bindings renamed) — and the very
+first reuse-enabled run produced 3 divergences that per-rule networks
+cannot reproduce:
+- **fz_42_580 (minimized: identical-LHS twins at different saliences,
+  facts arriving across two windows):** the shared join evaluates ONCE
+  per window at the first-reached sharer's turn; the lagging sharer
+  receives PER-BATCH copies. Its terminal accumulates the preserved
+  copies FIFO (TupleSetsImpl.addAll walks to the tail) while flipped
+  peer copies stack LIFO (per-tuple prepends). A per-rule network copy
+  evaluating everything in one merged batch produces a different join
+  order (the oracle fired batch 1 before batch 2, each batch internally
+  reversed vs the eager sharer's order).
+- Engine restructured accordingly: `Lia` + `TrieNode` shared instances
+  (one phreak::Node per structurally-equal prefix; level-1 nodes hold
+  the eagerly-copied pos0 staging), per-rule state reduced to the
+  terminal queue + `term_pending`. evaluate_rule walks the rule's trie
+  path; each dirty node consumes its staging once and propagates every
+  batch to ALL sinks in build order — first sink via append_into_pending
+  (addAll semantics), later sinks via flipped merge_into_pending copies.
+  The claim-by-window behavior falls out of the agenda order plus the
+  queued/linked gates; the D-033 static flip machinery is deleted
+  (subsumed). k=1 rules keep their per-rule pos0 staging (pr04/pr08).
+- **fz_42_297 (minimized: twins whose join constraint references
+  differently-NAMED bindings)** pinned one more identity component:
+  a constraint that REFERENCES a binding compares by its expression
+  text, so `f1 != $x` and `f1 != $y` do NOT share even though $x/$y
+  bind the same field (ne_t13), while same-named references share
+  (ne_t14, not-CE variant ne_t15). Unreferenced declarations remain
+  name-irrelevant (ne_t2/t6/t8/t9). pattern_key now includes the
+  variable name (plus its source position) for Var-rhs constraints.
+  Generated rules name bindings per-rule, so reused prefixes with join
+  constraints correctly do NOT share — the fuzzed sharing surface is
+  bare/literal prefixes and unreferenced bindings, matching Drools.
+- ne_t11's clean result was circumstantial (single batch); D-036's
+  claim that per-rule copies suffice is RETRACTED — the trie is the
+  faithful model.
+- Corpus: **241/241** (3 fuzz regressions + 2 minimized twins + ne_t13..15).
+
 ### D-036: Sharing identity CORRECTED (bound-field set); D-035 wall LIFTED;
 ### window-claim theory RETRACTED (probes ne_t1..ne_t11)
 Session 5. Re-examining the D-035 xfails with fresh probes disproved the
