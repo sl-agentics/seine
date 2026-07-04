@@ -3,3 +3,5 @@ oracle/target/
 *.class
 .idea/
 *.iml
+__pycache__/
+*.pyc
