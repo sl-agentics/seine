@@ -369,6 +369,38 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+**HANDOFF @ Phase 3 close (Session 4, 2026-07-04)** — Stretch items
+`matches`/`contains`/`in` and `not`/`exists` are DONE per D-034's bar;
+`accumulate`/`collect` and salience expressions were NOT started (scoped
+out, independently optional per brief §2). Proven state at close:
+- Corpus 218/218 (`make diff`); `make test` green (12 unit tests incl.
+  the regex matcher's oracle-pinned cases). THREE xfail cases parked
+  (xfail/: shared-prefix x mutation window timing, D-035).
+- Fuzz over the D-035-walled grammar (operators + CEs + mutation +
+  3-pattern rules; insert-only sharing included): seeds
+  42/7/123/777/999 x 10k = 50k cases, zero divergences; plus the 30k
+  operator-only wave earlier.
+- New mechanism classes this session: D-030 (operator semantics + the
+  in-list prefix-chain rule), D-031 (existential blocker model, CE match
+  rendering, InitialFact, not-node linking pulse), D-032 (queue-on-unlink
+  agenda transitions; comparison/range indexes on existential nodes),
+  D-033 (node-sharing segment-boundary flips — affects pure-join
+  programs too; identical-LHS twins fire in opposite orders).
+- Environment for a fresh session: PATH needs `~/.cargo/bin`; JVM 21 +
+  Maven resolve Drools from `~/.m2` (pinned 9.44.0.Final). drools-core
+  and drools-base -sources jars live in `~/.m2` for READING (behavior
+  reference only; re-fetch via `mvn dependency:sources`).
+- If resuming: (1) the D-035 open class — model true shared segments
+  (one node instance per shared prefix, evaluated at the first-reaching
+  item's window) and lift the generator wall; xfail/fz_7_2081+2859 are
+  the acceptance tests; (2) accumulate/collect — probe first:
+  match-object rendering of Number results needs an oracle
+  canonicalization like InitialFact's; PhreakAccumulateNode is the
+  largest remaining node; (3) salience expressions need the
+  dynamic-salience agenda queue; (4) scale campaigns (more seeds /
+  larger CASES) are cheap insurance — the D-033 class showed rare
+  shapes can hide for 100k+ cases.
+
 ## Phase 3 (stretch: operators, not/exists — 2026-07-04)
 
 ### D-033: CE fuzz wave 2 — NODE-SHARING SEGMENT FLIPS (fz_123_3881,
@@ -403,15 +435,49 @@ structurally identical pattern prefixes, diverging continuations, and
   programs; the corpus (203 scenarios) passes unchanged with the flip in
   place, confirming no prior scenario exercised the shape observably.
 
+### D-035: OPEN class + wall — shared prefixes x mutation (window timing)
+Seed 7's rerun after D-033 produced fz_7_2081/fz_7_2859 (xfail/):
+programs where rules SHARE a beta prefix AND mutate (delete) facts that
+feed the shared join. Drools evaluates a shared node ONCE, in the window
+of whichever sharer's agenda item is reached first, then propagates to
+all sinks; our per-rule copies evaluate at each rule's own window, so
+batch boundaries diverge under mutation (enumeration and requeue orders
+shift). The D-033 flip covers sharing for INSERT-ONLY programs — pinned
+by ne_s1..s10 plus ne_s11 (multi-window insert arrivals PASS).
+- WALL (generator): mutation programs (update or delete anywhere) never
+  emit two rules with structurally identical pattern prefixes >= 2
+  patterns — canonical per-pattern keys (type, CE kind, non-binding
+  constraints with eq literals field-type-normalized, var refs by source
+  tuple position) are tracked per scenario and colliding rules are
+  regenerated (fallback: single-pattern). Deletes are now gated on
+  allow_mutation so insert-only programs stay wall-free and keep fuzzing
+  the D-033 sharing surface.
+- Also from this wave (fz_777_6791, insert-only — NOT the walled class):
+  **a range-INDEXED constraint is never re-evaluated after the index
+  probe, and the probe COERCES to the stored side's type** (TupleIndexRBTree
+  coerceType + SingleBetaConstraints' indexed skip). With i64 rights and
+  an f64 binding, `exists B(y >= $x)` matches y=2 against $x=2.5 (the
+  probe truncates, ne_r3) and the not-mirror never blocks/refires
+  (ne_r5 pins the left-tree direction). Engine: allowed_ce skips the
+  index_ci constraint for existential nodes; the range scans' stored-type
+  coercion is authoritative. Probes pr_ne_r3/r4/r5 + regression
+  fz_777_6791. (Un-indexed relational CE constraints — e.g. a second
+  var constraint beyond the indexed one — still evaluate promoted.)
+- Next session: model true shared segments (one node instance per shared
+  prefix, evaluation at the first-reaching item's window, propagation
+  into per-rule continuations) and lift the wall; the three xfail cases
+  are the acceptance test.
+
 ### D-034: Phase 3 DONE-BAR (operators + not/exists; accumulate NOT started)
-- Curated corpus: **215/215 PASS** (`make diff`) — D-028's 156 plus
-  pr_op_* (14), pr_ne_* (39 incl. the ne_s sharing ladder), and 6 CE
-  fuzz regressions with minimized twins.
+- Curated corpus: **218/218 PASS** (`make diff`) — D-028's 156 plus
+  pr_op_* (14), pr_ne_* (41 incl. the ne_s sharing ladder and ne_r
+  range-index probes), and 7 CE fuzz regressions incl. minimized twins.
 - Operator grammar fuzz: seeds 42/7/123 x 10,000 = 30k cases, zero
   divergences (before the CE grammar landed).
 - CE grammar fuzz (not/exists + operators + mutation + 3-pattern rules
-  mixing freely): seeds 42, 7, 123, 777, 999 x 10,000 = 50k cases at
-  zero divergences after the D-032/D-033 fixes.
+  mixing freely, D-035-walled: insert-only programs may share beta
+  prefixes, mutation programs may not): seeds 42, 7, 123, 777, 999 x
+  10,000 = 50k cases at zero divergences after the D-032/D-033 fixes.
 - Generator termination discipline extended for CEs (D-032): RHS insert
   types must exceed ALL pattern type indices including not/exists CE
   types, so consequence chains can never re-insert a blocker/support at

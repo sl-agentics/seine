@@ -1,0 +1,13 @@
+{
+  "name": "ne_r4",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "f64"}, {"name": "g", "type": "bool"}]},
+    {"name": "T", "fields": [{"name": "t", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 2}},
+    {"type": "T", "fields": {"t": true}}
+  ],
+  "drl": "rule R salience -5 when A($n : n) not B(m > $n) then end\nrule S salience 10 when T() then insert(new B(2.5, true)); end\n"
+}

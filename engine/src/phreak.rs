@@ -494,6 +494,11 @@ pub trait JoinEnv {
     /// a still-allowed blocker survives a left update iff there is <=1
     /// beta constraint or every one is an equality (D-031).
     fn left_update_optimization(&self, node: usize) -> bool;
+    /// Constraint test for existential nodes: the RANGE-indexed
+    /// constraint is excluded — the index probe (with its coerce-to-
+    /// stored-type truncation, ne_r3/ne_r5) already decided it and
+    /// Drools never re-evaluates an indexed constraint (D-035).
+    fn allowed_ce(&self, node: usize, l: &Tup, f: FactId) -> bool;
 }
 
 fn sr_ins_iter<T>(v: &[T]) -> Box<dyn Iterator<Item = &T> + '_> {
@@ -942,7 +947,7 @@ fn do_existential_node<E: JoinEnv>(
                 if staged_left_upd(&l) {
                     continue;
                 }
-                if env.allowed(node_idx, &l, *f) {
+                if env.allowed_ce(node_idx, &l, *f) {
                     node.blocker_of.insert(l.clone(), *f);
                     node.blocked.entry(*f).or_default().insert(0, l.clone());
                     if let Some(i) = node.lefts.iter().position(|(x, _)| x == &l) {
@@ -976,7 +981,7 @@ fn do_existential_node<E: JoinEnv>(
                 if staged_left_upd(&l) {
                     continue;
                 }
-                if env.allowed(node_idx, &l, *f) {
+                if env.allowed_ce(node_idx, &l, *f) {
                     node.blocker_of.insert(l.clone(), *f);
                     node.blocked.entry(*f).or_default().insert(0, l.clone());
                     if let Some(i) = node.lefts.iter().position(|(x, _)| x == &l) {
@@ -1121,7 +1126,7 @@ fn do_existential_node<E: JoinEnv>(
                 blocker = None;
             }
         }
-        let still_allowed = blocker.map(|b| env.allowed(node_idx, l, b)).unwrap_or(false);
+        let still_allowed = blocker.map(|b| env.allowed_ce(node_idx, l, b)).unwrap_or(false);
         if !still_allowed {
             if let Some(b) = blocker {
                 node.detach_blocked(l, b);
@@ -1219,7 +1224,7 @@ impl Node {
     ) -> Option<FactId> {
         self.scan_rights(lkey)
             .into_iter()
-            .find(|f| env.allowed(node_idx, l, *f))
+            .find(|f| env.allowed_ce(node_idx, l, *f))
     }
 
     /// Blocker search for existential right-update/right-delete walks:
@@ -1243,7 +1248,7 @@ impl Node {
             .iter()
             .copied()
             .find(|f| {
-                !sr.del.iter().any(|(x, _, _)| x == f) && env.allowed(node_idx, l, *f)
+                !sr.del.iter().any(|(x, _, _)| x == f) && env.allowed_ce(node_idx, l, *f)
             })
     }
 

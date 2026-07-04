@@ -1,0 +1,69 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0($b0_0_0 : f0, $b0_0_1 : f1)\nthen\nend\nrule \"R1\"\nno-loop\nwhen\n    $p1_0 : T1($b1_0_0 : f0, f0 == false)\nthen\n    modify($p1_0) { setF0(true) }\nend\nrule \"R2\"\nwhen\n    T0()\n    T1($b2_1_0 : f0)\n    T1($b2_2_0 : f1, $b2_2_1 : f0)\nthen\nend\nrule \"R3\"\nwhen\n    T0($b3_0_0 : f1)\n    T1()\n    exists T1(f1 in (-0.5, 100))\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1.5,
+        "f1": "zz"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 7
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -3.0,
+        "f1": "alpha"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3.0,
+        "f1": "ab"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": 100
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_777_7592",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

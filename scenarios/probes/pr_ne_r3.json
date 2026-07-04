@@ -1,0 +1,12 @@
+{
+  "name": "ne_r3",
+  "types": [
+    {"name": "A", "fields": [{"name": "x", "type": "f64"}]},
+    {"name": "B", "fields": [{"name": "y", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"x": 2.5}},
+    {"type": "B", "fields": {"y": 2}}
+  ],
+  "drl": "rule R1 when A($x : x) exists B(y >= $x) then end\nrule R2 when A($x : x) not B(y >= $x) then end\nrule R3 when A($x : x) exists B(y > $x) then end\nrule R4 when A($x : x) not B(y < $x) then end\n"
+}

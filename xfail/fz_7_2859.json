@@ -1,0 +1,101 @@
+{
+  "drl": "rule \"R0\"\nsalience -9\nwhen\n    $p0_0 : T2(f0 == 8)\n    T0(f1 != 100, f0 contains \"l\", $b0_1_0 : f0)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    $p1_0 : T2(f1 matches \"l\", f1 matches \"\", $b1_0_0 : f0, $b1_0_1 : f1)\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nwhen\n    T2($b2_0_0 : f1, $b2_0_1 : f1)\n    T0($b2_1_0 : f1, $b2_1_1 : f1)\nthen\nend\nrule \"R3\"\nwhen\n    T2($b3_0_0 : f0, $b3_0_1 : f1)\n    $p3_1 : T0($b3_1_0 : f1, $b3_1_1 : f1)\nthen\n    delete($p3_1);\nend\nrule \"R4\"\nwhen\n    not T0()\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": 10
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 12,
+        "f1": true,
+        "f2": 10,
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 12,
+        "f1": "b"
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": false,
+        "f2": 100,
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": 1
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": "zz"
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_7_2859",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

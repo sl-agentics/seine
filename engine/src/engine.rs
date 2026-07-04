@@ -1283,6 +1283,28 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         }
     }
 
+    /// Existential test: skip the range-indexed constraint — the index
+    /// probe decided it with stored-type coercion (ne_r3/ne_r5, D-035).
+    fn allowed_ce(&self, node: usize, l: &Tup, f: FactId) -> bool {
+        let pos = node + 1;
+        let pat = &self.rule.patterns[pos];
+        pat.cmps.iter().enumerate().all(|(ci, c)| {
+            if pat.index_ci == Some(ci) {
+                return true;
+            }
+            let lhs = self.store.value(f, c.field_idx);
+            match &c.test {
+                Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
+                Test::Cmp { op, rhs: Src::Field(ti, fi) } => {
+                    let other = if Some(*ti) == pat.tpos { f } else { l[*ti] };
+                    eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
+                }
+                Test::Cmp { .. } => true,
+                other => eval_alpha_test(&lhs, other),
+            }
+        })
+    }
+
     /// <=1 beta constraint always allows the optimization (Single/Empty
     /// BetaConstraints); with more, every one must be an equality (D-031).
     fn left_update_optimization(&self, node: usize) -> bool {

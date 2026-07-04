@@ -6,14 +6,14 @@ against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
 > Status: Phases 0–2 complete, plus the Phase-3 stretch items
 > `matches`/`contains`/`in` and `not`/`exists` (accumulate/collect not
-> started). Curated corpus (199 scenarios, incl. 80+ named fuzz
+> started). Curated corpus (213 scenarios, incl. 85 named fuzz
 > regressions) at 100% with NO subset wall (mutation, 3-pattern rules and
 > CEs mix freely). The engine core is a behavioral port of the PHREAK
 > node algorithm (`engine/src/phreak.rs`) — staging sets, beta memories
 > with child-list cursor threading, existential blocker lists with
 > comparison (range) indexes, property-miss reAdd, and agenda-item
 > lifecycle incl. queue-on-unlink, each pinned by probe scenarios. See
-> `DECISIONS.md` (D-001…D-033) for every oracle-pinned semantic.
+> `DECISIONS.md` (D-001…D-034) for every oracle-pinned semantic.
 
 ## What this is
 
@@ -49,7 +49,12 @@ log** for every in-subset program.
   `InitialFact`), constrained CEs with hash- or range-indexed blocker
   search, and oracle-pinned cancellation/refire lifecycle (D-031/D-032).
   Bindings inside CE patterns are rejected; the type name `InitialFact`
-  is reserved.
+  is reserved. Node-sharing segment boundaries (rules with structurally
+  equal pattern prefixes) reproduce Drools' declaration-order-dependent
+  propagation flips (D-033 — identical-LHS rules fire their activations
+  in opposite orders, faithfully) for insert-only programs; sharing
+  combined with update/delete is a documented open class (D-035:
+  generator-walled, two `xfail/` cases with analysis).
 - Phase 3 not started: `accumulate`/`collect`, salience expressions.
 
 ## Explicit non-goals (hard walls)
@@ -78,7 +83,7 @@ make oracle        # build the Java oracle runner (once)
 The fuzzer is seeded and deterministic (case k of seed s is always the same
 program). Divergent cases are saved to `scenarios/failures/` automatically;
 every resolved divergence graduates to a named regression scenario in
-`scenarios/regressions/` (75+ of them — each one pinned a real PHREAK
+`scenarios/regressions/` (85 of them — each one pinned a real PHREAK
 semantic documented in `DECISIONS.md`).
 
 ## Provenance & licensing
