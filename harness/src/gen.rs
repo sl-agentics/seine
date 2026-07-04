@@ -1,15 +1,20 @@
-//! Property-based scenario generator for the Phase 1+2 grammar.
+//! Property-based scenario generator for the Phase 1-3 grammar.
 //!
 //! Every generated program is IN-SUBSET by construction and guaranteed to
-//! terminate (D-010, D-013):
+//! terminate (D-010, D-013, D-032):
 //! - inserts: a rule may only insert types with index strictly greater than
-//!   every pattern's type index (chains strictly climb the type order);
+//!   every pattern's type index INCLUDING not/exists CE types (chains
+//!   strictly climb the type order, so no consequence chain can ever
+//!   re-insert a blocker/support type at or below its own LHS — not-driven
+//!   refires stay bounded by the finite event pool of lower types);
 //! - updates: guard-monotone — the updated pattern requires some bool field
 //!   `g == false` and the RHS sets it true before update(); bool setters
 //!   ONLY ever write true, so every bool field is monotone and each update
 //!   rule fires at most once per fact per guarded position;
 //! - bare update() (all-fields mask, non-terminating per j21) is never
-//!   generated.
+//!   generated;
+//! - not/exists patterns carry no bindings (D-031); update/delete targets
+//!   and RHS getters reference positive patterns only.
 //!
 //! Deterministic: SplitMix64 from an explicit seed; case k of seed s is
 //! always identical.
@@ -231,6 +236,9 @@ fn accessor(name: &str, ft: Ft, prefix: &str) -> String {
 /// One LHS pattern being generated.
 struct GenPattern {
     ti: usize,
+    /// 0 = positive, 1 = not, 2 = exists. CE patterns never carry
+    /// bindings or fact vars (D-031).
+    ce: u8,
     fact_var: Option<String>,
     constraints: Vec<String>,
     /// (var name, field idx, field type) — usable by later patterns/RHS.
@@ -276,21 +284,37 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         let npat = 1 + if rng.chance(45) { rng.below(max_extra_pat) } else { 0 };
         let mut pats: Vec<GenPattern> = Vec::new();
         for pi in 0..npat {
+            // CE probability: rare in first position (InitialFact path),
+            // more common later (D-031/D-032).
+            let ce = if pi == 0 {
+                if rng.chance(7) {
+                    1 + rng.below(2) as u8
+                } else {
+                    0
+                }
+            } else if rng.chance(22) {
+                1 + rng.below(2) as u8
+            } else {
+                0
+            };
             pats.push(GenPattern {
                 ti: rng.below(ntypes),
+                ce,
                 fact_var: None,
                 constraints: Vec::new(),
                 bindings: Vec::new(),
             });
-            let _ = pi;
         }
 
-        // Rule kind: update / delete / plain.
+        // Rule kind: update / delete / plain. Mutation targets must be
+        // POSITIVE patterns (CE patterns cannot bind).
         let update_pos = {
             let with_bool: Vec<usize> = pats
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool))
+                .filter(|(_, p)| {
+                    p.ce == 0 && types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool)
+                })
                 .map(|(i, _)| i)
                 .collect();
             if allow_mutation && !with_bool.is_empty() && rng.chance(30) {
@@ -299,10 +323,14 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 None
             }
         };
-        let delete_pos = if update_pos.is_none() && rng.chance(20) {
-            Some(rng.below(npat))
-        } else {
-            None
+        let delete_pos = {
+            let positives: Vec<usize> =
+                pats.iter().enumerate().filter(|(_, p)| p.ce == 0).map(|(i, _)| i).collect();
+            if update_pos.is_none() && !positives.is_empty() && rng.chance(20) {
+                Some(*rng.pick(&positives))
+            } else {
+                None
+            }
         };
 
         // Constraints, bindings, join tests.
@@ -341,16 +369,18 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     }
                 }
             }
-            // Field bindings.
-            let nbind = rng.below(3);
-            for bi in 0..nbind {
-                let fs = &types[pats[pi].ti].fields;
-                let fi = rng.below(fs.len());
-                let ft = fs[fi].1;
-                let var = format!("$b{ri}_{pi}_{bi}");
-                let fname = fs[fi].0.clone();
-                pats[pi].constraints.push(format!("{var} : {fname}"));
-                pats[pi].bindings.push((var, fi, ft));
+            // Field bindings (positive patterns only — D-031).
+            if pats[pi].ce == 0 {
+                let nbind = rng.below(3);
+                for bi in 0..nbind {
+                    let fs = &types[pats[pi].ti].fields;
+                    let fi = rng.below(fs.len());
+                    let ft = fs[fi].1;
+                    let var = format!("$b{ri}_{pi}_{bi}");
+                    let fname = fs[fi].0.clone();
+                    pats[pi].constraints.push(format!("{var} : {fname}"));
+                    pats[pi].bindings.push((var, fi, ft));
+                }
             }
         }
 
@@ -433,12 +463,17 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         }
         drl.push_str("when\n");
         for p in &pats {
+            let ce = match p.ce {
+                1 => "not ",
+                2 => "exists ",
+                _ => "",
+            };
             let head = match &p.fact_var {
                 Some(v) => format!("{v} : "),
                 None => String::new(),
             };
             drl.push_str(&format!(
-                "    {head}{}({})\n",
+                "    {ce}{head}{}({})\n",
                 types[p.ti].name,
                 p.constraints.join(", ")
             ));
@@ -485,6 +520,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
 }
 
 fn ensure_fact_var(pats: &mut [GenPattern], ri: usize, pos: usize) -> String {
+    debug_assert_eq!(pats[pos].ce, 0, "fact vars only on positive patterns");
     if pats[pos].fact_var.is_none() {
         pats[pos].fact_var = Some(format!("$p{ri}_{pos}"));
     }
@@ -520,9 +556,12 @@ fn gen_arg(
         if choice < 70 && !binds.is_empty() {
             return rng.pick(&binds).clone();
         }
-        // Try a getter.
+        // Try a getter (positive patterns only — CE patterns cannot bind).
         let mut cands: Vec<(usize, usize)> = Vec::new(); // (pattern pos, field idx)
         for (pi, p) in pats.iter().enumerate() {
+            if p.ce != 0 {
+                continue;
+            }
             for (fi, (_, ft)) in types[p.ti].fields.iter().enumerate() {
                 if *ft == tft || (*ft == Ft::I64 && tft == Ft::F64) {
                     cands.push((pi, fi));

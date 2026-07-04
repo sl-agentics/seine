@@ -170,6 +170,18 @@ pub enum Kind {
     Exists,
 }
 
+/// Beta-memory index kind (D-032). Equality hash indexes apply to every
+/// node kind; COMPARISON (range) indexes apply to not/exists nodes only —
+/// IndexUtil.canHaveRangeIndexForNodeType — on the first relational join
+/// constraint with Number/Number or same-class Comparable operands. The
+/// op is the constraint's op: right_field OP left_binding.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Index {
+    None,
+    Eq,
+    Cmp(crate::drl::CmpOp),
+}
+
 /// One child tuple of a node (join: left extended by the right fact;
 /// not/exists: a copy of the left, `right` = None).
 struct Child {
@@ -205,8 +217,8 @@ pub struct Node {
     /// (tempBlocked / tempNextRightTuple).
     temp_blocked: HashMap<FactId, Vec<Tup>>,
     temp_next: HashMap<FactId, Option<FactId>>,
-    /// Whether this join has an equality join constraint (indexed).
-    pub indexed: bool,
+    /// Beta-memory index kind (equality hash / comparison range / none).
+    pub index: Index,
     /// True for the first join node (left input fed by the LIA/segment
     /// root rather than a previous join).
     pub first: bool,
@@ -233,7 +245,7 @@ impl Node {
         }
     }
 
-    pub fn new(indexed: bool, first: bool, kind: Kind) -> Node {
+    pub fn new(index: Index, first: bool, kind: Kind) -> Node {
         Node {
             kind,
             lefts: Vec::new(),
@@ -248,9 +260,13 @@ impl Node {
             blocker_of: HashMap::new(),
             temp_blocked: HashMap::new(),
             temp_next: HashMap::new(),
-            indexed,
+            index,
             first,
         }
+    }
+
+    fn eq_indexed(&self) -> bool {
+        self.index == Index::Eq
     }
 
     fn alive_children<'a>(&'a self, ids: &'a [usize]) -> impl Iterator<Item = usize> + 'a {
@@ -363,7 +379,7 @@ impl Node {
         self.lefts
             .iter()
             .filter(|(_, k)| {
-                !self.indexed
+                !self.eq_indexed()
                     || match (k, key) {
                         (Some(sk), Some(pk)) => Node::keys_match(sk, pk),
                         _ => false,
@@ -379,7 +395,7 @@ impl Node {
         self.rights
             .iter()
             .filter(|(_, k)| {
-                !self.indexed
+                !self.eq_indexed()
                     || match (k, key) {
                         (Some(sk), Some(pk)) => Node::keys_match(sk, pk),
                         _ => false,
@@ -387,6 +403,81 @@ impl Node {
             })
             .map(|(f, _)| *f)
             .collect()
+    }
+
+    /// Coerce a 1-element probe to the stored key's type (the probing
+    /// side coerces to the memory side — u14/fz_123_3057 convention).
+    fn coerce_probe(stored: &Value, probe: &Value) -> Value {
+        match (stored, probe) {
+            (Value::I64(_), Value::F64(b)) => Value::I64(*b as i64),
+            (Value::F64(_), Value::I64(b)) => Value::F64(*b as f64),
+            _ => probe.clone(),
+        }
+    }
+
+    fn value_ord(a: &Value, b: &Value) -> std::cmp::Ordering {
+        use std::cmp::Ordering;
+        match (a, b) {
+            (Value::I64(x), Value::I64(y)) => x.cmp(y),
+            (Value::F64(x), Value::F64(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
+            (Value::Str(x), Value::Str(y)) => x.cmp(y),
+            (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
+            _ => Ordering::Equal,
+        }
+    }
+
+    /// Matching lefts for a right probe in ITERATION order (D-032). For a
+    /// COMPARISON index (TupleIndexRBTree): the walk starts at the range
+    /// boundary nearest the probe and moves away from it — descending
+    /// left keys for `field > $b` / `>=`, ascending for `<` / `<=` —
+    /// FIFO within equal keys. Other indexes keep memory order.
+    fn scan_lefts(&self, probe: Option<&Vec<Value>>) -> Vec<Tup> {
+        let Index::Cmp(op) = self.index else {
+            return self.lefts_bucket(probe);
+        };
+        let Some(pv) = probe.and_then(|p| p.first()) else { return Vec::new() };
+        let mut hits: Vec<(usize, &Tup, &Value)> = Vec::new();
+        for (i, (t, k)) in self.lefts.iter().enumerate() {
+            let Some(kv) = k.as_ref().and_then(|k| k.first()) else { continue };
+            let p = Node::coerce_probe(kv, pv);
+            // constraint: right_field OP $b  ->  probe OP stored
+            if crate::engine::eval_cmp_pub(&p, op, kv) {
+                hits.push((i, t, kv));
+            }
+        }
+        let desc = matches!(op, crate::drl::CmpOp::Gt | crate::drl::CmpOp::Ge);
+        hits.sort_by(|(ai, _, ak), (bi, _, bk)| {
+            let o = Node::value_ord(ak, bk);
+            let o = if desc { o.reverse() } else { o };
+            o.then(ai.cmp(bi))
+        });
+        hits.into_iter().map(|(_, t, _)| t.clone()).collect()
+    }
+
+    /// Matching rights for a left probe in ITERATION order (D-032):
+    /// ascending right keys for `field > $b` / `>=` (nearest above the
+    /// probe first), descending for `<` / `<=`; FIFO within equal keys.
+    fn scan_rights(&self, probe: Option<&Vec<Value>>) -> Vec<FactId> {
+        let Index::Cmp(op) = self.index else {
+            return self.rights_bucket(probe);
+        };
+        let Some(pv) = probe.and_then(|p| p.first()) else { return Vec::new() };
+        let mut hits: Vec<(usize, FactId, &Value)> = Vec::new();
+        for (i, (f, k)) in self.rights.iter().enumerate() {
+            let Some(kv) = k.as_ref().and_then(|k| k.first()) else { continue };
+            let p = Node::coerce_probe(kv, pv);
+            // constraint: right_field OP $b  ->  stored OP probe
+            if crate::engine::eval_cmp_pub(kv, op, &p) {
+                hits.push((i, *f, kv));
+            }
+        }
+        let asc = matches!(op, crate::drl::CmpOp::Gt | crate::drl::CmpOp::Ge);
+        hits.sort_by(|(ai, _, ak), (bi, _, bk)| {
+            let o = Node::value_ord(ak, bk);
+            let o = if asc { o } else { o.reverse() };
+            o.then(ai.cmp(bi))
+        });
+        hits.into_iter().map(|(_, f, _)| f).collect()
     }
 }
 
@@ -516,7 +607,7 @@ fn do_join_node<E: JoinEnv>(
         let bucket = node.lefts_bucket(rkey.as_ref());
         let mut first_child = node.first_child_of_right(*f);
         // Indexed bucket-change check via the FIRST child's left parent.
-        if node.indexed {
+        if node.eq_indexed() {
             if let Some(fc) = first_child {
                 let parent_key = node.left_key(&node.children[fc].left).cloned();
                 let same = match (&parent_key, &rkey) {
@@ -595,7 +686,7 @@ fn do_join_node<E: JoinEnv>(
         let bucket = node.rights_bucket(lkey.as_ref());
         // stale-children pass (indexed only): drop children whose right
         // parent sits in a different bucket now
-        if node.indexed {
+        if node.eq_indexed() {
             if let Some(ids) = node.by_left.get(l).cloned() {
                 for c in ids {
                     if node.children[c].dead {
@@ -781,41 +872,46 @@ fn do_existential_node<E: JoinEnv>(
             sr.del.iter().any(|(x, _, _)| *x == f) || sr.upd.iter().any(|(x, _, _)| *x == f)
         };
         let mut del_saved: Vec<(FactId, Option<Vec<Value>>)> = Vec::new();
-        if node.indexed {
+        if node.index != Index::None {
             for (f, _, _) in &sr.del {
                 if let Some(i) = node.rights.iter().position(|(x, _)| x == f) {
                     del_saved.push(node.rights.remove(i));
                 }
             }
         }
+        // resumeFromCurrent = false for COMPARISON indexes: no resume
+        // points are captured, the tempBlocked walk restarts per left.
+        let resume_from_current = !matches!(node.index, Index::Cmp(_));
         let mut readd: Vec<FactId> = Vec::new();
         for (f, _, _) in &sr.upd {
             let Some(i) = node.rights.iter().position(|(x, _)| x == f) else { continue };
             let f_key = node.rights[i].1.clone();
             let in_bucket = |k: &Option<Vec<Value>>| {
-                !node.indexed
+                !node.eq_indexed()
                     || match (k, &f_key) {
                         (Some(a), Some(b)) => Node::keys_match(a, b),
                         _ => false,
                     }
             };
             if node.blocked.get(f).map(|v| !v.is_empty()).unwrap_or(false) {
-                let mut tnext: Option<FactId> = None;
-                for (g, k) in node.rights[i + 1..].iter() {
-                    if in_bucket(k) && !staged_right_any(*g) {
-                        tnext = Some(*g);
-                        break;
-                    }
-                }
-                if tnext.is_none() {
-                    for (g, k) in node.rights[..i].iter().rev() {
+                if resume_from_current {
+                    let mut tnext: Option<FactId> = None;
+                    for (g, k) in node.rights[i + 1..].iter() {
                         if in_bucket(k) && !staged_right_any(*g) {
                             tnext = Some(*g);
                             break;
                         }
                     }
+                    if tnext.is_none() {
+                        for (g, k) in node.rights[..i].iter().rev() {
+                            if in_bucket(k) && !staged_right_any(*g) {
+                                tnext = Some(*g);
+                                break;
+                            }
+                        }
+                    }
+                    node.temp_next.insert(*f, tnext);
                 }
-                node.temp_next.insert(*f, tnext);
                 let bl = node.blocked.remove(f).unwrap_or_default();
                 for l in &bl {
                     node.blocker_of.remove(l);
@@ -842,7 +938,7 @@ fn do_existential_node<E: JoinEnv>(
         let rkey = env.key_of_right(node_idx, *f);
         node.rights.push((*f, rkey.clone()));
         if !node.lefts.is_empty() {
-            for l in node.lefts_bucket(rkey.as_ref()) {
+            for l in node.scan_lefts(rkey.as_ref()) {
                 if staged_left_upd(&l) {
                     continue;
                 }
@@ -870,11 +966,13 @@ fn do_existential_node<E: JoinEnv>(
     // insert; (2) walk the tempBlocked lefts, re-searching from the
     // captured resume point (a missing resume point flips a loop-wide
     // from-start flag that PERSISTS for later staged updates) ---
-    let mut iterate_from_start = false; // equality-indexed / plain lists
+    // isIndexedUnificationJoin || isComparison: range-indexed memories
+    // always restart blocker searches from the range head (D-032).
+    let mut iterate_from_start = matches!(node.index, Index::Cmp(_));
     for (f, o, _) in &sr.upd {
         let fkey = node.rights.iter().find(|(x, _)| x == f).and_then(|(_, k)| k.clone());
         if !node.lefts.is_empty() {
-            for l in node.lefts_bucket(fkey.as_ref()) {
+            for l in node.scan_lefts(fkey.as_ref()) {
                 if staged_left_upd(&l) {
                     continue;
                 }
@@ -981,13 +1079,36 @@ fn do_existential_node<E: JoinEnv>(
             if let Some(i) = node.lefts.iter().position(|(x, _)| x == l) {
                 node.lefts.remove(i);
             }
-        } else if node.indexed {
-            // bucket-change check against the blocker's stored key
+        } else if node.index != Index::None {
+            // bucket-change check: for an equality index the blocker's
+            // stored key must match the left's new key; for a comparison
+            // index the blocker must head the left's new RANGE bucket
+            // (firstRightTuple.getMemory() == blocker.getMemory()).
             let b = blocker.unwrap();
             let bkey = node.rights.iter().find(|(x, _)| *x == b).and_then(|(_, k)| k.clone());
-            let same = match (&bkey, &lkey) {
-                (Some(bk), Some(lk)) => Node::keys_match(bk, lk),
-                _ => false,
+            let same = match node.index {
+                Index::Eq => match (&bkey, &lkey) {
+                    (Some(bk), Some(lk)) => Node::keys_match(bk, lk),
+                    _ => false,
+                },
+                Index::Cmp(_) => {
+                    let first = node.scan_rights(lkey.as_ref()).into_iter().next();
+                    match first {
+                        None => false,
+                        Some(fr) => {
+                            let frk = node
+                                .rights
+                                .iter()
+                                .find(|(x, _)| *x == fr)
+                                .and_then(|(_, k)| k.clone());
+                            match (&frk, &bkey) {
+                                (Some(a), Some(b2)) => a == b2,
+                                _ => false,
+                            }
+                        }
+                    }
+                }
+                Index::None => true,
             };
             if !same {
                 node.detach_blocked(l, b);
@@ -1096,7 +1217,7 @@ impl Node {
         l: &Tup,
         lkey: Option<&Vec<Value>>,
     ) -> Option<FactId> {
-        self.rights_bucket(lkey)
+        self.scan_rights(lkey)
             .into_iter()
             .find(|f| env.allowed(node_idx, l, *f))
     }
@@ -1113,7 +1234,7 @@ impl Node {
         sr: &Staged<FactId>,
     ) -> Option<FactId> {
         let lkey = env.key_of_left(node_idx, l);
-        let bucket = self.rights_bucket(lkey.as_ref());
+        let bucket = self.scan_rights(lkey.as_ref());
         let begin = match start {
             Some(s) => bucket.iter().position(|f| *f == s).unwrap_or(0),
             None => 0,
@@ -1136,7 +1257,7 @@ impl Node {
         let Some(i) = self.rights.iter().position(|(x, _)| x == &f) else { return };
         let f_key = self.rights[i].1.clone();
         let in_bucket = |k: &Option<Vec<Value>>| {
-            !self.indexed
+            !self.eq_indexed()
                 || match (k, &f_key) {
                     (Some(a), Some(b)) => Node::keys_match(a, b),
                     _ => false,
@@ -1144,7 +1265,7 @@ impl Node {
         };
         let mut tnext: Option<FactId> = None;
         let has_blocked = self.blocked.get(&f).map(|v| !v.is_empty()).unwrap_or(false);
-        if has_blocked {
+        if has_blocked && !matches!(self.index, Index::Cmp(_)) {
             for (g, k) in self.rights[i + 1..].iter() {
                 if in_bucket(k) {
                     tnext = Some(*g);

@@ -1,0 +1,16 @@
+{
+  "name": "ne_x2",
+  "types": [
+    {"name": "A", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "T0", "fields": [{"name": "t", "type": "bool"}]},
+    {"name": "T1", "fields": [{"name": "t", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"n": 1}},
+    {"type": "B", "fields": {"n": 1}},
+    {"type": "T0", "fields": {"t": true}},
+    {"type": "T1", "fields": {"t": true}}
+  ],
+  "drl": "rule R when A() exists B() then end\nrule S salience -5 when $b : B(n == 1) T0() then delete($b); end\nrule U salience -9 when T1() then insert(new B(2)); end\n"
+}

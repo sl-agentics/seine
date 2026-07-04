@@ -91,6 +91,12 @@ struct CompiledPattern {
     /// Whether any constraint references an earlier pattern's binding
     /// (beta constraint) — drives not-node linking (D-031).
     beta: bool,
+    /// Beta-memory index kind (D-032): equality hash wins; not/exists
+    /// nodes fall back to a COMPARISON (range) index on the first
+    /// relational var constraint with compatible operands.
+    pindex: phreak::Index,
+    /// cmps position of the range-indexed constraint (Cmp index only).
+    index_ci: Option<usize>,
 }
 
 enum CompiledAction {
@@ -282,7 +288,7 @@ impl Engine {
         // Bindings visible so far: fact bindings ($p -> tuple index) and
         // field bindings ($a -> (tuple index, field, type)), declaration
         // order. CE patterns own no tuple slot (D-031).
-        let mut fact_binds: HashMap<String, usize> = HashMap::new();
+        let mut fact_binds: HashMap<String, (usize, TypeId)> = HashMap::new();
         let mut field_binds: HashMap<String, (usize, usize, FieldType)> = HashMap::new();
         let mut patterns = Vec::new();
         let mut tuple_len = 0usize;
@@ -301,6 +307,8 @@ impl Engine {
                 ce: CeKind::Positive,
                 tpos: Some(0),
                 beta: false,
+                pindex: phreak::Index::None,
+                index_ci: None,
             });
             tuple_len = 1;
         }
@@ -322,7 +330,7 @@ impl Engine {
             };
             if let Some(b) = &p.binding {
                 let t = tpos.ok_or_else(|| err("binding on a CE pattern".into()))?;
-                if fact_binds.insert(b.clone(), t).is_some() {
+                if fact_binds.insert(b.clone(), (t, type_id)).is_some() {
                     return Err(err(format!("duplicate binding {b}")));
                 }
             }
@@ -417,7 +425,55 @@ impl Engine {
             let beta = cmps
                 .iter()
                 .any(|c| matches!(c.test, Test::Cmp { rhs: Src::Field(..), .. }));
-            patterns.push(CompiledPattern { type_id, cmps, listen_mask, ce: p.ce, tpos, beta });
+            let (pindex, index_ci) = {
+                let var_cmps: Vec<(usize, CmpOp, usize, usize)> = cmps
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(ci, c)| match &c.test {
+                        Test::Cmp { op, rhs: Src::Field(ti, fi) } if Some(*ti) != tpos => {
+                            Some((ci, *op, *ti, *fi))
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                if var_cmps.iter().any(|(_, op, _, _)| *op == CmpOp::Eq) {
+                    (phreak::Index::Eq, None)
+                } else if p.ce != CeKind::Positive {
+                    // range index (not/exists only): first relational var
+                    // constraint with Number/Number or same-type operands
+                    let mut found = (phreak::Index::None, None);
+                    for (ci, op, ti, fi) in &var_cmps {
+                        if !matches!(op, CmpOp::Lt | CmpOp::Le | CmpOp::Gt | CmpOp::Ge) {
+                            continue;
+                        }
+                        let lhs_ft = self.store.field_type(type_id, cmps[*ci].field_idx);
+                        let src_pat = patterns
+                            .iter()
+                            .find(|q: &&CompiledPattern| q.tpos == Some(*ti))
+                            .expect("binding source pattern");
+                        let rhs_ft = self.store.field_type(src_pat.type_id, *fi);
+                        let numeric =
+                            |t: FieldType| matches!(t, FieldType::I64 | FieldType::F64);
+                        if (numeric(lhs_ft) && numeric(rhs_ft)) || lhs_ft == rhs_ft {
+                            found = (phreak::Index::Cmp(*op), Some(*ci));
+                            break;
+                        }
+                    }
+                    found
+                } else {
+                    (phreak::Index::None, None)
+                }
+            };
+            patterns.push(CompiledPattern {
+                type_id,
+                cmps,
+                listen_mask,
+                ce: p.ce,
+                tpos,
+                beta,
+                pindex,
+                index_ci,
+            });
         }
 
         let mut actions = Vec::new();
@@ -459,10 +515,9 @@ impl Engine {
                     actions.push(CompiledAction::Insert { type_id: tid, args: srcs });
                 }
                 Action::Set { var, field, arg } => {
-                    let pos = *fact_binds
+                    let (pos, tid) = *fact_binds
                         .get(var)
                         .ok_or_else(|| err(format!("unknown fact binding {var}")))?;
-                    let tid = patterns[pos].type_id;
                     let fi = self
                         .store
                         .field_index(tid, field)
@@ -476,13 +531,13 @@ impl Engine {
                     actions.push(CompiledAction::Set { pos, field_idx: fi, arg: src });
                 }
                 Action::Update { var } => {
-                    let pos = *fact_binds
+                    let (pos, _) = *fact_binds
                         .get(var)
                         .ok_or_else(|| err(format!("unknown fact binding {var}")))?;
                     actions.push(CompiledAction::Update { pos });
                 }
                 Action::Delete { var } => {
-                    let pos = *fact_binds
+                    let (pos, _) = *fact_binds
                         .get(var)
                         .ok_or_else(|| err(format!("unknown fact binding {var}")))?;
                     actions.push(CompiledAction::Delete { pos });
@@ -496,7 +551,7 @@ impl Engine {
         &self,
         rname: &str,
         arg: &RhsArg,
-        fact_binds: &HashMap<String, usize>,
+        fact_binds: &HashMap<String, (usize, TypeId)>,
         field_binds: &HashMap<String, (usize, usize, FieldType)>,
         _def: &RuleDef,
         patterns: &[CompiledPattern],
@@ -511,10 +566,9 @@ impl Engine {
                 Ok((Src::SnapField(pi, fi), ft))
             }
             RhsArg::Getter { var, field } => {
-                let pos = *fact_binds.get(var).ok_or_else(|| {
+                let (pos, tid) = *fact_binds.get(var).ok_or_else(|| {
                     EngineError(format!("rule {rname}: unknown fact binding {var}"))
                 })?;
-                let tid = patterns[pos].type_id;
                 let fi = self.store.field_index(tid, field).ok_or_else(|| {
                     EngineError(format!("rule {rname}: no field {field} behind getter on {var}"))
                 })?;
@@ -565,15 +619,12 @@ impl Engine {
                         nodes: (1..k)
                             .map(|j| {
                                 let pat = &r.patterns[j];
-                                let indexed = pat.cmps.iter().any(|c| {
-                                    matches!(&c.test, Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(ti, _) } if Some(*ti) != pat.tpos)
-                                });
                                 let kind = match pat.ce {
                                     CeKind::Positive => phreak::Kind::Join,
                                     CeKind::Not => phreak::Kind::Not,
                                     CeKind::Exists => phreak::Kind::Exists,
                                 };
-                                phreak::Node::new(indexed, j == 1, kind)
+                                phreak::Node::new(pat.pindex, j == 1, kind)
                             })
                             .collect(),
                         queue: Vec::new(),
@@ -672,6 +723,7 @@ impl Engine {
     fn on_update(&mut self, f: FactId, mask: u64, src_ri: usize) {
         let ftype = self.store.fact_type(f);
         for ri in 0..self.rules.len() {
+            let was_linked = self.rule_linked(ri);
             for pos in 0..self.rules[ri].patterns.len() {
                 let pat = &self.rules[ri].patterns[pos];
                 if pat.type_id != ftype {
@@ -727,12 +779,19 @@ impl Engine {
                     (false, false) => {}
                 }
             }
+            // PathMemory.doUnlinkRule (D-031/ne_x2): a LINKED->UNLINKED
+            // transition queues the agenda item so cancellations and
+            // unblocks evaluate in their own window.
+            if was_linked && !self.rule_linked(ri) {
+                self.nets[ri].queued = true;
+            }
             self.refresh_linked(ri);
         }
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
         for ri in 0..self.rules.len() {
+            let was_linked = self.rule_linked(ri);
             for pos in 0..self.rules[ri].patterns.len() {
                 if self.nets[ri].active[pos].remove(&f) {
                     if pos == 0 {
@@ -742,8 +801,14 @@ impl Engine {
                     }
                 }
             }
-            // A delete can LINK a rule: an unconstrained not node re-links
-            // when its right input empties (D-031, NotNode.doDeleteRightTuple).
+            // PathMemory.doUnlinkRule (D-031/ne_x2): a LINKED->UNLINKED
+            // transition queues the agenda item so the delete window
+            // evaluates before later re-inserts (exists refire-after-gap).
+            if was_linked && !self.rule_linked(ri) {
+                self.nets[ri].queued = true;
+            }
+            // A delete can also LINK a rule: an unconstrained not node
+            // re-links when its right input empties (NotNode.doDeleteRightTuple).
             self.refresh_linked(ri);
         }
     }
@@ -1077,6 +1142,12 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
     fn key_of_left(&self, node: usize, l: &Tup) -> Option<Vec<Value>> {
         let pos = node + 1;
         let pat = &self.rule.patterns[pos];
+        if let Some(ci) = pat.index_ci {
+            // range index: the single relational constraint's binding value
+            if let Test::Cmp { rhs: Src::Field(ti, fi), .. } = &pat.cmps[ci].test {
+                return Some(vec![self.store.value(l[*ti], *fi)]);
+            }
+        }
         let mut out = Vec::new();
         for c in &pat.cmps {
             if let Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(ti, fi) } = &c.test {
@@ -1097,6 +1168,10 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
     fn key_of_right(&self, node: usize, f: FactId) -> Option<Vec<Value>> {
         let pos = node + 1;
         let pat = &self.rule.patterns[pos];
+        if let Some(ci) = pat.index_ci {
+            // range index: the constraint's own field value
+            return Some(vec![self.store.value(f, pat.cmps[ci].field_idx)]);
+        }
         let mut out = Vec::new();
         for c in &pat.cmps {
             if let Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(ti, _) } = &c.test {
@@ -1156,6 +1231,11 @@ fn eval_cmp_join(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
             return *a == (*b as i64); // Java (long) cast: truncate toward zero
         }
     }
+    eval_cmp(lhs, op, rhs)
+}
+
+/// Same-type / promoted comparison, exported for the phreak range scans.
+pub(crate) fn eval_cmp_pub(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
     eval_cmp(lhs, op, rhs)
 }
 

@@ -461,6 +461,44 @@ READING (behavior reference only — no code copied). Pins:
   `exists T(...)` forms only (no parenthesized CE groups, no nesting); the
   type name InitialFact is reserved.
 
+### D-032: CE fuzz wave 1 — agenda queue-on-unlink + COMPARISON (range)
+### indexes on not/exists (fz_42_3774, fz_42_7768)
+The first 10k CE-grammar fuzz run produced 2 divergences; both minimized
+to <=3 rules / 3 facts (tools/minimize.py, now also dropping constraints
+and RHS statements):
+- **Queue-on-unlink (fz_42_3774 + discriminators ne_x1..ne_x5):** an
+  exists rule whose last support dies and reappears in a LATER firing
+  REFIRES (ne_x2), while a same-RHS delete+insert does NOT (ne_x1:
+  blocker handover inside one batch keeps the child). Drools source:
+  PathMemory.doUnlinkRule — every rule LINKED->UNLINKED transition
+  force-queues the agenda item (dirty forced), so the delete window
+  evaluates before later re-inserts. Engine: on_delete/on_update capture
+  rule_linked before/after and queue on the transition. The not-side
+  mirrors (ne_x3: same-batch delete+insert of a blocker never fires the
+  not; ne_x4: a low-salience not whose unblock window is preempted by a
+  re-insert never fires; ne_x5: a low-salience exists keeps its queued
+  activation through a support handover).
+- **Range indexes (fz_42_7768/fz_min_7768):** not/exists nodes with a
+  relational join constraint and Number/Number or same-class operands are
+  COMPARISON-indexed by default (IndexUtil.canHaveRangeIndexForNodeType:
+  NotNode/ExistsNode only — join nodes need the opt-in config, which is
+  why 50k join-grammar cases never saw it). TupleIndexRBTree semantics
+  (behavioral port, phreak::Index::Cmp):
+  - memories sort by the constraint operand (left memory by the binding
+    value, right memory by the field), FIFO within equal keys;
+  - a probe walk starts at the range boundary NEAREST the probe and moves
+    away from it: for `field > $b` / `>=` blocked-left scans run
+    DESCENDING $b while blocker scans run ASCENDING field; `<` / `<=`
+    mirror (fz_min_7768's unblock burst fires the $b=-1 group before the
+    $b=-2 group, each in insertion order);
+  - probes coerce to the stored side's type (same convention as the hash
+    index, u14/fz_123_3057);
+  - equality indexes take precedence (any `==` var constraint); `!=` is
+    never indexable; comparison memories never capture resume points
+    (resumeFromCurrent=false: tempBlocked walks restart from the range
+    head, and the doRightUpdates from-start flag initializes true).
+- Corpus at 199 after promoting the pair + minimized twins + ne_x probes.
+
 ### D-028: PHREAK port LANDED — corpus 145/145, all xfails closed, wall lifted
 The faithful port (branch `phreak-port`) replaced the fitted merge engine.
 `engine/src/phreak.rs` implements the node algorithm; `engine.rs` keeps

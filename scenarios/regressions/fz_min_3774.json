@@ -1,0 +1,80 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T3()\n    exists T1()\nthen\nend\nrule \"R1\"\nwhen\n    T3()\n    $p1_1 : T1()\nthen\n    delete($p1_1);\nend\nrule \"R2\"\nwhen\n    T0()\n    $p2_1 : T0()\n    T0()\nthen\n    insert(new T1($p2_1.getF2()));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": true
+   },
+   "type": "T3"
+  },
+  {
+   "fields": {
+    "f0": "",
+    "f1": "b",
+    "f2": 4,
+    "f3": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": "a",
+    "f1": "",
+    "f2": -3,
+    "f3": false
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_min_3774",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}
