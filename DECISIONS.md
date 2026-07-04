@@ -377,9 +377,10 @@ out, independently optional per brief §2). Proven state at close:
   the regex matcher's oracle-pinned cases). FOUR xfail cases parked
   (xfail/: node-sharing window-claim classes, D-035).
 - Fuzz over the D-035-walled grammar (operators + CEs + mutation +
-  3-pattern rules; insert-only sharing included): seeds
-  42/7/123/777/999 x 10k = 50k cases, zero divergences; plus the 30k
-  operator-only wave earlier.
+  3-pattern rules; no shared prefixes): seeds 42/7/123/777/999 x 10k =
+  50k cases, zero divergences; plus the 30k operator-only wave earlier
+  and the ~50k unwalled cases that surfaced the D-032/D-033/D-035
+  classes along the way.
 - New mechanism classes this session: D-030 (operator semantics + the
   in-list prefix-chain rule), D-031 (existential blocker model, CE match
   rendering, InitialFact, not-node linking pulse), D-032 (queue-on-unlink
@@ -487,9 +488,9 @@ by ne_s1..s10 plus ne_s11 (multi-window insert arrivals PASS).
 - Operator grammar fuzz: seeds 42/7/123 x 10,000 = 30k cases, zero
   divergences (before the CE grammar landed).
 - CE grammar fuzz (not/exists + operators + mutation + 3-pattern rules
-  mixing freely, D-035-walled: insert-only programs may share beta
-  prefixes, mutation programs may not): seeds 42, 7, 123, 777, 999 x
-  10,000 = 50k cases at zero divergences after the D-032/D-033 fixes.
+  mixing freely, D-035-walled: no structurally shared >=2-pattern
+  prefixes across rules): seeds 42, 7, 123, 777, 999 x 10,000 = 50k
+  cases at zero divergences after the D-032/D-033/D-035 fixes.
 - Generator termination discipline extended for CEs (D-032): RHS insert
   types must exceed ALL pattern type indices including not/exists CE
   types, so consequence chains can never re-insert a blocker/support at

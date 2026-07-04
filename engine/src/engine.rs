@@ -643,7 +643,7 @@ impl Engine {
         fact_binds: &HashMap<String, (usize, TypeId)>,
         field_binds: &HashMap<String, (usize, usize, FieldType)>,
         _def: &RuleDef,
-        patterns: &[CompiledPattern],
+        _patterns: &[CompiledPattern],
     ) -> Result<(Src, FieldType), EngineError> {
         match arg {
             RhsArg::Lit(l) => Ok((Src::Lit(lit_value(l)), lit_type(l))),
@@ -935,7 +935,7 @@ impl Engine {
             || self.nets[ri].nodes.iter().any(|n| !n.s_right.is_empty() || !n.s_left.is_empty())
     }
 
-    fn evaluate_rule(&mut self, ri: usize, force: bool, eager: bool) {
+    fn evaluate_rule(&mut self, ri: usize, force: bool, _eager: bool) {
         if !self.rule_dirty(ri) {
             return;
         }
