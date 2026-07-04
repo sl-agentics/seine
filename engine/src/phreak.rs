@@ -28,9 +28,9 @@ pub type Origin = Option<usize>;
 /// upstream fold rules.
 #[derive(Clone)]
 pub struct Staged<T: Clone + PartialEq> {
-    pub ins: Vec<(T, Origin, bool)>,
-    pub upd: Vec<(T, Origin, bool)>,
-    pub del: Vec<(T, Origin, bool)>,
+    pub ins: Vec<(T, Origin, u8)>,
+    pub upd: Vec<(T, Origin, u8)>,
+    pub del: Vec<(T, Origin, u8)>,
 }
 
 impl<T: Clone + PartialEq> Default for Staged<T> {
@@ -49,31 +49,32 @@ impl<T: Clone + PartialEq> Staged<T> {
     }
 
     pub fn add_ins(&mut self, t: T, origin: Origin) {
-        self.add_ins_ph(t, origin, true)
+        self.add_ins_ph(t, origin, 0)
     }
 
     /// NOTE: no del+ins fold — Drools folds by tuple OBJECT identity, and a
-    /// re-created child is a NEW object (c13). `from_left` records which
-    /// processing phase created the entry (terminal block ordering).
-    pub fn add_ins_ph(&mut self, t: T, origin: Origin, from_left: bool) {
+    /// re-created child is a NEW object (c13). `phase` records which processing
+    /// phase created the entry: 0 = left-insert, 1 = right-insert,
+    /// 2 = update-derived (terminal block ordering, D-027).
+    pub fn add_ins_ph(&mut self, t: T, origin: Origin, phase: u8) {
         if self.upd.iter().any(|(x, _, _)| *x == t) || self.ins.iter().any(|(x, _, _)| *x == t) {
             return;
         }
-        self.ins.insert(0, (t, origin, from_left));
+        self.ins.insert(0, (t, origin, phase));
     }
 
     pub fn add_upd(&mut self, t: T, origin: Origin) {
-        self.add_upd_ph(t, origin, true)
+        self.add_upd_ph(t, origin, 2)
     }
 
-    pub fn add_upd_ph(&mut self, t: T, origin: Origin, from_left: bool) {
+    pub fn add_upd_ph(&mut self, t: T, origin: Origin, phase: u8) {
         if self.ins.iter().any(|(x, _, _)| *x == t)
             || self.upd.iter().any(|(x, _, _)| *x == t)
             || self.del.iter().any(|(x, _, _)| *x == t)
         {
             return; // folds: pending insert/update already schedules it
         }
-        self.upd.insert(0, (t, origin, from_left));
+        self.upd.insert(0, (t, origin, phase));
     }
 
     pub fn add_del(&mut self, t: T, origin: Origin) {
@@ -87,7 +88,7 @@ impl<T: Clone + PartialEq> Staged<T> {
         if self.del.iter().any(|(x, _, _)| *x == t) {
             return;
         }
-        self.del.insert(0, (t, origin, true));
+        self.del.insert(0, (t, origin, 0));
     }
 
     // FIFO (append) variants: LEFT-input staging from working-memory
@@ -97,7 +98,7 @@ impl<T: Clone + PartialEq> Staged<T> {
         if self.upd.iter().any(|(x, _, _)| *x == t) || self.ins.iter().any(|(x, _, _)| *x == t) {
             return;
         }
-        self.ins.push((t, origin, true));
+        self.ins.push((t, origin, 0));
     }
 
     pub fn add_upd_back(&mut self, t: T, origin: Origin) {
@@ -107,7 +108,7 @@ impl<T: Clone + PartialEq> Staged<T> {
         {
             return;
         }
-        self.upd.push((t, origin, true));
+        self.upd.push((t, origin, 2));
     }
 
     pub fn add_del_back(&mut self, t: T, origin: Origin) {
@@ -121,7 +122,7 @@ impl<T: Clone + PartialEq> Staged<T> {
         if self.del.iter().any(|(x, _, _)| *x == t) {
             return;
         }
-        self.del.push((t, origin, true));
+        self.del.push((t, origin, 0));
     }
 }
 
@@ -149,10 +150,13 @@ pub struct Node {
     by_right: HashMap<FactId, Vec<usize>>,
     /// Whether this join has an equality join constraint (indexed).
     pub indexed: bool,
+    /// True for the first join node (left input fed by the LIA/segment
+    /// root rather than a previous join).
+    pub first: bool,
 }
 
 impl Node {
-    pub fn new(indexed: bool) -> Node {
+    pub fn new(indexed: bool, first: bool) -> Node {
         Node {
             lefts: Vec::new(),
             rights: Vec::new(),
@@ -163,6 +167,7 @@ impl Node {
             by_left: HashMap::new(),
             by_right: HashMap::new(),
             indexed,
+            first,
         }
     }
 
@@ -178,16 +183,33 @@ impl Node {
         self.by_left.get(l).and_then(|v| self.alive_children(v).next())
     }
 
-    fn create_child(&mut self, l: &Tup, f: FactId) -> Tup {
+    /// Create a child, linking it at the END of both parents' child lists
+    /// (LeftTuple constructor semantics). `before_left`/`before_right`
+    /// insert BEFORE that child instead (the sync-walk cursor threading of
+    /// insertChildLeftTuple, which keeps child lists aligned with memory
+    /// iteration order).
+    fn create_child(
+        &mut self,
+        l: &Tup,
+        f: FactId,
+        before_left: Option<usize>,
+        before_right: Option<usize>,
+    ) -> Tup {
         let mut t = l.clone();
         t.push(f);
         let idx = self.children.len();
         self.children.push(Child { tuple: t.clone(), left: l.clone(), right: f, dead: false });
         self.child_ix.insert(t.clone(), idx);
-        // creation PREPENDS into both parents' child lists (the bucket-
-        // change detection depends on firstChild being the newest).
-        self.by_left.entry(l.clone()).or_default().insert(0, idx);
-        self.by_right.entry(f).or_default().insert(0, idx);
+        let lv = self.by_left.entry(l.clone()).or_default();
+        match before_left.and_then(|c| lv.iter().position(|&x| x == c)) {
+            Some(p) => lv.insert(p, idx),
+            None => lv.push(idx),
+        }
+        let rv = self.by_right.entry(f).or_default();
+        match before_right.and_then(|c| rv.iter().position(|&x| x == c)) {
+            Some(p) => rv.insert(p, idx),
+            None => rv.push(idx),
+        }
         t
     }
 
@@ -309,11 +331,23 @@ pub fn do_node<E: JoinEnv>(
             }
         }
     }
-    // --- reorder left memory: remove all staged, re-add (staged order) ---
-    for (l, _, _) in &sl.upd {
+    // --- reorder left memory: the LIA-fed first node re-adds at the END
+    // (staged order); join-fed nodes re-add at the FRONT, processed
+    // oldest-first (u12/u13) ---
+    let reorder_lefts: Vec<Tup> = if node.first {
+        sl.upd.iter().map(|(l, _, _)| l.clone()).collect()
+    } else {
+        sl.upd.iter().rev().map(|(l, _, _)| l.clone()).collect()
+    };
+    for l in &reorder_lefts {
         if let Some(i) = node.lefts.iter().position(|(x, _)| x == l) {
             node.lefts.remove(i);
-            node.lefts.push((l.clone(), env.key_of_left(node_idx, l)));
+            let entry = (l.clone(), env.key_of_left(node_idx, l));
+            if node.first {
+                node.lefts.push(entry);
+            } else {
+                node.lefts.insert(0, entry);
+            }
             if let Some(ids) = node.by_left.get(l).cloned() {
                 for c in ids {
                     if !node.children[c].dead {
@@ -365,8 +399,8 @@ pub fn do_node<E: JoinEnv>(
                     continue; // processed via left iteration
                 }
                 if env.allowed(node_idx, l, *f) {
-                    let t = node.create_child(l, *f);
-                    trg.add_ins_ph(t, *o, false);
+                    let t = node.create_child(l, *f, None, None);
+                    trg.add_ins_ph(t, *o, 2);
                 }
             }
         } else {
@@ -382,13 +416,13 @@ pub fn do_node<E: JoinEnv>(
                 if env.allowed(node_idx, l, *f) {
                     match cur {
                         Some(c) if node.children[c].left == *l => {
-                            trg.add_upd_ph(node.children[c].tuple.clone(), *o, false);
+                            trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
                             node.re_add_left(c);
                             ci += 1;
                         }
                         _ => {
-                            let t = node.create_child(l, *f);
-                            trg.add_ins_ph(t, *o, false);
+                            let t = node.create_child(l, *f, None, cur);
+                            trg.add_ins_ph(t, *o, 2);
                         }
                     }
                 } else if let Some(c) = cur {
@@ -433,8 +467,8 @@ pub fn do_node<E: JoinEnv>(
         if first_child.is_none() {
             for f in &bucket {
                 if env.allowed(node_idx, l, *f) {
-                    let t = node.create_child(l, *f);
-                    trg.add_ins(t, *o);
+                    let t = node.create_child(l, *f, None, None);
+                    trg.add_ins_ph(t, *o, 2);
                 }
             }
         } else {
@@ -446,13 +480,13 @@ pub fn do_node<E: JoinEnv>(
                 if env.allowed(node_idx, l, *f) {
                     match cur {
                         Some(c) if node.children[c].right == *f => {
-                            trg.add_upd(node.children[c].tuple.clone(), *o);
+                            trg.add_upd_ph(node.children[c].tuple.clone(), *o, 2);
                             node.re_add_right(c);
                             ci += 1;
                         }
                         _ => {
-                            let t = node.create_child(l, *f);
-                            trg.add_ins(t, *o);
+                            let t = node.create_child(l, *f, cur, None);
+                            trg.add_ins_ph(t, *o, 2);
                         }
                     }
                 } else if let Some(c) = cur {
@@ -476,8 +510,8 @@ pub fn do_node<E: JoinEnv>(
         ri_pos += 1;
         for l in node.lefts_bucket(rkey.as_ref()) {
             if env.allowed(node_idx, &l, *f) {
-                let t = node.create_child(&l, *f);
-                trg.add_ins_ph(t, *o, false);
+                let t = node.create_child(&l, *f, None, None);
+                trg.add_ins_ph(t, *o, 1);
             }
         }
     }
@@ -487,7 +521,7 @@ pub fn do_node<E: JoinEnv>(
         let lkey = node.lefts.last().and_then(|(_, k)| k.clone());
         for f in node.rights_bucket(lkey.as_ref()) {
             if env.allowed(node_idx, l, f) {
-                let t = node.create_child(l, f);
+                let t = node.create_child(l, f, None, None);
                 trg.add_ins(t, *o);
             }
         }

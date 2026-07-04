@@ -340,7 +340,7 @@ impl Engine {
                                     matches!(c.rhs, Src::Field(pi, _) if pi != j)
                                         && c.op == CmpOp::Eq
                                 });
-                                phreak::Node::new(indexed)
+                                phreak::Node::new(indexed, j == 1)
                             })
                             .collect(),
                         queue: Vec::new(),
@@ -555,41 +555,37 @@ impl Engine {
         for (t, _, _) in src.del.iter() {
             net.queue.retain(|x| x != t);
         }
-        // Terminal consumption (D-027 calibration): EAGER evaluations
-        // consume head-first (newest staged first: c10/c13/9462); LAZY
-        // evaluations consume LEFT-phase entries first, then RIGHT-phase,
-        // each block in creation (chronological) order (j01/u09/fz_7_87).
-        let order = |v: &Vec<(Tup, Origin, bool)>| -> Vec<(Tup, Origin)> {
-            if eager {
-                v.iter().map(|(t, o, _)| (t.clone(), *o)).collect()
-            } else {
-                let mut out: Vec<(Tup, Origin)> = v
-                    .iter()
-                    .rev()
-                    .filter(|(_, _, fl)| *fl)
-                    .map(|(t, o, _)| (t.clone(), *o))
-                    .collect();
-                out.extend(
-                    v.iter().rev().filter(|(_, _, fl)| !*fl).map(|(t, o, _)| (t.clone(), *o)),
-                );
-                out
-            }
-        };
-        for (t, o) in order(&src.upd) {
-            let queued = net.queue.iter().any(|x| *x == t);
+        // Terminal consumption order (D-027 calibration), independent of
+        // eager/lazy:
+        //   1. update-derived (phase 2) INSERTS, newest-first
+        //      (c10/c13/9462/u16-flip4);
+        //   2. terminal UPDATES, chronological (u12/u13/u16-flip2);
+        //   3. left-insert-derived, then right-insert-derived inserts,
+        //      each chronological (j01/u09/c12/fz_7_87).
+        let mut appends: Vec<(Tup, Origin)> = src
+            .ins
+            .iter()
+            .filter(|(_, _, ph)| *ph == 2)
+            .map(|(t, o, _)| (t.clone(), *o))
+            .collect();
+        for (t, o, _) in src.upd.iter().rev() {
+            let queued = net.queue.iter().any(|x| x == t);
             if queued {
                 continue; // pending activation keeps its position
             }
-            if no_loop && o == Some(ri) {
-                continue;
-            }
-            net.queue.push(t.clone()); // fired: effectively recreated
+            appends.push((t.clone(), *o)); // fired: effectively recreated
         }
-        for (t, o) in order(&src.ins) {
+        appends.extend(
+            src.ins.iter().rev().filter(|(_, _, ph)| *ph == 0).map(|(t, o, _)| (t.clone(), *o)),
+        );
+        appends.extend(
+            src.ins.iter().rev().filter(|(_, _, ph)| *ph == 1).map(|(t, o, _)| (t.clone(), *o)),
+        );
+        for (t, o) in appends {
             if no_loop && o == Some(ri) {
                 continue;
             }
-            net.queue.push(t.clone());
+            net.queue.push(t);
         }
     }
 
