@@ -391,6 +391,12 @@ struct RuleNet {
     /// a kind-preserved re-insert must not re-activate.
     peer_live: HashSet<Tup>,
     queue: Vec<Act>,
+    /// STICKY RuleAgendaItem salience (D-043/fz_27182_862): dynamic
+    /// items keep their last value across empty->removed->relinked
+    /// cycles; updateSalience only rewrites it when the queue top
+    /// CHANGES or the item is re-added unqueued. A 0-salience arrival
+    /// into an empty queue therefore keeps the stale value.
+    item_sal: i32,
     /// Agenda-item lifecycle: set when the rule links (or re-dirties
     /// while linked), cleared when its evaluation leaves the queue empty.
     /// An unlinked-but-queued rule still evaluates when reached
@@ -620,6 +626,7 @@ impl Engine {
                 term_pending: Staged::default(),
                 peer_live: HashSet::new(),
                 queue: Vec::new(),
+                item_sal: 0,
                 queued: false,
             });
         }
@@ -1276,6 +1283,16 @@ impl Engine {
             };
             let tuple = self.nets[ri].queue.remove(idx).t;
             self.execute_rhs(ri, &tuple)?;
+            // Mid-firing item resort (RuleExecutor.fire, D-043): after
+            // the flush, a dynamic item whose queue top no longer
+            // matches its salience is dequeued and re-added at the top.
+            if matches!(self.rules[ri].salience, EngineSalience::Dyn { .. }) {
+                if let Some(top) = self.queue_top_sal(ri) {
+                    if top != self.nets[ri].item_sal {
+                        self.nets[ri].item_sal = top;
+                    }
+                }
+            }
             // Post-RHS rendering (D-013 / j03); collect results carry
             // their CURRENT element list (D-038).
             let matches: Vec<FactView> = tuple
@@ -1615,9 +1632,14 @@ impl Engine {
                 .enumerate()
                 .filter_map(|(pos, p)| p.tpos.map(|t| (pos, t)))
                 .collect();
+            let pre = self.queue_top_sal(ri).unwrap_or(0);
+            let n0 = self.nets[ri].queue.len();
             self.nets[ri]
                 .queue
                 .retain(|a| positives.iter().all(|(pos, ti)| alive[*pos].contains(&a.t[*ti])));
+            if self.nets[ri].queue.len() != n0 {
+                self.update_item_salience(ri, pre);
+            }
         }
         // Agenda-item gate: only a queued item evaluates (the just-fired
         // rule is force-evaluated, fz_42_5243).
@@ -1632,7 +1654,12 @@ impl Engine {
             // OLDEST-first (pr08/pr04 pin).
             let s0 = self.nets[ri].s0.take();
             for (f, _, _) in s0.del.iter().rev() {
+                let pre = self.queue_top_sal(ri).unwrap_or(0);
+                let n0 = self.nets[ri].queue.len();
                 self.nets[ri].queue.retain(|a| a.t[0] != *f);
+                if self.nets[ri].queue.len() != n0 {
+                    self.update_item_salience(ri, pre);
+                }
             }
             for (f, o, _) in s0.upd.iter().rev() {
                 let queued = self.nets[ri].queue.iter().any(|a| a.t[0] == *f);
@@ -1737,7 +1764,12 @@ impl Engine {
             eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
         }
         for (t, _, _) in src.del.iter() {
+            let pre = self.queue_top_sal(ri).unwrap_or(0);
+            let n0 = self.nets[ri].queue.len();
             self.nets[ri].queue.retain(|a| a.t != *t);
+            if self.nets[ri].queue.len() != n0 {
+                self.update_item_salience(ri, pre);
+            }
         }
         for (t, o, _) in src.upd.iter() {
             if self.nets[ri].queue.iter().any(|a| a.t == *t) {
@@ -2057,7 +2089,9 @@ impl Engine {
         let sal = self.eval_salience(ri, &t);
         self.act_seq += 1;
         let seq = self.act_seq;
+        let pre = self.queue_top_sal(ri).unwrap_or(0);
         self.nets[ri].queue.push(Act { t, sal, seq });
+        self.update_item_salience(ri, pre);
     }
 
     /// Per-activation salience (D-043): i64 math WRAPS to the low 32
@@ -2108,14 +2142,35 @@ impl Engine {
     }
 
     /// A rule item's CURRENT agenda salience (D-043): static rules use
-    /// their constant; dynamic rules track their queue TOP (default 0
-    /// when empty or not yet evaluated — RuleExecutor.updateSalience).
+    /// their constant; dynamic rules use the STICKY item value (see
+    /// RuleNet::item_sal — it may lag the queue top by design).
     fn item_salience(&self, ri: usize) -> i32 {
         match self.rules[ri].salience {
             EngineSalience::Static(n) => n,
-            EngineSalience::Dyn { .. } => {
-                self.nets[ri].queue.iter().map(|a| a.sal).max().unwrap_or(0)
-            }
+            EngineSalience::Dyn { .. } => self.nets[ri].item_sal,
+        }
+    }
+
+    /// Queue top by the dynamic pop order (salience DESC, seq DESC).
+    fn queue_top_sal(&self, ri: usize) -> Option<i32> {
+        self.nets[ri].queue.iter().map(|a| (a.sal, a.seq)).max().map(|(s, _)| s)
+    }
+
+    /// RuleExecutor.updateSalience (D-043): called after an activation
+    /// add/remove with the PRE-change top. If the top changed, the item
+    /// is dequeued; an unqueued item is re-added at the new top (0 when
+    /// empty). A relinked item that skips this keeps its stale value.
+    fn update_item_salience(&mut self, ri: usize, pre_top: i32) {
+        if !matches!(self.rules[ri].salience, EngineSalience::Dyn { .. }) {
+            return;
+        }
+        let new_top = self.queue_top_sal(ri).unwrap_or(0);
+        if pre_top != new_top {
+            self.nets[ri].queued = false; // ruleAgendaItem.remove()
+        }
+        if !self.nets[ri].queued {
+            self.nets[ri].item_sal = new_top;
+            self.nets[ri].queued = true;
         }
     }
 

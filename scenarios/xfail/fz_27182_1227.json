@@ -1,0 +1,50 @@
+{
+  "drl": "rule \"R0\"\nsalience -2\nwhen\n    T0(f0 == \"\", $b0_0_0 : f0)\nthen\nend\nrule \"R1\"\nsalience 4\nwhen\n    T0(f0 <= \"b\", $b1_0_0 : f0, $b1_0_1 : f0)\nthen\n    insert(new T1(0.5));\nend\nrule \"R2\"\nsalience 4\nno-loop\nwhen\n    T1(f0 > -3)\n    T1($b2_1_0 : f0)\n    not T0(f0 != \"alpha\", f0 in (\"zz\", \"a\"))\nthen\nend\nrule \"R3\"\nwhen\n    T0($b3_0_0 : f0)\n    T1(f0 >= 5.0)\n    not T0(f0 >= \"\", f0 == \"zz\", f0 >= $b3_0_0)\nthen\nend\nrule \"R4\"\nsalience -7\nwhen\n    T1(f0 >= 1.5)\n    $a4_1 : ArrayList() from collect( T0(f0 != \"ab\") )\nthen\nend\nrule \"R5\"\nno-loop\nwhen\n    $p5_0 : T0($b5_0_0 : f0, $b5_0_1 : f0)\nthen\n    delete($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "zz"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "ab"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "alpha"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 5.0
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_27182_1227",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

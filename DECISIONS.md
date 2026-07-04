@@ -425,6 +425,12 @@ simultaneously-reactivated activations is swapped.
   diff excludes the directory; fuzz reports drawn xfail cases as XFAIL
   (name match) without recording them as failures. The certification
   claim is CLEAN MODULO these documented xfails.
+- INSTANCE 3 (fz_27182_1227, salience-era grammar shuffle): the class
+  also triggers with an INSERT-entered blocker when additional LEFTS
+  arrive while the not is blocked (mixed-batch blocked list; minimized:
+  static-salience 3-pattern self-join, no salience expressions
+  involved). Same order-only signature; added to the quarantine under
+  the accepted carve-out.
 - RESOLUTION (user decision, 2026-07-04): the carve-out is ACCEPTED as
   documented rather than pursued — the class is rare (2 in 50k draws),
   order-only, and mechanism-ambiguous after deep source reading. The

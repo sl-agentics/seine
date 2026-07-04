@@ -1,0 +1,38 @@
+{
+ "drl": "rule \"R1\"\nsalience 4\nwhen\n    T0()\nthen\n    insert(new T1(0.5));\nend\nrule \"R2\"\nsalience 4\nno-loop\nwhen\n    T1()\n    T1()\n    not T0(f0 in (\"zz\", \"a\"))\nthen\nend\nrule \"R5\"\nno-loop\nwhen\n    $p5_0 : T0()\nthen\n    delete($p5_0);\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": "zz"
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 5.0
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_min_27182_1227",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}
