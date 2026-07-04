@@ -369,6 +369,39 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-045: Layer-2 Pythonic authoring — compiles to DRL TEXT
+`@seine.fact` annotated classes (int/float/str/bool -> the subset
+types; annotation order = constructor order) whose class attributes are
+operator-overloaded FieldRefs, and a `Rule` builder (`when` /
+`when_not` / `when_exists` / `accumulate` / `collect`,
+`then_insert` / `then_modify` / `then_delete`, salience as int, bound
+field, or single `term op term` expression). Everything builds a
+declarative AST at definition time and renders into the frozen DRL
+grammar — `rule.to_drl()` shows exactly what the engine runs, and the
+differential guarantees cover Python-authored rules verbatim because
+the engine only ever sees generated DRL.
+- Bindings are DEMAND-DRIVEN: `p.field` used in a later constraint,
+  RHS arg, aggregate arg or salience materializes a `$b : field`
+  declaration in its owning pattern (a two-pass render: demands
+  collected before patterns print — join constraints reference
+  earlier patterns).
+- The authoring layer re-encodes the certified walls as guided
+  CompileErrors AT DEFINITION TIME: Python callables anywhere in
+  conditions/salience ("cannot run in the match loop"); nested salience
+  arithmetic (closed grammar is one binary op); collect sources
+  referencing other patterns (RIA subnetworks, D-041); min/max-over-
+  float results anywhere downstream (opaque Number, D-039); ANY
+  accumulate result in salience (unprobed, D-043); bindings inside
+  not/exists (Drools scope); non-@fact classes, unsupported
+  annotations, incomplete insert field sets, cross-type constraints.
+- Tests: golden DRL for every construct, every golden construct parsed
+  and fired by the real engine, one fencing test per wall, and a
+  parity test proving authored rules and hand-written DRL produce
+  identical firing sequences and derived facts.
+- Packaging: maturin mixed layout — `seine` is a Python package
+  (authoring + wrappers) over `seine._native` (the D-044 boundary).
+  Zero engine-code changes.
+
 ### D-044: Layer-1 Python bindings — the boundary adds ZERO semantics
 PyO3/maturin crate (`bindings/`, workspace non-default member; native
 gates never build it). Facts cross as Arrow columnar batches via the
@@ -721,6 +754,16 @@ Session 5. Re-examining the D-035 xfails with fresh probes disproved the
   scaffolding is deleted. Dead code cleanup: the unused FIFO staging
   variants and Node.first are gone.
 - Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
+
+**HANDOFF @ bindings Layer 2 (Session 6, 2026-07-04)** — Pythonic
+authoring shipped (D-045): @seine.fact classes + Rule builder compile
+to DRL text; all certified walls re-surface as definition-time
+CompileErrors with pointed messages. 32 Python tests + native gates
+green, zero engine diff. The notebook story is complete end to end:
+dataclass-style schemas -> Python rules -> certified engine -> Arrow
+results. Possible next steps (none started): incremental multi-fire
+certification (harness scenarios first, then lift the one-shot
+restriction), pandas/pydantic row-object ingestion sugar, wheel CI.
 
 **HANDOFF @ bindings Layer 1 (Session 6, 2026-07-04)** — `seine` is
 now importable: `seine.run(drl, {"T": polars_df})` runs the certified

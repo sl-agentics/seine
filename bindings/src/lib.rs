@@ -773,7 +773,7 @@ fn run(
 }
 
 #[pymodule]
-fn seine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySession>()?;
     m.add_class::<PyResult_>()?;
     m.add_class::<PyTable>()?;
