@@ -1,0 +1,52 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    $p0_0 : T1()\nthen\n    $p0_0.setF0($p0_0.getF0());\n    update($p0_0);\nend\nrule \"R3\"\nsalience($b3_1_1 * 4)\nwhen\n    T1($b3_0_0 : f0)\n    T1($b3_1_1 : f0)\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 0.0,
+    "f1": true
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 3.5,
+    "f1": false
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_min_6534",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

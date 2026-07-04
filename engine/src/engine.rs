@@ -397,6 +397,12 @@ struct RuleNet {
     /// CHANGES or the item is re-added unqueued. A 0-salience arrival
     /// into an empty queue therefore keeps the stale value.
     item_sal: i32,
+    /// Activation numbers per live terminal child (D-043/fz_7_6534):
+    /// a fired activation RE-ADDED after a restage keeps its ORIGINAL
+    /// number (the RuleTerminalNodeLeftTuple object persists), so
+    /// dynamic ties order by FIRST creation. Cleared when the child
+    /// dies (delete/prune); a recreated child gets a fresh number.
+    act_num: HashMap<Tup, u64>,
     /// Agenda-item lifecycle: set when the rule links (or re-dirties
     /// while linked), cleared when its evaluation leaves the queue empty.
     /// An unlinked-but-queued rule still evaluates when reached
@@ -627,6 +633,7 @@ impl Engine {
                 peer_live: HashSet::new(),
                 queue: Vec::new(),
                 item_sal: 0,
+                act_num: HashMap::new(),
                 queued: false,
             });
         }
@@ -1332,6 +1339,12 @@ impl Engine {
                 || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
             {
                 self.evaluate_rule(ri, false, true);
+                // removeRuleAgendaItemWhenEmpty applies to EAGER
+                // evaluations too (fz_42_8775): an emptied item leaves
+                // the agenda and stops claiming shared-node windows.
+                if self.nets[ri].queued && self.nets[ri].queue.is_empty() {
+                    self.nets[ri].queued = false;
+                }
             }
         }
         // Agenda pop (D-008/D-043): items order by (item salience DESC,
@@ -1640,6 +1653,9 @@ impl Engine {
             if self.nets[ri].queue.len() != n0 {
                 self.update_item_salience(ri, pre);
             }
+            self.nets[ri]
+                .act_num
+                .retain(|t, _| positives.iter().all(|(pos, ti)| alive[*pos].contains(&t[*ti])));
         }
         // Agenda-item gate: only a queued item evaluates (the just-fired
         // rule is force-evaluated, fz_42_5243).
@@ -1654,6 +1670,7 @@ impl Engine {
             // OLDEST-first (pr08/pr04 pin).
             let s0 = self.nets[ri].s0.take();
             for (f, _, _) in s0.del.iter().rev() {
+                self.nets[ri].act_num.retain(|t, _| t[0] != *f);
                 let pre = self.queue_top_sal(ri).unwrap_or(0);
                 let n0 = self.nets[ri].queue.len();
                 self.nets[ri].queue.retain(|a| a.t[0] != *f);
@@ -1764,6 +1781,7 @@ impl Engine {
             eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
         }
         for (t, _, _) in src.del.iter() {
+            self.nets[ri].act_num.remove(t);
             let pre = self.queue_top_sal(ri).unwrap_or(0);
             let n0 = self.nets[ri].queue.len();
             self.nets[ri].queue.retain(|a| a.t != *t);
@@ -2087,8 +2105,14 @@ impl Engine {
     /// creation / fired-re-add; queued restages never reach here — se3).
     fn push_activation(&mut self, ri: usize, t: Tup) {
         let sal = self.eval_salience(ri, &t);
-        self.act_seq += 1;
-        let seq = self.act_seq;
+        let seq = match self.nets[ri].act_num.get(&t) {
+            Some(&n) => n, // re-added fired activation: original number
+            None => {
+                self.act_seq += 1;
+                self.nets[ri].act_num.insert(t.clone(), self.act_seq);
+                self.act_seq
+            }
+        };
         let pre = self.queue_top_sal(ri).unwrap_or(0);
         self.nets[ri].queue.push(Act { t, sal, seq });
         self.update_item_salience(ri, pre);

@@ -399,6 +399,14 @@ compile error), like custom accumulate functions. Pins:
 - Accumulate-result bindings are excluded from generated salience
   expressions (typing unprobed); a salience expression with only
   literals still marks the rule DYNAMIC (Drools isDynamic()).
+- Campaign pins (round 1): re-added fired activations KEEP their
+  original activation number — dynamic ties order by FIRST creation,
+  not re-add time (fz_7_6534); removeRuleAgendaItemWhenEmpty applies
+  to EAGER evaluations too — an emptied item stops claiming
+  shared-node windows (fz_42_8775; the engine's stale queued flag let
+  a dead no-loop sharer consume a later batch). Minimizer variants can
+  be degenerate (dropped guards -> fire-limit grinds): tools/minimize.py
+  now times out variants at 120s and treats them as non-divergent.
 
 ### D-042: OPEN — not-CE unblock REFIRE ORDER in >=3-pattern rules
 Round-4 fuzz (the accumulate-era grammar reshuffle) drew two cases the

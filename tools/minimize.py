@@ -14,8 +14,14 @@ TMP = os.path.join(tempfile.gettempdir(), f'seine_min_{os.getpid()}.json')
 def diverges(d):
     d = copy.deepcopy(d); d['name'] = 'min_case'
     json.dump(d, open(TMP, 'w'))
-    r = subprocess.run(['cargo','run','-q','-p','seine-harness','--','diff',TMP],
-                       capture_output=True, text=True)
+    try:
+        # a mutated variant can be degenerate (e.g. a dropped guard
+        # creating a near-endless loop churning toward the fire limit);
+        # treat timeouts as non-divergent and move on
+        r = subprocess.run(['cargo','run','-q','-p','seine-harness','--','diff',TMP],
+                           capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        return False
     out = r.stdout
     return 'FAIL' in out and 'errored' not in out
 
