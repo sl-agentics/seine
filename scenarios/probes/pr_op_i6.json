@@ -1,0 +1,11 @@
+{
+  "name": "op_i6",
+  "types": [
+    {"name": "I", "fields": [{"name": "n", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "I", "fields": {"n": 1}},
+    {"type": "I", "fields": {"n": 9}}
+  ],
+  "drl": "rule A when I(n == 1) then end\nrule B when I(n in (1.5, 9)) then end\n"
+}

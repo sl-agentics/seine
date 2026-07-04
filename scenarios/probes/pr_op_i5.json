@@ -1,0 +1,16 @@
+{
+  "name": "op_i5",
+  "types": [
+    {"name": "P", "fields": [{"name": "s", "type": "String"}]},
+    {"name": "B", "fields": [{"name": "b", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"s": "a"}},
+    {"type": "P", "fields": {"s": "b"}},
+    {"type": "P", "fields": {"s": "zz"}},
+    {"type": "P", "fields": {"s": ""}},
+    {"type": "B", "fields": {"b": true}},
+    {"type": "B", "fields": {"b": false}}
+  ],
+  "drl": "rule S when P(s in (\"a\", \"zz\", \"\")) then end\nrule SN when P(s not in (\"a\")) then end\nrule BB when B(b in (true)) then end\n"
+}

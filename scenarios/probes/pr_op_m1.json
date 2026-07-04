@@ -1,0 +1,14 @@
+{
+  "name": "op_m1",
+  "types": [
+    {"name": "P", "fields": [{"name": "s", "type": "String"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"s": "abc"}},
+    {"type": "P", "fields": {"s": "a"}},
+    {"type": "P", "fields": {"s": "xbc"}},
+    {"type": "P", "fields": {"s": "ab"}},
+    {"type": "P", "fields": {"s": ""}}
+  ],
+  "drl": "rule M when P(s matches \"a.*\") then end\n"
+}

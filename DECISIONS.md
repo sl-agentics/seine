@@ -369,6 +369,47 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+## Phase 3 (stretch: operators, not/exists — 2026-07-04)
+
+### D-030: matches/contains/in semantics PINNED (probes op_m*/op_c*/op_i*)
+Oracle-verified on Drools 9.44.0.Final; probe files promoted to
+scenarios/probes/pr_op_*.json:
+- **`matches` is java.util.regex full-string matching** (String.matches):
+  `s matches "b"` does NOT match "abc" (op_m2); `""` matches only the empty
+  string (op_m5). Classes/ranges/negation `[^a]`, alternation, groups,
+  `. * + ?` behave standard (op_m4). It even COMPILES on numeric fields
+  (op_m3: `n matches "1"` fires — value stringified); SUBSET WALL: the
+  engine restricts `matches` to String fields with literal String rhs, so
+  the engine is stricter than Drools here (safe: generator never emits it).
+- **`contains` on a String field is substring semantics** (op_c1), and
+  `contains ""` matches every string (op_c2). Wall: String field + literal
+  String needle only (our fact model has no collections).
+- **`in`/`not in` are a composite OR of `==`-with-promotion branches**:
+  a double literal in the list does NOT truncate against a long field
+  (op_i3: `n in (2.5, 9)` skips n=2), int literals promote against double
+  fields (op_i3b), string and bool lists work (op_i5).
+- **`in` does NOT participate in D-029 alpha eq-node machinery**: its
+  branches don't count toward the >=3 hash threshold (op_i4: `n == 2.5`
+  beside an in-rule stays sub-threshold/promote) and don't share nodes
+  with plain `==` constraints (op_i6: `in (1.5, 9)` does not inherit the
+  `n == 1` node's literal). BUT an in-constraint DOES contribute to the
+  preceding-constraint prefix chain that scopes downstream eq-node groups
+  (op_i7: three `n == lit` nodes under a common `m in (5)` prefix hash and
+  truncate, while the identical literal at top level stays promote-only).
+  Engine: share_and_hash_alphas pushes a descriptor for every constraint
+  kind into the prefix; only Cmp/Eq/Lit constraints form group members.
+- **Listen masks include fields referenced by the new operators** (op_m6:
+  masked update {s,n,t} refires matches/in/contains rules; op_m7: a
+  {t}-only update does not refire a rule matching on s).
+- Engine regex: a tiny backtracking matcher over the tame subset
+  (literals, `.`, classes with ranges/negation, groups, `|`, `* + ?`),
+  full-string acceptance — equivalent to Java for this feature set (no
+  backrefs/lookaround; acceptance-only so greediness is irrelevant).
+  Corpus strings stay ASCII and newline-free (pr09/D-010), so Java's
+  `.`-excludes-newline and negated-class-includes-newline edge cases
+  cannot arise. Everything else (`{n,m}`, `\d`, anchors, `$`-vars) is a
+  parse error = subset wall.
+
 ### D-028: PHREAK port LANDED — corpus 145/145, all xfails closed, wall lifted
 The faithful port (branch `phreak-port`) replaced the fitted merge engine.
 `engine/src/phreak.rs` implements the node algorithm; `engine.rs` keeps

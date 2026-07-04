@@ -1,0 +1,12 @@
+{
+  "name": "op_m5",
+  "types": [
+    {"name": "P", "fields": [{"name": "s", "type": "String"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"s": ""}},
+    {"type": "P", "fields": {"s": "q"}},
+    {"type": "P", "fields": {"s": "qq"}}
+  ],
+  "drl": "rule D when P(s matches \".*\") then end\nrule E when P(s matches \".\") then end\nrule F when P(s matches \"\") then end\n"
+}

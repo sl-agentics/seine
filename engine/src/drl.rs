@@ -11,6 +11,9 @@
 //! pattern    := [ "$id" ":" ] IDENT "(" [constraint ("," constraint)*] ")"
 //! constraint := "$id" ":" IDENT            (field binding)
 //!             | IDENT cmpop (literal|"$id") (field test, RHS literal or binding)
+//!             | IDENT "matches" STRING      (literal regex, String fields)
+//!             | IDENT "contains" STRING     (literal substring, String fields)
+//!             | IDENT ["not"] "in" "(" literal ("," literal)* ")"
 //! cmpop      := "==" | "!=" | "<" | "<=" | ">" | ">="
 //! literal    := ["-"] INT | ["-"] FLOAT | STRING | "true" | "false"
 //! action     := "insert" "(" "new" IDENT "(" [arg ("," arg)*] ")" ")" ";"
@@ -76,6 +79,12 @@ pub enum Constraint {
     Bind { var: String, field: String },
     /// `age > 18` or `age > $a`
     Cmp { field: String, op: CmpOp, rhs: CmpRhs },
+    /// `name matches "a.*"` — full-string java.util.regex semantics (D-030)
+    Matches { field: String, regex: String },
+    /// `name contains "ab"` — String substring test (D-030)
+    Contains { field: String, needle: String },
+    /// `n in (1, 2)` / `n not in (1, 2)` — literal membership (D-030)
+    InList { field: String, items: Vec<Literal>, negated: bool },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -386,6 +395,38 @@ impl Parser {
             let field = self.ident()?;
             return Ok(Constraint::Bind { var: first, field });
         }
+        match self.peek() {
+            Some(Tok::Ident(w)) if w == "matches" => {
+                self.next()?;
+                return match self.next()? {
+                    Tok::StrLit(s) => Ok(Constraint::Matches { field: first, regex: s }),
+                    other => Err(DrlError(format!(
+                        "matches requires a literal string regex, got {other}"
+                    ))),
+                };
+            }
+            Some(Tok::Ident(w)) if w == "contains" => {
+                self.next()?;
+                return match self.next()? {
+                    Tok::StrLit(s) => Ok(Constraint::Contains { field: first, needle: s }),
+                    other => Err(DrlError(format!(
+                        "contains requires a literal string, got {other}"
+                    ))),
+                };
+            }
+            Some(Tok::Ident(w)) if w == "in" => {
+                self.next()?;
+                let items = self.in_list()?;
+                return Ok(Constraint::InList { field: first, items, negated: false });
+            }
+            Some(Tok::Ident(w)) if w == "not" => {
+                self.next()?;
+                self.expect_kw("in")?;
+                let items = self.in_list()?;
+                return Ok(Constraint::InList { field: first, items, negated: true });
+            }
+            _ => {}
+        }
         let op = match self.next()? {
             Tok::Sym("==") => CmpOp::Eq,
             Tok::Sym("!=") => CmpOp::Ne,
@@ -400,6 +441,19 @@ impl Parser {
             _ => CmpRhs::Lit(self.literal()?),
         };
         Ok(Constraint::Cmp { field: first, op, rhs })
+    }
+
+    fn in_list(&mut self) -> Result<Vec<Literal>, DrlError> {
+        self.expect_sym("(")?;
+        let mut items = vec![self.literal()?];
+        loop {
+            match self.next()? {
+                Tok::Sym(",") => items.push(self.literal()?),
+                Tok::Sym(")") => break,
+                other => return Err(DrlError(format!("expected ',' or ')', got {other}"))),
+            }
+        }
+        Ok(items)
     }
 
     /// Parse one RHS statement; `modify` desugars to several actions.
@@ -631,8 +685,38 @@ mod tests {
     }
 
     #[test]
+    fn parses_phase3_operators() {
+        let rules = parse_rules(
+            "rule O when P(s matches \"a.*\", s contains \"ab\", n in (1, -2, 3.5), m not in (\"x\")) then end",
+        )
+        .unwrap();
+        assert_eq!(
+            rules[0].patterns[0].constraints,
+            vec![
+                Constraint::Matches { field: "s".into(), regex: "a.*".into() },
+                Constraint::Contains { field: "s".into(), needle: "ab".into() },
+                Constraint::InList {
+                    field: "n".into(),
+                    items: vec![Literal::I64(1), Literal::I64(-2), Literal::F64(3.5)],
+                    negated: false
+                },
+                Constraint::InList {
+                    field: "m".into(),
+                    items: vec![Literal::Str("x".into())],
+                    negated: true
+                },
+            ]
+        );
+        assert!(rules[0].actions.is_empty());
+    }
+
+    #[test]
     fn rejects_out_of_subset() {
         assert!(parse_rules("rule R when not Person() then end").is_err());
         assert!(parse_rules("rule R when accumulate(Person(), $n: count()) then end").is_err());
+        // in-lists, matches and contains take literals only (D-030 wall)
+        assert!(parse_rules("rule R when P(n in ($a, 2)) then end").is_err());
+        assert!(parse_rules("rule R when P(s matches $a) then end").is_err());
+        assert!(parse_rules("rule R when P(n in ()) then end").is_err());
     }
 }

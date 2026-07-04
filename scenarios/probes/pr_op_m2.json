@@ -1,0 +1,11 @@
+{
+  "name": "op_m2",
+  "types": [
+    {"name": "P", "fields": [{"name": "s", "type": "String"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"s": "abc"}},
+    {"type": "P", "fields": {"s": "b"}}
+  ],
+  "drl": "rule M2a when P(s matches \"b\") then end\nrule M2b when P(s matches \".*b.*\") then end\n"
+}

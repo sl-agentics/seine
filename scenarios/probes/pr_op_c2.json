@@ -1,0 +1,11 @@
+{
+  "name": "op_c2",
+  "types": [
+    {"name": "P", "fields": [{"name": "s", "type": "String"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"s": ""}},
+    {"type": "P", "fields": {"s": "x"}}
+  ],
+  "drl": "rule C2 when P(s contains \"\") then end\n"
+}

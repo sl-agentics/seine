@@ -1,0 +1,15 @@
+{
+  "name": "op_i3",
+  "types": [
+    {"name": "I", "fields": [{"name": "n", "type": "i64"}]},
+    {"name": "F", "fields": [{"name": "x", "type": "f64"}]}
+  ],
+  "facts": [
+    {"type": "I", "fields": {"n": 2}},
+    {"type": "I", "fields": {"n": 9}},
+    {"type": "F", "fields": {"x": 1.0}},
+    {"type": "F", "fields": {"x": 1.5}},
+    {"type": "F", "fields": {"x": 3.0}}
+  ],
+  "drl": "rule I3 when I(n in (2.5, 9)) then end\nrule I3b when F(x in (1, 3)) then end\nrule I3c when I(n not in (2.5, 7)) then end\n"
+}

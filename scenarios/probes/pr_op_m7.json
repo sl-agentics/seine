@@ -1,0 +1,10 @@
+{
+  "name": "op_m7",
+  "types": [
+    {"name": "H", "fields": [{"name": "s", "type": "String"}, {"name": "t", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "H", "fields": {"s": "z", "t": false}}
+  ],
+  "drl": "rule M2 when H(s matches \"z.*\") then end\nrule U2 when $h : H(t == false) then modify($h) { setT(true) } end\n"
+}

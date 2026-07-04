@@ -1,0 +1,17 @@
+{
+  "name": "op_m4",
+  "types": [
+    {"name": "P", "fields": [{"name": "s", "type": "String"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"s": "aac"}},
+    {"type": "P", "fields": {"s": "ab"}},
+    {"type": "P", "fields": {"s": "abc"}},
+    {"type": "P", "fields": {"s": "zz"}},
+    {"type": "P", "fields": {"s": "a"}},
+    {"type": "P", "fields": {"s": "xyzzy"}},
+    {"type": "P", "fields": {"s": "x"}},
+    {"type": "P", "fields": {"s": "bqc"}}
+  ],
+  "drl": "rule A when P(s matches \"[ab]+c?\") then end\nrule B when P(s matches \"a|zz\") then end\nrule C when P(s matches \"x(y|z)*\") then end\nrule D when P(s matches \"[a-c]q[^a]\") then end\n"
+}

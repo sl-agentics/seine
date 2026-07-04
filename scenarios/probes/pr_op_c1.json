@@ -1,0 +1,13 @@
+{
+  "name": "op_c1",
+  "types": [
+    {"name": "P", "fields": [{"name": "s", "type": "String"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"s": "xaby"}},
+    {"type": "P", "fields": {"s": "ab"}},
+    {"type": "P", "fields": {"s": "b"}},
+    {"type": "P", "fields": {"s": ""}}
+  ],
+  "drl": "rule C1 when P(s contains \"ab\") then end\n"
+}

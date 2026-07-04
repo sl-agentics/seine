@@ -1,0 +1,11 @@
+{
+  "name": "op_i7",
+  "types": [
+    {"name": "I", "fields": [{"name": "m", "type": "i64"}, {"name": "n", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "I", "fields": {"m": 5, "n": 2}},
+    {"type": "I", "fields": {"m": 0, "n": 2}}
+  ],
+  "drl": "rule A when I(m in (5), n == 1) then end\nrule B when I(m in (5), n == 2.5) then end\nrule C when I(m in (5), n == 3) then end\nrule D when I(n == 2.5) then end\n"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "op_i1",
+  "types": [
+    {"name": "I", "fields": [{"name": "n", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "I", "fields": {"n": 1}},
+    {"type": "I", "fields": {"n": 2}},
+    {"type": "I", "fields": {"n": 3}},
+    {"type": "I", "fields": {"n": 5}},
+    {"type": "I", "fields": {"n": 9}},
+    {"type": "I", "fields": {"n": -4}}
+  ],
+  "drl": "rule I1 when I(n in (1, 3, -4)) then end\nrule I2 when I(n not in (1, 3, 9)) then end\n"
+}

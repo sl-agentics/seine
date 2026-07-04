@@ -1,0 +1,10 @@
+{
+  "name": "op_m6",
+  "types": [
+    {"name": "G", "fields": [{"name": "s", "type": "String"}, {"name": "n", "type": "i64"}, {"name": "t", "type": "bool"}]}
+  ],
+  "facts": [
+    {"type": "G", "fields": {"s": "a", "n": 1, "t": false}}
+  ],
+  "drl": "rule U salience 10 when $g : G(t == false) then modify($g) { setS(\"zz\"), setN(5), setT(true) } end\nrule M when G(s matches \"z.*\") then end\nrule N when G(n in (5, 7)) then end\nrule K when G(s contains \"z\") then end\n"
+}

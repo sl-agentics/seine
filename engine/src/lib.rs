@@ -8,6 +8,7 @@
 pub mod drl;
 mod phreak;
 pub mod engine;
+mod rx;
 pub mod store;
 
 pub use engine::{Engine, EngineError, Firing};

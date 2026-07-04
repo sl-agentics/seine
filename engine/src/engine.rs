@@ -55,10 +55,21 @@ enum Src {
     SnapField(usize, usize),
 }
 
+/// One compiled LHS constraint test on a single field.
+enum Test {
+    Cmp { op: CmpOp, rhs: Src },
+    /// `matches` — full-string regex acceptance (D-030).
+    Matches(crate::rx::Regex),
+    /// `contains` — String substring (D-030).
+    Contains(String),
+    /// `in` / `not in` — OR of `==`-with-promotion branches; never
+    /// participates in eq-node sharing/hashing (D-030, op_i4/op_i6).
+    InList { items: Vec<Value>, negated: bool },
+}
+
 struct CompiledCmp {
     field_idx: usize,
-    op: CmpOp,
-    rhs: Src,
+    test: Test,
 }
 
 struct CompiledPattern {
@@ -167,20 +178,36 @@ impl Engine {
                 let mut prefix = String::new();
                 for ci in 0..pat.cmps.len() {
                     let c = &pat.cmps[ci];
-                    let Src::Lit(v) = &c.rhs else { continue };
-                    if c.op == CmpOp::Eq {
-                        let ft = self.store.field_type(pat.type_id, c.field_idx);
-                        let coerced = match (v, ft) {
-                            (Value::F64(x), FieldType::I64) => Value::I64(*x as i64),
-                            (Value::I64(n), FieldType::F64) => Value::F64(*n as f64),
-                            (v, _) => v.clone(),
-                        };
-                        groups
-                            .entry((pat.type_id, prefix.clone(), c.field_idx))
-                            .or_default()
-                            .push((ri, pi, ci, format!("{coerced:?}"), v.clone()));
+                    // Every literal alpha constraint contributes to the
+                    // node-chain prefix that scopes downstream eq groups
+                    // (op_i7); only Eq-vs-literal constraints are members.
+                    match &c.test {
+                        Test::Cmp { op, rhs: Src::Lit(v) } => {
+                            if *op == CmpOp::Eq {
+                                let ft = self.store.field_type(pat.type_id, c.field_idx);
+                                let coerced = match (v, ft) {
+                                    (Value::F64(x), FieldType::I64) => Value::I64(*x as i64),
+                                    (Value::I64(n), FieldType::F64) => Value::F64(*n as f64),
+                                    (v, _) => v.clone(),
+                                };
+                                groups
+                                    .entry((pat.type_id, prefix.clone(), c.field_idx))
+                                    .or_default()
+                                    .push((ri, pi, ci, format!("{coerced:?}"), v.clone()));
+                            }
+                            prefix.push_str(&format!("{}|{:?}|{:?};", c.field_idx, op, v));
+                        }
+                        Test::Cmp { .. } => {} // join constraint: beta, not alpha
+                        Test::Matches(r) => {
+                            prefix.push_str(&format!("{}|m|{};", c.field_idx, r.source()));
+                        }
+                        Test::Contains(n) => {
+                            prefix.push_str(&format!("{}|c|{n};", c.field_idx));
+                        }
+                        Test::InList { items, negated } => {
+                            prefix.push_str(&format!("{}|in{negated}|{items:?};", c.field_idx));
+                        }
                     }
-                    prefix.push_str(&format!("{}|{:?}|{:?};", c.field_idx, c.op, v));
                 }
             }
         }
@@ -203,7 +230,7 @@ impl Engine {
                 } else {
                     node_lit[&key].clone() // shared node's original literal
                 };
-                pat.cmps[ci].rhs = Src::Lit(new_lit);
+                pat.cmps[ci].test = Test::Cmp { op: CmpOp::Eq, rhs: Src::Lit(new_lit) };
             }
         }
     }
@@ -263,7 +290,57 @@ impl Engine {
                             }
                         };
                         check_cmp_types(&rname, lhs_ft, *op, rhs_ft)?;
-                        cmps.push(CompiledCmp { field_idx: fi, op: *op, rhs: src });
+                        cmps.push(CompiledCmp {
+                            field_idx: fi,
+                            test: Test::Cmp { op: *op, rhs: src },
+                        });
+                    }
+                    Constraint::Matches { field, regex } => {
+                        let fi = self
+                            .store
+                            .field_index(type_id, field)
+                            .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
+                        if self.store.field_type(type_id, fi) != FieldType::Str {
+                            return Err(err(format!(
+                                "matches requires a String field (subset wall), {field} is not"
+                            )));
+                        }
+                        listen_mask |= 1 << fi;
+                        let r = crate::rx::Regex::parse(regex).map_err(|e| err(e))?;
+                        cmps.push(CompiledCmp { field_idx: fi, test: Test::Matches(r) });
+                    }
+                    Constraint::Contains { field, needle } => {
+                        let fi = self
+                            .store
+                            .field_index(type_id, field)
+                            .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
+                        if self.store.field_type(type_id, fi) != FieldType::Str {
+                            return Err(err(format!(
+                                "contains requires a String field (subset wall), {field} is not"
+                            )));
+                        }
+                        listen_mask |= 1 << fi;
+                        cmps.push(CompiledCmp {
+                            field_idx: fi,
+                            test: Test::Contains(needle.clone()),
+                        });
+                    }
+                    Constraint::InList { field, items, negated } => {
+                        let fi = self
+                            .store
+                            .field_index(type_id, field)
+                            .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
+                        listen_mask |= 1 << fi;
+                        let lhs_ft = self.store.field_type(type_id, fi);
+                        let mut vals = Vec::new();
+                        for l in items {
+                            check_cmp_types(&rname, lhs_ft, CmpOp::Eq, lit_type(l))?;
+                            vals.push(lit_value(l));
+                        }
+                        cmps.push(CompiledCmp {
+                            field_idx: fi,
+                            test: Test::InList { items: vals, negated: *negated },
+                        });
                     }
                 }
             }
@@ -409,8 +486,7 @@ impl Engine {
                         nodes: (1..k)
                             .map(|j| {
                                 let indexed = r.patterns[j].cmps.iter().any(|c| {
-                                    matches!(c.rhs, Src::Field(pi, _) if pi != j)
-                                        && c.op == CmpOp::Eq
+                                    matches!(&c.test, Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(pi, _) } if *pi != j)
                                 });
                                 phreak::Node::new(indexed, j == 1)
                             })
@@ -680,15 +756,18 @@ impl Engine {
         if !self.store.is_alive(f) || self.store.fact_type(f) != pat.type_id {
             return false;
         }
-        pat.cmps.iter().all(|c| match &c.rhs {
-            Src::Lit(v) => eval_cmp(&self.store.value(f, c.field_idx), c.op, v),
-            Src::Field(pi, fi) if *pi == pos => {
-                let rhs = self.store.value(f, *fi);
-                eval_cmp_join(&self.store.value(f, c.field_idx), c.op, &rhs)
+        pat.cmps.iter().all(|c| {
+            let lhs = self.store.value(f, c.field_idx);
+            match &c.test {
+                Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
+                Test::Cmp { op, rhs: Src::Field(pi, fi) } if *pi == pos => {
+                    eval_cmp_join(&lhs, *op, &self.store.value(f, *fi))
+                }
+                // join constraint, checked with prefix; SnapField never
+                // occurs in LHS constraints
+                Test::Cmp { .. } => true,
+                other => eval_alpha_test(&lhs, other),
             }
-            // join constraint, checked with prefix; SnapField never occurs
-            // in LHS constraints
-            Src::Field(..) | Src::SnapField(..) => true,
         })
     }
 
@@ -837,13 +916,14 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pat = &self.rule.patterns[pos];
         pat.cmps.iter().all(|c| {
             let lhs = self.store.value(f, c.field_idx);
-            match &c.rhs {
-                Src::Lit(v) => eval_cmp(&lhs, c.op, v),
-                Src::Field(pi, fi) => {
+            match &c.test {
+                Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
+                Test::Cmp { op, rhs: Src::Field(pi, fi) } => {
                     let other = if *pi == pos { f } else { l[*pi] };
-                    eval_cmp_join(&lhs, c.op, &self.store.value(other, *fi))
+                    eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
                 }
-                Src::SnapField(..) => true,
+                Test::Cmp { .. } => true,
+                other => eval_alpha_test(&lhs, other),
             }
         })
     }
@@ -853,10 +933,7 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pat = &self.rule.patterns[pos];
         let mut out = Vec::new();
         for c in &pat.cmps {
-            if c.op != CmpOp::Eq {
-                continue;
-            }
-            if let Src::Field(pi, fi) = &c.rhs {
+            if let Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(pi, fi) } = &c.test {
                 if *pi != pos {
                     // stored in the binding's natural type; coercion
                     // happens at probe time (u14 / fz_123_3057)
@@ -876,10 +953,7 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pat = &self.rule.patterns[pos];
         let mut out = Vec::new();
         for c in &pat.cmps {
-            if c.op != CmpOp::Eq {
-                continue;
-            }
-            if let Src::Field(pi, _) = &c.rhs {
+            if let Test::Cmp { op: CmpOp::Eq, rhs: Src::Field(pi, _) } = &c.test {
                 if *pi != pos {
                     out.push(self.store.value(f, c.field_idx));
                 }
@@ -890,6 +964,21 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         } else {
             Some(out)
         }
+    }
+}
+
+/// Non-Cmp alpha tests (D-030): matches = full-string regex on Strings;
+/// contains = substring; in = OR of ==-with-promotion branches (a double
+/// literal never truncates against a long field here — op_i3).
+fn eval_alpha_test(lhs: &Value, test: &Test) -> bool {
+    match test {
+        Test::Matches(r) => matches!(lhs, Value::Str(s) if r.accepts(s)),
+        Test::Contains(needle) => matches!(lhs, Value::Str(s) if s.contains(needle.as_str())),
+        Test::InList { items, negated } => {
+            let hit = items.iter().any(|v| eval_cmp(lhs, CmpOp::Eq, v));
+            hit != *negated
+        }
+        Test::Cmp { .. } => unreachable!("Cmp handled by callers"),
     }
 }
 
