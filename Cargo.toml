@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["engine", "harness"]
+members = ["engine", "harness", "bindings"]
+# bindings (pyo3) build only on demand: `cargo build -p seine-py` / maturin
+default-members = ["engine", "harness"]
 
 [workspace.package]
 version = "0.1.0"

@@ -369,6 +369,41 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-044: Layer-1 Python bindings — the boundary adds ZERO semantics
+PyO3/maturin crate (`bindings/`, workspace non-default member; native
+gates never build it). Facts cross as Arrow columnar batches via the
+PyCapsule C-stream interface (polars/pyarrow/pandas>=2.2 in,
+`seine.Table` out — importable zero-copy on the Python side); Python
+holds integer HANDLES into the Rust arenas, never per-fact objects.
+Contract, enforced by construction and by bindings/tests/test_boundary.py:
+- **Zero semantics in the binding:** exact widening only (i8/16/32,
+  u8/16/32 -> i64; f32 -> f64), done in Rust; f64 round-trips are
+  bit-exact (tested). NULLS ARE REJECTED loudly — the certified subset
+  has no null semantics, and silently zeroing them would void the
+  differential guarantees on real data. Unsupported Arrow types
+  (dates, decimals, dictionaries, ...) are TypeErrors.
+- **One-shot sessions:** build -> insert -> fire() -> read; a second
+  fire() raises. The certified envelope is insert-all-then-fire-once;
+  incremental refiring is NOT exposed until the harness certifies
+  multi-fire scenarios.
+- **Callbacks are observers:** `on_fire(rule, [(type, handle)])` runs
+  after the GIL-free fire_all completes, in firing order — 
+  observationally identical to streaming for an immutable one-shot
+  result, and working memory is unreachable from the callback by
+  construction (the declarative RHS remains the only mutation path).
+- **Results = WM delta first:** result.derived() (facts inserted by
+  rules, per type), result.deleted_handles(), result.facts() (final
+  view), plus a long-format firing audit (seq, rule, pos, type, handle,
+  values_json with POST-RHS renderings, D-013 semantics).
+- **Parity tests:** corpus scenarios (salience expressions, accumulate
+  reversal, join refire ordering) pushed through the Python API fire
+  identically to the native harness — rule sequences and rendered
+  values compared row-for-row.
+- Rules are DRL strings; every subset wall stays a parse/compile error
+  surfaced as a Python ValueError. Layer 2 (Pythonic authoring) will
+  COMPILE TO DRL TEXT so the differential harness covers
+  Python-authored rules verbatim.
+
 ### D-043: salience EXPRESSIONS pinned (se1..se15) — implementation contract
 Scope: `salience( <term> [op <term>] )` with op in {+,-,*}, terms = int
 literals or numeric LHS bindings (i64/f64). Method calls, full MVEL
@@ -686,6 +721,17 @@ Session 5. Re-examining the D-035 xfails with fresh probes disproved the
   scaffolding is deleted. Dead code cleanup: the unused FIFO staging
   variants and Node.first are gone.
 - Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
+
+**HANDOFF @ bindings Layer 1 (Session 6, 2026-07-04)** — `seine` is
+now importable: `seine.run(drl, {"T": polars_df})` runs the certified
+engine over Arrow batches and hands back the WM delta + firing audit as
+Arrow (D-044). Gate: 15 boundary tests (fidelity/rejection/lifecycle/
+parity) + native corpus 360/360 + zero engine-code diff. Dev loop:
+`VIRTUAL_ENV=<venv> maturin develop -m bindings/Cargo.toml && pytest
+bindings/tests/`. Next (Layer 2, NOT started): dataclass/Pydantic fact
+schemas and Python rule authoring compiling down to DRL text — the
+grammar is frozen in engine/src/drl.rs; anything it can't express stays
+a compile error (the custom-accumulate fencing pattern).
 
 **HANDOFF @ salience-expressions close (Session 6, 2026-07-04)** —
 D-043 landed on `salience-expr` and merged: computed salience over
