@@ -355,6 +355,14 @@ pub trait JoinEnv {
     fn key_of_right(&self, node: usize, f: FactId) -> Option<Vec<Value>>;
 }
 
+fn sr_ins_iter<T>(v: &[T]) -> Box<dyn Iterator<Item = &T> + '_> {
+    if std::env::var("SEINE_JSR").map(|x| x == "tail").unwrap_or(false) {
+        Box::new(v.iter().rev())
+    } else {
+        Box::new(v.iter())
+    }
+}
+
 /// Run one join node's doNode phases. `trg` receives the child deltas for
 /// the next node (or the terminal).
 pub fn do_node<E: JoinEnv>(
@@ -584,7 +592,7 @@ pub fn do_node<E: JoinEnv>(
     // --- right inserts: staged list head-first (newest staged first),
     // each APPENDED to memory (TupleList.add); joined against pre-batch
     // lefts ---
-    for (f, o, _) in sr.ins.iter() {
+    for (f, o, _) in sr_ins_iter(&sr.ins) {
         let rkey = env.key_of_right(node_idx, *f);
         node.rights.push((*f, rkey.clone()));
         for l in node.lefts_bucket(rkey.as_ref()) {

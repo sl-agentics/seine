@@ -1,0 +1,35 @@
+{
+ "name": "pr_c2",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "v": 1,
+    "g": false
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "v": 2,
+    "g": false
+   }
+  }
+ ],
+ "drl": "rule \"J\" when A($b : g) A(g == $b, $c : v) then end\n"
+}

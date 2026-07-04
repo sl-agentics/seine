@@ -170,8 +170,10 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     // update/modify keep every rule at <= 2 patterns. The widened
     // grammar's residual class — requeue placement among pending join
     // activations after repeated updates (xfail/) — is not yet pinned.
+    // D-017 wall lifted (D-028): mutation and 3-pattern rules may mix
+    // freely now that the requeue-placement class is closed.
     let allow_mutation = rng.chance(60);
-    let max_extra_pat = if allow_mutation { 2 } else { 3 };
+    let max_extra_pat = 3;
     let mut drl = String::new();
     for ri in 0..nrules {
         let npat = 1 + if rng.chance(45) { rng.below(max_extra_pat) } else { 0 };

@@ -93,6 +93,12 @@ struct RuleNet {
     queue: Vec<Tup>,
     /// Eager mirror of alpha membership per position.
     active: Vec<HashSet<FactId>>,
+    /// Agenda-item lifecycle: set when the rule links (or re-dirties
+    /// while linked), cleared when its evaluation leaves the queue empty.
+    /// An unlinked-but-queued rule still evaluates when reached
+    /// (fz_42_1464); an unqueued rule accumulates staged input
+    /// (fz_42_124, fz_7_145).
+    queued: bool,
 }
 
 pub struct Engine {
@@ -345,6 +351,7 @@ impl Engine {
                             .collect(),
                         queue: Vec::new(),
                         active: vec![HashSet::new(); k],
+                        queued: false,
                     }
                 })
                 .collect();
@@ -380,6 +387,9 @@ impl Engine {
     fn next_activation(&mut self, last: Option<usize>) -> Option<usize> {
         if let Some(l) = last {
             self.evaluate_rule(l, true, false);
+            if self.nets[l].queue.is_empty() {
+                self.nets[l].queued = false; // emptied item leaves agenda
+            }
         }
         for i in 0..self.rule_order.len() {
             let ri = self.rule_order[i];
@@ -392,6 +402,9 @@ impl Engine {
             self.evaluate_rule(ri, false, false);
             if !self.nets[ri].queue.is_empty() {
                 return Some(ri);
+            }
+            if self.nets[ri].queued {
+                self.nets[ri].queued = false; // evaluated empty: removed
             }
         }
         None
@@ -409,6 +422,7 @@ impl Engine {
                     }
                 }
             }
+            self.refresh_linked(ri);
         }
     }
 
@@ -461,6 +475,7 @@ impl Engine {
                     (false, false) => {}
                 }
             }
+            self.refresh_linked(ri);
         }
     }
 
@@ -478,6 +493,17 @@ impl Engine {
         }
     }
 
+    /// Dirty-notification: (re)queue the rule's agenda item if the rule
+    /// is currently linked.
+    fn refresh_linked(&mut self, ri: usize) {
+        if !self.nets[ri].queued
+            && self.nets[ri].active.iter().all(|a| !a.is_empty())
+            && self.rule_dirty(ri)
+        {
+            self.nets[ri].queued = true;
+        }
+    }
+
     fn rule_dirty(&self, ri: usize) -> bool {
         !self.nets[ri].s0.is_empty()
             || self.nets[ri].nodes.iter().any(|n| !n.s_right.is_empty() || !n.s_left.is_empty())
@@ -488,13 +514,20 @@ impl Engine {
             return;
         }
         let k = self.rules[ri].patterns.len();
-        // Segment linking (fz_7_145): unlinked rules accumulate staged
-        // input; the queue is still pruned of deactivated facts (j05).
-        if !force && (0..k).any(|p| self.nets[ri].active[p].is_empty()) {
+        // Segment linking: an unlinked rule still evaluates its network
+        // when reached (memories advance, fz_42_1464) unless it was NEVER
+        // linked (fz_7_145: staged input accumulates until first link).
+        // The queue is pruned of deactivated facts either way (j05).
+        // The queue is pruned of deactivated facts (j05).
+        if (0..k).any(|p| self.nets[ri].active[p].is_empty()) {
             let active = self.nets[ri].active.clone();
             self.nets[ri]
                 .queue
                 .retain(|t| !t.iter().enumerate().any(|(p, f)| !active[p].contains(f)));
+        }
+        // Agenda-item gate: only a queued item evaluates (the just-fired
+        // rule is force-evaluated, fz_42_5243).
+        if !force && !self.nets[ri].queued {
             return;
         }
 

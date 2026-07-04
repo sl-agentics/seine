@@ -1,0 +1,35 @@
+{
+ "name": "pr_c10",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "a",
+    "f2": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b",
+    "f2": false
+   }
+  }
+ ],
+ "drl": "rule \"M\" salience 7 when $p : T0(f2 == false) then modify($p) { setF2(true) } end\nrule \"J\" no-loop when T0($b : f2) T0(f2 == $b) then end\n"
+}

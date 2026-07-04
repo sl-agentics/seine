@@ -1,0 +1,66 @@
+{
+ "drl": "rule \"R1\"\nsalience -10\nno-loop\nwhen\n    $p1_0 : T3()\nthen\n    $p1_0.setF0(true);\n    update($p1_0);\nend\nrule \"R3\"\nsalience 7\nwhen\n    T1()\nthen\n    insert(new T3(false, -4, true));\nend\nrule \"R5\"\nsalience -6\nwhen\n    T3($b5_0_0 : f0)\n    T3()\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": false,
+    "f1": -5,
+    "f2": true
+   },
+   "type": "T3"
+  },
+  {
+   "fields": {
+    "f0": 2.5
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_min_1057b",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}
