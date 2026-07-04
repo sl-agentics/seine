@@ -278,10 +278,52 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     let allow_mutation = rng.chance(60);
     let max_extra_pat = 3;
     let mut drl = String::new();
+    // Finished rules' patterns, kept so later rules can REUSE a prefix:
+    // random draws almost never collide on the full sharing identity
+    // (types + constraints + bound-field sets), so without deliberate
+    // reuse the D-033/D-036 sharing surface would go unfuzzed.
+    let mut prev_rules: Vec<Vec<GenPattern>> = Vec::new();
     for ri in 0..nrules {
-        let npat = 1 + if rng.chance(45) { rng.below(max_extra_pat) } else { 0 };
         let mut pats: Vec<GenPattern> = Vec::new();
-        for pi in 0..npat {
+        // Prefix reuse (true node sharing): copy 2..all leading patterns
+        // from an earlier rule, renaming its binding vars to this rule.
+        let reusable: Vec<usize> =
+            (0..prev_rules.len()).filter(|&i| prev_rules[i].len() >= 2).collect();
+        let mut copied = 0usize;
+        if !reusable.is_empty() && rng.chance(15) {
+            let src = *rng.pick(&reusable);
+            let take = if rng.chance(30) {
+                prev_rules[src].len() // identical-LHS twin candidate
+            } else {
+                2
+            };
+            let from = format!("$b{src}_");
+            let to = format!("$b{ri}_");
+            for p in &prev_rules[src][..take] {
+                pats.push(GenPattern {
+                    ti: p.ti,
+                    ce: p.ce,
+                    fact_var: None,
+                    constraints: p
+                        .constraints
+                        .iter()
+                        .map(|c| c.replace(&from, &to))
+                        .collect(),
+                    bindings: p
+                        .bindings
+                        .iter()
+                        .map(|(v, fi, ft)| (v.replace(&from, &to), *fi, *ft))
+                        .collect(),
+                });
+            }
+            copied = take;
+        }
+        let npat = if copied > 0 {
+            copied + if rng.chance(50) { rng.below(2) } else { 0 }
+        } else {
+            1 + if rng.chance(45) { rng.below(max_extra_pat) } else { 0 }
+        };
+        for pi in copied..npat {
             // CE probability: rare in first position (InitialFact path),
             // more common later (D-031/D-032).
             let ce = if pi == 0 {
@@ -305,13 +347,17 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         }
 
         // Rule kind: update / delete / plain. Mutation targets must be
-        // POSITIVE patterns (CE patterns cannot bind).
+        // POSITIVE patterns (CE patterns cannot bind), and — because the
+        // guard constraint would change the pattern's identity — must
+        // not sit inside a reused prefix.
         let update_pos = {
             let with_bool: Vec<usize> = pats
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| {
-                    p.ce == 0 && types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool)
+                .filter(|(i, p)| {
+                    *i >= copied
+                        && p.ce == 0
+                        && types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool)
                 })
                 .map(|(i, _)| i)
                 .collect();
@@ -331,8 +377,9 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             }
         };
 
-        // Constraints, bindings, join tests.
-        for pi in 0..npat {
+        // Constraints, bindings, join tests (fresh patterns only — a
+        // reused prefix keeps its constraint list verbatim).
+        for pi in copied..npat {
             let ncmp = rng.below(3);
             for _ in 0..ncmp {
                 let (fname, ft) = {
@@ -396,6 +443,21 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             pats[pos].constraints.push(format!("{gname} == false"));
             guard_field = Some((gfi, gname));
         }
+
+        // Snapshot the finished LHS so later rules can reuse its prefix
+        // (taken after the guard append so copies share the FINAL
+        // pattern identity).
+        prev_rules.push(
+            pats.iter()
+                .map(|p| GenPattern {
+                    ti: p.ti,
+                    ce: p.ce,
+                    fact_var: None,
+                    constraints: p.constraints.clone(),
+                    bindings: p.bindings.clone(),
+                })
+                .collect(),
+        );
 
         // RHS actions.
         let mut actions: Vec<String> = Vec::new();

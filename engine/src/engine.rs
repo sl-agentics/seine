@@ -76,6 +76,11 @@ enum Test {
 struct CompiledCmp {
     field_idx: usize,
     test: Test,
+    /// Original variable name for Var-rhs constraints — part of node
+    /// identity (D-037/ne_t13: `f1 != $x` and `f1 != $y` do NOT share
+    /// even when $x/$y bind the same field; unreferenced declarations
+    /// stay name-irrelevant per ne_t2).
+    rhs_var: Option<String>,
 }
 
 struct CompiledPattern {
@@ -114,34 +119,73 @@ struct CompiledRule {
     def: RuleDef,
     patterns: Vec<CompiledPattern>,
     actions: Vec<CompiledAction>,
-    /// Per-node segment-boundary flips (D-033/ne_s*): node j's staged
-    /// output is REVERSED before the next node / terminal when this
-    /// rule's continuation is not the FIRST-built sink of a shared node.
-    flips: Vec<bool>,
 }
 
 use crate::phreak::{self, Origin, Staged, Tup};
 
-/// Per-rule network state: pos0 staged input, one phreak::Node per join,
-/// and the terminal activation queue (only UNFIRED activations live here —
-/// fired tuples leave the queue on firing, per RuleExecutor semantics).
+/// Level-0 network node: one per distinct pattern-0 identity (the LIA +
+/// its alpha chain). Shared across every rule whose first pattern has the
+/// same structural key (D-036).
+struct Lia {
+    /// Canonical (rule, pattern position 0) for alpha evaluation.
+    env: (usize, usize),
+    active: HashSet<FactId>,
+    /// Level-1 trie nodes fed by this LIA. LIA propagation is EAGER (at
+    /// WM-action time, D-014) and per-child copies carry no flip — every
+    /// child sees identical staging (pinned by the whole multi-rule
+    /// corpus).
+    children: Vec<usize>,
+    /// Single-pattern rules on this LIA (terminal-only paths keep their
+    /// own pos0 staging with the pr04/pr08 oldest-first consumption).
+    k1_rules: Vec<usize>,
+}
+
+/// A sink of a shared beta node, in BUILD (rule declaration) order.
+#[derive(Clone, Copy)]
+enum Sink {
+    Node(usize),
+    Term(usize),
+}
+
+/// One SHARED beta node in the prefix trie (D-036/D-037): rules whose
+/// pattern prefixes are structurally equal share the node instance, its
+/// memories and its staging — the node evaluates ONCE per window (at the
+/// first sharer's agenda turn to reach it) and each batch propagates to
+/// every sink: the FIRST-built sink receives the staged lists appended
+/// as-is (TupleSetsImpl.addAll — lagging sinks accumulate batches FIFO),
+/// every later sink a REVERSED per-batch copy (SegmentPropagator peer
+/// prepends — lagging peers stack batches LIFO).
+struct TrieNode {
+    node: phreak::Node,
+    /// Canonical (rule, pattern position) for constraints/keys.
+    env: (usize, usize),
+    /// Alpha membership of this node's right input.
+    active: HashSet<FactId>,
+    /// Transient link pulse for UNCONSTRAINED not nodes (D-031).
+    pulse: bool,
+    /// Level-1 only: pattern-0 fact staging from the owning LIA.
+    s0_in: Staged<FactId>,
+    /// Child sinks in build order (first = preserved propagation).
+    sinks: Vec<Sink>,
+}
+
+/// Per-rule agenda/terminal state (the beta network itself is shared).
 struct RuleNet {
+    /// k=1 rules: pos0 staging, consumed OLDEST-first (pr08/pr04 pin).
     s0: Staged<FactId>,
-    nodes: Vec<phreak::Node>,
+    /// This rule's LIA and trie path (one node per pattern 1..k-1).
+    lia: usize,
+    path: Vec<usize>,
+    /// Terminal staging propagated from the last path node (per-sink
+    /// copy); consumed into `queue` at this rule's evaluation.
+    term_pending: Staged<Tup>,
     queue: Vec<Tup>,
-    /// Eager mirror of alpha membership per position.
-    active: Vec<HashSet<FactId>>,
     /// Agenda-item lifecycle: set when the rule links (or re-dirties
     /// while linked), cleared when its evaluation leaves the queue empty.
     /// An unlinked-but-queued rule still evaluates when reached
     /// (fz_42_1464); an unqueued rule accumulates staged input
     /// (fz_42_124, fz_7_145).
     queued: bool,
-    /// Per-position transient link pulse for UNCONSTRAINED not nodes: the
-    /// first right insert force-links the node so its blocking batch
-    /// evaluates, after which it unlinks again (D-031,
-    /// unlinkNotNodeOnRightInsert). Cleared when the rule evaluates.
-    pulse: Vec<bool>,
 }
 
 pub struct Engine {
@@ -149,7 +193,10 @@ pub struct Engine {
     rules: Vec<CompiledRule>,
     /// Rule indices sorted by (salience desc, declaration order).
     rule_order: Vec<usize>,
-    /// Per-rule join networks (phreak behavioral port).
+    /// Shared network: level-0 LIAs and the beta-node prefix trie.
+    lias: Vec<Lia>,
+    trie: Vec<TrieNode>,
+    /// Per-rule agenda/terminal state.
     nets: Vec<RuleNet>,
     lists_built: bool,
     /// The synthetic InitialFact (inserted before scenario facts once a
@@ -177,6 +224,8 @@ impl Engine {
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_order: Vec::new(),
+            lias: Vec::new(),
+            trie: Vec::new(),
             nets: Vec::new(),
             lists_built: false,
             init_fact: None,
@@ -191,8 +240,15 @@ impl Engine {
         self.rule_order = (0..self.rules.len()).collect();
         self.rule_order
             .sort_by_key(|&ri| (-self.rules[ri].def.salience, ri));
-        self.compute_segment_flips();
+        // Structural node identity uses the PRE-rewrite constraint values
+        // (the D-029 literal rewrite itself groups by these same keys).
+        let keys: Vec<Vec<String>> = self
+            .rules
+            .iter()
+            .map(|r| r.patterns.iter().map(|p| self.pattern_key(p)).collect())
+            .collect();
         self.share_and_hash_alphas();
+        self.build_network(&keys);
         // CE-first rules match on InitialFact: assert the synthetic fact
         // ahead of scenario facts, as Drools does at session init.
         let init_tid = self.store.type_id(INITIAL_FACT).unwrap();
@@ -207,46 +263,77 @@ impl Engine {
         Ok(())
     }
 
-    /// Node-sharing segment boundaries (D-033, probes ne_s1..ne_s10):
-    /// rules with structurally equal pattern PREFIXES share beta nodes
-    /// (binding names are irrelevant; literals compare by their D-029
-    /// alpha-node identity). Where sharers diverge, the shared node has
-    /// multiple sinks and a segment boundary forms: the FIRST-declared
-    /// sink's continuation receives the staged list as-is, every later
-    /// sink gets a REVERSED copy (identical-LHS twins fire in opposite
-    /// orders, ne_s7; declaration order picks the preserved one, ne_s8;
-    /// boundaries stack per depth, ne_s10).
-    fn compute_segment_flips(&mut self) {
-        let keys: Vec<Vec<String>> = self
-            .rules
-            .iter()
-            .map(|r| r.patterns.iter().map(|p| self.pattern_key(p)).collect())
-            .collect();
+    /// Build the shared network (D-033/D-036/D-037, probes ne_s*/ne_t*):
+    /// rules with structurally equal pattern PREFIXES share LIAs and beta
+    /// nodes. Rules are added in declaration order, so sinks attach to
+    /// each shared node in build order — the propagation contract (first
+    /// sink preserved, later sinks flipped per batch) follows from that
+    /// ordering (identical-LHS twins fire in opposite orders, ne_s7;
+    /// declaration order picks the preserved one, ne_s8; boundaries stack
+    /// per depth, ne_s10; a never-linked first sink still holds the
+    /// preserved copy, ne_t5).
+    fn build_network(&mut self, keys: &[Vec<String>]) {
+        let mut lia_index: HashMap<String, usize> = HashMap::new();
+        let mut trie_index: HashMap<String, usize> = HashMap::new();
         for ri in 0..self.rules.len() {
             let k = self.rules[ri].patterns.len();
-            let mut flips = vec![false; k.saturating_sub(1)];
-            for j in 1..k {
-                let sharers: Vec<usize> = (0..self.rules.len())
-                    .filter(|&rb| keys[rb].len() > j && keys[rb][..=j] == keys[ri][..=j])
-                    .collect();
-                if sharers.len() < 2 {
-                    continue;
+            let lia = *lia_index.entry(keys[ri][0].clone()).or_insert_with(|| {
+                self.lias.push(Lia {
+                    env: (ri, 0),
+                    active: HashSet::new(),
+                    children: Vec::new(),
+                    k1_rules: Vec::new(),
+                });
+                self.lias.len() - 1
+            });
+            let mut path = Vec::new();
+            if k == 1 {
+                self.lias[lia].k1_rules.push(ri);
+            } else {
+                let mut prefix = keys[ri][0].clone();
+                let mut parent: Option<usize> = None;
+                for j in 1..k {
+                    prefix.push_str("||");
+                    prefix.push_str(&keys[ri][j]);
+                    let nid = match trie_index.get(&prefix) {
+                        Some(&nid) => nid,
+                        None => {
+                            let pat = &self.rules[ri].patterns[j];
+                            let kind = match pat.ce {
+                                CeKind::Positive => phreak::Kind::Join,
+                                CeKind::Not => phreak::Kind::Not,
+                                CeKind::Exists => phreak::Kind::Exists,
+                            };
+                            self.trie.push(TrieNode {
+                                node: phreak::Node::new(pat.pindex, kind),
+                                env: (ri, j),
+                                active: HashSet::new(),
+                                pulse: false,
+                                s0_in: Staged::default(),
+                                sinks: Vec::new(),
+                            });
+                            let nid = self.trie.len() - 1;
+                            trie_index.insert(prefix.clone(), nid);
+                            match parent {
+                                None => self.lias[lia].children.push(nid),
+                                Some(p) => self.trie[p].sinks.push(Sink::Node(nid)),
+                            }
+                            nid
+                        }
+                    };
+                    path.push(nid);
+                    parent = Some(nid);
                 }
-                // extension identity at j+1; a rule ENDING here is its own
-                // sink (each rule has its own terminal node)
-                let ext = |rb: usize| {
-                    keys[rb].get(j + 1).cloned().unwrap_or_else(|| format!("__end_{rb}"))
-                };
-                let my_ext = ext(ri);
-                if sharers.iter().all(|&rb| ext(rb) == my_ext) {
-                    continue; // single sink: the boundary is deeper
-                }
-                let first = sharers[0]; // min rule index builds sink 1
-                if ext(first) != my_ext {
-                    flips[j - 1] = true;
-                }
+                self.trie[parent.unwrap()].sinks.push(Sink::Term(ri));
             }
-            self.rules[ri].flips = flips;
+            self.nets.push(RuleNet {
+                s0: Staged::default(),
+                lia,
+                path,
+                term_pending: Staged::default(),
+                queue: Vec::new(),
+                queued: false,
+            });
         }
     }
 
@@ -274,7 +361,10 @@ impl Engine {
                     let _ = write!(s, "{op:?}{vv:?}");
                 }
                 Test::Cmp { op, rhs: Src::Field(ti, fi) } => {
-                    let _ = write!(s, "{op:?}v{ti}.{fi}");
+                    // the variable NAME is identity-significant when it
+                    // appears in a constraint (ne_t13 vs ne_t14)
+                    let name = c.rhs_var.as_deref().unwrap_or("");
+                    let _ = write!(s, "{op:?}{name}@{ti}.{fi}");
                 }
                 Test::Cmp { .. } => {}
                 Test::Matches(r) => {
@@ -453,20 +543,21 @@ impl Engine {
                             .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
                         listen_mask |= 1 << fi;
                         let lhs_ft = self.store.field_type(type_id, fi);
-                        let (src, rhs_ft) = match rhs {
-                            CmpRhs::Lit(l) => (Src::Lit(lit_value(l)), lit_type(l)),
+                        let (src, rhs_ft, rhs_var) = match rhs {
+                            CmpRhs::Lit(l) => (Src::Lit(lit_value(l)), lit_type(l), None),
                             CmpRhs::Var(v) => {
                                 let (bpi, bfi, bft) = field_binds
                                     .get(v)
                                     .copied()
                                     .ok_or_else(|| err(format!("unknown binding {v} (must be declared before use)")))?;
-                                (Src::Field(bpi, bfi), bft)
+                                (Src::Field(bpi, bfi), bft, Some(v.clone()))
                             }
                         };
                         check_cmp_types(&rname, lhs_ft, *op, rhs_ft)?;
                         cmps.push(CompiledCmp {
                             field_idx: fi,
                             test: Test::Cmp { op: *op, rhs: src },
+                            rhs_var,
                         });
                     }
                     Constraint::Matches { field, regex } => {
@@ -481,7 +572,11 @@ impl Engine {
                         }
                         listen_mask |= 1 << fi;
                         let r = crate::rx::Regex::parse(regex).map_err(|e| err(e))?;
-                        cmps.push(CompiledCmp { field_idx: fi, test: Test::Matches(r) });
+                        cmps.push(CompiledCmp {
+                            field_idx: fi,
+                            test: Test::Matches(r),
+                            rhs_var: None,
+                        });
                     }
                     Constraint::Contains { field, needle } => {
                         let fi = self
@@ -497,6 +592,7 @@ impl Engine {
                         cmps.push(CompiledCmp {
                             field_idx: fi,
                             test: Test::Contains(needle.clone()),
+                            rhs_var: None,
                         });
                     }
                     Constraint::InList { field, items, negated } => {
@@ -514,6 +610,7 @@ impl Engine {
                         cmps.push(CompiledCmp {
                             field_idx: fi,
                             test: Test::InList { items: vals, negated: *negated },
+                            rhs_var: None,
                         });
                     }
                 }
@@ -641,7 +738,7 @@ impl Engine {
                 }
             }
         }
-        Ok(CompiledRule { def, patterns, actions, flips: Vec::new() })
+        Ok(CompiledRule { def, patterns, actions })
     }
 
     fn compile_arg(
@@ -706,31 +803,6 @@ impl Engine {
 
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
         if !self.lists_built {
-            self.nets = self
-                .rules
-                .iter()
-                .map(|r| {
-                    let k = r.patterns.len();
-                    RuleNet {
-                        s0: Staged::default(),
-                        nodes: (1..k)
-                            .map(|j| {
-                                let pat = &r.patterns[j];
-                                let kind = match pat.ce {
-                                    CeKind::Positive => phreak::Kind::Join,
-                                    CeKind::Not => phreak::Kind::Not,
-                                    CeKind::Exists => phreak::Kind::Exists,
-                                };
-                                phreak::Node::new(pat.pindex, kind)
-                            })
-                            .collect(),
-                        queue: Vec::new(),
-                        active: vec![HashSet::new(); k],
-                        queued: false,
-                        pulse: vec![false; k],
-                    }
-                })
-                .collect();
             self.lists_built = true;
             let initial: Vec<FactId> = self.store.live_facts().collect();
             for f in initial {
@@ -786,126 +858,166 @@ impl Engine {
         None
     }
 
+    /// WM insert: stage into the SHARED network once per LIA / trie node,
+    /// then run per-rule linking transitions.
     fn on_insert(&mut self, f: FactId, origin: Origin) {
-        for ri in 0..self.rules.len() {
-            for pos in 0..self.rules[ri].patterns.len() {
-                if self.alpha_passes(ri, pos, f) {
-                    self.nets[ri].active[pos].insert(f);
-                    self.maybe_pulse(ri, pos);
-                    if pos == 0 {
-                        self.nets[ri].s0.add_ins(f, origin);
-                    } else {
-                        self.nets[ri].nodes[pos - 1].s_right.add_ins(f, origin);
-                    }
+        let was_linked: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
+        for li in 0..self.lias.len() {
+            let (ri, pos) = self.lias[li].env;
+            if self.alpha_passes(ri, pos, f) {
+                self.lias[li].active.insert(f);
+                for i in 0..self.lias[li].k1_rules.len() {
+                    let rb = self.lias[li].k1_rules[i];
+                    self.nets[rb].s0.add_ins(f, origin);
+                }
+                for i in 0..self.lias[li].children.len() {
+                    let c = self.lias[li].children[i];
+                    self.trie[c].s0_in.add_ins(f, origin);
                 }
             }
-            self.refresh_linked(ri);
         }
+        for ni in 0..self.trie.len() {
+            let (ri, pos) = self.trie[ni].env;
+            if self.alpha_passes(ri, pos, f) {
+                self.trie[ni].active.insert(f);
+                self.maybe_pulse(ni);
+                self.trie[ni].node.s_right.add_ins(f, origin);
+            }
+        }
+        self.linking_transitions(&was_linked);
     }
 
     /// The first right insert into an UNCONSTRAINED not node force-links
     /// it for one evaluation so the blocking batch processes, after which
     /// it unlinks again (D-031, NotNode.assertObject).
-    fn maybe_pulse(&mut self, ri: usize, pos: usize) {
+    fn maybe_pulse(&mut self, ni: usize) {
+        let (ri, pos) = self.trie[ni].env;
         let pat = &self.rules[ri].patterns[pos];
-        if pos > 0
-            && pat.ce == CeKind::Not
-            && !pat.beta
-            && self.nets[ri].active[pos].len() == 1
-        {
-            self.nets[ri].pulse[pos] = true;
+        if pat.ce == CeKind::Not && !pat.beta && self.trie[ni].active.len() == 1 {
+            self.trie[ni].pulse = true;
         }
     }
 
     fn on_update(&mut self, f: FactId, mask: u64, src_ri: usize) {
         let ftype = self.store.fact_type(f);
-        for ri in 0..self.rules.len() {
-            let was_linked = self.rule_linked(ri);
-            for pos in 0..self.rules[ri].patterns.len() {
-                let pat = &self.rules[ri].patterns[pos];
-                if pat.type_id != ftype {
-                    continue;
-                }
-                let was = self.nets[ri].active[pos].contains(&f);
-                let now = self.alpha_passes(ri, pos, f);
-                let origin = Some(src_ri);
-                match (was, now) {
-                    (false, true) => {
-                        self.nets[ri].active[pos].insert(f);
-                        self.maybe_pulse(ri, pos);
-                        if pos == 0 {
-                            self.nets[ri].s0.add_ins(f, origin);
-                        } else {
-                            self.nets[ri].nodes[pos - 1].s_right.add_ins(f, origin);
-                        }
-                    }
-                    (true, false) => {
-                        self.nets[ri].active[pos].remove(&f);
-                        if pos == 0 {
-                            self.nets[ri].s0.add_del(f, origin);
-                        } else {
-                            self.nets[ri].nodes[pos - 1].s_right.add_del(f, origin);
-                        }
-                    }
-                    (true, true) => {
-                        // ALL-SET mask (bare update) is class-reactive
-                        // (fz_42_3311); property masks need intersection.
-                        if mask == u64::MAX || pat.listen_mask & mask != 0 {
-                            if pos == 0 {
-                                self.nets[ri].s0.add_upd(f, origin);
-                            } else {
-                                self.nets[ri].nodes[pos - 1].s_right.add_upd(f, origin);
-                            }
-                        } else if pos > 0 {
-                            // mask miss: immediate right-memory reAdd, no
-                            // staging (fz_42_4359). Not nodes use the
-                            // existential variant: blocked lefts re-search
-                            // and unmatched ones stay DETACHED (D-031,
-                            // NotNode.reorderRightTuple's null sink).
-                            let env =
-                                JoinEnvImpl { store: &self.store, rule: &self.rules[ri] };
-                            if self.rules[ri].patterns[pos].ce == CeKind::Not {
-                                self.nets[ri].nodes[pos - 1]
-                                    .not_mask_miss_re_add(&env, pos - 1, f);
-                            } else {
-                                let key = phreak::JoinEnv::key_of_right(&env, pos - 1, f);
-                                self.nets[ri].nodes[pos - 1].re_add_right_fact(f, key);
-                            }
-                        }
-                    }
-                    (false, false) => {}
+        let origin = Some(src_ri);
+        let was_linked: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
+        for li in 0..self.lias.len() {
+            let (ri, pos) = self.lias[li].env;
+            if self.rules[ri].patterns[pos].type_id != ftype {
+                continue;
+            }
+            let was = self.lias[li].active.contains(&f);
+            let now = self.alpha_passes(ri, pos, f);
+            let listen = self.rules[ri].patterns[pos].listen_mask;
+            let stage: u8 = match (was, now) {
+                (false, true) => 1,
+                (true, false) => 2,
+                (true, true) if mask == u64::MAX || listen & mask != 0 => 3,
+                _ => 0,
+            };
+            if stage == 0 {
+                continue;
+            }
+            if stage == 1 {
+                self.lias[li].active.insert(f);
+            } else if stage == 2 {
+                self.lias[li].active.remove(&f);
+            }
+            for i in 0..self.lias[li].k1_rules.len() {
+                let rb = self.lias[li].k1_rules[i];
+                match stage {
+                    1 => self.nets[rb].s0.add_ins(f, origin),
+                    2 => self.nets[rb].s0.add_del(f, origin),
+                    _ => self.nets[rb].s0.add_upd(f, origin),
                 }
             }
-            // PathMemory.doUnlinkRule (D-031/ne_x2): a LINKED->UNLINKED
-            // transition queues the agenda item so cancellations and
-            // unblocks evaluate in their own window.
-            if was_linked && !self.rule_linked(ri) {
-                self.nets[ri].queued = true;
+            for i in 0..self.lias[li].children.len() {
+                let c = self.lias[li].children[i];
+                match stage {
+                    1 => self.trie[c].s0_in.add_ins(f, origin),
+                    2 => self.trie[c].s0_in.add_del(f, origin),
+                    _ => self.trie[c].s0_in.add_upd(f, origin),
+                }
             }
-            self.refresh_linked(ri);
         }
+        for ni in 0..self.trie.len() {
+            let (ri, pos) = self.trie[ni].env;
+            let pat = &self.rules[ri].patterns[pos];
+            if pat.type_id != ftype {
+                continue;
+            }
+            let was = self.trie[ni].active.contains(&f);
+            let now = self.alpha_passes(ri, pos, f);
+            match (was, now) {
+                (false, true) => {
+                    self.trie[ni].active.insert(f);
+                    self.maybe_pulse(ni);
+                    self.trie[ni].node.s_right.add_ins(f, origin);
+                }
+                (true, false) => {
+                    self.trie[ni].active.remove(&f);
+                    self.trie[ni].node.s_right.add_del(f, origin);
+                }
+                (true, true) => {
+                    // ALL-SET mask (bare update) is class-reactive
+                    // (fz_42_3311); property masks need intersection.
+                    if mask == u64::MAX || pat.listen_mask & mask != 0 {
+                        self.trie[ni].node.s_right.add_upd(f, origin);
+                    } else {
+                        // mask miss: immediate right-memory reAdd, no
+                        // staging (fz_42_4359). Not nodes use the
+                        // existential variant: blocked lefts re-search
+                        // and unmatched ones stay DETACHED (D-031,
+                        // NotNode.reorderRightTuple's null sink).
+                        let env = JoinEnvImpl { store: &self.store, rule: &self.rules[ri] };
+                        if pat.ce == CeKind::Not {
+                            self.trie[ni].node.not_mask_miss_re_add(&env, pos - 1, f);
+                        } else {
+                            let key = phreak::JoinEnv::key_of_right(&env, pos - 1, f);
+                            self.trie[ni].node.re_add_right_fact(f, key);
+                        }
+                    }
+                }
+                (false, false) => {}
+            }
+        }
+        self.linking_transitions(&was_linked);
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
-        for ri in 0..self.rules.len() {
-            let was_linked = self.rule_linked(ri);
-            for pos in 0..self.rules[ri].patterns.len() {
-                if self.nets[ri].active[pos].remove(&f) {
-                    if pos == 0 {
-                        self.nets[ri].s0.add_del(f, origin);
-                    } else {
-                        self.nets[ri].nodes[pos - 1].s_right.add_del(f, origin);
-                    }
+        let was_linked: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
+        for li in 0..self.lias.len() {
+            if self.lias[li].active.remove(&f) {
+                for i in 0..self.lias[li].k1_rules.len() {
+                    let rb = self.lias[li].k1_rules[i];
+                    self.nets[rb].s0.add_del(f, origin);
+                }
+                for i in 0..self.lias[li].children.len() {
+                    let c = self.lias[li].children[i];
+                    self.trie[c].s0_in.add_del(f, origin);
                 }
             }
-            // PathMemory.doUnlinkRule (D-031/ne_x2): a LINKED->UNLINKED
-            // transition queues the agenda item so the delete window
-            // evaluates before later re-inserts (exists refire-after-gap).
-            if was_linked && !self.rule_linked(ri) {
+        }
+        for ni in 0..self.trie.len() {
+            if self.trie[ni].active.remove(&f) {
+                self.trie[ni].node.s_right.add_del(f, origin);
+            }
+        }
+        self.linking_transitions(&was_linked);
+    }
+
+    /// Per-rule agenda transitions after a WM action:
+    /// PathMemory.doUnlinkRule (D-031/ne_x2) — a LINKED->UNLINKED
+    /// transition queues the agenda item so cancellations and unblocks
+    /// evaluate in their own window; and the usual dirty-while-linked
+    /// (re)queue (a delete can also LINK an unconstrained not node whose
+    /// right input emptied, NotNode.doDeleteRightTuple).
+    fn linking_transitions(&mut self, was_linked: &[bool]) {
+        for ri in 0..self.rules.len() {
+            if was_linked[ri] && !self.rule_linked(ri) {
                 self.nets[ri].queued = true;
             }
-            // A delete can also LINK a rule: an unconstrained not node
-            // re-links when its right input empties (NotNode.doDeleteRightTuple).
             self.refresh_linked(ri);
         }
     }
@@ -916,13 +1028,13 @@ impl Engine {
     /// EMPTY (or transiently via the insert pulse).
     fn pos_linked(&self, ri: usize, pos: usize) -> bool {
         let pat = &self.rules[ri].patterns[pos];
+        if pos == 0 {
+            return !self.lias[self.nets[ri].lia].active.is_empty();
+        }
+        let node = &self.trie[self.nets[ri].path[pos - 1]];
         match pat.ce {
-            CeKind::Positive | CeKind::Exists => !self.nets[ri].active[pos].is_empty(),
-            CeKind::Not => {
-                pat.beta
-                    || self.nets[ri].active[pos].is_empty()
-                    || self.nets[ri].pulse[pos]
-            }
+            CeKind::Positive | CeKind::Exists => !node.active.is_empty(),
+            CeKind::Not => pat.beta || node.active.is_empty() || node.pulse,
         }
     }
 
@@ -939,8 +1051,15 @@ impl Engine {
     }
 
     fn rule_dirty(&self, ri: usize) -> bool {
-        !self.nets[ri].s0.is_empty()
-            || self.nets[ri].nodes.iter().any(|n| !n.s_right.is_empty() || !n.s_left.is_empty())
+        let net = &self.nets[ri];
+        !net.s0.is_empty()
+            || !net.term_pending.is_empty()
+            || net.path.iter().enumerate().any(|(step, &ni)| {
+                let n = &self.trie[ni];
+                !n.node.s_right.is_empty()
+                    || !n.node.s_left.is_empty()
+                    || (step == 0 && !n.s0_in.is_empty())
+            })
     }
 
     fn evaluate_rule(&mut self, ri: usize, force: bool, _eager: bool) {
@@ -954,7 +1073,15 @@ impl Engine {
         // The queue is pruned of deactivated facts (j05); tuples hold
         // POSITIVE positions only, so map pattern -> tuple index.
         if !self.rule_linked(ri) {
-            let active = self.nets[ri].active.clone();
+            let alive: Vec<HashSet<FactId>> = (0..k)
+                .map(|pos| {
+                    if pos == 0 {
+                        self.lias[self.nets[ri].lia].active.clone()
+                    } else {
+                        self.trie[self.nets[ri].path[pos - 1]].active.clone()
+                    }
+                })
+                .collect();
             let positives: Vec<(usize, usize)> = self.rules[ri]
                 .patterns
                 .iter()
@@ -963,7 +1090,7 @@ impl Engine {
                 .collect();
             self.nets[ri]
                 .queue
-                .retain(|t| positives.iter().all(|(pos, ti)| active[*pos].contains(&t[*ti])));
+                .retain(|t| positives.iter().all(|(pos, ti)| alive[*pos].contains(&t[*ti])));
         }
         // Agenda-item gate: only a queued item evaluates (the just-fired
         // rule is force-evaluated, fz_42_5243).
@@ -971,12 +1098,12 @@ impl Engine {
             return;
         }
 
-        let s0 = self.nets[ri].s0.take();
         let no_loop = self.rules[ri].def.no_loop;
 
         if k == 1 {
             // LIA -> terminal directly; working-memory staging consumed
             // OLDEST-first (pr08/pr04 pin).
+            let s0 = self.nets[ri].s0.take();
             let net = &mut self.nets[ri];
             for (f, _, _) in s0.del.iter().rev() {
                 net.queue.retain(|t| t[0] != *f);
@@ -1000,50 +1127,76 @@ impl Engine {
             return;
         }
 
-        // Multi-node chain. Split borrows: env reads store+rules, nodes
-        // mutate nets.
-        let env = JoinEnvImpl { store: &self.store, rule: &self.rules[ri] };
-        let net = &mut self.nets[ri];
-        let mut src: Staged<Tup> = Staged::default();
-        // pos0 staged facts become 1-tuples (consume order preserved).
-        src.ins = s0.ins.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
-        src.upd = s0.upd.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
-        src.del = s0.del.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
-
-        for j in 0..net.nodes.len() {
-            // merge this batch into any left-staged remainder (from
-            // unlinked accumulation), with clash-move semantics
-            let pending = net.nodes[j].s_left.take();
-            src = Staged::merge_into_pending(pending, src);
-            let sr = net.nodes[j].s_right.take();
-            let mut trg: Staged<Tup> = Staged::default();
-            phreak::do_node(&env, j, &mut net.nodes[j], src, sr, &mut trg);
-            // Segment-boundary flip (D-033): a non-first sink of a shared
-            // node receives the staged propagation REVERSED.
-            if self.rules[ri].flips[j] {
-                trg.ins.reverse();
-                trg.upd.reverse();
-                trg.del.reverse();
+        // Walk this rule's path through the SHARED trie (D-037). Each
+        // node consumes its own staged inputs — whichever sharer's item
+        // is reached first claims the batch — and every batch propagates
+        // to ALL sinks: the first-built sink via addAll-append
+        // (preserved, FIFO across batches), later sinks via reversed
+        // peer copies (SegmentPropagator prepends, LIFO across batches).
+        // This rule's continuation is just one of the sinks; the walk
+        // then consumes the next node's (freshly topped-up) pending.
+        for step in 0..self.nets[ri].path.len() {
+            let ni = self.nets[ri].path[step];
+            let (env_ri, env_pos) = self.trie[ni].env;
+            let mut fresh: Staged<Tup> = Staged::default();
+            if step == 0 {
+                let s0 = self.trie[ni].s0_in.take();
+                fresh.ins = s0.ins.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
+                fresh.upd = s0.upd.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
+                fresh.del = s0.del.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
             }
-            src = trg;
-        }
-        // Consuming the batch spends any not-node link pulses
-        // (unlinkNotNodeOnRightInsert, D-031).
-        for p in net.pulse.iter_mut() {
-            *p = false;
+            let pending = self.trie[ni].node.s_left.take();
+            let src = Staged::merge_into_pending(pending, fresh);
+            let sr = self.trie[ni].node.s_right.take();
+            if src.is_empty() && sr.is_empty() {
+                continue;
+            }
+            let mut trg: Staged<Tup> = Staged::default();
+            {
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
+                phreak::do_node(&env, env_pos - 1, &mut self.trie[ni].node, src, sr, &mut trg);
+            }
+            // Consuming the batch spends the not-node link pulse
+            // (unlinkNotNodeOnRightInsert, D-031).
+            self.trie[ni].pulse = false;
+            if trg.is_empty() {
+                continue;
+            }
+            let flipped = trg.flipped();
+            for si in 0..self.trie[ni].sinks.len() {
+                let sink = self.trie[ni].sinks[si];
+                let batch = if si == 0 { trg.clone() } else { flipped.clone() };
+                match sink {
+                    Sink::Node(c) => {
+                        let pending = self.trie[c].node.s_left.take();
+                        self.trie[c].node.s_left = if si == 0 {
+                            Staged::append_into_pending(pending, batch)
+                        } else {
+                            Staged::merge_into_pending(pending, batch)
+                        };
+                    }
+                    Sink::Term(rb) => {
+                        let pending = self.nets[rb].term_pending.take();
+                        self.nets[rb].term_pending = if si == 0 {
+                            Staged::append_into_pending(pending, batch)
+                        } else {
+                            Staged::merge_into_pending(pending, batch)
+                        };
+                    }
+                }
+            }
         }
 
-        // Terminal (PhreakRuleTerminalNode + RuleExecutor):
-        // deletes, then updates, then inserts. Lazy evaluations append in
-        // CREATION order (oldest staged first); eager-list evaluations in
-        // reverse-creation order (D-027 calibration).
+        // Terminal (PhreakRuleTerminalNode + RuleExecutor): consume THIS
+        // rule's staged terminal input — deletes, then updates, then
+        // inserts, head-first, appending to the executor's tuple list. A
+        // queued activation keeps its position; an unqueued (fired) one
+        // is effectively recreated.
+        let src = self.nets[ri].term_pending.take();
+        let net = &mut self.nets[ri];
         for (t, _, _) in src.del.iter() {
             net.queue.retain(|x| x != t);
         }
-        // Terminal (PhreakRuleTerminalNode): updates then inserts, each
-        // consumed staged-list head-first, appending to the executor's
-        // tuple list. A queued activation keeps its position; an unqueued
-        // (fired) one is effectively recreated.
         for (t, o, _) in src.upd.iter() {
             if net.queue.iter().any(|x| x == t) {
                 continue;

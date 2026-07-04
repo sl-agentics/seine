@@ -1,0 +1,50 @@
+{
+ "name": "ne_t13",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "f0": 2
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "f0": 3
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f1": 9
+   }
+  }
+ ],
+ "drl": "rule Ra when A($x : f0) B(f1 != $x) then end\nrule Rb when A($y : f0) B(f1 != $y) then end\n"
+}

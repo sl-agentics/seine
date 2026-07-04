@@ -125,6 +125,48 @@ impl<T: Clone + PartialEq> Staged<T> {
         self.del.insert(0, (t, origin, 0));
     }
 
+    /// Segment propagation to the FIRST-built sink (D-036/D-037):
+    /// TupleSetsImpl.addAll APPENDS the incoming lists at the tail, so a
+    /// lagging first sink accumulates batches FIFO (fz_42_580's oracle:
+    /// batch 1 fires before batch 2), with the same same-tuple clash
+    /// folds as merge_into_pending.
+    pub fn append_into_pending(mut pending: Staged<T>, fresh: Staged<T>) -> Staged<T> {
+        for (t, o, _) in fresh.del.into_iter().rev() {
+            pending.add_del(t, o);
+        }
+        for (t, o, ph) in fresh.upd {
+            if let Some(i) = pending.ins.iter().position(|(x, _, _)| *x == t) {
+                let e = pending.ins.remove(i);
+                pending.ins.push(e); // stays an insert, moves to the tail
+                continue;
+            }
+            if let Some(i) = pending.upd.iter().position(|(x, _, _)| *x == t) {
+                pending.upd.remove(i);
+            }
+            if pending.del.iter().any(|(x, _, _)| *x == t) {
+                continue;
+            }
+            pending.upd.push((t, o, ph));
+        }
+        for (t, o, ph) in fresh.ins {
+            if pending.ins.iter().any(|(x, _, _)| *x == t) {
+                continue;
+            }
+            pending.ins.push((t, o, ph));
+        }
+        pending
+    }
+
+    /// Peer-copy of a staged batch for later sinks: SegmentPropagator
+    /// walks the source lists head-first and PREPENDS into the peer's
+    /// staging, so each list arrives REVERSED (one flip per boundary).
+    pub fn flipped(&self) -> Staged<T> {
+        let mut out = self.clone();
+        out.ins.reverse();
+        out.upd.reverse();
+        out.del.reverse();
+        out
+    }
 }
 
 /// Node behavior kind. Join extends tuples by the matched right fact;

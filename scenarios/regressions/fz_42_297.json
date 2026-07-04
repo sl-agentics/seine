@@ -1,0 +1,89 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0($b0_0_0 : f0, $b0_0_1 : f0)\n    not T1(f0 in (10), f1 != $b0_0_1)\nthen\nend\nrule \"R1\"\nwhen\n    T1(f0 not in (2, -3.0), f1 == true, $b1_0_0 : f1)\nthen\nend\nrule \"R2\"\nsalience 8\nwhen\n    $p2_0 : T0($b2_0_0 : f0, $b2_0_1 : f0)\n    not T1(f0 in (10), f1 != $b2_0_1)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nsalience -10\nwhen\n    exists T0(f2 < -1000000007, f3 != false)\nthen\n    insert(new T1(1, false, true));\n    insert(new T1(8, true, false));\nend\nrule \"R4\"\nwhen\n    T0(f3 == false, f3 == true)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": true,
+        "f2": -5,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true,
+        "f2": -1000000007,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false,
+        "f2": 1,
+        "f3": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_42_297",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

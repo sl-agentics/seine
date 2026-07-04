@@ -1,0 +1,64 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T0($b0_0_1 : f0)\n    not T1(f0 in (10), f1 != $b0_0_1)\nthen\nend\nrule \"R2\"\nsalience 8\nwhen\n    $p2_0 : T0($b2_0_1 : f0)\n    not T1(f0 in (10), f1 != $b2_0_1)\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": true,
+    "f1": true,
+    "f2": -1000000007,
+    "f3": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": false,
+    "f1": false,
+    "f2": 1,
+    "f3": true
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_min_297",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}
