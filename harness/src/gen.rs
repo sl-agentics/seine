@@ -1,10 +1,15 @@
-//! Property-based scenario generator for the Phase 1 grammar
-//! (single-pattern rules only).
+//! Property-based scenario generator for the Phase 1+2 grammar.
 //!
 //! Every generated program is IN-SUBSET by construction and guaranteed to
-//! terminate: types are numbered T0..Tn and a rule whose pattern matches Ti
-//! may only insert Tj with j > i, so insertion chains strictly climb the
-//! type order (max depth = number of types).
+//! terminate (D-010, D-013):
+//! - inserts: a rule may only insert types with index strictly greater than
+//!   every pattern's type index (chains strictly climb the type order);
+//! - updates: guard-monotone — the updated pattern requires some bool field
+//!   `g == false` and the RHS sets it true before update(); bool setters
+//!   ONLY ever write true, so every bool field is monotone and each update
+//!   rule fires at most once per fact per guarded position;
+//! - bare update() (all-fields mask, non-terminating per j21) is never
+//!   generated.
 //!
 //! Deterministic: SplitMix64 from an explicit seed; case k of seed s is
 //! always identical.
@@ -52,6 +57,14 @@ impl Ft {
             Ft::Bool => "bool",
         }
     }
+
+    fn numeric(self) -> bool {
+        matches!(self, Ft::I64 | Ft::F64)
+    }
+
+    fn join_compatible(self, other: Ft) -> bool {
+        (self.numeric() && other.numeric()) || self == other
+    }
 }
 
 struct TypeDef {
@@ -72,8 +85,8 @@ fn gen_i64(rng: &mut Rng) -> i64 {
 }
 
 fn gen_f64(rng: &mut Rng) -> f64 {
-    // Multiples of 0.5 in [-3, 6], integral values included on purpose to
-    // stress the i64/f64 boundary. No NaN/inf (not expressible in JSON).
+    // Multiples of 0.5 in [-3, 6]; integral values on purpose to stress the
+    // i64/f64 boundary. No NaN/inf (not expressible in JSON).
     (rng.below(19) as f64 - 6.0) * 0.5
 }
 
@@ -86,12 +99,13 @@ fn lit_json(rng: &mut Rng, ft: Ft) -> J {
     }
 }
 
-fn lit_drl(rng: &mut Rng, ft: Ft) -> String {
+/// Literal for DRL text. Bool literals in SETTER position must use
+/// `only_true_bools` to preserve guard monotonicity.
+fn lit_drl(rng: &mut Rng, ft: Ft, only_true_bools: bool) -> String {
     match ft {
         Ft::I64 => format!("{}", gen_i64(rng)),
         Ft::F64 => {
             let v = gen_f64(rng);
-            // Always keep a decimal point so it lexes as a float literal.
             if v == v.trunc() {
                 format!("{v:.1}")
             } else {
@@ -99,161 +113,249 @@ fn lit_drl(rng: &mut Rng, ft: Ft) -> String {
             }
         }
         Ft::Str => format!("{:?}", rng.pick(STR_POOL)),
-        Ft::Bool => format!("{}", rng.chance(50)),
+        Ft::Bool => {
+            if only_true_bools {
+                "true".into()
+            } else {
+                format!("{}", rng.chance(50))
+            }
+        }
     }
 }
 
-fn getter(name: &str, ft: Ft) -> String {
+fn accessor(name: &str, ft: Ft, prefix: &str) -> String {
     let mut cs = name.chars();
     let head = cs.next().unwrap().to_ascii_uppercase();
     let rest: String = cs.collect();
-    // Boolean fields on Drools declared types only generate isX() (D-009).
-    if ft == Ft::Bool {
-        format!("is{head}{rest}()")
-    } else {
-        format!("get{head}{rest}()")
-    }
+    let px = if prefix == "get" && ft == Ft::Bool { "is" } else { prefix };
+    format!("{px}{head}{rest}")
 }
 
-/// Generate one scenario as (name, JSON).
+/// One LHS pattern being generated.
+struct GenPattern {
+    ti: usize,
+    fact_var: Option<String>,
+    constraints: Vec<String>,
+    /// (var name, field idx, field type) — usable by later patterns/RHS.
+    bindings: Vec<(String, usize, Ft)>,
+}
+
 pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     let mut rng = Rng(seed ^ case.wrapping_mul(0xA24BAED4963EE407));
-    // burn a few to decorrelate nearby cases
     for _ in 0..4 {
         rng.next();
     }
     let name = format!("fz_{seed}_{case}");
 
-    // Types
+    // Types: ensure a decent supply of bool fields so update rules happen.
     let ntypes = 2 + rng.below(3); // 2..4
     let mut types = Vec::new();
     for ti in 0..ntypes {
         let nfields = 1 + rng.below(3); // 1..3
-        let fields = (0..nfields)
+        let mut fields: Vec<(String, Ft)> = (0..nfields)
             .map(|fi| {
                 let ft = *rng.pick(&[Ft::I64, Ft::I64, Ft::F64, Ft::Str, Ft::Bool]);
                 (format!("f{fi}"), ft)
             })
             .collect();
+        if rng.chance(60) {
+            let n = fields.len();
+            fields.push((format!("f{n}"), Ft::Bool));
+        }
         types.push(TypeDef { name: format!("T{ti}"), fields });
     }
 
-    // Rules
     let nrules = 1 + rng.below(6); // 1..6
     let mut drl = String::new();
     for ri in 0..nrules {
-        let pat_ti = rng.below(ntypes);
-        let pat = &types[pat_ti];
+        let npat = 1 + if rng.chance(45) { rng.below(3) } else { 0 }; // 1..3, skewed to 1
+        let mut pats: Vec<GenPattern> = Vec::new();
+        for pi in 0..npat {
+            pats.push(GenPattern {
+                ti: rng.below(ntypes),
+                fact_var: None,
+                constraints: Vec::new(),
+                bindings: Vec::new(),
+            });
+            let _ = pi;
+        }
+
+        // Rule kind: update / delete / plain.
+        let update_pos = {
+            let with_bool: Vec<usize> = pats
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool))
+                .map(|(i, _)| i)
+                .collect();
+            if !with_bool.is_empty() && rng.chance(30) {
+                Some(*rng.pick(&with_bool))
+            } else {
+                None
+            }
+        };
+        let delete_pos = if update_pos.is_none() && rng.chance(20) {
+            Some(rng.below(npat))
+        } else {
+            None
+        };
+
+        // Constraints, bindings, join tests.
+        for pi in 0..npat {
+            let ncmp = rng.below(3);
+            for _ in 0..ncmp {
+                let (fname, ft) = {
+                    let fs = &types[pats[pi].ti].fields;
+                    fs[rng.below(fs.len())].clone()
+                };
+                let op = match ft {
+                    Ft::Bool => *rng.pick(OPS_EQ),
+                    _ => *rng.pick(OPS_ORD),
+                };
+                let lit_ft = match ft {
+                    Ft::I64 if rng.chance(20) => Ft::F64,
+                    Ft::F64 if rng.chance(20) => Ft::I64,
+                    other => other,
+                };
+                let lit = lit_drl(&mut rng, lit_ft, false);
+                pats[pi].constraints.push(format!("{fname} {op} {lit}"));
+            }
+            // Join constraint against an earlier binding.
+            if pi > 0 && rng.chance(55) {
+                let earlier: Vec<(String, Ft)> = pats[..pi]
+                    .iter()
+                    .flat_map(|p| p.bindings.iter().map(|(v, _, ft)| (v.clone(), *ft)))
+                    .collect();
+                if !earlier.is_empty() {
+                    let fs = &types[pats[pi].ti].fields;
+                    let fi = rng.below(fs.len());
+                    let (fname, ft) = fs[fi].clone();
+                    let compat: Vec<&(String, Ft)> = earlier
+                        .iter()
+                        .filter(|(_, bft)| ft.join_compatible(*bft))
+                        .collect();
+                    if !compat.is_empty() {
+                        let (var, bft) = (*rng.pick(&compat)).clone();
+                        let op = if ft == Ft::Bool || bft == Ft::Bool {
+                            *rng.pick(OPS_EQ)
+                        } else {
+                            *rng.pick(OPS_ORD)
+                        };
+                        pats[pi].constraints.push(format!("{fname} {op} {var}"));
+                    }
+                }
+            }
+            // Field bindings.
+            let nbind = rng.below(3);
+            for bi in 0..nbind {
+                let fs = &types[pats[pi].ti].fields;
+                let fi = rng.below(fs.len());
+                let ft = fs[fi].1;
+                let var = format!("$b{ri}_{pi}_{bi}");
+                let fname = fs[fi].0.clone();
+                pats[pi].constraints.push(format!("{var} : {fname}"));
+                pats[pi].bindings.push((var, fi, ft));
+            }
+        }
+
+        // Guard constraint for the update rule.
+        let mut guard_field: Option<(usize, String)> = None;
+        if let Some(pos) = update_pos {
+            let bool_fields: Vec<(usize, String)> = types[pats[pos].ti]
+                .fields
+                .iter()
+                .enumerate()
+                .filter(|(_, (_, ft))| *ft == Ft::Bool)
+                .map(|(i, (n, _))| (i, n.clone()))
+                .collect();
+            let (gfi, gname) = rng.pick(&bool_fields).clone();
+            pats[pos].constraints.push(format!("{gname} == false"));
+            guard_field = Some((gfi, gname));
+        }
+
+        // RHS actions.
+        let mut actions: Vec<String> = Vec::new();
+        let max_ti = pats.iter().map(|p| p.ti).max().unwrap();
+        let can_insert = max_ti + 1 < ntypes && delete_pos.is_none();
+        if can_insert {
+            let nins = rng.below(3);
+            for _ in 0..nins {
+                let tgt_ti = max_ti + 1 + rng.below(ntypes - max_ti - 1);
+                let mut args = Vec::new();
+                let tgt_fields = types[tgt_ti].fields.clone();
+                for (_, tft) in &tgt_fields {
+                    args.push(gen_arg(&mut rng, &types, &mut pats, ri, *tft, false));
+                }
+                actions.push(format!("insert(new {}({}));", types[tgt_ti].name, args.join(", ")));
+            }
+        }
+        if let Some(pos) = update_pos {
+            let var = ensure_fact_var(&mut pats, ri, pos);
+            let (gfi, gname) = guard_field.unwrap();
+            // guard setter + 0..2 extra setters (bools only ever set true)
+            let mut setters: Vec<(String, String)> = Vec::new();
+            setters.push((accessor(&gname, Ft::Bool, "set"), "true".into()));
+            let nextra = rng.below(3);
+            for _ in 0..nextra {
+                let fs = &types[pats[pos].ti].fields;
+                let fi = rng.below(fs.len());
+                if fi == gfi {
+                    continue;
+                }
+                let (fname, ft) = fs[fi].clone();
+                let arg = gen_arg(&mut rng, &types, &mut pats, ri, ft, true);
+                setters.push((accessor(&fname, ft, "set"), arg));
+            }
+            if rng.chance(50) {
+                let body: Vec<String> =
+                    setters.iter().map(|(s, a)| format!("{s}({a})")).collect();
+                actions.push(format!("modify({var}) {{ {} }}", body.join(", ")));
+            } else {
+                for (s, a) in &setters {
+                    actions.push(format!("{var}.{s}({a});"));
+                }
+                actions.push(format!("update({var});"));
+            }
+        }
+        if let Some(pos) = delete_pos {
+            let var = ensure_fact_var(&mut pats, ri, pos);
+            actions.push(format!("delete({var});"));
+        }
+
+        // Render the rule.
         let salience = if rng.chance(35) {
             (rng.below(21) as i64) - 10
         } else {
             0
         };
-        let no_loop = rng.chance(10);
-
-        // Constraints: 0..3 field tests, plus bindings collected for RHS use.
-        let mut constraints: Vec<String> = Vec::new();
-        let mut bindings: Vec<(String, usize)> = Vec::new(); // (var, field idx)
-        let ncmp = rng.below(4);
-        for _ in 0..ncmp {
-            let (fi, (fname, ft)) = {
-                let fi = rng.below(pat.fields.len());
-                (fi, pat.fields[fi].clone())
-            };
-            let _ = fi;
-            let op = match ft {
-                Ft::Bool => *rng.pick(OPS_EQ),
-                _ => *rng.pick(OPS_ORD),
-            };
-            // Cross numeric literal types occasionally (pinned by pr10).
-            let lit_ft = match ft {
-                Ft::I64 if rng.chance(20) => Ft::F64,
-                Ft::F64 if rng.chance(20) => Ft::I64,
-                other => other,
-            };
-            constraints.push(format!("{fname} {op} {}", lit_drl(&mut rng, lit_ft)));
-        }
-        let nbind = rng.below(3);
-        for bi in 0..nbind {
-            let fi = rng.below(pat.fields.len());
-            let var = format!("$b{ri}_{bi}");
-            constraints.push(format!("{var} : {}", pat.fields[fi].0));
-            bindings.push((var, fi));
-        }
-
-        // RHS: 0..2 inserts into strictly-later types.
-        let mut actions: Vec<String> = Vec::new();
-        let can_insert = pat_ti + 1 < ntypes;
-        let pat_var = format!("$p{ri}");
-        let mut used_pat_var = false;
-        if can_insert {
-            let nins = rng.below(3);
-            for _ in 0..nins {
-                let tgt_ti = pat_ti + 1 + rng.below(ntypes - pat_ti - 1);
-                let tgt = &types[tgt_ti];
-                let mut args = Vec::new();
-                for (_, tft) in &tgt.fields {
-                    // arg sources: literal / field binding / getter
-                    let mut candidates: Vec<usize> = pat
-                        .fields
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, (_, ft))| {
-                            ft == tft || (*ft == Ft::I64 && *tft == Ft::F64)
-                        })
-                        .map(|(i, _)| i)
-                        .collect();
-                    let bind_candidates: Vec<&(String, usize)> = bindings
-                        .iter()
-                        .filter(|(_, fi)| {
-                            let ft = pat.fields[*fi].1;
-                            ft == *tft || (ft == Ft::I64 && *tft == Ft::F64)
-                        })
-                        .collect();
-                    let choice = rng.below(100);
-                    if choice < 40 || (candidates.is_empty() && bind_candidates.is_empty()) {
-                        args.push(lit_drl(&mut rng, *tft));
-                    } else if choice < 70 && !bind_candidates.is_empty() {
-                        let (var, _) = rng.pick(&bind_candidates);
-                        args.push(var.clone());
-                    } else if !candidates.is_empty() {
-                        let fi = candidates.remove(rng.below(candidates.len()));
-                        let (fname, ft) = &pat.fields[fi];
-                        args.push(format!("{pat_var}.{}", getter(fname, *ft)));
-                        used_pat_var = true;
-                    } else {
-                        args.push(lit_drl(&mut rng, *tft));
-                    }
-                }
-                actions.push(format!("insert(new {}({}));", tgt.name, args.join(", ")));
-            }
-        }
-
-        let binding_prefix = if used_pat_var || rng.chance(30) {
-            format!("{pat_var} : ")
-        } else {
-            String::new()
-        };
         drl.push_str(&format!("rule \"R{ri}\"\n"));
         if salience != 0 {
             drl.push_str(&format!("salience {salience}\n"));
         }
-        if no_loop {
+        if rng.chance(10) {
             drl.push_str("no-loop\n");
         }
-        drl.push_str(&format!(
-            "when\n    {binding_prefix}{}({})\nthen\n",
-            pat.name,
-            constraints.join(", ")
-        ));
+        drl.push_str("when\n");
+        for p in &pats {
+            let head = match &p.fact_var {
+                Some(v) => format!("{v} : "),
+                None => String::new(),
+            };
+            drl.push_str(&format!(
+                "    {head}{}({})\n",
+                types[p.ti].name,
+                p.constraints.join(", ")
+            ));
+        }
+        drl.push_str("then\n");
         for a in &actions {
             drl.push_str(&format!("    {a}\n"));
         }
         drl.push_str("end\n");
     }
 
-    // Facts: 0..8, values from the same small domains as literals.
-    let nfacts = rng.below(9);
+    // Facts: 0..6.
+    let nfacts = rng.below(7);
     let mut facts = Vec::new();
     for _ in 0..nfacts {
         let ti = rng.below(ntypes);
@@ -284,4 +386,59 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         "drl": drl,
     });
     (name, scenario)
+}
+
+fn ensure_fact_var(pats: &mut [GenPattern], ri: usize, pos: usize) -> String {
+    if pats[pos].fact_var.is_none() {
+        pats[pos].fact_var = Some(format!("$p{ri}_{pos}"));
+    }
+    pats[pos].fact_var.clone().unwrap()
+}
+
+/// An RHS argument of target type `tft`: literal, earlier field binding, or
+/// getter on some pattern's fact var. `only_true_bools` guards setter args.
+fn gen_arg(
+    rng: &mut Rng,
+    types: &[TypeDef],
+    pats: &mut [GenPattern],
+    ri: usize,
+    tft: Ft,
+    only_true_bools: bool,
+) -> String {
+    let choice = rng.below(100);
+    // Bool args in monotone-guard positions must be literal `true`.
+    if tft == Ft::Bool && only_true_bools {
+        return "true".into();
+    }
+    if choice >= 40 {
+        // Try a binding.
+        let binds: Vec<String> = pats
+            .iter()
+            .flat_map(|p| {
+                p.bindings
+                    .iter()
+                    .filter(|(_, _, ft)| *ft == tft || (*ft == Ft::I64 && tft == Ft::F64))
+                    .map(|(v, _, _)| v.clone())
+            })
+            .collect();
+        if choice < 70 && !binds.is_empty() {
+            return rng.pick(&binds).clone();
+        }
+        // Try a getter.
+        let mut cands: Vec<(usize, usize)> = Vec::new(); // (pattern pos, field idx)
+        for (pi, p) in pats.iter().enumerate() {
+            for (fi, (_, ft)) in types[p.ti].fields.iter().enumerate() {
+                if *ft == tft || (*ft == Ft::I64 && tft == Ft::F64) {
+                    cands.push((pi, fi));
+                }
+            }
+        }
+        if !cands.is_empty() {
+            let (pi, fi) = *rng.pick(&cands);
+            let var = ensure_fact_var(pats, ri, pi);
+            let (fname, ft) = types[pats[pi].ti].fields[fi].clone();
+            return format!("{var}.{}()", accessor(&fname, ft, "get"));
+        }
+    }
+    lit_drl(rng, tft, only_true_bools)
 }

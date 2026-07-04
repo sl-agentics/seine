@@ -1,0 +1,49 @@
+{
+ "name": "u03_pending_order_after_modify",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    },
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "n": 1,
+    "t": false
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "n": 2,
+    "t": false
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "n": 3,
+    "t": false
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "n": 4,
+    "t": false
+   }
+  }
+ ],
+ "drl": "rule \"see\" salience -10 when P(n > 0) then end\nrule \"upd1\" salience 10 when $p : P(n == 1, t == false) then modify($p) { setT(true), setN(10) } end\nrule \"upd3\" salience 5 when $p : P(n == 3, t == false) then modify($p) { setT(true), setN(30) } end\n"
+}

@@ -216,6 +216,38 @@ update; bool setters only ever write true), inserts keep the type-index
 DAG rule (target index > max pattern index). Bare update() (all-fields
 mask) is NEVER generated — it non-terminates (j21).
 
+### D-014: Incremental join-network semantics PINNED (probes u01–u10 +
+fuzz counterexamples fz_7_58/87/145/159, all now regressions)
+The Phase-2 fuzzer found 4 divergences in its first 200 cases; resolving
+them pinned the full PHREAK staging model. The engine now maintains a real
+per-rule join network:
+- **Eager alpha, lazy beta:** alpha tests are evaluated at insert/update
+  time (a fact that starts alpha-passing only after a later update takes
+  that LATER queue position — fz_7_58). Beta (join) processing is deferred
+  per rule until the agenda next considers it, so deltas from several
+  firings can merge into ONE batch (fz_7_87: two inserts from one RHS).
+- **Segment linking (fz_7_145):** while any pattern position has zero
+  alpha-active facts the rule is unlinked — staged events accumulate
+  (pruning/cancellation still applies) and are processed as one batch when
+  every position has data. This is why "initial facts + later inserts" can
+  be one batch for a rule whose first pattern started empty.
+- **Batch processing per join** (u05–u10): staged left tuples first, each
+  against the FULL right memory; then staged right facts against PRE-batch
+  lefts; update-driven new pairs before both, in update-event order (u07).
+  Emissions REVERSE when propagated to the next join (linked-list prepend)
+  and append unreversed at the terminal. Memory orders: alpha and prefix
+  memories BLOCK-PREPEND new batches (FIFO within batch; u09 pinned
+  [new..., old...] right iteration, fz_7_159 pinned batch-2-before-batch-1
+  prefix iteration); the terminal match list keeps kept entries in place
+  and appends emissions (u01–u04: still-matching updates keep position).
+- Deactivate→reactivate cycles lose list position (re-derived tuples).
+- Curated corpus after this work: 55/55 PASS (`make diff`).
+- NOT pinned (documented leniencies): mixed insert+update emission
+  interleaving within one batch beyond u07's coverage; multi-update single
+  RHS refire ordering (generator emits ≤1 update per RHS); alpha-memory
+  iteration order after unlink/relink cycles; setters without a following
+  update() (Drools leaves stale matches; generator always pairs them).
+
 ---
 
 **HANDOFF @ checkpoint 2** — Phase 0 COMPLETE. Proven: full pipeline

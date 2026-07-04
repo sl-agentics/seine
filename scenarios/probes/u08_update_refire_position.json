@@ -1,0 +1,3 @@
+{"name":"u08_update_refire_position","types":[{"name":"P","fields":[{"name":"n","type":"i64"}]},{"name":"Q","fields":[{"name":"m","type":"i64"},{"name":"g","type":"bool"}]},{"name":"D","fields":[{"name":"v","type":"i64"}]}],
+"facts":[{"type":"P","fields":{"n":1}},{"type":"Q","fields":{"m":5,"g":false}},{"type":"Q","fields":{"m":7,"g":false}},{"type":"D","fields":{"v":1}}],
+"drl":"rule \"J\" when P($a : n) Q(m >= $a) then end\nrule \"updb\" salience -5 when $q : Q(m == 7, g == false) then modify($q) { setG(true), setM(8) } end\nrule \"upda\" salience -6 when $q : Q(m == 5, g == false) then modify($q) { setG(true), setM(6) } end\n"}

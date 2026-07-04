@@ -1,0 +1,50 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    T1(f0 > 6.0, f0 > 5.5)\nthen\nend\nrule \"R1\"\nwhen\n    T0($b1_0_0 : f0, $b1_0_1 : f0)\n    T1($b1_1_0 : f0, $b1_1_1 : f0)\n    T1()\nthen\nend\nrule \"R2\"\nsalience 2\nwhen\n    T1(f0 > 4.0)\n    $p2_1 : T0(f0 > \"\")\n    T1(f0 <= 0, $b2_2_0 : f0)\nthen\n    delete($p2_1);\nend\nrule \"R3\"\nwhen\n    T0($b3_0_0 : f0, $b3_0_1 : f0)\nthen\n    insert(new T1(1.5));\n    insert(new T1(4.0));\nend\nrule \"R4\"\nsalience -10\nwhen\n    T1($b4_0_0 : f0)\n    $p4_1 : T1(f0 != -1, $b4_1_0 : f0)\n    T1(f0 == -1, f0 != $b4_0_0, $b4_2_0 : f0, $b4_2_1 : f0)\nthen\n    delete($p4_1);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1.5
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "b"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 5.0
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "a"
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_159",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}
