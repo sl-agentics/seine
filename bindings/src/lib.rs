@@ -8,9 +8,9 @@
 //! - The binding adds ZERO semantics: type widening (i8/16/32 -> i64,
 //!   f32 -> f64) is exact and done in Rust; NULLS ARE REJECTED loudly —
 //!   the certified subset has no null semantics.
-//! - Sessions are ONE-SHOT (build -> insert -> fire -> read): the
-//!   certified envelope is insert-all-then-fire-once. A second fire()
-//!   raises.
+//! - Sessions support MULTI-FIRE (D-046): insert -> fire -> insert more
+//!   -> fire again, each fire returning ITS OWN delta. The incremental
+//!   envelope is differentially certified (epoch scenarios + campaign).
 //! - Callbacks are OBSERVERS only: `on_fire` receives plain data after
 //!   the (GIL-free) run completes, in firing order — observationally
 //!   identical to streaming for an immutable result, and working memory
@@ -475,8 +475,6 @@ struct PySession {
     engine: Option<Engine>,
     schemas: Vec<TypeSchema>,
     drl: String,
-    /// handles Python inserted (fact provenance for the delta)
-    py_handles: Vec<u32>,
     built: bool,
 }
 
@@ -509,10 +507,9 @@ impl PySession {
                 .enumerate()
                 .map(|(ci, (n, _))| (n.clone(), cols[ci][r].clone()))
                 .collect();
-            let id = engine
+            engine
                 .insert(type_name, row)
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
-            self.py_handles.push(id.0);
         }
         Ok(())
     }
@@ -530,7 +527,6 @@ impl PySession {
             engine: None,
             schemas: Vec::new(),
             drl,
-            py_handles: Vec::new(),
             built: false,
         };
         if let Some(f) = facts {
@@ -606,17 +602,17 @@ impl PySession {
             vals.push((fname.clone(), v));
         }
         let engine = self.engine.as_mut().unwrap();
-        let id = engine
+        engine
             .insert(&type_name, vals)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        self.py_handles.push(id.0);
         Ok(())
     }
 
-    /// Run the rules to quiescence. ONE-SHOT: a second call raises.
-    /// `on_fire(rule, matches)` is an OBSERVER invoked per firing after
-    /// the run completes, in firing order; matches is a list of
-    /// (type, handle) pairs. The run itself releases the GIL.
+    /// Run the rules to quiescence and return THIS fire's delta.
+    /// Sessions are multi-fire (D-046): insert more facts afterwards and
+    /// fire again. `on_fire(rule, matches)` is an OBSERVER invoked per
+    /// firing after the run completes, in firing order; matches is a
+    /// list of (type, handle) pairs. The run itself releases the GIL.
     #[pyo3(signature = (fire_limit=100_000, on_fire=None))]
     fn fire(
         &mut self,
@@ -625,10 +621,9 @@ impl PySession {
         on_fire: Option<Bound<'_, PyAny>>,
     ) -> PyResult<PyResult_> {
         self.ensure_built()?;
-        let mut engine = self
-            .engine
-            .take()
-            .ok_or_else(|| PyRuntimeError::new_err("one-shot session: fire() already called"))?;
+        let engine = self.engine.as_mut().expect("built");
+        let pre_live: std::collections::HashSet<u32> =
+            engine.facts().iter().map(|f| f.handle).collect();
         let firings = py
             .allow_threads(|| engine.fire_all(fire_limit))
             .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
@@ -645,9 +640,11 @@ impl PySession {
             }
         }
 
-        // WM delta + final view
+        // Per-fire WM delta (D-046): derived = live-after minus
+        // live-before (rule-inserted this fire; Python inserts between
+        // fires are in the before-set); deleted = before minus after.
+        let engine = self.engine.as_ref().expect("built");
         let live = engine.facts();
-        let py_set: std::collections::HashSet<u32> = self.py_handles.iter().copied().collect();
         let live_set: std::collections::HashSet<u32> = live.iter().map(|f| f.handle).collect();
         let mut facts: HashMap<String, RecordBatch> = HashMap::new();
         let mut derived: HashMap<String, RecordBatch> = HashMap::new();
@@ -657,17 +654,17 @@ impl PySession {
             let new: Vec<&FactView> = all
                 .iter()
                 .copied()
-                .filter(|f| !py_set.contains(&f.handle))
+                .filter(|f| !pre_live.contains(&f.handle))
                 .collect();
             facts.insert(schema.name.clone(), batch_for_type(schema, &all)?);
             derived.insert(schema.name.clone(), batch_for_type(schema, &new)?);
         }
-        let deleted: Vec<i64> = self
-            .py_handles
+        let mut deleted: Vec<i64> = pre_live
             .iter()
             .filter(|h| !live_set.contains(h))
             .map(|&h| h as i64)
             .collect();
+        deleted.sort_unstable();
 
         // firing audit (long format)
         let mut a = AuditRows {

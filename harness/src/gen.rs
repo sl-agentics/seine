@@ -658,7 +658,8 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         drl.push_str("end\n");
     }
 
-    // Facts: 0..6.
+    // Facts: 0..6, plus MULTI-FIRE epochs (D-046) in ~30% of scenarios:
+    // 1-2 extra insert-then-fire batches over the same session.
     let nfacts = rng.below(7);
     let mut facts = Vec::new();
     for _ in 0..nfacts {
@@ -669,6 +670,24 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             fields.insert(fname.clone(), lit_json(&mut rng, *ft));
         }
         facts.push(json!({"type": t.name, "fields": fields}));
+    }
+    let mut epochs = Vec::new();
+    if rng.chance(30) {
+        let nepochs = 1 + rng.below(2);
+        for _ in 0..nepochs {
+            let nef = 1 + rng.below(3);
+            let mut efacts = Vec::new();
+            for _ in 0..nef {
+                let ti = rng.below(ntypes);
+                let t = &types[ti];
+                let mut fields = serde_json::Map::new();
+                for (fname, ft) in &t.fields {
+                    fields.insert(fname.clone(), lit_json(&mut rng, *ft));
+                }
+                efacts.push(json!({"type": t.name, "fields": fields}));
+            }
+            epochs.push(json!({"facts": efacts}));
+        }
     }
 
     let types_json: Vec<J> = types
@@ -683,12 +702,15 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         })
         .collect();
 
-    let scenario = json!({
+    let mut scenario = json!({
         "name": name,
         "types": types_json,
         "facts": facts,
         "drl": drl,
     });
+    if !epochs.is_empty() {
+        scenario["epochs"] = json!(epochs);
+    }
     (name, scenario)
 }
 

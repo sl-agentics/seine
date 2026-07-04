@@ -369,6 +369,35 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-046: multi-fire CERTIFIED — the incremental envelope
+Scenario schema gains optional `epochs: [{facts: [...]}]`: each epoch
+inserts a batch into the SAME session and calls fireAllRules again;
+the firing log continues across epochs (per-call fire limit, both
+runners).
+- The engine needed exactly ONE change: post-build `Engine::insert`
+  now propagates immediately (session.insert semantics — staging and
+  link/queue effects at insert time, agenda evaluation at the next
+  fire). Everything else — staging accumulation, linking, accumulate
+  float state, sticky dynamic item salience, eager re-entry — was
+  already incremental-correct: probes mf1..mf6 passed on first
+  differential contact after the fix.
+- Pins: old tuples do NOT refire on a new fire call; CE flips across
+  quiescence behave as live staging; accumulate reverse/add sequences
+  CONTINUE across fires (float state carries bit-exactly); update-guard
+  rules re-trigger for fresh facts only; the stale-item-salience
+  machinery (D-043) spans quiescence.
+- Generator emits epochs in ~30% of scenarios (external inserts are
+  exempt from the insert-above DAG discipline — per-fact guard work
+  stays bounded); the minimizer drops whole epochs and epoch facts.
+- CERTIFIED: zero divergences over 5 seeds (42/7/123/777/999 x 10,000
+  with epochs in the grammar; zero xfail draws).
+- Bindings: the one-shot restriction is LIFTED — fire() is repeatable,
+  each call returns ITS OWN delta (derived = live-after minus
+  live-before, deleted likewise; Python inserts between fires belong
+  to the before-set). Boundary tests cover quiescent refires,
+  per-fire deltas, and epochs-scenario parity driven insert/fire/insert
+  through the Python API against the native runner.
+
 ### D-045: Layer-2 Pythonic authoring — compiles to DRL TEXT
 `@seine.fact` annotated classes (int/float/str/bool -> the subset
 types; annotation order = constructor order) whose class attributes are
@@ -754,6 +783,14 @@ Session 5. Re-examining the D-035 xfails with fresh probes disproved the
   scaffolding is deleted. Dead code cleanup: the unused FIFO staging
   variants and Node.first are gone.
 - Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
+
+**HANDOFF @ multi-fire close (Session 6, 2026-07-04)** — D-046
+certified the incremental envelope (epochs in harness + generator,
+5x10k clean) and the bindings' one-shot restriction is lifted: sessions
+insert/fire repeatedly with per-fire deltas. v0.1.0 tags the prior
+one-shot state. Remaining ideas (none started): external update/delete
+by handle (needs its own probe wave — only inserts cross the boundary
+today), row-object ingestion sugar, wheel CI.
 
 **HANDOFF @ bindings Layer 2 (Session 6, 2026-07-04)** — Pythonic
 authoring shipped (D-045): @seine.fact classes + Rule builder compile

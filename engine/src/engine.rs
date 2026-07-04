@@ -1163,7 +1163,7 @@ impl Engine {
         let salience = match &def.salience {
             drl::SalienceSpec::Static(n) => EngineSalience::Static(*n as i32),
             drl::SalienceSpec::Expr { a, op } => {
-                let mut resolve = |t: &drl::SalTerm| -> Result<SalSrc, EngineError> {
+                let resolve = |t: &drl::SalTerm| -> Result<SalSrc, EngineError> {
                     match t {
                         drl::SalTerm::Lit(n) => Ok(SalSrc::Lit(*n)),
                         drl::SalTerm::Var(v) => {
@@ -1255,7 +1255,15 @@ impl Engine {
         if let Some((extra, _)) = fields.first() {
             return Err(EngineError(format!("{type_name}: unknown field {extra}")));
         }
-        self.store.insert(tid, ordered).map_err(EngineError)
+        let id = self.store.insert(tid, ordered).map_err(EngineError)?;
+        // Multi-fire (D-046): before the first fire_all the initial
+        // batch propagates in its prologue; afterwards each insert
+        // stages immediately (session.insert semantics — agenda
+        // evaluation still waits for the next fire).
+        if self.lists_built {
+            self.on_insert(id, None);
+        }
+        Ok(id)
     }
 
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {

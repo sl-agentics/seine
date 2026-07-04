@@ -80,11 +80,30 @@ def test_none_scalar_rejected_in_dict_path():
 
 # ----------------------------------------------------------------- lifecycle
 
-def test_one_shot_fire():
-    s = seine.Session("rule R when T($x : v) then end\n", {"T": {"v": [1.0]}})
-    s.fire()
-    with pytest.raises(RuntimeError, match="one-shot"):
-        s.fire()
+def test_multi_fire_deltas():
+    s = seine.Session("rule R when T(v > 1.0) then end\n", {"T": {"v": [2.0]}})
+    r1 = s.fire()
+    assert r1.fired == 1
+    # quiescent refire: nothing new
+    r2 = s.fire()
+    assert r2.fired == 0
+    # incremental insert -> only the NEW fact fires
+    s.insert("T", {"v": [3.0, 0.5]})
+    r3 = s.fire()
+    assert r3.fired == 1
+    audit = pl.DataFrame(r3.firings())
+    assert json.loads(audit["values_json"][0])["v"] == 3.0
+
+
+def test_multi_fire_derived_is_per_fire():
+    drl = "rule R when $t : T(v >= 2.0) then insert(new U($t.getV())); end\n"
+    s = seine.Session(drl, {"T": {"v": [2.0]}, "U": {"v": [0.0]}})
+    r1 = s.fire()
+    assert pl.DataFrame(r1.derived()["U"])["v"].to_list() == [2.0]
+    s.insert("T", {"v": [5.0]})
+    r2 = s.fire()
+    # ONLY this fire's derivation
+    assert pl.DataFrame(r2.derived()["U"])["v"].to_list() == [5.0]
 
 
 def test_fire_limit_is_an_error_not_a_hang():
@@ -146,6 +165,8 @@ def _native_firings(scn_path):
     "scenarios/probes/se1.json",
     "scenarios/probes/acc4.json",
     "scenarios/phase2/j07_refire_order_after_updates.json",
+    "scenarios/probes/mf3.json",
+    "scenarios/probes/mf5.json",
 ])
 def test_parity_with_native_harness(scenario):
     """Corpus scenarios pushed through the Python boundary must fire
@@ -168,11 +189,23 @@ def test_parity_with_native_harness(scenario):
     for fact in scn["facts"]:
         s.insert_row(fact["type"], fact["fields"])
     res = s.fire()
-    audit = pl.DataFrame(res.firings())
+    audits = [pl.DataFrame(res.firings())]
+    total = res.fired
+    # multi-fire epochs (D-046): insert batch, fire again, concatenate
+    for epoch in scn.get("epochs", []):
+        for fact in epoch.get("facts", []):
+            s.insert_row(fact["type"], fact["fields"])
+        r = s.fire()
+        a = pl.DataFrame(r.firings())
+        if len(a):
+            a = a.with_columns((pl.col("seq") + total).alias("seq"))
+        audits.append(a)
+        total += r.fired
+    audit = pl.concat([a for a in audits if len(a)]) if any(len(a) for a in audits) else audits[0]
 
     native = _native_firings(os.path.join(REPO, scenario))
-    assert res.fired == len(native)
-    if res.fired:
+    assert total == len(native)
+    if total:
         by_seq = audit.group_by("seq", maintain_order=True).agg(
             pl.col("rule").first(), pl.col("values_json")
         )
