@@ -347,12 +347,23 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             } else {
                 0
             };
-            // ~10% of fresh patterns become accumulate/collect; the
-            // function (incl. collect) is picked once constraints are
-            // generated (D-038).
-            let ce = if rng.chance(10) { 3 } else { ce };
+            // ~10% of fresh patterns become accumulate (3) or collect
+            // (4) — decided HERE so the join-constraint gate can exclude
+            // collect sources (subnetwork fence, D-041); the function
+            // itself is picked once constraints are generated.
+            let ti = rng.below(ntypes);
+            let ce = if rng.chance(10) {
+                let numeric = types[ti]
+                    .fields
+                    .iter()
+                    .any(|(_, ft)| matches!(ft, Ft::I64 | Ft::F64));
+                let c = rng.below(100);
+                if c < 15 || (!numeric && c < 55) { 4 } else { 3 }
+            } else {
+                ce
+            };
             pats.push(GenPattern {
-                ti: rng.below(ntypes),
+                ti,
                 ce,
                 fact_var: None,
                 constraints: Vec::new(),
@@ -444,10 +455,14 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     pats[pi].bindings.push((var, fi, ft));
                 }
             }
-            // Accumulate/collect materialization (D-038): pick the
-            // function by the source's numeric supply; the result var is
-            // an ordinary downstream binding (except collect).
-            if pats[pi].ce == 3 {
+            // Accumulate/collect materialization (D-038/D-041): the
+            // collect-vs-accumulate split was decided at creation; pick
+            // the function by the source's numeric supply. The result
+            // var is an ordinary downstream binding (except collect).
+            if pats[pi].ce == 4 {
+                let rvar = format!("$a{ri}_{pi}");
+                pats[pi].acc = Some(("collect".into(), String::new(), rvar));
+            } else if pats[pi].ce == 3 {
                 let numeric: Vec<(usize, String, Ft)> = types[pats[pi].ti]
                     .fields
                     .iter()
@@ -456,12 +471,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     .map(|(i, (n, ft))| (i, n.clone(), *ft))
                     .collect();
                 let choice = rng.below(100);
-                if choice < 15 || (numeric.is_empty() && choice < 55) {
-                    // collect
-                    pats[pi].ce = 4;
-                    let rvar = format!("$a{ri}_{pi}");
-                    pats[pi].acc = Some(("collect".into(), String::new(), rvar));
-                } else if choice < 35 || numeric.is_empty() {
+                if choice < 25 || numeric.is_empty() {
                     // count()
                     let rvar = format!("$a{ri}_{pi}");
                     pats[pi].acc = Some(("count".into(), String::new(), rvar.clone()));
