@@ -449,6 +449,13 @@ impl Engine {
                             } else {
                                 self.nets[ri].nodes[pos - 1].s_right.add_upd(f, origin);
                             }
+                        } else if pos > 0 {
+                            // mask miss: immediate right-memory reAdd, no
+                            // staging (fz_42_4359)
+                            let env =
+                                JoinEnvImpl { store: &self.store, rule: &self.rules[ri] };
+                            let key = phreak::JoinEnv::key_of_right(&env, pos - 1, f);
+                            self.nets[ri].nodes[pos - 1].re_add_right_fact(f, key);
                         }
                     }
                     (false, false) => {}

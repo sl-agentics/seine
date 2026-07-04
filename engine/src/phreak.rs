@@ -190,6 +190,16 @@ pub struct Node {
 }
 
 impl Node {
+    /// BetaNode.modifyObject on a mask MISS: the right tuple is re-added
+    /// (removeAdd to the END, re-keyed) immediately, without staging and
+    /// without child updates (fz_42_4359/3433 vs fz_42_1057 pins).
+    pub fn re_add_right_fact(&mut self, f: FactId, key: Option<Vec<Value>>) {
+        if let Some(i) = self.rights.iter().position(|(x, _)| *x == f) {
+            self.rights.remove(i);
+            self.rights.push((f, key));
+        }
+    }
+
     pub fn new(indexed: bool, first: bool) -> Node {
         Node {
             lefts: Vec::new(),
