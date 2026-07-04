@@ -1,0 +1,57 @@
+{
+ "name": "acc6",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.1,
+    "g": true
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.2,
+    "g": false
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 0.3,
+    "g": true
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule R1 when accumulate( P($a : v); $s : sum($a) ) then end\nrule S salience -5 when T() then insert(new P(0.4, true)); end\n"
+}

@@ -1,0 +1,87 @@
+{
+ "name": "acc9",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "w",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "OutT",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "k": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "k": 1,
+    "v": 0.1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "k": 1,
+    "v": 0.2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "k": 2,
+    "v": 0.3
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "w": 0.25
+   }
+  }
+ ],
+ "drl": "rule R1 when A($k : k) accumulate( P(k == $k, $a : v); $s : sum($a) ) then insert(new OutT($s)); end\nrule R2 when A($k : k) accumulate( P(k == $k, $a : v); $s : sum($a) ) Q(w < $s) then end\n"
+}

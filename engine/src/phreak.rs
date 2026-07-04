@@ -203,6 +203,10 @@ pub enum Kind {
     Join,
     Not,
     Exists,
+    /// Accumulate/collect (D-038): memories and staging live here; the
+    /// per-left contexts and result propagation are engine-side
+    /// (eval_acc_node) because results are synthetic store facts.
+    Acc,
 }
 
 /// Beta-memory index kind (D-032). Equality hash indexes apply to every
@@ -294,6 +298,57 @@ impl Node {
             temp_next: HashMap::new(),
             index,
         }
+    }
+
+    /// Accumulate-node memory accessors (D-038): the engine-side
+    /// evaluator manages contexts and results but reuses the node's
+    /// memories, staging and bucket conventions.
+    pub fn lefts_bucket_pub(&self, key: Option<&Vec<Value>>) -> Vec<Tup> {
+        self.lefts_bucket(key)
+    }
+
+    pub fn rights_bucket_pub(&self, key: Option<&Vec<Value>>) -> Vec<FactId> {
+        self.rights_bucket(key)
+    }
+
+    pub fn left_key_pub(&self, l: &Tup) -> Option<Vec<Value>> {
+        self.left_key(l).cloned()
+    }
+
+    pub fn right_key_pub(&self, f: FactId) -> Option<Vec<Value>> {
+        self.rights.iter().find(|(x, _)| *x == f).and_then(|(_, k)| k.clone())
+    }
+
+    pub fn push_left(&mut self, l: Tup, key: Option<Vec<Value>>) {
+        self.lefts.push((l, key));
+    }
+
+    pub fn remove_left(&mut self, l: &Tup) {
+        if let Some(i) = self.lefts.iter().position(|(x, _)| x == l) {
+            self.lefts.remove(i);
+        }
+    }
+
+    /// removeAdd for a staged left update: re-key and move to the END.
+    pub fn re_add_left_tuple(&mut self, l: &Tup, key: Option<Vec<Value>>) {
+        self.remove_left(l);
+        self.lefts.push((l.clone(), key));
+    }
+
+    pub fn push_right(&mut self, f: FactId, key: Option<Vec<Value>>) {
+        self.rights.push((f, key));
+    }
+
+    pub fn remove_right(&mut self, f: FactId) {
+        if let Some(i) = self.rights.iter().position(|(x, _)| *x == f) {
+            self.rights.remove(i);
+        }
+    }
+
+    /// removeAdd for a staged right update: re-key and move to the END.
+    pub fn re_add_right_tuple(&mut self, f: FactId, key: Option<Vec<Value>>) {
+        self.remove_right(f);
+        self.rights.push((f, key));
     }
 
     fn eq_indexed(&self) -> bool {
@@ -553,6 +608,7 @@ pub fn do_node<E: JoinEnv>(
     match node.kind {
         Kind::Join => do_join_node(env, node_idx, node, sl, sr, trg),
         Kind::Not | Kind::Exists => do_existential_node(env, node_idx, node, sl, sr, trg),
+        Kind::Acc => unreachable!("accumulate nodes evaluate engine-side"),
     }
 }
 

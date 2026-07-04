@@ -369,6 +369,58 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-038: accumulate/collect semantics PINNED (probes acc1..acc16)
+Phase 3b scope: inline `accumulate( <src> ; $r : func($a) )` with the
+built-ins sum/count/average/min/max, plus `ArrayList()/List() from
+collect( <src> )`. Custom accumulate functions, multi-function
+accumulates, `from accumulate`, result-pattern constraints, and fact/
+extra bindings inside the source are FENCED (parse errors). Pins:
+- **Match rendering:** the accumulate CE contributes its RESULT object
+  to the match (a Number; collect: a Collection) — a leading accumulate
+  is CE-first and matches on InitialFact too (acc1). The oracle
+  canonicalizes Numbers as {type: Long|Double, fields:{value}} and any
+  Collection as {type: "Collection", fields:{value:[<renderings>]}}
+  with ORDER-significant elements; java.util imports are added to the
+  oracle prelude.
+- **Result types:** sum(i64)->Long, sum(f64)->Double, count->Long,
+  average->Double, min/max -> the argument's type (acc1).
+- **Empty-source results:** sum->0/0.0 and count->0 still fire;
+  average/min/max of an empty set return NULL and the tuple does NOT
+  propagate (no firing; a previously-propagated child is retracted) —
+  default accumulateNullPropagation=false (acc2/acc10).
+- **EXACT float sequencing (the heart of the port):**
+  - initial fold consumes staged inserts NEWEST-FIRST: sum{0.1,0.2,0.3}
+    printed exactly 0.6 = (0.3+0.2)+0.1, and average's total matched the
+    same order (0.6/3 = 0.19999999999999998) (acc1);
+  - deletes REVERSE the stored per-match contribution: 0.6 - 0.2 =
+    0.39999999999999997, not a 0.4 recompute (acc4);
+  - updates are reverse(stored)+accumulate(new): (0.6-0.2)+0.25 =
+    0.6499999999999999 (acc5); inserts add to the running total (acc6);
+  - min/max do not support reverse: a removal reinits and REFOLDS over
+    the remaining match list (order-insensitive result);
+  - a value-unchanged mask-overlapping update still runs the
+    reverse+accumulate pair AND refires (acc7); a mask-miss update
+    (fields outside source constraints + arg binding) does nothing
+    (acc13).
+- **collect:** ArrayList semantics — initial fold appends newest-first
+  ([0.3,0.2,0.1] for insertion order 0.1,0.2,0.3), reverse removes
+  IN PLACE preserving order, later inserts APPEND ([0.3,0.1,0.4])
+  (acc8). Empty collect propagates an empty list.
+- **Per-left contexts** with beta-constrained sources (k == $x), the
+  result usable in later patterns and RHS args (acc9); accumulate
+  composes with not/exists and multiple accumulates per rule
+  (acc14..16). Left updates: bucket-unchanged still-matching matches
+  KEEP their stored contributions (our functions have no required
+  left declarations); a join-key change reinits and refolds over the
+  new bucket (acc12: 0.7); a dying left just discards its context
+  (acc11).
+- PhreakAccumulateNode phase order (sources): leftDel, rightDel,
+  rightUpd (join-style right reorder), leftUpd (left reorder),
+  rightIns, leftIns; touched lefts collect into a temp TupleSets and
+  results evaluate at the END (temp inserts head-first, then updates),
+  each ensuring/updating a REUSED result fact handle and staging the
+  single result child as insert/update/delete-on-null.
+
 ### D-037: TRUE SHARED-NODE TRIE + name-sensitive constraint identity
 ### (fz_42_297/580/952, probes ne_t13..t15) — supersedes D-036's
 ### "per-rule copies suffice" conclusion

@@ -10,6 +10,11 @@
 //! attr       := "salience" ["-"] INT | "no-loop" [BOOL]
 //! pattern    := ["not"|"exists"] [ "$id" ":" ] IDENT "(" [constraint ("," constraint)*] ")"
 //!               (bindings are rejected inside not/exists patterns — D-031)
+//!             | "accumulate" "(" pattern ";" "$id" ":" accfunc "(" ["$id"] ")" ")"
+//!             | "$id" ":" ("List"|"ArrayList"|"Collection") "(" ")" "from" "collect" "(" pattern ")"
+//! accfunc    := "sum" | "count" | "average" | "min" | "max"
+//!               (custom/multi-function accumulates and `from accumulate`
+//!                are out of subset — D-038)
 //! constraint := "$id" ":" IDENT            (field binding)
 //!             | IDENT cmpop (literal|"$id") (field test, RHS literal or binding)
 //!             | IDENT "matches" STRING      (literal regex, String fields)
@@ -96,12 +101,38 @@ pub enum CeKind {
     Exists,
 }
 
+/// Built-in accumulate functions (D-038). Collect is `from collect`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccFunc {
+    Sum,
+    Count,
+    Average,
+    Min,
+    Max,
+    Collect,
+}
+
+/// Inline accumulate / collect spec attached to a pattern whose
+/// type/constraints describe the SOURCE (D-038). The source's field
+/// bindings are scoped inside; only `arg` may be bound there.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AccSpec {
+    pub func: AccFunc,
+    /// The source binding accumulated over (None for count()/collect).
+    pub arg: Option<String>,
+    /// The result binding, visible downstream.
+    pub result_var: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Pattern {
     pub binding: Option<String>,
     pub type_name: String,
     pub constraints: Vec<Constraint>,
     pub ce: CeKind,
+    /// Some(_) makes this an accumulate/collect CE over the source
+    /// described by type_name/constraints (D-038).
+    pub acc: Option<AccSpec>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -382,6 +413,12 @@ impl Parser {
         } else {
             CeKind::Positive
         };
+        if self.at_kw("accumulate") {
+            if ce != CeKind::Positive {
+                return Err(DrlError("not/exists over accumulate not in subset".into()));
+            }
+            return self.accumulate_pattern();
+        }
         let first = self.ident()?;
         let (binding, type_name) = if first.starts_with('$') {
             self.expect_sym(":")?;
@@ -405,6 +442,50 @@ impl Parser {
         } else {
             self.next()?;
         }
+        if self.at_kw("from") {
+            self.next()?;
+            if !self.at_kw("collect") {
+                return Err(DrlError(
+                    "`from` is only supported as `from collect` (D-038)".into(),
+                ));
+            }
+            self.next()?;
+            if ce != CeKind::Positive {
+                return Err(DrlError("not/exists over collect not in subset".into()));
+            }
+            if !matches!(type_name.as_str(), "List" | "ArrayList" | "Collection") {
+                return Err(DrlError(format!(
+                    "collect result pattern must be List/ArrayList/Collection, got {type_name}"
+                )));
+            }
+            if !constraints.is_empty() {
+                return Err(DrlError(
+                    "constraints on the collect result pattern are not in subset".into(),
+                ));
+            }
+            let result_var = binding
+                .ok_or_else(|| DrlError("collect result must be bound (`$l : List()`)".into()))?;
+            self.expect_sym("(")?;
+            let src = self.pattern()?;
+            self.expect_sym(")")?;
+            if src.ce != CeKind::Positive || src.acc.is_some() {
+                return Err(DrlError("collect source must be a plain pattern".into()));
+            }
+            if src.binding.is_some()
+                || src.constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
+            {
+                return Err(DrlError(
+                    "bindings inside a collect source are not in subset".into(),
+                ));
+            }
+            return Ok(Pattern {
+                binding: None,
+                type_name: src.type_name,
+                constraints: src.constraints,
+                ce: CeKind::Positive,
+                acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var }),
+            });
+        }
         if ce != CeKind::Positive {
             // Bindings inside not/exists are scoped out in Drools; the
             // subset rejects them outright (D-031).
@@ -416,7 +497,69 @@ impl Parser {
                 ));
             }
         }
-        Ok(Pattern { binding, type_name, constraints, ce })
+        Ok(Pattern { binding, type_name, constraints, ce, acc: None })
+    }
+
+    /// `accumulate( <source pattern> ; $r : func([$arg]) )` — built-in
+    /// functions only; multi-function and custom (init/action/result)
+    /// accumulates are out of subset (D-038).
+    fn accumulate_pattern(&mut self) -> Result<Pattern, DrlError> {
+        self.expect_kw("accumulate")?;
+        self.expect_sym("(")?;
+        let src = self.pattern()?;
+        if src.ce != CeKind::Positive || src.acc.is_some() || src.binding.is_some() {
+            return Err(DrlError(
+                "accumulate source must be a plain unbound pattern".into(),
+            ));
+        }
+        self.expect_sym(";")?;
+        let result_var = self.dollar_ident()?;
+        self.expect_sym(":")?;
+        let fname = self.ident()?;
+        let func = match fname.as_str() {
+            "sum" => AccFunc::Sum,
+            "count" => AccFunc::Count,
+            "average" => AccFunc::Average,
+            "min" => AccFunc::Min,
+            "max" => AccFunc::Max,
+            other => {
+                return Err(DrlError(format!(
+                    "accumulate function {other:?} not in subset (built-ins only: sum/count/average/min/max)"
+                )))
+            }
+        };
+        self.expect_sym("(")?;
+        let arg = if matches!(self.peek(), Some(Tok::Sym(")"))) {
+            None
+        } else {
+            Some(self.dollar_ident()?)
+        };
+        self.expect_sym(")")?;
+        if matches!(self.peek(), Some(Tok::Sym(","))) {
+            return Err(DrlError("multi-function accumulate not in subset".into()));
+        }
+        self.expect_sym(")")?;
+        if func != AccFunc::Count && arg.is_none() {
+            return Err(DrlError(format!("{fname} requires a bound argument")));
+        }
+        // source bindings are scoped inside the accumulate; the arg must
+        // be one of them (unused extras are legal and simply ignored)
+        if let Some(a) = &arg {
+            if !src
+                .constraints
+                .iter()
+                .any(|c| matches!(c, Constraint::Bind { var, .. } if var == a))
+            {
+                return Err(DrlError(format!("unknown accumulate argument {a}")));
+            }
+        }
+        Ok(Pattern {
+            binding: None,
+            type_name: src.type_name,
+            constraints: src.constraints,
+            ce: CeKind::Positive,
+            acc: Some(AccSpec { func, arg, result_var }),
+        })
     }
 
     fn constraint(&mut self) -> Result<Constraint, DrlError> {

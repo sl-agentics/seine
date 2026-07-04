@@ -1,0 +1,93 @@
+{
+ "name": "acc11",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "k": 1,
+    "g": false
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "k": 1,
+    "v": 0.1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "k": 1,
+    "v": 0.2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "k": 2,
+    "v": 0.3
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "k": 2,
+    "v": 0.4
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule R1 when $x : A($k : k, g == false) accumulate( P(k == $k, $a : v); $s : sum($a) ) then end\nrule U salience -5 when $x : A(g == false) T() then modify($x) { setG(true) } end\n"
+}
