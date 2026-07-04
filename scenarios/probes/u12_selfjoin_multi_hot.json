@@ -1,0 +1,42 @@
+{
+ "name": "u12_selfjoin_multi_hot",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "v": 1,
+    "g": true
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "v": 2,
+    "g": false
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "v": 3,
+    "g": true
+   }
+  }
+ ],
+ "drl": "rule \"J\" when A() A($b : g) A(g == true, $c : v) then end\nrule \"flip\" salience -5 when $a : A(v == 2, g == false) then modify($a) { setG(true) } end\n"
+}

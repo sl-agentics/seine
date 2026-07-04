@@ -1,0 +1,99 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    T0(f0 != true, f0 == false, $b0_0_0 : f0)\nthen\n    insert(new T2(8, 6, 0, true));\n    insert(new T1($b0_0_0, 2, $b0_0_0));\nend\nrule \"R1\"\nsalience 6\nwhen\n    T0(f0 == false, f0 != false, $b1_0_0 : f0)\n    T0(f0 == true, f0 == $b1_0_0)\nthen\nend\nrule \"R2\"\nwhen\n    T0($b2_0_0 : f0, $b2_0_1 : f0)\n    $p2_1 : T2($b2_1_0 : f3)\n    T1($b2_2_0 : f1, $b2_2_1 : f0)\nthen\n    delete($p2_1);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 3,
+        "f1": 4,
+        "f2": 100,
+        "f3": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": 100,
+        "f2": -1,
+        "f3": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 9,
+        "f2": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_869",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

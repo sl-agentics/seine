@@ -1,0 +1,90 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T1(f0 >= 3.0, $b0_0_0 : f0, $b0_0_1 : f2, f2 == false)\nthen\n    $p0_0.setF2(true);\n    $p0_0.setF0($p0_0.getF0());\n    update($p0_0);\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f0 != -3.0, $b1_0_0 : f2)\nthen\n    insert(new T1(3.0, $p1_0.getF1(), true));\nend\nrule \"R2\"\nwhen\n    T1($b2_0_0 : f0, $b2_0_1 : f0)\nthen\nend\nrule \"R3\"\nwhen\n    $p3_0 : T1(f1 >= 2.0, $b3_0_0 : f0, $b3_0_1 : f1, f2 == false)\n    T1(f0 <= $b3_0_0, $b3_1_0 : f0)\nthen\n    $p3_0.setF2(true);\n    update($p3_0);\nend\nrule \"R4\"\nno-loop\nwhen\n    T1()\n    T1()\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 3.5,
+        "f1": -1.5,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 0,
+        "f1": -1.0,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -2.0,
+        "f1": -1.0,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 3.5,
+        "f1": 4.0,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 2.5,
+        "f1": 2.0,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 6.0,
+        "f1": 0.0,
+        "f2": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_4359",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

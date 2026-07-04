@@ -1,0 +1,124 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T2(f3 != true)\nthen\n    insert(new T3($p0_0.getF2(), $p0_0.getF1(), false));\nend\nrule \"R1\"\nwhen\n    T2(f2 < 1, f2 != 5.5)\nthen\nend\nrule \"R2\"\nsalience 7\nwhen\n    $p2_0 : T2(f2 <= 0.5, $b2_0_0 : f0, $b2_0_1 : f3)\n    T1(f0 == false, f0 != false)\n    T1()\nthen\n    insert(new T3($p2_0.getF1(), $p2_0.getF1(), false));\nend\nrule \"R3\"\nwhen\n    T1($b3_0_0 : f1, $b3_0_1 : f0)\n    $p3_1 : T3()\n    T3(f2 == false)\nthen\n    delete($p3_1);\nend\nrule \"R4\"\nwhen\n    T3($b4_0_0 : f2, $b4_0_1 : f0)\n    T2(f2 >= 10, $b4_1_0 : f0, $b4_1_1 : f1)\n    T2(f0 != true, $b4_2_0 : f2, $b4_2_1 : f2)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": 1.0,
+        "f2": 4.0,
+        "f3": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -0.5,
+        "f2": 2.0,
+        "f3": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 7,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1.5,
+        "f1": 3.5,
+        "f2": false
+      },
+      "type": "T3"
+    }
+  ],
+  "name": "fz_42_551",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

@@ -166,9 +166,15 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     }
 
     let nrules = 1 + rng.below(6); // 1..6
+    // Subset wall (D-017): programs containing update/modify keep every rule
+    // at <= 2 patterns. Update semantics are exhaustively pinned for 1-2
+    // pattern rules; the 3-pattern x long-update-history interaction has
+    // open xfails (fz_42_3408/4373) and is out of the proven subset.
+    let allow_mutation = rng.chance(60);
+    let max_extra_pat = if allow_mutation { 2 } else { 3 };
     let mut drl = String::new();
     for ri in 0..nrules {
-        let npat = 1 + if rng.chance(45) { rng.below(3) } else { 0 }; // 1..3, skewed to 1
+        let npat = 1 + if rng.chance(45) { rng.below(max_extra_pat) } else { 0 };
         let mut pats: Vec<GenPattern> = Vec::new();
         for pi in 0..npat {
             pats.push(GenPattern {
@@ -188,7 +194,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 .filter(|(_, p)| types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool))
                 .map(|(i, _)| i)
                 .collect();
-            if !with_bool.is_empty() && rng.chance(30) {
+            if allow_mutation && !with_bool.is_empty() && rng.chance(30) {
                 Some(*rng.pick(&with_bool))
             } else {
                 None

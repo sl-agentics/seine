@@ -1,0 +1,88 @@
+{
+  "drl": "rule \"R0\"\nsalience -1\nwhen\n    T0(f0 < -2, $b0_0_0 : f0, $b0_0_1 : f0)\nthen\n    insert(new T2(false, true));\n    insert(new T2(false, true));\nend\nrule \"R1\"\nsalience 9\nwhen\n    T0(f0 <= 12, $b1_0_0 : f0, $b1_0_1 : f0)\nthen\n    insert(new T2(false, false));\n    insert(new T1(100, true, 6));\nend\nrule \"R2\"\nwhen\n    T1(f2 == 2.0, $b2_0_0 : f2, $b2_0_1 : f0)\n    T0($b2_1_0 : f0)\n    T2($b2_2_0 : f0)\nthen\nend\nrule \"R3\"\nsalience 2\nwhen\n    T2(f0 == false, f1 == true, $b3_0_0 : f0)\nthen\nend\nrule \"R4\"\nsalience 7\nwhen\n    T2($b4_0_0 : f1)\n    T2()\nthen\nend\nrule \"R5\"\nsalience 5\nwhen\n    $p5_0 : T2(f0 != true)\nthen\n    delete($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 3
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": true,
+        "f2": 3
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_42_1337",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

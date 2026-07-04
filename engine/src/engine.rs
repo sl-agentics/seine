@@ -392,9 +392,7 @@ impl Engine {
             }
         }
         let mut firings = Vec::new();
-        let mut last_fired: Option<usize> = None;
-        while let Some((ri, idx)) = self.next_activation(last_fired) {
-            last_fired = Some(ri);
+        while let Some((ri, idx)) = self.next_activation() {
             if firings.len() >= limit {
                 return Err(EngineError(format!(
                     "fire limit {limit} reached (non-terminating?)"
@@ -411,15 +409,15 @@ impl Engine {
         Ok(firings)
     }
 
-    /// Agenda evaluation model (fz_42_4138 vs fz_42_4141):
-    /// - EAGER rules (no-loop, whose activations must be known for the
+    /// Agenda evaluation model (fz_42_4138/4141/2906, pr06):
+    /// - EAGER rules (no-loop — their activations must be known for the
     ///   attribute's semantics) evaluate their staged batch at EVERY flush
     ///   window — per-firing batches;
-    /// - lazy rules are evaluated by the agenda peek: walk priority order,
-    ///   merging each dirty network, and stop after the first rule OTHER
-    ///   than the one that just fired that has an unfired match. Rules
-    ///   beyond the stop keep accumulating their staged batches.
-    fn next_activation(&mut self, last: Option<usize>) -> Option<(usize, usize)> {
+    /// - lazy rules evaluate on reach: walk priority order, merging each
+    ///   dirty network, and fire the first rule with an unfired match.
+    ///   Rules below the firing rule are never touched (they accumulate),
+    ///   rules above it are — that is exactly outrank-preemption.
+    fn next_activation(&mut self) -> Option<(usize, usize)> {
         for i in 0..self.rule_order.len() {
             let ri = self.rule_order[i];
             if self.rules[ri].def.no_loop {
@@ -429,12 +427,6 @@ impl Engine {
         for i in 0..self.rule_order.len() {
             let ri = self.rule_order[i];
             self.merge_staged(ri);
-            if Some(ri) != last && self.nets[ri].matches.iter().any(|e| !e.fired) {
-                break;
-            }
-        }
-        for i in 0..self.rule_order.len() {
-            let ri = self.rule_order[i];
             if let Some(idx) = self.nets[ri].matches.iter().position(|e| !e.fired) {
                 return Some((ri, idx));
             }
@@ -492,7 +484,15 @@ impl Engine {
                     (false, false) => {}
                 }
             }
-            if !hot_positions.is_empty() {
+            // Staged even with no hot positions: any update repositions the
+            // fact to the front of the alpha memories it occupies
+            // (fz_42_3433 — memory moves are NOT property-reactivity-gated),
+            // while refire/re-join logic keys off `positions`.
+            let occupies = self.rules[ri]
+                .patterns
+                .iter()
+                .any(|p| p.type_id == ftype);
+            if !hot_positions.is_empty() || occupies {
                 self.staged[ri].push(StagedEv::Hot {
                     fact: f,
                     positions: hot_positions,
@@ -648,16 +648,20 @@ impl Engine {
         // Hot-updated facts move to the front of their alpha memories BEFORE
         // refire requeueing (fz_42_1057: the hot fact's own pairs requeue
         // first within a prefix).
+        // Updated facts move to the front of alpha memories they occupy:
+        // beta RIGHT memories (positions >= 1) move on ANY update — not
+        // gated by listen masks (fz_42_3433) — while the pos0 left-input
+        // memory moves only on property-hot updates (fz_42_388 vs 4359).
         for p in 0..k {
             for ev in &events {
                 let StagedEv::Hot { fact, positions, .. } = ev else { continue };
-                if positions.contains(&p) {
-                    if let Some(i) =
-                        self.nets[ri].alpha[p].iter().position(|(_, x)| x == fact)
-                    {
-                        let e = self.nets[ri].alpha[p].remove(i);
-                        self.nets[ri].alpha[p].insert(0, e);
-                    }
+                if p == 0 && !positions.contains(&0) {
+                    continue;
+                }
+                if let Some(i) = self.nets[ri].alpha[p].iter().position(|(_, x)| x == fact)
+                {
+                    let e = self.nets[ri].alpha[p].remove(i);
+                    self.nets[ri].alpha[p].insert(0, e);
                 }
             }
         }

@@ -1,0 +1,95 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1()\nthen\n    insert(new T2(1.5, false));\n    insert(new T2(0.0, true));\nend\nrule \"R1\"\nsalience -2\nno-loop\nwhen\n    T0(f0 <= 5.0)\nthen\n    insert(new T2(6.0, true));\n    insert(new T1(\"\"));\nend\nrule \"R2\"\nwhen\n    T1()\n    T2($b2_1_0 : f1)\nthen\nend\nrule \"R3\"\nwhen\n    T0($b3_0_0 : f3, $b3_0_1 : f3)\nthen\n    insert(new T1(\"b\"));\nend\nrule \"R4\"\nwhen\n    T0()\nthen\nend\nrule \"R5\"\nwhen\n    T1(f0 >= \"a\", f0 <= \"b\")\n    $p5_1 : T0(f1 == 2, $b5_1_0 : f2, $b5_1_1 : f1)\nthen\n    insert(new T2($p5_1.getF1(), $p5_1.isF3()));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 3,
+        "f1": 10,
+        "f2": -5,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "alpha"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": 9,
+        "f2": 8,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3.0,
+        "f1": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 2.5,
+        "f1": false
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_42_2906",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

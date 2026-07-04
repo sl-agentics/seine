@@ -1,0 +1,83 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f3 != true, $b0_0_0 : f2)\n    T0(f0 >= \"a\", f1 == false, $b0_1_0 : f1, $b0_1_1 : f0)\n    T0(f0 != \"alpha\", f0 < \"a\", f1 == $b0_0_0)\nthen\nend\nrule \"R1\"\nsalience -9\nwhen\n    T0($b1_0_0 : f1)\n    T1($b1_1_0 : f3, $b1_1_1 : f0)\n    T0(f1 != true, f0 != \"alpha\")\nthen\nend\nrule \"R2\"\nwhen\n    T1(f1 == 100, f3 == true)\n    T1(f3 != true, f0 >= -4, $b2_1_0 : f0)\nthen\nend\nrule \"R3\"\nwhen\n    T0(f1 != false, f1 != false, $b3_0_0 : f1, $b3_0_1 : f1)\nthen\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0()\nthen\n    insert(new T1(12, 5, $p4_0.isF1(), false));\nend\nrule \"R5\"\nwhen\n    T0(f0 < \"b\")\n    $p5_1 : T0(f0 >= \"\", $b5_1_0 : f1)\nthen\n    insert(new T1(11, 12, $b5_1_0, $p5_1.isF1()));\n    insert(new T1(7, 11, true, $b5_1_0));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 0,
+        "f1": -1000000007,
+        "f2": true,
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 8,
+        "f1": -2,
+        "f2": true,
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1,
+        "f1": 2,
+        "f2": true,
+        "f3": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_6001",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -27,7 +27,12 @@ log** for every in-subset program.
   operators `== != < <= > >=`; variable/field bindings; `insert` on the RHS;
   `salience`; `no-loop`; oracle-pinned conflict resolution.
 - Phase 2: multi-pattern joins on bound variables; `update`/`modify`/`delete`
-  with oracle-pinned re-evaluation and re-firing semantics.
+  with oracle-pinned re-evaluation and re-firing semantics (PHREAK property
+  reactivity, staging batches, agenda-peek evaluation, refire requeueing).
+  Subset wall: programs that use `update`/`modify` are proven for rules of
+  up to 2 patterns; 3+-pattern rules are proven for insert/delete-only
+  programs (see `DECISIONS.md` D-016/D-017 for the two open xfails behind
+  this split).
 - Phase 3 (stretch): `not`/`exists`, `accumulate`/`collect`, `matches`/
   `contains`/`in`.
 

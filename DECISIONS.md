@@ -271,14 +271,28 @@ pinned the deepest layer of PHREAK semantics:
   lefts x full rights, missing only), RU (hot rights, missing only).
 - Corpus: 72/72 green (`make diff`), including 17 fz_42_* regressions.
 
-### D-016: OPEN xfails (xfail/, excluded from make diff)
-fz_42_3408, fz_42_3433, fz_42_4373 still diverge (first divergences at
-firings 58/18/391) — all combine self-joins, updates and multi-rule
-interleaving; the remaining gap is believed to be in refire/emission
-interleaving for tuples where the SAME fact is hot at several positions of
-a self-join. Time-boxed per brief §7; next session: trace fz_42_3433
-(earliest divergence, firing 18) with the same golden-log dump used for
-the others.
+### D-016: OPEN xfails (xfail/, excluded from make diff) — updated
+- fz_42_3433 RESOLVED: alpha-memory move-to-front on update is NOT gated by
+  listen masks (any update repositions the fact in every alpha memory it
+  occupies; property reactivity gates only tuple re-evaluation). Now a
+  regression + engine behavior.
+- fz_42_3408, fz_42_4373 remain OPEN: both need >2-pattern rules with long
+  multi-update histories; the residual gap appears to be hot-left iteration
+  order divergence between indexed and unindexed joins after accumulated
+  moves (u11: hot-first for a join whose key changed; 3408's unconstrained
+  join at the same shape iterates cold-first). u12/u13 (clean single-update
+  probes of the same shapes) PASS — only deep histories diverge. Next
+  session: build a u14 probe = u13 + a SECOND update event, compare hot
+  iteration; suspect per-event compounding of alpha/prefix moves.
+
+### D-017: Subset wall — mutation programs are capped at 2-pattern rules
+Because of D-016, the PROVEN subset excludes programs that combine
+update/modify with rules of 3+ patterns. The generator enforces it
+(`allow_mutation` programs cap every rule at <=2 patterns; 3-pattern rules
+appear only in insert-only programs). 1-2 pattern mutation semantics and
+3-pattern static semantics are each fully pinned; several 3-pattern+update
+scenarios pass anyway and remain as extra regressions beyond the promise
+(fz_42_1176/2537/4138/3433, u11-u13).
 
 ---
 

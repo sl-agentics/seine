@@ -1,0 +1,63 @@
+{
+ "name": "u13_unindexed_hot_mid",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "w": 7
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "w": 8
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "v": 1,
+    "g": true
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "v": 2,
+    "g": false
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "v": 3,
+    "g": true
+   }
+  }
+ ],
+ "drl": "rule \"J\" when B() A($b : g) A(g == true, $c : v) then end\nrule \"flip\" salience -5 when $a : A(v == 2, g == false) then modify($a) { setG(true) } end\n"
+}

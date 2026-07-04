@@ -1,0 +1,76 @@
+{
+  "drl": "rule \"R0\"\nsalience -6\nwhen\n    T0(f0 < \"\", f1 != 11, $b0_0_0 : f1)\n    $p0_1 : T0($b0_1_0 : f0, $b0_1_1 : f2)\nthen\n    delete($p0_1);\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f0 >= \"beta\", $b1_0_0 : f2, $b1_0_1 : f2)\nthen\n    insert(new T2($p1_0.getF0(), 3, $b1_0_1));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T1(f1 != true, $b2_0_0 : f1, $b2_0_1 : f1)\nthen\n    insert(new T2(\"b\", -3, $p2_0.isF1()));\n    insert(new T2(\"ab\", 2, true));\nend\nrule \"R3\"\nsalience -4\nwhen\n    T2(f1 < 9, $b3_0_0 : f0, $b3_0_1 : f1)\n    T2(f0 <= $b3_0_0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_6259",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

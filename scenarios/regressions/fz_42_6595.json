@@ -1,0 +1,83 @@
+{
+  "drl": "rule \"R0\"\nsalience -8\nno-loop\nwhen\n    T0(f0 != true, f0 != true)\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f0 != false, $b1_0_0 : f0, $b1_0_1 : f0)\nthen\n    insert(new T1(12, 7, -1.5, $b1_0_0));\n    insert(new T1(100, -1000000007, -2.5, $p1_0.isF0()));\nend\nrule \"R2\"\nwhen\n    T1(f1 >= 4)\n    $p2_1 : T1()\nthen\n    delete($p2_1);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": 100,
+        "f2": -0.5,
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": 6,
+        "f2": 0.5,
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": 0,
+        "f2": -1.0,
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_42_6595",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}
