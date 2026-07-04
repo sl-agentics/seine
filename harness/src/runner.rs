@@ -45,7 +45,26 @@ fn run_scenario(sc: &J) -> Result<J, String> {
         engine.insert(type_name, fields).map_err(|e| e.to_string())?;
     }
 
-    let firings = engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?;
+    let mut firings = engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?;
+    // Multi-fire epochs (D-046): insert a batch, fire again on the same
+    // engine; the firing log continues.
+    if let Some(epochs) = sc.get("epochs").and_then(J::as_array) {
+        for epoch in epochs {
+            for fact in epoch.get("facts").and_then(J::as_array).unwrap_or(&Vec::new()) {
+                let type_name = fact
+                    .get("type")
+                    .and_then(J::as_str)
+                    .ok_or("epoch fact missing 'type'")?;
+                let fields_obj = fact
+                    .get("fields")
+                    .and_then(J::as_object)
+                    .ok_or("epoch fact missing 'fields'")?;
+                let fields = json_fields_to_values(fields_obj)?;
+                engine.insert(type_name, fields).map_err(|e| e.to_string())?;
+            }
+            firings.extend(engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?);
+        }
+    }
     Ok(json!({
         "facts": engine.facts().iter().map(fact_view_to_json).collect::<Vec<J>>(),
         "firings": firings

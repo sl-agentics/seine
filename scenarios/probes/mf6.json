@@ -1,0 +1,68 @@
+{
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "OutT",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Q",
+   "fields": {
+    "n": 1
+   }
+  }
+ ],
+ "drl": "rule R no-loop when Q($n : n) exists P(g == true) then insert(new OutT(1.5)); end\n",
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 1.0,
+      "g": true
+     }
+    }
+   ]
+  },
+  {
+   "facts": [
+    {
+     "type": "Q",
+     "fields": {
+      "n": 2
+     }
+    }
+   ]
+  }
+ ],
+ "name": "mf6"
+}

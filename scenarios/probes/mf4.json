@@ -1,0 +1,59 @@
+{
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "OutT",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1.0,
+    "g": false
+   }
+  }
+ ],
+ "drl": "rule U when $p : P(g == false) then modify($p) { setG(true) } end\n",
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2.0,
+      "g": false
+     }
+    }
+   ]
+  }
+ ],
+ "name": "mf4"
+}

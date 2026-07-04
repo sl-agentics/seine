@@ -39,9 +39,38 @@ def try_variant(cand):
         return True
     return False
 
+def try_drop_epochs():
+    # NOTE: try_variant rebinds the global d on success — always re-read it
+    changed = False
+    i = 0
+    while i < len(d.get('epochs', [])):
+        cand = copy.deepcopy(d)
+        del cand['epochs'][i]
+        if not cand['epochs']:
+            del cand['epochs']
+        if try_variant(cand):
+            changed = True
+            print(f'removed epoch {i}, {len(d.get("epochs", []))} left')
+        else:
+            i += 1
+    ei = 0
+    while ei < len(d.get('epochs', [])):
+        j = 0
+        while j < len(d['epochs'][ei].get('facts', [])):
+            cand = copy.deepcopy(d)
+            del cand['epochs'][ei]['facts'][j]
+            if try_variant(cand):
+                changed = True
+                print(f'removed epoch {ei} fact {j}')
+            else:
+                j += 1
+        ei += 1
+    return changed
+
 changed = True
 while changed:
     changed = False
+    changed |= try_drop_epochs()
     rules = split_rules(d['drl'])
     # drop a whole rule
     for i in range(len(rules)):

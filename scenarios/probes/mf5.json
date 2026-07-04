@@ -1,0 +1,71 @@
+{
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "OutT",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 50.0,
+    "g": true
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 10
+   }
+  }
+ ],
+ "drl": "rule RA salience($n) when Q($n : n) then end\nrule RB salience 5 when P($x : v) then end\n",
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "Q",
+     "fields": {
+      "n": 0
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 60.0,
+      "g": true
+     }
+    }
+   ]
+  }
+ ],
+ "name": "mf5"
+}

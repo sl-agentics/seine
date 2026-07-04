@@ -93,6 +93,17 @@ public final class OracleRunner {
             if (fired >= FIRE_LIMIT) {
                 throw new IllegalStateException("fire limit " + FIRE_LIMIT + " reached (non-terminating?)");
             }
+            // Multi-fire epochs (D-046): each epoch inserts a batch and
+            // fires again on the SAME session; the firing log continues.
+            for (JsonNode epoch : scenario.path("epochs")) {
+                for (JsonNode fact : epoch.path("facts")) {
+                    session.insert(instantiate(kbase, scenario, fact));
+                }
+                fired = session.fireAllRules(FIRE_LIMIT);
+                if (fired >= FIRE_LIMIT) {
+                    throw new IllegalStateException("fire limit " + FIRE_LIMIT + " reached (non-terminating?)");
+                }
+            }
 
             ArrayNode facts = M.createArrayNode();
             for (Object o : session.getObjects()) {
