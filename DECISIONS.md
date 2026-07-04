@@ -213,6 +213,18 @@ Second-seed fuzz found 3 value-level (not ordering) divergences:
   always promote (`I(n == 1.5)` never matches). Engine: `eval_cmp_join`.
 - Probes u14/u15 + 3 regressions added; corpus 100/100.
 
+### D-021: Hot-prefix move-to-front (u16) — fz_42_3408 resolved
+Post-final-checkpoint: probe u16 (u13's shape + a SECOND update event)
+reproduced the xfail class minimally and pinned the missing rule: prefixes
+holding a fact that is HOT at one of their positions move to the front of
+their level's prefix memory (relative order kept) — gated by hot positions,
+unlike the right-memory move which is ungated (D-018/fz_42_3433 vs 4359).
+fz_42_3408 now passes and is a regression; corpus 102/102.
+**fz_42_4373 remains the single open xfail** (diverges at firing 391 of
+1040, boolean-heavy self-joins with ambiguous renderings — needs a fresh
+minimization pass, not hand-tracing). The D-017 generator wall stays until
+it is resolved.
+
 ## Phase 2 (pre-work: goldens captured, engine not yet extended)
 
 ### D-011: Join + mutation semantics observed via probes j01–j05 (oracle-only,

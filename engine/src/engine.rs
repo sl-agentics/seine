@@ -642,6 +642,22 @@ impl Engine {
         // memory order and requeue that prefix's affected tuples
         // (fz_42_2055: block-prepended lefts requeue first; fz_42_2804:
         // prefix-memory order, not original agenda order).
+        // Prefixes holding a fact that is HOT at one of their positions
+        // move to the front of their level's memory, relative order kept
+        // (u16: flip2's hot prefix iterates first in flip4's cold group).
+        for l in 0..k.saturating_sub(1) {
+            for ev in &events {
+                let StagedEv::Hot { fact, positions, .. } = ev else { continue };
+                let (hot, cold): (Vec<_>, Vec<_>) =
+                    self.nets[ri].prefixes[l].drain(..).partition(|(_, t)| {
+                        positions.iter().any(|&p| p <= l && t.get(p) == Some(fact))
+                    });
+                let mut merged = hot;
+                merged.extend(cold);
+                self.nets[ri].prefixes[l] = merged;
+            }
+        }
+
         if !refire_pool.is_empty() && k == 1 {
             refire_pool.sort_by_key(|(key, _)| *key);
             for (_, t) in refire_pool.drain(..) {
