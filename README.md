@@ -71,6 +71,9 @@ log** for every in-subset program.
   classes and a Rule builder that COMPILE TO DRL TEXT, so the
   differential guarantees cover Python-authored rules verbatim; every
   certified wall is a definition-time CompileError.
+- Multi-fire certified (D-046): insert -> fire -> insert -> fire on one
+  session (epoch scenarios, 5-seed campaign clean); sessions are no
+  longer one-shot and every fire() returns its own WM delta.
 
 ## Explicit non-goals (hard walls)
 

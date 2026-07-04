@@ -1163,7 +1163,7 @@ impl Engine {
         let salience = match &def.salience {
             drl::SalienceSpec::Static(n) => EngineSalience::Static(*n as i32),
             drl::SalienceSpec::Expr { a, op } => {
-                let mut resolve = |t: &drl::SalTerm| -> Result<SalSrc, EngineError> {
+                let resolve = |t: &drl::SalTerm| -> Result<SalSrc, EngineError> {
                     match t {
                         drl::SalTerm::Lit(n) => Ok(SalSrc::Lit(*n)),
                         drl::SalTerm::Var(v) => {
