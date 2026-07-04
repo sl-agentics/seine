@@ -97,6 +97,10 @@ struct CompiledPattern {
     pindex: phreak::Index,
     /// cmps position of the range-indexed constraint (Cmp index only).
     index_ci: Option<usize>,
+    /// SET of field-bound indices (bitmask): part of node-sharing
+    /// identity (D-036/ne_t1..t10 — binding names, order, duplicates and
+    /// fact-level bindings are irrelevant; the bound-field SET is not).
+    bind_fields: u64,
 }
 
 enum CompiledAction {
@@ -252,7 +256,7 @@ impl Engine {
     /// D-029 alpha-node key), other literals as written.
     fn pattern_key(&self, p: &CompiledPattern) -> String {
         use std::fmt::Write as _;
-        let mut s = format!("{}|{:?}", p.type_id.0, p.ce);
+        let mut s = format!("{}|{:?}|b{}", p.type_id.0, p.ce, p.bind_fields);
         for c in &p.cmps {
             let _ = write!(s, ";{}", c.field_idx);
             match &c.test {
@@ -398,6 +402,7 @@ impl Engine {
                 beta: false,
                 pindex: phreak::Index::None,
                 index_ci: None,
+                bind_fields: 0,
             });
             tuple_len = 1;
         }
@@ -425,6 +430,7 @@ impl Engine {
             }
             let mut cmps = Vec::new();
             let mut listen_mask = 0u64;
+            let mut bind_fields = 0u64;
             for c in &p.constraints {
                 match c {
                     Constraint::Bind { var, field } => {
@@ -433,6 +439,7 @@ impl Engine {
                             .field_index(type_id, field)
                             .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
                         listen_mask |= 1 << fi;
+                        bind_fields |= 1 << fi;
                         let ft = self.store.field_type(type_id, fi);
                         let t = tpos.ok_or_else(|| err("binding in a CE pattern".into()))?;
                         if field_binds.insert(var.clone(), (t, fi, ft)).is_some() {
@@ -562,6 +569,7 @@ impl Engine {
                 beta,
                 pindex,
                 index_ci,
+                bind_fields,
             });
         }
 
@@ -713,7 +721,7 @@ impl Engine {
                                     CeKind::Not => phreak::Kind::Not,
                                     CeKind::Exists => phreak::Kind::Exists,
                                 };
-                                phreak::Node::new(pat.pindex, j == 1, kind)
+                                phreak::Node::new(pat.pindex, kind)
                             })
                             .collect(),
                         queue: Vec::new(),

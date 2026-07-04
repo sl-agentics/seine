@@ -1,0 +1,55 @@
+{
+ "name": "ne_t7",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "f0": 1,
+    "f1": 9
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 3
+   }
+  }
+ ],
+ "drl": "rule Ra when A(f0 > 0, $x : f1) B() then end\nrule Rb when A($p : f1, f0 > 0) B() then end\n"
+}

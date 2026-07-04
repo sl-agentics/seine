@@ -132,85 +132,39 @@ fn lit_drl(rng: &mut Rng, ft: Ft, only_true_bools: bool) -> String {
 /// Phase 1-3 operator grammar: the six cmpops, and per D-030 `matches` /
 /// `contains` (String fields), `in` / `not in` (all field types;
 /// cross-type numeric items exercise the promote-only pin of op_i3).
-/// Returns (constraint text, canonical key part) — the key normalizes
-/// `==` numeric literals to the field's type, mirroring the engine's
-/// alpha-node identity (D-029/D-033) for the sharing wall.
-fn gen_alpha_constraint(rng: &mut Rng, fname: &str, ft: Ft) -> (String, String) {
+fn gen_alpha_constraint(rng: &mut Rng, fname: &str, ft: Ft) -> String {
     match ft {
         Ft::Str => match rng.below(10) {
             0..=3 => {
                 let op = *rng.pick(OPS_ORD);
                 let lit = lit_drl(rng, Ft::Str, false);
-                let c = format!("{fname} {op} {lit}");
-                let k = c.clone();
-                (c, k)
+                format!("{fname} {op} {lit}")
             }
-            4..=5 => {
-                let c = format!("{fname} matches \"{}\"", gen_regex(rng));
-                let k = c.clone();
-                (c, k)
-            }
-            6..=7 => {
-                let c = format!("{fname} contains \"{}\"", gen_needle(rng));
-                let k = c.clone();
-                (c, k)
-            }
-            _ => {
-                let c = format!("{fname}{}", gen_in_list(rng, Ft::Str));
-                let k = c.clone();
-                (c, k)
-            }
+            4..=5 => format!("{fname} matches \"{}\"", gen_regex(rng)),
+            6..=7 => format!("{fname} contains \"{}\"", gen_needle(rng)),
+            _ => format!("{fname}{}", gen_in_list(rng, Ft::Str)),
         },
         Ft::I64 | Ft::F64 => {
             if rng.chance(25) {
-                let c = format!("{fname}{}", gen_in_list(rng, ft));
-                let k = c.clone();
-                (c, k)
+                format!("{fname}{}", gen_in_list(rng, ft))
             } else {
                 let op = *rng.pick(OPS_ORD);
-                let cross = rng.chance(20);
-                // generate the numeric value, then format text + key
-                let (text_lit, key_lit) = match (ft, cross) {
-                    (Ft::I64, false) => {
-                        let v = gen_i64(rng);
-                        (format!("{v}"), format!("i{v}"))
-                    }
-                    (Ft::I64, true) => {
-                        let v = gen_f64(rng);
-                        let t = if v == v.trunc() { format!("{v:.1}") } else { format!("{v}") };
-                        // engine eq-node identity truncates to the field type
-                        let k = if op == "==" { format!("i{}", v as i64) } else { format!("f{v}") };
-                        (t, k)
-                    }
-                    (Ft::F64, false) => {
-                        let v = gen_f64(rng);
-                        let t = if v == v.trunc() { format!("{v:.1}") } else { format!("{v}") };
-                        (t, format!("f{v}"))
-                    }
-                    (Ft::F64, true) => {
-                        let v = gen_i64(rng);
-                        let k = if op == "==" { format!("f{}", v as f64) } else { format!("i{v}") };
-                        (format!("{v}"), k)
-                    }
-                    _ => unreachable!(),
+                let lit_ft = match ft {
+                    Ft::I64 if rng.chance(20) => Ft::F64,
+                    Ft::F64 if rng.chance(20) => Ft::I64,
+                    other => other,
                 };
-                (
-                    format!("{fname} {op} {text_lit}"),
-                    format!("{fname} {op} {key_lit}"),
-                )
+                let lit = lit_drl(rng, lit_ft, false);
+                format!("{fname} {op} {lit}")
             }
         }
         Ft::Bool => {
             if rng.chance(10) {
-                let c = format!("{fname}{}", gen_in_list(rng, Ft::Bool));
-                let k = c.clone();
-                (c, k)
+                format!("{fname}{}", gen_in_list(rng, Ft::Bool))
             } else {
                 let op = *rng.pick(OPS_EQ);
                 let lit = lit_drl(rng, Ft::Bool, false);
-                let c = format!("{fname} {op} {lit}");
-                let k = c.clone();
-                (c, k)
+                format!("{fname} {op} {lit}")
             }
         }
     }
@@ -287,16 +241,8 @@ struct GenPattern {
     ce: u8,
     fact_var: Option<String>,
     constraints: Vec<String>,
-    /// Canonical constraint key parts (bindings excluded; var refs by
-    /// source tuple position; eq literals field-type-normalized) — the
-    /// structural node identity used by the D-035 sharing wall.
-    keys: Vec<String>,
     /// (var name, field idx, field type) — usable by later patterns/RHS.
     bindings: Vec<(String, usize, Ft)>,
-}
-
-fn pattern_key(p: &GenPattern) -> String {
-    format!("{}|{}|{}", p.ti, p.ce, p.keys.join(";"))
 }
 
 pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
@@ -325,189 +271,130 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     }
 
     let nrules = 1 + rng.below(6); // 1..6
-    // Subset wall (D-017, re-imposed by D-025): programs containing
-    // update/modify keep every rule at <= 2 patterns. The widened
-    // grammar's residual class — requeue placement among pending join
-    // activations after repeated updates (xfail/) — is not yet pinned.
-    // D-017 wall lifted (D-028): mutation and 3-pattern rules may mix
-    // freely now that the requeue-placement class is closed.
+    // No structural walls remain: mutation, 3-pattern rules, CEs and
+    // shared prefixes all mix freely (D-028 lifted D-017; D-036 lifted
+    // D-035 — node-sharing identity incl. the bound-field set is modeled
+    // by the engine's static sink-order flips).
     let allow_mutation = rng.chance(60);
     let max_extra_pat = 3;
     let mut drl = String::new();
-    // D-035 sharing wall: in mutation programs, no two rules may have
-    // structurally identical pattern PREFIXES (>= 2 patterns) — shared
-    // beta nodes evaluate in the first sharer's window, which our
-    // per-rule networks model only for insert-only programs.
-    let mut seen_prefixes: std::collections::HashSet<String> = std::collections::HashSet::new();
     for ri in 0..nrules {
-        let want_npat = 1 + if rng.chance(45) { rng.below(max_extra_pat) } else { 0 };
-        let (mut pats, update_pos, delete_pos, guard_field) = 'gen: {
-            for attempt in 0..9 {
-                // last attempt falls back to a single pattern (never shares)
-                let npat = if attempt == 8 { 1 } else { want_npat };
-                let mut pats: Vec<GenPattern> = Vec::new();
-                for pi in 0..npat {
-                    // CE probability: rare in first position (InitialFact
-                    // path), more common later (D-031/D-032).
-                    let ce = if pi == 0 {
-                        if rng.chance(7) {
-                            1 + rng.below(2) as u8
-                        } else {
-                            0
-                        }
-                    } else if rng.chance(22) {
-                        1 + rng.below(2) as u8
-                    } else {
-                        0
-                    };
-                    pats.push(GenPattern {
-                        ti: rng.below(ntypes),
-                        ce,
-                        fact_var: None,
-                        constraints: Vec::new(),
-                        keys: Vec::new(),
-                        bindings: Vec::new(),
-                    });
+        let npat = 1 + if rng.chance(45) { rng.below(max_extra_pat) } else { 0 };
+        let mut pats: Vec<GenPattern> = Vec::new();
+        for pi in 0..npat {
+            // CE probability: rare in first position (InitialFact path),
+            // more common later (D-031/D-032).
+            let ce = if pi == 0 {
+                if rng.chance(7) {
+                    1 + rng.below(2) as u8
+                } else {
+                    0
                 }
+            } else if rng.chance(22) {
+                1 + rng.below(2) as u8
+            } else {
+                0
+            };
+            pats.push(GenPattern {
+                ti: rng.below(ntypes),
+                ce,
+                fact_var: None,
+                constraints: Vec::new(),
+                bindings: Vec::new(),
+            });
+        }
 
-                // Rule kind: update / delete / plain. Mutation targets must
-                // be POSITIVE patterns (CE patterns cannot bind). Deletes
-                // are gated on allow_mutation so insert-only programs stay
-                // mutation-free for the sharing wall.
-                let update_pos = {
-                    let with_bool: Vec<usize> = pats
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, p)| {
-                            p.ce == 0
-                                && types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool)
-                        })
-                        .map(|(i, _)| i)
-                        .collect();
-                    if allow_mutation && !with_bool.is_empty() && rng.chance(30) {
-                        Some(*rng.pick(&with_bool))
-                    } else {
-                        None
-                    }
-                };
-                let delete_pos = {
-                    let positives: Vec<usize> = pats
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, p)| p.ce == 0)
-                        .map(|(i, _)| i)
-                        .collect();
-                    if allow_mutation
-                        && update_pos.is_none()
-                        && !positives.is_empty()
-                        && rng.chance(20)
-                    {
-                        Some(*rng.pick(&positives))
-                    } else {
-                        None
-                    }
-                };
-
-                // Constraints, bindings, join tests.
-                for pi in 0..npat {
-                    let ncmp = rng.below(3);
-                    for _ in 0..ncmp {
-                        let (fname, ft) = {
-                            let fs = &types[pats[pi].ti].fields;
-                            fs[rng.below(fs.len())].clone()
-                        };
-                        let (c, k) = gen_alpha_constraint(&mut rng, &fname, ft);
-                        pats[pi].constraints.push(c);
-                        pats[pi].keys.push(k);
-                    }
-                    // Join constraint against an earlier binding; the key
-                    // references the source (tuple position, field) so
-                    // binding names stay identity-irrelevant (ne_s5).
-                    if pi > 0 && rng.chance(55) {
-                        let mut earlier: Vec<(String, Ft, usize, usize)> = Vec::new();
-                        let mut tpos = 0usize;
-                        for p in pats[..pi].iter() {
-                            if p.ce == 0 {
-                                for (v, fi, ft) in &p.bindings {
-                                    earlier.push((v.clone(), *ft, tpos, *fi));
-                                }
-                                tpos += 1;
-                            }
-                        }
-                        if !earlier.is_empty() {
-                            let fs = &types[pats[pi].ti].fields;
-                            let fi = rng.below(fs.len());
-                            let (fname, ft) = fs[fi].clone();
-                            let compat: Vec<&(String, Ft, usize, usize)> = earlier
-                                .iter()
-                                .filter(|(_, bft, _, _)| ft.join_compatible(*bft))
-                                .collect();
-                            if !compat.is_empty() {
-                                let (var, bft, btpos, bfi) = (*rng.pick(&compat)).clone();
-                                let op = if ft == Ft::Bool || bft == Ft::Bool {
-                                    *rng.pick(OPS_EQ)
-                                } else {
-                                    *rng.pick(OPS_ORD)
-                                };
-                                pats[pi].constraints.push(format!("{fname} {op} {var}"));
-                                pats[pi].keys.push(format!("{fname} {op} @{btpos}.{bfi}"));
-                            }
-                        }
-                    }
-                    // Field bindings (positive patterns only — D-031);
-                    // no key parts (bindings don't affect node identity).
-                    if pats[pi].ce == 0 {
-                        let nbind = rng.below(3);
-                        for bi in 0..nbind {
-                            let fs = &types[pats[pi].ti].fields;
-                            let fi = rng.below(fs.len());
-                            let ft = fs[fi].1;
-                            let var = format!("$b{ri}_{pi}_{bi}");
-                            let fname = fs[fi].0.clone();
-                            pats[pi].constraints.push(format!("{var} : {fname}"));
-                            pats[pi].bindings.push((var, fi, ft));
-                        }
-                    }
-                }
-
-                // Guard constraint for the update rule.
-                let mut guard_field: Option<(usize, String)> = None;
-                if let Some(pos) = update_pos {
-                    let bool_fields: Vec<(usize, String)> = types[pats[pos].ti]
-                        .fields
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, (_, ft))| *ft == Ft::Bool)
-                        .map(|(i, (n, _))| (i, n.clone()))
-                        .collect();
-                    let (gfi, gname) = rng.pick(&bool_fields).clone();
-                    pats[pos].constraints.push(format!("{gname} == false"));
-                    pats[pos].keys.push(format!("{gname} == false"));
-                    guard_field = Some((gfi, gname));
-                }
-
-                // Sharing wall check (ALL programs — D-035: the
-                // preserved-vs-flipped sink is claimed dynamically by
-                // the first sharer whose agenda item evaluates the
-                // shared segment, so salience and linking asymmetries
-                // reach beyond the statically-modeled class).
-                if pats.len() > 1 {
-                    let keys: Vec<String> = pats.iter().map(pattern_key).collect();
-                    let collides = (1..pats.len())
-                        .any(|j| seen_prefixes.contains(&keys[..=j].join("||")));
-                    if collides && attempt < 8 {
-                        continue;
-                    }
-                }
-                break 'gen (pats, update_pos, delete_pos, guard_field);
+        // Rule kind: update / delete / plain. Mutation targets must be
+        // POSITIVE patterns (CE patterns cannot bind).
+        let update_pos = {
+            let with_bool: Vec<usize> = pats
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| {
+                    p.ce == 0 && types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool)
+                })
+                .map(|(i, _)| i)
+                .collect();
+            if allow_mutation && !with_bool.is_empty() && rng.chance(30) {
+                Some(*rng.pick(&with_bool))
+            } else {
+                None
             }
-            unreachable!("attempt 8 always breaks");
         };
-        if pats.len() > 1 {
-            let keys: Vec<String> = pats.iter().map(pattern_key).collect();
-            for j in 1..pats.len() {
-                seen_prefixes.insert(keys[..=j].join("||"));
+        let delete_pos = {
+            let positives: Vec<usize> =
+                pats.iter().enumerate().filter(|(_, p)| p.ce == 0).map(|(i, _)| i).collect();
+            if update_pos.is_none() && !positives.is_empty() && rng.chance(20) {
+                Some(*rng.pick(&positives))
+            } else {
+                None
             }
+        };
+
+        // Constraints, bindings, join tests.
+        for pi in 0..npat {
+            let ncmp = rng.below(3);
+            for _ in 0..ncmp {
+                let (fname, ft) = {
+                    let fs = &types[pats[pi].ti].fields;
+                    fs[rng.below(fs.len())].clone()
+                };
+                let c = gen_alpha_constraint(&mut rng, &fname, ft);
+                pats[pi].constraints.push(c);
+            }
+            // Join constraint against an earlier binding.
+            if pi > 0 && rng.chance(55) {
+                let earlier: Vec<(String, Ft)> = pats[..pi]
+                    .iter()
+                    .flat_map(|p| p.bindings.iter().map(|(v, _, ft)| (v.clone(), *ft)))
+                    .collect();
+                if !earlier.is_empty() {
+                    let fs = &types[pats[pi].ti].fields;
+                    let fi = rng.below(fs.len());
+                    let (fname, ft) = fs[fi].clone();
+                    let compat: Vec<&(String, Ft)> = earlier
+                        .iter()
+                        .filter(|(_, bft)| ft.join_compatible(*bft))
+                        .collect();
+                    if !compat.is_empty() {
+                        let (var, bft) = (*rng.pick(&compat)).clone();
+                        let op = if ft == Ft::Bool || bft == Ft::Bool {
+                            *rng.pick(OPS_EQ)
+                        } else {
+                            *rng.pick(OPS_ORD)
+                        };
+                        pats[pi].constraints.push(format!("{fname} {op} {var}"));
+                    }
+                }
+            }
+            // Field bindings (positive patterns only — D-031).
+            if pats[pi].ce == 0 {
+                let nbind = rng.below(3);
+                for bi in 0..nbind {
+                    let fs = &types[pats[pi].ti].fields;
+                    let fi = rng.below(fs.len());
+                    let ft = fs[fi].1;
+                    let var = format!("$b{ri}_{pi}_{bi}");
+                    let fname = fs[fi].0.clone();
+                    pats[pi].constraints.push(format!("{var} : {fname}"));
+                    pats[pi].bindings.push((var, fi, ft));
+                }
+            }
+        }
+
+        // Guard constraint for the update rule.
+        let mut guard_field: Option<(usize, String)> = None;
+        if let Some(pos) = update_pos {
+            let bool_fields: Vec<(usize, String)> = types[pats[pos].ti]
+                .fields
+                .iter()
+                .enumerate()
+                .filter(|(_, (_, ft))| *ft == Ft::Bool)
+                .map(|(i, (n, _))| (i, n.clone()))
+                .collect();
+            let (gfi, gname) = rng.pick(&bool_fields).clone();
+            pats[pos].constraints.push(format!("{gname} == false"));
+            guard_field = Some((gfi, gname));
         }
 
         // RHS actions.

@@ -1,0 +1,77 @@
+{
+ "name": "ne_t11",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "f0": 1,
+    "f1": 9
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 1,
+    "g": false
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 2,
+    "g": true
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 3,
+    "g": true
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "drl": "rule Ra when A() B() then end\nrule Rb when A() B() then end\nrule S salience -5 when $b : B(f0 == 2) T() then delete($b); end\nrule Rc salience -9 when A() B() then end\n"
+}

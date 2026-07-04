@@ -1,0 +1,84 @@
+{
+ "name": "ne_t5",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "f0": 1,
+    "f1": 9
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 1,
+    "f1": 5,
+    "f2": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 2,
+    "f1": 6,
+    "f2": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "f0": 3,
+    "f1": 7,
+    "f2": 3
+   }
+  },
+  {
+   "type": "C",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "drl": "rule Ra when A($x : f1) B($y : f2) C(k > 100) then end\nrule Rb when A($p : f1) B($q : f2) then end\n"
+}

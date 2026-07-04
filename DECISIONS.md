@@ -369,6 +369,44 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-036: Sharing identity CORRECTED (bound-field set); D-035 wall LIFTED;
+### window-claim theory RETRACTED (probes ne_t1..ne_t11)
+Session 5. Re-examining the D-035 xfails with fresh probes disproved the
+"dynamic window-claim" model and dissolved the whole open class:
+- **Node-sharing identity includes the SET of field-bound fields.**
+  ne_t1: different bound fields -> NO sharing (both rules fire unshared
+  orders). ne_t3: a bare pattern does not share with a binding pattern.
+  ne_t10: same LISTEN MASK but different declaration sets (constraint
+  `f0 > 0` vs constraint + `$x : f0`) -> NO sharing — it is the
+  DECLARATION set, not the property mask. Binding names (ne_t2/ne_s5),
+  order (ne_t6), duplicates (ne_t9), constraint/binding interleaving
+  (ne_t7) and fact-level `$p :` bindings (ne_t8) are all irrelevant.
+- **The static build-order flip model was right all along**
+  (SegmentPropagator.processPeers: the ORIGINAL staged list goes to the
+  FIRST-built sink segment via addAll; every later peer gets prepended
+  copies — one flip). ne_t5: the first sink keeps the preserved list
+  even when its path NEVER LINKS (extension pattern unsatisfiable) —
+  there is no runtime claim. fz_42_8472, the case that motivated the
+  window-claim theory, is explained by identity alone: its "sharers"
+  bound different fields (R3 {f1} vs R4 {f0}), so Drools never shared
+  them and the engine's binding-blind pattern_key applied a flip that
+  should not exist. Same story for fz_7_2081 ({f0} vs {}), fz_7_2859
+  ({f1} vs {f0,f1}) and fz_777_7592 — ALL FOUR xfails pass with the
+  corrected key and are graduated to regressions. xfail/ is gone.
+- **True sharing x mutation behaves correctly under per-rule networks**
+  (ne_t11: identical bare twins + a mid-run delete + a third late-
+  salience sharer — engine matches oracle), so no shared-segment
+  architecture is needed for the current subset; per-rule copies with
+  static sink-order flips are behaviorally equivalent on everything
+  pinned so far.
+- Engine: CompiledPattern.bind_fields (bitmask, set semantics) folded
+  into pattern_key. Generator: the D-035 wall is REMOVED (shared
+  prefixes fuzz freely again) and the delete distribution is restored
+  to its historical independent form; the wall's key-threading
+  scaffolding is deleted. Dead code cleanup: the unused FIFO staging
+  variants and Node.first are gone.
+- Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
+
 **HANDOFF @ Phase 3 close (Session 4, 2026-07-04)** — Stretch items
 `matches`/`contains`/`in` and `not`/`exists` are DONE per D-034's bar;
 `accumulate`/`collect` and salience expressions were NOT started (scoped

@@ -125,39 +125,6 @@ impl<T: Clone + PartialEq> Staged<T> {
         self.del.insert(0, (t, origin, 0));
     }
 
-    // FIFO (append) variants: LEFT-input staging from working-memory
-    // actions is consumed oldest-first (pr08/pr04/j01/c2 pins), unlike
-    // right inputs and intra-evaluation propagation.
-    pub fn add_ins_back(&mut self, t: T, origin: Origin) {
-        if self.upd.iter().any(|(x, _, _)| *x == t) || self.ins.iter().any(|(x, _, _)| *x == t) {
-            return;
-        }
-        self.ins.push((t, origin, 0));
-    }
-
-    pub fn add_upd_back(&mut self, t: T, origin: Origin) {
-        if self.ins.iter().any(|(x, _, _)| *x == t)
-            || self.upd.iter().any(|(x, _, _)| *x == t)
-            || self.del.iter().any(|(x, _, _)| *x == t)
-        {
-            return;
-        }
-        self.upd.push((t, origin, 2));
-    }
-
-    pub fn add_del_back(&mut self, t: T, origin: Origin) {
-        if let Some(i) = self.ins.iter().position(|(x, _, _)| *x == t) {
-            self.ins.remove(i);
-            return;
-        }
-        if let Some(i) = self.upd.iter().position(|(x, _, _)| *x == t) {
-            self.upd.remove(i);
-        }
-        if self.del.iter().any(|(x, _, _)| *x == t) {
-            return;
-        }
-        self.del.push((t, origin, 0));
-    }
 }
 
 /// Node behavior kind. Join extends tuples by the matched right fact;
@@ -219,9 +186,6 @@ pub struct Node {
     temp_next: HashMap<FactId, Option<FactId>>,
     /// Beta-memory index kind (equality hash / comparison range / none).
     pub index: Index,
-    /// True for the first join node (left input fed by the LIA/segment
-    /// root rather than a previous join).
-    pub first: bool,
 }
 
 impl Node {
@@ -245,7 +209,7 @@ impl Node {
         }
     }
 
-    pub fn new(index: Index, first: bool, kind: Kind) -> Node {
+    pub fn new(index: Index, kind: Kind) -> Node {
         Node {
             kind,
             lefts: Vec::new(),
@@ -261,7 +225,6 @@ impl Node {
             temp_blocked: HashMap::new(),
             temp_next: HashMap::new(),
             index,
-            first,
         }
     }
 
