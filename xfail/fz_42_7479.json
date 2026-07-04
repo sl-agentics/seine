@@ -1,0 +1,87 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T2()\nthen\n    insert(new T3(\"ab\", true));\n    insert(new T3(\"zz\", false));\nend\nrule \"R1\"\nwhen\n    $p1_0 : T3($b1_0_0 : f0, $b1_0_1 : f1, f1 == false)\n    T2(f0 >= \"b\", $b1_1_0 : f0)\n    T3($b1_2_0 : f0, $b1_2_1 : f1)\nthen\n    $p1_0.setF1(true);\n    update($p1_0);\nend\nrule \"R2\"\nno-loop\nwhen\n    $p2_0 : T1($b2_0_0 : f1)\nthen\n    insert(new T3(\"alpha\", $p2_0.isF0()));\nend\nrule \"R3\"\nsalience -7\nwhen\n    $p3_0 : T1($b3_0_0 : f2, $b3_0_1 : f2, f2 == false)\n    T2(f0 != \"ab\")\nthen\n    modify($p3_0) { setF2(true), setF0(true) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "beta"
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": false
+      },
+      "type": "T3"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": false
+      },
+      "type": "T3"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": true
+      },
+      "type": "T3"
+    }
+  ],
+  "name": "fz_42_7479",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

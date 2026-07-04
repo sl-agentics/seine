@@ -1,0 +1,74 @@
+{
+  "drl": "rule \"R0\"\nsalience 4\nwhen\n    T0()\n    T0(f0 <= -0.5, $b0_1_0 : f0)\nthen\n    insert(new T1(\"alpha\", \"a\", false));\n    insert(new T1(\"\", \"b\", false));\nend\nrule \"R1\"\nsalience 1\nwhen\n    T0(f0 <= 2, $b1_0_0 : f1, $b1_0_1 : f0)\n    $p1_1 : T1(f0 <= \"alpha\", f2 != true, $b1_1_0 : f0, $b1_1_1 : f0, f2 == false)\n    T1(f1 != \"beta\", f1 >= $b1_1_1)\nthen\n    $p1_1.setF2(true);\n    $p1_1.setF1(\"\");\n    update($p1_1);\nend\nrule \"R2\"\nsalience 3\nwhen\n    $p2_0 : T0(f0 < -0.5, f1 != true, $b2_0_0 : f0, f1 == false)\n    T1(f1 <= \"\", f2 != true, $b2_1_0 : f2)\nthen\n    $p2_0.setF1(true);\n    $p2_0.setF0($p2_0.getF0());\n    update($p2_0);\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0(f1 == false)\nthen\n    insert(new T1(\"alpha\", \"\", $p3_0.isF1()));\nend\nrule \"R4\"\nsalience -6\nwhen\n    $p4_0 : T1(f0 != \"ab\", f2 == false)\nthen\n    modify($p4_0) { setF2(true) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1.5,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4.5,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 2.5,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3.0,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": "zz",
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_6865",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

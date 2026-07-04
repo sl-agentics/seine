@@ -1,0 +1,76 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0($b0_0_0 : f1, $b0_0_1 : f1)\n    T0()\nthen\nend\nrule \"R1\"\nsalience 2\nwhen\n    T0(f1 != false, f0 >= \"\", $b1_0_0 : f1, $b1_0_1 : f1)\n    $p1_1 : T1($b1_1_0 : f0, $b1_1_1 : f0)\nthen\n    delete($p1_1);\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0(f0 < \"b\", $b2_0_0 : f1, f1 == false)\nthen\n    $p2_0.setF1(true);\n    update($p2_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": 10
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 100
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_8078",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

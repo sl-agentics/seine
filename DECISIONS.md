@@ -240,6 +240,92 @@ refire and a pending entry after ~15 update events. Next session: extend
 the minimizer to also drop individual constraints/actions and shrink fact
 fields, then hand-trace. The D-017 generator wall stays until resolved.
 
+### D-023: LAST XFAIL RESOLVED — unified update cascade; D-017 wall LIFTED
+Session continuation. Tooling first: `SEINE_HANDLES=1` makes both runners
+emit fact-handle tags (`__h`) for unambiguous log comparison (oracle handle
+ids are 1-based, engine 0-based — offset by one); tools/minimize.py is a
+delta-debugger that shrinks a scenario while the divergence persists
+(rules, facts, constraints, setters, statements).
+Three minimization rounds against fz_42_4373 pinned, in order:
+1. Refires propagate through the join chain exactly like inserts (D-022's
+   cascade — round-1 case).
+2. A hot-moved prefix block is NOT in prior memory order (round 3).
+3. **The unifying rule (round 4): a property-hot update re-enters the
+   staged flow as a re-insert.** Its U-chain (left-stream over the right
+   memory, reversal between joins, right-stream over the left memory)
+   determines at every level: the re-prepended block order of the prefix
+   memory (with fresh creation seqs, so subsequent hot-first iterations see
+   U order), and the requeue order of previously-fired activations at the
+   terminal. Pending activations still keep their positions (u01–u04).
+   This subsumes D-021's move-to-front and D-022's requeue ordering — both
+   were special cases of the same mechanism.
+fz_42_4373 passes. (The wall-lift attempted here was later re-imposed —
+see D-025.)
+
+### D-024: Widened-grammar wave (seeds 42/777) — three more pins
+Lifting D-017 and fuzzing the full grammar found 3 divergences; each
+minimized to ≤3 rules / ≤3 facts with tools/minimize.py + SEINE_HANDLES:
+- **fz_42_5243 (2 rules, 2 facts):** the rule that just fired re-evaluates
+  its own network even if its own RHS UNLINKED it (the executor is still
+  active) — engine: force-merge of the last-fired rule bypassing the
+  linking gate. Virgin/bystander unlinked rules still accumulate (fz_7_145
+  unchanged).
+- **fz_42_9462 (2 rules, 2 facts):** PENDING join activations whose tuple
+  is hot at a RIGHT position also requeue (retract+reassert of the join
+  child), and the requeue block is PREPENDED ahead of kept entries — every
+  earlier requeue case had an empty kept list, masking the placement.
+- **fz_777_1853 (1 rule, 2-3 facts, two rounds):**
+  (a) HOT-position memory moves happen BEFORE the update cascade
+  (fz_42_1057 sees moved order) but UNGATED moves of non-listening right
+  memories happen AFTER it (the same-batch requeue sees pre-move order;
+  fz_42_3433 only observed the move from a later batch);
+  (b) the final requeue matrix: **requeue iff FIRED or RIGHT-hot; a
+  PENDING activation hot only at pos0 (pure left-update, or k==1) is
+  updated in place** — reconciling u01–u04, fz_42_2804/9462 and both
+  rounds of fz_777_1853.
+Corpus 106/106 after promoting all three.
+
+### D-025: Widened-grammar campaign paused — wall re-imposed; open class
+### = requeue PLACEMENT among pending join activations
+After D-024's fixes, a 4-seed × 10k campaign on the unrestricted grammar
+still produced ~2 divergences per 10k. Two minimized counterexamples now
+DIRECTLY contradict each other under every simple placement rule tried:
+- fz_42_9462 wants a requeued pending activation AHEAD of a pending cold
+  one; the fz_42_3554 min-case wants requeued pending activations to stay
+  IN PLACE (its firing-1 batch), while its firing-0 batch is ambiguous.
+- Hand-derivation of PHREAK's agenda (in-place child updates vs
+  retract/reassert, activation numbering, queue discipline) no longer
+  converges from black-box order observations alone at this depth; the
+  next step is modelling the true per-rule activation QUEUE (activation
+  numbers, possibly LIFO segments) rather than a list with placement
+  heuristics.
+- State: engine keeps ALL D-023/D-024 fixes (each independently validated;
+  corpus 106/106 includes fz_42_5243/9462, fz_777_1853); the D-017 wall is
+  RE-IMPOSED in the generator; ~22 unminimized widened-grammar failures
+  are parked in xfail/ as the work queue for the next campaign
+  (tools/minimize.py + SEINE_HANDLES=1 are the workflow).
+- IMPORTANT correction: the wall does NOT fully exclude the open class —
+  a post-fix walled fuzz found ~2/10k divergences (fz_42_3311-class: the
+  class reaches 2-pattern mutation programs too; earlier 30k-clean runs
+  simply never drew these shapes). The proven-subset claim is therefore
+  weakened until the class is closed; all failure cases are parked in
+  xfail/ (26 files).
+- One of them (fz_42_3311 round 1) pinned cleanly along the way: a BARE
+  update() carries Drools' ALL-SET mask, which is CLASS-reactive — it
+  refires even empty-listen patterns (unlike property masks, j13); engine
+  treats the u64::MAX sentinel mask as intersecting everything.
+- DIRECTION DECIDED for the next round: stop black-box order-fitting. The
+  drools-core 9.44.0.Final -sources jar (fetched into ~/.m2, extracted for
+  READING ONLY under the scratchpad) shows the real structures:
+  PhreakJoinNode.doNode phase order (rightDel, leftDel,
+  reorderRightMemory(removeAdd→moves tuple to END), reorderLeftMemory
+  (remove-all→re-append), rightUpdates, leftUpdates, rightInserts,
+  leftInserts), TupleList memories APPEND at tail, TupleSets staged lists
+  PREPEND (LIFO), and child-tuple lists per parent. The next engine
+  iteration should be a faithful behavioral port of this node algorithm
+  (still validated only through oracle probes; no code copied), replacing
+  the fitted emission heuristics in merge_staged.
+
 ## Phase 2 (pre-work: goldens captured, engine not yet extended)
 
 ### D-011: Join + mutation semantics observed via probes j01–j05 (oracle-only,

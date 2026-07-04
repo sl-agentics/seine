@@ -166,10 +166,10 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     }
 
     let nrules = 1 + rng.below(6); // 1..6
-    // Subset wall (D-017): programs containing update/modify keep every rule
-    // at <= 2 patterns. Update semantics are exhaustively pinned for 1-2
-    // pattern rules; the 3-pattern x long-update-history interaction has
-    // open xfails (fz_42_3408/4373) and is out of the proven subset.
+    // Subset wall (D-017, re-imposed by D-025): programs containing
+    // update/modify keep every rule at <= 2 patterns. The widened
+    // grammar's residual class — requeue placement among pending join
+    // activations after repeated updates (xfail/) — is not yet pinned.
     let allow_mutation = rng.chance(60);
     let max_extra_pat = if allow_mutation { 2 } else { 3 };
     let mut drl = String::new();

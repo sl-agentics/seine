@@ -397,7 +397,9 @@ impl Engine {
             }
         }
         let mut firings = Vec::new();
-        while let Some((ri, idx)) = self.next_activation() {
+        let mut last_fired: Option<usize> = None;
+        while let Some((ri, idx)) = self.next_activation(last_fired) {
+            last_fired = Some(ri);
             if firings.len() >= limit {
                 return Err(EngineError(format!(
                     "fire limit {limit} reached (non-terminating?)"
@@ -422,7 +424,13 @@ impl Engine {
     ///   dirty network, and fire the first rule with an unfired match.
     ///   Rules below the firing rule are never touched (they accumulate),
     ///   rules above it are — that is exactly outrank-preemption.
-    fn next_activation(&mut self) -> Option<(usize, usize)> {
+    fn next_activation(&mut self, last: Option<usize>) -> Option<(usize, usize)> {
+        // The rule that just fired re-evaluates its own network even if its
+        // RHS unlinked it (fz_42_5243: the executor is still active); virgin
+        // or bystander unlinked rules keep accumulating (fz_7_145).
+        if let Some(l) = last {
+            self.merge_staged_impl(l, true);
+        }
         for i in 0..self.rule_order.len() {
             let ri = self.rule_order[i];
             if self.rules[ri].def.no_loop {
@@ -482,7 +490,10 @@ impl Engine {
                         self.staged[ri].push(StagedEv::Del);
                     }
                     (true, true) => {
-                        if pat.listen_mask & mask != 0 {
+                        // Bare update() carries the ALL-SET mask, which is
+                        // class-reactive: it hits even empty-listen patterns
+                        // (fz_42_3311), unlike property masks (j13).
+                        if mask == u64::MAX || pat.listen_mask & mask != 0 {
                             hot_positions.push(pos);
                         }
                     }
@@ -537,13 +548,17 @@ impl Engine {
     ///    unreversed at the terminal; kept matches hold position and hot
     ///    updates clear their fired flag (no-loop's own tuple excepted).
     fn merge_staged(&mut self, ri: usize) {
+        self.merge_staged_impl(ri, false)
+    }
+
+    fn merge_staged_impl(&mut self, ri: usize, force: bool) {
         if self.staged[ri].is_empty() {
             return;
         }
         let k = self.rules[ri].patterns.len();
 
         // ---- 0. segment linking (fz_7_145) ----
-        if (0..k).any(|p| self.nets[ri].active[p].is_empty()) {
+        if !force && (0..k).any(|p| self.nets[ri].active[p].is_empty()) {
             for p in 0..k {
                 let active = self.nets[ri].active[p].clone();
                 let kept: Vec<(u64, FactId)> = self.nets[ri].alpha[p]
@@ -625,15 +640,25 @@ impl Engine {
                 continue;
             }
             if self.tuple_hot(ri, &e.tuple, &events) {
-                if e.fired {
-                    // A FIRED activation re-created by an update loses its
-                    // agenda position: it re-queues during the update phase,
-                    // before any insert-derived appends (fz_42_2804).
+                let right_hot = events.iter().any(|ev| {
+                    let StagedEv::Hot { fact, positions, .. } = ev else {
+                        return false;
+                    };
+                    positions
+                        .iter()
+                        .any(|&p| p >= 1 && e.tuple.get(p) == Some(fact))
+                });
+                if e.fired || right_hot {
+                    // Requeue when the activation already FIRED (a new
+                    // activation is created, fz_42_2804/4373) or when the
+                    // update hits a RIGHT position (retract+reassert of the
+                    // join child, even for pending ones — fz_42_9462).
                     refire_pool.push((e.key, e.tuple));
                     continue;
                 }
-                e.fired = false; // pending hot activation: updated in place,
-                                 // position kept (u01–u04)
+                // PENDING + hot only at pos0 (pure left-update, or k==1):
+                // updated IN PLACE — position kept (u01-u04, fz_777_1853).
+                e.fired = false;
             }
             kept_matches.push(e);
         }
@@ -642,22 +667,6 @@ impl Engine {
         // memory order and requeue that prefix's affected tuples
         // (fz_42_2055: block-prepended lefts requeue first; fz_42_2804:
         // prefix-memory order, not original agenda order).
-        // Prefixes holding a fact that is HOT at one of their positions
-        // move to the front of their level's memory, relative order kept
-        // (u16: flip2's hot prefix iterates first in flip4's cold group).
-        for l in 0..k.saturating_sub(1) {
-            for ev in &events {
-                let StagedEv::Hot { fact, positions, .. } = ev else { continue };
-                let (hot, cold): (Vec<_>, Vec<_>) =
-                    self.nets[ri].prefixes[l].drain(..).partition(|(_, t)| {
-                        positions.iter().any(|&p| p <= l && t.get(p) == Some(fact))
-                    });
-                let mut merged = hot;
-                merged.extend(cold);
-                self.nets[ri].prefixes[l] = merged;
-            }
-        }
-
         if !refire_pool.is_empty() && k == 1 {
             refire_pool.sort_by_key(|(key, _)| *key);
             for (_, t) in refire_pool.drain(..) {
@@ -669,14 +678,17 @@ impl Engine {
         // Hot-updated facts move to the front of their alpha memories BEFORE
         // refire requeueing (fz_42_1057: the hot fact's own pairs requeue
         // first within a prefix).
-        // Updated facts move to the front of alpha memories they occupy:
-        // beta RIGHT memories (positions >= 1) move on ANY update — not
-        // gated by listen masks (fz_42_3433) — while the pos0 left-input
-        // memory moves only on property-hot updates (fz_42_388 vs 4359).
+        // Updated facts move to the front of alpha memories they occupy.
+        // HOT-position moves happen BEFORE the update cascade (fz_42_1057:
+        // the requeue iterates the moved order); ungated moves of
+        // non-listening right memories happen AFTER it (fz_777_1853: the
+        // same-batch requeue sees the pre-move order; fz_42_3433 only
+        // observes the move from a later batch). pos0 moves only on hot
+        // updates (fz_42_388 vs 4359).
         for p in 0..k {
             for ev in &events {
                 let StagedEv::Hot { fact, positions, .. } = ev else { continue };
-                if p == 0 && !positions.contains(&0) {
+                if !positions.contains(&p) {
                     continue;
                 }
                 if let Some(i) = self.nets[ri].alpha[p].iter().position(|(_, x)| x == fact)
@@ -686,18 +698,19 @@ impl Engine {
                 }
             }
         }
-        if !refire_pool.is_empty() {
-            // Cascade-based requeue (fz_42_4373 minimized case): refires
-            // propagate exactly like inserts — the left-update stream walks
-            // existing extensions in right-memory order, emissions REVERSE
-            // between joins, then the right-update stream walks the left
-            // memory; the terminal requeues in arrival order (dedup).
+        // Unified update cascade (fz_42_4373 rounds 3-4): hot tuples re-
+        // enter the staged flow exactly like re-inserts. Per hot event, the
+        // U-chain (left-stream over right memory, reversal between joins,
+        // right-stream over left memory) determines, at every level:
+        //   - the re-prepended block order of the prefix memory (with FRESH
+        //     creation seqs, so later hot-first iterations see U order);
+        //   - the requeue order of previously-FIRED activations at the
+        //     terminal (pending ones keep their position, u01-u04).
+        if k > 1 {
             let pool_set: HashSet<Vec<FactId>> =
                 refire_pool.iter().map(|(_, t)| t.clone()).collect();
-            let level_sets: Vec<HashSet<Vec<FactId>>> = (0..k.saturating_sub(1))
-                .map(|l| self.nets[ri].prefixes[l].iter().map(|(_, t)| t.clone()).collect())
-                .collect();
             let mut requeued: HashSet<Vec<FactId>> = HashSet::new();
+            let mut requeue_entries: Vec<MatchEntry> = Vec::new();
             for ev in &events {
                 let StagedEv::Hot { fact, positions, .. } = ev else { continue };
                 let mut u: Vec<Vec<FactId>> = if positions.contains(&0) {
@@ -714,12 +727,15 @@ impl Engine {
                     };
                     let rights: Vec<FactId> =
                         self.nets[ri].alpha[j].iter().map(|&(_, f)| f).collect();
-                    let exists = |t: &Vec<FactId>| -> bool {
-                        if terminal {
-                            pool_set.contains(t)
-                        } else {
-                            level_sets[j].contains(t)
-                        }
+                    let level_set: HashSet<Vec<FactId>> = if terminal {
+                        self.nets[ri]
+                            .matches
+                            .iter()
+                            .map(|e| e.tuple.clone())
+                            .chain(pool_set.iter().cloned())
+                            .collect()
+                    } else {
+                        self.nets[ri].prefixes[j].iter().map(|(_, t)| t.clone()).collect()
                     };
                     let mut emit: Vec<Vec<FactId>> = Vec::new();
                     let mut seen: HashSet<Vec<FactId>> = HashSet::new();
@@ -727,7 +743,7 @@ impl Engine {
                         for &r in &rights {
                             let mut t = uu.clone();
                             t.push(r);
-                            if exists(&t) && seen.insert(t.clone()) {
+                            if level_set.contains(&t) && seen.insert(t.clone()) {
                                 emit.push(t);
                             }
                         }
@@ -736,23 +752,54 @@ impl Engine {
                         for l in &lefts_mem {
                             let mut t = l.clone();
                             t.push(*fact);
-                            if exists(&t) && seen.insert(t.clone()) {
+                            if level_set.contains(&t) && seen.insert(t.clone()) {
                                 emit.push(t);
                             }
                         }
                     }
                     if terminal {
                         for t in emit {
-                            if requeued.insert(t.clone()) {
+                            if pool_set.contains(&t) && requeued.insert(t.clone()) {
                                 let key = -(self.seq as i64);
                                 self.seq += 1;
-                                kept_matches.push(MatchEntry { tuple: t, fired: false, key });
+                                requeue_entries.push(MatchEntry { tuple: t, fired: false, key });
                             }
                         }
                         break;
                     }
                     emit.reverse();
+                    // Re-prepend the hot block in U order with fresh seqs.
+                    let moved: HashSet<Vec<FactId>> = emit.iter().cloned().collect();
+                    let rest: Vec<(u64, Vec<FactId>)> = self.nets[ri].prefixes[j]
+                        .iter()
+                        .filter(|(_, t)| !moved.contains(t))
+                        .cloned()
+                        .collect();
+                    let mut merged: Vec<(u64, Vec<FactId>)> = Vec::new();
+                    for t in &emit {
+                        merged.push((self.seq, t.clone()));
+                        self.seq += 1;
+                    }
+                    merged.extend(rest);
+                    self.nets[ri].prefixes[j] = merged;
                     u = emit;
+                }
+            }
+            // Requeued block goes AHEAD of kept entries (fz_42_9462).
+            requeue_entries.extend(kept_matches);
+            kept_matches = requeue_entries;
+        }
+        // Ungated (non-listening) right-memory moves, post-cascade.
+        for p in 1..k {
+            for ev in &events {
+                let StagedEv::Hot { fact, positions, .. } = ev else { continue };
+                if positions.contains(&p) {
+                    continue; // already moved pre-cascade
+                }
+                if let Some(i) = self.nets[ri].alpha[p].iter().position(|(_, x)| x == fact)
+                {
+                    let e = self.nets[ri].alpha[p].remove(i);
+                    self.nets[ri].alpha[p].insert(0, e);
                 }
             }
         }

@@ -116,6 +116,9 @@ fn json_fields_to_values(obj: &Map<String, J>) -> Result<Vec<(String, Value)>, S
 
 fn fact_view_to_json(fv: &FactView) -> J {
     let mut fields = Map::new();
+    if std::env::var("SEINE_HANDLES").is_ok() {
+        fields.insert("__h".into(), json!(fv.handle));
+    }
     for (name, v) in &fv.fields {
         let jv = match v {
             Value::I64(n) => json!(n),

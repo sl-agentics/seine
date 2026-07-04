@@ -4,11 +4,12 @@ A Rust reimplementation of a **bounded subset** of the Drools DRL
 forward-chaining rule semantics, proven faithful by **differential testing
 against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
-> Status: Phases 0–2 complete. Curated corpus (100 scenarios) at 100%;
-> property fuzzing at 20,000 cases (two independent seeds) with zero
-> divergences over the proven subset. Two documented xfails outside the
-> subset (`xfail/`). See `DECISIONS.md` for the running log of every
-> oracle-pinned semantic (D-001…D-020).
+> Status: Phases 0–2; curated corpus (106 scenarios, incl. 50+ named fuzz
+> regressions) at 100%. One documented open divergence class remains
+> (~2 per 10k fuzz cases): activation requeue placement after repeated
+> updates in join rules (`xfail/`, D-025 — next step is a faithful port of
+> the PHREAK node algorithm's staging structures). See `DECISIONS.md` for
+> the running log of every oracle-pinned semantic (D-001…D-025).
 
 ## What this is
 
@@ -28,13 +29,13 @@ log** for every in-subset program.
 - Phase 1: single-pattern rules; typed fields (`i64`, `f64`, `String`, `bool`);
   operators `== != < <= > >=`; variable/field bindings; `insert` on the RHS;
   `salience`; `no-loop`; oracle-pinned conflict resolution.
-- Phase 2: multi-pattern joins on bound variables; `update`/`modify`/`delete`
-  with oracle-pinned re-evaluation and re-firing semantics (PHREAK property
-  reactivity, staging batches, agenda-peek evaluation, refire requeueing).
-  Subset wall: programs that use `update`/`modify` are proven for rules of
-  up to 2 patterns; 3+-pattern rules are proven for insert/delete-only
-  programs (see `DECISIONS.md` D-016/D-017 for the two open xfails behind
-  this split).
+- Phase 2: multi-pattern joins on bound variables (up to 3 patterns,
+  self-joins included); `update`/`modify`/`delete` with oracle-pinned
+  re-evaluation and re-firing semantics (PHREAK property reactivity,
+  staging batches, eager/lazy agenda evaluation, and the unified update
+  cascade — see `DECISIONS.md` D-013…D-025). Subset wall: programs using
+  `update`/`modify` are proven for rules of up to 2 patterns; 3-pattern
+  rules are proven for insert/delete-only programs (D-017/D-025).
 - Phase 3 (stretch): `not`/`exists`, `accumulate`/`collect`, `matches`/
   `contains`/`in`.
 

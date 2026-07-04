@@ -1,0 +1,84 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f2 == false)\n    $p0_1 : T0(f1 != \"alpha\", $b0_1_0 : f0)\nthen\n    insert(new T1(\"\", $p0_1.getF0()));\n    modify($p0_0) { setF2(true), setF1($p0_1.getF1()), setF1($p0_1.getF1()) }\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f0 != 3.0, $b1_0_0 : f1)\nthen\n    insert(new T1(\"b\", $p1_0.getF0()));\n    insert(new T1($b1_0_0, $p1_0.getF0()));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0(f2 != true, f2 != true, $b2_0_0 : f1)\nthen\n    insert(new T1($p2_0.getF1(), $p2_0.getF0()));\nend\nrule \"R3\"\nsalience -8\nwhen\n    $p3_0 : T0($b3_0_0 : f0, f2 == false)\nthen\n    insert(new T1($p3_0.getF1(), $b3_0_0));\n    modify($p3_0) { setF2(true), setF1($p3_0.getF1()), setF1($p3_0.getF1()) }\nend\nrule \"R4\"\nsalience -6\nwhen\n    T1(f0 != \"beta\", $b4_0_0 : f1, $b4_0_1 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1,
+        "f1": "zz",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": -2
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": "",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": "alpha",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 12,
+        "f1": "alpha",
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": 10
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_3554",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

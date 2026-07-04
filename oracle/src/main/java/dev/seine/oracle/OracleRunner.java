@@ -69,6 +69,7 @@ public final class OracleRunner {
         KieSession session = kbase.newKieSession();
         try {
             ArrayNode firings = M.createArrayNode();
+            final KieSession fsession = session;
             session.addEventListener(new DefaultAgendaEventListener() {
                 @Override
                 public void afterMatchFired(AfterMatchFiredEvent event) {
@@ -76,7 +77,7 @@ public final class OracleRunner {
                     firing.put("rule", event.getMatch().getRule().getName());
                     ArrayNode matches = firing.putArray("matches");
                     for (Object o : event.getMatch().getObjects()) {
-                        matches.add(render(kbase, o));
+                        matches.add(render(kbase, fsession, o));
                     }
                     firings.add(firing);
                 }
@@ -92,7 +93,7 @@ public final class OracleRunner {
 
             ArrayNode facts = M.createArrayNode();
             for (Object o : session.getObjects()) {
-                facts.add(render(kbase, o));
+                facts.add(render(kbase, session, o));
             }
             ObjectNode result = M.createObjectNode();
             result.set("facts", facts);
@@ -152,12 +153,16 @@ public final class OracleRunner {
 
     /** Canonical rendering: {"type": T, "fields": {sorted by FactType field order is fine;
      *  the comparator canonicalizes semantically anyway}} */
-    static ObjectNode render(KieBase kbase, Object o) {
+    static ObjectNode render(KieBase kbase, KieSession session, Object o) {
         String simpleName = o.getClass().getSimpleName();
         FactType ft = kbase.getFactType(PKG, simpleName);
         ObjectNode node = M.createObjectNode();
         node.put("type", simpleName);
         ObjectNode fields = node.putObject("fields");
+        if (System.getenv("SEINE_HANDLES") != null) {
+            org.kie.api.runtime.rule.FactHandle h = session.getFactHandle(o);
+            fields.put("__h", h == null ? "?" : h.toExternalForm());
+        }
         if (ft != null) {
             ft.getAsMap(o).forEach((k, v) -> {
                 if (v instanceof Long l) fields.put(k, l);

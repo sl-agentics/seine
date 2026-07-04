@@ -1,0 +1,81 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T1($b0_0_0 : f1, $b0_0_1 : f0, f1 == false)\n    T1($b0_1_0 : f1)\nthen\n    modify($p0_0) { setF1(true), setF0($b0_0_1), setF0($b0_0_1) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 4,
+        "f1": 2,
+        "f2": false,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": 7,
+        "f2": false,
+        "f3": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_7948",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1()\nthen\nend\nrule \"R1\"\nwhen\n    T0(f1 >= \"beta\", $b1_0_0 : f0, $b1_0_1 : f0)\n    $p1_1 : T1(f1 <= 5.0, $b1_1_0 : f3)\nthen\n    insert(new T2($p1_1.isF3(), $p1_1.isF3(), false));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0()\nthen\n    insert(new T2(false, true, true));\n    insert(new T1($p2_0.getF0(), $p2_0.getF0(), $p2_0.getF1(), false));\nend\nrule \"R3\"\nsalience 7\nwhen\n    T2(f1 == true, f2 != false, $b3_0_0 : f0)\n    T2(f0 != false, f0 == false, $b3_1_0 : f0)\nthen\nend\nrule \"R4\"\nsalience -4\nwhen\n    $p4_0 : T1(f3 == false)\n    T2(f1 == true, $b4_1_0 : f2, $b4_1_1 : f2)\n    T1($b4_2_0 : f3)\nthen\n    modify($p4_0) { setF3(true) }\nend\nrule \"R5\"\nwhen\n    T2()\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 100,
+        "f1": ""
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 2,
+        "f1": 100,
+        "f2": "",
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": ""
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_7_1088",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

@@ -120,6 +120,8 @@ pub struct FactStore {
 pub struct FactView {
     pub type_name: String,
     pub fields: Vec<(String, Value)>,
+    /// The fact's global handle (insertion sequence) — diagnostic only.
+    pub handle: u32,
 }
 
 impl FactStore {
@@ -231,6 +233,7 @@ impl FactStore {
         let schema = &self.schemas[h.type_id as usize];
         let td = &self.data[h.type_id as usize];
         FactView {
+            handle: id.0,
             type_name: schema.name.clone(),
             fields: schema
                 .fields

@@ -1,0 +1,74 @@
+{
+  "drl": "rule \"R0\"\nsalience -6\nwhen\n    $p0_0 : T1(f1 < 11, f1 != 2, f2 == false)\nthen\n    $p0_0.setF2(true);\n    update($p0_0);\nend\nrule \"R1\"\nwhen\n    T1(f0 != 0)\nthen\nend\nrule \"R2\"\nwhen\n    T0()\n    T1(f1 >= 3, f2 != true)\nthen\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0($b3_0_0 : f1, f1 == false)\nthen\n    insert(new T1(9, $p3_0.getF0(), $p3_0.isF1()));\n    insert(new T1(-2, 3, $p3_0.isF1()));\n    $p3_0.setF1(true);\n    update($p3_0);\nend\nrule \"R4\"\nsalience 7\nwhen\n    $p4_0 : T1(f0 < 5, f1 == 2, $b4_0_0 : f1, $b4_0_1 : f2)\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nno-loop\nwhen\n    $p5_0 : T1($b5_0_0 : f2)\n    T0($b5_1_0 : f1, $b5_1_1 : f0)\nthen\n    delete($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 4,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": 11,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 1,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_6856",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

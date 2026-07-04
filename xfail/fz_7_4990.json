@@ -1,0 +1,64 @@
+{
+  "drl": "rule \"R0\"\nsalience 1\nwhen\n    T1(f0 != 9, $b0_0_0 : f0)\nthen\nend\nrule \"R1\"\nno-loop\nwhen\n    T1(f0 >= 4.5, f0 < -2.5, $b1_0_0 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    T0(f1 >= \"b\")\n    T0()\nthen\nend\nrule \"R3\"\nwhen\n    T1(f0 != -2.0, f0 >= 3.5, $b3_0_0 : f0)\n    $p3_1 : T0(f0 < 100, f0 < $b3_0_0, f2 == false)\nthen\n    modify($p3_1) { setF2(true), setF1(\"b\") }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 8,
+        "f1": "b",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -2,
+        "f1": "zz",
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": "beta",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 11
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_4990",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

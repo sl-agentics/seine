@@ -1,0 +1,92 @@
+{
+  "drl": "rule \"R0\"\nsalience 4\nwhen\n    $p0_0 : T0(f0 == 4.0, f1 <= \"beta\", $b0_0_0 : f0)\nthen\n    insert(new T1(false, -3, $p0_0.getF1(), true));\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f3, $b1_0_1 : f2)\n    T1(f0 == false, f0 != $b1_0_0, $b1_1_0 : f1, $b1_1_1 : f3)\n    T1(f0 == false, $b1_2_0 : f2)\nthen\nend\nrule \"R2\"\nwhen\n    T0($b2_0_0 : f0, $b2_0_1 : f0)\n    $p2_1 : T1(f0 != true, $b2_1_0 : f0, f3 == false)\n    T1($b2_2_0 : f3)\nthen\n    modify($p2_1) { setF3(true) }\nend\nrule \"R3\"\nwhen\n    $p3_0 : T1($b3_0_0 : f3)\nthen\n    delete($p3_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": 11,
+        "f2": "a",
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 100,
+        "f2": "",
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1.5,
+        "f1": "b"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -2.0,
+        "f1": "ab"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": -4,
+        "f2": "",
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -1,
+        "f2": "alpha",
+        "f3": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_1438",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}
