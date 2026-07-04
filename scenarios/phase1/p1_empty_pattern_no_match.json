@@ -1,0 +1,12 @@
+{
+  "name": "p1_empty_pattern_no_match",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "Q", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } },
+    { "type": "P", "fields": { "n": 2 } }
+  ],
+  "drl": "rule \"all\" when P() then end\nrule \"none\" when Q() then end\nrule \"impossible\" when P(n > 100) then end\n"
+}

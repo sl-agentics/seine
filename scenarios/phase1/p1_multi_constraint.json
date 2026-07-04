@@ -1,0 +1,15 @@
+{
+  "name": "p1_multi_constraint",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "s", "type": "String" } ] },
+    { "name": "Hit", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "s": "x" } },
+    { "type": "P", "fields": { "n": 5, "s": "x" } },
+    { "type": "P", "fields": { "n": 7, "s": "y" } },
+    { "type": "P", "fields": { "n": 9, "s": "x" } },
+    { "type": "P", "fields": { "n": 11, "s": "x" } }
+  ],
+  "drl": "rule \"band\" when $p : P(n > 0, n < 10, n != 5, s == \"x\") then insert(new Hit($p.getN())); end\n"
+}

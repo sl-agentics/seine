@@ -1,0 +1,14 @@
+{
+  "name": "p1_chain",
+  "types": [
+    { "name": "A", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "B", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "C", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "D", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "A", "fields": { "n": 1 } },
+    { "type": "A", "fields": { "n": 2 } }
+  ],
+  "drl": "rule \"a2b\" when $a : A(n > 0) then insert(new B($a.getN())); end\nrule \"b2c\" when $b : B(n > 1) then insert(new C($b.getN())); end\nrule \"c2d\" when $c : C(n > 0) then insert(new D($c.getN())); end\n"
+}

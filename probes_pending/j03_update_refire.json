@@ -1,0 +1,10 @@
+{
+  "name": "j03_update_refire",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" }, { "name": "done", "type": "bool" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1, "done": false } }
+  ],
+  "drl": "rule \"bump\" when $p : P(done == false) then $p.setDone(true); update($p); end\nrule \"see\" when P(done == true) then end\n"
+}

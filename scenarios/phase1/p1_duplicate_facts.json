@@ -1,0 +1,12 @@
+{
+  "name": "p1_duplicate_facts",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "Hit", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 4 } },
+    { "type": "P", "fields": { "n": 4 } }
+  ],
+  "drl": "rule \"dup\" when $p : P(n == 4) then insert(new Hit($p.getN())); end\n"
+}

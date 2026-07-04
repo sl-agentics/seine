@@ -1,0 +1,13 @@
+{
+  "name": "j05_delete_cancels",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "K", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } },
+    { "type": "P", "fields": { "n": 2 } },
+    { "type": "K", "fields": { "n": 2 } }
+  ],
+  "drl": "rule \"kill\" salience 10 when $k : K($n : n) $p : P(n == $n) then delete($p); end\nrule \"see\" when P(n > 0) then end\n"
+}

@@ -1,0 +1,13 @@
+{
+  "name": "p1_ops_str_bool",
+  "types": [
+    { "name": "S", "fields": [ { "name": "s", "type": "String" }, { "name": "ok", "type": "bool" } ] },
+    { "name": "Hit", "fields": [ { "name": "tag", "type": "String" }, { "name": "s", "type": "String" } ] }
+  ],
+  "facts": [
+    { "type": "S", "fields": { "s": "alpha", "ok": true } },
+    { "type": "S", "fields": { "s": "beta", "ok": false } },
+    { "type": "S", "fields": { "s": "", "ok": true } }
+  ],
+  "drl": "rule \"seq\" when $x : S(s == \"alpha\") then insert(new Hit(\"seq\", $x.getS())); end\nrule \"sne\" when $x : S(s != \"beta\") then insert(new Hit(\"sne\", $x.getS())); end\nrule \"sempty\" when $x : S(s == \"\") then insert(new Hit(\"sempty\", $x.getS())); end\nrule \"bt\" when $x : S(ok == true) then insert(new Hit(\"bt\", $x.getS())); end\nrule \"bf\" when $x : S(ok != true) then insert(new Hit(\"bf\", $x.getS())); end\n"
+}

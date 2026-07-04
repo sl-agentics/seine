@@ -413,8 +413,11 @@ impl Parser {
                     let getter = self.ident()?;
                     self.expect_sym("(")?;
                     self.expect_sym(")")?;
+                    // Drools declared types generate getX() for non-boolean
+                    // fields and isX() (only) for boolean fields (D-009).
                     let field = getter
                         .strip_prefix("get")
+                        .or_else(|| getter.strip_prefix("is"))
                         .filter(|r| !r.is_empty())
                         .map(|r| {
                             let mut cs = r.chars();

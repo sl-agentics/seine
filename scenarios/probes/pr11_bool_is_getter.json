@@ -1,0 +1,12 @@
+{
+  "name": "pr11_bool_is_getter",
+  "types": [
+    { "name": "S", "fields": [ { "name": "ok", "type": "bool" } ] },
+    { "name": "H", "fields": [ { "name": "b", "type": "bool" } ] }
+  ],
+  "facts": [
+    { "type": "S", "fields": { "ok": true } },
+    { "type": "S", "fields": { "ok": false } }
+  ],
+  "drl": "rule \"g\" when $s : S(ok == true) then insert(new H($s.isOk())); end"
+}

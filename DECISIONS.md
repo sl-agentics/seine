@@ -110,6 +110,72 @@ Drools 9.44.0.Final, all facts via insert, fireAllRules(), java dialect:
 - NOT yet pinned (Phase 2): tuple ordering for multi-pattern activations,
   behavior under update/delete, timestamp/recency tie-breaks after mutation.
 
+### D-009: Declared-type boolean getters are isX() ONLY (oracle-pinned)
+Probe: `$s.getOk()` on a declared type with `ok : boolean` is a Drools
+**compile error** ("The method getOk() is undefined"); `$s.isOk()` works.
+- Parser accepts both `getX`/`isX` and resolves to field `x`; the engine is
+  therefore *more lenient* than Drools (`getOk` on bool would compile here but
+  not in Drools). The generator only emits the Drools-legal form, so the
+  differential surface stays in-subset. Known, documented leniency — not a
+  divergence risk (divergence requires oracle-legal input).
+- Regression: scenarios/probes/pr11_bool_is_getter.json.
+
+### D-010: Phase 1 curated corpus + property generator
+- Curated: p1_ops_{i64,f64,str_bool}, p1_multi_constraint, p1_empty_pattern_
+  no_match, p1_bindings_rhs, p1_duplicate_facts, p1_salience_preempt,
+  p1_chain, plus probes pr09 (string relational ops DO work in DRL and match
+  Rust byte-order comparison for ASCII — corpus strings stay ASCII-only) and
+  pr10 (numeric cross-type: i64 field vs f64 literal and vice versa promote
+  like Java). All green.
+- Generator (`seine-harness fuzz <count> [seed]`, default seed 42,
+  SplitMix64): 2–4 types × 1–3 typed fields; 1–6 rules; 0–3 constraints +
+  0–2 field bindings per pattern; salience −10..10 (35% of rules); no-loop
+  (10%); RHS 0–2 inserts with literal/binding/getter args (type-correct,
+  i64→f64 widening allowed). **Termination by construction:** a rule matching
+  Ti only inserts Tj with j>i (type-index DAG), so chains strictly climb.
+  Divergent cases are auto-saved to scenarios/failures/.
+
+### D-012: Phase 1 COMPLETE ✅ (done-bar met)
+- Curated corpus: 21/21 PASS (`make diff`).
+- Property fuzz: **10,000 cases, seed 42, 0 divergences**, 237s wall
+  (`cargo run -q -p seine-harness -- fuzz 10000 42`). Reproducible: case k of
+  seed s is deterministic.
+- Trial-run stats (first 100 cases): 72% of scenarios produce ≥1 firing,
+  414 firings total, max 42 in one scenario — the corpus is not trivially
+  empty.
+
+---
+
+**HANDOFF @ checkpoint 3** — Phase 1 COMPLETE (single-pattern rules: all six
+operators × 4 field types, bindings, salience, preemption, chains, no-loop
+(inert for inserts), 10k fuzz cases zero divergences). Phase 2 goldens
+already captured in D-011 (probes_pending/j01–j05, oracle-only). Next:
+extend engine to multi-pattern joins (left-major nested-loop activation
+order per j01), cross-pattern var constraints (`Expr::Var` rhs), then
+update/modify/delete RHS with render-after-RHS switch (j03), no-loop
+(j04), activation cancellation on delete (j05); then move j-probes into
+scenarios/, add curated Phase 2 corpus, extend fuzzer grammar (joins +
+mutation with termination discipline), 10k fuzz. Open divergences: none.
+
+## Phase 2 (pre-work: goldens captured, engine not yet extended)
+
+### D-011: Join + mutation semantics observed via probes j01–j05 (oracle-only,
+files in probes_pending/ — move into scenarios/ once the engine supports them)
+- j01/j02: join activation order = leftmost pattern's fact handle asc, then
+  right pattern's handle asc (nested-loop order, left-major). Match object
+  list is in pattern declaration order [P, A].
+- j03: **afterMatchFired renders facts POST-RHS**: `bump`'s own match shows
+  `done: true` (the value its RHS just wrote). Engine currently renders
+  matches pre-RHS; identical for Phase 1 (no mutation), but Phase 2 MUST
+  switch to render-after-RHS. Also: update() re-evaluates and fires
+  newly-matching rules ("see" fired after).
+- j04: no-loop suppresses self-reactivation from the rule's own update();
+  fires exactly once.
+- j05: delete() cancels not-yet-fired activations (P(2)'s "see" activation
+  never fired). Deleted facts can still be rendered in the firing log entry
+  of the deleting rule (Java object outlives retraction; our arena keeps
+  values under a dead alive-flag, so same capability).
+
 ---
 
 **HANDOFF @ checkpoint 2** — Phase 0 COMPLETE. Proven: full pipeline

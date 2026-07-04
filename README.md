@@ -46,9 +46,16 @@ Prereqs: Rust stable, JDK 17+, Maven with access to Maven Central (Drools
 9.44.0.Final and transitives).
 
 ```sh
-make diff          # run every scenario through both engines and compare
+make diff          # run every curated scenario through both engines and compare
+make test          # pure-Rust unit + characterization tests (no JVM)
 make oracle        # build the Java oracle runner (once)
+
+# property-based differential fuzzing (seeded, deterministic):
+cargo run -q -p seine-harness -- fuzz 10000 42
 ```
+
+Divergent fuzz cases are saved to `scenarios/failures/` automatically; every
+resolved divergence graduates to a named regression scenario.
 
 ## Provenance & licensing
 

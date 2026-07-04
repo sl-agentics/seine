@@ -1,0 +1,12 @@
+{
+  "name": "p1_bindings_rhs",
+  "types": [
+    { "name": "Person", "fields": [ { "name": "name", "type": "String" }, { "name": "age", "type": "i64" }, { "name": "score", "type": "f64" } ] },
+    { "name": "R", "fields": [ { "name": "a", "type": "i64" }, { "name": "who", "type": "String" }, { "name": "flag", "type": "bool" }, { "name": "w", "type": "f64" } ] }
+  ],
+  "facts": [
+    { "type": "Person", "fields": { "name": "dana", "age": 33, "score": 4.5 } },
+    { "type": "Person", "fields": { "name": "eli", "age": 15, "score": 2.5 } }
+  ],
+  "drl": "rule \"mk\" when $p : Person($a : age, age > 18) then insert(new R($a, $p.getName(), true, 1.5)); end\nrule \"mk2\" when $p : Person($sc : score, score < 3.0) then insert(new R(0, $p.getName(), false, $sc)); end\n"
+}

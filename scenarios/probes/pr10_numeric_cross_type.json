@@ -1,0 +1,12 @@
+{
+  "name": "pr10_numeric_cross_type",
+  "types": [
+    { "name": "I", "fields": [ { "name": "n", "type": "i64" } ] },
+    { "name": "F", "fields": [ { "name": "v", "type": "f64" } ] }
+  ],
+  "facts": [
+    { "type": "I", "fields": { "n": 2 } },
+    { "type": "F", "fields": { "v": 2.0 } }
+  ],
+  "drl": "rule \"ieqf\" when I(n == 2.0) then end\nrule \"igtf\" when I(n > 1.5) then end\nrule \"feqi\" when F(v == 2) then end\nrule \"fnei\" when F(v != 3) then end\n"
+}

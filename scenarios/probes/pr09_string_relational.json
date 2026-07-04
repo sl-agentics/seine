@@ -1,0 +1,12 @@
+{
+  "name": "pr09_string_relational",
+  "types": [
+    { "name": "S", "fields": [ { "name": "s", "type": "String" } ] }
+  ],
+  "facts": [
+    { "type": "S", "fields": { "s": "apple" } },
+    { "type": "S", "fields": { "s": "mango" } },
+    { "type": "S", "fields": { "s": "zebra" } }
+  ],
+  "drl": "rule \"lt\" when S(s < \"mango\") then end\nrule \"ge\" when S(s >= \"mango\") then end\n"
+}

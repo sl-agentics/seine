@@ -1,0 +1,15 @@
+{
+  "name": "p1_ops_f64",
+  "types": [
+    { "name": "X", "fields": [ { "name": "v", "type": "f64" } ] },
+    { "name": "Hit", "fields": [ { "name": "tag", "type": "String" }, { "name": "v", "type": "f64" } ] }
+  ],
+  "facts": [
+    { "type": "X", "fields": { "v": -0.5 } },
+    { "type": "X", "fields": { "v": 0.0 } },
+    { "type": "X", "fields": { "v": 1.5 } },
+    { "type": "X", "fields": { "v": 2.0 } },
+    { "type": "X", "fields": { "v": 2.5 } }
+  ],
+  "drl": "rule \"gt\" when $x : X(v > 1.5) then insert(new Hit(\"gt\", $x.getV())); end\nrule \"eqf\" when $x : X(v == 2.5) then insert(new Hit(\"eqf\", $x.getV())); end\nrule \"le\" when $x : X(v <= -0.5) then insert(new Hit(\"le\", $x.getV())); end\nrule \"nez\" when $x : X(v != 0.0) then insert(new Hit(\"nez\", $x.getV())); end\nrule \"geint\" when $x : X(v >= 2) then insert(new Hit(\"geint\", $x.getV())); end\n"
+}

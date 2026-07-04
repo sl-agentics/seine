@@ -1,0 +1,10 @@
+{
+  "name": "j04_update_loop_noloop",
+  "types": [
+    { "name": "P", "fields": [ { "name": "n", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "n": 1 } }
+  ],
+  "drl": "rule \"touch\" no-loop when $p : P(n > 0) then update($p); end\n"
+}
