@@ -326,6 +326,37 @@ DIRECTLY contradict each other under every simple placement rule tried:
   (still validated only through oracle probes; no code copied), replacing
   the fitted emission heuristics in merge_staged.
 
+### D-026: Faithful node-algorithm port — attempted, reverted, groundwork
+### banked for next session
+A full behavioral port of PhreakJoinNode/PhreakRuleTerminalNode was built
+and exercised against the corpus, then REVERTED (46/106 → the fitted
+engine at HEAD stays authoritative at 106/106). What the attempt
+established (all verified by hand-simulation against oracle logs):
+- The real algorithm reproduces u09's initial batch EXACTLY under: staged
+  TupleSets prepend (LIFO) consumed newest-first, right-inserts processed
+  before left-inserts, memories append at tail, trg prepends per child.
+- The port's terminal semantics are the truth for the requeue class:
+  RuleExecutor.tupleList holds only QUEUED activations; fired tuples leave
+  the list (getNextTuple = removeFirst + setQueued(false)); a terminal
+  UPDATE is a no-op for queued tuples and re-APPENDS unqueued (fired) ones
+  ("effectively recreated"); no-loop compares the propagation origin's
+  terminal; the salience queue only exists for dynamic salience.
+- THE DISCRIMINATING PAIR for the remaining unknown: j01 (2-pattern
+  indexed join, fires in left-FIFO x right-ascending order) vs fz_42_9462
+  (2-pattern indexed self-join, initial firing order effectively
+  left-LIFO). No single FIFO/LIFO staging convention reproduces both under
+  the ported doNode; the difference likely lives in the eager-evaluation
+  flush boundaries (9462's rule is no-loop/eager, j01's is not) and/or the
+  indexed-join child-sync walk (doRightUpdatesProcessChildren).
+- Next session: resume the port on a branch; instrument BOTH engines with
+  SEINE_HANDLES over j01/u09/9462/pr08/pr04 as the calibration set; read
+  PhreakJoinNode.doRightUpdatesProcessChildren + TupleIndexHashTable
+  iteration order; only swap the engine when the calibration set is green,
+  then run the corpus + full fuzz.
+Sources for READING live under the scratchpad (re-fetch:
+`mvn dependency:sources -DincludeArtifactIds=drools-core` and unzip; do
+NOT copy code into the port — behavior only, validated via oracle).
+
 ## Phase 2 (pre-work: goldens captured, engine not yet extended)
 
 ### D-011: Join + mutation semantics observed via probes j01–j05 (oracle-only,
