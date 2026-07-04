@@ -1,0 +1,10 @@
+[package]
+name = "seine-harness"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Differential test harness: runs scenarios through seine-engine and the Drools oracle, compares canonical results"
+
+[dependencies]
+seine-engine = { path = "../engine" }
+serde_json = "1"

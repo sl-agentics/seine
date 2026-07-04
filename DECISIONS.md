@@ -75,6 +75,33 @@ blocks + rule), 2 firings captured, canonical JSON emitted, stderr clean.
 
 ---
 
+### D-007: Phase 0 walking skeleton GREEN ✅ (done-bar met)
+- Rust workspace: `engine/` (seine-engine) + `harness/` (seine-harness).
+- Store layout per brief: per-type per-field columnar arenas, global
+  insertion-ordered `FactId(u32)` handles (never reused, so handle order ==
+  Drools fact-handle recency), alive flags for Phase-2 retraction.
+- DRL parser covers the Phase 0–1 grammar (single pattern, `==/!=/</<=/>/>=`,
+  bindings, `salience`, `no-loop`, RHS `insert(new T(...))` with literals /
+  `$fieldBind` / `$factBind.getField()`). Everything else is a parse error —
+  the scope wall is mechanical.
+- **PROVISIONAL conflict resolution** (must probe in Phase 1): highest
+  salience, then lowest fact handle, then rule declaration order. Only the
+  single-rule insertion-order part is oracle-backed (D-006).
+- `make diff` = single command differential run (builds oracle if stale):
+  PASS p0_trivial_adult, 1/1. `make test` = pure-Rust tests (6 passing).
+
+---
+
+**HANDOFF @ checkpoint 2** — Phase 0 COMPLETE. Proven: full pipeline
+(scenario JSON → DRL parse → columnar WM → match/fire → canonical JSON →
+comparator) matches real Drools 9.44.0.Final byte-for-byte semantically on
+p0_trivial_adult; `make diff` green, `make test` green. Next: Phase 1 —
+(1) probe conflict resolution: multi-rule same-fact tie-break, salience
+order, interleaved insert-during-fire ordering; (2) curated single-pattern
+scenarios (all operators × all field types, bindings, no-loop); (3) seeded
+property generator ≥10k cases. Open divergences: none. Open risks: agenda
+policy beyond single-rule case is provisional (D-007).
+
 **HANDOFF @ checkpoint 1** — Phase 0 in progress. Proven: Java oracle
 (oracle/, Drools 9.44.0.Final pinned) runs scenario JSON → canonical NDJSON,
 verified on `scenarios/phase0/p0_trivial_adult.json`. Build:
