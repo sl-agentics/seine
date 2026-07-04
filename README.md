@@ -50,11 +50,12 @@ log** for every in-subset program.
   search, and oracle-pinned cancellation/refire lifecycle (D-031/D-032).
   Bindings inside CE patterns are rejected; the type name `InitialFact`
   is reserved. Node-sharing segment boundaries (rules with structurally
-  equal pattern prefixes) reproduce Drools' declaration-order-dependent
-  propagation flips (D-033 — identical-LHS rules fire their activations
-  in opposite orders, faithfully) for insert-only programs; sharing
-  combined with update/delete is a documented open class (D-035:
-  generator-walled, two `xfail/` cases with analysis).
+  equal pattern prefixes) reproduce Drools' propagation flips for the
+  static equal-salience case (D-033 — identical-LHS rules fire their
+  activations in opposite orders, faithfully); sharing combined with
+  mutation, salience differences, or unlinked sharers is a documented
+  open class (D-035: generator-walled, four `xfail/` cases with
+  analysis).
 - Phase 3 not started: `accumulate`/`collect`, salience expressions.
 
 ## Explicit non-goals (hard walls)

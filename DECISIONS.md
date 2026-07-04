@@ -374,8 +374,8 @@ clean after this fix.
 `accumulate`/`collect` and salience expressions were NOT started (scoped
 out, independently optional per brief §2). Proven state at close:
 - Corpus 218/218 (`make diff`); `make test` green (12 unit tests incl.
-  the regex matcher's oracle-pinned cases). THREE xfail cases parked
-  (xfail/: shared-prefix x mutation window timing, D-035).
+  the regex matcher's oracle-pinned cases). FOUR xfail cases parked
+  (xfail/: node-sharing window-claim classes, D-035).
 - Fuzz over the D-035-walled grammar (operators + CEs + mutation +
   3-pattern rules; insert-only sharing included): seeds
   42/7/123/777/999 x 10k = 50k cases, zero divergences; plus the 30k
@@ -435,7 +435,7 @@ structurally identical pattern prefixes, diverging continuations, and
   programs; the corpus (203 scenarios) passes unchanged with the flip in
   place, confirming no prior scenario exercised the shape observably.
 
-### D-035: OPEN class + wall — shared prefixes x mutation (window timing)
+### D-035: OPEN class + wall — node sharing beyond the static case
 Seed 7's rerun after D-033 produced fz_7_2081/fz_7_2859 (xfail/):
 programs where rules SHARE a beta prefix AND mutate (delete) facts that
 feed the shared join. Drools evaluates a shared node ONCE, in the window
@@ -444,14 +444,26 @@ all sinks; our per-rule copies evaluate at each rule's own window, so
 batch boundaries diverge under mutation (enumeration and requeue orders
 shift). The D-033 flip covers sharing for INSERT-ONLY programs — pinned
 by ne_s1..s10 plus ne_s11 (multi-window insert arrivals PASS).
-- WALL (generator): mutation programs (update or delete anywhere) never
-  emit two rules with structurally identical pattern prefixes >= 2
-  patterns — canonical per-pattern keys (type, CE kind, non-binding
-  constraints with eq literals field-type-normalized, var refs by source
-  tuple position) are tracked per scenario and colliding rules are
-  regenerated (fallback: single-pattern). Deletes are now gated on
-  allow_mutation so insert-only programs stay wall-free and keep fuzzing
-  the D-033 sharing surface.
+- fz_42_8472 (insert-only, STATIC!) then showed the D-033 flip's owner
+  is not declaration order: sharers R3 (salience -1, extension pattern
+  EMPTY -> path never links) and R4 (salience -5) fired R4 UNFLIPPED.
+  The consistent model over all seven data points (ne_s7/s8/s9/s10/s11,
+  fz_123_3881, fz_42_8472): **the sink on the path whose agenda item
+  actually EVALUATES the shared segment first receives the staged list
+  direct (preserved); the other sinks get flipped copies at that
+  moment.** With equal salience and all sharers linked, first-evaluated
+  = first-declared — the statically-modeled class that ne_s1..s11 pin
+  and the engine reproduces. Salience differences or unlinked sharers
+  move the claim at runtime — modeling that faithfully requires true
+  shared segments (one node instance, one evaluation window).
+- WALL (generator): NO generated program emits two rules with
+  structurally identical pattern prefixes >= 2 patterns — canonical
+  per-pattern keys (type, CE kind, non-binding constraints with eq
+  literals field-type-normalized, var refs by source tuple position)
+  are tracked per scenario and colliding rules are regenerated
+  (fallback: single-pattern). Deletes are gated on allow_mutation.
+  The static equal-salience linked class stays pinned by the curated
+  ne_s corpus; everything else is the open class (xfail/).
 - Also from this wave (fz_777_6791, insert-only — NOT the walled class):
   **a range-INDEXED constraint is never re-evaluated after the index
   probe, and the probe COERCES to the stored side's type** (TupleIndexRBTree
@@ -465,7 +477,7 @@ by ne_s1..s10 plus ne_s11 (multi-window insert arrivals PASS).
   var constraint beyond the indexed one — still evaluate promoted.)
 - Next session: model true shared segments (one node instance per shared
   prefix, evaluation at the first-reaching item's window, propagation
-  into per-rule continuations) and lift the wall; the three xfail cases
+  into per-rule continuations) and lift the wall; the four xfail cases
   are the acceptance test.
 
 ### D-034: Phase 3 DONE-BAR (operators + not/exists; accumulate NOT started)

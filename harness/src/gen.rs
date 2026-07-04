@@ -486,8 +486,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     guard_field = Some((gfi, gname));
                 }
 
-                // Sharing wall check (mutation programs only).
-                if allow_mutation && pats.len() > 1 {
+                // Sharing wall check (ALL programs — D-035: the
+                // preserved-vs-flipped sink is claimed dynamically by
+                // the first sharer whose agenda item evaluates the
+                // shared segment, so salience and linking asymmetries
+                // reach beyond the statically-modeled class).
+                if pats.len() > 1 {
                     let keys: Vec<String> = pats.iter().map(pattern_key).collect();
                     let collides = (1..pats.len())
                         .any(|j| seen_prefixes.contains(&keys[..=j].join("||")));
@@ -499,7 +503,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             }
             unreachable!("attempt 8 always breaks");
         };
-        if allow_mutation && pats.len() > 1 {
+        if pats.len() > 1 {
             let keys: Vec<String> = pats.iter().map(pattern_key).collect();
             for j in 1..pats.len() {
                 seen_prefixes.insert(keys[..=j].join("||"));
