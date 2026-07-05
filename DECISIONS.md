@@ -371,6 +371,24 @@ clean after this fix.
 
 ## Query CEs in rules — Phase Q2 (2026-07-05)
 
+**HANDOFF @ Phase Q2 close (2026-07-05)** — `?query` pull CEs in rules
+are CERTIFIED (D-056..D-058): corpus 533/533 (+50 Q2 probes, +21
+graduated fuzz regressions incl. minimized cases), witnessed fuzz 6
+seeds x 10k = 60k cases zero divergences with ?query CEs in ~10% of
+draws. The 8-puzzle demo (demo/eight_puzzle.py) validates the
+Prolog-grade claim end to end: recursion + unification + backtracking
+goal-search with in-engine path extraction through the Q2 bridge; its
+frozen instance is a corpus scenario. Walls unchanged: push CEs,
+query+mutation (D-051/D-057), not/exists/accumulate beside CEs,
+salience over CE vars, D-055 recursion fences, >96-key resize.
+If resuming: (1) the push/reactive CE form is the natural next phase
+(qx2_late_push pinned the basic refire; open-query row lifecycle
+unprobed); (2) negation-as-failure inside queries; (3) the D-058
+arming/linking model is pinned black-box — a MemDump of
+PathMemory.linkedSegmentMask on query paths would confirm the
+mechanism if edge cases surface; (4) scale campaigns remain cheap
+insurance (D-058's classes needed ~1.5/10k draw rates).
+
 ### D-056: `?query` pull CEs in rules PINNED — the rule-site bridge into
 ### the Q1 stack machine (probes qx0..qx7, 36 scenarios; sources:
 ### PhreakQueryNode, QueryElementNode/QueryTupleSets, RuleNetworkEvaluator
