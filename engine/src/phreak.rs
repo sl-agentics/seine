@@ -37,11 +37,25 @@ pub struct Staged<T: Clone + PartialEq> {
     /// Never consumed by the first sink; folded into peers' dels at
     /// propagation and dropped afterward.
     pub norm_del: Vec<(T, Origin, u8)>,
+    /// SLOT MEMORY (D-047/fz_7_5801): enabled only on LIA-level pattern-0
+    /// staging (trie s0_in). A cancelled staged INSERT records its list
+    /// position; a later re-add of the same fact (external exit then
+    /// re-enter while the rule is unlinked) takes the ORIGINAL slot
+    /// instead of the head.
+    pub slot_memory: bool,
+    cancelled_slots: Vec<(T, usize)>,
 }
 
 impl<T: Clone + PartialEq> Default for Staged<T> {
     fn default() -> Self {
-        Staged { ins: Vec::new(), upd: Vec::new(), del: Vec::new(), norm_del: Vec::new() }
+        Staged {
+            ins: Vec::new(),
+            upd: Vec::new(),
+            del: Vec::new(),
+            norm_del: Vec::new(),
+            slot_memory: false,
+            cancelled_slots: Vec::new(),
+        }
     }
 }
 
@@ -54,7 +68,10 @@ impl<T: Clone + PartialEq> Staged<T> {
     }
 
     pub fn take(&mut self) -> Staged<T> {
-        std::mem::take(self)
+        let slot_memory = self.slot_memory;
+        let out = std::mem::take(self);
+        self.slot_memory = slot_memory;
+        out
     }
 
     pub fn add_ins(&mut self, t: T, origin: Origin) {
@@ -68,6 +85,14 @@ impl<T: Clone + PartialEq> Staged<T> {
     pub fn add_ins_ph(&mut self, t: T, origin: Origin, phase: u8) {
         if self.upd.iter().any(|(x, _, _)| *x == t) || self.ins.iter().any(|(x, _, _)| *x == t) {
             return;
+        }
+        if self.slot_memory {
+            if let Some(i) = self.cancelled_slots.iter().position(|(x, _)| *x == t) {
+                let (_, slot) = self.cancelled_slots.remove(i);
+                let at = slot.min(self.ins.len());
+                self.ins.insert(at, (t, origin, phase));
+                return;
+            }
         }
         self.ins.insert(0, (t, origin, phase));
     }
@@ -141,6 +166,9 @@ impl<T: Clone + PartialEq> Staged<T> {
     pub fn add_del(&mut self, t: T, origin: Origin) {
         if let Some(i) = self.ins.iter().position(|(x, _, _)| *x == t) {
             self.ins.remove(i); // never materialized: cancel
+            if self.slot_memory {
+                self.cancelled_slots.push((t, i));
+            }
             return;
         }
         if let Some(i) = self.upd.iter().position(|(x, _, _)| *x == t) {

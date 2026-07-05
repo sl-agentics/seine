@@ -1,0 +1,114 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1()\n    T1(f0 matches \"zz*\")\n    $a0_2 : ArrayList() from collect( T1(f0 in (\"ab\", \"\", \"beta\"), f1 != false) )\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f1 < 3, $b1_0_0 : f2, f2 == false)\n    exists T0(f1 not in (1.5), f1 <= 1)\nthen\n    insert(new T1($p1_0.getF0(), $b1_0_0));\n    insert(new T1(\"zz\", $p1_0.isF2()));\n    modify($p1_0) { setF2(true), setF0(\"alpha\"), setF0(\"beta\") }\nend\nrule \"R2\"\nno-loop\nwhen\n    T1(f1 not in (false, false, false), f1 not in (false, true, false), $b2_0_0 : f0)\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": "",
+            "f1": true
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": "a",
+            "f1": false
+          },
+          "type": "T1"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "op": "delete",
+          "target": 3
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "",
+            "f1": 6.0,
+            "f2": false
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": "b",
+            "f1": true
+          },
+          "type": "T1"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "b",
+        "f1": -3.0,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": -0.5,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_7087",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

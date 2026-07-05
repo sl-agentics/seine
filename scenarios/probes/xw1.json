@@ -1,0 +1,58 @@
+{
+ "name": "xw1",
+ "types": [
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "n": 1
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "n": 2
+   }
+  }
+ ],
+ "drl": "rule R when T1($n : n) T2() then end\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T1",
+     "fields": {
+      "n": 3
+     }
+    },
+    {
+     "op": "insert",
+     "type": "T2",
+     "fields": {
+      "m": 9
+     }
+    }
+   ]
+  }
+ ]
+}

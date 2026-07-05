@@ -369,6 +369,45 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-047: EXTERNAL update/delete by handle CERTIFIED
+Engine surface: `update_fact(id, fields)` (sets values, propagates with
+the CHANGED-FIELDS property mask — oracle mirror is the 3-arg
+session.update(fh, obj, modifiedProperties)) and `delete_fact(id)`;
+external events carry NO rule origin (no-loop never suppresses them).
+Scenario epochs gain ordered `actions` (insert/update/delete) targeting
+the Nth VISIBLE inserted fact (synthetics excluded) — the oracle tracks
+handles via an objectInserted listener, so rule-derived facts are
+targetable (xu6). Pins, all differential:
+- Probes xu1..xu6 passed on first contact (queued activations keep
+  position and salience, alpha enter/leave on not-blockers across
+  epochs, mask-miss no-ops, accumulate reverse on stored contributions,
+  delete cancels + unblocks).
+- **External actions compose ACTION-ORDERED at k=1 terminals**
+  (xv2/xv3: reversing the actions reverses the firings) **but
+  PHASE-GROUPED through beta paths** (xv4/xv5: order-insensitive).
+  k=1 pattern-0 staging is now a WINDOW QUEUE: one window per external
+  action; the initial batch and each RHS flush stay single windows;
+  TupleSets folds span windows.
+- **Slot memory on LIA-level pattern-0 staging** (fz_7_5801/xa/xb): a
+  cancelled staged INSERT re-added later — an external exit + re-enter
+  while the rule is unlinked — takes its ORIGINAL arrival slot, not the
+  head. Scoped to trie s0_in only (k=1 is action-ordered; trg-level
+  recreated children stay prepend, c13).
+- **Rights-phase temp staging at accumulate nodes gates on the left
+  not being staged** (getStagedType()==NONE in doRight*): a left
+  touched on both sides enters the temp set in the LEFT phase, i.e.
+  LAST (fz_7_5893; ALSO the real mechanism behind fz_123_449 — a
+  newest-first chain reversal fixed 449's symptom, broke 25 round-2
+  cases across all seeds, and was reverted; the 25 are graduated as
+  arrival-order pins).
+- CERTIFIED: zero divergences over 5 seeds (42/7/123/777/999 x 10,000,
+  round 3, external actions in ~30% of scenarios' epochs; zero xfail
+  draws).
+- Bindings: session.update(handle, **fields) / session.delete(handle);
+  insert/insert_row return handles (provenance for targeting);
+  boundary tests cover semantics, dead-handle errors, certified action
+  ordering, and epochs-with-actions parity replayed through Python.
+
 ### D-046: multi-fire CERTIFIED — the incremental envelope
 Scenario schema gains optional `epochs: [{facts: [...]}]`: each epoch
 inserts a batch into the SAME session and calls fireAllRules again;
@@ -783,6 +822,14 @@ Session 5. Re-examining the D-035 xfails with fresh probes disproved the
   scaffolding is deleted. Dead code cleanup: the unused FIFO staging
   variants and Node.first are gone.
 - Corpus: **233/233** (ne_t1..ne_t11 promoted; 4 ex-xfails graduated).
+
+**HANDOFF @ external-WM close (Session 6, 2026-07-04)** — D-047
+certified external update/delete by handle end to end (probe wave,
+window-queue and slot-memory semantics, 5x10k round-3 clean) and the
+Python boundary exposes it (update/delete by handle, handle-returning
+inserts). The full working-memory lifecycle now crosses the boundary:
+insert -> fire -> update/delete -> fire, all differentially certified.
+Remaining ideas (none started): row-object ingestion sugar, wheel CI.
 
 **HANDOFF @ multi-fire close (Session 6, 2026-07-04)** — D-046
 certified the incremental envelope (epochs in harness + generator,

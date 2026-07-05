@@ -1,0 +1,98 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T1($b0_0_0 : f1)\n    not T0()\n    $a0_2 : ArrayList() from collect( T1(f1 in (false, true), f2 == true))\nthen\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f0": "a",
+      "f1": true
+     },
+     "op": "update",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": "a",
+    "f1": true,
+    "f2": false
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": "a",
+    "f1": false,
+    "f2": true
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": "ab",
+    "f1": false,
+    "f2": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_min_5893",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  }
+ ]
+}

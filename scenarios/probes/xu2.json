@@ -1,0 +1,80 @@
+{
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Q",
+   "fields": {
+    "n": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1.0,
+    "w": 0,
+    "g": false
+   }
+  }
+ ],
+ "drl": "rule R when Q($n : n) not P(g == true) then end\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "g": true
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "Q",
+     "fields": {
+      "n": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ]
+  }
+ ],
+ "name": "xu2"
+}

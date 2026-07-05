@@ -1,0 +1,131 @@
+{
+  "drl": "rule \"R0\"\nsalience 2\nwhen\n    $p0_0 : T0(f1 in (\"zz\", \"beta\", \"beta\"), f2 not in (\"b\", \"beta\", \"alpha\"), $b0_0_0 : f0)\nthen\n    insert(new T2(2, $b0_0_0, 8, true));\n    insert(new T2(5, $p0_0.isF3(), 10, $b0_0_0));\nend\nrule \"R1\"\nsalience -2\nwhen\n    $p1_0 : T0(f0 == false, $b1_0_0 : f2, $b1_0_1 : f1)\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nwhen\n    T3(f2 != -2.5, f3 != false, $b2_0_0 : f3, $b2_0_1 : f0)\n    $a2_1 : ArrayList() from collect( T0() )\n    accumulate( T1(f0 != 1, f0 >= -4, $s2_2 : f0); $a2_2 : min($s2_2) )\nthen\nend\nrule \"R3\"\nsalience 4\nwhen\n    $p3_0 : T0()\nthen\n    insert(new T3(\"b\", -3.0, -2.0, true));\n    insert(new T3($p3_0.getF2(), 4.0, -1.0, true));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": "a",
+        "f2": "beta",
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "zz",
+        "f2": "ab",
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "b",
+        "f2": "beta",
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "",
+        "f2": "beta",
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": "beta",
+        "f2": "b",
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_777_5755",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

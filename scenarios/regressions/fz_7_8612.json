@@ -1,0 +1,105 @@
+{
+  "drl": "rule \"R0\"\nsalience -6\nwhen\n    T0(f2 < 3.0, f2 in (5.0, 3.5, 100), $b0_0_0 : f1)\n    accumulate( T0($s0_1 : f1); $a0_1 : average($s0_1) )\n    $a0_2 : ArrayList() from collect( T1(f2 == true) )\nthen\nend\nrule \"R1\"\nsalience -5\nwhen\n    T1($b1_0_0 : f1, $b1_0_1 : f0)\n    accumulate( T0($s1_1 : f1); $a1_1 : average($s1_1) )\nthen\nend\nrule \"R2\"\nsalience -5\nno-loop\nwhen\n    accumulate( T1(f2 == false); $a2_0 : count() )\nthen\nend\nrule \"R3\"\nwhen\n    T0(f1 == 2.0, $b3_0_0 : f0)\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "op": "delete",
+          "target": 2
+        }
+      ],
+      "facts": []
+    },
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": true,
+            "f1": -3.0,
+            "f2": 4.5,
+            "f3": false
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "",
+        "f1": true,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 3.5,
+        "f2": -2.5,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 0.0,
+        "f2": -2.0,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": false,
+        "f2": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_8612",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

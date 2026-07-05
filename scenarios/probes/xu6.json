@@ -1,0 +1,71 @@
+{
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "OutT",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1.5,
+    "w": 0,
+    "g": true
+   }
+  }
+ ],
+ "drl": "rule Mk when P($x : v) then insert(new OutT($x)); end\nrule Watch when $o : OutT() then end\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2.5,
+      "w": 0,
+      "g": true
+     }
+    }
+   ]
+  }
+ ],
+ "name": "xu6"
+}

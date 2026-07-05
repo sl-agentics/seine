@@ -8,6 +8,9 @@ import org.kie.api.KieBase;
 import org.kie.api.definition.type.FactType;
 import org.kie.api.event.rule.AfterMatchFiredEvent;
 import org.kie.api.event.rule.DefaultAgendaEventListener;
+import org.kie.api.event.rule.DefaultRuleRuntimeEventListener;
+import org.kie.api.event.rule.ObjectInsertedEvent;
+import org.kie.api.runtime.rule.FactHandle;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.KieSession;
 import org.kie.internal.utils.KieHelper;
@@ -86,6 +89,19 @@ public final class OracleRunner {
                 }
             });
 
+            // D-047: the VISIBLE insertion sequence (external + rule
+            // inserts, InitialFact filtered) — external actions target
+            // facts by index into this list, matching the engine's.
+            final java.util.List<FactHandle> inserted = new ArrayList<>();
+            session.addEventListener(new DefaultRuleRuntimeEventListener() {
+                @Override
+                public void objectInserted(ObjectInsertedEvent event) {
+                    if (!event.getObject().getClass().getSimpleName().equals("InitialFactImpl")) {
+                        inserted.add(event.getFactHandle());
+                    }
+                }
+            });
+
             for (JsonNode fact : scenario.path("facts")) {
                 session.insert(instantiate(kbase, scenario, fact));
             }
@@ -93,9 +109,35 @@ public final class OracleRunner {
             if (fired >= FIRE_LIMIT) {
                 throw new IllegalStateException("fire limit " + FIRE_LIMIT + " reached (non-terminating?)");
             }
-            // Multi-fire epochs (D-046): each epoch inserts a batch and
-            // fires again on the SAME session; the firing log continues.
+            // Multi-fire epochs (D-046) + external WM actions (D-047):
+            // ordered actions, then legacy "facts" inserts, then fire.
             for (JsonNode epoch : scenario.path("epochs")) {
+                for (JsonNode action : epoch.path("actions")) {
+                    String op = action.path("op").asText();
+                    if (op.equals("insert")) {
+                        session.insert(instantiate(kbase, scenario, action));
+                    } else if (op.equals("update")) {
+                        FactHandle fh = inserted.get(action.path("target").asInt());
+                        Object bean = session.getObject(fh);
+                        FactType ft = kbase.getFactType(PKG, bean.getClass().getSimpleName());
+                        java.util.List<String> props = new ArrayList<>();
+                        java.util.Iterator<String> it = action.path("fields").fieldNames();
+                        while (it.hasNext()) {
+                            String fname = it.next();
+                            JsonNode v = action.path("fields").path(fname);
+                            setTyped(ft, bean, fname, v, scenario);
+                            props.add(fname);
+                        }
+                        // property-masked external update: the engine
+                        // mirrors with the changed-fields mask
+                        session.update(fh, bean, props.toArray(new String[0]));
+                    } else if (op.equals("delete")) {
+                        FactHandle fh = inserted.get(action.path("target").asInt());
+                        session.delete(fh);
+                    } else {
+                        throw new IllegalArgumentException("unknown epoch action op: " + op);
+                    }
+                }
                 for (JsonNode fact : epoch.path("facts")) {
                     session.insert(instantiate(kbase, scenario, fact));
                 }
@@ -139,6 +181,28 @@ public final class OracleRunner {
             case "String": return "String";
             case "bool": return "boolean";
             default: throw new IllegalArgumentException("unknown field type: " + t);
+        }
+    }
+
+    /** Set one bean field with the schema-declared type (D-047). */
+    static void setTyped(FactType ft, Object bean, String fname, JsonNode v, JsonNode scenario) {
+        String typeName = bean.getClass().getSimpleName();
+        String declared = null;
+        for (JsonNode t : scenario.path("types")) {
+            if (t.path("name").asText().equals(typeName)) {
+                for (JsonNode f : t.path("fields")) {
+                    if (f.path("name").asText().equals(fname)) {
+                        declared = f.path("type").asText();
+                    }
+                }
+            }
+        }
+        if (declared == null) throw new IllegalArgumentException(typeName + " has no field " + fname);
+        switch (declared) {
+            case "i64": ft.set(bean, fname, v.asLong()); break;
+            case "f64": ft.set(bean, fname, v.asDouble()); break;
+            case "String": ft.set(bean, fname, v.asText()); break;
+            case "bool": ft.set(bean, fname, v.asBoolean()); break;
         }
     }
 

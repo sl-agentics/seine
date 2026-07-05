@@ -150,6 +150,51 @@ def test_wm_delta_and_deletions():
     assert len(res.deleted_handles()) == 1
 
 
+def test_external_update_and_delete():
+    drl = "rule R when T(v > 1.0, $x : v) then end\n"
+    s = seine.Session(drl, {"T": {"v": [2.0, 0.5]}})
+    r1 = s.fire()
+    assert r1.fired == 1
+    handles = pl.DataFrame(r1.facts()["T"])
+    h_low = handles.filter(pl.col("v") == 0.5)["_handle"][0]
+    h_hi = handles.filter(pl.col("v") == 2.0)["_handle"][0]
+    # raise the low fact above the threshold -> fires
+    s.update(h_low, v=3.0)
+    r2 = s.fire()
+    assert r2.fired == 1
+    # delete the high fact: external deletes are the CALLER's action
+    # (per-fire deleted_handles covers RULE deletions only), but the
+    # fact is gone from the final view
+    s.delete(h_hi)
+    r3 = s.fire()
+    assert r3.fired == 0
+    assert h_hi not in pl.DataFrame(r3.facts()["T"])["_handle"].to_list()
+
+
+def test_external_action_order_is_certified():
+    # session-action order composes at k=1 terminals (D-047/xv2..xv5)
+    drl = "rule R when T($b : g) then end\n"
+    s = seine.Session(drl, {"T": {"g": [True]}})
+    s.fire()
+    s.insert("T", {"g": [False]})
+    h0 = 0
+    s.update(h0, g=True)  # same-value update of the FIRED fact
+    r = s.fire()
+    audit = pl.DataFrame(r.firings())
+    got = [json.loads(v)["g"] for v in audit["values_json"].to_list()]
+    assert got == [False, True]  # insert first, then the re-added update
+
+
+def test_dead_handle_errors():
+    s = seine.Session("rule R when T($x : v) then end\n", {"T": {"v": [1.0]}})
+    s.fire()
+    s.delete(0)
+    with pytest.raises(ValueError, match="dead handle"):
+        s.delete(0)
+    with pytest.raises(ValueError, match="dead handle"):
+        s.update(0, v=2.0)
+
+
 # ----------------------------------------------------------------- parity
 
 def _native_firings(scn_path):
@@ -167,6 +212,7 @@ def _native_firings(scn_path):
     "scenarios/phase2/j07_refire_order_after_updates.json",
     "scenarios/probes/mf3.json",
     "scenarios/probes/mf5.json",
+    "scenarios/probes/xu4.json",
 ])
 def test_parity_with_native_harness(scenario):
     """Corpus scenarios pushed through the Python boundary must fire
@@ -185,16 +231,27 @@ def test_parity_with_native_harness(scenario):
         for name, fields in schemas.items()
     }
     s = seine.Session(scn["drl"], tables)
-    # scenario facts are ORDER-SIGNIFICANT across types: insert row-wise
+    # scenario facts are ORDER-SIGNIFICANT across types: insert row-wise,
+    # recording handles for action targeting
+    visible = []
     for fact in scn["facts"]:
-        s.insert_row(fact["type"], fact["fields"])
+        visible.append(s.insert_row(fact["type"], fact["fields"]))
     res = s.fire()
     audits = [pl.DataFrame(res.firings())]
     total = res.fired
-    # multi-fire epochs (D-046): insert batch, fire again, concatenate
+    # multi-fire epochs (D-046) + external actions (D-047): replay
+    # through the boundary, mapping visible insertion indices to real
+    # handles via insert_row's return value.
     for epoch in scn.get("epochs", []):
+        for action in epoch.get("actions", []):
+            if action["op"] == "insert":
+                visible.append(s.insert_row(action["type"], action["fields"]))
+            elif action["op"] == "update":
+                s.update(visible[action["target"]], **action["fields"])
+            else:
+                s.delete(visible[action["target"]])
         for fact in epoch.get("facts", []):
-            s.insert_row(fact["type"], fact["fields"])
+            visible.append(s.insert_row(fact["type"], fact["fields"]))
         r = s.fire()
         a = pl.DataFrame(r.firings())
         if len(a):

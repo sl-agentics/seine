@@ -213,6 +213,12 @@ impl FactStore {
         self.data[h.type_id as usize].columns[field_idx].get(h.row as usize)
     }
 
+    /// EVERY fact ever inserted, live or dead, in handle order (D-047:
+    /// external-action targets index the visible insertion sequence).
+    pub fn all_facts_in_insertion_order(&self) -> impl Iterator<Item = FactId> + '_ {
+        (0..self.handles.len()).map(|i| FactId(i as u32))
+    }
+
     /// All live facts in handle (insertion) order.
     pub fn live_facts(&self) -> impl Iterator<Item = FactId> + '_ {
         self.handles

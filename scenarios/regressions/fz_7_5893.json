@@ -1,0 +1,141 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f2 == true, f2 == true, $b0_0_0 : f1)\n    not T0(f1 not in (false), f1 != $b0_0_0)\n    $a0_2 : ArrayList() from collect( T1(f1 in (false, true, true), f2 == true) )\nthen\nend\nrule \"R1\"\nsalience($b1_0_1 + $b1_0_0)\nwhen\n    T0($b1_0_0 : f0, $b1_0_1 : f0)\nthen\nend\nrule \"R2\"\nsalience 1\nwhen\n    $p2_0 : T1(f2 == true, f0 in (\"b\", \"b\", \"a\"), f2 == false)\n    not T0(f0 == -1)\n    T0(f1 != true, f1 != false, $b2_2_0 : f1, $b2_2_1 : f0)\nthen\n    insert(new T2(9, 0.5, false, $p2_0.isF2()));\n    modify($p2_0) { setF2(true) }\nend\nrule \"R3\"\nwhen\n    T0(f1 == true, $b3_0_0 : f1, $b3_0_1 : f1)\n    $p3_1 : T0(f0 not in (-2, -1.0), f0 != 100)\nthen\n    insert(new T2(100, 1.5, true, $b3_0_0));\n    insert(new T2($p3_1.getF0(), $p3_1.getF0(), $p3_1.isF1(), true));\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0(f1 in (true, false, true), f1 not in (false, false))\nthen\n    insert(new T2($p4_0.getF0(), $p4_0.getF0(), true, $p4_0.isF1()));\n    insert(new T1(\"b\", $p4_0.isF1(), false));\nend\nrule \"R5\"\nwhen\n    $p5_0 : T1(f2 != false)\nthen\n    insert(new T2(9, 3.0, $p5_0.isF2(), $p5_0.isF2()));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": "ab"
+          },
+          "op": "update",
+          "target": 0
+        },
+        {
+          "fields": {
+            "f0": "a",
+            "f1": true
+          },
+          "op": "update",
+          "target": 1
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 11,
+            "f1": -0.5,
+            "f2": true,
+            "f3": true
+          },
+          "type": "T2"
+        },
+        {
+          "fields": {
+            "f0": 5,
+            "f1": 1.5,
+            "f2": true,
+            "f3": false
+          },
+          "type": "T2"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "a",
+        "f1": true,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": false,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -2,
+        "f1": 4.0,
+        "f2": false,
+        "f3": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": false,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": false,
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_5893",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

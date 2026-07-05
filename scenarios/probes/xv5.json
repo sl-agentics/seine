@@ -1,0 +1,58 @@
+{
+ "name": "xv5",
+ "types": [
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": true
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "n": 5
+   }
+  }
+ ],
+ "drl": "rule R when T1($b : f0) Q() then end\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T1",
+     "fields": {
+      "f0": false
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "f0": true
+     }
+    }
+   ]
+  }
+ ]
+}

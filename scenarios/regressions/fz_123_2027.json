@@ -1,0 +1,83 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f1 in (-1.0), $b0_0_0 : f2, $b0_0_1 : f2)\n    T0(f0 in (true), f1 != false, $b0_1_0 : f0)\n    T0($b0_2_0 : f1)\nthen\nend\nrule \"R1\"\nsalience($b1_1_0)\nwhen\n    T0(f0 != true, f1 != false, $b1_0_0 : f1, $b1_0_1 : f1)\n    T1($b1_1_0 : f1)\nthen\nend\nrule \"R2\"\nwhen\n    T0($b2_0_0 : f1)\nthen\n    insert(new T1(-1, 4.5, false));\n    insert(new T1(1, 4.5, true));\nend\nrule \"R3\"\nwhen\n    T1(f2 == true, f0 < -1000000007, $b3_0_0 : f2, $b3_0_1 : f2)\nthen\nend\nrule \"R4\"\nwhen\n    T1()\n    accumulate( T0(); $a4_1 : count() )\n    T0(f1 != false, $b4_2_0 : f1, $b4_2_1 : f1)\nthen\nend\nrule \"R5\"\nwhen\n    $p5_0 : T0()\nthen\n    delete($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0,
+        "f1": 2.5,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": 1.0,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0,
+        "f1": 5.0,
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_2027",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

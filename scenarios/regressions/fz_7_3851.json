@@ -1,0 +1,103 @@
+{
+  "drl": "rule \"R0\"\nsalience 9\nwhen\n    $p0_0 : T0(f1 <= 2.5, f0 <= \"ab\")\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nsalience($b1_0_0)\nwhen\n    $p1_0 : T1(f2 <= 5, $b1_0_0 : f2)\nthen\n    insert(new T3($p1_0.isF3(), $p1_0.isF3()));\n    insert(new T2($b1_0_0, $b1_0_0, false));\nend\nrule \"R2\"\nwhen\n    T2($b2_0_0 : f2)\n    accumulate( T1($s2_1 : f0); $a2_1 : sum($s2_1) )\n    $p2_2 : T1(f3 == false, f3 != true, f0 >= $a2_1, $b2_2_0 : f2)\nthen\n    delete($p2_2);\nend\nrule \"R3\"\nwhen\n    not T3(f0 == false)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -2.5,
+        "f1": "",
+        "f2": 2,
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 0.0,
+        "f1": "a",
+        "f2": 0,
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 4.0,
+        "f1": "",
+        "f2": -1,
+        "f3": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_3851",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

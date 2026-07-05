@@ -1,0 +1,89 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f1 != 100)\n    exists T0()\n    accumulate( T0(f1 != true, f1 in (true, true, false), $s0_2 : f0); $a0_2 : max($s0_2) )\nthen\nend\nrule \"R1\"\nsalience -4\nwhen\n    T0()\nthen\n    insert(new T1(10, 100, 10));\n    insert(new T1(4, -1000000007, -4));\nend\nrule \"R2\"\nwhen\n    accumulate( T1(); $a2_0 : count() )\n    T1(f1 >= $a2_0, $b2_1_0 : f2)\n    accumulate( T0($s2_2 : f0); $a2_2 : sum($s2_2) )\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": -4
+          },
+          "op": "update",
+          "target": 0
+        },
+        {
+          "fields": {
+            "f1": true
+          },
+          "op": "update",
+          "target": 2
+        }
+      ],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": 3,
+        "f1": -1000000007,
+        "f2": -1000000007
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -2.0,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1.0,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7,
+        "f1": -5,
+        "f2": 7
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_999_2763",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

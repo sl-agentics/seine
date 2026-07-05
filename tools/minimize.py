@@ -64,6 +64,15 @@ def try_drop_epochs():
                 print(f'removed epoch {ei} fact {j}')
             else:
                 j += 1
+        j = 0
+        while j < len(d['epochs'][ei].get('actions', [])):
+            cand = copy.deepcopy(d)
+            del cand['epochs'][ei]['actions'][j]
+            if try_variant(cand):
+                changed = True
+                print(f'removed epoch {ei} action {j}')
+            else:
+                j += 1
         ei += 1
     return changed
 

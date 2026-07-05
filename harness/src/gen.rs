@@ -282,6 +282,9 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     let allow_mutation = rng.chance(60);
     let max_extra_pat = 3;
     let mut drl = String::new();
+    // Types any rule may DELETE: external actions must not target them
+    // (a dead target errors in both engines, flagged by the judge).
+    let mut rule_deleted_types: std::collections::HashSet<usize> = std::collections::HashSet::new();
     // Finished rules' patterns, kept so later rules can REUSE a prefix:
     // random draws almost never collide on the full sharing identity
     // (types + constraints + bound-field sets), so without deliberate
@@ -572,6 +575,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         if let Some(pos) = delete_pos {
             let var = ensure_fact_var(&mut pats, ri, pos);
             actions.push(format!("delete({var});"));
+            rule_deleted_types.insert(pats[pos].ti);
         }
 
         // Render the rule.
@@ -673,9 +677,55 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     }
     let mut epochs = Vec::new();
     if rng.chance(30) {
+        // external update/delete targets: INITIAL facts only (their
+        // visible indices are static; later indices depend on how many
+        // facts rules inserted) of types no rule deletes; each target
+        // deleted at most once, never updated after deletion (D-047).
+        let safe: Vec<usize> = facts
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| {
+                let tname = f["type"].as_str().unwrap();
+                let ti = types.iter().position(|t| t.name == tname).unwrap();
+                !rule_deleted_types.contains(&ti)
+            })
+            .map(|(i, _)| i)
+            .collect();
+        let mut ext_deleted: std::collections::HashSet<usize> = std::collections::HashSet::new();
         let nepochs = 1 + rng.below(2);
         for _ in 0..nepochs {
-            let nef = 1 + rng.below(3);
+            let mut eactions = Vec::new();
+            let nact = rng.below(3);
+            for _ in 0..nact {
+                let alive: Vec<usize> =
+                    safe.iter().copied().filter(|i| !ext_deleted.contains(i)).collect();
+                let roll = rng.below(100);
+                if roll < 40 || alive.is_empty() {
+                    let ti = rng.below(ntypes);
+                    let t = &types[ti];
+                    let mut fields = serde_json::Map::new();
+                    for (fname, ft) in &t.fields {
+                        fields.insert(fname.clone(), lit_json(&mut rng, *ft));
+                    }
+                    eactions.push(json!({"op": "insert", "type": t.name, "fields": fields}));
+                } else if roll < 80 {
+                    let target = *rng.pick(&alive);
+                    let tname = facts[target]["type"].as_str().unwrap();
+                    let t = types.iter().find(|t| t.name == tname).unwrap();
+                    let nf = 1 + rng.below(2.min(t.fields.len()));
+                    let mut fields = serde_json::Map::new();
+                    for _ in 0..nf {
+                        let (fname, ft) = &t.fields[rng.below(t.fields.len())];
+                        fields.insert(fname.clone(), lit_json(&mut rng, *ft));
+                    }
+                    eactions.push(json!({"op": "update", "target": target, "fields": fields}));
+                } else {
+                    let target = *rng.pick(&alive);
+                    ext_deleted.insert(target);
+                    eactions.push(json!({"op": "delete", "target": target}));
+                }
+            }
+            let nef = rng.below(3);
             let mut efacts = Vec::new();
             for _ in 0..nef {
                 let ti = rng.below(ntypes);
@@ -686,7 +736,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 }
                 efacts.push(json!({"type": t.name, "fields": fields}));
             }
-            epochs.push(json!({"facts": efacts}));
+            epochs.push(json!({"actions": eactions, "facts": efacts}));
         }
     }
 

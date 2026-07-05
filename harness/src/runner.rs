@@ -46,10 +46,55 @@ fn run_scenario(sc: &J) -> Result<J, String> {
     }
 
     let mut firings = engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?;
-    // Multi-fire epochs (D-046): insert a batch, fire again on the same
-    // engine; the firing log continues.
+    // Multi-fire epochs (D-046) + external WM actions (D-047): each
+    // epoch runs its ordered actions (insert / update / delete-by-
+    // global-insertion-index), then legacy "facts" inserts, then fires
+    // again; the firing log continues.
     if let Some(epochs) = sc.get("epochs").and_then(J::as_array) {
         for epoch in epochs {
+            for action in epoch.get("actions").and_then(J::as_array).unwrap_or(&Vec::new()) {
+                let op = action.get("op").and_then(J::as_str).ok_or("action missing 'op'")?;
+                match op {
+                    "insert" => {
+                        let type_name = action
+                            .get("type")
+                            .and_then(J::as_str)
+                            .ok_or("insert action missing 'type'")?;
+                        let fields_obj = action
+                            .get("fields")
+                            .and_then(J::as_object)
+                            .ok_or("insert action missing 'fields'")?;
+                        let fields = json_fields_to_values(fields_obj)?;
+                        engine.insert(type_name, fields).map_err(|e| e.to_string())?;
+                    }
+                    "update" => {
+                        let target = action
+                            .get("target")
+                            .and_then(J::as_u64)
+                            .ok_or("update action missing 'target'")?;
+                        let fields_obj = action
+                            .get("fields")
+                            .and_then(J::as_object)
+                            .ok_or("update action missing 'fields'")?;
+                        let fields = json_fields_to_values(fields_obj)?;
+                        let id = engine
+                            .nth_inserted(target as usize)
+                            .ok_or(format!("update target {target} out of range"))?;
+                        engine.update_fact(id, fields).map_err(|e| e.to_string())?;
+                    }
+                    "delete" => {
+                        let target = action
+                            .get("target")
+                            .and_then(J::as_u64)
+                            .ok_or("delete action missing 'target'")?;
+                        let id = engine
+                            .nth_inserted(target as usize)
+                            .ok_or(format!("delete target {target} out of range"))?;
+                        engine.delete_fact(id).map_err(|e| e.to_string())?;
+                    }
+                    other => return Err(format!("unknown epoch action op {other:?}")),
+                }
+            }
             for fact in epoch.get("facts").and_then(J::as_array).unwrap_or(&Vec::new()) {
                 let type_name = fact
                     .get("type")
