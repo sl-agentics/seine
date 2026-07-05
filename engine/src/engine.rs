@@ -551,6 +551,9 @@ impl RuleNet {
 pub struct Engine {
     store: FactStore,
     rules: Vec<CompiledRule>,
+    /// rules[i].def.parent, copied out for borrow-friendly no-loop
+    /// checks (D-070): subrules of one `or` rule share a parent.
+    rule_parents: Vec<usize>,
     /// Rule indices sorted by (salience desc, declaration order).
     rule_order: Vec<usize>,
     /// Shared network: level-0 LIAs and the beta-node prefix trie.
@@ -619,6 +622,7 @@ impl Engine {
         Ok(Engine {
             store: FactStore::new(schemas),
             rules: Vec::new(),
+            rule_parents: Vec::new(),
             rule_order: Vec::new(),
             lias: Vec::new(),
             trie: Vec::new(),
@@ -662,8 +666,13 @@ impl Engine {
                 self.qrow_tids.push(tid);
             }
         }
-        for def in file.rules {
+        // Parent ids are unit-local (D-070): offset by units already
+        // added so no-loop scoping never crosses DRL units.
+        let pbase = self.rules.iter().map(|r| r.def.parent + 1).max().unwrap_or(0);
+        for mut def in file.rules {
+            def.parent += pbase;
             let compiled = self.compile_rule(def)?;
+            self.rule_parents.push(compiled.def.parent);
             self.rules.push(compiled);
         }
         // D-057: query+mutation stays walled (D-051) — a unit with ?query
@@ -1954,22 +1963,32 @@ impl Engine {
                     _ => self.nets[rb].s0_add_upd(f, origin),
                 }
             }
+            // Shared-LIA modify gate (D-072/fz_999_7082): the stage-vs-drop
+            // decision for a pattern-0 MODIFY is made ONCE against the
+            // FIRST-BUILT trie child's effective left mask — a collect
+            // child contributes its D-040 gate (bindings do NOT count),
+            // a join child the full listen mask — and the decision
+            // applies to EVERY trie child (m7082_vis_jf: join-first
+            // stages the collect sibling; m7082_vis_cf2: collect-first
+            // drops the join sibling). k=1 rules gate independently on
+            // the canonical listen mask (m7082_r3k1).
+            let child_stage = if stage == 3 && mask != u64::MAX {
+                let eff = self.lias[li]
+                    .children
+                    .first()
+                    .and_then(|&c| self.trie[c].collect_left_gate)
+                    .unwrap_or(listen);
+                if eff & mask != 0 { 3 } else { 0 }
+            } else {
+                stage
+            };
             for i in 0..self.lias[li].children.len() {
                 let c = self.lias[li].children[i];
-                match stage {
+                match child_stage {
+                    0 => {}
                     1 => self.trie[c].s0_in.add_ins(f, origin),
                     2 => self.trie[c].s0_in.add_del(f, origin),
-                    _ => {
-                        // LIA sink masking for level-1 COLLECT children
-                        // (D-040): a pattern-0 MODIFY is dropped unless
-                        // the mask intersects the downstream interest.
-                        if let Some(gate) = self.trie[c].collect_left_gate {
-                            if mask != u64::MAX && mask & gate == 0 {
-                                continue;
-                            }
-                        }
-                        self.trie[c].s0_in.add_upd(f, origin)
-                    }
+                    _ => self.trie[c].s0_in.add_upd(f, origin),
                 }
             }
             self.note_link_effects(&mut was);
@@ -2171,7 +2190,11 @@ impl Engine {
             }
         }
 
+        // no-loop blocks per PARENT rule (D-070/or_a20): an update from
+        // any subrule's RHS suppresses re-activation of every sibling
+        // branch — Drools compares the shared Rule object.
         let no_loop = self.rules[ri].def.no_loop;
+        let parent = self.rules[ri].def.parent;
 
         if k == 1 {
             // LIA -> terminal directly. WINDOWS compose in order (D-047:
@@ -2194,13 +2217,13 @@ impl Engine {
                     if queued {
                         continue; // pending: keep position AND salience (se3)
                     }
-                    if no_loop && *o == Some(ri) {
+                    if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                         continue; // own update does not re-activate (j04)
                     }
                     self.push_activation(ri, vec![*f]);
                 }
                 for (f, o, _) in s0.ins.iter().rev() {
-                    if no_loop && *o == Some(ri) {
+                    if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                         continue;
                     }
                     self.push_activation(ri, vec![*f]);
@@ -2314,14 +2337,14 @@ impl Engine {
             if self.nets[ri].queue.iter().any(|a| a.t == *t) {
                 continue; // queued: keep position AND salience (se3)
             }
-            if no_loop && *o == Some(ri) {
+            if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                 continue;
             }
             // fired activation re-added: salience RE-EVALUATED (D-043)
             self.push_activation(ri, t.clone());
         }
         for (t, o, _) in src.ins.iter() {
-            if no_loop && *o == Some(ri) {
+            if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                 continue;
             }
             self.push_activation(ri, t.clone());

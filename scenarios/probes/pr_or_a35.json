@@ -1,0 +1,62 @@
+{
+ "name": "pr_or_a35",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "c",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": 1
+   }
+  },
+  {
+   "type": "C",
+   "fields": {
+    "c": 1
+   }
+  }
+ ],
+ "drl": "rule R when (A() or B()) and C() then insert(new E(9)); end"
+}

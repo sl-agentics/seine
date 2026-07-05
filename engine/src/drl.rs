@@ -194,9 +194,23 @@ pub struct RuleDef {
     pub no_loop: bool,
     pub patterns: Vec<Pattern>,
     pub actions: Vec<Action>,
-    /// Position in the DRL unit's interleaved rule+query sequence —
-    /// query agenda items order by (salience 0, this) (D-058).
+    /// Position in the DRL unit's interleaved rule+query sequence,
+    /// counted in TERMINALS: an `or` rule contributes one position per
+    /// subrule (D-070) — query agenda items order by (salience 0, this)
+    /// (D-058) and rule items by (salience, this).
     pub decl_pos: usize,
+    /// Parse-unit id of the source `rule` block. Subrules of one `or`
+    /// rule share it: no-loop blocks per PARENT rule (D-070/or_a20).
+    pub parent: usize,
+}
+
+/// Rule-LHS conditional-element tree (D-070). `or` rewrites to subrules
+/// at parse time: the LHS expands to DNF, one pattern list per branch.
+#[derive(Debug, Clone, PartialEq)]
+enum CeNode {
+    Pat(Pattern),
+    And(Vec<CeNode>),
+    Or(Vec<CeNode>),
 }
 
 /// One positional argument of a positional pattern or query call (D-054).
@@ -435,7 +449,9 @@ impl Parser {
         }
     }
 
-    fn rule(&mut self) -> Result<RuleDef, DrlError> {
+    /// Parse one `rule … end` block. Returns ONE RuleDef per or-branch
+    /// (subrule) after DNF expansion (D-070) — a plain rule yields one.
+    fn rule(&mut self) -> Result<Vec<RuleDef>, DrlError> {
         self.expect_kw("rule")?;
         let name = match self.next()? {
             Tok::StrLit(s) => s,
@@ -459,6 +475,19 @@ impl Parser {
                         _ => None,
                     };
                     self.expect_sym(")")?;
+                    salience = SalienceSpec::Expr { a, op };
+                } else if matches!(self.peek(), Some(Tok::Ident(w)) if w.starts_with('$')) {
+                    // bare `salience $v [op $w|lit]` (Drools-legal,
+                    // or_a19) — same D-043 expression semantics.
+                    let a = self.sal_term()?;
+                    let op = match self.peek() {
+                        Some(Tok::Sym(o @ ("+" | "-" | "*"))) => {
+                            let c = o.chars().next().unwrap();
+                            self.next()?;
+                            Some((c, self.sal_term()?))
+                        }
+                        _ => None,
+                    };
                     salience = SalienceSpec::Expr { a, op };
                 } else {
                     salience = match self.literal()? {
@@ -487,9 +516,9 @@ impl Parser {
                 )));
             }
         }
-        let mut patterns = Vec::new();
+        let mut lhs = Vec::new();
         while !self.at_kw("then") {
-            patterns.push(self.pattern()?);
+            lhs.push(self.lhs_or()?);
         }
         self.expect_kw("then")?;
         let mut actions = Vec::new();
@@ -497,7 +526,108 @@ impl Parser {
             actions.extend(self.actions()?);
         }
         self.expect_kw("end")?;
-        Ok(RuleDef { name, salience, no_loop, patterns, actions, decl_pos: 0 })
+        // `or` rewrite (D-070): expand the CE tree to DNF, one subrule
+        // per branch, in left-major order (or_a23: earlier or-groups
+        // vary slowest). Subrules share name/attributes/RHS.
+        let branches = expand_ce(&CeNode::And(lhs));
+        // Drools' duplicate-declaration rule for FACT bindings (D-070,
+        // or_a26/or_b1..b4): within one branch a name may bind once;
+        // across or-branches the same name is legal iff it binds the
+        // SAME pattern type (field bindings repeat freely, or_a6).
+        let mut by_name: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+        for b in &branches {
+            let mut in_branch = std::collections::HashSet::new();
+            for p in b {
+                if let Some(v) = &p.binding {
+                    if !in_branch.insert(v.as_str())
+                        || by_name.insert(v.as_str(), &p.type_name)
+                            .is_some_and(|t| t != p.type_name)
+                    {
+                        return Err(DrlError(format!(
+                            "duplicate declaration for variable '{v}' in the rule '{name}' (D-070/or_a26)"
+                        )));
+                    }
+                }
+            }
+        }
+        Ok(branches
+            .into_iter()
+            .map(|patterns| RuleDef {
+                name: name.clone(),
+                salience: salience.clone(),
+                no_loop,
+                patterns,
+                actions: actions.clone(),
+                decl_pos: 0,
+                parent: 0,
+            })
+            .collect())
+    }
+
+    /// `lhsOr := lhsAnd ('or' lhsAnd)*` — infix `or` binds looser than
+    /// infix `and`; top-level juxtaposition is AND across whole lhsOr
+    /// expressions (or_a4: `A() or B() C()` == `(A or B) and C`).
+    fn lhs_or(&mut self) -> Result<CeNode, DrlError> {
+        let first = self.lhs_and()?;
+        if !self.at_kw("or") {
+            return Ok(first);
+        }
+        let mut branches = vec![first];
+        while self.at_kw("or") {
+            self.next()?;
+            branches.push(self.lhs_and()?);
+        }
+        Ok(CeNode::Or(branches))
+    }
+
+    /// `lhsAnd := lhsUnary ('and' lhsUnary)*`
+    fn lhs_and(&mut self) -> Result<CeNode, DrlError> {
+        let first = self.lhs_unary()?;
+        if !self.at_kw("and") {
+            return Ok(first);
+        }
+        let mut elems = vec![first];
+        while self.at_kw("and") {
+            self.next()?;
+            elems.push(self.lhs_unary()?);
+        }
+        Ok(CeNode::And(elems))
+    }
+
+    /// `lhsUnary := '(' group ')' | pattern`. Inside parens: prefix
+    /// `(or …)` / `(and …)` over lhsUnary operands, or ONE infix
+    /// expression — bare juxtaposition inside parens is a Drools parse
+    /// error (or_a42), mirrored here.
+    fn lhs_unary(&mut self) -> Result<CeNode, DrlError> {
+        if !matches!(self.peek(), Some(Tok::Sym("("))) {
+            return Ok(CeNode::Pat(self.pattern()?));
+        }
+        self.next()?;
+        let node = if self.at_kw("or") {
+            self.next()?;
+            let mut xs = Vec::new();
+            while !matches!(self.peek(), Some(Tok::Sym(")"))) {
+                xs.push(self.lhs_unary()?);
+            }
+            if xs.len() < 2 {
+                return Err(DrlError("prefix (or …) needs >= 2 operands".into()));
+            }
+            CeNode::Or(xs)
+        } else if self.at_kw("and") {
+            self.next()?;
+            let mut xs = Vec::new();
+            while !matches!(self.peek(), Some(Tok::Sym(")"))) {
+                xs.push(self.lhs_unary()?);
+            }
+            if xs.len() < 2 {
+                return Err(DrlError("prefix (and …) needs >= 2 operands".into()));
+            }
+            CeNode::And(xs)
+        } else {
+            self.lhs_or()?
+        };
+        self.expect_sym(")")?;
+        Ok(node)
     }
 
     /// `query Name(type $p, ...) qbranch (or qbranch)* end` (D-049/D-054);
@@ -659,6 +789,11 @@ impl Parser {
         } else {
             CeKind::Positive
         };
+        if ce != CeKind::Positive && matches!(self.peek(), Some(Tok::Sym("("))) {
+            return Err(DrlError(
+                "CE groups inside not/exists are out of subset (P1c pending; bare `not T(...)` / `exists T(...)` only, D-031)".into(),
+            ));
+        }
         if matches!(self.peek(), Some(Tok::Sym("?"))) {
             // `?name(a1, ..., ak;)` pull query CE (D-056/D-057)
             if ce != CeKind::Positive {
@@ -1072,21 +1207,50 @@ fn setter_field(setter: &str) -> Result<String, DrlError> {
         .ok_or_else(|| DrlError(format!("expected setter, got {setter}")))
 }
 
+/// DNF expansion of a CE tree (D-070): Or concatenates branch lists in
+/// listed order (nested or flattens, or_a13x); And crosses factor branch
+/// lists left-major (earlier factors vary slowest, or_a23).
+fn expand_ce(n: &CeNode) -> Vec<Vec<Pattern>> {
+    match n {
+        CeNode::Pat(p) => vec![vec![p.clone()]],
+        CeNode::Or(xs) => xs.iter().flat_map(expand_ce).collect(),
+        CeNode::And(xs) => xs.iter().fold(vec![Vec::new()], |acc, x| {
+            let bs = expand_ce(x);
+            acc.iter()
+                .flat_map(|pre| {
+                    bs.iter().map(|b| {
+                        let mut v = pre.clone();
+                        v.extend(b.iter().cloned());
+                        v
+                    })
+                })
+                .collect()
+        }),
+    }
+}
+
 pub fn parse_file(src: &str) -> Result<DrlFile, DrlError> {
     let mut p = Parser { toks: lex(src)?, pos: 0 };
     let mut file = DrlFile::default();
+    // decl_pos counts TERMINALS (one per subrule / query, D-070);
+    // parent counts source `rule` blocks (no-loop scope).
     let mut pos = 0usize;
+    let mut unit = 0usize;
     while p.peek().is_some() {
         if p.at_kw("query") {
             let mut q = p.query()?;
             q.decl_pos = pos;
+            pos += 1;
             file.queries.push(q);
         } else {
-            let mut r = p.rule()?;
-            r.decl_pos = pos;
-            file.rules.push(r);
+            for mut r in p.rule()? {
+                r.decl_pos = pos;
+                r.parent = unit;
+                pos += 1;
+                file.rules.push(r);
+            }
         }
-        pos += 1;
+        unit += 1;
     }
     Ok(file)
 }

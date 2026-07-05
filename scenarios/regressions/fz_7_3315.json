@@ -1,0 +1,124 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    ( $p0_0 : T0(f1 == false, f1 != false, $b0_0_0 : f1, $b0_0_1 : f0) )\n    or\n    ( $p0_0 : T0(f1 == false, f1 != false, $b0_0_0 : f1, $b0_0_1 : f0) )\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    T0($b1_0_0 : f1)\nthen\n    insert(new T1(-0.5, $b1_0_0));\n    insert(new T1(-2.0, $b1_0_0));\nend\nrule \"R2\"\nsalience 10\nwhen\n    $p2_0 : T0(f1 != false, f0 != true, $b2_0_0 : f0, $b2_0_1 : f1)\n    not T1(f0 != 6.0, f0 > 6.0)\n    T1(f0 < 3.5, f1 == $b2_0_0, $b2_2_0 : f0)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nwhen\n    T0($b3_0_0 : f1)\n    T1(f0 != 3.5)\n    T1(f0 <= -3.0, f1 != $b3_0_0)\nthen\nend\nrule \"R4\"\nsalience 1\nwhen\n    T0($b4_0_0 : f1)\n    T1(f0 != 3.5)\n    T1(f1 != false, f1 != $b4_0_0)\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": true,
+            "f1": false
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": false,
+            "f1": true
+          },
+          "type": "T0"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 6.0
+          },
+          "op": "update",
+          "target": 3
+        },
+        {
+          "fields": {
+            "f1": false
+          },
+          "op": "update",
+          "target": 4
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": -2.5,
+            "f1": false
+          },
+          "type": "T1"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1.0,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -0.5,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1.0,
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_3315",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

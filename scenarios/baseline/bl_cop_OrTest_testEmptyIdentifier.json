@@ -1,0 +1,55 @@
+{
+ "name": "bl_cop_OrTest_testEmptyIdentifier",
+ "provenance": {
+  "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/compiler/integrationtests/operators/OrTest.java",
+  "method": "OrTest#testEmptyIdentifier",
+  "expect_fire_count": null,
+  "adaptation": [
+   "dropped global java.util.List results",
+   "stripped global stmt: results.add(\"Or condition followed by fa",
+   "stripped global stmt: results.add(\"Fact followed by or conditi",
+   "stripped global stmt: results.add(\"Single fact is ok\")",
+   "stripped global stmt: results.add(\"Single or is ok\")"
+  ]
+ },
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Cheese",
+   "fields": [
+    {
+     "name": "type",
+     "type": "String"
+    },
+    {
+     "name": "price",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "name": "bob"
+   }
+  },
+  {
+   "type": "Cheese",
+   "fields": {
+    "type": "brie",
+    "price": 10
+   }
+  }
+ ],
+ "drl": "\n\n\n\nrule \"Or condition followed by fact\"\n  when\n    Cheese( type == \"stilton\" ) or Cheese( type == \"brie\" )\n    Person( )\n  then  end\n\nrule \"Fact followed by or condition\"\n  when\n    Person( )\n    Cheese( type == \"stilton\" ) or Cheese( type == \"brie\" )\n  then  end\n\nrule \"Single fact\"\n  when\n    Person( )\n  then  end\n\nrule \"Single or\"\n  when\n    Cheese( type == \"stilton\" ) or Cheese( type == \"brie\" )\n  then  end"
+}

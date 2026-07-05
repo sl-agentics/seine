@@ -1,0 +1,63 @@
+{
+ "drl": "rule \"R0\"\nsalience -8\nwhen\n    T0(f0 != false, $b0_0_0 : f1, $b0_0_1 : f3)\n    $p0_1 : T1()\nthen\nend\nrule \"R1\"\nno-loop\nwhen\n    $p1_0 : T0()\n    exists T1(f2 in (true, false))\nthen\n    update($p1_0);\nend\nrule \"R5\"\nsalience 7\nno-loop\nwhen\n    T0(f0 != false, $b5_0_0 : f1, $b5_0_1 : f3)\n    T1()\n    not T0(f1 > -3)\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": true,
+    "f1": -4,
+    "f2": -1000000007,
+    "f3": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 100,
+    "f1": -1.5,
+    "f2": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_min_890",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

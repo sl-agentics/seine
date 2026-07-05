@@ -1,0 +1,44 @@
+{
+ "drl": "rule \"R3\"\nwhen\n    T1($b3_0_0 : f1)\n    $p3_1 : T0()\nthen\nend\nrule \"R4\"\nsalience 8\nwhen\n    T1($b4_0_1 : f1)\n    $a4_1 : ArrayList() from collect( T0(f0 != false, f0 != false) )\nthen\nend\nrule \"R5\"\nwhen\n    $p5_0 : T1()\nthen\n    $p5_0.setF1(true);\n    update($p5_0);\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f0": 9,
+      "f1": false
+     },
+     "op": "insert",
+     "type": "T1"
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [],
+ "name": "fz_min_7082",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

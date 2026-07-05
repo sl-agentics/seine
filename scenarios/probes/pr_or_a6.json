@@ -1,0 +1,47 @@
+{
+ "name": "pr_or_a6",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "c",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "b": 3
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": -4
+   }
+  }
+ ],
+ "drl": "rule R when B(b > 0, $v : b) or B(b < 0, $v : b) then insert(new C($v)); end"
+}

@@ -37,6 +37,13 @@ pub struct Staged<T: Clone + PartialEq> {
     /// Never consumed by the first sink; folded into peers' dels at
     /// propagation and dropped afterward.
     pub norm_del: Vec<(T, Origin, u8)>,
+    /// KEPT-KIND inserts (D-071/fz_42_890): tuples whose child UPDATE
+    /// resolved against the FIRST sink's pending INSERT at touch time
+    /// (updateChildLeftTuple keeps the kind) — they travel in `ins` for
+    /// the first sink but peer-copy as UPDATES: each Drools sink resolves
+    /// its OWN child tuple's staged state, and an already-consumed peer
+    /// stages the touch as an update (refiring its terminal).
+    pub peer_upd: Vec<T>,
     /// SLOT MEMORY (D-047/fz_7_5801): enabled only on LIA-level pattern-0
     /// staging (trie s0_in). A cancelled staged INSERT records its list
     /// position; a later re-add of the same fact (external exit then
@@ -53,6 +60,7 @@ impl<T: Clone + PartialEq> Default for Staged<T> {
             upd: Vec::new(),
             del: Vec::new(),
             norm_del: Vec::new(),
+            peer_upd: Vec::new(),
             slot_memory: false,
             cancelled_slots: Vec::new(),
         }
@@ -190,7 +198,9 @@ impl<T: Clone + PartialEq> Staged<T> {
         pending.del.extend(fresh.del);
         pending.upd.extend(fresh.upd);
         // norm_del is a peer-only signal: the first sink's pending
-        // insert was already cancelled at touch time
+        // insert was already cancelled at touch time. peer_upd markers
+        // carry through (consumed only by peer copies, cleared on take).
+        pending.peer_upd.extend(fresh.peer_upd);
         pending
     }
 
@@ -365,6 +375,18 @@ impl Node {
             }
         }
         for (t, o, ph) in &fresh.ins {
+            if fresh.peer_upd.contains(t) {
+                // kept-kind insert (D-071): this peer's child was already
+                // consumed — stage as an UPDATE with the usual
+                // staged-clash skip (fz_999_3298 semantics).
+                let staged = pending.ins.iter().any(|(x, _, _)| x == t)
+                    || pending.upd.iter().any(|(x, _, _)| x == t)
+                    || pending.del.iter().any(|(x, _, _)| x == t);
+                if !staged {
+                    pending.upd.insert(0, (t.clone(), *o, *ph));
+                }
+                continue;
+            }
             if let Some(i) = pending.ins.iter().position(|(x, _, _)| x == t) {
                 let e = pending.ins.remove(i);
                 pending.ins.insert(0, e);
@@ -667,6 +689,9 @@ impl<'a> Out<'a> {
     /// UPDATE moves as an update; otherwise stage an update normally.
     fn child_upd(&mut self, t: Tup, o: Origin, ph: u8) {
         if self.pending.remove_ins(&t) {
+            // kind kept for the first sink; peers resolve their own
+            // staged state and see an UPDATE (D-071/fz_42_890).
+            self.trg.peer_upd.push(t.clone());
             self.trg.add_ins_ph(t, o, ph);
         } else {
             self.pending.remove_upd(&t);

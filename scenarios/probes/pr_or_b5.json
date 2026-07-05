@@ -1,0 +1,41 @@
+{
+ "name": "pr_or_b5",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "S",
+   "fields": [
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 1
+   }
+  }
+ ],
+ "drl": "rule R when A($v : a) or S($v : s) then insert(new E(1)); end"
+}

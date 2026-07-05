@@ -69,6 +69,7 @@ into §1–§4.
 | Queries: non-recursive, params, unification `==`, bound/unbound calls | D-049, D-050, D-052, D-053 | m.i `QueryTest`, `Query2Test`, `Query3Test` (subset) | Row ORDER pinned incl. TupleIndexHashTable iteration (seed 993 hash model). |
 | Queries: positional syntax, `or` bodies, query calls, recursion (fenced) | D-054, D-055 | m.i `QueryTest` (positional/chained methods), `AbstractBackwardChainingTest` | Fence: 2-branch base-first self-recursion; cyclic data = clean error (Drools hangs). |
 | `?query` pull CEs in rules (the backward-chaining bridge) | D-056, D-057, D-058 | m.i `PassiveQueryTest` | Lazy pull windows, stateful query memories, agenda-item arming, all-unbound CE sharing. |
+| `or` CE (infix/prefix, subrule rewrite) + parenthesized CE groups | D-070 | c.i operators `OrTest` (subset; `testEmptyIdentifier` in baseline), m.i `Misc2Test` or-scope routing | Parse-time DNF subrule expansion; branch-major agenda order, per-rule no-loop, plain-rule trie sharing, every-branch binding rule. Groups inside not/exists await P1c. |
 | `declare` fact types (scalar fields) | D-004 | m.i `TypeDeclarationTest`, c.i drl `DeclareTest` (plain-declare subset), `GeneratedBeansTest` | Scenario `types` ARE declares; both runners get identical blocks. |
 | Boolean accessors are `isX()` only | D-009 | (Drools compile behavior) | Engine leniency documented (accepts getX too; generator emits Drools-legal only). |
 | InitialFact (leading-CE rules) | D-031, D-038 (acc1), D-056 (qx0_first) | c.i operators `ExistsTest`/`NotTest` leading-CE methods | Canonicalized rendering in both runners. |
@@ -84,8 +85,7 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 
 | Feature | Priority | Drools-test references | Rationale / notes |
 |---|---|---|---|
-| `or` CE (infix/prefix, subrule rewrite) + parenthesized CE groups | **P1** | c.i operators `OrTest` (14), m.i `Misc2Test` (or-scope methods) | Drools compiles to subrules — maps onto the existing trie/terminal structure. Biggest single unlock for baseline-tier yield. |
-| Inline `&&` / `||` / `!(…)` constraint groups, abbreviated `a > 5 && < 10` | **P1** | c.i operators `AndTest`, `InTest#testNegatedIn`, m.i `Misc2Test` | Same evaluator, richer constraint AST; interacts with D-029 alpha sharing — probe first. |
+| Inline `&&` / `||` / `!(…)` constraint groups, abbreviated `a > 5 && < 10` | **P1** | c.i operators `AndTest`, `InTest#testNegatedIn`, m.i `Misc2Test` | Same evaluator, richer constraint AST; interacts with D-029 alpha sharing — probe first. Also unblocks 3 extracted OrTest members (D-070 routing). |
 | Multi-pattern / nested `not(…and…)`, `exists(…or…)` | **P1** | m.i `Misc2Test#testNestedNots*`, c.i `FirstOrderLogicTest` | Existential subnetworks; pairs with CE groups. |
 | `forall` | P2 | c.i operators `ForAllTest` (29) | Canonical double-negation rewrite once nested nots land. |
 | Truth maintenance: `insertLogical`, justification, cascading retract | **P2 — PRODUCT-CRITICAL** | c.i `ErrorOnInsertLogicalTest`, m.i `Misc2Test` (logical methods), drools-tms module tests | **Thesis-load-bearing (D-066):** justification + cascading retract is the substrate of the why/why-not derivation engine. Fact equality = value-equality over declared fields (cheap in columnar); equality-assert *mode* stays WONT. |

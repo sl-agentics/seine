@@ -234,6 +234,7 @@ fn accessor(name: &str, ft: Ft, prefix: &str) -> String {
 }
 
 /// One LHS pattern being generated.
+#[derive(Clone)]
 struct GenPattern {
     ti: usize,
     /// 0 = positive, 1 = not, 2 = exists, 3 = accumulate, 4 = collect.
@@ -546,7 +547,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         }
         if let Some(pos) = update_pos {
             let var = ensure_fact_var(&mut pats, ri, pos);
-            let (gfi, gname) = guard_field.unwrap();
+            let (gfi, gname) = guard_field.clone().unwrap();
             // guard setter + 0..2 extra setters (bools only ever set true)
             let mut setters: Vec<(String, String)> = Vec::new();
             setters.push((accessor(&gname, Ft::Bool, "set"), "true".into()));
@@ -576,6 +577,41 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             let var = ensure_fact_var(&mut pats, ri, pos);
             actions.push(format!("delete({var});"));
             rule_deleted_types.insert(pats[pos].ti);
+        }
+
+        // D-070 `or` grammar: ~18% of acc-free rules become 2-3 branch
+        // or-rules. Extra branches COPY the pattern list (same types,
+        // same binding names — every RHS/salience reference stays
+        // every-branch-bound; duplicate fact bindings keep their type,
+        // or_b1/or_b4) with literal-alpha mutation. The update GUARD
+        // constraint is never mutated (termination by construction).
+        // Acc/collect rules stay single-branch: identical acc twins
+        // would fuzz the unprobed acc-sharing surface (D-038 spirit).
+        let guard_text = guard_field.as_ref().map(|(_, g)| format!("{g} == false"));
+        let mut branches: Vec<Vec<GenPattern>> = vec![pats.clone()];
+        if pats.iter().all(|p| p.ce < 3) && rng.chance(18) {
+            let nb = if rng.chance(25) { 3 } else { 2 };
+            for _ in 1..nb {
+                let mut copy: Vec<GenPattern> = pats.clone();
+                for cp in &mut copy {
+                    for c in cp.constraints.iter_mut() {
+                        if !c.contains('$')
+                            && guard_text.as_deref() != Some(c.as_str())
+                            && rng.chance(40)
+                        {
+                            let fs = &types[cp.ti].fields;
+                            let (fname, ft) = fs[rng.below(fs.len())].clone();
+                            *c = gen_alpha_constraint(&mut rng, &fname, ft);
+                        }
+                    }
+                    if cp.ce == 0 && rng.chance(15) {
+                        let fs = &types[cp.ti].fields;
+                        let (fname, ft) = fs[rng.below(fs.len())].clone();
+                        cp.constraints.push(gen_alpha_constraint(&mut rng, &fname, ft));
+                    }
+                }
+                branches.push(copy);
+            }
         }
 
         // Render the rule.
@@ -627,18 +663,14 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             drl.push_str("no-loop\n");
         }
         drl.push_str("when\n");
-        for p in &pats {
+        let render_pat = |p: &GenPattern| -> String {
             if let Some((func, avar, rvar)) = &p.acc {
                 let src = format!("{}({})", types[p.ti].name, p.constraints.join(", "));
                 if p.ce == 4 {
-                    drl.push_str(&format!("    {rvar} : ArrayList() from collect( {src} )\n"));
-                } else {
-                    let arg = if func == "count" { String::new() } else { avar.clone() };
-                    drl.push_str(&format!(
-                        "    accumulate( {src}; {rvar} : {func}({arg}) )\n"
-                    ));
+                    return format!("{rvar} : ArrayList() from collect( {src} )");
                 }
-                continue;
+                let arg = if func == "count" { String::new() } else { avar.clone() };
+                return format!("accumulate( {src}; {rvar} : {func}({arg}) )");
             }
             let ce = match p.ce {
                 1 => "not ",
@@ -649,11 +681,35 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 Some(v) => format!("{v} : "),
                 None => String::new(),
             };
-            drl.push_str(&format!(
-                "    {ce}{head}{}({})\n",
-                types[p.ti].name,
-                p.constraints.join(", ")
-            ));
+            format!("{ce}{head}{}({})", types[p.ti].name, p.constraints.join(", "))
+        };
+        if branches.len() == 1 {
+            for p in &pats {
+                drl.push_str(&format!("    {}\n", render_pat(p)));
+            }
+        } else if rng.chance(30) {
+            // prefix form: (or (and p q) (and p q)) — or_a7/or_a14
+            let bs: Vec<String> = branches
+                .iter()
+                .map(|b| {
+                    let ps: Vec<String> = b.iter().map(&render_pat).collect();
+                    if ps.len() == 1 {
+                        ps.into_iter().next().unwrap()
+                    } else {
+                        format!("(and {})", ps.join(" "))
+                    }
+                })
+                .collect();
+            drl.push_str(&format!("    (or {})\n", bs.join(" ")));
+        } else {
+            // infix form: ( p and q ) or ( p and q ) — or_a35/or_a43
+            for (bi, b) in branches.iter().enumerate() {
+                if bi > 0 {
+                    drl.push_str("    or\n");
+                }
+                let ps: Vec<String> = b.iter().map(&render_pat).collect();
+                drl.push_str(&format!("    ( {} )\n", ps.join(" and ")));
+            }
         }
         drl.push_str("then\n");
         for a in &actions {

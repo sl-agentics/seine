@@ -1996,3 +1996,128 @@ inheritance (D-065). New WONT: pseudo-clock CEP (D-060), Java-object
 globals (D-062), char (D-067), virtual-date attributes (D-068),
 declarative agenda (D-069). No engine changes; gate unchanged
 (baseline 7/7, probes 332/332, regressions 201/201).
+
+## Phase P1a — `or` CE + parenthesized CE groups (2026-07-05)
+
+### D-070: `or` CE = parse-time subrule expansion (probe ladder or_a1..a43, or_b1..b5)
+Oracle-verified on Drools 9.44.0.Final; 35 probes promoted to
+scenarios/probes/pr_or_*. The whole feature is a PARSER rewrite: an
+`or` rule expands to DNF at parse time, one ordinary engine rule
+(SUBRULE) per branch, sharing name/attributes/RHS. Zero changes to the
+evaluator, trie, agenda or query machinery beyond a no-loop scope fix.
+- **Expansion:** nested `or` flattens (a13x); multiple or-groups cross
+  left-major — earlier groups vary slowest: `(A or B) (C or D)` →
+  AC, AD, BC, BD (a23). Grammar: infix `X or Y` / `X and Y` (and binds
+  tighter), prefix `(or …)` / `(and …)` (a7/a14), parenthesized infix
+  groups incl. single-pattern `(A())` (a35/a35b/a43). TOP-LEVEL
+  juxtaposition is AND across whole or-expressions: `A() or B() C()`
+  ≡ `(A or B) and C` (a4); bare juxtaposition INSIDE parens is a parse
+  error in Drools and here (a42).
+- **Agenda:** each subrule is a separate terminal in build order —
+  decl_pos now counts TERMINALS (subrules/queries), so the order key
+  (salience DESC, decl ASC, insertion ASC) makes branch-1 activations
+  fire before branch-2 even when branch-2's are older (a2/a2b/a17);
+  all subrules sit at the parent's slot for cross-rule order and
+  preemption (a3/a3b/a16). Static salience applies to every branch
+  (a18); dynamic salience evaluates over the FIRING branch's bindings
+  (a19; bare `salience $v` form added — Drools-legal). Relative
+  rule/query agenda order is preserved by expansion (positions inflate
+  monotonically; ties impossible), so D-058 query items need no change.
+- **Semantics:** matches render only the branch's own patterns (a1); a
+  fact matching k branches fires k times (a5); not/exists/accumulate/
+  ?query branches behave as leading-CE rules incl. InitialFact
+  rendering (a15/a25/a33/a39x/a40); joins after an or-group evaluate
+  per-subrule with the standard D-013 orders (a4bx/a22).
+- **no-loop is per PARENT rule** (a20): an update from any branch's RHS
+  suppresses re-activation of every sibling subrule (Drools compares
+  the shared Rule object). Engine: CompiledRule.def.parent + the four
+  origin checks compare parents.
+- **Sharing:** subrules share alphas/trie exactly like plain rules —
+  the fz_42_580 twin-share shape with either twin turned into an
+  or-rule (dead extra branch) reproduces the original firing sequence
+  byte-for-byte (a28/a29).
+- **Declarations:** a var referenced downstream/RHS/salience must be
+  bound in EVERY branch, else compile error (a12/a30b/a37 — engine
+  errors likewise). FIELD bindings repeat freely across branches with
+  per-branch values (a6/a22/or_b5, incl. different field types when
+  unreferenced). FACT bindings: same name across branches legal iff
+  same pattern TYPE (or_b1/or_b4 — usable in RHS delete); duplicate
+  within a branch (or_b2) or cross-branch type conflict (or_a26/or_b3)
+  = "Duplicate declaration" compile error, mirrored in the parser.
+- **Fences kept honest:** `not (…)`/`exists (…)` CE groups stay a clean
+  parse error until P1c (a41 pinned the Drools behavior: legal,
+  InitialFact match). Prefix groups need ≥2 operands.
+- Generator: ~18% of acc-free rules gain 1-2 copy-mutated branches
+  (same binding names — every-branch-bound by construction; update
+  GUARD never mutated, preserving termination), infix and prefix
+  renderings; acc/collect rules stay single-branch (identical acc
+  twins would fuzz the unprobed acc-sharing surface).
+- Baseline: +1 (bl_cop_OrTest_testEmptyIdentifier, 7→8). OrTest
+  routing: 4/14 extracted; the or-relevant remainder blocks on `||`
+  inline groups (P1b ×3) and extractor yield items (external-WM
+  epochs, facttype-api — D-059 catalog). Misc2Test or-scope methods
+  (testDeclarationsScopeUsingOR*) are eval/null-walled (CANT/P2
+  routing evidence).
+- Corpus after P1a: probes 332→367 (35 pr_or_*), baseline 7→8,
+  regressions 201→205 (D-071 finds).
+
+### D-071: per-sink child-kind resolution — kept-kind inserts peer-copy
+### as UPDATES (fz_42_890, first or-campaign find; pre-existing bug)
+The or-grammar campaign's reshuffled draws exposed a LATENT forward-
+engine bug (bisect: pre-P1a engine byte-identical on the repro — not
+introduced by D-070). Minimized (fz_min_890, 3 rules / 2 facts): R5
+(salience 7) and R0 (salience -8) share a 2-level trie prefix; R1's
+bare update() re-touches the shared join's child while lazy R0's
+terminal still holds the ORIGINAL child INSERT unconsumed.
+- Drools: updateChildLeftTuple resolves the touched child against EACH
+  SINK's own staged state — at R0's segment the pending INSERT keeps
+  its kind (moves into the current batch); R5's already-consumed peer
+  stages an UPDATE, whose not-node leftUpd propagates and REFIRES R5's
+  fired activation. Oracle: R5, R1, R5, R0.
+- Engine (before): child_upd resolved the kind against the FIRST
+  sink's pending only and copied the RESOLVED batch to every peer; the
+  kept-kind INSERT then hit peer_merge_left's materialized-tuple path
+  (removeAdd, nothing staged — fz_123_8822) and R5 never refired.
+- Fix: `Staged.peer_upd` side-channel (the norm_del precedent, mirror
+  case): child_upd marks kept-kind entries; the first sink appends
+  them as inserts unchanged; peer NODE copies stage them as UPDATES
+  with the fz_999_3298 staged-clash skip. Terminal peers already
+  modeled this via peer_live insert→update conversion — untouched.
+- fz_123_8822 (true re-delivered inserts) and fz_999_3298 keep their
+  pinned behavior: the marker rides ONLY on updateChildLeftTuple's
+  kept-kind resolution.
+- Graduated: fz_42_890 + fz_min_890, plus same-campaign finds
+  fz_7_3315 (first or-bearing find) and fz_7_3462 — all pass with the
+  fix.
+
+### D-072: shared-LIA modify gate decides ONCE at the first-built child
+### (fz_999_7082 — second latent find; pre-existing, bisect-verified)
+Seed 999 of the or-campaign (1 divergence in 50k) minimized to a
+no-or shape: a join rule (T1($b : f1) x T0()) and a collect rule
+(T1($b : f1) + collect(T0…)) SHARING a LIA (same alpha, same
+bound-set), a third rule updating the T1 via setF1+update. Probe
+bisection (m7082_r3nobind/r3last/r3k1/r3cons all PASS; mg1u ruled out
+update-vs-modify mask inference):
+- **Pin:** for a shared LIA, the stage-vs-drop decision for a
+  pattern-0 property MODIFY is made ONCE against the FIRST-BUILT trie
+  child's effective left mask — a collect child contributes its D-040
+  gate (constraint fields + collect beta refs; bare bindings do NOT
+  count), a join child its full listen mask (bindings count) — and the
+  decision applies to EVERY trie child of that LIA: join-first STAGES
+  the modify for a gated collect sibling (m7082_vis_jf: both refire);
+  collect-first DROPS it for the join sibling (m7082_vis_cf2: neither
+  refires). k=1 rules on the LIA gate independently on the canonical
+  listen mask (m7082_r3k1). ALL-SET (bare update) always stages.
+- The engine previously gated per-child (only collect children) —
+  wrong in both directions. Fix: compute child_stage once from
+  children[0]'s gate-or-listen in on_update; the per-child gate drop
+  is deleted. mg1..mg8 unchanged (single-child LIAs degenerate to the
+  old rule).
+- Probes promoted: pr_lia_gate_jf, pr_lia_gate_cf, pr_mg1u_update
+  (setter+update mask-inference control). Regressions: fz_999_7082 +
+  fz_min_7082. Corpus: probes 367→370, regressions 205→207.
+- P1a fuzz gate (WITNESSED): full 5x10k rerun on the final engine
+  (D-070 or-grammar in the generator, D-071 + D-072 fixes in) — seeds
+  42/7/123/777/999, **50,000 cases, ZERO divergences**. Gate at close:
+  make test green; make diff = baseline 8/8, probes 370/370,
+  regressions 207/207.

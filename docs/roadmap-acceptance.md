@@ -16,8 +16,7 @@ error).
 
 | ROADMAP feature (priority) | Acceptance tests | ~methods |
 |---|---|---|
-| `or` CE + parenthesized CE groups (P1) | compiler.integrationtests.operators.OrTest; mvel.integrationtests.Misc2Test (testDeclarationsScopeUsingOR*, or-scope methods) | 14 + ~8 |
-| Inline `&&`/`||`/`!()` constraint groups (P1) | operators.AndTest (explicit-and methods), operators.InTest#testNegatedIn, Misc2Test (combined-constraint methods) | ~15 |
+| Inline `&&`/`||`/`!()` constraint groups (P1) | operators.AndTest (explicit-and methods), operators.InTest#testNegatedIn, Misc2Test (combined-constraint methods); OrTest#testConstraintConnectorOr/#testRestrictionsWithOr (routed there by D-070) | ~15 + 2 |
 | Nested/multi-pattern not/exists (P1) | Misc2Test#testNestedNots1..3, compiler.integrationtests.FirstOrderLogicTest (not/exists group methods, ext-DRL) | ~12 |
 | forall (P2) | operators.ForAllTest | 29 |
 | TMS insertLogical (P2, PRODUCT-CRITICAL per D-066) | compiler.integrationtests.ErrorOnInsertLogicalTest; Misc2Test logical-insert methods; drools-tms module suite | 1 + ~6 + module |

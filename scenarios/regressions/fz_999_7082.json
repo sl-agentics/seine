@@ -1,0 +1,73 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f1 != true)\n    not T1(f0 > 0)\nthen\nend\nrule \"R1\"\nwhen\n    ( $p1_0 : T1(f1 != true) and not T1(f0 > 0) )\n    or\n    ( $p1_0 : T1(f1 in (false, false)) and not T1(f0 > 0) )\n    or\n    ( $p1_0 : T1(f0 in (100, 0.5)) and not T1(f0 > 0) )\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nsalience -8\nwhen\n    $p2_0 : T0(f0 == false, f0 == false)\nthen\n    insert(new T1(-1000000007, $p2_0.isF0()));\n    insert(new T1(-5, true));\n    $p2_0.setF0(true);\n    update($p2_0);\nend\nrule \"R3\"\nwhen\n    T1($b3_0_0 : f1)\n    $p3_1 : T0(f0 != $b3_0_0, $b3_1_0 : f0, f0 == false)\nthen\n    modify($p3_1) { setF0(true) }\nend\nrule \"R4\"\nsalience 8\nwhen\n    T1($b4_0_0 : f1, $b4_0_1 : f1)\n    $a4_1 : ArrayList() from collect( T0(f0 != false, f0 != false) )\nthen\nend\nrule \"R5\"\nwhen\n    $p5_0 : T1($b5_0_0 : f0, $b5_0_1 : f1, f1 == false)\nthen\n    $p5_0.setF1(true);\n    $p5_0.setF0($b5_0_0);\n    update($p5_0);\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": true
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": 9,
+            "f1": false
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 6,
+            "f1": true
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": -2,
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_999_7082",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}
