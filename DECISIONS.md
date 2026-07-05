@@ -467,6 +467,53 @@ OUT (compile-rejected in the engine and/or excluded from generators):
 - Arg/param type mismatches: exact-type match required (engine
   compile error; Drools would coerce per Java assignability, unprobed).
 
+### D-058: Q2 fuzz wave 1 — three pins the hand probes missed
+### (23 divergences over seeds 42/7, all minimized/bisected to ≤2-rule
+### cases; corpus 533/533 after; supersedes D-056's sharing identity)
+1. **Query-network pattern memories are STATEFUL** (fz_42_1016 →
+   probes qx8_statemem/qx8_statemem3): staged alpha-passing facts drain
+   into a pattern's memory AT EACH EVALUATION of its query network —
+   newest-first within the drain batch, batches APPENDED; deletes leave
+   at the next drain. A ?query CE evaluating mid-firing therefore
+   splits memories into drain windows; a fresh reverse-insertion
+   rebuild coincides only when every evaluation happens post-quiescence
+   (exactly the pre-Q2 envelope, which is why Q0/Q1 never saw it).
+   Engine: persistent QueryMem keyed by (query, branch, node), one
+   shared drain in the evaluator.
+2. **Queries are agenda items** (min_6527 bisect; sources:
+   PathMemory.queueRuleAgendaItem → addQueryAgendaItem,
+   ActivationsManagerImpl.evaluateQueriesForRule,
+   AbstractGroupEvaluator): once a ?query CE has pulled a query, the
+   resident dqueries keep its network paths linked — ARMED — and every
+   subsequent WM event queues the query's agenda item at (salience 0,
+   its declaration position in the unit's interleaved rule+query
+   sequence). The item's evaluation is a DRAIN WINDOW (nothing fires);
+   it runs when the agenda walk reaches it, and a CE-bearing rule's
+   evaluation first drains its depending queries (transitive call
+   closure — evaluateQueriesForRule). Standalone getQueryResults
+   retracts its dquery and never arms, so query-only scenarios keep
+   their single post-quiescence batch (fz_7_546/fz_777_145 pinned the
+   distinction). Also from this wave: an EMPTY-src call level pushes no
+   frames and evaluation CONTINUES at the next node (evalQueryNode's
+   return-false path) — post-call patterns still drain their windows.
+3. **CE node sharing is ALL-UNBOUND-args only** (min_6795 →
+   pr_qx9_min_neither/pr_qx9_n_noQ1; pr_qx9_share_bound_late):
+   QueryElement.equals compares args templates whose UNBOUND positions
+   hold the Variable.v singleton while literal and declaration args are
+   per-rule objects — so identical literal args or same-named bound
+   args do NOT share; each rule's CE pulls fresh at its own agenda
+   window (min_6795's low-salience twin fired on facts inserted after
+   the first rule's empty window). All-unbound templates DO share, with
+   consume-once semantics: a late sink is STARVED of rows already
+   consumed at an earlier sharer's window (pr_qx9_share_late/late2/
+   late3). D-056's "bound vars BY NAME" sharing component is RETRACTED.
+Generator gates from the same wave: QR rules attach only to fully
+insert-only programs (rule DELETES draw independently of
+allow_mutation; the engine walls ?query CEs beside any mutation
+action); a fresh var minted by the SAME call is repeated-unbound, not
+bound (fz_42_4330-class: Drools NPEs or returns null-position rows —
+the engine walls repeated-fresh-var positions like any unbound arg).
+
 ## Recursive queries — Phase Q1 (2026-07-04)
 
 ### D-054: recursive-query semantics PINNED — the stack-machine model

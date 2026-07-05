@@ -1,0 +1,51 @@
+{
+ "name": "qx9_share_late2",
+ "types": [
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "t": 0
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 5
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule QR1 salience 10\nwhen\n    ?BVals($x;)\nthen\n    insert(new Out(1, $x));\nend\n\nrule R0 salience 5\nwhen\n    T(t == 0)\nthen\n    insert(new B(10));\n    insert(new B(20));\nend\n\nrule QR2 salience -5\nwhen\n    ?BVals($x;)\nthen\n    insert(new Out(2, $x));\nend\n"
+}

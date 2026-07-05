@@ -194,6 +194,9 @@ pub struct RuleDef {
     pub no_loop: bool,
     pub patterns: Vec<Pattern>,
     pub actions: Vec<Action>,
+    /// Position in the DRL unit's interleaved rule+query sequence —
+    /// query agenda items order by (salience 0, this) (D-058).
+    pub decl_pos: usize,
 }
 
 /// One positional argument of a positional pattern or query call (D-054).
@@ -228,6 +231,8 @@ pub struct QueryDef {
     /// (type token, `$name`) pairs in declaration order.
     pub params: Vec<(String, String)>,
     pub branches: Vec<Vec<QElem>>,
+    /// Position in the DRL unit's interleaved rule+query sequence (D-058).
+    pub decl_pos: usize,
 }
 
 /// A parsed DRL compilation unit: rules and queries in source order.
@@ -492,7 +497,7 @@ impl Parser {
             actions.extend(self.actions()?);
         }
         self.expect_kw("end")?;
-        Ok(RuleDef { name, salience, no_loop, patterns, actions })
+        Ok(RuleDef { name, salience, no_loop, patterns, actions, decl_pos: 0 })
     }
 
     /// `query Name(type $p, ...) qbranch (or qbranch)* end` (D-049/D-054);
@@ -530,7 +535,7 @@ impl Parser {
             branches.push(self.qbranch()?);
         }
         self.expect_kw("end")?;
-        Ok(QueryDef { name, params, branches })
+        Ok(QueryDef { name, params, branches, decl_pos: 0 })
     }
 
     /// One or-branch: a parenthesized `and`-group, or bare elements up to
@@ -1070,12 +1075,18 @@ fn setter_field(setter: &str) -> Result<String, DrlError> {
 pub fn parse_file(src: &str) -> Result<DrlFile, DrlError> {
     let mut p = Parser { toks: lex(src)?, pos: 0 };
     let mut file = DrlFile::default();
+    let mut pos = 0usize;
     while p.peek().is_some() {
         if p.at_kw("query") {
-            file.queries.push(p.query()?);
+            let mut q = p.query()?;
+            q.decl_pos = pos;
+            file.queries.push(q);
         } else {
-            file.rules.push(p.rule()?);
+            let mut r = p.rule()?;
+            r.decl_pos = pos;
+            file.rules.push(r);
         }
+        pos += 1;
     }
     Ok(file)
 }

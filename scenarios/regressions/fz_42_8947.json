@@ -1,0 +1,271 @@
+{
+  "drl": "rule \"R0\"\nsalience($b0_0_1)\nwhen\n    T2(f2 < 10, f1 == 0, $b0_0_0 : f0, $b0_0_1 : f2)\n    T0(f2 != false, f2 != false)\nthen\nend\nrule \"R1\"\nsalience 4\nwhen\n    accumulate( T1($s1_0 : f1); $a1_0 : min($s1_0) )\nthen\nend\nrule \"R2\"\nwhen\n    accumulate( T2(f0 in (\"zz\"), f3 != true, $s2_0 : f1); $a2_0 : sum($s2_0) )\n    T1(f2 == true, f0 == 12, $b2_1_0 : f1, $b2_1_1 : f1)\n    T0(f1 in (-3))\nthen\nend\nquery Q0(boolean $qa0_0, long $qa0_1, long $qa0_2)\n    ( $qp0_0 : T0(f2 == $qa0_0, $qb0_0 : f1, $qb0_1 : f0) and $qp0_1 : T1(f1 == $qa0_1, f1 >= -5, $qb0_2 : f2, $qb0_3 : f0) )\n    or\n    ( $qp0_2 : T1(f0 == $qa0_2, f2 == $qa0_0, $qb0_4 : f0) )\nend\n\nquery Q1(boolean $qa1_0, long $qa1_1, boolean $qa1_2)\n    ( $qp1_0 : T1(f2 == $qa1_0, f1 == $qa1_1, $qb1_0 : f2) )\n    or\n    ( $qp1_1 : T2(f3 == $qa1_2, f2 == $qa1_1, f0 < \"zz\", f2 < 2) )\nend\n\nquery TCr(String $a, String $b)\n    ( RelR($a, $b;) )\n    or\n    ( RelR($m, $b;) and TCr($a, $m;) )\nend\n\nquery TWr(String $w)\n    TCr($w, $f;)\n    MarkR(node == $f)\nend\n\nrule QR0\nwhen\n    T1($qr0_b0 : f1)\n    ?Q0(true, $qr0_b0, $qr0_b0;)\n    ?TWr($qr0_x0;)\nthen\n    insert(new QOut(1, $qr0_b0, 0.0, $qr0_x0, true));\nend\n\nrule QR1 salience -4\nwhen\n    T0()\n    ?Q1(false, 100, false;)\nthen\n    insert(new QOut(2, -4, 5.5, \"\", true));\nend\n\nrule QRtwin\nwhen\n    T1($qr0_b0 : f1)\n    ?Q0(true, $qr0_b0, $qr0_b0;)\n    ?TWr($qr0_x0;)\nthen\n    insert(new QOut(3, 0, 0.0, \"t\", false));\nend\n\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 8,
+        "f1": 10,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 1.5,
+        "f1": 6,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": -3,
+        "f2": 11,
+        "f3": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 5.5,
+        "f1": 1,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": -3,
+        "f2": -1000000007,
+        "f3": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 0.5,
+        "f1": 100,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "dst": "v4",
+        "src": "v3"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v3",
+        "src": "v2"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v4",
+        "src": "v0"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "node": "v0"
+      },
+      "type": "MarkR"
+    },
+    {
+      "fields": {
+        "node": "v1"
+      },
+      "type": "MarkR"
+    },
+    {
+      "fields": {
+        "node": "v2"
+      },
+      "type": "MarkR"
+    },
+    {
+      "fields": {
+        "node": "v3"
+      },
+      "type": "MarkR"
+    },
+    {
+      "fields": {
+        "node": "v4"
+      },
+      "type": "MarkR"
+    }
+  ],
+  "name": "fz_42_8947",
+  "queries": [
+    {
+      "args": [
+        null,
+        8,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        true,
+        9,
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        false,
+        -2,
+        true
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        true,
+        null,
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        null,
+        null
+      ],
+      "call": "TCr"
+    },
+    {
+      "args": [
+        "v2",
+        null
+      ],
+      "call": "TCr"
+    },
+    {
+      "args": [
+        "v2"
+      ],
+      "call": "TWr"
+    },
+    {
+      "args": [
+        null
+      ],
+      "call": "TWr"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "src",
+          "type": "String"
+        },
+        {
+          "name": "dst",
+          "type": "String"
+        }
+      ],
+      "name": "RelR"
+    },
+    {
+      "fields": [
+        {
+          "name": "node",
+          "type": "String"
+        }
+      ],
+      "name": "MarkR"
+    },
+    {
+      "fields": [
+        {
+          "name": "tag",
+          "type": "i64"
+        },
+        {
+          "name": "i",
+          "type": "i64"
+        },
+        {
+          "name": "d",
+          "type": "f64"
+        },
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "z",
+          "type": "bool"
+        }
+      ],
+      "name": "QOut"
+    }
+  ]
+}

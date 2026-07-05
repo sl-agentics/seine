@@ -1,0 +1,110 @@
+{
+  "drl": "rule \"R0\"\nsalience -9\nwhen\n    accumulate( T0($s0_0 : f1); $a0_0 : sum($s0_0) )\nthen\n    insert(new T1(true, false));\n    insert(new T1(true, true));\nend\nrule \"R1\"\nsalience 1\nwhen\n    T1($b1_0_0 : f0)\n    not T1(f0 != $b1_0_0)\n    T0(f0 != true, f1 >= 2.5, $b1_2_0 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    T1(f1 == true, f0 != true, $b2_0_0 : f0, $b2_0_1 : f1)\nthen\nend\nquery Q0(boolean $qa0_0, long $qa0_1)\n    ( $qp0_0 : T0(f0 == $qa0_0) and $qp0_1 : T1(f1 != true, f1 != true, $qb0_0 : f1) )\n    or\n    ( $qp0_2 : T0(f1 == $qa0_1, f1 <= -1000000007) and $qp0_3 : T0(f1 <= -5, f0 != false, $qb0_1 : f0) )\nend\n\nrule QR0 salience 10\nwhen\n    T1(f0 == false, $qr0_b0 : f0)\n    ?Q0(true, -5;)\n    ?Q0(true, 100;)\nthen\n    insert(new QOut(1, 100, 5.5, \"zz\", true));\nend\n\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": -1000000007
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_1016",
+  "queries": [
+    {
+      "args": [
+        null,
+        -2
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null,
+        7
+      ],
+      "call": "Q0"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "tag",
+          "type": "i64"
+        },
+        {
+          "name": "i",
+          "type": "i64"
+        },
+        {
+          "name": "d",
+          "type": "f64"
+        },
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "z",
+          "type": "bool"
+        }
+      ],
+      "name": "QOut"
+    }
+  ]
+}

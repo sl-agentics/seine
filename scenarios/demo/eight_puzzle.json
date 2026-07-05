@@ -1,0 +1,828 @@
+{
+ "name": "eight_puzzle",
+ "types": [
+  {
+   "name": "MoveF",
+   "fields": [
+    {
+     "name": "src",
+     "type": "String"
+    },
+    {
+     "name": "dst",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "GoalF",
+   "fields": [
+    {
+     "name": "state",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Dec",
+   "fields": [
+    {
+     "name": "from",
+     "type": "i64"
+    },
+    {
+     "name": "to",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "ZeroF",
+   "fields": [
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P0",
+   "fields": [
+    {
+     "name": "state",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P1",
+   "fields": [
+    {
+     "name": "state",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P2",
+   "fields": [
+    {
+     "name": "state",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "state",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P4",
+   "fields": [
+    {
+     "name": "state",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P5",
+   "fields": [
+    {
+     "name": "state",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Solution",
+   "fields": [
+    {
+     "name": "state",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "023156478",
+    "dst": "123056478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "023156478",
+    "dst": "203156478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "053216478",
+    "dst": "253016478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "053216478",
+    "dst": "503216478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "103526478",
+    "dst": "123506478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "103526478",
+    "dst": "013526478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "103526478",
+    "dst": "130526478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123056478",
+    "dst": "023156478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123056478",
+    "dst": "123456078"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123056478",
+    "dst": "123506478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123456078",
+    "dst": "123056478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123456078",
+    "dst": "123456708"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123456708",
+    "dst": "123406758"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123456708",
+    "dst": "123456078"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123456708",
+    "dst": "123456780"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123506478",
+    "dst": "103526478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123506478",
+    "dst": "123576408"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123506478",
+    "dst": "123056478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123506478",
+    "dst": "123560478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123560478",
+    "dst": "120563478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123560478",
+    "dst": "123568470"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123560478",
+    "dst": "123506478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123576408",
+    "dst": "123506478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123576408",
+    "dst": "123576048"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "123576408",
+    "dst": "123576480"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "203156478",
+    "dst": "253106478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "203156478",
+    "dst": "023156478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "203156478",
+    "dst": "230156478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "205163478",
+    "dst": "265103478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "205163478",
+    "dst": "025163478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "205163478",
+    "dst": "250163478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "206135478",
+    "dst": "236105478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "206135478",
+    "dst": "026135478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "206135478",
+    "dst": "260135478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "230156478",
+    "dst": "236150478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "230156478",
+    "dst": "203156478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236015478",
+    "dst": "036215478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236015478",
+    "dst": "236415078"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236015478",
+    "dst": "236105478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236105478",
+    "dst": "206135478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236105478",
+    "dst": "236175408"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236105478",
+    "dst": "236015478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236105478",
+    "dst": "236150478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236150478",
+    "dst": "230156478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236150478",
+    "dst": "236158470"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236150478",
+    "dst": "236105478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236158407",
+    "dst": "236108457"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236158407",
+    "dst": "236158047"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236158407",
+    "dst": "236158470"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236158470",
+    "dst": "236150478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236158470",
+    "dst": "236158407"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236175408",
+    "dst": "236105478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236175408",
+    "dst": "236175048"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "236175408",
+    "dst": "236175480"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "250163478",
+    "dst": "253160478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "250163478",
+    "dst": "205163478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253016478",
+    "dst": "053216478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253016478",
+    "dst": "253416078"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253016478",
+    "dst": "253106478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253076148",
+    "dst": "053276148"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253076148",
+    "dst": "253176048"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253076148",
+    "dst": "253706148"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253106478",
+    "dst": "203156478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253106478",
+    "dst": "253176408"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253106478",
+    "dst": "253016478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253106478",
+    "dst": "253160478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253160478",
+    "dst": "250163478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253160478",
+    "dst": "253168470"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253160478",
+    "dst": "253106478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253168407",
+    "dst": "253108467"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253168407",
+    "dst": "253168047"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253168407",
+    "dst": "253168470"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253168470",
+    "dst": "253160478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253168470",
+    "dst": "253168407"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253170486",
+    "dst": "250173486"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253170486",
+    "dst": "253176480"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253170486",
+    "dst": "253107486"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253176048",
+    "dst": "253076148"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253176048",
+    "dst": "253176408"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253176408",
+    "dst": "253106478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253176408",
+    "dst": "253176048"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253176408",
+    "dst": "253176480"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253176480",
+    "dst": "253170486"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253176480",
+    "dst": "253176408"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253416078",
+    "dst": "253016478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253416078",
+    "dst": "253416708"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253416708",
+    "dst": "253406718"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253416708",
+    "dst": "253416078"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "253416708",
+    "dst": "253416780"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "503216478",
+    "dst": "513206478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "503216478",
+    "dst": "053216478"
+   }
+  },
+  {
+   "type": "MoveF",
+   "fields": {
+    "src": "503216478",
+    "dst": "530216478"
+   }
+  },
+  {
+   "type": "GoalF",
+   "fields": {
+    "state": "123456780"
+   }
+  },
+  {
+   "type": "Dec",
+   "fields": {
+    "from": 1,
+    "to": 0
+   }
+  },
+  {
+   "type": "Dec",
+   "fields": {
+    "from": 2,
+    "to": 1
+   }
+  },
+  {
+   "type": "Dec",
+   "fields": {
+    "from": 3,
+    "to": 2
+   }
+  },
+  {
+   "type": "Dec",
+   "fields": {
+    "from": 4,
+    "to": 3
+   }
+  },
+  {
+   "type": "Dec",
+   "fields": {
+    "from": 5,
+    "to": 4
+   }
+  },
+  {
+   "type": "ZeroF",
+   "fields": {
+    "z": 0
+   }
+  },
+  {
+   "type": "P0",
+   "fields": {
+    "state": "203156478"
+   }
+  }
+ ],
+ "drl": "query reach(String $s, long $d)\n    ( GoalF($s;) and ZeroF($d;) )\n    or\n    ( Dec($d, $d1;) and MoveF($s, $n;) and reach($n, $d1;) )\nend\n\nrule Step1\nwhen\n    P0($s : state)\n    MoveF(src == $s, $n : dst)\n    ?reach($n, 4;)\nthen\n    insert(new P1($n));\nend\n\nrule Step2\nwhen\n    P1($s : state)\n    MoveF(src == $s, $n : dst)\n    ?reach($n, 3;)\nthen\n    insert(new P2($n));\nend\n\nrule Step3\nwhen\n    P2($s : state)\n    MoveF(src == $s, $n : dst)\n    ?reach($n, 2;)\nthen\n    insert(new P3($n));\nend\n\nrule Step4\nwhen\n    P3($s : state)\n    MoveF(src == $s, $n : dst)\n    ?reach($n, 1;)\nthen\n    insert(new P4($n));\nend\n\nrule Step5\nwhen\n    P4($s : state)\n    MoveF(src == $s, $n : dst)\n    ?reach($n, 0;)\nthen\n    insert(new P5($n));\nend\n\nrule Solved\nwhen\n    P5($s : state)\nthen\n    insert(new Solution($s));\nend\n",
+ "queries": [
+  {
+   "call": "reach",
+   "args": [
+    "203156478",
+    5
+   ]
+  },
+  {
+   "call": "reach",
+   "args": [
+    null,
+    1
+   ]
+  }
+ ]
+}

@@ -759,6 +759,10 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             .unwrap_or(true)
     });
     let mut queries_json: Vec<J> = Vec::new();
+    // Queries visible to ?query CEs (D-056): name + per-param (name,
+    // type, unbound-eligible). An UNBOUND CE arg requires the param to be
+    // bound in EVERY callee branch (D-057) — tracked at generation.
+    let mut q2_queries: Vec<(String, Vec<(Ft, bool)>)> = Vec::new();
     if !allow_mutation && epochs_insert_only && rng.chance(45) {
         const QOPS_NOEQ: &[&str] = &["!=", "<", "<=", ">", ">="];
         let nqueries = 1 + rng.below(2); // 1..2
@@ -772,10 +776,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 _ => 3,
             };
             let mut params: Vec<(String, Ft)> = Vec::new();
+            // branches each param is unified in (unbound-arg eligibility)
+            let mut param_branches: Vec<std::collections::HashSet<usize>> = Vec::new();
             let mut bind_n = 0usize;
             let mut pat_n = 0usize;
             let mut branch_texts: Vec<String> = Vec::new();
-            for _bi in 0..nbranches {
+            for bi in 0..nbranches {
                 // locals are per-branch (cross-branch reuse is rejected,
                 // D-055); params are shared across branches
                 let mut scalar_binds: Vec<(String, Ft)> = Vec::new();
@@ -796,10 +802,15 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                             .map(|(i, _)| i)
                             .collect();
                         let pn = if !reuse.is_empty() && (params.len() >= 3 || rng.chance(30)) {
-                            params[*rng.pick(&reuse)].0.clone()
+                            let pi = *rng.pick(&reuse);
+                            param_branches[pi].insert(bi);
+                            params[pi].0.clone()
                         } else if params.len() < 3 {
                             let pn = format!("$qa{qi}_{}", params.len());
                             params.push((pn.clone(), ft));
+                            let mut set = std::collections::HashSet::new();
+                            set.insert(bi);
+                            param_branches.push(set);
                             pn
                         } else {
                             continue;
@@ -869,6 +880,14 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     .collect::<Vec<_>>()
                     .join("    or\n")
             };
+            q2_queries.push((
+                qname.clone(),
+                params
+                    .iter()
+                    .zip(&param_branches)
+                    .map(|((_, ft), brs)| (*ft, brs.len() == nbranches))
+                    .collect(),
+            ));
             if params.is_empty() {
                 drl.push_str(&format!("query {qname}\n{body}end\n\n"));
             } else {
@@ -953,6 +972,10 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             drl.push_str(&format!(
                 "query TCr({jt} $a, {jt} $b)\n    {base}\n    or\n    ( RelR($m, $b;) and TCr($a, $m;){markf} )\nend\n\n"
             ));
+            // both params bound in every branch: base unifies both; the
+            // recursive branch unifies $b and threads $a into the
+            // self-call (bottoming out at the base branch)
+            q2_queries.push(("TCr".into(), vec![(node_ft, true), (node_ft, true)]));
             let arg = |rng: &mut Rng| -> J {
                 if rng.chance(45) {
                     J::Null
@@ -984,10 +1007,183 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                         "query TWr({jt} $w)\n    TCr($w, {lit};)\nend\n\n"
                     ));
                 }
+                // single branch, $w threaded into TCr param 0 (eligible)
+                q2_queries.push(("TWr".into(), vec![(node_ft, true)]));
                 for _ in 0..(1 + rng.below(2)) {
                     let a = arg(&mut rng);
                     queries_json.push(json!({"call": "TWr", "args": [a]}));
                 }
+            }
+        }
+
+        // --------------------------------------------------------------
+        // Phase Q2 (D-056/D-057): rules with `?query` pull CEs over the
+        // queries above. Termination: QR rules insert only the QOut sink
+        // (matched by no pattern) and pull CEs are NOT reactive — new
+        // rows never retrigger existing lefts; lefts stay bounded by the
+        // T-type event pool. Unbound CE args only target params bound in
+        // EVERY callee branch (the engine compile-rejects the rest,
+        // D-057). Twin rules copy an LHS verbatim to draw the shared-CE
+        // multi-sink polarity (qx3_two_rules/qx5_three_rules).
+        // Rule DELETES are drawn independently of allow_mutation — the
+        // engine compile-rejects ?query CEs beside ANY mutation action
+        // (D-057), so QR rules attach only to fully insert-only programs.
+        if !q2_queries.is_empty() && rule_deleted_types.is_empty() && rng.chance(60) {
+            let mut qout_used = false;
+            let mut qr_lhs: Vec<String> = Vec::new(); // twin candidates
+            let nqr = 1 + rng.below(3); // 1..3
+            let mut tag = 0i64;
+            for qri in 0..nqr {
+                let rn = format!("QR{qri}");
+                // leading T patterns: 0 (leading CE, InitialFact) .. 2
+                let nlead = match rng.below(100) {
+                    0..=19 => 0,
+                    20..=74 => 1,
+                    _ => 2,
+                };
+                let mut lhs: Vec<String> = Vec::new();
+                // (var, ft) scalar bindings visible to CE args / RHS
+                let mut binds: Vec<(String, Ft)> = Vec::new();
+                let mut bind_n = 0usize;
+                for _ in 0..nlead {
+                    let ti = rng.below(ntypes);
+                    let nfields = types[ti].fields.len();
+                    let mut cons: Vec<String> = Vec::new();
+                    for _ in 0..rng.below(2) {
+                        let (fname, ft) = &types[ti].fields[rng.below(nfields)];
+                        let op = match ft {
+                            Ft::Bool => *rng.pick(&["==", "!="]),
+                            _ => *rng.pick(OPS_ORD),
+                        };
+                        cons.push(format!("{fname} {op} {}", lit_drl(&mut rng, *ft, false)));
+                    }
+                    if rng.chance(60) {
+                        let (fname, ft) = types[ti].fields[rng.below(nfields)].clone();
+                        let bv = format!("$qr{qri}_b{bind_n}");
+                        bind_n += 1;
+                        cons.push(format!("{bv} : {fname}"));
+                        binds.push((bv, ft));
+                    }
+                    lhs.push(format!("{}({})", types[ti].name, cons.join(", ")));
+                }
+                // 1..2 ?query CEs; fresh vars thread into later CEs/RHS
+                let nce = 1 + rng.below(2);
+                let mut fresh: Vec<(String, Ft)> = Vec::new();
+                let mut fresh_n = 0usize;
+                for _ in 0..nce {
+                    let (qname, qparams) = rng.pick(&q2_queries).clone();
+                    let mut args: Vec<String> = Vec::new();
+                    // fresh vars from EARLIER CEs are bound here; vars
+                    // minted by THIS call are repeated-unbound (not
+                    // bound!) and stay out of the pool (fz_42_4330)
+                    let fresh_before: Vec<(String, Ft)> = fresh.clone();
+                    for (pt, eligible) in &qparams {
+                        let bound_compat: Vec<String> = binds
+                            .iter()
+                            .chain(fresh_before.iter())
+                            .filter(|(_, bt)| bt == pt)
+                            .map(|(v, _)| v.clone())
+                            .collect();
+                        let roll = rng.below(100);
+                        if roll < 45 && *eligible {
+                            let v = format!("$qr{qri}_x{fresh_n}");
+                            fresh_n += 1;
+                            fresh.push((v.clone(), *pt));
+                            args.push(v);
+                        } else if roll < 75 && !bound_compat.is_empty() {
+                            args.push(rng.pick(&bound_compat).clone());
+                        } else {
+                            args.push(lit_drl(&mut rng, *pt, false));
+                        }
+                    }
+                    if args.is_empty() {
+                        lhs.push(format!("?{qname}()"));
+                    } else {
+                        lhs.push(format!("?{qname}({};)", args.join(", ")));
+                    }
+                }
+                // optional trailing T pattern joining a CE var (qx0_after)
+                if !fresh.is_empty() && rng.chance(35) {
+                    let (v, vt) = rng.pick(&fresh).clone();
+                    let cands: Vec<(usize, String)> = types[..ntypes]
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(ti, t)| {
+                            t.fields
+                                .iter()
+                                .filter(|(_, ft)| *ft == vt)
+                                .map(move |(n, _)| (ti, n.clone()))
+                        })
+                        .collect();
+                    if !cands.is_empty() {
+                        let (ti, fname) = rng.pick(&cands).clone();
+                        lhs.push(format!("{}({fname} == {v})", types[ti].name));
+                    }
+                }
+                // RHS: QOut(tag, i, d, s, z) with CE/pattern vars where
+                // types line up (i64 widens into d)
+                let all_vars: Vec<(String, Ft)> =
+                    binds.iter().cloned().chain(fresh.iter().cloned()).collect();
+                let arg_for = |ft: Ft, rng: &mut Rng| -> String {
+                    let compat: Vec<String> = all_vars
+                        .iter()
+                        .filter(|(_, vt)| *vt == ft || (ft == Ft::F64 && *vt == Ft::I64))
+                        .map(|(v, _)| v.clone())
+                        .collect();
+                    if !compat.is_empty() && rng.chance(60) {
+                        rng.pick(&compat).clone()
+                    } else {
+                        lit_drl(rng, ft, false)
+                    }
+                };
+                let sal = if rng.chance(35) {
+                    format!(" salience {}", rng.below(21) as i64 - 10)
+                } else {
+                    String::new()
+                };
+                tag += 1;
+                let rhs = format!(
+                    "    insert(new QOut({tag}, {}, {}, {}, {}));\n",
+                    arg_for(Ft::I64, &mut rng),
+                    arg_for(Ft::F64, &mut rng),
+                    arg_for(Ft::Str, &mut rng),
+                    arg_for(Ft::Bool, &mut rng)
+                );
+                let lhs_text = lhs
+                    .iter()
+                    .map(|p| format!("    {p}\n"))
+                    .collect::<String>();
+                drl.push_str(&format!(
+                    "rule {rn}{sal}\nwhen\n{lhs_text}then\n{rhs}end\n\n"
+                ));
+                qout_used = true;
+                qr_lhs.push(lhs_text);
+            }
+            // twin rules: identical LHS text = shared LIA + shared CE
+            // node (multi-sink drain polarity, D-056)
+            if !qr_lhs.is_empty() && rng.chance(30) {
+                let src = rng.pick(&qr_lhs).clone();
+                let sal = if rng.chance(35) {
+                    format!(" salience {}", rng.below(21) as i64 - 10)
+                } else {
+                    String::new()
+                };
+                tag += 1;
+                drl.push_str(&format!(
+                    "rule QRtwin{sal}\nwhen\n{src}then\n    insert(new QOut({tag}, 0, 0.0, \"t\", false));\nend\n\n"
+                ));
+            }
+            if qout_used {
+                types.push(TypeDef {
+                    name: "QOut".into(),
+                    fields: vec![
+                        ("tag".into(), Ft::I64),
+                        ("i".into(), Ft::I64),
+                        ("d".into(), Ft::F64),
+                        ("s".into(), Ft::Str),
+                        ("z".into(), Ft::Bool),
+                    ],
+                });
             }
         }
     }

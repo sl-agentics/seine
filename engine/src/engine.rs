@@ -144,10 +144,10 @@ struct CompiledQce {
 #[derive(Clone)]
 enum CeArg {
     Lit(Value),
-    /// (tuple position, field index) of an earlier scalar binding; the
-    /// NAME is identity-significant for node sharing (D-056,
-    /// qx7_share_bound2 — ne_t13-style).
-    Bound { pos: usize, field: usize, name: String },
+    /// (tuple position, field index) of an earlier scalar binding.
+    /// Bound args make the CE node PER-RULE (D-058) — no identity beyond
+    /// the private key.
+    Bound { pos: usize, field: usize },
     /// Fresh output variable (name irrelevant for sharing,
     /// qx5_share_name).
     Unbound,
@@ -178,6 +178,10 @@ struct CompiledRule {
     patterns: Vec<CompiledPattern>,
     actions: Vec<CompiledAction>,
     salience: EngineSalience,
+    /// Transitive call closure of the rule's ?query CEs (D-058):
+    /// evaluateQueriesForRule drains these BEFORE the rule's network
+    /// evaluates.
+    dep_queries: Vec<usize>,
 }
 
 /// Compiled rule salience (D-043). Dynamic expressions evaluate per
@@ -568,6 +572,19 @@ pub struct Engine {
     /// Hidden per-query row types for ?query CEs (D-056), aligned with
     /// `queries`.
     qrow_tids: Vec<TypeId>,
+    /// Persistent query-network pattern memories (D-056, qx8_statemem):
+    /// drain windows accumulate across evaluations.
+    query_mem: crate::queries::QueryMem,
+    /// Pending query agenda items (D-058): set on every WM event for
+    /// ARMED queries, cleared when the item's network evaluates (drains)
+    /// at its agenda position (salience 0, decl order) or before a
+    /// depending rule's evaluation.
+    query_pending: Vec<bool>,
+    /// A query arms when a ?query CE first pulls it (the resident dquery
+    /// links its network paths; WM events then queue its item). A
+    /// standalone call retracts its dquery and never arms (pre-Q2
+    /// scenarios keep their one-batch drains — fz_7_546/fz_777_145).
+    query_armed: Vec<bool>,
     /// Deferred evaluation error (?query CE runtime backstops surface
     /// here because evaluate_rule has no error channel).
     pending_err: Option<String>,
@@ -612,6 +629,9 @@ impl Engine {
             act_seq: 0,
             queries: Vec::new(),
             qrow_tids: Vec::new(),
+            query_mem: crate::queries::QueryMem::default(),
+            query_pending: Vec::new(),
+            query_armed: Vec::new(),
             pending_err: None,
         })
     }
@@ -631,6 +651,8 @@ impl Engine {
             self.queries =
                 crate::queries::compile_queries(&self.store, file.queries, &RESERVED_TYPES)?;
             crate::queries::validate_calls(&self.queries)?;
+            self.query_pending = vec![false; self.queries.len()];
+            self.query_armed = vec![false; self.queries.len()];
             // Hidden row types for ?query CEs (D-056): fields = params.
             for q in &self.queries {
                 let tid = self.store.add_schema(TypeSchema {
@@ -682,7 +704,14 @@ impl Engine {
         let keys: Vec<Vec<String>> = self
             .rules
             .iter()
-            .map(|r| r.patterns.iter().map(|p| self.pattern_key(p)).collect())
+            .enumerate()
+            .map(|(ri, r)| {
+                r.patterns
+                    .iter()
+                    .enumerate()
+                    .map(|(pos, p)| self.pattern_key(p, ri, pos))
+                    .collect()
+            })
             .collect();
         self.share_and_hash_alphas();
         self.build_network(&keys);
@@ -820,26 +849,23 @@ impl Engine {
     /// and the ordered non-binding constraints — var references by
     /// (tuple pos, field), eq literals coerced to the field type (the
     /// D-029 alpha-node key), other literals as written.
-    fn pattern_key(&self, p: &CompiledPattern) -> String {
+    fn pattern_key(&self, p: &CompiledPattern, ri: usize, pos: usize) -> String {
         use std::fmt::Write as _;
-        // ?query CE identity (D-056): query + args template — literals by
-        // value, bound vars BY NAME + source, unbound positions as
-        // placeholders (qx5_share_name/share_lit, qx7_share_bound2).
+        // ?query CE identity (D-056/D-058): nodes share ONLY when every
+        // arg is UNBOUND — QueryElement.equals compares args templates
+        // whose unbound positions hold the Variable.v SINGLETON, while
+        // literal and bound-declaration args are per-rule objects
+        // (min_6795 / qx9_share_bound_late: identical literal or bound
+        // args pull independently at each rule's own window;
+        // qx3_two_rules / qx5_share_name / qx6_share_first: all-unbound
+        // templates share).
         if let Some(qce) = &p.qce {
-            let mut s = format!("QCE|{}", qce.qi);
-            for a in &qce.args {
-                match a {
-                    CeArg::Lit(v) => {
-                        let _ = write!(s, ";L{v:?}");
-                    }
-                    CeArg::Bound { pos, field, name } => {
-                        let _ = write!(s, ";B{name}@{pos}.{field}");
-                    }
-                    CeArg::Unbound => s.push_str(";U"),
-                }
+            if qce.args.iter().all(|a| matches!(a, CeArg::Unbound)) {
+                return format!("QCE|{}|U{}", qce.qi, qce.args.len());
             }
-            return s;
+            return format!("QCE|{}|priv{ri}.{pos}", qce.qi);
         }
+        let _ = (ri, pos);
         let mut s = format!("{}|{:?}|b{}", p.type_id.0, p.ce, p.bind_fields);
         for c in &p.cmps {
             let _ = write!(s, ";{}", c.field_idx);
@@ -1072,6 +1098,16 @@ impl Engine {
                                     // repeated FRESH var in one call: every
                                     // occurrence is UNBOUND; the var binds
                                     // its LAST position (qx4_dupvar_out)
+                                    if !crate::queries::param_bound_all_branches(
+                                        &self.queries,
+                                        qi,
+                                        i,
+                                    ) {
+                                        return Err(err(format!(
+                                            "?{}: unbound arg for {pname}, which is not bound in every branch of the callee (D-057)",
+                                            p.type_name
+                                        )));
+                                    }
                                     if *pt != bft {
                                         return Err(err(format!(
                                             "?{}: repeated var {v} spans differently-typed params",
@@ -1089,7 +1125,7 @@ impl Engine {
                                     )));
                                 }
                                 bound_mask |= 1 << i;
-                                args.push(CeArg::Bound { pos: bpi, field: bfi, name: v.clone() });
+                                args.push(CeArg::Bound { pos: bpi, field: bfi });
                             } else {
                                 // fresh output var: binds per row; a
                                 // repeated fresh var takes its LAST
@@ -1489,7 +1525,13 @@ impl Engine {
                 "?query CEs cannot mix with not/exists/accumulate in one rule (D-057)".into(),
             ));
         }
-        Ok(CompiledRule { def, patterns, actions, salience })
+        let roots: Vec<usize> = patterns.iter().filter_map(|p| p.qce.as_ref().map(|q| q.qi)).collect();
+        let dep_queries = if roots.is_empty() {
+            Vec::new()
+        } else {
+            crate::queries::dependencies(&self.queries, &roots)
+        };
+        Ok(CompiledRule { def, patterns, actions, salience, dep_queries })
     }
 
     fn compile_arg(
@@ -1725,6 +1767,21 @@ impl Engine {
         Ok(firings)
     }
 
+    /// D-058: WM events queue every query's agenda item; a pending item's
+    /// evaluation just drains its pattern memories (one window). Marking
+    /// is a safe over-approximation — a drain that appends nothing leaves
+    /// the memory (and so every observable) unchanged.
+    fn mark_queries_pending(&mut self) {
+        for (p, armed) in self.query_pending.iter_mut().zip(&self.query_armed) {
+            *p = *armed;
+        }
+    }
+
+    fn drain_query_item(&mut self, qi: usize) {
+        self.query_pending[qi] = false;
+        crate::queries::drain_query(&self.store, &self.queries, &mut self.query_mem, qi);
+    }
+
     /// Agenda (D-018/D-027): eager (no-loop) rules evaluate per flush with
     /// reverse-creation terminal appends; the just-fired rule re-evaluates
     /// even if self-unlinked (fz_42_5243); lazy rules evaluate on reach
@@ -1762,22 +1819,43 @@ impl Engine {
         // stays lazy: only the popped item's network runs, so window
         // claiming keeps its pinned order.
         loop {
-            let mut best: Option<(i32, usize)> = None;
+            // (salience DESC, decl_pos ASC) over rule items AND pending
+            // query items (D-058: queries are agenda items at salience 0;
+            // PathMemory.queueRuleAgendaItem adds them to the group).
+            let mut best: Option<(i32, usize, bool, usize)> = None; // (sal, decl, is_query, idx)
             for i in 0..self.rule_order.len() {
                 let ri = self.rule_order[i];
                 if !self.nets[ri].queued {
                     continue;
                 }
                 let sal = self.item_salience(ri);
+                let decl = self.rules[ri].def.decl_pos;
                 let better = match best {
                     None => true,
-                    Some((bs, bri)) => sal > bs || (sal == bs && ri < bri),
+                    Some((bs, bd, _, _)) => sal > bs || (sal == bs && decl < bd),
                 };
                 if better {
-                    best = Some((sal, ri));
+                    best = Some((sal, decl, false, ri));
                 }
             }
-            let Some((_, ri)) = best else { return None };
+            for qi in 0..self.queries.len() {
+                if !self.query_pending[qi] {
+                    continue;
+                }
+                let decl = self.queries[qi].decl_pos;
+                let better = match best {
+                    None => true,
+                    Some((bs, bd, _, _)) => 0 > bs || (0 == bs && decl < bd),
+                };
+                if better {
+                    best = Some((0, decl, true, qi));
+                }
+            }
+            let Some((_, _, is_query, ri)) = best else { return None };
+            if is_query {
+                self.drain_query_item(ri);
+                continue;
+            }
             self.evaluate_rule(ri, false, false);
             if self.nets[ri].queue.is_empty() {
                 self.nets[ri].queued = false; // evaluated empty: removed
@@ -1803,6 +1881,7 @@ impl Engine {
     /// link (e.g. a not node re-linking before a later join unlinks)
     /// transiently links the path and QUEUES its items (D-037/fz_7_2122).
     fn on_insert(&mut self, f: FactId, origin: Origin) {
+        self.mark_queries_pending();
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
             let (ri, pos) = self.lias[li].env;
@@ -1842,6 +1921,7 @@ impl Engine {
     }
 
     fn on_update(&mut self, f: FactId, mask: u64, origin: Origin) {
+        self.mark_queries_pending();
         let ftype = self.store.fact_type(f);
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
@@ -1939,6 +2019,7 @@ impl Engine {
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
+        self.mark_queries_pending();
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
             if self.lias[li].active.remove(&f) {
@@ -2076,6 +2157,18 @@ impl Engine {
         // rule is force-evaluated, fz_42_5243).
         if !force && !self.nets[ri].queued {
             return;
+        }
+
+        // evaluateQueriesForRule (D-058): a CE-bearing rule's evaluation
+        // first evaluates its depending queries' PENDING networks — their
+        // pattern memories drain one window each.
+        if !self.rules[ri].dep_queries.is_empty() {
+            let deps = self.rules[ri].dep_queries.clone();
+            for qi in deps {
+                if self.query_pending[qi] {
+                    self.drain_query_item(qi);
+                }
+            }
         }
 
         let no_loop = self.rules[ri].def.no_loop;
@@ -2551,7 +2644,7 @@ impl Engine {
                     .iter()
                     .map(|a| match a {
                         CeArg::Lit(v) => Some(v.clone()),
-                        CeArg::Bound { pos, field, .. } => {
+                        CeArg::Bound { pos, field } => {
                             Some(self.store.value(t[*pos], *field))
                         }
                         CeArg::Unbound => None,
@@ -2559,7 +2652,19 @@ impl Engine {
                     .collect()
             })
             .collect();
-        let staged = crate::queries::run_site(&self.store, &self.queries, qce.qi, &calls)?;
+        // Arming (D-058): the pull leaves resident dqueries in the
+        // callee networks (transitively) — from now on WM events queue
+        // their agenda items.
+        for qi in crate::queries::dependencies(&self.queries, &[qce.qi]) {
+            self.query_armed[qi] = true;
+        }
+        let staged = crate::queries::run_site(
+            &self.store,
+            &self.queries,
+            &mut self.query_mem,
+            qce.qi,
+            &calls,
+        )?;
         let mut children = Vec::with_capacity(staged.len());
         for (call_idx, values) in staged {
             let fid = self.store.insert(qce.row_tid, values).map_err(EngineError)?;
@@ -2846,11 +2951,17 @@ impl Engine {
     /// unbound (Drools `Variable.v`); rows come back in the oracle-pinned
     /// order (D-050).
     pub fn run_query(
-        &self,
+        &mut self,
         name: &str,
         args: &[Option<Value>],
     ) -> Result<crate::queries::QueryOutput, EngineError> {
-        crate::queries::run_query(&self.store, &self.queries, name, args)
+        crate::queries::run_query(
+            &self.store,
+            &self.queries,
+            &mut self.query_mem,
+            name,
+            args,
+        )
     }
 }
 

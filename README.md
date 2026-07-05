@@ -97,16 +97,29 @@ log** for every in-subset program.
   over acyclic data; left recursion, mutual recursion, 3-branch
   recursion and cyclic data are compile-rejected or generator-excluded
   (Drools hangs on cycles — no tabling).
+- `?query` pull CEs in rules, Phase Q2 (D-056..D-058): queries invoked
+  as rule conditions — one firing per result row, lazy pull at the
+  rule's agenda window, args flowing both ways (bound args filter
+  inside the callee, fresh vars bind per row for later patterns and the
+  RHS), the QueryArgs match element, all-unbound-args node sharing, and
+  the stateful query-network drain windows (queries are agenda items in
+  Drools once a CE arms them). The push (reactive) form and
+  query+mutation stay walled. `demo/eight_puzzle.py` is the payoff: the
+  8-puzzle solved by a recursive `reach` query (depth bounded through a
+  `Dec(d, d-1)` fact chain — no arithmetic in the subset) with forward
+  Step rules pulling `?reach(...)` per candidate move to extract the
+  solution path; the frozen instance is corpus-certified
+  (scenarios/demo/eight_puzzle.json).
 
 ## Explicit non-goals (hard walls)
 
 - MVEL dialect (only the minimal Java-like expression subset above).
 - DMN, CEP / temporal operators, complex event processing.
-- Backward chaining beyond the Phase-Q1 pull-query subset (no `?query`
-  CEs in rules yet, no negation-as-failure, no tabling — cyclic
+- Backward chaining beyond the Phase-Q2 pull subset (no PUSH/reactive
+  query CEs, no negation-as-failure, no cut, no tabling — cyclic
   recursion data hangs real Drools and is walled), truth maintenance
   beyond Phase-2 mutation needs; query+mutation interplay is walled
-  (D-051).
+  (D-051/D-057).
 - Workbench / KIE tooling / full DRL6 grammar / decision tables / templates.
 - Persistence, marshalling, session clustering, multithreaded firing.
 - Beyond-RAM / disk-backed working memory (the columnar id-based layout keeps

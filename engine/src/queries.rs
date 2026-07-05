@@ -83,6 +83,9 @@ enum CNode {
 
 pub struct CompiledQuery {
     pub name: String,
+    /// Declaration position in the DRL unit (rules+queries interleaved) —
+    /// the query's agenda item sits at (salience 0, this) (D-058).
+    pub decl_pos: usize,
     params: Vec<(String, FieldType)>,
     /// output identifiers: params + FIRST branch declarations (D-054).
     idents: Vec<String>,
@@ -640,6 +643,7 @@ fn compile_query(
     }
     Ok(CompiledQuery {
         name: def.name.clone(),
+        decl_pos: def.decl_pos,
         params,
         idents,
         slot_count: slots.len(),
@@ -771,9 +775,100 @@ enum Frame {
     Resume { q: usize, b: usize, node: usize, trg: Vec<Env> },
 }
 
+/// PERSISTENT per-pattern right memories of the query networks (D-056,
+/// probes qx8_statemem/qx8_statemem3): staged alpha-passing facts drain
+/// into a pattern's memory AT EACH EVALUATION of its query network —
+/// newest-first within the batch, batches APPENDED. A ?query CE
+/// evaluating mid-firing therefore splits the memory into drain windows;
+/// facts inserted later land in LATER batches, unlike a fresh
+/// reverse-insertion rebuild. With every evaluation post-quiescence (the
+/// pre-Q2 envelope) there is a single batch and the two models coincide.
+/// Keyed by (query, branch, node); deletes leave at the next drain.
+#[derive(Default)]
+pub struct QueryMem(HashMap<(usize, usize, usize), Vec<FactId>>);
+
+/// One drain window for one pattern (qx8_statemem/3): staged deletes
+/// leave; staged alpha-passing inserts append NEWEST-FIRST after the
+/// existing batches. The memory order IS the arrival order.
+fn drain_pattern(
+    mem: &mut QueryMem,
+    store: &FactStore,
+    site: (usize, usize, usize),
+    pat: &QPattern,
+) -> Vec<FactId> {
+    let m = mem.0.entry(site).or_default();
+    m.retain(|f| store.is_alive(*f));
+    let seen: std::collections::HashSet<FactId> = m.iter().copied().collect();
+    let mut fresh: Vec<FactId> = store
+        .live_facts_of(pat.tid)
+        .filter(|f| !seen.contains(f))
+        .filter(|&f| {
+            pat.alpha.iter().all(|(fi, t)| {
+                let v = store.value(f, *fi);
+                match t {
+                    AlphaTest::Cmp { op, rhs } => eval_cmp_pub(&v, *op, rhs),
+                    AlphaTest::Matches(r) => matches!(&v, Value::Str(s) if r.accepts(s)),
+                    AlphaTest::Contains(n) => {
+                        matches!(&v, Value::Str(s) if s.contains(n.as_str()))
+                    }
+                    AlphaTest::InList { items, negated } => {
+                        let hit = items.iter().any(|i| eval_cmp_pub(&v, CmpOp::Eq, i));
+                        hit != *negated
+                    }
+                }
+            })
+        })
+        .collect();
+    fresh.reverse();
+    m.extend(fresh);
+    m.clone()
+}
+
+/// Evaluate a query's own network with no driving tuples — the agenda-
+/// item evaluation of a PENDING query (D-058): every fact pattern of the
+/// query drains one window. Called queries have their OWN items and are
+/// not touched.
+pub fn drain_query(
+    store: &FactStore,
+    queries: &[CompiledQuery],
+    mem: &mut QueryMem,
+    qi: usize,
+) {
+    for (bi, branch) in queries[qi].branches.iter().enumerate() {
+        for (ni, node) in branch.iter().enumerate() {
+            if let CNode::Fact(pat) = node {
+                drain_pattern(mem, store, (qi, bi, ni), pat);
+            }
+        }
+    }
+}
+
+/// Transitive call closure of a set of root queries (rule
+/// getDependingQueries mirror, D-058).
+pub fn dependencies(queries: &[CompiledQuery], roots: &[usize]) -> Vec<usize> {
+    let mut out: Vec<usize> = Vec::new();
+    let mut work: Vec<usize> = roots.to_vec();
+    while let Some(qi) = work.pop() {
+        if out.contains(&qi) {
+            continue;
+        }
+        out.push(qi);
+        for br in &queries[qi].branches {
+            for n in br {
+                if let CNode::Call { callee, .. } = n {
+                    work.push(*callee);
+                }
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
 struct Machine<'a> {
     store: &'a FactStore,
     queries: &'a [CompiledQuery],
+    mem: &'a mut QueryMem,
     pool: HashMap<(usize, usize), Vec<Env>>,
     qmem: HashMap<(usize, usize, usize), Vec<Env>>,
     stack: Vec<Frame>,
@@ -787,6 +882,7 @@ struct Machine<'a> {
 pub fn run_query(
     store: &FactStore,
     queries: &[CompiledQuery],
+    mem: &mut QueryMem,
     name: &str,
     args: &[Option<Value>],
 ) -> Result<QueryOutput, EngineError> {
@@ -814,6 +910,7 @@ pub fn run_query(
     let mut m = Machine {
         store,
         queries,
+        mem,
         pool: HashMap::new(),
         qmem: HashMap::new(),
         stack: Vec::new(),
@@ -870,6 +967,7 @@ pub fn run_query(
 pub fn run_site(
     store: &FactStore,
     queries: &[CompiledQuery],
+    mem: &mut QueryMem,
     qi: usize,
     calls: &[Vec<Option<Value>>],
 ) -> Result<Vec<(usize, Vec<Value>)>, EngineError> {
@@ -877,6 +975,7 @@ pub fn run_site(
     let mut m = Machine {
         store,
         queries,
+        mem,
         pool: HashMap::new(),
         qmem: HashMap::new(),
         stack: Vec::new(),
@@ -1040,8 +1139,15 @@ impl Machine<'_> {
                         .get_mut(&site)
                         .map(std::mem::take)
                         .unwrap_or_default();
-                    if src.is_empty() && trg.is_empty() {
-                        return Ok(());
+                    if src.is_empty() {
+                        // evalQueryNode with an empty src skips the call
+                        // setup entirely (no frames, no pool takeAll) and
+                        // evaluation CONTINUES at the next node — later
+                        // fact levels still evaluate, so their memories
+                        // drain this window (D-056 statefulness).
+                        src = trg;
+                        ni += 1;
+                        continue;
                     }
                     self.stack.push(Frame::Resume { q: qi, b: bi, node: ni, trg });
                     let cq = &self.queries[*callee];
@@ -1077,7 +1183,7 @@ impl Machine<'_> {
                     return Ok(());
                 }
                 CNode::Fact(pat) => {
-                    src = self.eval_fact_level(pat, src)?;
+                    src = self.eval_fact_level((qi, bi, ni), pat, src)?;
                     ni += 1;
                 }
             }
@@ -1131,28 +1237,14 @@ impl Machine<'_> {
         Ok(())
     }
 
-    fn eval_fact_level(&mut self, pat: &QPattern, src: Vec<Env>) -> Result<Vec<Env>, EngineError> {
+    fn eval_fact_level(
+        &mut self,
+        site: (usize, usize, usize),
+        pat: &QPattern,
+        src: Vec<Env>,
+    ) -> Result<Vec<Env>, EngineError> {
         let store = self.store;
-        let mut arrival: Vec<FactId> = store
-            .live_facts_of(pat.tid)
-            .filter(|&f| {
-                pat.alpha.iter().all(|(fi, t)| {
-                    let v = store.value(f, *fi);
-                    match t {
-                        AlphaTest::Cmp { op, rhs } => eval_cmp_pub(&v, *op, rhs),
-                        AlphaTest::Matches(r) => matches!(&v, Value::Str(s) if r.accepts(s)),
-                        AlphaTest::Contains(n) => {
-                            matches!(&v, Value::Str(s) if s.contains(n.as_str()))
-                        }
-                        AlphaTest::InList { items, negated } => {
-                            let hit = items.iter().any(|i| eval_cmp_pub(&v, CmpOp::Eq, i));
-                            hit != *negated
-                        }
-                    }
-                })
-            })
-            .collect();
-        arrival.reverse();
+        let arrival: Vec<FactId> = drain_pattern(self.mem, store, site, pat);
 
         let index_fields: Vec<usize> = pat.index.iter().map(|&i| pat.beta[i].field_idx).collect();
         let table = if pat.index.is_empty() {
@@ -1295,7 +1387,8 @@ mod tests {
                 .unwrap();
         }
         let qs = compile_all(&store, "query ByAge(long $a)\n    $p : Person(age == $a)\nend\n");
-        let out = run_query(&store, &qs, "ByAge", &[None]).unwrap();
+        let mut mem = QueryMem::default();
+        let out = run_query(&store, &qs, &mut mem, "ByAge", &[None]).unwrap();
         let pi = out.identifiers.iter().position(|i| i == "$p").unwrap();
         let names: Vec<String> = out
             .rows
@@ -1309,7 +1402,7 @@ mod tests {
             })
             .collect();
         assert_eq!(names, ["bob", "alice", "dave", "carol"]);
-        let out = run_query(&store, &qs, "ByAge", &[Some(Value::I64(30))]).unwrap();
+        let out = run_query(&store, &qs, &mut mem, "ByAge", &[Some(Value::I64(30))]).unwrap();
         assert_eq!(out.rows.len(), 2);
     }
 
@@ -1341,15 +1434,17 @@ mod tests {
             &store,
             "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n",
         );
+        let mut mem = QueryMem::default();
         let out = run_query(
             &store,
             &qs,
+            &mut mem,
             "contained",
             &[Some(Value::Str("key".into())), Some(Value::Str("house".into()))],
         )
         .unwrap();
         assert_eq!(out.rows.len(), 1);
-        let out = run_query(&store, &qs, "contained", &[None, None]).unwrap();
+        let out = run_query(&store, &qs, &mut mem, "contained", &[None, None]).unwrap();
         assert_eq!(out.rows.len(), 15);
         // branch-2 local $z is not an identifier (params + first branch)
         assert_eq!(out.identifiers, vec!["$x", "$y"]);

@@ -1,0 +1,142 @@
+{
+  "drl": "rule \"R0\"\nsalience 10\nwhen\n    not T0()\nthen\n    insert(new T1(false, 3.0));\nend\nrule \"R1\"\nwhen\n    T1()\n    T1($b1_1_0 : f1)\n    T1(f1 != 3.5, f0 == false, $b1_2_0 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    T1()\nthen\nend\nquery Q0(boolean $qa0_0, boolean $qa0_1)\n    ( $qp0_0 : T0(f0 == $qa0_0, f2 != true, f0 != true, $qb0_0 : f2, $qb0_1 : f1) )\n    or\n    ( $qp0_1 : T1(f0 == $qa0_1, f0 != true, $qb0_2 : f1, $qb0_3 : f1) and $qp0_2 : T0(f1 == $qa0_1) )\nend\n\nquery Q1(boolean $qa1_0, double $qa1_1, boolean $qa1_2)\n    ( $qp1_0 : T0(f0 == $qa1_0, f2 != false, f2 != true) and $qp1_1 : T1(f1 == $qa1_1, f0 != false, f0 != true, $qb1_0 : f1, $qb1_1 : f0) )\n    or\n    ( $qp1_2 : T1(f0 == $qa1_2, f1 < 1.0, $qb1_2 : f0) )\nend\n\nrule QR0\nwhen\n    T0()\n    ?Q0(false, false;)\nthen\n    insert(new QOut(1, 2, -1.0, \"a\", true));\nend\n\nrule QR1\nwhen\n    T0(f2 != false)\n    T0(f1 != true, $qr1_b0 : f0)\n    ?Q1($qr1_b0, 5.5, $qr1_b0;)\nthen\n    insert(new QOut(2, 8, 6.0, \"zz\", false));\nend\n\nrule QR2\nwhen\n    T0($qr2_b0 : f0)\n    ?Q0($qr2_b0, $qr2_b0;)\nthen\n    insert(new QOut(3, 8, -1.0, \"alpha\", $qr2_b0));\nend\n\nrule QRtwin\nwhen\n    T0($qr2_b0 : f0)\n    ?Q0($qr2_b0, $qr2_b0;)\nthen\n    insert(new QOut(4, 0, 0.0, \"t\", false));\nend\n\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": false,
+            "f1": false,
+            "f2": false
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": true,
+            "f1": -1.5
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": false,
+        "f2": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_42_4237",
+  "queries": [
+    {
+      "args": [
+        true,
+        true
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        true,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        false,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null,
+        null,
+        null
+      ],
+      "call": "Q1"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "tag",
+          "type": "i64"
+        },
+        {
+          "name": "i",
+          "type": "i64"
+        },
+        {
+          "name": "d",
+          "type": "f64"
+        },
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "z",
+          "type": "bool"
+        }
+      ],
+      "name": "QOut"
+    }
+  ]
+}

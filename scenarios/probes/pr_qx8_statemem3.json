@@ -1,0 +1,68 @@
+{
+ "name": "qx8_statemem3",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": 0
+   }
+  }
+ ],
+ "drl": "query BAll()\n    $b : B(k != -999999)\nend\n\nrule QR0 salience 10\nwhen\n    $a : A()\n    ?BAll()\nthen\n    insert(new Out(1));\nend\n\nrule R0 salience 5\nwhen\n    T(t == 0)\nthen\n    insert(new B(30));\n    insert(new B(40));\n    insert(new A(2));\nend\n\nrule R1\nwhen\n    T(t == 0)\nthen\n    insert(new B(50));\nend\n",
+ "queries": [
+  {
+   "call": "BAll",
+   "args": []
+  }
+ ]
+}

@@ -1,0 +1,56 @@
+{
+ "name": "qx9_share_bound_late",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B2",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "u",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "t": 0
+   }
+  },
+  {
+   "type": "B2",
+   "fields": {
+    "k": 0,
+    "u": 5
+   }
+  }
+ ],
+ "drl": "query BPair(long $a, long $b)\n    B2(k == $a, u == $b)\nend\n\nrule QR1 salience 10\nwhen\n    T($tv : t)\n    ?BPair($tv, $w;)\nthen\n    insert(new Out(1, $w));\nend\n\nrule R0 salience 5\nwhen\n    T(t == 0)\nthen\n    insert(new B2(0, 77));\nend\n\nrule QR2 salience -5\nwhen\n    T($tv : t)\n    ?BPair($tv, $w;)\nthen\n    insert(new Out(2, $w));\nend\n"
+}

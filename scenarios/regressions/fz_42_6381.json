@@ -1,0 +1,113 @@
+{
+  "drl": "rule \"R0\"\nsalience 6\nwhen\n    T0()\nthen\nend\nrule \"R1\"\nsalience 10\nwhen\n    exists T1(f2 >= \"\")\nthen\n    insert(new T2(6.0, false));\nend\nrule \"R2\"\nwhen\n    T2()\nthen\nend\nrule \"R3\"\nwhen\n    accumulate( T0(f0 != true, f0 != true); $a3_0 : count() )\nthen\n    insert(new T2(5.5, true));\nend\nrule \"R4\"\nno-loop\nwhen\n    T1(f0 not in (true, false), $b4_0_0 : f0)\nthen\nend\nquery Q0(boolean $qa0_0, double $qa0_1, boolean $qa0_2)\n    $qp0_0 : T1(f3 == $qa0_0, f1 < 1.5)\n    $qp0_1 : T2(f0 == $qa0_1, f1 != true, f0 > 5.0, $qb0_0 : f0, $qb0_1 : f0)\n    $qp0_2 : T2(f1 == $qa0_2, f0 <= $qb0_0, f0 == $qb0_1)\nend\n\nquery Q1(boolean $qa1_0)\n    $qp1_0 : T1(f0 == $qa1_0, f3 != true)\nend\n\nrule QR0\nwhen\n    T2($qr0_b0 : f0)\n    ?Q1(false;)\nthen\n    insert(new QOut(1, 7, 3.5, \"zz\", false));\nend\n\nrule QRtwin\nwhen\n    T2($qr0_b0 : f0)\n    ?Q1(false;)\nthen\n    insert(new QOut(2, 0, 0.0, \"t\", false));\nend\n\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": 1.0,
+        "f2": "alpha",
+        "f3": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_6381",
+  "queries": [
+    {
+      "args": [
+        null,
+        4.5,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        null
+      ],
+      "call": "Q1"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "tag",
+          "type": "i64"
+        },
+        {
+          "name": "i",
+          "type": "i64"
+        },
+        {
+          "name": "d",
+          "type": "f64"
+        },
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "z",
+          "type": "bool"
+        }
+      ],
+      "name": "QOut"
+    }
+  ]
+}

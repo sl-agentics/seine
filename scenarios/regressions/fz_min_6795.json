@@ -1,0 +1,105 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T0()\nthen\n    insert(new T1(4.0, 10, false));\nend\nrule \"R3\"\nsalience($b3_0_1 - $b3_0_1)\nwhen\n    T1($b3_0_1 : f0)\nthen\nend\nquery Q0(boolean $qa0_0, long $qa0_1)\n    ( $qp0_0 : T1(f2 == $qa0_0, f1 < 12, $qb0_0 : f1) )\n    or\n    ( $qp0_1 : T1(f1 == $qa0_1, f0 <= -2.5, $qb0_1 : f2) and $qp0_2 : T1(f2 != true, f2 != false, $qb0_2 : f0, $qb0_3 : f0) )\nend\n\nquery Q1(String $qa1_0, boolean $qa1_1)\n    $qp1_0 : T0(f1 == $qa1_0)\n    $qp1_1 : T1()\n    $qp1_2 : T0(f0 == $qa1_1)\nend\n\nrule QR0 salience 5\nwhen\n    ?Q0(false, 0;)\nthen\nend\n\nrule QR1 salience 10\nwhen\n    ?Q0(true, 4;)\n    ?Q0(true, 2;)\nthen\nend\n\nrule QRtwin salience -3\nwhen\n    ?Q0(false, 0;)\nthen\nend\n\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": false,
+    "f1": "a",
+    "f2": true
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_min_6795",
+ "queries": [
+  {
+   "args": [
+    null,
+    null
+   ],
+   "call": "Q0"
+  },
+  {
+   "args": [
+    "alpha",
+    false
+   ],
+   "call": "Q1"
+  },
+  {
+   "args": [
+    "ab",
+    null
+   ],
+   "call": "Q1"
+  },
+  {
+   "args": [
+    null,
+    true
+   ],
+   "call": "Q1"
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "i",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    },
+    {
+     "name": "z",
+     "type": "bool"
+    }
+   ],
+   "name": "QOut"
+  }
+ ]
+}
