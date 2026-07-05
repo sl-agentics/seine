@@ -578,21 +578,17 @@ impl Engine {
         let file = drl::parse_file(src)?;
         // Queries compile to on-demand evaluators; they add NOTHING to the
         // rule network and cannot perturb rule semantics (q8, D-050).
-        for qdef in file.queries {
-            if self.queries.iter().any(|q| q.name == qdef.name) {
-                return Err(EngineError(format!("duplicate query {}", qdef.name)));
+        // Call indexes are unit-relative, so all queries must arrive in
+        // one DRL unit.
+        if !file.queries.is_empty() {
+            if !self.queries.is_empty() {
+                return Err(EngineError(
+                    "queries must be defined in a single DRL unit".into(),
+                ));
             }
-            if let Some(p) = qdef
-                .patterns
-                .iter()
-                .find(|p| RESERVED_TYPES.contains(&p.type_name.as_str()))
-            {
-                return Err(EngineError(format!(
-                    "query {}: type {} is reserved",
-                    qdef.name, p.type_name
-                )));
-            }
-            self.queries.push(crate::queries::compile_query(&self.store, qdef)?);
+            self.queries =
+                crate::queries::compile_queries(&self.store, file.queries, &RESERVED_TYPES)?;
+            crate::queries::validate_calls(&self.queries)?;
         }
         for def in file.rules {
             let compiled = self.compile_rule(def)?;

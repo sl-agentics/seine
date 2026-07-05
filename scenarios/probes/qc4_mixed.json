@@ -1,0 +1,127 @@
+{
+ "name": "qc4_mixed",
+ "types": [
+  {
+   "name": "Edge",
+   "fields": [
+    {
+     "name": "src",
+     "type": "i64"
+    },
+    {
+     "name": "dst",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Mark",
+   "fields": [
+    {
+     "name": "node",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 1,
+    "dst": 2
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 2,
+    "dst": 3
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 1,
+    "dst": 2
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 3,
+    "dst": 4
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 2,
+    "dst": 5
+   }
+  },
+  {
+   "type": "Mark",
+   "fields": {
+    "node": 2
+   }
+  },
+  {
+   "type": "Mark",
+   "fields": {
+    "node": 3
+   }
+  },
+  {
+   "type": "Mark",
+   "fields": {
+    "node": 5
+   }
+  }
+ ],
+ "drl": "query reach(long $a, long $b)\n    Edge($a, $b;)\n    or\n    ( Edge($m, $b;) and reach($a, $m;) )\nend\n\nquery reachMarked(long $a, long $b)\n    Edge($a, $b;)\n    or\n    ( Edge($m, $b;) and reachMarked($a, $m;) and Mark(node == $m) )\nend\n",
+ "queries": [
+  {
+   "call": "reach",
+   "args": [
+    1,
+    null
+   ]
+  },
+  {
+   "call": "reach",
+   "args": [
+    null,
+    4
+   ]
+  },
+  {
+   "call": "reach",
+   "args": [
+    1,
+    4
+   ]
+  },
+  {
+   "call": "reach",
+   "args": [
+    null,
+    null
+   ]
+  },
+  {
+   "call": "reachMarked",
+   "args": [
+    1,
+    null
+   ]
+  },
+  {
+   "call": "reachMarked",
+   "args": [
+    null,
+    4
+   ]
+  }
+ ]
+}

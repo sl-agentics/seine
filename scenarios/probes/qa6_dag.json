@@ -1,0 +1,72 @@
+{
+ "name": "qa6_dag",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "a",
+    "location": "b"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "a",
+    "location": "c"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "b",
+    "location": "d"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c",
+    "location": "d"
+   }
+  }
+ ],
+ "drl": "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n",
+ "queries": [
+  {
+   "call": "contained",
+   "args": [
+    "a",
+    "d"
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    "a",
+    null
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    null,
+    null
+   ]
+  }
+ ]
+}

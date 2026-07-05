@@ -1,0 +1,97 @@
+{
+ "name": "qc5_or3",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f",
+     "type": "i64"
+    },
+    {
+     "name": "lbl",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "g",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "R",
+   "fields": [
+    {
+     "name": "h",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f": 7,
+    "lbl": "p7"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f": 3,
+    "lbl": "p3"
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 3
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 11
+   }
+  },
+  {
+   "type": "R",
+   "fields": {
+    "h": 7
+   }
+  },
+  {
+   "type": "R",
+   "fields": {
+    "h": 3
+   }
+  }
+ ],
+ "drl": "query any3(long $x)\n    P(f == $x) or Q(g == $x) or R(h == $x)\nend\n",
+ "queries": [
+  {
+   "call": "any3",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "any3",
+   "args": [
+    3
+   ]
+  },
+  {
+   "call": "any3",
+   "args": [
+    11
+   ]
+  }
+ ]
+}

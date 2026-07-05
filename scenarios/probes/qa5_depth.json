@@ -1,0 +1,86 @@
+{
+ "name": "qa5_depth",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "a0",
+    "location": "a1"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "a1",
+    "location": "a2"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "a2",
+    "location": "a3"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "a3",
+    "location": "a4"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "a4",
+    "location": "a5"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "a5",
+    "location": "a6"
+   }
+  }
+ ],
+ "drl": "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n",
+ "queries": [
+  {
+   "call": "contained",
+   "args": [
+    "a0",
+    null
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    null,
+    "a6"
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    "a0",
+    "a6"
+   ]
+  }
+ ]
+}

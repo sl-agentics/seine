@@ -1,0 +1,72 @@
+{
+ "name": "qa7_q0mix",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t1",
+    "location": "m"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t2",
+    "location": "m"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t3",
+    "location": "m"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "m",
+    "location": "top"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t4",
+    "location": "q"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "q",
+    "location": "top"
+   }
+  }
+ ],
+ "drl": "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n",
+ "queries": [
+  {
+   "call": "contained",
+   "args": [
+    null,
+    "top"
+   ]
+  }
+ ]
+}

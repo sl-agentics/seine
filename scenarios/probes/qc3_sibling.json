@@ -1,0 +1,95 @@
+{
+ "name": "qc3_sibling",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Tag",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "desk",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "chair",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "office",
+    "location": "house"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "key",
+    "location": "drawer"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "drawer",
+    "location": "desk"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "pen",
+    "location": "desk"
+   }
+  }
+ ],
+ "drl": "query direct(String $x, String $y)\n    Location($x, $y;)\nend\n\nquery up(String $x, String $y)\n    direct($x, $y;)\n    or\n    ( direct($z, $y;) and up($x, $z;) )\nend\n\nquery down(String $x, String $y)\n    direct($y, $x;)\n    or\n    ( direct($y, $z;) and down($x, $z;) )\nend\n",
+ "queries": [
+  {
+   "call": "up",
+   "args": [
+    "key",
+    null
+   ]
+  },
+  {
+   "call": "down",
+   "args": [
+    "house",
+    null
+   ]
+  },
+  {
+   "call": "up",
+   "args": [
+    null,
+    null
+   ]
+  }
+ ]
+}

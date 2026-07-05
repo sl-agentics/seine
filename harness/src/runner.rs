@@ -173,6 +173,8 @@ fn run_scenario(sc: &J) -> Result<J, String> {
 fn query_val_to_json(v: &QueryVal) -> J {
     match v {
         QueryVal::Fact(fv) => fact_view_to_json(fv),
+        // identifier unbound in this row's or-branch (D-054)
+        QueryVal::Null => J::Null,
         QueryVal::Scalar(Value::I64(n)) => json!({"type": "Long", "fields": {"value": n}}),
         QueryVal::Scalar(Value::F64(n)) => json!({"type": "Double", "fields": {"value": n}}),
         QueryVal::Scalar(Value::Str(s)) => json!({"type": "String", "fields": {"value": s}}),

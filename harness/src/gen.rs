@@ -741,14 +741,17 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     }
 
     // ------------------------------------------------------------------
-    // Queries (Phase Q0, D-049/D-050/D-051): attached to INSERT-ONLY
-    // programs only — no rule mutation, no external update/delete (the
-    // staged-insert/mutation interplay is outside the pinned subset).
-    // Literal `==` constraints are never generated inside query bodies: a
-    // query alpha node would join the oracle's D-029 eq-literal hash
-    // groups, which the engine's rules-only rewrite does not model.
-    // Query joins are SAME-type only (cross-type key coercion at the
-    // index boundary is unprobed).
+    // Queries: Phase Q0 (D-049..D-053) + Phase Q1 or-branches and the
+    // recursive transitive-closure family (D-054/D-055). Attached to
+    // INSERT-ONLY programs only — no rule mutation, no external
+    // update/delete (staged-insert/mutation interplay is walled).
+    // Literal `==` constraints are never generated on T-type patterns
+    // inside query bodies (a query alpha node would join the oracle's
+    // D-029 eq-literal hash groups, which the engine's rules-only rewrite
+    // does not model); the Rel/Mark types are query-only, so positional
+    // call literals and Mark equality filters are safe. Query joins are
+    // SAME-type only; recursion data is a DAG by construction (edges run
+    // low->high node index) so evaluation always terminates.
     let epochs_insert_only = epochs.iter().all(|e| {
         e["actions"]
             .as_array()
@@ -761,87 +764,111 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         let nqueries = 1 + rng.below(2); // 1..2
         for qi in 0..nqueries {
             let qname = format!("Q{qi}");
-            let npats = 1 + rng.below(3); // 1..3
+            // or-branches (D-054): 1 (60%), 2 (32%), 3 (8%); with >1
+            // branch every branch is parenthesized and 1..2 patterns long
+            let nbranches = match rng.below(100) {
+                0..=59 => 1,
+                60..=91 => 2,
+                _ => 3,
+            };
             let mut params: Vec<(String, Ft)> = Vec::new();
-            let mut scalar_binds: Vec<(String, Ft)> = Vec::new();
-            let mut body = String::new();
             let mut bind_n = 0usize;
-            for pj in 0..npats {
-                let ti = rng.below(ntypes);
-                let nfields = types[ti].fields.len();
-                let mut cons: Vec<String> = Vec::new();
-                // param unifications (first pattern biased to have one)
-                let nunif = if pj == 0 { 1 + rng.below(2) } else { rng.below(2) };
-                for _ in 0..nunif {
-                    let (fname, ft) = types[ti].fields[rng.below(nfields)].clone();
-                    let reuse: Vec<usize> = params
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, (_, pt))| *pt == ft)
-                        .map(|(i, _)| i)
-                        .collect();
-                    let pn = if !reuse.is_empty() && (params.len() >= 3 || rng.chance(30)) {
-                        params[*rng.pick(&reuse)].0.clone()
-                    } else if params.len() < 3 {
-                        let pn = format!("$qa{qi}_{}", params.len());
-                        params.push((pn.clone(), ft));
-                        pn
-                    } else {
-                        continue;
-                    };
-                    cons.push(format!("{fname} == {pn}"));
-                }
-                // literal filters: never `==`, always same-type literals
-                for _ in 0..rng.below(3) {
-                    let (fname, ft) = &types[ti].fields[rng.below(nfields)];
-                    let op = match ft {
-                        Ft::Bool => "!=",
-                        _ => *rng.pick(QOPS_NOEQ),
-                    };
-                    cons.push(format!("{fname} {op} {}", lit_drl(&mut rng, *ft, false)));
-                }
-                // joins to earlier scalar bindings (same-type fields only)
-                for _ in 0..rng.below(3) {
-                    let compat: Vec<(String, Ft)> = scalar_binds
-                        .iter()
-                        .filter(|(_, bt)| types[ti].fields.iter().any(|(_, ft)| ft == bt))
-                        .cloned()
-                        .collect();
-                    if compat.is_empty() {
-                        break;
+            let mut pat_n = 0usize;
+            let mut branch_texts: Vec<String> = Vec::new();
+            for _bi in 0..nbranches {
+                // locals are per-branch (cross-branch reuse is rejected,
+                // D-055); params are shared across branches
+                let mut scalar_binds: Vec<(String, Ft)> = Vec::new();
+                let npats = if nbranches == 1 { 1 + rng.below(3) } else { 1 + rng.below(2) };
+                let mut pats: Vec<String> = Vec::new();
+                for pj in 0..npats {
+                    let ti = rng.below(ntypes);
+                    let nfields = types[ti].fields.len();
+                    let mut cons: Vec<String> = Vec::new();
+                    // param unifications (first pattern biased to have one)
+                    let nunif = if pj == 0 { 1 + rng.below(2) } else { rng.below(2) };
+                    for _ in 0..nunif {
+                        let (fname, ft) = types[ti].fields[rng.below(nfields)].clone();
+                        let reuse: Vec<usize> = params
+                            .iter()
+                            .enumerate()
+                            .filter(|(_, (_, pt))| *pt == ft)
+                            .map(|(i, _)| i)
+                            .collect();
+                        let pn = if !reuse.is_empty() && (params.len() >= 3 || rng.chance(30)) {
+                            params[*rng.pick(&reuse)].0.clone()
+                        } else if params.len() < 3 {
+                            let pn = format!("$qa{qi}_{}", params.len());
+                            params.push((pn.clone(), ft));
+                            pn
+                        } else {
+                            continue;
+                        };
+                        cons.push(format!("{fname} == {pn}"));
                     }
-                    let (bvar, bt) = rng.pick(&compat).clone();
-                    let fnames: Vec<String> = types[ti]
-                        .fields
-                        .iter()
-                        .filter(|(_, ft)| *ft == bt)
-                        .map(|(n, _)| n.clone())
-                        .collect();
-                    let fname = rng.pick(&fnames).clone();
-                    // bool ordering joins are unpinned — rules use ==/!= too
-                    let op = if bt == Ft::Bool {
-                        if rng.chance(60) { "==" } else { "!=" }
-                    } else if rng.chance(60) {
-                        "=="
-                    } else {
-                        *rng.pick(QOPS_NOEQ)
-                    };
-                    cons.push(format!("{fname} {op} {bvar}"));
+                    // literal filters: never `==`, always same-type
+                    for _ in 0..rng.below(3) {
+                        let (fname, ft) = &types[ti].fields[rng.below(nfields)];
+                        let op = match ft {
+                            Ft::Bool => "!=",
+                            _ => *rng.pick(QOPS_NOEQ),
+                        };
+                        cons.push(format!("{fname} {op} {}", lit_drl(&mut rng, *ft, false)));
+                    }
+                    // joins to earlier same-branch bindings (same-type only)
+                    for _ in 0..rng.below(3) {
+                        let compat: Vec<(String, Ft)> = scalar_binds
+                            .iter()
+                            .filter(|(_, bt)| types[ti].fields.iter().any(|(_, ft)| ft == bt))
+                            .cloned()
+                            .collect();
+                        if compat.is_empty() {
+                            break;
+                        }
+                        let (bvar, bt) = rng.pick(&compat).clone();
+                        let fnames: Vec<String> = types[ti]
+                            .fields
+                            .iter()
+                            .filter(|(_, ft)| *ft == bt)
+                            .map(|(n, _)| n.clone())
+                            .collect();
+                        let fname = rng.pick(&fnames).clone();
+                        let op = if bt == Ft::Bool {
+                            if rng.chance(60) { "==" } else { "!=" }
+                        } else if rng.chance(60) {
+                            "=="
+                        } else {
+                            *rng.pick(QOPS_NOEQ)
+                        };
+                        cons.push(format!("{fname} {op} {bvar}"));
+                    }
+                    // field bindings, visible to later same-branch patterns
+                    for _ in 0..rng.below(3) {
+                        let (fname, ft) = types[ti].fields[rng.below(nfields)].clone();
+                        let bvar = format!("$qb{qi}_{bind_n}");
+                        bind_n += 1;
+                        scalar_binds.push((bvar.clone(), ft));
+                        cons.push(format!("{bvar} : {fname}"));
+                    }
+                    let _ = pj;
+                    pats.push(format!("$qp{qi}_{pat_n} : {}({})", types[ti].name, cons.join(", ")));
+                    pat_n += 1;
                 }
-                // field bindings, visible to later patterns' joins
-                for _ in 0..rng.below(3) {
-                    let (fname, ft) = types[ti].fields[rng.below(nfields)].clone();
-                    let bvar = format!("$qb{qi}_{bind_n}");
-                    bind_n += 1;
-                    scalar_binds.push((bvar.clone(), ft));
-                    cons.push(format!("{bvar} : {fname}"));
-                }
-                body.push_str(&format!(
-                    "    $qp{qi}_{pj} : {}({})\n",
-                    types[ti].name,
-                    cons.join(", ")
-                ));
+                branch_texts.push(pats.join(" and "));
             }
+            // every param must be used in >=1 branch: minted at use sites
+            let body = if nbranches == 1 {
+                branch_texts[0]
+                    .split(" and ")
+                    .map(|p| format!("    {p}\n"))
+                    .collect::<String>()
+            } else {
+                branch_texts
+                    .iter()
+                    .map(|b| format!("    ( {b} )\n"))
+                    .collect::<Vec<_>>()
+                    .join("    or\n")
+            };
             if params.is_empty() {
                 drl.push_str(&format!("query {qname}\n{body}end\n\n"));
             } else {
@@ -860,7 +887,6 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     .join(", ");
                 drl.push_str(&format!("query {qname}({plist})\n{body}end\n\n"));
             }
-            // 1..3 calls; each arg unbound (null) or a typed literal
             for _ in 0..(1 + rng.below(3)) {
                 let args: Vec<J> = params
                     .iter()
@@ -873,6 +899,95 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     })
                     .collect();
                 queries_json.push(json!({"call": qname, "args": args}));
+            }
+        }
+
+        // Recursive transitive-closure family (D-054/D-055): Rel/Mark are
+        // query-only types over a generated DAG; the canonical base-first
+        // 2-branch shape, optionally Mark-filtered after the self-call,
+        // plus an optional wrapper query with fresh/literal/param args.
+        if rng.chance(55) {
+            let node_ft = if rng.chance(50) { Ft::Str } else { Ft::I64 };
+            let n_nodes = 4 + rng.below(5); // 4..8
+            let node_json = |i: usize| -> J {
+                match node_ft {
+                    Ft::Str => json!(format!("v{i}")),
+                    _ => json!(i as i64 * 3 + 1),
+                }
+            };
+            let node_drl = |i: usize| -> String {
+                match node_ft {
+                    Ft::Str => format!("{:?}", format!("v{i}")),
+                    _ => format!("{}", i as i64 * 3 + 1),
+                }
+            };
+            let jt = match node_ft {
+                Ft::Str => "String",
+                _ => "long",
+            };
+            types.push(TypeDef {
+                name: "RelR".into(),
+                fields: vec![("src".into(), node_ft), ("dst".into(), node_ft)],
+            });
+            types.push(TypeDef {
+                name: "MarkR".into(),
+                fields: vec![("node".into(), node_ft)],
+            });
+            let n_edges = 3 + rng.below(n_nodes + 2);
+            for _ in 0..n_edges {
+                let a = rng.below(n_nodes - 1);
+                let b = a + 1 + rng.below(n_nodes - a - 1);
+                facts.push(json!({"type": "RelR", "fields": {"src": node_json(a), "dst": node_json(b)}}));
+            }
+            for i in 0..n_nodes {
+                if rng.chance(45) {
+                    facts.push(json!({"type": "MarkR", "fields": {"node": node_json(i)}}));
+                }
+            }
+            let base = if rng.chance(30) {
+                "( RelR(src == $a, dst == $b) )".to_string()
+            } else {
+                "( RelR($a, $b;) )".to_string()
+            };
+            let markf = if rng.chance(30) { " and MarkR(node == $m)" } else { "" };
+            drl.push_str(&format!(
+                "query TCr({jt} $a, {jt} $b)\n    {base}\n    or\n    ( RelR($m, $b;) and TCr($a, $m;){markf} )\nend\n\n"
+            ));
+            let arg = |rng: &mut Rng| -> J {
+                if rng.chance(45) {
+                    J::Null
+                } else if rng.chance(12) {
+                    // a value outside the node pool
+                    match node_ft {
+                        Ft::Str => json!("vnone"),
+                        _ => json!(-7),
+                    }
+                } else {
+                    node_json(rng.below(n_nodes))
+                }
+            };
+            for _ in 0..(2 + rng.below(3)) {
+                let a = arg(&mut rng);
+                let b = arg(&mut rng);
+                queries_json.push(json!({"call": "TCr", "args": [a, b]}));
+            }
+            if rng.chance(40) {
+                // wrapper: fresh-threading or literal second arg (qd1/qb5)
+                if rng.chance(50) {
+                    let post = if rng.chance(50) { "    MarkR(node == $f)\n" } else { "" };
+                    drl.push_str(&format!(
+                        "query TWr({jt} $w)\n    TCr($w, $f;)\n{post}end\n\n"
+                    ));
+                } else {
+                    let lit = node_drl(rng.below(n_nodes));
+                    drl.push_str(&format!(
+                        "query TWr({jt} $w)\n    TCr($w, {lit};)\nend\n\n"
+                    ));
+                }
+                for _ in 0..(1 + rng.below(2)) {
+                    let a = arg(&mut rng);
+                    queries_json.push(json!({"call": "TWr", "args": [a]}));
+                }
             }
         }
     }

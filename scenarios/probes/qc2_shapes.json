@@ -1,0 +1,298 @@
+{
+ "name": "qc2_shapes",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Tag",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c0",
+    "location": "c1"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c1",
+    "location": "c2"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c2",
+    "location": "c3"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c3",
+    "location": "c4"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c4",
+    "location": "c5"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c5",
+    "location": "c6"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c6",
+    "location": "c7"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c7",
+    "location": "c8"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c8",
+    "location": "c9"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c9",
+    "location": "c10"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c10",
+    "location": "c11"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "c11",
+    "location": "c12"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t1",
+    "location": "t0"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t3",
+    "location": "t1"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t5",
+    "location": "t2"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t7",
+    "location": "t3"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t9",
+    "location": "t4"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t11",
+    "location": "t5"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t13",
+    "location": "t6"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t2",
+    "location": "t0"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t4",
+    "location": "t1"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t6",
+    "location": "t2"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t8",
+    "location": "t3"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t10",
+    "location": "t4"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t12",
+    "location": "t5"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "t14",
+    "location": "t6"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "da",
+    "location": "db"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "da",
+    "location": "dc"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "db",
+    "location": "dd"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "dc",
+    "location": "dd"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "dd",
+    "location": "de"
+   }
+  }
+ ],
+ "drl": "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n",
+ "queries": [
+  {
+   "call": "contained",
+   "args": [
+    "c0",
+    null
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    null,
+    "c11"
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    "t7",
+    null
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    null,
+    "t0"
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    "da",
+    "de"
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    "da",
+    null
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    null,
+    null
+   ]
+  }
+ ]
+}

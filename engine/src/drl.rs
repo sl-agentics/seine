@@ -6,8 +6,15 @@
 //! ```text
 //! file       := (rule | query)*
 //! rule       := "rule" name attr* "when" pattern* "then" action* "end"
-//! query      := "query" name [ "(" qparam ("," qparam)* ")" ] pattern* "end"
+//! query      := "query" name [ "(" qparam ("," qparam)* ")" ] qbody "end"
 //!               (queries take plain positive patterns only — D-051)
+//! qbody      := qbranch ("or" qbranch)*            (D-054)
+//! qbranch    := qelem+ | "(" qelem ("and"? qelem)* ")"
+//! qelem      := [ "$id" ":" ] IDENT "(" qargs | [constraint ("," constraint)*] ")"
+//!               (name resolves to a TYPE (fact pattern) or a QUERY (call)
+//!                at compile time; calls are positional-only)
+//! qargs      := qarg ("," qarg)* ";"                (positional form)
+//! qarg       := "$id" | literal
 //! qparam     := ("long"|"double"|"String"|"boolean") "$id"
 //! name       := STRING | IDENT
 //! attr       := "salience" ["-"] INT | "no-loop" [BOOL]
@@ -186,13 +193,38 @@ pub struct RuleDef {
     pub actions: Vec<Action>,
 }
 
-/// A DRL query (Phase Q0, D-049): typed parameters + positive patterns.
+/// One positional argument of a positional pattern or query call (D-054).
+#[derive(Debug, Clone, PartialEq)]
+pub enum QArg {
+    Var(String),
+    Lit(Literal),
+}
+
+/// One element of a query branch: a fact pattern (named-constraint or
+/// positional form) or a query call — resolved by NAME at compile time.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QElem {
+    pub binding: Option<String>,
+    pub name: String,
+    pub body: QElemBody,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum QElemBody {
+    /// `T(f == $x, $b : g)` — Q0 named-constraint form.
+    Named(Vec<Constraint>),
+    /// `T($x, 5;)` / `q($x, $z;)` — positional form (D-054).
+    Positional(Vec<QArg>),
+}
+
+/// A DRL query (Phase Q0 D-049, or-branches and calls Phase Q1 D-054):
+/// typed parameters + one or more or-branches of positive elements.
 #[derive(Debug, Clone, PartialEq)]
 pub struct QueryDef {
     pub name: String,
     /// (type token, `$name`) pairs in declaration order.
     pub params: Vec<(String, String)>,
-    pub patterns: Vec<Pattern>,
+    pub branches: Vec<Vec<QElem>>,
 }
 
 /// A parsed DRL compilation unit: rules and queries in source order.
@@ -459,8 +491,8 @@ impl Parser {
         Ok(RuleDef { name, salience, no_loop, patterns, actions })
     }
 
-    /// `query Name(type $p, ...) pattern* end` — plain positive patterns
-    /// only; the engine compiler enforces the rest of the D-051 wall.
+    /// `query Name(type $p, ...) qbranch (or qbranch)* end` (D-049/D-054);
+    /// the engine compiler enforces the D-051/D-055 walls.
     fn query(&mut self) -> Result<QueryDef, DrlError> {
         self.expect_kw("query")?;
         let name = match self.next()? {
@@ -488,12 +520,106 @@ impl Parser {
                 self.next()?;
             }
         }
-        let mut patterns = Vec::new();
-        while !self.at_kw("end") {
-            patterns.push(self.pattern()?);
+        let mut branches = vec![self.qbranch()?];
+        while self.at_kw("or") {
+            self.next()?;
+            branches.push(self.qbranch()?);
         }
         self.expect_kw("end")?;
-        Ok(QueryDef { name, params, patterns })
+        Ok(QueryDef { name, params, branches })
+    }
+
+    /// One or-branch: a parenthesized `and`-group, or bare elements up to
+    /// the next `or`/`end`.
+    fn qbranch(&mut self) -> Result<Vec<QElem>, DrlError> {
+        let mut elems = Vec::new();
+        if matches!(self.peek(), Some(Tok::Sym("("))) {
+            self.next()?;
+            loop {
+                elems.push(self.qelem()?);
+                if self.at_kw("and") {
+                    self.next()?;
+                    continue;
+                }
+                if matches!(self.peek(), Some(Tok::Sym(")"))) {
+                    self.next()?;
+                    break;
+                }
+            }
+        } else {
+            while !self.at_kw("or") && !self.at_kw("end") {
+                elems.push(self.qelem()?);
+            }
+        }
+        if elems.is_empty() {
+            return Err(DrlError("empty query branch".into()));
+        }
+        Ok(elems)
+    }
+
+    /// `[$b :] Name( positional-args; | named-constraints )`
+    fn qelem(&mut self) -> Result<QElem, DrlError> {
+        let first = self.ident()?;
+        let (binding, name) = if first.starts_with('$') {
+            self.expect_sym(":")?;
+            (Some(first), self.ident()?)
+        } else {
+            (None, first)
+        };
+        self.expect_sym("(")?;
+        // empty parens = named form with no constraints
+        if matches!(self.peek(), Some(Tok::Sym(")"))) {
+            self.next()?;
+            return Ok(QElem { binding, name, body: QElemBody::Named(Vec::new()) });
+        }
+        // detect positional form: scan for a ';' before the closing paren
+        let mut depth = 0usize;
+        let mut positional = false;
+        for tok in &self.toks[self.pos..] {
+            match tok {
+                Tok::Sym("(") => depth += 1,
+                Tok::Sym(")") => {
+                    if depth == 0 {
+                        break;
+                    }
+                    depth -= 1;
+                }
+                Tok::Sym(";") if depth == 0 => {
+                    positional = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        if positional {
+            let mut args = Vec::new();
+            loop {
+                match self.peek() {
+                    Some(Tok::Ident(w)) if w.starts_with('$') => {
+                        args.push(QArg::Var(self.ident()?));
+                    }
+                    _ => args.push(QArg::Lit(self.literal()?)),
+                }
+                match self.next()? {
+                    Tok::Sym(",") => continue,
+                    Tok::Sym(";") => break,
+                    other => return Err(DrlError(format!("expected ',' or ';', got {other}"))),
+                }
+            }
+            // mixed positional;named tails are out of subset (D-055)
+            self.expect_sym(")")?;
+            return Ok(QElem { binding, name, body: QElemBody::Positional(args) });
+        }
+        let mut constraints = Vec::new();
+        loop {
+            constraints.push(self.constraint()?);
+            match self.next()? {
+                Tok::Sym(",") => continue,
+                Tok::Sym(")") => break,
+                other => return Err(DrlError(format!("expected ',' or ')', got {other}"))),
+            }
+        }
+        Ok(QElem { binding, name, body: QElemBody::Named(constraints) })
     }
 
     /// One salience-expression term: int literal or `$binding` (D-043).

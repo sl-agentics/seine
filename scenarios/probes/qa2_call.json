@@ -1,0 +1,120 @@
+{
+ "name": "qa2_call",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f",
+     "type": "i64"
+    },
+    {
+     "name": "lbl",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "g",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f": 7,
+    "lbl": "p7"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f": 3,
+    "lbl": "p3"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f": 11,
+    "lbl": "p11"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f": 3,
+    "lbl": "p3b"
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 3
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 11
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 5
+   }
+  }
+ ],
+ "drl": "query BaseQ(long $a)\n    $p : P(f == $a)\nend\n\nquery WrapQ(long $a)\n    BaseQ($a;)\nend\n\nquery WrapAfter(long $a)\n    $q : Q(g == $a)\n    BaseQ($a;)\nend\n\nquery CallFirst(long $a)\n    BaseQ($a;)\n    $q : Q(g == $a)\nend\n",
+ "queries": [
+  {
+   "call": "BaseQ",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "WrapQ",
+   "args": [
+    3
+   ]
+  },
+  {
+   "call": "WrapQ",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "WrapAfter",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "CallFirst",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "WrapAfter",
+   "args": [
+    3
+   ]
+  },
+  {
+   "call": "CallFirst",
+   "args": [
+    3
+   ]
+  }
+ ]
+}

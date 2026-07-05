@@ -1,0 +1,99 @@
+{
+ "name": "qb5_numeric",
+ "types": [
+  {
+   "name": "Edge",
+   "fields": [
+    {
+     "name": "src",
+     "type": "i64"
+    },
+    {
+     "name": "dst",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 1,
+    "dst": 2
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 2,
+    "dst": 3
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 3,
+    "dst": 4
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 1,
+    "dst": 5
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 5,
+    "dst": 4
+   }
+  },
+  {
+   "type": "Edge",
+   "fields": {
+    "src": 9,
+    "dst": 1
+   }
+  }
+ ],
+ "drl": "query reach(long $a, long $b)\n    Edge($a, $b;)\n    or\n    ( Edge($m, $b;) and reach($a, $m;) )\nend\n\nquery toFour(long $a)\n    reach($a, 4;)\nend\n",
+ "queries": [
+  {
+   "call": "reach",
+   "args": [
+    1,
+    4
+   ]
+  },
+  {
+   "call": "reach",
+   "args": [
+    1,
+    null
+   ]
+  },
+  {
+   "call": "reach",
+   "args": [
+    null,
+    4
+   ]
+  },
+  {
+   "call": "reach",
+   "args": [
+    null,
+    null
+   ]
+  },
+  {
+   "call": "toFour",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

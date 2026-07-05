@@ -175,7 +175,14 @@ public final class OracleRunner {
                 for (QueryResultsRow row : res) {
                     ObjectNode ro = M.createObjectNode();
                     for (String id : res.getIdentifiers()) {
-                        Object v = row.get(id);
+                        Object v;
+                        try {
+                            v = row.get(id);
+                        } catch (RuntimeException e) {
+                            // identifiers local to another or-branch are
+                            // absent from this row: row.get throws
+                            v = null;
+                        }
                         ro.set(id, v == null ? M.nullNode() : render(kbase, session, v));
                     }
                     rows.add(ro);

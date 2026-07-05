@@ -1,0 +1,99 @@
+{
+ "name": "qa4_tc",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "desk",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "chair",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "office",
+    "location": "house"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "key",
+    "location": "drawer"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "drawer",
+    "location": "desk"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "pen",
+    "location": "desk"
+   }
+  }
+ ],
+ "drl": "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n\nquery SelfPair(String $x)\n    contained($x, $x;)\nend\n",
+ "queries": [
+  {
+   "call": "contained",
+   "args": [
+    "key",
+    "house"
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    "key",
+    null
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    null,
+    "house"
+   ]
+  },
+  {
+   "call": "contained",
+   "args": [
+    null,
+    null
+   ]
+  },
+  {
+   "call": "SelfPair",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

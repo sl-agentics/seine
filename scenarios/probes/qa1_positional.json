@@ -1,0 +1,127 @@
+{
+ "name": "qa1_positional",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "desk",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "chair",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "office",
+    "location": "house"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "key",
+    "location": "drawer"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "drawer",
+    "location": "desk"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "pen",
+    "location": "desk"
+   }
+  }
+ ],
+ "drl": "query PosQ(String $x, String $y)\n    $l : Location($x, $y;)\nend\n\nquery NamedQ(String $x, String $y)\n    $l : Location(thing == $x, location == $y)\nend\n\nquery MixQ(String $x)\n    $l : Location($x, \"office\";)\nend\n",
+ "queries": [
+  {
+   "call": "PosQ",
+   "args": [
+    "desk",
+    "office"
+   ]
+  },
+  {
+   "call": "NamedQ",
+   "args": [
+    "desk",
+    "office"
+   ]
+  },
+  {
+   "call": "PosQ",
+   "args": [
+    null,
+    "office"
+   ]
+  },
+  {
+   "call": "NamedQ",
+   "args": [
+    null,
+    "office"
+   ]
+  },
+  {
+   "call": "PosQ",
+   "args": [
+    "desk",
+    null
+   ]
+  },
+  {
+   "call": "NamedQ",
+   "args": [
+    "desk",
+    null
+   ]
+  },
+  {
+   "call": "PosQ",
+   "args": [
+    null,
+    null
+   ]
+  },
+  {
+   "call": "NamedQ",
+   "args": [
+    null,
+    null
+   ]
+  },
+  {
+   "call": "MixQ",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

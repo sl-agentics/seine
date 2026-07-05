@@ -190,7 +190,9 @@ fn canon_result(v: &J) -> Result<CanonResult, String> {
             let obj = row.as_object().ok_or("query row not an object")?;
             let mut m = BTreeMap::new();
             for (k, v) in obj {
-                m.insert(k.clone(), canon_fact(v)?);
+                // identifiers local to another or-branch are null (D-054)
+                let cv = if v.is_null() { "null".to_string() } else { canon_fact(v)? };
+                m.insert(k.clone(), cv);
             }
             rows.push(m);
         }

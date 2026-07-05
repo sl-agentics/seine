@@ -81,21 +81,32 @@ log** for every in-subset program.
   dataclass-or-Pydantic objects ingest directly; `pip install seine-rs`
   (import stays `seine`); GitHub Actions runs the differential gate and
   builds wheels.
-- DRL queries, Phase Q0 (D-049..D-052): non-recursive queries with typed
+- DRL queries, Phase Q0 (D-049..D-053): non-recursive queries with typed
   params and unification (`Person(age == $a)` called bound or unbound),
   certified against `getQueryResults` including exact row order — which
   required reproducing Drools' TupleIndexHashTable slot layout (JDK
   supplemental hash, accessor-sort extractor indexes) and PHREAK's LIFO
   stage reversal. Insert-only programs; scenario `"queries"` +
   result-`"queries"` sections in the harness.
+- RECURSIVE queries, Phase Q1 (D-054/D-055): `or`-branches, positional
+  patterns (`Location($x, $y;)`), query calls, and self-recursion — the
+  documented `isContainedIn` transitive closure runs verbatim with exact
+  row order, pinned by replicating PHREAK's query stack machine (shared
+  branch staging pools, LIFO branch frames, resume splicing, first-wins
+  arg threading). Certified shape: base-first 2-branch self-recursion
+  over acyclic data; left recursion, mutual recursion, 3-branch
+  recursion and cyclic data are compile-rejected or generator-excluded
+  (Drools hangs on cycles — no tabling).
 
 ## Explicit non-goals (hard walls)
 
 - MVEL dialect (only the minimal Java-like expression subset above).
 - DMN, CEP / temporal operators, complex event processing.
-- Backward chaining beyond Phase-Q0 pull queries (no recursive queries,
-  no `?query` CEs in rules), truth maintenance beyond Phase-2 mutation
-  needs; query+mutation interplay is walled (D-051).
+- Backward chaining beyond the Phase-Q1 pull-query subset (no `?query`
+  CEs in rules yet, no negation-as-failure, no tabling — cyclic
+  recursion data hangs real Drools and is walled), truth maintenance
+  beyond Phase-2 mutation needs; query+mutation interplay is walled
+  (D-051).
 - Workbench / KIE tooling / full DRL6 grammar / decision tables / templates.
 - Persistence, marshalling, session clustering, multithreaded firing.
 - Beyond-RAM / disk-backed working memory (the columnar id-based layout keeps

@@ -369,6 +369,87 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+## Recursive queries — Phase Q1 (2026-07-04)
+
+### D-054: recursive-query semantics PINNED — the stack-machine model
+### (probes qa1..qa7, qb1..qb6, qc1..qc7 + sources + MemDump5; the
+### python replica machine_q1.py replays 75/75 fenced-subset calls)
+New DRL surface: `or` CEs in query bodies (top-level, branches optionally
+parenthesized with `and`-joined patterns), POSITIONAL patterns
+(`Location($x, $y;)` — args map to declared field order; a bound
+var/param = unification, a FRESH var = field binding, a literal =
+same-type alpha), and QUERY CALLS as patterns (`contained($x, $z;)` —
+positional args only; literals allowed). The doc transitive closure runs
+verbatim and returns exact closures.
+
+**Basics** (qa1-qa3, qb3-qb6, qc3-qc5, qc7): positional ≡ named
+constraint form, row-for-row. A call's candidates multiply per callee
+row (duplicates preserved); callee-internal bindings never leak;
+`getIdentifiers` = params + FIRST branch's declarations (later-branch
+locals are absent; row.get on them THROWS — oracle runner now encodes
+those as JSON null, and rows from a branch render other-branch locals
+as null). Call args thread D-052-style: bound positions filter inside
+the callee; unbound positions bind FIRST-WINS per returned row
+(`SelfPair($x): contained($x,$x;)` = full closure, $x from position 1).
+Params may go unused in a branch (qc7) — that branch simply doesn't
+filter on them. Non-recursive call DAGs (chains, diamonds, two calls
+per branch, or-of-calls, 3-branch non-recursive or) all pin exactly.
+
+**Evaluation machine** (RuleNetworkEvaluator/PhreakQueryNode/
+PhreakQueryTerminalNode sources + MemDump5 path-order dump): queries
+evaluate as a LIFO stack machine over per-branch node lists —
+1. getQueryResults stages the root tuple into EVERY branch's SHARED
+   staging pool (peers), then evaluates paths in DECLARATION order
+   (pathMemories order == subrule order, MemDump5); rows APPEND to the
+   collector. A pool may be swept EARLY: any nested takeAll of that
+   branch's pool (see 3) carries pending tuples with it — their rows
+   still route correctly by tuple parentage (this produced qb2's
+   b1,b3,b2 block order — one mechanism, no nondeterminism).
+2. Fact levels batch exactly like Q0: consume src head→tail, children
+   PREPEND into the next stage (all D-050/D-052/D-053 rules apply
+   inside query branches).
+3. A call level pushes a RESUME frame (site, accumulated-results
+   splice), stages one nested dquery env per src tuple by PREPENDING
+   into every callee-branch pool, then pushes one BranchEval per callee
+   branch (declaration order) each taking `takeAll(pool)` — LIFO pop
+   means the LAST callee branch evaluates first; result blocks come out
+   base-branch-first because terminal routing PREPENDS each nested row
+   (child tuple = caller env + threaded bindings) into the call-site's
+   shared result staging, double-reversing.
+4. A RESUME pop splices the site's pending results after its captured
+   trg and continues at the node after the call.
+Determinism confirmed (row orders reproduce across JVM runs); the
+python machine replays every in-subset probe call byte-exactly,
+including 123-row full closures, 12-deep chains, trees, DAGs,
+duplicate-edge multiplicity and post-call constraint filtering.
+
+### D-055: Phase Q1 wall — the certified recursion shape
+IN: self-recursive queries of EXACTLY 2 or-branches with the BASE
+branch first and the recursive branch second; exactly one self-call,
+not the first CE of its branch (a fact pattern must precede it);
+non-recursive queries: 1..3 or-branches, arbitrary non-recursive call
+DAGs (incl. shared callees and repeated calls); positional syntax in
+query bodies; acyclic call-reachable DATA only.
+OUT (probed, documented, engine compile-rejects or generator avoids):
+- CYCLIC data under recursion: Drools HANGS (no tabling — qa8 timeout).
+  Engine backstop: evaluation step limit -> clean error. Generators
+  build acyclic relations by construction.
+- LEFT recursion (self-call first in its branch): Drools silently
+  returns 0 rows for derivable facts (qb7 — wrong, terminating);
+  compile-rejected.
+- 3+ or-branches on RECURSIVE queries and recursive-branch-FIRST
+  ordering: real Drools delivers late self-recursive results through a
+  resume RE-PUSH (PhreakQueryTerminalNode.checkAndTriggerQuery-
+  Reevaluation) whose scheduling we did not fully pin (qb2 [None,None]
+  and qc1 diverge only there; that mechanism is UNREACHABLE in the
+  fenced shape — verified 0 re-push firings across all 75 in-subset
+  calls). Fence, don't hack.
+- Mutual recursion (call-graph cycles of length >= 2): compile-rejected
+  (untested interleaving).
+- `?query(...)` pull CEs in RULES: next phase (query-as-condition
+  bridge).
+- Query+mutation interplay: still walled at D-051.
+
 ## Queries — Phase Q0 (2026-07-04)
 
 ### D-049: Query differential harness — scenario/result schema extension

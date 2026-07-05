@@ -1,0 +1,96 @@
+{
+ "name": "qb6_orcalls",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f",
+     "type": "i64"
+    },
+    {
+     "name": "lbl",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "g",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f": 7,
+    "lbl": "p7"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f": 3,
+    "lbl": "p3"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f": 11,
+    "lbl": "p11"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f": 3,
+    "lbl": "p3b"
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 3
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 11
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 5
+   }
+  }
+ ],
+ "drl": "query baseP(long $a)\n    $p : P(f == $a)\nend\n\nquery baseQ2(long $a)\n    $q : Q(g == $a)\nend\n\nquery either(long $a)\n    baseP($a;) or baseQ2($a;)\nend\n",
+ "queries": [
+  {
+   "call": "either",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "either",
+   "args": [
+    3
+   ]
+  },
+  {
+   "call": "either",
+   "args": [
+    5
+   ]
+  }
+ ]
+}

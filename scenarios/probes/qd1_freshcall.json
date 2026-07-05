@@ -1,0 +1,23 @@
+{
+  "name": "qd1_freshcall",
+  "types": [
+    { "name": "Location", "fields": [ { "name": "thing", "type": "String" }, { "name": "location", "type": "String" } ] },
+    { "name": "Tag", "fields": [ { "name": "name", "type": "String" } ] }
+  ],
+  "facts": [
+    { "type": "Location", "fields": { "thing": "desk", "location": "office" } },
+    { "type": "Location", "fields": { "thing": "chair", "location": "office" } },
+    { "type": "Location", "fields": { "thing": "office", "location": "house" } },
+    { "type": "Location", "fields": { "thing": "key", "location": "drawer" } },
+    { "type": "Location", "fields": { "thing": "drawer", "location": "desk" } },
+    { "type": "Tag", "fields": { "name": "office" } },
+    { "type": "Tag", "fields": { "name": "desk" } }
+  ],
+  "drl": "query contained(String $x, String $y)\n    ( Location($x, $y;) )\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n\nquery holders(String $w)\n    contained($w, $f;)\n    Tag(name == $f)\nend\n\nquery pairsOf(String $w)\n    contained($w, $f;)\nend\n",
+  "queries": [
+    { "call": "holders", "args": ["key"] },
+    { "call": "holders", "args": [null] },
+    { "call": "pairsOf", "args": ["key"] },
+    { "call": "pairsOf", "args": [null] }
+  ]
+}

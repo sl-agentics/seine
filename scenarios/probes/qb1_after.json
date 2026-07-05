@@ -1,0 +1,120 @@
+{
+ "name": "qb1_after",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Tag",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "desk",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "chair",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "office",
+    "location": "house"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "key",
+    "location": "drawer"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "drawer",
+    "location": "desk"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "pen",
+    "location": "desk"
+   }
+  },
+  {
+   "type": "Tag",
+   "fields": {
+    "name": "desk"
+   }
+  },
+  {
+   "type": "Tag",
+   "fields": {
+    "name": "office"
+   }
+  },
+  {
+   "type": "Tag",
+   "fields": {
+    "name": "drawer"
+   }
+  }
+ ],
+ "drl": "query ct(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and ct($x, $z;) and Tag(name == $z) )\nend\n\nquery deco(String $x, String $y)\n    ct($x, $y;)\n    Tag(name == $y)\nend\n",
+ "queries": [
+  {
+   "call": "ct",
+   "args": [
+    "key",
+    null
+   ]
+  },
+  {
+   "call": "ct",
+   "args": [
+    null,
+    null
+   ]
+  },
+  {
+   "call": "deco",
+   "args": [
+    "key",
+    null
+   ]
+  },
+  {
+   "call": "deco",
+   "args": [
+    null,
+    null
+   ]
+  }
+ ]
+}
