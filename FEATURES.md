@@ -25,8 +25,9 @@ structure, and the upstream regression suite
 
 CANT and WONT are kept strictly separate: CANT is "the architecture forbids
 it", WONT is "we choose not to, and the choice is the product".
-Genuinely ambiguous calls are NOT bucketed here — they are collected in
-§5 for an explicit ruling.
+Genuinely ambiguous calls were collected in §5 for an explicit ruling;
+all ten were resolved 2026-07-05 (D-060..D-069) and their rows moved
+into §1–§4.
 
 **Test references** name upstream classes under
 `drools-test-coverage/test-compiler-integration/src/test/java/…`;
@@ -87,7 +88,8 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 | Inline `&&` / `||` / `!(…)` constraint groups, abbreviated `a > 5 && < 10` | **P1** | c.i operators `AndTest`, `InTest#testNegatedIn`, m.i `Misc2Test` | Same evaluator, richer constraint AST; interacts with D-029 alpha sharing — probe first. |
 | Multi-pattern / nested `not(…and…)`, `exists(…or…)` | **P1** | m.i `Misc2Test#testNestedNots*`, c.i `FirstOrderLogicTest` | Existential subnetworks; pairs with CE groups. |
 | `forall` | P2 | c.i operators `ForAllTest` (29) | Canonical double-negation rewrite once nested nots land. |
-| Truth maintenance: `insertLogical`, justification, cascading retract | P2 | c.i `ErrorOnInsertLogicalTest`, m.i `Misc2Test` (logical methods), drools-tms module tests | Deterministic and in-memory; needs fact-equality story (see §5.7). |
+| Truth maintenance: `insertLogical`, justification, cascading retract | **P2 — PRODUCT-CRITICAL** | c.i `ErrorOnInsertLogicalTest`, m.i `Misc2Test` (logical methods), drools-tms module tests | **Thesis-load-bearing (D-066):** justification + cascading retract is the substrate of the why/why-not derivation engine. Fact equality = value-equality over declared fields (cheap in columnar); equality-assert *mode* stays WONT. |
+| Null field values (`== null`, null-tolerant operator matrix) | P2 | m.i `NullTest` (10), `NullCheckOnExistentialNodeTest` (null-value methods) | D-063 (raised from P3): servicing data is null-dense. Arrow validity bitmaps. Own phase when it lands — the null-comparison matrix is probed per-operator. `!.` stays CANT (§3). |
 | Push (reactive) query CEs + open/live queries | P2 | m.i `QueryTest` (open query methods) | qx2_late_push pinned the basic refire; row lifecycle unprobed (D-057). |
 | Query + mutation epochs | P2 | m.i `QueryTest` (update-after-query methods) | D-051 wall; PhreakQueryNode leftUpdates/Deletes unprobed. |
 | Negation-as-failure inside query bodies | P2 | m.i `QueryTest#testQueryWithNot`-style | Q-phase follow-on per Q2 handoff. |
@@ -97,29 +99,34 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 | `groupby` | P3 | drools-model GroupByTest | Sugar over accumulate partitioning. |
 | Rule `extends` (condition inheritance) | P3 | m.i `ExtendsTest` (25) | Compile-time prefix concatenation; fits trie sharing naturally. |
 | Named consequences `then[x]` / `do[x]` / `if…break` | P3 | m.i `NamedConsequencesTest` (39), `EdgeCaseNonExecModelTest` | Docs mark it legacy-ish but the test surface is large; terminal-per-label model. |
-| `declare` extras: field defaults, `@key` constructors, declared enums | P3 | m.i `TypeDeclarationTest`, `EnumTest`, c.i `AnnotationsTest` | Scalar-only defaults are easy; `@key` interacts with equality mode (§5.7). |
+| Constraint arithmetic (`age + 1 > $x`, closed grammar) | P3 | c.i operators `MathTest` (in-grammar methods), `FormulaTest` (subset) | D-061: D-043-style closed grammar (literals + bindings + `+ - *`), same evaluator. General `eval` stays CANT. |
+| Date field type (epoch-i64 encoding, date-literal parsing) | P3 | m.i `DateComparisonTest` (3) | D-064: dates as fact data compared against. Engine-evaluated `date-effective`/`date-expires` stays WONT (§4). |
+| `declare` extras: field defaults, `@key` constructors, declared enums | P3 | m.i `TypeDeclarationTest`, `EnumTest`, c.i `AnnotationsTest` | Scalar-only defaults are easy; `@key` interacts with the D-066 value-equality story. |
 | `@watch` / `@classReactive` / `@propertyReactive` annotations | P3 | m.i `PropertySpecificTest` (59), `PropertyReactivityBlockerTest` | Mask machinery already exists (D-013/D-040); this is surface syntax + mode gates. |
 | Positional patterns in rule LHS (queries already have them) | P4 | m.i `Misc2Test` positional methods | Parser + `@position` ordering; semantics identical to query positional form (D-054). |
 | `retract(…)` keyword alias for `delete` | P4 | (pervasive in older tests) | Parser alias, zero semantics. |
 | Plain-identifier bindings (`cheese : Cheese()` without `$`) | P4 | c.i drl `PatternTest`, old-style tests throughout | Parser trivia; Drools-legal, engine currently rejects. |
 | `str[startsWith\|endsWith\|length]` operator | P4 | m.i `StrEvaluatorTest` (10) | Simple String evaluator triple. |
 | `soundslike` | P4 | c.i operators `SoundsLikeTest` | Soundex; tiny, low demand. |
-| `enabled` attribute (boolean literal) | P4 | c.i operators `EnabledTest` | Static skip flag; expression form ties to §5.2. |
+| `enabled` attribute (boolean literal) | P4 | c.i operators `EnabledTest` | Static skip flag; expression form, if ever, follows the D-061 closed grammar. |
 | `halt()` from RHS | P4 | m.i `DroolsFromRHSTest` | Deterministic agenda stop; trivial in the fire loop. |
+| Read-only scalar globals in constraints | P4 | c.i drl `GlobalTest` (scalar-read methods) | D-062(b): per-session constant environment. RHS sink globals already stripped at extraction (D-059); Java-object globals WONT (§4). |
+| BigDecimal/BigInteger field types | **P4 (hard)** | m.i `Misc2Test`/`LiteralTest` (BigDecimal methods), facts `FactWithBigDecimal` users | D-064: deferred-and-hard, **NOT CANT**. Bounded-precision decimal has a lossless columnar encoding — scaled fixed-point over i128 (DECIMAL(p,s), the database approach). The Java coercion matrix is the cost. Money in the lending/servicing target domain requires it. |
 | Non-ASCII string VALUES | P4 | m.i `I18nTest` (value subset) | Needs UTF-16-order comparison shim above BMP; identifiers stay walled (accessor-sort rule, D-050). |
 
 ## §3 CANT
 
 | Feature | Blocking constraint | Drools-test references |
 |---|---|---|
-| Java/MVEL expressions in constraints or RHS: method calls, arithmetic on the fly, ternaries, `this` expressions, inline maps/lists, `throw` | **No embedded JVM / no expression interpreter.** Seine's single evaluator executes a closed, pre-compiled constraint grammar; arbitrary Java/MVEL is the boundary of the product. (Bounded arithmetic could be carved out — see §5.2.) | c.i operators `MathTest`, `FormulaTest`, m.i `MVELTest` (33), `JittingTest` |
+| Java/MVEL expressions in constraints or RHS: method calls, arithmetic on the fly, ternaries, `this` expressions, inline maps/lists, `throw` | **No embedded JVM / no expression interpreter.** Seine's single evaluator executes a closed, pre-compiled constraint grammar; arbitrary Java/MVEL is the boundary of the product. (Closed-grammar constraint arithmetic is carved out as ROADMAP-P3, D-061.) | c.i operators `MathTest`, `FormulaTest`, m.i `MVELTest` (33), `JittingTest` |
 | DRL `function` blocks, `import static` functions | Same constraint: user-authored Java bodies cannot execute. | m.i `FunctionsTest`, c.i drl (function methods) |
 | Custom accumulate functions (`AccumulateFunction` impls), inline-code accumulate (`init/action/reverse/result`) | Same: user Java. Built-ins are ported bit-exactly instead (D-038). | c.i `AccumulateTest` (custom-function methods) |
 | Custom operators (pluggable evaluator API) | Same: Java plugin surface. | c.i `CustomOperatorTest`, `CustomOperatorOnlyDrlTest` |
-| Object-graph facts: nested property access (`address.city`), map/list fields, `[]` access, `memberOf` against collection bindings, `contains` on collections, `from $x.collection` iteration | **Columnar arena stores flat scalar fields** (i64/f64/String/bool per column). There is no reference graph between facts, no collection-typed values, and no dereference chain evaluator. | m.i `MapConstraintTest`, session `FieldAccessTest`, c.i operators `MemberOfTest`, `FromTest` (24), c.i drl `NestingTest` |
+| Object-graph facts: nested property access (`address.city`), map/list fields, `[]` access, `memberOf` against collection bindings, `contains` on collections, `from $x.collection` iteration, null-safe deref `!.` (D-063) | **Columnar arena stores flat scalar fields** (i64/f64/String/bool per column). There is no reference graph between facts, no collection-typed values, and no dereference chain evaluator. | m.i `MapConstraintTest`, session `FieldAccessTest`, `NullSafeDereferencingTest`, c.i operators `MemberOfTest`, `FromTest` (24), c.i drl `NestingTest` |
 | OOPath expressions (`/persons[…]`, reactive `?/`, backreferences) | Same object-graph constraint (OOPath is dereference-chain syntax). | m.i oopath tests (compiler/oopath) |
-| Fact-model classes from the app classpath (POJOs, inheritance, interfaces, traits, `instanceof`, inline casts `#`, `isA`) | Facts exist only as arena rows of declared scalar types; there is no Java class model to match against. (Declared-type `extends` might be modeled — see §5.6.) | c.i operators `InstanceOfTest`, m.i `PolymorphismTest`, drools-traits module |
-| `eval(…)` over arbitrary expressions | Interpreter constraint (subset-grammar `eval` is §5.2's call). | c.i operators `EvalTest` (16), `EvalRewriteTest` |
+| Fact-model classes from the app classpath (POJOs, inheritance, interfaces, traits, `instanceof`, inline casts `#`, `isA`) | Facts exist only as arena rows of declared scalar types; there is no Java class model to match against. | c.i operators `InstanceOfTest`, m.i `PolymorphismTest`, drools-traits module |
+| Declared-type inheritance (`declare X extends Y`) + supertype matching | **One-type-one-arena invariant** (D-065): alpha/beta indexes key on (type, field), property masks are per-type bit positions, node-sharing identity assumes one arena per pattern type. Supertype matching over a union of subtype arenas is an arena redesign, not a feature. | m.i `TypeDeclarationTest`/`ExtendsTest` (declare-extends methods), c.i drl `DeclareTest` (inheritance methods) |
+| `eval(…)` over arbitrary expressions | Interpreter constraint — confirmed CANT with no subset-grammar carve-out (D-061). | c.i operators `EvalTest` (16), `EvalRewriteTest` |
 | >96 distinct keys per indexed join key (hash-table resize) | TupleIndexHashTable resize re-buckets with chain reversal — deliberately unmodeled; the 96-key wall is part of the certified envelope (D-051). | (surfaced by fuzz, not upstream tests) |
 | `@propertyChangeSupport` (JavaBeans listeners mutating WM) | Facts are arena rows; there is no bean eventing to listen to. | c.i `PropertyChangeSupportTest` |
 | Dynamic/`@typesafe(false)` constraint typing | Requires MVEL dynamic dispatch; the engine compiles typed column accessors. | m.i `DynamicEvalTest` |
@@ -129,8 +136,8 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 | Feature | Why exclusion is a strength |
 |---|---|
 | Multithreaded evaluation (`drools.parallelExecution`, partitioned networks), `fireUntilHalt` active mode, session pools, thread-safety machinery | **Single-threaded determinism is the product.** Same inputs → same firing log, byte-for-byte, across runs and platforms; the differential guarantee depends on it. Upstream needs test suites for race conditions; Seine cannot race. |
-| Timers, calendars (`timer(int/cron/expr)`, Quartz), `duration`, `date-effective`/`date-expires` | Wall-clock scheduling makes rule firing a function of *when you ran it*. Excluding clocks keeps every certified program a pure function of its fact history. (Virtual-clock variants: see §5.9.) |
-| CEP runtime: `@role(event)`, entry points/streams, sliding windows, temporal operators, `@expires`, session clocks | Bound to the clock/stream runtime above — same determinism argument; also a second working-memory lifecycle (expiration) beside the certified one. (Pseudo-clock subset: §5.1 ruling.) |
+| Timers, calendars (`timer(int/cron/expr)`, Quartz), `duration`, `date-effective`/`date-expires` (incl. virtual/fixed evaluation date, D-068) | Wall-clock scheduling makes rule firing a function of *when you ran it*. A ruleset whose behavior depends on the calendar is that same nondeterminism even with a fixed evaluation date. Dates as **fact data compared against** = ROADMAP (D-064); dates as **engine-evaluated effective/expiry** = WONT. |
+| CEP runtime: `@role(event)`, entry points/streams, sliding windows, temporal operators, `@expires`, session clocks — **including the deterministic pseudo-clock** (D-060) | Bound to the clock/stream runtime — and even the pseudo-clock introduces a second working-memory lifecycle (expiration) beside the certified one. Clean "no temporal" boundary; revisitable only as its own phase on real demand. |
 | MVEL dialect (`dialect "mvel"`) | One dialect, one semantics: every certified behavior is pinned against java-dialect Drools; a second dialect doubles the oracle surface without adding engine capability. |
 | KIE platform: KieContainer/KieBase/kmodule.xml, KieBuilder, classloaders, KJARs, KieScanner/maven, kie-server, commands/BatchExecutor, stateless-vs-stateful session API | Seine's surface is DRL text + typed facts in, results out (plus Arrow/Python bindings). No build-system, packaging, or container lifecycle to misconfigure; the harness IS the integration story. |
 | BPM/ruleflow: `ruleflow-group`, jBPM/process integration, declarative agenda over process state | Out-of-domain platform (the brief's no-BPM wall). Agenda-group-style partitioning is ROADMAP §2 without the process engine. |
@@ -138,72 +145,34 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 | Event listeners/channels/audit APIs (AgendaEventListener etc.), MBeans/metrics | The deterministic firing log + WM delta is strictly stronger observability than callback ordering, and it's diffable. Python `on_fire` covers the observer use case after quiescence. |
 | Authoring frontends: decision tables (XLS), DSL/DSLR, templates, DMN, PMML, scenario-simulation | They all compile down to rules; Seine certifies the rule semantics underneath. The Python authoring layer (D-045) plays this role with definition-time wall errors. |
 | Rule units (`unit`, DataStore/DataStream, Kogito REST) | Alternative session/data-source API aimed at Kogito microservices; orthogonal to engine semantics and superseded by the bindings' session model. |
-| Alternate engine modes: sequential mode, propagation modes (`@Propagation(IMMEDIATE/EAGER)` as user surface), equality assert mode as a *config*, `drools.*` tuning knobs (alpha range-index threshold, beta range index, jitting thresholds) | **One certified semantics.** Every config axis multiplies the differential surface (each combination is its own oracle); Seine pins Drools' defaults and certifies those exhaustively instead of shallowly certifying a matrix. (Equality mode as a *feature*: §5.7.) |
+| Alternate engine modes: sequential mode, propagation modes (`@Propagation(IMMEDIATE/EAGER)` as user surface), equality assert mode as a *config*, `drools.*` tuning knobs (alpha range-index threshold, beta range index, jitting thresholds) | **One certified semantics.** Every config axis multiplies the differential surface (each combination is its own oracle); Seine pins Drools' defaults and certifies those exhaustively instead of shallowly certifying a matrix. (Equality-assert mode as config confirmed WONT by D-066; the value-equality *mechanism* lands with TMS, §2.) |
 | `drools.getKieRuntime()` / kcontext RHS API (beyond halt/focus) | RHS is declarative by design (insert/update/delete only): consequences cannot reach engine internals, so every WM mutation is visible to the differential harness. |
 | Consequence exception handling config | Subset RHS cannot throw; error surface is parse/compile time. |
+| Java-object globals (mutable services/collections reachable from rules) | D-062(c): side-channel state invisible to the differential harness. RHS sink globals are stripped at extraction with the firing log as the stronger assertion (done, D-059); read-only scalar globals are ROADMAP-P4 (§2). |
+| Char fields / char literals | D-067: niche type, odd DRL stringification of `'x'` literals, no target-domain demand. Out of subset; revisit only if a real corpus needs it (then: 1-char String vs i64 code point). |
+| Declarative agenda (rules controlling other rules' matches) | D-069: meta-control couples agenda internals to user rules; small upstream surface (m.i `DeclarativeAgendaTest`, 16). Agenda-groups (ROADMAP-P3) cover the real use cases. |
 
-## §5 AMBIGUOUS — needs your ruling (not bucketed above)
+## §5 AMBIGUOUS
 
-My lean in *italics*; none of these are decided in this document.
+All ten items resolved 2026-07-05 — rulings recorded as **D-060..D-069**,
+rows moved into §1–§4:
 
-1. **CEP pseudo-clock subset.** Realtime CEP is WONT (§4). But Drools'
-   *pseudo* clock is deterministic: `@role(event)` + `advanceTime` +
-   sliding windows + temporal operators could in principle be certified
-   (scenario epochs would carry clock advances). Large build; big feature
-   family; genuinely deterministic. *Lean: keep whole family WONT for now;
-   revisit as its own phase if ever — the expiration lifecycle is a second
-   WM semantics.*
-2. **Bounded expression grammar (`eval`, constraint arithmetic like
-   `age + 1 > $x`, enabled/salience expressions beyond D-043).** ROADMAP
-   with a closed grammar (the D-043 salience pattern: literals + bindings +
-   `+ - *`), or WONT as interpreter-creep? *Lean: ROADMAP-P3 for constraint
-   arithmetic with the D-043-style closed grammar; keep general `eval` out.*
-3. **Globals.** (a) Translate-away (RHS `list.add` sinks are already
-   stripped by the baseline extractor with the firing log as the stronger
-   assertion); (b) read-only scalar globals usable in constraints
-   (ROADMAP); (c) full Java-object globals (CANT/WONT). *Lean: (a) is done,
-   (b) ROADMAP-P4, (c) WONT.*
-4. **Null field values** (`== null` checks, null-tolerant operators,
-   null-safe `!.`). The subset deliberately has no nulls (D-044 rejects
-   loudly); Arrow validity bitmaps make a null story *possible*.
-   *Lean: ROADMAP-P3, big semantic surface (null comparison matrix must be
-   probed operator-by-operator); `!.` stays CANT (object graphs).*
-5. **BigDecimal/BigInteger and Date field types.** Drools compares/coerces
-   these pervasively (`DateComparisonTest`, salary tests). Date-as-epoch-i64
-   is a clean encoding; BigDecimal has no lossless columnar encoding
-   (string? i128 pairs?) and its coercion matrix is huge. *Lean: Date
-   ROADMAP-P3 (epoch-millis + date-literal parsing); BigDecimal/BigInteger
-   CANT (no lossless fixed-width encoding; coercion semantics tied to Java
-   arbitrary precision).*
-6. **Declared-type inheritance (`declare X extends Y`) + supertype
-   matching.** Pattern-on-supertype could scan the union of subtype arenas;
-   but it breaks the one-type-one-arena invariant everywhere (indexes,
-   masks, sharing identity). *Lean: CANT under the current arena; if ever,
-   it's a redesign, not a feature.*
-7. **Fact equality mode / `@key` equality semantics / TMS dependency.**
-   `insertLogical` (ROADMAP-P2) requires an equality notion for
-   justification sets. Identity mode is what's certified today. Options:
-   value-equality over all fields (cheap in columnar), `@key` subsets, or
-   full equality-mode parity. *Lean: value-equality over declared fields,
-   probed as part of the TMS phase; equality assert MODE stays WONT
-   (config-matrix argument).*
-8. **Char fields / char literals.** Java `char` comparisons stringify oddly
-   in DRL; upstream tests use `'x'` literals. Encode as 1-char String, as
-   i64 code point, or wall? *Lean: wall (out of subset), note in docs;
-   revisit only if real corpora need it.*
-9. **Virtual date for `date-effective`/`date-expires`.** Timers are WONT,
-   but these two attributes only need a *fixed evaluation date* (scenario
-   field), not a running clock. *Lean: still WONT — a rule set whose
-   behavior depends on the calendar is exactly the nondeterminism the wall
-   exists for; users can model dates as fact fields.*
-10. **Declarative agenda** (rules controlling other rules' matches).
-    Deterministic but exotic meta-control; small upstream surface
-    (m.i `DeclarativeAgendaTest`, 16). *Lean: WONT (meta-control couples
-    agenda internals to user rules; agenda-groups cover the use cases).*
+| # | Item | Ruling | Now in |
+|---|---|---|---|
+| 1 | CEP pseudo-clock | WONT (second WM lifecycle) — D-060 | §4 |
+| 2 | Bounded expression grammar | Constraint arithmetic ROADMAP-P3, closed grammar; general `eval` CANT — D-061 | §2 / §3 |
+| 3 | Globals | Sinks stripped (done); scalar read-only ROADMAP-P4; Java-object WONT — D-062 | §2 / §4 |
+| 4 | Null field values | ROADMAP-P2 (raised), own phase; `!.` CANT — D-063 | §2 / §3 |
+| 5 | Date / BigDecimal | Date ROADMAP-P3; BigDecimal ROADMAP-P4-hard via i128 scaled fixed-point, NOT CANT — D-064 | §2 |
+| 6 | Declared-type inheritance | CANT (one-type-one-arena invariant) — D-065 | §3 |
+| 7 | Fact equality / TMS | Value-equality over declared fields; TMS flagged PRODUCT-CRITICAL; equality-mode config WONT — D-066 | §2 / §4 |
+| 8 | Char fields/literals | WONT (out of subset) — D-067 | §4 |
+| 9 | Virtual date-effective/expires | WONT (calendar-dependent behavior) — D-068 | §4 |
+| 10 | Declarative agenda | WONT (meta-control) — D-069 | §4 |
 
 ---
 
 *Maintenance:* when a ROADMAP feature lands, move its row to §1 with its
 D-0xx pins and promote its acceptance tests into `scenarios/baseline/`.
-When a ruling resolves a §5 item, move it to its bucket and record the
-decision in DECISIONS.md.
+§5 is fully resolved (D-060..D-069); if a new ambiguity surfaces, park it
+there for an explicit ruling rather than guessing a bucket.

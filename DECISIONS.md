@@ -1889,3 +1889,110 @@ per tier, all through the same harness/oracle/comparator:
   only — no code copied into the engine (NOTICE provenance story).
 - Gate at close: `make test` green; `make diff` = baseline 7/7,
   probes 332/332, regressions 201/201.
+
+## Feature-matrix rulings (2026-07-05)
+
+User rulings resolving the ten ambiguities parked in FEATURES.md §5
+(one D-entry per ruling, D-060..D-069). Docs-only change: no engine,
+harness, or scenario changes. Each §5 row moves into its resolved
+bucket (§1–§4); acceptance rows added to docs/roadmap-acceptance.md
+for the newly-ROADMAP features; skiplist notes updated.
+
+### D-060: CEP pseudo-clock → WONT
+Even the deterministic pseudo-clock (`@role(event)` + `advanceTime` +
+windows + temporal operators) introduces a **second WM lifecycle**
+(event expiration) beside the certified one. The "no temporal" boundary
+stays clean: the entire CEP family is WONT, pseudo-clock included.
+Revisitable only as its own dedicated phase if real demand appears —
+not as an incremental carve-out.
+
+### D-061: Bounded expression grammar → ROADMAP-P3 (constraint arithmetic only); general `eval` stays CANT
+Constraint arithmetic (`age + 1 > $x`) lands as ROADMAP-P3 via the
+D-043-style **closed grammar**: literals + bindings + `+ - *`, same
+single evaluator, no interpreter. General `eval(...)` is confirmed CANT
+with no subset-grammar carve-out — the interpreter boundary is the
+product edge. `enabled`/`salience` expression forms, if ever extended,
+follow the same closed grammar.
+
+### D-062: Globals — sinks stripped (done), read-only scalar globals ROADMAP-P4, Java-object globals WONT
+(a) Globals-as-RHS-sinks (`list.add(...)`) are already translated away
+by the baseline extractor (D-059) with the firing log as the stronger
+assertion — DONE, no engine surface. (b) Read-only **scalar** globals
+usable in constraints: ROADMAP-P4 (a per-session constant environment;
+deterministic, fits the closed constraint grammar). (c) Full
+Java-object globals (mutable services/collections reachable from rules)
+are WONT: side-channel state invisible to the differential harness.
+
+### D-063: Null field values → ROADMAP-P2 (raised from P3); `!.` stays CANT
+Raised to P2: real-world account/servicing data is null-dense, and the
+why-engine over realistic data needs nulls sooner than P3 implies.
+Arrow validity bitmaps make the encoding natural. The null-comparison
+matrix is a **large probe surface — per-operator** (`==`/`!=`/
+relationals/`matches`/`contains`/`in`/accumulate null handling), so it
+is scoped as its own phase when it lands, with the D-0xx probe-ladder
+treatment. Null-safe dereference `!.` remains CANT (object graphs,
+FEATURES.md §3).
+
+### D-064: Date → ROADMAP-P3; BigDecimal/BigInteger → ROADMAP-hard, NOT CANT
+Date fields: ROADMAP-P3 via epoch-i64 encoding + date-literal parsing
+(the clean columnar story; `DateComparisonTest` as acceptance).
+BigDecimal/BigInteger: **reframed from the CANT lean.** Money in the
+target domain (lending/servicing) is *bounded-precision decimal*, which
+HAS a lossless columnar encoding — scaled fixed-point over i128, the
+DECIMAL(p,s) approach databases use. It is not architecturally
+forbidden; it is deferred-and-hard (huge Java coercion matrix to pin).
+Bucketed ROADMAP-P4 (hard) with the encoding note. We do not stamp CANT
+on the one type the financial-services target domain legally requires
+for money.
+
+### D-065: Declared-type inheritance (`declare X extends Y`) → CANT
+Supertype matching breaks the **one-type-one-arena invariant**
+everywhere it is load-bearing: alpha/beta indexes key on (type, field),
+property-reactivity masks are per-type bit positions, and node-sharing
+identity (D-029/D-033) assumes one arena per pattern type. A
+pattern-on-supertype scanning the union of subtype arenas is an arena
+redesign, not a feature. Stated as the blocking constraint in §3.
+
+### D-066: Fact equality for TMS → value-equality over declared fields; TMS flagged PRODUCT-CRITICAL
+Two rulings. (1) Mechanism: `insertLogical` justification sets use
+**value-equality over declared fields** — cheap in columnar (column-wise
+compare), no `@key` subsets, no Java equals/hashCode emulation.
+Equality-assert *mode* as a session config stays WONT (config-matrix
+argument, §4). (2) Priority reframe: TMS is **PRODUCT-CRITICAL, not a
+side feature** — `insertLogical` + justification + cascading retract is
+the substrate of the why/why-not derivation engine (facts that
+auto-retract when support disappears ARE the "why does this still
+hold / why did that clear" machinery). The ROADMAP row now carries the
+thesis-load-bearing flag; priority stays P2 in sequence but it is the
+anchor of that tier.
+
+### D-067: Char fields / char literals → WONT (out of subset)
+Niche type, odd DRL stringification of `'x'` literals, near-zero demand
+in the target domain. Walled out of the subset; noted in docs. Revisit
+only if a real corpus needs it — then decide 1-char-String vs i64
+code-point encoding.
+
+### D-068: Virtual date for `date-effective`/`date-expires` → WONT
+A ruleset whose behavior depends on the calendar is exactly the
+nondeterminism the temporal wall exists for — even with a fixed
+"evaluation date" scenario field. The distinction is now explicit in
+§4: dates as **fact data compared against** = ROADMAP (D-064); dates as
+**engine-evaluated effective/expiry attributes** = WONT. Users model
+dates as fact fields.
+
+### D-069: Declarative agenda → WONT
+Rules controlling other rules' matches couples agenda internals to user
+rules — deterministic but exotic meta-control, small upstream surface
+(m.i `DeclarativeAgendaTest`, 16 methods). Agenda-groups (already
+ROADMAP-P3) cover the real use cases. `DeclarativeAgendaTest` moves
+from "pending ruling" to a firm skiplist entry.
+
+**HANDOFF** — §5 rulings recorded (D-060..D-069), FEATURES.md §5 emptied
+into §1–§4. ROADMAP priority changes: nulls P3→P2 (D-063), TMS flagged
+product-critical (D-066), BigDecimal added as ROADMAP-P4-hard with the
+i128 scaled-fixed-point note (D-064), constraint arithmetic P3 (D-061),
+scalar globals P4 (D-062), Date P3 (D-064). New CANT: declared-type
+inheritance (D-065). New WONT: pseudo-clock CEP (D-060), Java-object
+globals (D-062), char (D-067), virtual-date attributes (D-068),
+declarative agenda (D-069). No engine changes; gate unchanged
+(baseline 7/7, probes 332/332, regressions 201/201).

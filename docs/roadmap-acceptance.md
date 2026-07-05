@@ -20,7 +20,8 @@ error).
 | Inline `&&`/`||`/`!()` constraint groups (P1) | operators.AndTest (explicit-and methods), operators.InTest#testNegatedIn, Misc2Test (combined-constraint methods) | ~15 |
 | Nested/multi-pattern not/exists (P1) | Misc2Test#testNestedNots1..3, compiler.integrationtests.FirstOrderLogicTest (not/exists group methods, ext-DRL) | ~12 |
 | forall (P2) | operators.ForAllTest | 29 |
-| TMS insertLogical (P2) | compiler.integrationtests.ErrorOnInsertLogicalTest; Misc2Test logical-insert methods; drools-tms module suite | 1 + ~6 + module |
+| TMS insertLogical (P2, PRODUCT-CRITICAL per D-066) | compiler.integrationtests.ErrorOnInsertLogicalTest; Misc2Test logical-insert methods; drools-tms module suite | 1 + ~6 + module |
+| Null field values (P2, D-063) | mvel.integrationtests.NullTest; NullCheckOnExistentialNodeTest (null-value methods) | 10 + ~3 |
 | Push/open/live queries (P2) | mvel.integrationtests.QueryTest (open-query methods), CepQueryTest (non-CEP methods) | ~8 |
 | Query + mutation (P2) | QueryTest (update-after-query methods) | ~5 |
 | Negation inside queries (P2) | QueryTest (query-with-not methods) | ~3 |
@@ -30,6 +31,8 @@ error).
 | groupby (P3) | drools-model GroupByTest | module |
 | Rule extends (P3) | mvel.integrationtests.ExtendsTest | 25 |
 | Named consequences (P3) | mvel.integrationtests.NamedConsequencesTest; EdgeCaseNonExecModelTest | 39 + 2 |
+| Constraint arithmetic, closed grammar (P3, D-061) | operators.MathTest (in-grammar methods), operators.FormulaTest (subset) | ~3 + ~1 |
+| Date field type (P3, D-064) | mvel.integrationtests.DateComparisonTest | 3 |
 | declare extras: defaults/@key/enums (P3) | mvel.integrationtests.TypeDeclarationTest, EnumTest; compiler.integrationtests.AnnotationsTest | 3 + 4 + 5 |
 | @watch/@classReactive/@propertyReactive (P3) | mvel.integrationtests.PropertySpecificTest, PropertyReactivityBlockerTest, PropertyReactivityTest (annotation methods) | 59 + 5 + ~20 |
 | Positional patterns in rules (P4) | Misc2Test positional methods | ~4 |
@@ -39,8 +42,13 @@ error).
 | soundslike (P4) | operators.SoundsLikeTest | 4 |
 | enabled attribute (P4) | operators.EnabledTest | 2 |
 | halt() (P4) | mvel.integrationtests.DroolsFromRHSTest | 2 |
+| Read-only scalar globals (P4, D-062) | compiler.integrationtests.drl.GlobalTest (scalar-read methods) | ~3 |
+| BigDecimal/BigInteger fields (P4 hard, D-064) | Misc2Test, drl.LiteralTest, operators.MathTest (BigDecimal/BigInteger methods) | ~8 |
 | Non-ASCII string values (P4) | mvel.integrationtests.I18nTest (value-only methods) | ~4 |
 
-Ambiguous §5 items (CEP pseudo-clock, bounded eval grammar, globals,
-nulls, Date/BigDecimal, inheritance, equality mode, char, virtual dates,
-declarative agenda) get acceptance rows here only after their ruling.
+The former FEATURES.md §5 ambiguities were resolved 2026-07-05
+(D-060..D-069): the ROADMAP outcomes (constraint arithmetic, nulls, Date,
+BigDecimal, scalar globals) have acceptance rows above; the CANT/WONT
+outcomes (pseudo-clock CEP, declared-type inheritance, char, virtual
+dates, declarative agenda, Java-object globals) are on the skip-list
+(docs/drools-test-skiplist.md).

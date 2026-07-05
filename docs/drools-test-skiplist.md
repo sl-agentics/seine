@@ -14,7 +14,7 @@ otherwise-extractable classes are recorded per-method in
 
 | Upstream tests | Blocking constraint |
 |---|---|
-| mvel MVELTest, JittingTest, operators MathTest, FormulaTest, EvalTest, EvalRewriteTest | No embedded Java/MVEL expression evaluation |
+| mvel MVELTest, JittingTest, operators MathTest, FormulaTest, EvalTest, EvalRewriteTest | No embedded Java/MVEL expression evaluation; general `eval` confirmed CANT (D-061). MathTest/FormulaTest methods inside the D-061 closed arithmetic grammar are ROADMAP acceptance (docs/roadmap-acceptance.md), not skips |
 | mvel FunctionsTest; DRL `function` methods throughout | User-authored Java function bodies |
 | AccumulateTest custom-function + inline-code methods; AccumulateMvelDialectTest | Custom accumulate functions are user Java |
 | CustomOperatorTest, CustomOperatorOnlyDrlTest | Pluggable Java evaluator API |
@@ -27,7 +27,7 @@ otherwise-extractable classes are recorded per-method in
 
 | Upstream tests | Why excluded |
 |---|---|
-| CepEspTest (117), StreamsTest, AbstractCepEspTest, AccumulateCepTest, CepEspNegativeCloudTest, NegativePatternsTest, ExpirationTest, TemporalOperatorTest, WindowTest, LengthSlidingWindowTest, PseudoClockEventsTest, CepJavaTypeTest, AnnotationsCepTest, DRLCepTest, SubnetworkCEPTest, LifecycleTest, QueryCep*, CepFireUntilHaltTimerTest, MTEntryPointsTest, session EntryPointTest | CEP runtime (events, clocks, windows, entry points) — clock-dependent semantics vs deterministic replay (pseudo-clock subset pending §5.1 ruling) |
+| CepEspTest (117), StreamsTest, AbstractCepEspTest, AccumulateCepTest, CepEspNegativeCloudTest, NegativePatternsTest, ExpirationTest, TemporalOperatorTest, WindowTest, LengthSlidingWindowTest, PseudoClockEventsTest, CepJavaTypeTest, AnnotationsCepTest, DRLCepTest, SubnetworkCEPTest, LifecycleTest, QueryCep*, CepFireUntilHaltTimerTest, MTEntryPointsTest, session EntryPointTest | CEP runtime (events, clocks, windows, entry points) — clock-dependent semantics vs deterministic replay (pseudo-clock included per D-060: even deterministic time adds a second WM lifecycle) |
 | TimerAndCalendar*Test (4 classes), CalendarTest, TimerAndCalendarExceptionTest | Timers/calendars = wall-clock scheduling |
 | FireUntilHaltTest, FireUntilHaltAccumulateTest, DroolsFromRHSTest (halt-thread methods), Parallel*Test, PhreakConcurrencyTest, all concurrency/ subdirs, MTEntryPointsTest | Threaded/active execution — single-threaded determinism is the product |
 | All Kie*Test (Builder/Container/Services/Repository/Module/DefaultPackage/HelloWorld/Loggers/CompilationCache/BaseIncludes…), ClassLoaderTest, KieBaseIncludeTest, PackageInMultipleResourcesTest, MessageImplTest, KnowledgeBuilderTest, phases/* | KIE platform: packaging, containers, build API — Seine's surface is DRL text + facts |
@@ -36,8 +36,11 @@ otherwise-extractable classes are recorded per-method in
 | DynamicRules*Test, DynamicRuleLoadTest, DynamicRuleRemovalTest, FailureOnRemovalTest, RuleExtensionTest (incremental methods), MergePackageTest, incrementalcompilation/ subdir | Dynamic KB mutation at runtime — rulebase is immutable per session |
 | DslTest, MultiSheetsTest (XLS), drools-decisiontables/templates/DMN/PMML modules | Authoring frontends compile down to rules |
 | equalitymode/* (as a config axis), kiebase-config-dependent methods (drools.propertySpecific etc.) | One certified semantics; no config matrix |
-| RuleFlowGroupTest, DeclarativeAgendaTest (pending §5.10) | BPM/ruleflow platform; declarative meta-agenda |
+| RuleFlowGroupTest, DeclarativeAgendaTest | BPM/ruleflow platform; declarative meta-agenda confirmed WONT (D-069) |
 | I18nTest (identifier methods) | Non-ASCII identifiers break the accessor-sort wall (D-050/D-051) |
+| Char-literal/char-field methods throughout (e.g. drl LiteralTest char methods) | Char type walled out of the subset (D-067) |
+| GlobalTest (Java-object/mutable-global methods), GlobalOnLHSTest (object-global methods) | Java-object globals are side-channel state (D-062); scalar-read methods are ROADMAP acceptance |
+| TimerAndCalendar date-effective/date-expires methods (incl. fixed-date variants) | Engine-evaluated calendar attributes WONT even with a virtual date (D-068); dates as fact fields are ROADMAP (D-064) |
 
 ## Not DRL-behavior (test the engine's internals or the test harness itself)
 
