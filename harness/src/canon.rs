@@ -232,11 +232,20 @@ fn canon_scalar(v: &J) -> Result<String, String> {
                 Err(format!("integer out of i64 range: {n}"))
             }
         }
-        // collect results: an ORDER-significant array of fact renderings
-        // (D-038)
+        // collect results (D-038) and ?query-CE args arrays (D-056): an
+        // ORDER-significant array of fact renderings; null elements are
+        // BOUND arg positions.
         J::Array(items) => {
-            let parts: Vec<String> =
-                items.iter().map(canon_fact).collect::<Result<_, String>>()?;
+            let parts: Vec<String> = items
+                .iter()
+                .map(|e| {
+                    if e.is_null() {
+                        Ok("null".to_string())
+                    } else {
+                        canon_fact(e)
+                    }
+                })
+                .collect::<Result<_, String>>()?;
             Ok(format!("[{}]", parts.join(",")))
         }
         other => Err(format!("unsupported scalar {other}")),

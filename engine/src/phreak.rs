@@ -208,6 +208,10 @@ pub enum Kind {
     /// per-left contexts and result propagation are engine-side
     /// (eval_acc_node) because results are synthetic store facts.
     Acc,
+    /// `?query` pull CE (D-056): only the left staging and sinks are
+    /// used; evaluation is engine-side (eval_query_ce_node) through the
+    /// Q1 stack machine. Never reaches do_node.
+    Query,
 }
 
 /// Beta-memory index kind (D-032). Equality hash indexes apply to every
@@ -697,6 +701,7 @@ pub fn do_node<E: JoinEnv>(
         Kind::Join => do_join_node(env, node_idx, node, sl, sr, &mut out),
         Kind::Not | Kind::Exists => do_existential_node(env, node_idx, node, sl, sr, &mut out),
         Kind::Acc => unreachable!("accumulate nodes evaluate engine-side"),
+        Kind::Query => unreachable!("?query CE nodes evaluate engine-side (D-056)"),
     }
 }
 

@@ -1,0 +1,15 @@
+{
+ "name": "qx0_lit",
+ "types": [
+  {"name": "A", "fields": [{"name": "id", "type": "i64"}]},
+  {"name": "B", "fields": [{"name": "k", "type": "i64"}]},
+  {"name": "Out", "fields": [{"name": "v", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "A", "fields": {"id": 1}},
+  {"type": "B", "fields": {"k": 10}},
+  {"type": "B", "fields": {"k": 20}},
+  {"type": "B", "fields": {"k": 10}}
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    $a : A()\n    ?BVals(10;)\nthen\n    insert(new Out($a.getId()));\nend\n"
+}

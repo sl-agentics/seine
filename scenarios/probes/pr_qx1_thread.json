@@ -1,0 +1,113 @@
+{
+ "name": "qx1_thread",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "x",
+     "type": "i64"
+    },
+    {
+     "name": "y",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 20
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 10,
+    "y": 100
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 20,
+    "y": 200
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 20,
+    "y": 201
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 99,
+    "y": 900
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\nquery CPair(long $a, long $b)\n    P(x == $a, y == $b)\nend\n\nrule R1\nwhen\n    $a : A()\n    ?BVals($x;)\n    ?CPair($x, $y;)\nthen\n    insert(new Out($x, $y));\nend\n",
+ "queries": [
+  {
+   "call": "BVals",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "CPair",
+   "args": [
+    20,
+    null
+   ]
+  }
+ ]
+}

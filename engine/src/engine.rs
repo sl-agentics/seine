@@ -34,6 +34,10 @@ pub(crate) const ACC_LONG: &str = "Long";
 pub(crate) const ACC_DOUBLE: &str = "Double";
 pub(crate) const ACC_COLLECTION: &str = "Collection";
 const RESERVED_TYPES: [&str; 4] = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION];
+/// Hidden row types for ?query CEs (D-056): one per query, fields = the
+/// query's params. Rows render as QueryArgs match elements and never
+/// appear in the final fact set.
+pub(crate) const QROW_PREFIX: &str = "__qrow$";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct EngineError(pub String);
@@ -117,6 +121,36 @@ struct CompiledPattern {
     /// Accumulate/collect spec (D-038): the pattern describes the SOURCE;
     /// the node emits one synthetic result per left context.
     acc: Option<CompiledAcc>,
+    /// `?query` pull CE spec (D-056): the pattern's tuple element is a
+    /// synthetic row fact of the query's hidden row type.
+    qce: Option<CompiledQce>,
+}
+
+/// Compiled `?query(args;)` CE (D-056).
+#[derive(Clone)]
+struct CompiledQce {
+    /// Index into Engine.queries.
+    qi: usize,
+    /// Per-param-position argument sources.
+    args: Vec<CeArg>,
+    /// Hidden row type holding one emitted row per firing (fields = the
+    /// query's params in order).
+    row_tid: TypeId,
+    /// Bit i set = position i is BOUND (literal or earlier binding) —
+    /// renders as null in the QueryArgs match element.
+    bound_mask: u64,
+}
+
+#[derive(Clone)]
+enum CeArg {
+    Lit(Value),
+    /// (tuple position, field index) of an earlier scalar binding; the
+    /// NAME is identity-significant for node sharing (D-056,
+    /// qx7_share_bound2 — ne_t13-style).
+    Bound { pos: usize, field: usize, name: String },
+    /// Fresh output variable (name irrelevant for sharing,
+    /// qx5_share_name).
+    Unbound,
 }
 
 #[derive(Clone)]
@@ -531,6 +565,12 @@ pub struct Engine {
     act_seq: u64,
     /// Compiled DRL queries, evaluated on demand (Phase Q0, D-050).
     queries: Vec<crate::queries::CompiledQuery>,
+    /// Hidden per-query row types for ?query CEs (D-056), aligned with
+    /// `queries`.
+    qrow_tids: Vec<TypeId>,
+    /// Deferred evaluation error (?query CE runtime backstops surface
+    /// here because evaluate_rule has no error channel).
+    pending_err: Option<String>,
 }
 
 impl Engine {
@@ -540,7 +580,7 @@ impl Engine {
             if !seen.insert(s.name.clone()) {
                 return Err(EngineError(format!("duplicate type {}", s.name)));
             }
-            if RESERVED_TYPES.contains(&s.name.as_str()) {
+            if RESERVED_TYPES.contains(&s.name.as_str()) || s.name.starts_with(QROW_PREFIX) {
                 return Err(EngineError(format!("type name {} is reserved", s.name)));
             }
             if s.fields.len() > 64 {
@@ -571,6 +611,8 @@ impl Engine {
             collect_vals: HashMap::new(),
             act_seq: 0,
             queries: Vec::new(),
+            qrow_tids: Vec::new(),
+            pending_err: None,
         })
     }
 
@@ -589,10 +631,40 @@ impl Engine {
             self.queries =
                 crate::queries::compile_queries(&self.store, file.queries, &RESERVED_TYPES)?;
             crate::queries::validate_calls(&self.queries)?;
+            // Hidden row types for ?query CEs (D-056): fields = params.
+            for q in &self.queries {
+                let tid = self.store.add_schema(TypeSchema {
+                    name: format!("{QROW_PREFIX}{}", q.name),
+                    fields: q.params_view().to_vec(),
+                });
+                self.qrow_tids.push(tid);
+            }
         }
         for def in file.rules {
             let compiled = self.compile_rule(def)?;
             self.rules.push(compiled);
+        }
+        // D-057: query+mutation stays walled (D-051) — a unit with ?query
+        // CEs must be insert-only.
+        let has_qce = self
+            .rules
+            .iter()
+            .any(|r| r.patterns.iter().any(|p| p.qce.is_some()));
+        if has_qce
+            && self.rules.iter().any(|r| {
+                r.actions.iter().any(|a| {
+                    matches!(
+                        a,
+                        CompiledAction::Set { .. }
+                            | CompiledAction::Update { .. }
+                            | CompiledAction::Delete { .. }
+                    )
+                })
+            })
+        {
+            return Err(EngineError(
+                "?query CEs cannot coexist with update/modify/delete actions (D-057)".into(),
+            ));
         }
         self.rule_order = (0..self.rules.len()).collect();
         self.rule_order
@@ -664,7 +736,9 @@ impl Engine {
                         Some(&nid) => nid,
                         None => {
                             let pat = &self.rules[ri].patterns[j];
-                            let kind = if pat.acc.is_some() {
+                            let kind = if pat.qce.is_some() {
+                                phreak::Kind::Query
+                            } else if pat.acc.is_some() {
                                 phreak::Kind::Acc
                             } else {
                                 match pat.ce {
@@ -748,6 +822,24 @@ impl Engine {
     /// D-029 alpha-node key), other literals as written.
     fn pattern_key(&self, p: &CompiledPattern) -> String {
         use std::fmt::Write as _;
+        // ?query CE identity (D-056): query + args template — literals by
+        // value, bound vars BY NAME + source, unbound positions as
+        // placeholders (qx5_share_name/share_lit, qx7_share_bound2).
+        if let Some(qce) = &p.qce {
+            let mut s = format!("QCE|{}", qce.qi);
+            for a in &qce.args {
+                match a {
+                    CeArg::Lit(v) => {
+                        let _ = write!(s, ";L{v:?}");
+                    }
+                    CeArg::Bound { pos, field, name } => {
+                        let _ = write!(s, ";B{name}@{pos}.{field}");
+                    }
+                    CeArg::Unbound => s.push_str(";U"),
+                }
+            }
+            return s;
+        }
         let mut s = format!("{}|{:?}|b{}", p.type_id.0, p.ce, p.bind_fields);
         for c in &p.cmps {
             let _ = write!(s, ";{}", c.field_idx);
@@ -892,13 +984,20 @@ impl Engine {
         // types opaquely (Comparable/Number) — those results compile
         // nowhere: not in comparisons, not as RHS args (D-039).
         let mut acc_opaque: HashSet<String> = HashSet::new();
+        // Vars bound by ?query CEs: usable downstream except in salience
+        // expressions (D-057).
+        let mut qce_binds: HashSet<String> = HashSet::new();
         let mut patterns = Vec::new();
         let mut tuple_len = 0usize;
 
         // A rule whose first pattern is a CE (or an accumulate, which is
-        // a beta node needing a left input) matches on InitialFact
-        // (ne_f1/acc1): inject the synthetic positive position 0.
-        if def.patterns[0].ce != CeKind::Positive || def.patterns[0].acc.is_some() {
+        // a beta node needing a left input, or a ?query CE) matches on
+        // InitialFact (ne_f1/acc1/qx0_first): inject the synthetic
+        // positive position 0.
+        if def.patterns[0].ce != CeKind::Positive
+            || def.patterns[0].acc.is_some()
+            || def.patterns[0].q_args.is_some()
+        {
             let tid = self
                 .store
                 .type_id(INITIAL_FACT)
@@ -914,6 +1013,7 @@ impl Engine {
                 index_ci: None,
                 bind_fields: 0,
                 acc: None,
+                qce: None,
             });
             tuple_len = 1;
         }
@@ -922,10 +1022,118 @@ impl Engine {
             if p.type_name == INITIAL_FACT {
                 return Err(err(format!("type name {INITIAL_FACT} is reserved")));
             }
-            let type_id = self
-                .store
-                .type_id(&p.type_name)
-                .ok_or_else(|| err(format!("unknown type {}", p.type_name)))?;
+            if p.type_name.starts_with(QROW_PREFIX) {
+                return Err(err(format!("type name {} is reserved", p.type_name)));
+            }
+            // ---- `?query(args;)` pull CE (D-056) ----
+            if let Some(qargs) = &p.q_args {
+                let qi = self
+                    .queries
+                    .iter()
+                    .position(|q| q.name == p.type_name)
+                    .ok_or_else(|| err(format!("?{}: no such query", p.type_name)))?;
+                let params: Vec<(String, FieldType)> =
+                    self.queries[qi].params_view().to_vec();
+                if qargs.len() != params.len() {
+                    return Err(err(format!(
+                        "?{}: expected {} args, got {}",
+                        p.type_name,
+                        params.len(),
+                        qargs.len()
+                    )));
+                }
+                let t = tuple_len;
+                tuple_len += 1;
+                let row_tid = self.qrow_tids[qi];
+                let mut args = Vec::new();
+                let mut bound_mask = 0u64;
+                let mut fresh_here: HashSet<String> = HashSet::new();
+                for (i, (a, (pname, pt))) in qargs.iter().zip(&params).enumerate() {
+                    match a {
+                        drl::QArg::Lit(l) => {
+                            if lit_type(l) != *pt {
+                                return Err(err(format!(
+                                    "?{}: literal arg for {pname} must match the param type exactly (D-057)",
+                                    p.type_name
+                                )));
+                            }
+                            bound_mask |= 1 << i;
+                            args.push(CeArg::Lit(lit_value(l)));
+                        }
+                        drl::QArg::Var(v) => {
+                            if fact_binds.contains_key(v) {
+                                return Err(err(format!(
+                                    "?{}: {v} is a fact binding; call args must be scalars (D-055)",
+                                    p.type_name
+                                )));
+                            }
+                            if let Some((bpi, bfi, bft)) = field_binds.get(v).copied() {
+                                if fresh_here.contains(v) {
+                                    // repeated FRESH var in one call: every
+                                    // occurrence is UNBOUND; the var binds
+                                    // its LAST position (qx4_dupvar_out)
+                                    if *pt != bft {
+                                        return Err(err(format!(
+                                            "?{}: repeated var {v} spans differently-typed params",
+                                            p.type_name
+                                        )));
+                                    }
+                                    field_binds.insert(v.clone(), (t, i, *pt));
+                                    args.push(CeArg::Unbound);
+                                    continue;
+                                }
+                                if bft != *pt {
+                                    return Err(err(format!(
+                                        "?{}: arg {v} must match the type of param {pname} exactly (D-057)",
+                                        p.type_name
+                                    )));
+                                }
+                                bound_mask |= 1 << i;
+                                args.push(CeArg::Bound { pos: bpi, field: bfi, name: v.clone() });
+                            } else {
+                                // fresh output var: binds per row; a
+                                // repeated fresh var takes its LAST
+                                // position downstream (qx4_dupvar_out)
+                                if !crate::queries::param_bound_all_branches(&self.queries, qi, i)
+                                {
+                                    return Err(err(format!(
+                                        "?{}: unbound arg for {pname}, which is not bound in every branch of the callee (D-057)",
+                                        p.type_name
+                                    )));
+                                }
+                                field_binds.insert(v.clone(), (t, i, *pt));
+                                qce_binds.insert(v.clone());
+                                fresh_here.insert(v.clone());
+                                args.push(CeArg::Unbound);
+                            }
+                        }
+                    }
+                }
+                patterns.push(CompiledPattern {
+                    type_id: row_tid,
+                    cmps: Vec::new(),
+                    listen_mask: 0,
+                    ce: CeKind::Positive,
+                    tpos: Some(t),
+                    beta: false,
+                    pindex: phreak::Index::None,
+                    index_ci: None,
+                    bind_fields: 0,
+                    acc: None,
+                    qce: Some(CompiledQce { qi, args, row_tid, bound_mask }),
+                });
+                continue;
+            }
+            let type_id = self.store.type_id(&p.type_name).ok_or_else(|| {
+                if self.queries.iter().any(|q| q.name == p.type_name) {
+                    err(format!(
+                        "{}: reactive (push) query CEs are out of subset — use ?{}(...) (D-057)",
+                        p.type_name, p.type_name
+                    ))
+                } else {
+                    err(format!("unknown type {}", p.type_name))
+                }
+            })?;
             let tpos = if p.ce == CeKind::Positive {
                 let t = tuple_len;
                 tuple_len += 1;
@@ -1161,6 +1369,7 @@ impl Engine {
                 index_ci,
                 bind_fields,
                 acc,
+                qce: None,
             });
         }
 
@@ -1168,8 +1377,8 @@ impl Engine {
         for a in &def.actions {
             match a {
                 Action::Insert { type_name, args } => {
-                    if type_name == INITIAL_FACT {
-                        return Err(err(format!("type name {INITIAL_FACT} is reserved")));
+                    if type_name == INITIAL_FACT || type_name.starts_with(QROW_PREFIX) {
+                        return Err(err(format!("type name {type_name} is reserved")));
                     }
                     let tid = self
                         .store
@@ -1242,6 +1451,11 @@ impl Engine {
                     match t {
                         drl::SalTerm::Lit(n) => Ok(SalSrc::Lit(*n)),
                         drl::SalTerm::Var(v) => {
+                            if qce_binds.contains(v) {
+                                return Err(err(format!(
+                                    "salience: {v} is bound by a ?query CE (out of subset, D-057)"
+                                )));
+                            }
                             let (ti, fi, ft) = field_binds
                                 .get(v)
                                 .copied()
@@ -1264,6 +1478,17 @@ impl Engine {
                 EngineSalience::Dyn { a, op }
             }
         };
+        // D-057: ?query CEs compose with plain positive patterns only —
+        // not/exists/accumulate in the same rule are unprobed.
+        if patterns.iter().any(|p| p.qce.is_some())
+            && patterns
+                .iter()
+                .any(|p| p.ce != CeKind::Positive || p.acc.is_some())
+        {
+            return Err(err(
+                "?query CEs cannot mix with not/exists/accumulate in one rule (D-057)".into(),
+            ));
+        }
         Ok(CompiledRule { def, patterns, actions, salience })
     }
 
@@ -1370,6 +1595,7 @@ impl Engine {
         id: FactId,
         fields: Vec<(String, Value)>,
     ) -> Result<(), EngineError> {
+        self.reject_mutation_with_qce("update")?;
         if !self.store.is_alive(id) {
             return Err(EngineError(format!("update of dead handle {}", id.0)));
         }
@@ -1398,6 +1624,7 @@ impl Engine {
 
     /// EXTERNAL working-memory delete by handle (D-047).
     pub fn delete_fact(&mut self, id: FactId) -> Result<(), EngineError> {
+        self.reject_mutation_with_qce("delete")?;
         if !self.store.is_alive(id) {
             return Err(EngineError(format!("delete of dead handle {}", id.0)));
         }
@@ -1407,6 +1634,21 @@ impl Engine {
             for net in self.nets.iter_mut() {
                 net.s0_close_window();
             }
+        }
+        Ok(())
+    }
+
+    /// D-057: external update/delete with ?query CEs compiled is out of
+    /// subset (left churn at query nodes is unprobed).
+    fn reject_mutation_with_qce(&self, what: &str) -> Result<(), EngineError> {
+        if self
+            .rules
+            .iter()
+            .any(|r| r.patterns.iter().any(|p| p.qce.is_some()))
+        {
+            return Err(EngineError(format!(
+                "external {what} with ?query CEs is out of subset (D-057)"
+            )));
         }
         Ok(())
     }
@@ -1422,6 +1664,9 @@ impl Engine {
         let mut firings = Vec::new();
         let mut last_fired: Option<usize> = None;
         while let Some(ri) = self.next_activation(last_fired) {
+            if let Some(e) = self.pending_err.take() {
+                return Err(EngineError(e));
+            }
             last_fired = Some(ri);
             if firings.len() >= limit {
                 return Err(EngineError(format!(
@@ -1454,19 +1699,28 @@ impl Engine {
                 }
             }
             // Post-RHS rendering (D-013 / j03); collect results carry
-            // their CURRENT element list (D-038).
+            // their CURRENT element list (D-038); ?query-CE rows render
+            // as the QueryArgs array (D-056: null at bound positions).
             let matches: Vec<FactView> = tuple
                 .iter()
-                .map(|&f| {
+                .enumerate()
+                .map(|(pos, &f)| {
+                    if let Some(qv) = self.render_qargs(ri, pos, f) {
+                        return qv;
+                    }
                     let mut fv = self.store.render(f);
                     if let Some(elems) = self.collect_vals.get(&f) {
-                        fv.elems =
-                            Some(elems.iter().map(|&e| self.store.render(e)).collect());
+                        fv.elems = Some(
+                            elems.iter().map(|&e| Some(self.store.render(e))).collect(),
+                        );
                     }
                     fv
                 })
                 .collect();
             firings.push(Firing { rule: self.rules[ri].def.name.clone(), matches });
+        }
+        if let Some(e) = self.pending_err.take() {
+            return Err(EngineError(e));
         }
         Ok(firings)
     }
@@ -1740,6 +1994,12 @@ impl Engine {
             // AccumulateNode canBeDisabled == false: never gates the path.
             return true;
         }
+        if pat.qce.is_some() {
+            // QueryElementNode has no right input: never gates the path
+            // (a rule with an empty-rowed ?query CE still evaluates and
+            // simply fires nothing — qx6_empty).
+            return true;
+        }
         let node = &self.trie[self.nets[ri].path[pos - 1]];
         match pat.ce {
             CeKind::Positive | CeKind::Exists => !node.active.is_empty(),
@@ -1791,10 +2051,13 @@ impl Engine {
                     }
                 })
                 .collect();
+            // ?query-CE positions hold synthetic row facts that never
+            // retract (pull semantics, D-056) — excluded from pruning.
             let positives: Vec<(usize, usize)> = self.rules[ri]
                 .patterns
                 .iter()
                 .enumerate()
+                .filter(|(_, p)| p.qce.is_none())
                 .filter_map(|(pos, p)| p.tpos.map(|t| (pos, t)))
                 .collect();
             let pre = self.queue_top_sal(ri).unwrap_or(0);
@@ -1887,7 +2150,16 @@ impl Engine {
                 None => Staged::default(),
             };
             let mut trg: Staged<Tup> = Staged::default();
-            if self.trie[ni].node.kind == phreak::Kind::Acc {
+            if self.trie[ni].node.kind == phreak::Kind::Query {
+                let sink_count = self.trie[ni].sinks.len();
+                match self.eval_query_ce_node(env_ri, env_pos, src, sink_count) {
+                    Ok(t) => trg = t,
+                    Err(e) => {
+                        self.pending_err = Some(e.0);
+                        return;
+                    }
+                }
+            } else if self.trie[ni].node.kind == phreak::Kind::Acc {
                 trg = self.eval_acc_node(ni, env_ri, env_pos, src, sr, &mut first_pending);
             } else {
                 let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
@@ -2243,6 +2515,92 @@ impl Engine {
     }
 
     /// accumulate(): apply the contribution and record the match.
+    /// Evaluate a ?query CE node (D-056): each staged left pulls the
+    /// query against the CURRENT WM through the Q1 stack machine (one
+    /// batched run — dquery envs prepend into the callee pools in src
+    /// order, so evaluation interleaves exactly like Drools'). One child
+    /// tuple per result row, carrying a synthetic row fact. The site
+    /// staging (rows prepended at arrival) drains ORDER-PRESERVED to a
+    /// single sink (TupleSetsImpl.addTo = addAll); a SHARED node
+    /// re-reverses first (QueryTupleSets.addTo re-addInserts) so the
+    /// D-037 propagation gives the first-built sink arrival order and
+    /// later sinks the flipped copies (qx3_two_rules/qx5_three_rules).
+    fn eval_query_ce_node(
+        &mut self,
+        env_ri: usize,
+        env_pos: usize,
+        src: Staged<Tup>,
+        sink_count: usize,
+    ) -> Result<Staged<Tup>, EngineError> {
+        if !src.upd.is_empty() || !src.del.is_empty() || !src.norm_del.is_empty() {
+            return Err(EngineError(
+                "?query CE under left update/delete is out of subset (D-057)".into(),
+            ));
+        }
+        let qce = self.rules[env_ri].patterns[env_pos]
+            .qce
+            .clone()
+            .expect("query node pattern has a qce spec");
+        // src head→tail = real staged order (full LIFO across windows,
+        // qx6_windows); bound args read the left tuple.
+        let calls: Vec<Vec<Option<Value>>> = src
+            .ins
+            .iter()
+            .map(|(t, _, _)| {
+                qce.args
+                    .iter()
+                    .map(|a| match a {
+                        CeArg::Lit(v) => Some(v.clone()),
+                        CeArg::Bound { pos, field, .. } => {
+                            Some(self.store.value(t[*pos], *field))
+                        }
+                        CeArg::Unbound => None,
+                    })
+                    .collect()
+            })
+            .collect();
+        let staged = crate::queries::run_site(&self.store, &self.queries, qce.qi, &calls)?;
+        let mut children = Vec::with_capacity(staged.len());
+        for (call_idx, values) in staged {
+            let fid = self.store.insert(qce.row_tid, values).map_err(EngineError)?;
+            let (left, o, ph) = &src.ins[call_idx];
+            let mut child = left.clone();
+            child.push(fid);
+            children.push((child, *o, *ph));
+        }
+        if sink_count > 1 {
+            children.reverse(); // QueryTupleSets.addTo re-reversal (D-056)
+        }
+        let mut trg: Staged<Tup> = Staged::default();
+        trg.ins = children;
+        Ok(trg)
+    }
+
+    /// Render a ?query-CE tuple element as its QueryArgs array (D-056):
+    /// null at bound positions, the row's value at unbound positions.
+    fn render_qargs(&self, ri: usize, pos: usize, f: FactId) -> Option<FactView> {
+        let pat = self.rules[ri]
+            .patterns
+            .iter()
+            .find(|p| p.tpos == Some(pos))?;
+        let qce = pat.qce.as_ref()?;
+        let elems = (0..qce.args.len())
+            .map(|i| {
+                if qce.bound_mask >> i & 1 == 1 {
+                    None
+                } else {
+                    Some(scalar_view(self.store.value(f, i)))
+                }
+            })
+            .collect();
+        Some(FactView {
+            type_name: "QueryArgs".into(),
+            fields: Vec::new(),
+            handle: u32::MAX,
+            elems: Some(elems),
+        })
+    }
+
     fn acc_add_match(&mut self, ni: usize, func: AccFunc, l: &Tup, f: FactId, v: Value) {
         let ctx = self.trie[ni].acc.get_mut(l).expect("acc ctx");
         ctx.apply(func, f, &v);
@@ -2472,10 +2830,11 @@ impl Engine {
     /// (matches session.getObjects(): result Numbers/Collections are not
     /// working-memory objects).
     pub fn facts(&self) -> Vec<FactView> {
-        let hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION]
+        let mut hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION]
             .iter()
             .filter_map(|n| self.store.type_id(n))
             .collect();
+        hidden.extend(self.qrow_tids.iter().copied());
         self.store
             .live_facts()
             .filter(|f| !hidden.contains(&self.store.fact_type(*f)))
@@ -2492,6 +2851,23 @@ impl Engine {
         args: &[Option<Value>],
     ) -> Result<crate::queries::QueryOutput, EngineError> {
         crate::queries::run_query(&self.store, &self.queries, name, args)
+    }
+}
+
+/// Boxed-scalar rendering for QueryArgs elements (D-056) — same shape as
+/// query row scalars (D-049).
+fn scalar_view(v: Value) -> FactView {
+    let type_name = match v {
+        Value::I64(_) => "Long",
+        Value::F64(_) => "Double",
+        Value::Str(_) => "String",
+        Value::Bool(_) => "Boolean",
+    };
+    FactView {
+        type_name: type_name.into(),
+        fields: vec![("value".into(), v)],
+        handle: u32::MAX,
+        elems: None,
     }
 }
 

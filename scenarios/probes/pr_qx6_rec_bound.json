@@ -1,0 +1,76 @@
+{
+ "name": "qx6_rec_bound",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Want",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Found",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "place",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "key",
+    "location": "drawer"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "drawer",
+    "location": "desk"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "pen",
+    "location": "cup"
+   }
+  },
+  {
+   "type": "Want",
+   "fields": {
+    "thing": "key"
+   }
+  },
+  {
+   "type": "Want",
+   "fields": {
+    "thing": "pen"
+   }
+  }
+ ],
+ "drl": "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n\nrule R1\nwhen\n    Want($t : thing)\n    ?contained($t, \"desk\";)\nthen\n    insert(new Found($t, \"desk\"));\nend\n"
+}

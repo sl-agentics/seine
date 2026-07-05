@@ -369,6 +369,104 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+## Query CEs in rules — Phase Q2 (2026-07-05)
+
+### D-056: `?query` pull CEs in rules PINNED — the rule-site bridge into
+### the Q1 stack machine (probes qx0..qx7, 36 scenarios; sources:
+### PhreakQueryNode, QueryElementNode/QueryTupleSets, RuleNetworkEvaluator
+### .evalQueryNode/evalStackEntry; python replica q2_check replays 36/36)
+New DRL surface: `?Name(a1, ..., ak;)` as a rule CE at any LHS position.
+Args are positional over the query's params: a literal (exact param
+type), a var bound by an earlier pattern/CE (filters inside the callee),
+or a FRESH var (binds per result row; usable in later patterns, CE args
+and the RHS). The rule fires once per result row.
+
+**Evaluation window** (qx2 series): the pull happens LAZILY at the
+rule's agenda evaluation window, against the WM as of that moment
+(qx2_lazy_window; rule-derived facts included, qx2_derived_chain,
+qx6_rec_derived). `?` CEs are NOT reactive: WM changes to queried types
+never refire already-evaluated lefts (qx2_late_pull); each NEW left
+pulls at ITS OWN window (qx2_new_left). The push form (no `?`) IS
+reactive (qx2_late_push) — walled, D-057.
+
+**Match rendering:** the CE contributes the call's args array to the
+match objects — null at BOUND positions, the row's value at UNBOUND
+positions (qx0_bound/lit, qx1_params2; internal callee declarations
+never appear). Both runners canonicalize it as
+`{"type":"QueryArgs","fields":{"value":[...]}}`, ORDER-significant
+(raw Object[].toString carries an identity hash). A leading CE matches
+on InitialFact (qx0_first). A repeated unbound var gets per-position
+row values in the array, and the DOWNSTREAM binding takes the LAST
+position's value (qx4_dupvar_out: row (2,3) via ?CPair($v,$v;) fires
+QA[2,3] and inserts Out(3)) — unlike nested-call threading, which
+stays first-wins (D-054).
+
+**Ordering — the machine** (all replica-verified): the CE is a Q1
+nested-call site embedded in the rule path.
+1. Rule-side lefts reach the CE in RAW staged order — full LIFO across
+   evaluation windows (newest window first, LIFO within: qx6_windows
+   fired A1,A2,A3,A4 = reverse of staging [A4,A3,A2,A1]); a preceding
+   join's output batch is consumed in its staged order (qx6_join_before).
+2. doLeftInserts consumes src head→tail, PREPENDING one dquery env per
+   left into every callee-branch pool (pool = reverse of src); branch
+   frames push in declaration order onto the LIFO stack (last branch
+   evaluates first — same as D-054 nested calls). All Q0/Q1 internals
+   (D-050/D-052/D-053 fact levels, D-054 call frames/sweeps) unchanged.
+3. Each result row PREPENDS a child tuple [left + args array] into the
+   CE's result staging AT ARRIVAL (rowAdded → addInsert). All rows
+   arrive while the site's resume frame is still pending, so the D-055
+   late-result re-push stays UNREACHABLE through the rule bridge
+   (replica asserts staging empty at every site entry, 36/36).
+4. At the site's resume pop the staging drains to the next rule level:
+   ORDER-PRESERVED for single-sink CEs (TupleSetsImpl.addTo = addAll).
+   Net observable: one left's rows fire in REVERSE of the standalone
+   getQueryResults order (qx1_order_std); left blocks fire in reverse
+   of the staged-left order; downstream joins/CEs consume the drained
+   list with standard staging semantics (qx1_next_level/thread/two_ce/
+   same_twice; fact-level parity qx5_batch2/batch3; call-level
+   qx5_batch_call; recursive interleave qx5_rec_multi).
+5. SHARED CEs (multi-sink) stage into a QueryTupleSets whose drain
+   RE-REVERSES (addTo re-addInserts head→tail), then D-037 propagation:
+   first-BUILT sink gets the drained list as-is, later sinks get
+   flipped copies — so the first sink fires rows in standalone/arrival
+   order while later sinks and unshared CEs fire reverse-arrival
+   (qx3_two_rules, qx5_three_rules; evaluation window owned by whoever
+   reaches it first, polarity fixed by build order: qx3_salience;
+   leading-CE variant qx6_share_first).
+
+**Sharing identity** (for the trie): two rules share a `?query` CE node
+iff the query name AND the args template match — literals by value
+(qx5_share_lit: lit vs var ⇒ no share), bound-var args BY NAME
+(qx7_share_bound2: $aid vs $bid ⇒ no share, ne_t13-style), unbound
+positions as placeholders (var NAMES irrelevant: qx5_share_name shares
+$x vs $y). Preceding-prefix identity per D-036/D-037 as usual.
+
+### D-057: Phase Q2 wall
+IN: `?`-prefixed pull CEs in rules over D-055-shape queries (recursive
+and not); args = literals / bound vars / fresh vars; multiple CEs per
+rule incl. the same query twice (qx5_same_twice); CEs at any position
+incl. leading (InitialFact) and after joins; CE-bound vars flowing into
+later patterns, later CE args, and RHS insert args; shared CE prefixes
+across rules; INSERT-ONLY programs — rules may insert queried types
+(no reactivity, termination unaffected; qx2_derived_chain) and even
+recursive-query source types when the DATA stays acyclic by
+construction (qx6_rec_derived; generators never do this).
+OUT (compile-rejected in the engine and/or excluded from generators):
+- PUSH query CEs (no `?`): reactive (qx2_late_push pinned the basic
+  refire) but the open-query row-update/remove lifecycle is unprobed.
+- Query+mutation stays walled (D-051): no update/delete epochs in
+  query scenarios; generated Q2 programs keep insert-only RHS — the
+  PhreakQueryNode doLeftUpdates/doLeftDeletes paths (left churn at CE
+  nodes, dquery re-parameterization) are unprobed.
+- not/exists/accumulate/collect CEs in the SAME rule as a `?query` CE
+  (linking/staging interplay unprobed); `?query` inside not/exists.
+- CE-bound vars in salience expressions (typing unprobed, D-043 scope).
+- Expression args (`$b.getF()`, arithmetic) and fact-binding args.
+- Repeated unbound vars in one CE call: engine implements the last-wins
+  pin (qx4_dupvar regression) but generators never emit them.
+- Arg/param type mismatches: exact-type match required (engine
+  compile error; Drools would coerce per Java assignability, unprobed).
+
 ## Recursive queries — Phase Q1 (2026-07-04)
 
 ### D-054: recursive-query semantics PINNED — the stack-machine model

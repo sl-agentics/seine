@@ -110,12 +110,14 @@ enum EnvVal {
     Val(Value),
 }
 
-/// Root of an evaluation tuple: the top-level call, or a nested dquery
-/// remembering its call site and full caller env for result routing.
+/// Root of an evaluation tuple: the top-level call, a nested dquery
+/// remembering its call site and full caller env for result routing, or
+/// a rule-side ?query CE call (D-056) remembering which left it serves.
 #[derive(Clone)]
 enum Root {
     Top,
     Nested(Rc<NestedRoot>),
+    Site(usize),
 }
 
 struct NestedRoot {
@@ -776,6 +778,9 @@ struct Machine<'a> {
     qmem: HashMap<(usize, usize, usize), Vec<Env>>,
     stack: Vec<Frame>,
     out: Vec<Env>,
+    /// Rule-site result staging (D-056): rows PREPEND at arrival
+    /// (rowAdded/addInsert), so index 0 = newest.
+    site_out: Vec<(usize, Vec<Value>)>,
     steps: usize,
 }
 
@@ -813,6 +818,7 @@ pub fn run_query(
         qmem: HashMap::new(),
         stack: Vec::new(),
         out: Vec::new(),
+        site_out: Vec::new(),
         steps: 0,
     };
     let mut env0 = Env { slots: vec![None; q.slot_count], root: Root::Top };
@@ -850,6 +856,82 @@ pub fn run_query(
     Ok(QueryOutput { identifiers: idents, rows })
 }
 
+/// Rule-side ?query CE evaluation (D-056): one BATCHED machine run for a
+/// window's staged lefts. `calls` holds each left's args in REAL staged
+/// order (head first, full LIFO); each is PREPENDED as a dquery env into
+/// every callee-branch pool (pool = reverse of src — evaluation
+/// interleaves per left exactly like PhreakQueryNode.doLeftInserts), then
+/// ALL branch frames push in declaration order and pop LIFO — unlike the
+/// standalone entry point, which drives paths sequentially in declaration
+/// order (both pinned; evalQueryNode vs getQueryResults).
+/// Returns the site staging head-first: (call index, full row values per
+/// param). The caller drains it order-preserved for a single sink and
+/// re-reversed for shared sinks (QueryTupleSets.addTo).
+pub fn run_site(
+    store: &FactStore,
+    queries: &[CompiledQuery],
+    qi: usize,
+    calls: &[Vec<Option<Value>>],
+) -> Result<Vec<(usize, Vec<Value>)>, EngineError> {
+    let q = &queries[qi];
+    let mut m = Machine {
+        store,
+        queries,
+        pool: HashMap::new(),
+        qmem: HashMap::new(),
+        stack: Vec::new(),
+        out: Vec::new(),
+        site_out: Vec::new(),
+        steps: 0,
+    };
+    for (idx, args) in calls.iter().enumerate() {
+        let mut env = Env { slots: vec![None; q.slot_count], root: Root::Site(idx) };
+        for (i, a) in args.iter().enumerate() {
+            env.slots[i] = a.clone().map(EnvVal::Val);
+        }
+        for b in 0..q.branches.len() {
+            m.pool.entry((qi, b)).or_default().insert(0, env.clone());
+        }
+    }
+    for b in 0..q.branches.len() {
+        let batch = m.pool.get_mut(&(qi, b)).map(std::mem::take).unwrap_or_default();
+        m.stack.push(Frame::Branch { q: qi, b, batch });
+    }
+    m.drain()?;
+    debug_assert!(m.qmem.values().all(|v| v.is_empty()), "leftover nested results");
+    Ok(std::mem::take(&mut m.site_out))
+}
+
+/// True when param `i` of query `qi` is bound in EVERY branch — directly
+/// by a fact-pattern unification, or by threading into a call whose
+/// corresponding param is (recursively) all-branches-bound. ?query CEs
+/// require this of every UNBOUND arg (D-057): the emitted row must carry
+/// a value at each param position.
+pub fn param_bound_all_branches(queries: &[CompiledQuery], qi: usize, i: usize) -> bool {
+    fn go(queries: &[CompiledQuery], qi: usize, i: usize, visiting: &mut Vec<(usize, usize)>) -> bool {
+        if visiting.contains(&(qi, i)) {
+            return true; // optimistic on cycles (self-recursion bottoms out at the base branch)
+        }
+        visiting.push((qi, i));
+        let q = &queries[qi];
+        let ok = q.branches.iter().all(|br| {
+            br.iter().any(|n| match n {
+                CNode::Fact(p) => p
+                    .beta
+                    .iter()
+                    .any(|b| matches!(b.operand, Operand::Param(s) if s == i)),
+                CNode::Call { callee, args } => args.iter().enumerate().any(|(j, a)| {
+                    matches!(a, CArg::Slot(s) if *s == i)
+                        && go(queries, *callee, j, visiting)
+                }),
+            })
+        });
+        visiting.pop();
+        ok
+    }
+    go(queries, qi, i, &mut Vec::new())
+}
+
 fn slot_of(q: &CompiledQuery, ident: &str) -> usize {
     // idents are a subset of slots in slot order; params occupy the
     // prefix. Recompute by name (idents are few).
@@ -867,6 +949,11 @@ fn slot_of(q: &CompiledQuery, ident: &str) -> usize {
 }
 
 impl CompiledQuery {
+    /// Param (name, type) view for ?query-CE compilation (D-056).
+    pub fn params_view(&self) -> &[(String, FieldType)] {
+        &self.params
+    }
+
     /// slot index per identifier (params prefix + first-branch slots).
     fn ident_slots(&self) -> Vec<usize> {
         // params are slots 0..P; first-branch declarations follow in
@@ -1000,6 +1087,24 @@ impl Machine<'_> {
             self.bump()?;
             match env.root.clone() {
                 Root::Top => self.out.push(env),
+                // rule-site row (D-056): PREPEND the full param row into
+                // the site staging (rowAdded → addInsert)
+                Root::Site(idx) => {
+                    let q = &self.queries[qi];
+                    let mut vals = Vec::with_capacity(q.params.len());
+                    for s in 0..q.params.len() {
+                        match &env.slots[s] {
+                            Some(EnvVal::Val(v)) => vals.push(v.clone()),
+                            _ => {
+                                return Err(EngineError(
+                                    "?query CE row left a param position unbound (D-057)"
+                                        .into(),
+                                ))
+                            }
+                        }
+                    }
+                    self.site_out.insert(0, (idx, vals));
+                }
                 Root::Nested(root) => {
                     let (cq_idx, args) = {
                         let (q, b, n) = root.site;

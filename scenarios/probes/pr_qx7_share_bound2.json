@@ -1,0 +1,70 @@
+{
+ "name": "qx7_share_bound2",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B2",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "u",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "aid",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 10
+   }
+  },
+  {
+   "type": "B2",
+   "fields": {
+    "k": 10,
+    "u": 7
+   }
+  },
+  {
+   "type": "B2",
+   "fields": {
+    "k": 10,
+    "u": 9
+   }
+  },
+  {
+   "type": "B2",
+   "fields": {
+    "k": 99,
+    "u": 1
+   }
+  }
+ ],
+ "drl": "query BPair(long $a, long $b)\n    B2(k == $a, u == $b)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?BPair($aid, $w;)\nthen\n    insert(new Out(1, $w));\nend\n\nrule R2\nwhen\n    A($bid : id)\n    ?BPair($bid, $z;)\nthen\n    insert(new Out(2, $z));\nend\n"
+}

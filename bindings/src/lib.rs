@@ -405,7 +405,13 @@ fn fact_json(fv: &FactView) -> String {
         m.insert(
             "value".into(),
             serde_json::Value::Array(
-                elems.iter().map(|e| serde_json::Value::String(fact_json(e))).collect(),
+                elems
+                    .iter()
+                    .map(|e| match e {
+                        Some(e) => serde_json::Value::String(fact_json(e)),
+                        None => serde_json::Value::Null,
+                    })
+                    .collect(),
             ),
         );
     }

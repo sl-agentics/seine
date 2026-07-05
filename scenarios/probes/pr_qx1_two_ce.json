@@ -1,0 +1,92 @@
+{
+ "name": "qx1_two_ce",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 20
+   }
+  },
+  {
+   "type": "C",
+   "fields": {
+    "m": 7
+   }
+  },
+  {
+   "type": "C",
+   "fields": {
+    "m": 8
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\nquery CVals(long $v)\n    C(m == $v)\nend\n\nrule R1\nwhen\n    $a : A()\n    ?BVals($x;)\n    ?CVals($y;)\nthen\n    insert(new Out($x, $y));\nend\n",
+ "queries": [
+  {
+   "call": "BVals",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "CVals",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

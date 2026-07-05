@@ -146,6 +146,9 @@ pub struct Pattern {
     /// Some(_) makes this an accumulate/collect CE over the source
     /// described by type_name/constraints (D-038).
     pub acc: Option<AccSpec>,
+    /// Some(_) makes this a `?name(args;)` pull query CE (D-056):
+    /// type_name holds the QUERY name, constraints/acc are empty.
+    pub q_args: Option<Vec<QArg>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -355,6 +358,7 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                     '-' => "-",
                     '+' => "+",
                     '*' => "*",
+                    '?' => "?",
                     other => return Err(DrlError(format!("unexpected character {other:?}"))),
                 },
             };
@@ -650,6 +654,46 @@ impl Parser {
         } else {
             CeKind::Positive
         };
+        if matches!(self.peek(), Some(Tok::Sym("?"))) {
+            // `?name(a1, ..., ak;)` pull query CE (D-056/D-057)
+            if ce != CeKind::Positive {
+                return Err(DrlError(
+                    "?query CEs inside not/exists are out of subset (D-057)".into(),
+                ));
+            }
+            self.next()?;
+            let name = self.ident()?;
+            self.expect_sym("(")?;
+            let mut args = Vec::new();
+            if matches!(self.peek(), Some(Tok::Sym(")"))) {
+                self.next()?;
+            } else {
+                loop {
+                    match self.peek() {
+                        Some(Tok::Ident(w)) if w.starts_with('$') => {
+                            args.push(QArg::Var(self.ident()?));
+                        }
+                        _ => args.push(QArg::Lit(self.literal()?)),
+                    }
+                    match self.next()? {
+                        Tok::Sym(",") => continue,
+                        Tok::Sym(";") => break,
+                        other => {
+                            return Err(DrlError(format!("expected ',' or ';', got {other}")))
+                        }
+                    }
+                }
+                self.expect_sym(")")?;
+            }
+            return Ok(Pattern {
+                binding: None,
+                type_name: name,
+                constraints: Vec::new(),
+                ce: CeKind::Positive,
+                acc: None,
+                q_args: Some(args),
+            });
+        }
         if self.at_kw("accumulate") {
             if ce != CeKind::Positive {
                 return Err(DrlError("not/exists over accumulate not in subset".into()));
@@ -731,6 +775,7 @@ impl Parser {
                 constraints: src.constraints,
                 ce: CeKind::Positive,
                 acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var }),
+                q_args: None,
             });
         }
         if ce != CeKind::Positive {
@@ -744,7 +789,7 @@ impl Parser {
                 ));
             }
         }
-        Ok(Pattern { binding, type_name, constraints, ce, acc: None })
+        Ok(Pattern { binding, type_name, constraints, ce, acc: None, q_args: None })
     }
 
     /// `accumulate( <source pattern> ; $r : func([$arg]) )` — built-in
@@ -806,6 +851,7 @@ impl Parser {
             constraints: src.constraints,
             ce: CeKind::Positive,
             acc: Some(AccSpec { func, arg, result_var }),
+            q_args: None,
         })
     }
 

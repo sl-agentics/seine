@@ -313,6 +313,17 @@ public final class OracleRunner {
             }
             return node;
         }
+        // ?query CEs in rules contribute an Object[] (the query element's
+        // row arguments) to the match; raw toString carries an identity
+        // hash, so canonicalize with ORDER-significant elements (Q2).
+        if (o instanceof Object[] arr0) {
+            node.put("type", "QueryArgs");
+            ArrayNode arr = node.putObject("fields").putArray("value");
+            for (Object e : arr0) {
+                arr.add(e == null ? M.nullNode() : render(kbase, session, e));
+            }
+            return node;
+        }
         FactType ft = kbase.getFactType(PKG, simpleName);
         node.put("type", simpleName);
         ObjectNode fields = node.putObject("fields");

@@ -122,9 +122,10 @@ pub struct FactView {
     pub fields: Vec<(String, Value)>,
     /// The fact's global handle (insertion sequence) — diagnostic only.
     pub handle: u32,
-    /// Collect results render as an ORDER-significant element array
-    /// (D-038); None for ordinary facts.
-    pub elems: Option<Vec<FactView>>,
+    /// Collect results (D-038) and ?query-CE args arrays (D-056) render
+    /// as an ORDER-significant element array; None entries are JSON null
+    /// (bound arg positions). None for ordinary facts.
+    pub elems: Option<Vec<Option<FactView>>>,
 }
 
 impl FactStore {
@@ -141,6 +142,17 @@ impl FactStore {
 
     pub fn schemas(&self) -> &[TypeSchema] {
         &self.schemas
+    }
+
+    /// Register a hidden type after construction (?query-CE row types,
+    /// D-056). Existing TypeIds are unaffected.
+    pub fn add_schema(&mut self, schema: TypeSchema) -> TypeId {
+        self.data.push(TypeData {
+            columns: schema.fields.iter().map(|(_, ft)| Column::new(*ft)).collect(),
+            rows: 0,
+        });
+        self.schemas.push(schema);
+        TypeId((self.schemas.len() - 1) as u32)
     }
 
     pub fn type_id(&self, name: &str) -> Option<TypeId> {

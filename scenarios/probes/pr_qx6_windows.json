@@ -1,0 +1,78 @@
+{
+ "name": "qx6_windows",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "aid",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "id": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": 0
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 20
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R0 salience 10\nwhen\n    T(t == 0)\nthen\n    insert(new A(3));\n    insert(new A(4));\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?BVals($x;)\nthen\n    insert(new Out($aid, $x));\nend\n"
+}

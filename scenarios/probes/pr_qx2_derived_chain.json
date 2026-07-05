@@ -1,0 +1,74 @@
+{
+ "name": "qx2_derived_chain",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "t",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "t": 0
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R0 salience 20\nwhen\n    T(t == 0)\nthen\n    insert(new B(40));\nend\n\nrule Rmid salience 10\nwhen\n    T(t == 0)\nthen\n    insert(new B(50));\nend\n\nrule R1\nwhen\n    $a : A()\n    ?BVals($x;)\nthen\n    insert(new Out(1, $x));\nend\n",
+ "queries": [
+  {
+   "call": "BVals",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

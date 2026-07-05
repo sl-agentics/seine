@@ -240,7 +240,9 @@ fn json_fields_to_values(obj: &Map<String, J>) -> Result<Vec<(String, Value)>, S
 
 fn fact_view_to_json(fv: &FactView) -> J {
     let mut fields = Map::new();
-    if std::env::var("SEINE_HANDLES").is_ok() {
+    // u32::MAX marks synthetic views (QueryArgs arrays, boxed scalars) —
+    // the oracle emits no __h for those either (D-056).
+    if std::env::var("SEINE_HANDLES").is_ok() && fv.handle != u32::MAX {
         fields.insert("__h".into(), json!(fv.handle));
     }
     for (name, v) in &fv.fields {
@@ -253,10 +255,16 @@ fn fact_view_to_json(fv: &FactView) -> J {
         fields.insert(name.clone(), jv);
     }
     if let Some(elems) = &fv.elems {
-        // collect results: ORDER-significant element array (D-038)
+        // collect results / QueryArgs: ORDER-significant element array
+        // (D-038/D-056); None elements are JSON null (bound positions)
         fields.insert(
             "value".into(),
-            J::Array(elems.iter().map(fact_view_to_json).collect()),
+            J::Array(
+                elems
+                    .iter()
+                    .map(|e| e.as_ref().map(fact_view_to_json).unwrap_or(J::Null))
+                    .collect(),
+            ),
         );
     }
     json!({"type": fv.type_name, "fields": fields})

@@ -1,0 +1,16 @@
+{
+ "name": "qx0_multi",
+ "types": [
+  {"name": "A", "fields": [{"name": "id", "type": "i64"}]},
+  {"name": "B", "fields": [{"name": "k", "type": "i64"}]},
+  {"name": "Out", "fields": [{"name": "aid", "type": "i64"}, {"name": "v", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "A", "fields": {"id": 1}},
+  {"type": "A", "fields": {"id": 2}},
+  {"type": "B", "fields": {"k": 10}},
+  {"type": "B", "fields": {"k": 20}},
+  {"type": "B", "fields": {"k": 30}}
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?BVals($x;)\nthen\n    insert(new Out($aid, $x));\nend\n"
+}

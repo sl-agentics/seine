@@ -1,0 +1,101 @@
+{
+ "name": "qx6_or3",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "d",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "aid",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 11
+   }
+  },
+  {
+   "type": "C",
+   "fields": {
+    "m": 20
+   }
+  },
+  {
+   "type": "C",
+   "fields": {
+    "m": 21
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "d": 30
+   }
+  }
+ ],
+ "drl": "query Tri(long $v)\n    B(k == $v)\n    or\n    C(m == $v)\n    or\n    D(d == $v)\nend\n\nrule R1\nwhen\n    $a : A()\n    ?Tri($x;)\nthen\n    insert(new Out(0, $x));\nend\n",
+ "queries": [
+  {
+   "call": "Tri",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

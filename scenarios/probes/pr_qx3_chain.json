@@ -1,0 +1,94 @@
+{
+ "name": "qx3_chain",
+ "types": [
+  {
+   "name": "PP",
+   "fields": [
+    {
+     "name": "f",
+     "type": "i64"
+    },
+    {
+     "name": "lbl",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "g",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "PP",
+   "fields": {
+    "f": 7,
+    "lbl": "p7"
+   }
+  },
+  {
+   "type": "PP",
+   "fields": {
+    "f": 3,
+    "lbl": "p3"
+   }
+  },
+  {
+   "type": "PP",
+   "fields": {
+    "f": 11,
+    "lbl": "p11"
+   }
+  },
+  {
+   "type": "PP",
+   "fields": {
+    "f": 3,
+    "lbl": "p3b"
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 3
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 11
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "g": 5
+   }
+  }
+ ],
+ "drl": "query BaseQ(long $a, String $l)\n    PP(f == $a, lbl == $l)\nend\n\nquery WrapAfter(long $a, String $l)\n    Q(g == $a)\n    BaseQ($a, $l;)\nend\n\nrule R1\nwhen\n    ?WrapAfter($n, $s;)\nthen\n    insert(new Out($s));\nend\n",
+ "queries": [
+  {
+   "call": "WrapAfter",
+   "args": [
+    null,
+    null
+   ]
+  }
+ ]
+}

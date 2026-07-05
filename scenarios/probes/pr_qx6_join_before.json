@@ -1,0 +1,88 @@
+{
+ "name": "qx6_join_before",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "aid",
+     "type": "i64"
+    },
+    {
+     "name": "eid",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "id": 2
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "e": 1
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "e": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 20
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    E(e == $aid, $ee : e)\n    ?BVals($x;)\nthen\n    insert(new Out($aid, $ee, $x));\nend\n"
+}

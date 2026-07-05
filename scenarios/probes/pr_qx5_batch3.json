@@ -1,0 +1,132 @@
+{
+ "name": "qx5_batch3",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "d",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "out",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "g",
+     "type": "i64"
+    },
+    {
+     "name": "h",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "aid",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "id": 2
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "d": 1
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "d": 2
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "k": 1,
+    "out": 11
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "k": 2,
+    "out": 22
+   }
+  },
+  {
+   "type": "F",
+   "fields": {
+    "g": 11,
+    "h": 111
+   }
+  },
+  {
+   "type": "F",
+   "fields": {
+    "g": 22,
+    "h": 222
+   }
+  },
+  {
+   "type": "F",
+   "fields": {
+    "g": 22,
+    "h": 223
+   }
+  }
+ ],
+ "drl": "query Q3(long $y)\n    D($m : d)\n    E(k == $m, $o : out)\n    F(g == $o, h == $y)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?Q3($z;)\nthen\n    insert(new Out($aid, $z));\nend\n",
+ "queries": [
+  {
+   "call": "Q3",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

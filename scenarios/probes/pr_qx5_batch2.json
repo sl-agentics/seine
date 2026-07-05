@@ -1,0 +1,105 @@
+{
+ "name": "qx5_batch2",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "d",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "out",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "aid",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "id": 2
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "d": 1
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "d": 2
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "k": 1,
+    "out": 11
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "k": 2,
+    "out": 22
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "k": 2,
+    "out": 23
+   }
+  }
+ ],
+ "drl": "query Q2(long $y)\n    D($m : d)\n    E(k == $m, out == $y)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?Q2($z;)\nthen\n    insert(new Out($aid, $z));\nend\n",
+ "queries": [
+  {
+   "call": "Q2",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

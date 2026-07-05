@@ -1,0 +1,60 @@
+{
+ "name": "qx4_dupvar",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "x",
+     "type": "i64"
+    },
+    {
+     "name": "y",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "x": 1,
+    "y": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 2,
+    "y": 3
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 4,
+    "y": 4
+   }
+  }
+ ],
+ "drl": "query CPair(long $a, long $b)\n    P(x == $a, y == $b)\nend\n\nrule R1\nwhen\n    ?CPair($v, $v;)\nthen\n    insert(new Out($v));\nend\n",
+ "queries": [
+  {
+   "call": "CPair",
+   "args": [
+    null,
+    null
+   ]
+  }
+ ]
+}

@@ -1,0 +1,79 @@
+{
+ "name": "qx1_params2",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "x",
+     "type": "i64"
+    },
+    {
+     "name": "y",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 10
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 10,
+    "y": 100
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 10,
+    "y": 200
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "x": 5,
+    "y": 500
+   }
+  }
+ ],
+ "drl": "query QMix(long $a, long $b)\n    $p : P(x == $a, y == $b)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?QMix($aid, $w;)\nthen\n    insert(new Out($aid, $w));\nend\n",
+ "queries": [
+  {
+   "call": "QMix",
+   "args": [
+    10,
+    null
+   ]
+  }
+ ]
+}

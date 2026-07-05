@@ -1,0 +1,12 @@
+{
+ "name": "qx0_first",
+ "types": [
+  {"name": "B", "fields": [{"name": "k", "type": "i64"}]},
+  {"name": "Out", "fields": [{"name": "v", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "B", "fields": {"k": 10}},
+  {"type": "B", "fields": {"k": 20}}
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    ?BVals($x;)\nthen\n    insert(new Out($x));\nend\n"
+}

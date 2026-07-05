@@ -1,0 +1,16 @@
+{
+ "name": "qx0_bound",
+ "types": [
+  {"name": "A", "fields": [{"name": "id", "type": "i64"}]},
+  {"name": "B", "fields": [{"name": "k", "type": "i64"}]},
+  {"name": "Out", "fields": [{"name": "v", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "A", "fields": {"id": 10}},
+  {"type": "A", "fields": {"id": 15}},
+  {"type": "B", "fields": {"k": 10}},
+  {"type": "B", "fields": {"k": 20}},
+  {"type": "B", "fields": {"k": 10}}
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?BVals($aid;)\nthen\n    insert(new Out($aid));\nend\n"
+}

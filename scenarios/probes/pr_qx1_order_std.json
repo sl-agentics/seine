@@ -1,0 +1,79 @@
+{
+ "name": "qx1_order_std",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 20
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 30
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 7
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 55
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    $a : A()\n    ?BVals($x;)\nthen\n    insert(new Out($x));\nend\n",
+ "queries": [
+  {
+   "call": "BVals",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

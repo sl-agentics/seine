@@ -1,0 +1,100 @@
+{
+ "name": "qx3_rec",
+ "types": [
+  {
+   "name": "Location",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "location",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Want",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Found",
+   "fields": [
+    {
+     "name": "thing",
+     "type": "String"
+    },
+    {
+     "name": "place",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "desk",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "chair",
+    "location": "office"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "office",
+    "location": "house"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "key",
+    "location": "drawer"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "drawer",
+    "location": "desk"
+   }
+  },
+  {
+   "type": "Location",
+   "fields": {
+    "thing": "pen",
+    "location": "desk"
+   }
+  },
+  {
+   "type": "Want",
+   "fields": {
+    "thing": "key"
+   }
+  }
+ ],
+ "drl": "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n\nrule R1\nwhen\n    Want($t : thing)\n    ?contained($t, $where;)\nthen\n    insert(new Found($t, $where));\nend\n",
+ "queries": [
+  {
+   "call": "contained",
+   "args": [
+    "key",
+    null
+   ]
+  }
+ ]
+}
