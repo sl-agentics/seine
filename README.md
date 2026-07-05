@@ -123,3 +123,32 @@ transliterated here, and every implemented behavior is pinned by an oracle
 probe or regression scenario, not by the source text. "Drools" is a Red
 Hat trademark; this project is not affiliated with or endorsed by Red Hat
 or the KIE project.
+
+## Development
+
+Three gates, all green before merge:
+
+```sh
+# 1. native tests (no JVM needed)
+make test
+
+# 2. the differential gate: every scenario through BOTH engines.
+#    Requires JDK 17+ and maven (the oracle is real Drools 9.44.0.Final):
+cd oracle && mvn -q -DskipTests package && cd ..
+make diff
+
+# 3. Python bindings (any venv):
+pip install maturin polars pyarrow pytest
+maturin develop --release -m bindings/Cargo.toml
+pytest bindings/tests/
+```
+
+Engine changes additionally run the fuzz campaign before merging
+(`cargo run -p seine-harness -- fuzz 10000 <seed>` over seeds
+42/7/123/777/999 — zero divergences to completion; see DECISIONS.md for
+the certification records). Semantics are pinned probe-first: never
+implement a Drools behavior from intuition — write a scenario, run it
+through the oracle, record the pin as a D-entry, then implement.
+CI mirrors gates 1–3 and builds `seine-rs` wheels for
+linux-x86_64 / macos-arm64 / macos-x86_64 / windows-x86_64 plus an
+sdist.
