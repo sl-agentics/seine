@@ -1,0 +1,194 @@
+{
+  "drl": "rule \"R0\"\nsalience -1\nwhen\n    $p0_0 : T0(f0 <= 6, $b0_0_0 : f0)\nthen\n    insert(new T1(\"b\", false, $p0_0.isF1()));\nend\nrule \"R1\"\nwhen\n    T1(f0 == \"b\", f1 == true, $b1_0_0 : f1, $b1_0_1 : f2)\nthen\nend\nrule \"R2\"\nwhen\n    T0(f1 == false, $b2_0_0 : f1, $b2_0_1 : f1)\n    not T1(f2 != $b2_0_1)\n    T1(f2 != false, f1 != $b2_0_0, $b2_2_0 : f0)\nthen\nend\nquery Q0(boolean $qa0_0, String $qa0_1)\n    ( $qp0_0 : T0(f1 == $qa0_0, f0 > -1, $qb0_0 : f0, $qb0_1 : f1) )\n    or\n    ( $qp0_1 : T1(f0 == $qa0_1, f1 != false, f0 < \"b\") )\nend\n\nquery Q1(boolean $qa1_0, long $qa1_1, long $qa1_2)\n    ( $qp1_0 : T0(f1 == $qa1_0, $qb1_0 : f0, $qb1_1 : f1) and $qp1_1 : T0(f1 != true, $qb1_2 : f0, $qb1_3 : f0) )\n    or\n    ( $qp1_2 : T0(f0 == $qa1_1, f0 == $qa1_2, $qb1_4 : f1) and $qp1_3 : T0(f1 == $qa1_0, f1 != true, f1 == $qb1_4) )\nend\n\nrule QR0\nwhen\n    T1(f1 == true)\n    T1(f1 == true)\n    ?Q1($qr0_x0, -2, 12;)\n    T0(f1 == $qr0_x0)\nthen\n    insert(new QOut(1, 9, 2.0, \"a\", $qr0_x0));\nend\n\nrule QR1\nwhen\n    T0()\n    T1($qr1_b0 : f1)\n    ?Q0($qr1_b0, \"a\";)\n    ?Q0($qr1_b0, \"alpha\";)\nthen\n    insert(new QOut(2, 5, 0.0, \"alpha\", $qr1_b0));\nend\n\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 100,
+            "f1": true
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "",
+            "f1": false,
+            "f2": true
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": "ab",
+            "f1": false,
+            "f2": true
+          },
+          "type": "T1"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": -5,
+            "f1": false
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": -1000000007,
+            "f1": true
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 1,
+            "f1": false
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": -4,
+            "f1": false
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "b",
+        "f1": true,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 10,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": false,
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_999_3959",
+  "queries": [
+    {
+      "args": [
+        null,
+        "b"
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null,
+        "b"
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null,
+        null,
+        8
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        null,
+        -1000000007,
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        true,
+        6,
+        -5
+      ],
+      "call": "Q1"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "tag",
+          "type": "i64"
+        },
+        {
+          "name": "i",
+          "type": "i64"
+        },
+        {
+          "name": "d",
+          "type": "f64"
+        },
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "z",
+          "type": "bool"
+        }
+      ],
+      "name": "QOut"
+    }
+  ]
+}

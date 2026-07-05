@@ -1,0 +1,45 @@
+{
+ "name": "pr_ib23",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 2
+   }
+  }
+ ],
+ "drl": "rule R when A(a == 2.5 || a == 99) then insert(new E(1)); end"
+}

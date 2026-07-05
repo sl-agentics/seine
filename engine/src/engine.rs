@@ -80,9 +80,70 @@ enum Test {
     Matches(crate::rx::Regex),
     /// `contains` — String substring (D-030).
     Contains(String),
-    /// `in` / `not in` — OR of `==`-with-promotion branches; never
-    /// participates in eq-node sharing/hashing (D-030, op_i4/op_i6).
-    InList { items: Vec<Value>, negated: bool },
+    /// Inline boolean group (D-073): composite over possibly-multiple
+    /// fields. Leaf `==` uses double promotion like `in` (ib23) and
+    /// never joins eq-hash groups (ib21/ib22). `cross_var` = references
+    /// an EARLIER pattern's binding: evaluated at join time only.
+    /// `key` is the D-037 identity text (fields, ops, coerced-for-eq
+    /// literals NOT applied — composites keep written literals — and
+    /// referenced var names with positions).
+    Group { g: GExpr, cross_var: bool, key: String },
+}
+
+/// Compiled inline-group expression tree (D-073).
+enum GExpr {
+    Cmp { field_idx: usize, op: CmpOp, rhs: Src },
+    Matches { field_idx: usize, rx: crate::rx::Regex },
+    Contains { field_idx: usize, needle: String },
+    InList { field_idx: usize, items: Vec<Value>, negated: bool },
+    And(Vec<GExpr>),
+    Or(Vec<GExpr>),
+    Not(Box<GExpr>),
+}
+
+/// Evaluate a compiled group against fact `f`; `l` is the left tuple
+/// for cross-pattern references (None in alpha contexts, where
+/// cross_var groups are skipped by the caller); `tpos` resolves
+/// same-pattern references to `f`.
+fn eval_gexpr(
+    g: &GExpr,
+    store: &FactStore,
+    f: FactId,
+    l: Option<&Tup>,
+    tpos: Option<usize>,
+) -> bool {
+    match g {
+        GExpr::Cmp { field_idx, op, rhs } => {
+            let lhs = store.value(f, *field_idx);
+            match rhs {
+                Src::Lit(v) => eval_cmp(&lhs, *op, v),
+                Src::Field(ti, fi) => {
+                    let other = if Some(*ti) == tpos {
+                        f
+                    } else {
+                        l.expect("cross_var group evaluated without a left tuple")[*ti]
+                    };
+                    eval_cmp_join(&lhs, *op, &store.value(other, *fi))
+                }
+                Src::SnapField(..) => unreachable!("SnapField in LHS group"),
+            }
+        }
+        GExpr::Matches { field_idx, rx } => {
+            matches!(store.value(f, *field_idx), Value::Str(s) if rx.accepts(&s))
+        }
+        GExpr::Contains { field_idx, needle } => match store.value(f, *field_idx) {
+            Value::Str(s) => s.contains(needle.as_str()),
+            _ => false,
+        },
+        GExpr::InList { field_idx, items, negated } => {
+            let lhs = store.value(f, *field_idx);
+            let hit = items.iter().any(|v| eval_cmp(&lhs, CmpOp::Eq, v));
+            hit != *negated
+        }
+        GExpr::And(xs) => xs.iter().all(|x| eval_gexpr(x, store, f, l, tpos)),
+        GExpr::Or(xs) => xs.iter().any(|x| eval_gexpr(x, store, f, l, tpos)),
+        GExpr::Not(x) => !eval_gexpr(x, store, f, l, tpos),
+    }
 }
 
 struct CompiledCmp {
@@ -858,6 +919,134 @@ impl Engine {
     /// and the ordered non-binding constraints — var references by
     /// (tuple pos, field), eq literals coerced to the field type (the
     /// D-029 alpha-node key), other literals as written.
+    /// Compile one inline-group node (D-073): resolves fields against
+    /// `type_id`, bindings against `field_binds` (same-pattern refs via
+    /// tpos are legal, mirroring top-level Cmp), accumulates the listen
+    /// mask, cross-pattern flag and the identity text (var names are
+    /// identity-significant, D-037).
+    #[allow(clippy::too_many_arguments)]
+    fn compile_gexpr(
+        &self,
+        gx: &drl::CExpr,
+        type_id: TypeId,
+        tname: &str,
+        rname: &str,
+        tpos: Option<usize>,
+        field_binds: &HashMap<String, (usize, usize, FieldType)>,
+        acc_opaque: &HashSet<String>,
+        listen_mask: &mut u64,
+        cross: &mut bool,
+        key: &mut String,
+    ) -> Result<GExpr, EngineError> {
+        use std::fmt::Write as _;
+        let err = |m: String| EngineError(format!("rule {rname}: {m}"));
+        let fidx = |field: &str| -> Result<usize, EngineError> {
+            self.store
+                .field_index(type_id, field)
+                .ok_or_else(|| err(format!("{tname} has no field {field}")))
+        };
+        match gx {
+            drl::CExpr::Cmp { field, op, rhs } => {
+                let fi = fidx(field)?;
+                *listen_mask |= 1 << fi;
+                let lhs_ft = self.store.field_type(type_id, fi);
+                match rhs {
+                    CmpRhs::Lit(l) => {
+                        check_cmp_types(rname, lhs_ft, *op, lit_type(l))?;
+                        let v = lit_value(l);
+                        let _ = write!(key, "g{fi}{op:?}{v:?}");
+                        Ok(GExpr::Cmp { field_idx: fi, op: *op, rhs: Src::Lit(v) })
+                    }
+                    CmpRhs::Var(v) => {
+                        if acc_opaque.contains(v) {
+                            return Err(err(format!(
+                                "{v}: min/max over double is not comparable downstream (Drools Number typing, D-039)"
+                            )));
+                        }
+                        let (bpi, bfi, bft) = field_binds
+                            .get(v)
+                            .copied()
+                            .ok_or_else(|| err(format!("unknown binding {v} (must be declared before use)")))?;
+                        check_cmp_types(rname, lhs_ft, *op, bft)?;
+                        if Some(bpi) != tpos {
+                            *cross = true;
+                        }
+                        let _ = write!(key, "g{fi}{op:?}{v}@{bpi}.{bfi}");
+                        Ok(GExpr::Cmp { field_idx: fi, op: *op, rhs: Src::Field(bpi, bfi) })
+                    }
+                }
+            }
+            drl::CExpr::Matches { field, regex } => {
+                let fi = fidx(field)?;
+                if self.store.field_type(type_id, fi) != FieldType::Str {
+                    return Err(err(format!(
+                        "matches requires a String field (subset wall), {field} is not"
+                    )));
+                }
+                *listen_mask |= 1 << fi;
+                let rx = crate::rx::Regex::parse(regex).map_err(err)?;
+                let _ = write!(key, "g{fi}m{}", rx.source());
+                Ok(GExpr::Matches { field_idx: fi, rx })
+            }
+            drl::CExpr::Contains { field, needle } => {
+                let fi = fidx(field)?;
+                if self.store.field_type(type_id, fi) != FieldType::Str {
+                    return Err(err(format!(
+                        "contains requires a String field (subset wall), {field} is not"
+                    )));
+                }
+                *listen_mask |= 1 << fi;
+                let _ = write!(key, "g{fi}c{needle}");
+                Ok(GExpr::Contains { field_idx: fi, needle: needle.clone() })
+            }
+            drl::CExpr::InList { field, items, negated } => {
+                let fi = fidx(field)?;
+                *listen_mask |= 1 << fi;
+                let lhs_ft = self.store.field_type(type_id, fi);
+                let mut vals = Vec::new();
+                for l in items {
+                    check_cmp_types(rname, lhs_ft, CmpOp::Eq, lit_type(l))?;
+                    vals.push(lit_value(l));
+                }
+                let _ = write!(key, "g{fi}in{negated}{vals:?}");
+                Ok(GExpr::InList { field_idx: fi, items: vals, negated: *negated })
+            }
+            drl::CExpr::And(xs) => {
+                key.push_str("gAnd(");
+                let mut out = Vec::new();
+                for x in xs {
+                    out.push(self.compile_gexpr(
+                        x, type_id, tname, rname, tpos, field_binds, acc_opaque,
+                        listen_mask, cross, key,
+                    )?);
+                }
+                key.push(')');
+                Ok(GExpr::And(out))
+            }
+            drl::CExpr::Or(xs) => {
+                key.push_str("gOr(");
+                let mut out = Vec::new();
+                for x in xs {
+                    out.push(self.compile_gexpr(
+                        x, type_id, tname, rname, tpos, field_binds, acc_opaque,
+                        listen_mask, cross, key,
+                    )?);
+                }
+                key.push(')');
+                Ok(GExpr::Or(out))
+            }
+            drl::CExpr::Not(x) => {
+                key.push_str("gNot(");
+                let g = self.compile_gexpr(
+                    x, type_id, tname, rname, tpos, field_binds, acc_opaque,
+                    listen_mask, cross, key,
+                )?;
+                key.push(')');
+                Ok(GExpr::Not(Box::new(g)))
+            }
+        }
+    }
+
     fn pattern_key(&self, p: &CompiledPattern, ri: usize, pos: usize) -> String {
         use std::fmt::Write as _;
         // ?query CE identity (D-056/D-058): nodes share ONLY when every
@@ -905,8 +1094,8 @@ impl Engine {
                 Test::Contains(n) => {
                     let _ = write!(s, "c{n}");
                 }
-                Test::InList { items, negated } => {
-                    let _ = write!(s, "in{negated}{items:?}");
+                Test::Group { key, .. } => {
+                    let _ = write!(s, "{key}");
                 }
             }
         }
@@ -972,8 +1161,14 @@ impl Engine {
                         Test::Contains(n) => {
                             prefix.push_str(&format!("{}|c|{n};", c.field_idx));
                         }
-                        Test::InList { items, negated } => {
-                            prefix.push_str(&format!("{}|in{negated}|{items:?};", c.field_idx));
+                        Test::Group { cross_var, key, .. } => {
+                            // composite groups are alpha-chain members
+                            // (like InList) but never eq-group members
+                            // (D-073/ib21-ib22); cross-var groups are
+                            // beta and stay out of the alpha prefix.
+                            if !cross_var {
+                                prefix.push_str(&format!("{key};"));
+                            }
                         }
                     }
                 }
@@ -1280,6 +1475,13 @@ impl Engine {
                         });
                     }
                     Constraint::InList { field, items, negated } => {
+                        // D-074 normalization: Drools compiles `not in
+                        // (a, b)` to an AND of `!=` constraints that
+                        // SPLITS like `&&` — each conjunct is a plain
+                        // alpha node sharing with written `!=` (q2/q4);
+                        // `in (a, b)` compiles to an OR composite that
+                        // shares with the equivalent written `||` group
+                        // (q3/q5b) and never joins eq-hash groups (q6).
                         let fi = self
                             .store
                             .field_index(type_id, field)
@@ -1291,9 +1493,67 @@ impl Engine {
                             check_cmp_types(&rname, lhs_ft, CmpOp::Eq, lit_type(l))?;
                             vals.push(lit_value(l));
                         }
+                        if *negated {
+                            for v in vals {
+                                cmps.push(CompiledCmp {
+                                    field_idx: fi,
+                                    test: Test::Cmp { op: CmpOp::Ne, rhs: Src::Lit(v) },
+                                    rhs_var: None,
+                                });
+                            }
+                        } else {
+                            use std::fmt::Write as _;
+                            let mut key = String::from("gOr(");
+                            let leaves: Vec<GExpr> = vals
+                                .iter()
+                                .map(|v| {
+                                    let _ = write!(key, "g{fi}Eq{v:?}");
+                                    GExpr::Cmp {
+                                        field_idx: fi,
+                                        op: CmpOp::Eq,
+                                        rhs: Src::Lit(v.clone()),
+                                    }
+                                })
+                                .collect();
+                            key.push(')');
+                            cmps.push(CompiledCmp {
+                                field_idx: fi,
+                                test: Test::Group {
+                                    g: GExpr::Or(leaves),
+                                    cross_var: false,
+                                    key,
+                                },
+                                rhs_var: None,
+                            });
+                        }
+                    }
+                    Constraint::Group(gx) => {
+                        // Inline boolean group (D-073): compile the tree,
+                        // collecting listened fields, cross-pattern
+                        // references and the D-037 identity text.
+                        let mut cross = false;
+                        let mut key = String::new();
+                        let g = self.compile_gexpr(
+                            gx,
+                            type_id,
+                            &p.type_name,
+                            &rname,
+                            tpos,
+                            &field_binds,
+                            &acc_opaque,
+                            &mut listen_mask,
+                            &mut cross,
+                            &mut key,
+                        )?;
+                        if cross && tpos == Some(0) {
+                            return Err(err(
+                                "constraint groups referencing bindings need an earlier pattern (D-073)".into(),
+                            ));
+                        }
+                        let field_idx = first_group_field(&g);
                         cmps.push(CompiledCmp {
-                            field_idx: fi,
-                            test: Test::InList { items: vals, negated: *negated },
+                            field_idx,
+                            test: Test::Group { g, cross_var: cross, key },
                             rhs_var: None,
                         });
                     }
@@ -1361,9 +1621,10 @@ impl Engine {
                     })
                 }
             };
-            let beta = cmps
-                .iter()
-                .any(|c| matches!(c.test, Test::Cmp { rhs: Src::Field(..), .. }));
+            let beta = cmps.iter().any(|c| {
+                matches!(c.test, Test::Cmp { rhs: Src::Field(..), .. })
+                    || matches!(c.test, Test::Group { cross_var: true, .. })
+            });
             let (pindex, index_ci) = {
                 let var_cmps: Vec<(usize, CmpOp, usize, usize)> = cmps
                     .iter()
@@ -2868,6 +3129,11 @@ impl Engine {
             return false;
         }
         pat.cmps.iter().all(|c| {
+            if let Test::Group { g, cross_var, .. } = &c.test {
+                // cross-pattern groups evaluate at join time (D-073);
+                // same-pattern/literal groups are alpha tests.
+                return *cross_var || eval_gexpr(g, &self.store, f, None, pat.tpos);
+            }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
                 Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
@@ -3005,6 +3271,20 @@ fn scalar_view(v: Value) -> FactView {
     }
 }
 
+/// First leaf field of a group — a stable anchor for CompiledCmp's
+/// field_idx (never used semantically for groups; alpha/join eval
+/// special-cases Test::Group before the shared lhs fetch).
+fn first_group_field(g: &GExpr) -> usize {
+    match g {
+        GExpr::Cmp { field_idx, .. }
+        | GExpr::Matches { field_idx, .. }
+        | GExpr::Contains { field_idx, .. }
+        | GExpr::InList { field_idx, .. } => *field_idx,
+        GExpr::And(xs) | GExpr::Or(xs) => first_group_field(&xs[0]),
+        GExpr::Not(x) => first_group_field(x),
+    }
+}
+
 fn lit_value(l: &Literal) -> Value {
     match l {
         Literal::I64(n) => Value::I64(*n),
@@ -3072,6 +3352,9 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pos = node + 1;
         let pat = &self.rule.patterns[pos];
         pat.cmps.iter().all(|c| {
+            if let Test::Group { g, .. } = &c.test {
+                return eval_gexpr(g, self.store, f, Some(l), pat.tpos);
+            }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
                 Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
@@ -3142,6 +3425,9 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             if pat.index_ci == Some(ci) {
                 return true;
             }
+            if let Test::Group { g, .. } = &c.test {
+                return eval_gexpr(g, self.store, f, Some(l), pat.tpos);
+            }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
                 Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
@@ -3164,6 +3450,7 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             .iter()
             .filter(|c| {
                 matches!(&c.test, Test::Cmp { rhs: Src::Field(ti, _), .. } if Some(*ti) != pat.tpos)
+                    || matches!(&c.test, Test::Group { cross_var: true, .. })
             })
             .collect();
         betas.len() <= 1
@@ -3180,11 +3467,8 @@ fn eval_alpha_test(lhs: &Value, test: &Test) -> bool {
     match test {
         Test::Matches(r) => matches!(lhs, Value::Str(s) if r.accepts(s)),
         Test::Contains(needle) => matches!(lhs, Value::Str(s) if s.contains(needle.as_str())),
-        Test::InList { items, negated } => {
-            let hit = items.iter().any(|v| eval_cmp(lhs, CmpOp::Eq, v));
-            hit != *negated
-        }
         Test::Cmp { .. } => unreachable!("Cmp handled by callers"),
+        Test::Group { .. } => unreachable!("Group handled by callers"),
     }
 }
 

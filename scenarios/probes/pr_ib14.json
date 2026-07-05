@@ -1,0 +1,68 @@
+{
+ "name": "pr_ib14",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "f",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 3
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": 1,
+    "s": "x"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": 5,
+    "s": "y"
+   }
+  }
+ ],
+ "drl": "rule R when A($x : a) B(b > $x || b == 1) then insert(new E(1)); end"
+}

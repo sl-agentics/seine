@@ -1,0 +1,62 @@
+{
+ "name": "pr_ib13",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "f",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "b": 1,
+    "s": "zz"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": 5,
+    "s": "ax"
+   }
+  }
+ ],
+ "drl": "rule R when B(s matches \"a.*\" || b == 1) then insert(new E(1)); end"
+}

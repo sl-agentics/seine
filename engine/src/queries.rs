@@ -480,6 +480,12 @@ fn compile_query(
             let mut field_binds = Vec::new();
             for c in &constraints {
                 match c {
+                    Constraint::Group(_) => {
+                        return err(
+                            "inline constraint groups in query bodies are out of subset (D-073)"
+                                .into(),
+                        )
+                    }
                     Constraint::Bind { var, field } => {
                         let fi = store.field_index(tid, field).ok_or_else(|| {
                             EngineError(format!("query {}: {} has no field {field}", def.name, elem.name))

@@ -2121,3 +2121,112 @@ update-vs-modify mask inference):
   42/7/123/777/999, **50,000 cases, ZERO divergences**. Gate at close:
   make test green; make diff = baseline 8/8, probes 370/370,
   regressions 207/207.
+
+
+## Phase P1b — inline &&/||/!() constraint groups (2026-07-05)
+
+### D-073: inline boolean constraint groups (probe ladder ib1..ib31)
+Oracle-verified; 28 probes promoted (pr_ib*). Grammar: `a > 5 && a < 10`,
+`a == 1 || a == 2`, `!(…)`, nested parens, abbreviated restrictions
+(`a > 5 && < 10`, `b > $x || == 1`), bind-with-restriction
+(`$v : b > 0`, `$name : name in (…)` — InTest#testInOperator), keyword
+leaves (`matches`/`contains`/`in`/`not in` inside groups, ib13).
+`&&` binds tighter than `||` (ib5). Two-tier compile model:
+- **Top-level `&&` SPLITS into comma-equivalent constraints** at parse
+  time — the conjuncts keep full alpha identity: they join D-029
+  eq-hash groups (ib24 ≡ ib24b: `a == 2.5 && a > -1000` truncates in a
+  hash group exactly like the comma form) and share trie prefixes
+  (ib15/ib28 ≡ comma twins on the fz_42_580 shape, abbreviated form
+  included). Leaves demote to the existing Constraint variants.
+- **`||`/`!()` tops compile to ONE composite Group** with `in`-like
+  semantics: leaf `==` promotes to double, never truncates (ib23 —
+  `a == 2.5 || a == 99` misses a=2), never joins an eq-hash group
+  (ib21) and does NOT count toward the >=3 hash threshold (ib22: two
+  plain eq siblings + composite stay unhashed). Groups are alpha-CHAIN
+  members for prefix scoping (like InList) with a structural identity
+  key (referenced var names identity-significant, D-037).
+- Cross-pattern refs inside groups make the pattern beta and evaluate
+  at join time (ib14/ib30); same-pattern refs mirror top-level Cmp
+  resolution; groups referencing bindings are rejected on pattern 0.
+  Groups work inside not/exists patterns (ib26/ib27) and or-branches;
+  listen masks include every leaf field (ib16). Bindings INSIDE group
+  branches stay out of subset (fence); query bodies keep the plain
+  grammar (fence: query-network composite sharing unprobed).
+- Non-relational abbreviated forms after && / || (`matches`-without-
+  field etc.) stay fenced except the probed bind-with-keyword forms.
+- left_update_optimization counts cross-var groups as non-equality
+  beta constraints (conservative isLeftUpdateOptimizationAllowed).
+- Baseline +3 (8→11): InTest#testInOperator, InTest#testNegatedIn
+  (named P1 acceptance), OrTest#testConstraintConnectorOr.
+  OrTest#testRestrictionsWithOr / #testOrWithReturnValueRestriction
+  stay honestly out (constraint arithmetic / eval — D-061 CANT until
+  the P3 closed grammar). Misc2Test#testTypeCheckInOr = dialect wall;
+  #testVariableMatchesField = matches-vs-binding, out of subset.
+- Generator: ~12% of non-collect patterns gain a group constraint
+  (disjunctions, negations, abbreviated ranges); corpus probes
+  370→398, baseline 11.
+
+### D-074: `in`/`not in` compile-time normalization — alpha-chain
+### sharing identity (fz_42_6342 → probes w6342_*/af_p*/q1..q6)
+The P1b campaign's first find minimized to or-branch twins differing
+only in `not in ("zz")` vs `!= "zz"` — the oracle fired the second
+branch NEWEST-first while the engine fired both oldest-first. Probe
+bisection (plain twins reproduce it; twins with genuinely-different
+constraints do NOT; single rule normal; k=1 sharers normal):
+- **Pin:** Drools compiles `not in (a, b, …)` to an AND of `!=`
+  constraints that SPLITS like top-level `&&` — each conjunct is an
+  ordinary alpha-chain node sharing with a written `!=` (q2, q4);
+  `in (a, b, …)` compiles to an OR composite that shares with the
+  equivalent written `||`-of-`==` group (q3, q5b) and — even
+  single-element — never joins or counts toward D-029 eq-hash groups
+  (q6, refining D-030: the no-hash pin was right, the no-SHARING
+  assumption was engine-only). With the identity normalized, the
+  observed order flip is nothing new: the twins FULLY share their
+  first-pattern LIA and the D-036/D-037 first-sink-preserved /
+  later-sink-flipped batch propagation applies.
+- Engine: compile_rule now lowers negated InList to a sequence of
+  plain Ne cmps and non-negated InList to a Test::Group
+  (Or-of-Eq) with the same identity key a written `\|\|` group gets;
+  Test::InList is deleted. Query bodies keep their own InList compile
+  (no groups in query grammar — D-073 fence).
+- Graduated: fz_42_6342 + fz_min_6342.
+
+### D-075: three latent pre-P1a order bugs quarantined (xfail/), found
+### by the P1b campaign, bisect-verified independent of P1a/P1b
+The widened grammar keeps reaching rare staging shapes. Seeds 42/7/999
+produced four more finds; ALL minimize to shapes with NO P1b feature
+(or none load-bearing) and reproduce byte-identically on the pre-P1a
+engine (522d2cb). Three distinct mechanism families, each needing its
+own probe ladder:
+1. **Multi-window join activation order** (fz_7_455 → fz_min_455):
+   2 rules, modify + epoch; the engine and oracle pick different join
+   pairs to fire first when left/right stagings span an external-insert
+   window and a rule-firing window.
+2. **Collect + delete + setter-without-update** (fz_42_4816 →
+   fz_min_4816): collect over a type a lower-salience rule deletes,
+   plus a bare setter (no update()) — firing order after the delete
+   diverges.
+3. **Query row order / dynamic salience** (fz_999_3959 → fz_min_3959:
+   ?query pull row order across epochs; fz_42_6812 → fz_min_6812:
+   dynamic-salience + no-loop pair order).
+All four full scenarios + minimized repros sit in scenarios/xfail/
+(documented-open, D-042 mechanism — excluded from the gate, fuzz
+re-flag suppressed by name). They are the top of the next
+engine-hardening phase's worklist, BEFORE P1c extends the existential
+machinery they touch.
+
+**P1b gate (WITNESSED):** 5x10k rerun on the final engine (D-073
+groups in grammar, D-074 normalization in) — seeds 42/7/123/777/999,
+**50,000 cases, 0 divergences**, 4 xfail hits = exactly the D-075
+quarantined names (no new members of those families). Gate at close:
+make test green; make diff = baseline 11/11, probes 398/398,
+regressions 209/209.
+
+**HANDOFF @ P1b close** — P1a (D-070..D-072, commit 578cbdc) and P1b
+(D-073..D-075) landed. Baseline yield so far: 7→11 (OrTest
+testEmptyIdentifier + testConstraintConnectorOr, InTest testInOperator
++ testNegatedIn). P1c (nested not/exists CE groups) NOT started: the
+D-075 latent order bugs touch the existential machinery P1c would
+extend — harden first (fz_min_455 / fz_min_4816 / fz_min_6812 /
+fz_min_3959 in xfail/ are the worklist), then lift the D-031
+"bare not/exists only" fence.

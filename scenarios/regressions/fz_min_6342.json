@@ -1,0 +1,73 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    ( T2(f0 <= \"alpha\", f0 not in (\"zz\"), $b0_0_0 : f0, $b0_0_1 : f0) and T3(f1 != true, $b0_1_0 : f1) )\n    or\n    ( T2(f0 <= \"alpha\", f0 != \"zz\", $b0_0_0 : f0, $b0_0_1 : f0) and T3(f1 != true, $b0_1_0 : f1) )\nthen\nend\nrule \"R1\"\nwhen\n    (or exists T0(f1 == false) exists T0(f1 == false) exists T0(f0 > 2.5))\nthen\n    insert(new T3(4.0, false, true));\n    insert(new T2(\"\"));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 100,
+    "f1": true
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": "alpha"
+   },
+   "type": "T2"
+  }
+ ],
+ "name": "fz_min_6342",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}

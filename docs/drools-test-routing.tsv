@@ -89,8 +89,8 @@ org.drools.compiler.integrationtests.operators	FromTest	testUpdateFromCollect	sk
 org.drools.compiler.integrationtests.operators	FromTest	testJoinAndFrom	skip:stmt-unrecognized:runKSessionWithAgendaGroup(RULE_HEAD +		
 org.drools.compiler.integrationtests.operators	FromTest	testFromAndJoin	skip:stmt-unrecognized:runKSessionWithAgendaGroup(RULE_HEAD +		
 org.drools.compiler.integrationtests.operators	InstanceOfTest	testInstanceof	skip:setter-nonliteral:Person.address		
-org.drools.compiler.integrationtests.operators	InTest	testInOperator	extracted	out-of-subset	engine error: DRL parse error: expected ',' or ')', got in
-org.drools.compiler.integrationtests.operators	InTest	testNegatedIn	extracted	out-of-subset	engine error: DRL parse error: unexpected character '!'
+org.drools.compiler.integrationtests.operators	InTest	testInOperator	extracted	baseline-pass	
+org.drools.compiler.integrationtests.operators	InTest	testNegatedIn	extracted	baseline-pass	
 org.drools.compiler.integrationtests.operators	MatchesTest	testMatchesMVEL	"skip:stmt-unrecognized:map.put(""content"", ""hello ;="")"		
 org.drools.compiler.integrationtests.operators	MatchesTest	testMatchesMVEL2	"skip:stmt-unrecognized:map.put(""content"", ""String with . and (routine)"")"		
 org.drools.compiler.integrationtests.operators	MatchesTest	testMatchesMVEL3	"skip:stmt-unrecognized:map.put(""content"", ""String with . and ()"")"		
@@ -112,11 +112,11 @@ org.drools.compiler.integrationtests.operators	OrTest	testOrCEFollowedByEval	ski
 org.drools.compiler.integrationtests.operators	OrTest	testOrWithAndUsingNestedBindings	skip:stmt-unrecognized:ksession = kbase.newKieSession()		
 org.drools.compiler.integrationtests.operators	OrTest	testOrWithBinding	skip:multi-fire		
 org.drools.compiler.integrationtests.operators	OrTest	testOrWithFrom	skip:ctor-arity:Order/2		
-org.drools.compiler.integrationtests.operators	OrTest	testOrWithReturnValueRestriction	extracted	out-of-subset	
+org.drools.compiler.integrationtests.operators	OrTest	testOrWithReturnValueRestriction	extracted	out-of-subset	engine error: DRL parse error: unexpected character '%'
 org.drools.compiler.integrationtests.operators	OrTest	testBindingsWithOr	skip:facttype-api		
-org.drools.compiler.integrationtests.operators	OrTest	testConstraintConnectorOr	extracted	out-of-subset	
+org.drools.compiler.integrationtests.operators	OrTest	testConstraintConnectorOr	extracted	baseline-pass	
 org.drools.compiler.integrationtests.operators	OrTest	testVariableBindingWithOR	skip:facttype-api		
-org.drools.compiler.integrationtests.operators	OrTest	testRestrictionsWithOr	extracted	out-of-subset	
+org.drools.compiler.integrationtests.operators	OrTest	testRestrictionsWithOr	extracted	out-of-subset	engine error: DRL parse error: expected literal, got (
 org.drools.compiler.integrationtests.operators	OrTest	testEmptyIdentifier	extracted	baseline-pass	
 org.drools.compiler.integrationtests.operators	OrTest	testIndexAfterOr	skip:fact-nonbean		
 org.drools.compiler.integrationtests.operators	OrTest	testOrWithDifferenceOffsetsForConsequence	skip:fact-nonbean		
@@ -313,7 +313,7 @@ org.drools.compiler.integrationtests	EqualityModeTest	testAccumulate	skip:bean-u
 org.drools.mvel.integrationtests	Misc2Test	testUpdateWithNonEffectiveActivations	skip:external-wm-api		
 org.drools.mvel.integrationtests	Misc2Test	testNPEOnMutableGlobal	skip:external-wm-api		
 org.drools.mvel.integrationtests	Misc2Test	testAnalyzeConditionWithVariableRegExp	skip:dialect-mvel		
-org.drools.mvel.integrationtests	Misc2Test	testShareAlphaNodesRegardlessDoubleOrSingleQuotes	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testShareAlphaNodesRegardlessDoubleOrSingleQuotes	extracted	out-of-subset	engine error: DRL parse error: unexpected character '\''
 org.drools.mvel.integrationtests	Misc2Test	testCorrectDeclarationsInConsequence	skip:stmt-unrecognized:Address barcelonaCityCenter		
 org.drools.mvel.integrationtests	Misc2Test	testEvalBeforeNot	skip:bean-unknown:A		
 org.drools.mvel.integrationtests	Misc2Test	testKnowledgeBaseEventSupportLeak	skip:listener-api		
@@ -333,21 +333,21 @@ org.drools.mvel.integrationtests	Misc2Test	testMvelResolvingGenericVariableDecla
 org.drools.mvel.integrationtests	Misc2Test	testMvelParsingParenthesisInString	skip:no-fire-call		
 org.drools.mvel.integrationtests	Misc2Test	testCompilationMustFailComparingAClassLiteral	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
 org.drools.mvel.integrationtests	Misc2Test	testDeclaredTypeExtendingInnerClass	skip:declare-annotations-or-extends		
-org.drools.mvel.integrationtests	Misc2Test	testAllowEqualityBetweenObjectAndPrimitiveInt	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testAllowEqualityBetweenObjectAndPrimitiveInt	extracted	out-of-subset	engine error: DRL parse error: accumulate source must be a plain unbound pattern
 org.drools.mvel.integrationtests	Misc2Test	testJitConstraintWithOperationOnBigDecimal	skip:bean-unknown:Model		
 org.drools.mvel.integrationtests	Misc2Test	testJitComparable	skip:bean-unknown:IntegerWrapperImpl		
 org.drools.mvel.integrationtests	Misc2Test	testJitComparableNoGeneric	skip:bean-unknown:ComparableInteger		
 org.drools.mvel.integrationtests	Misc2Test	testJitComparable2	skip:bean-unknown:IntegerWrapperImpl2		
 org.drools.mvel.integrationtests	Misc2Test	testEqualityOfDifferentTypes	skip:declare-annotations-or-extends		
 org.drools.mvel.integrationtests	Misc2Test	testUnificationInRule	skip:declare-type-out:A		
-org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR	extracted	out-of-subset	
-org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR2	extracted	out-of-subset	
-org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR3	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR	extracted	out-of-subset	engine error: DRL parse error: expected literal, got null
+org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR2	extracted	out-of-subset	engine error: DRL parse error: expected literal, got null
+org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR3	extracted	out-of-subset	engine error: DRL parse error: expected literal, got null
 org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR4	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
-org.drools.mvel.integrationtests	Misc2Test	testQueryAfterEvalInsideOR	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testQueryAfterEvalInsideOR	extracted	out-of-subset	engine error: DRL parse error: unexpected character '='
 org.drools.mvel.integrationtests	Misc2Test	testPackageVisibility	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
 org.drools.mvel.integrationtests	Misc2Test	testNullValueInFrom	skip:stmt-unrecognized:list.add( 1 )		
-org.drools.mvel.integrationtests	Misc2Test	testNumberInQuotes	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testNumberInQuotes	extracted	out-of-subset	engine error: rule Init: empty LHS not in subset
 org.drools.mvel.integrationtests	Misc2Test	testStringCoercionComparison	extracted	baseline-pass	
 org.drools.mvel.integrationtests	Misc2Test	testAvoidUnwantedSemicolonWhenDelimitingExpression	skip:dialect-mvel		
 org.drools.mvel.integrationtests	Misc2Test	testJitCastOfPrimitiveType	skip:stmt-unrecognized:ksession.insert( Long.valueOf( 6 ) )		
@@ -377,7 +377,7 @@ org.drools.mvel.integrationtests	Misc2Test	testListnersOnStatlessKieSession	skip
 org.drools.mvel.integrationtests	Misc2Test	testImportExceptional	skip:bean-unknown:ArrayList		
 org.drools.mvel.integrationtests	Misc2Test	testMapAccessorWithCustomOp	skip:bean-unknown:ArrayList		
 org.drools.mvel.integrationtests	Misc2Test	testMapAccessorWithBoundVar	skip:bean-unknown:ArrayList		
-org.drools.mvel.integrationtests	Misc2Test	test3IdenticalForall	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	test3IdenticalForall	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got )
 org.drools.mvel.integrationtests	Misc2Test	testSegmentInitialization	skip:bean-unknown:ResourceRequirement		
 org.drools.mvel.integrationtests	Misc2Test	testReportErrorOnWrongDateEffective	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
 org.drools.mvel.integrationtests	Misc2Test	testDeleteInFromNode	"skip:stmt-unrecognized:context.put( ""key"", ""value"" )"		
@@ -399,10 +399,10 @@ org.drools.mvel.integrationtests	Misc2Test	testBindingComplexExpression	skip:kie
 org.drools.mvel.integrationtests	Misc2Test	testBindingComplexExpressionWithDRL5	skip:kiebase-config		
 org.drools.mvel.integrationtests	Misc2Test	testEvalConstraintWithMvelOperator	skip:bean-unknown:DrlParser		
 org.drools.mvel.integrationtests	Misc2Test	testManyAccumulatesWithSubnetworks	skip:declare-type-out:Applied		
-org.drools.mvel.integrationtests	Misc2Test	testLinkRiaNodesWithSubSubNetworks	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testLinkRiaNodesWithSubSubNetworks	extracted	out-of-subset	"engine error: DRL parse error: expected "";"", got ,"
 org.drools.mvel.integrationtests	Misc2Test	testDynamicSalienceUpdate	skip:fact-nonbean		
 org.drools.mvel.integrationtests	Misc2Test	testInitialFactLeaking	skip:fact-nonbean		
-org.drools.mvel.integrationtests	Misc2Test	testNoLoopWithNamedConsequences	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testNoLoopWithNamedConsequences	extracted	out-of-subset	engine error: DRL parse error: unexpected character '['
 org.drools.mvel.integrationtests	Misc2Test	testInsertModifyInteractionsWithLockOnActive	"skip:stmt-unrecognized:Message m2 = (Message) ksession.getGlobal( ""m2"" )"		
 org.drools.mvel.integrationtests	Misc2Test	testDynamicSalience	skip:loop-in-test		
 org.drools.mvel.integrationtests	Misc2Test	testCollectAndAccumulate	skip:loop-in-test		
@@ -410,7 +410,7 @@ org.drools.mvel.integrationtests	Misc2Test	testMatchingEventsInStreamMode	skip:l
 org.drools.mvel.integrationtests	Misc2Test	testRuleDoesNotRefireOnNewSession	skip:stmt-unrecognized:ksession = kbase.newKieSession()		
 org.drools.mvel.integrationtests	Misc2Test	testWildcardImportForTypeField	skip:kie-container-api		
 org.drools.mvel.integrationtests	Misc2Test	testWildcardImportForTypeFieldOldApi	skip:no-drl-string		
-org.drools.mvel.integrationtests	Misc2Test	testTypeCheckInOr	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testTypeCheckInOr	extracted	out-of-subset	"engine error: DRL parse error: expected rule attribute or 'when', got Some(""dialect"")"
 org.drools.mvel.integrationtests	Misc2Test	testDynamicNegativeSalienceWithSpace	skip:stmt-unrecognized:FactHandle fh1 = ksession.insert( p1 )		
 org.drools.mvel.integrationtests	Misc2Test	testJoinNoLoop	skip:fact-nonbean		
 org.drools.mvel.integrationtests	Misc2Test	testConstraintOnSerializable	skip:bean-unknown:SerializableValue		
@@ -419,16 +419,16 @@ org.drools.mvel.integrationtests	Misc2Test	testPackagingJarWithTypeDeclarations	
 org.drools.mvel.integrationtests	Misc2Test	testJittingConstraintWithArrayParams	skip:bean-unknown:Strings		
 org.drools.mvel.integrationtests	Misc2Test	testJittingConstraintInvokingStaticMethod	skip:fact-nonbean		
 org.drools.mvel.integrationtests	Misc2Test	testGlobalInConstraint	skip:global-in-lhs-or-complex-rhs		
-org.drools.mvel.integrationtests	Misc2Test	testStaticInConstraint	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testStaticInConstraint	extracted	out-of-subset	engine error: DRL parse error: expected comparison operator, got .
 org.drools.mvel.integrationtests	Misc2Test	testFieldPrecedenceOverGlobal	skip:bean-unknown:EvallerBean		
 org.drools.mvel.integrationtests	Misc2Test	testFieldPrecedenceOverDeclaration	skip:bean-unknown:Evaller		
 org.drools.mvel.integrationtests	Misc2Test	testContainsOnString	skip:fact-nonbean		
 org.drools.mvel.integrationtests	Misc2Test	testFunctionJitting	skip:fact-nonbean		
 org.drools.mvel.integrationtests	Misc2Test	testGlobalExtractor	skip:global-in-lhs-or-complex-rhs		
 org.drools.mvel.integrationtests	Misc2Test	testSharedNotWithLeftUpdateAndRightInsert	skip:bean-unknown:Foo		
-org.drools.mvel.integrationtests	Misc2Test	testNestedNots1	extracted	out-of-subset	
-org.drools.mvel.integrationtests	Misc2Test	testNestedNots2	extracted	out-of-subset	
-org.drools.mvel.integrationtests	Misc2Test	testNestedNots3	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testNestedNots1	extracted	out-of-subset	engine error: DRL parse error: CE groups inside not/exists are out of subset (P1c pending; bare `not T(...)` / `exists T(...)` only, D-031)
+org.drools.mvel.integrationtests	Misc2Test	testNestedNots2	extracted	out-of-subset	engine error: DRL parse error: CE groups inside not/exists are out of subset (P1c pending; bare `not T(...)` / `exists T(...)` only, D-031)
+org.drools.mvel.integrationtests	Misc2Test	testNestedNots3	extracted	out-of-subset	engine error: DRL parse error: CE groups inside not/exists are out of subset (P1c pending; bare `not T(...)` / `exists T(...)` only, D-031)
 org.drools.mvel.integrationtests	Misc2Test	testExtendingDate	skip:stmt-unrecognized:List<org.kie.api.builder.Message> messages = kieBuilder.getR		
 org.drools.mvel.integrationtests	Misc2Test	testEvalInSubnetwork	skip:fact-nonbean		
 org.drools.mvel.integrationtests	Misc2Test	testRedeclaringRuleAttribute	skip:no-fire-call		
@@ -480,7 +480,7 @@ org.drools.mvel.integrationtests	Misc2Test	testWrongNodeSharing	skip:fact-nonbea
 org.drools.mvel.integrationtests	Misc2Test	testJittedConstraintComparisonWithIncompatibleObjects	skip:bean-unknown:NonStringConstructorClass		
 org.drools.mvel.integrationtests	Misc2Test	testSkipHashingOfNestedProperties	skip:bean-unknown:A1		
 org.drools.mvel.integrationtests	Misc2Test	testErrorReportWithWrongAccumulateFunction	skip:no-fire-call		
-org.drools.mvel.integrationtests	Misc2Test	testVariableMatchesField	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testVariableMatchesField	extracted	out-of-subset	"engine error: DRL parse error: expected "":"", got matches"
 org.drools.mvel.integrationtests	Misc2Test	testEndMethod	skip:loop-in-test		
 org.drools.mvel.integrationtests	Misc2Test	testDifferentClassesWithOR	skip:bean-unknown:ChildA		
 org.drools.mvel.integrationtests	Misc2Test	testJittingCollectionCreation	skip:fact-nonbean		
@@ -493,7 +493,7 @@ org.drools.mvel.integrationtests	Misc2Test	testLambdaInRHS	"skip:stmt-unrecogniz
 org.drools.mvel.integrationtests	Misc2Test	testMethodReferenceInRHS	"skip:stmt-unrecognized:checkJava8InRhs(""list::add"")"		
 org.drools.mvel.integrationtests	Misc2Test	testCompareToOnInterface	skip:bean-unknown:StringWrapper		
 org.drools.mvel.integrationtests	Misc2Test	testFromEPDontRequireLeftInput	skip:engine-internals		
-org.drools.mvel.integrationtests	Misc2Test	testIn	extracted	out-of-subset	
+org.drools.mvel.integrationtests	Misc2Test	testIn	extracted	out-of-subset	engine error: DRL parse error: expected literal, got null
 org.drools.mvel.integrationtests	Misc2Test	testNonSerializableInEvaluatorWrapper	skip:kie-container-api		
 org.drools.mvel.integrationtests	Misc2Test	testWrongNodeSharingWithSameHashCode	skip:fact-nonbean		
 org.drools.mvel.integrationtests	Misc2Test	testWrongVariableNameWithSameDeclarationName	skip:no-fire-call		

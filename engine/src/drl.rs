@@ -104,6 +104,25 @@ pub enum Constraint {
     Contains { field: String, needle: String },
     /// `n in (1, 2)` / `n not in (1, 2)` — literal membership (D-030)
     InList { field: String, items: Vec<Literal>, negated: bool },
+    /// Inline boolean constraint group (D-073): `a == 1 || a == 2`,
+    /// `!(x > 5)`, nested parens. Top-level `&&` never appears here —
+    /// it splits into separate comma-equivalent constraints at parse
+    /// time (ib24/ib28: conjuncts join eq-hash groups and share like
+    /// comma constraints). Composites behave like `in` (double
+    /// promotion, no hash participation — ib21/ib22/ib23).
+    Group(CExpr),
+}
+
+/// One leaf/branch of an inline constraint group (D-073).
+#[derive(Debug, Clone, PartialEq)]
+pub enum CExpr {
+    Cmp { field: String, op: CmpOp, rhs: CmpRhs },
+    Matches { field: String, regex: String },
+    Contains { field: String, needle: String },
+    InList { field: String, items: Vec<Literal>, negated: bool },
+    And(Vec<CExpr>),
+    Or(Vec<CExpr>),
+    Not(Box<CExpr>),
 }
 
 /// Conditional-element kind of a pattern (D-031).
@@ -363,7 +382,10 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                 "!=" => "!=",
                 "<=" => "<=",
                 ">=" => ">=",
+                "&&" => "&&",
+                "||" => "||",
                 _ => match c {
+                    '!' => "!",
                     '(' => "(",
                     ')' => ")",
                     '{' => "{",
@@ -394,6 +416,10 @@ struct Parser {
 }
 
 impl Parser {
+    fn peek_at(&self, n: usize) -> Option<&Tok> {
+        self.toks.get(self.pos + n)
+    }
+
     fn peek(&self) -> Option<&Tok> {
         self.toks.get(self.pos)
     }
@@ -751,7 +777,19 @@ impl Parser {
         }
         let mut constraints = Vec::new();
         loop {
-            constraints.push(self.constraint()?);
+            // query bodies keep the pre-D-073 grammar: one plain
+            // constraint per comma slot, no inline boolean groups
+            // (fence — the query network's sharing/drain semantics for
+            // composites are unprobed).
+            let slot = self.constraint_slot()?;
+            for c in &slot {
+                if matches!(c, Constraint::Group(_)) {
+                    return Err(DrlError(
+                        "inline constraint groups in query bodies are out of subset (D-073)".into(),
+                    ));
+                }
+            }
+            constraints.extend(slot);
             match self.next()? {
                 Tok::Sym(",") => continue,
                 Tok::Sym(")") => break,
@@ -851,7 +889,7 @@ impl Parser {
         let mut constraints = Vec::new();
         if !matches!(self.peek(), Some(Tok::Sym(")"))) {
             loop {
-                constraints.push(self.constraint()?);
+                constraints.extend(self.constraint_slot()?);
                 match self.next()? {
                     Tok::Sym(",") => continue,
                     Tok::Sym(")") => break,
@@ -995,18 +1033,126 @@ impl Parser {
         })
     }
 
-    fn constraint(&mut self) -> Result<Constraint, DrlError> {
-        let first = self.ident()?;
-        if first.starts_with('$') {
+    /// One comma slot of a pattern (D-073). Yields MULTIPLE constraints
+    /// when the slot's top level is `&&` (Drools splits top-level `&&`
+    /// into comma-equivalent constraints — they join eq-hash groups and
+    /// share alpha nodes exactly like commas, ib24/ib28); `||`/`!()`
+    /// tops stay ONE composite Group (in-like semantics, ib21..ib23).
+    /// A leading `$v : field` binding may carry a restriction expression
+    /// over that field (`$v : b > 0 || b < -5`, ib29/ib12).
+    fn constraint_slot(&mut self) -> Result<Vec<Constraint>, DrlError> {
+        let mut out = Vec::new();
+        let mut cur_field: Option<String> = None;
+        if matches!(self.peek(), Some(Tok::Ident(w)) if w.starts_with('$')) {
+            let var = self.ident()?;
             self.expect_sym(":")?;
             let field = self.ident()?;
-            return Ok(Constraint::Bind { var: first, field });
+            out.push(Constraint::Bind { var, field: field.clone() });
+            // binding with no restriction: slot ends here
+            if matches!(self.peek(), Some(Tok::Sym(",")) | Some(Tok::Sym(")"))) {
+                return Ok(out);
+            }
+            cur_field = Some(field);
         }
+        let e = self.cexpr_or(&mut cur_field)?;
+        match e {
+            CExpr::And(xs) => {
+                for x in xs {
+                    out.push(demote(x));
+                }
+            }
+            other => out.push(demote(other)),
+        }
+        Ok(out)
+    }
+
+    /// `cexpr_or := cexpr_and ('||' cexpr_and)*` — `&&` binds tighter
+    /// than `||` (ib5).
+    fn cexpr_or(&mut self, cur_field: &mut Option<String>) -> Result<CExpr, DrlError> {
+        let first = self.cexpr_and(cur_field)?;
+        if !matches!(self.peek(), Some(Tok::Sym("||"))) {
+            return Ok(first);
+        }
+        let mut xs = vec![first];
+        while matches!(self.peek(), Some(Tok::Sym("||"))) {
+            self.next()?;
+            xs.push(self.cexpr_and(cur_field)?);
+        }
+        Ok(CExpr::Or(xs))
+    }
+
+    fn cexpr_and(&mut self, cur_field: &mut Option<String>) -> Result<CExpr, DrlError> {
+        let first = self.cexpr_unary(cur_field)?;
+        if !matches!(self.peek(), Some(Tok::Sym("&&"))) {
+            return Ok(first);
+        }
+        let mut xs = vec![first];
+        while matches!(self.peek(), Some(Tok::Sym("&&"))) {
+            self.next()?;
+            xs.push(self.cexpr_unary(cur_field)?);
+        }
+        Ok(CExpr::And(xs))
+    }
+
+    /// `cexpr_unary := '!' '(' cexpr_or ')' | '(' cexpr_or ')' | atom`
+    fn cexpr_unary(&mut self, cur_field: &mut Option<String>) -> Result<CExpr, DrlError> {
+        if matches!(self.peek(), Some(Tok::Sym("!"))) {
+            self.next()?;
+            self.expect_sym("(")?;
+            let inner = self.cexpr_or(cur_field)?;
+            self.expect_sym(")")?;
+            return Ok(CExpr::Not(Box::new(inner)));
+        }
+        if matches!(self.peek(), Some(Tok::Sym("("))) {
+            self.next()?;
+            let inner = self.cexpr_or(cur_field)?;
+            self.expect_sym(")")?;
+            return Ok(inner);
+        }
+        self.cexpr_atom(cur_field)
+    }
+
+    /// One field test. An atom starting directly with a comparison
+    /// operator is the ABBREVIATED form and applies to the most recent
+    /// explicitly-named field (`a > 5 && < 10`, ib3/ib4/ib28/ib30);
+    /// abbreviated matches/contains/in stay out of subset.
+    fn cexpr_atom(&mut self, cur_field: &mut Option<String>) -> Result<CExpr, DrlError> {
+        // keyword restriction directly on the current field: the
+        // bind-with-restriction forms `$v : f in (…)` / `$v : f matches
+        // "…"` (InTest#testInOperator) and abbreviated continuations.
+        let kw_restr = match (self.peek(), self.peek_at(1)) {
+            (Some(Tok::Ident(w)), Some(Tok::Sym("("))) if w == "in" => true,
+            (Some(Tok::Ident(w)), Some(Tok::Ident(w2))) if w == "not" && w2 == "in" => true,
+            (Some(Tok::Ident(w)), Some(Tok::StrLit(_)))
+                if w == "matches" || w == "contains" =>
+            {
+                true
+            }
+            _ => false,
+        };
+        let field = match self.peek() {
+            Some(Tok::Sym("==" | "!=" | "<" | "<=" | ">" | ">=")) => cur_field
+                .clone()
+                .ok_or_else(|| DrlError("abbreviated restriction with no preceding field".into()))?,
+            Some(Tok::Ident(_)) if kw_restr => cur_field
+                .clone()
+                .ok_or_else(|| DrlError("keyword restriction with no preceding field".into()))?,
+            Some(Tok::Ident(w)) if w.starts_with('$') => {
+                return Err(DrlError(
+                    "bindings inside constraint groups are out of subset (D-073)".into(),
+                ))
+            }
+            _ => {
+                let f = self.ident()?;
+                *cur_field = Some(f.clone());
+                f
+            }
+        };
         match self.peek() {
             Some(Tok::Ident(w)) if w == "matches" => {
                 self.next()?;
                 return match self.next()? {
-                    Tok::StrLit(s) => Ok(Constraint::Matches { field: first, regex: s }),
+                    Tok::StrLit(s) => Ok(CExpr::Matches { field, regex: s }),
                     other => Err(DrlError(format!(
                         "matches requires a literal string regex, got {other}"
                     ))),
@@ -1015,7 +1161,7 @@ impl Parser {
             Some(Tok::Ident(w)) if w == "contains" => {
                 self.next()?;
                 return match self.next()? {
-                    Tok::StrLit(s) => Ok(Constraint::Contains { field: first, needle: s }),
+                    Tok::StrLit(s) => Ok(CExpr::Contains { field, needle: s }),
                     other => Err(DrlError(format!(
                         "contains requires a literal string, got {other}"
                     ))),
@@ -1024,13 +1170,13 @@ impl Parser {
             Some(Tok::Ident(w)) if w == "in" => {
                 self.next()?;
                 let items = self.in_list()?;
-                return Ok(Constraint::InList { field: first, items, negated: false });
+                return Ok(CExpr::InList { field, items, negated: false });
             }
             Some(Tok::Ident(w)) if w == "not" => {
                 self.next()?;
                 self.expect_kw("in")?;
                 let items = self.in_list()?;
-                return Ok(Constraint::InList { field: first, items, negated: true });
+                return Ok(CExpr::InList { field, items, negated: true });
             }
             _ => {}
         }
@@ -1047,7 +1193,7 @@ impl Parser {
             Some(Tok::Ident(w)) if w.starts_with('$') => CmpRhs::Var(self.ident()?),
             _ => CmpRhs::Lit(self.literal()?),
         };
-        Ok(Constraint::Cmp { field: first, op, rhs })
+        Ok(CExpr::Cmp { field, op, rhs })
     }
 
     fn in_list(&mut self) -> Result<Vec<Literal>, DrlError> {
@@ -1205,6 +1351,19 @@ fn setter_field(setter: &str) -> Result<String, DrlError> {
             format!("{head}{}", cs.as_str())
         })
         .ok_or_else(|| DrlError(format!("expected setter, got {setter}")))
+}
+
+/// A split-out slot element (D-073): leaves stay legacy Constraint
+/// variants (keeping their eq-hash/sharing identity, ib24); composites
+/// become Group.
+fn demote(e: CExpr) -> Constraint {
+    match e {
+        CExpr::Cmp { field, op, rhs } => Constraint::Cmp { field, op, rhs },
+        CExpr::Matches { field, regex } => Constraint::Matches { field, regex },
+        CExpr::Contains { field, needle } => Constraint::Contains { field, needle },
+        CExpr::InList { field, items, negated } => Constraint::InList { field, items, negated },
+        other => Constraint::Group(other),
+    }
 }
 
 /// DNF expansion of a CE tree (D-070): Or concatenates branch lists in

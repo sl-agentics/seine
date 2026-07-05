@@ -1,0 +1,66 @@
+{
+ "name": "pr_ib7",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "f",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "a": 5
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "a": 7
+   }
+  }
+ ],
+ "drl": "rule R when A(!(a == 1 || a == 7)) then insert(new E(1)); end"
+}

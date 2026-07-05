@@ -1,0 +1,66 @@
+{
+ "name": "pr_ib15",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 11,
+    "f1": true,
+    "f2": 4
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": -1,
+    "f1": true,
+    "f2": 8
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": -5,
+    "f1": "alpha",
+    "f2": 1
+   }
+  }
+ ],
+ "drl": "rule \"R0\"\nsalience -1\nwhen\n    T1(f2 > -100, f2 < 1000000)\n    T1(f2 != -1000000007, $b0 : f2)\nthen\nend\nrule \"R1\"\nwhen\n    T1(f2 > -100 && f2 < 1000000)\n    T1(f2 != -1000000007, $b1 : f2)\nthen\nend\nrule \"R2\"\nwhen\n    T0($b2 : f2)\nthen\n    insert(new T1($b2, \"b\", $b2));\nend\n"
+}

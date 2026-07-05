@@ -1,0 +1,61 @@
+{
+ "name": "pr_ib16",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "f",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "b": 1,
+    "s": "x"
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "a": 0
+   }
+  }
+ ],
+ "drl": "rule R1 no-loop when $b : B(b == 1 || s == \"zz\") then $b.setS(\"q\"); update($b); end\nrule R2 when B(s == \"q\") then insert(new E(9)); end"
+}

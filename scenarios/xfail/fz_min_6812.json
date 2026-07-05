@@ -1,0 +1,108 @@
+{
+ "drl": "rule \"R2\"\nsalience($b2_1_0 + $b2_1_0)\nno-loop\nwhen\n    T1()\n    T2(f3 in (false), $b2_1_0 : f0)\nthen\nend\n",
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "fields": {
+      "f0": "a",
+      "f1": true
+     },
+     "type": "T1"
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "fields": {
+      "f3": true
+     },
+     "op": "update",
+     "target": 1
+    },
+    {
+     "fields": {
+      "f3": false
+     },
+     "op": "update",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": "alpha",
+    "f1": true
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 1.0,
+    "f1": false,
+    "f2": 5.0,
+    "f3": false
+   },
+   "type": "T2"
+  }
+ ],
+ "name": "fz_min_6812",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  }
+ ]
+}

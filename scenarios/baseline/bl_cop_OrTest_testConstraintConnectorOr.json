@@ -1,0 +1,66 @@
+{
+ "name": "bl_cop_OrTest_testConstraintConnectorOr",
+ "provenance": {
+  "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/compiler/integrationtests/operators/OrTest.java",
+  "method": "OrTest#testConstraintConnectorOr",
+  "expect_fire_count": null,
+  "adaptation": [
+   "dropped global java.util.List results",
+   "stripped global stmt: results.add( $person )"
+  ]
+ },
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "alive",
+     "type": "bool"
+    },
+    {
+     "name": "happy",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "name": "Mark",
+    "alive": true,
+    "happy": true
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "Bush",
+    "alive": true,
+    "happy": false
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "Conan",
+    "alive": false,
+    "happy": true
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "Nero",
+    "alive": false,
+    "happy": false
+   }
+  }
+ ],
+ "drl": "\n\nrule \"Simple || operator\"\n    when\n        $person : Person( alive == true || happy == true )\n    then  end"
+}

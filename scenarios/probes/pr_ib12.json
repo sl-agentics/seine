@@ -1,0 +1,62 @@
+{
+ "name": "pr_ib12",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "f",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "b": 3,
+    "s": "x"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": -4,
+    "s": "y"
+   }
+  }
+ ],
+ "drl": "rule R when B($v : b > 0) then insert(new E($v)); end"
+}

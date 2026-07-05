@@ -1,0 +1,66 @@
+{
+ "name": "pr_ib1",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "f",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 3
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "a": 7
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "a": 12
+   }
+  }
+ ],
+ "drl": "rule R when A(a > 5 && a < 10) then insert(new E(1)); end"
+}

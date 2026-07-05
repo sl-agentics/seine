@@ -1,0 +1,45 @@
+{
+ "name": "pr_ib20",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 2
+   }
+  }
+ ],
+ "drl": "rule R1 when A(a == 1) then insert(new E(1)); end\nrule R2 when A(a == 2.5) then insert(new E(2)); end\nrule R3 when A(a == -7) then insert(new E(3)); end"
+}

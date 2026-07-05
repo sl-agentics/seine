@@ -1,0 +1,69 @@
+{
+ "name": "pr_ib9",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "f",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "b": 1,
+    "s": "y"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": 2,
+    "s": "x"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": 3,
+    "s": "z"
+   }
+  }
+ ],
+ "drl": "rule R when B(b == 1 || s == \"x\") then insert(new E(1)); end"
+}

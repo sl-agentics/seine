@@ -1,0 +1,149 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1($b0_0_0 : f0)\nthen\nend\nrule \"R1\"\nsalience -7\nwhen\n    T0(f2 in (false), f0 contains \"ph\", !(f0 contains \"\"))\nthen\nend\nrule \"R2\"\nsalience($b2_1_0 + $b2_1_0)\nno-loop\nwhen\n    T1(f1 != false, f0 <= \"b\")\n    T2(f3 in (false), $b2_1_0 : f0)\nthen\nend\nrule \"R3\"\nwhen\n    accumulate( T2($s3_0 : f0); $a3_0 : max($s3_0) )\nthen\nend\nrule \"R4\"\nwhen\n    $p4_0 : T1(f0 matches \"\", f0 not in (\"b\", \"alpha\"), !(f1 != true), $b4_0_0 : f1, $b4_0_1 : f0)\nthen\n    insert(new T2(-2.5, $p4_0.isF1(), -2.5, true));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": -0.5
+          },
+          "op": "update",
+          "target": 1
+        },
+        {
+          "fields": {
+            "f0": 5.5,
+            "f1": false,
+            "f2": 4.5,
+            "f3": true
+          },
+          "op": "insert",
+          "type": "T2"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "a",
+            "f1": true
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": "alpha",
+            "f1": true
+          },
+          "type": "T1"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f3": true
+          },
+          "op": "update",
+          "target": 1
+        },
+        {
+          "fields": {
+            "f3": false
+          },
+          "op": "update",
+          "target": 1
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "alpha",
+            "f1": -1000000007,
+            "f2": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 1.0,
+        "f1": false,
+        "f2": 5.0,
+        "f3": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_6812",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

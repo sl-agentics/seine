@@ -1,0 +1,29 @@
+{
+ "name": "bl_cop_InTest_testNegatedIn",
+ "provenance": {
+  "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/compiler/integrationtests/operators/InTest.java",
+  "method": "InTest#testNegatedIn",
+  "expect_fire_count": 2,
+  "adaptation": []
+ },
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "name": "bob"
+   }
+  }
+ ],
+ "drl": "\n\nrule \"test negated in\"\nwhen\n    Person( !(name in (\"joe\", \"doe\")) )\nthen  end\nrule \"test not negated in\"\nwhen\n    Person( !(name not in (\"bob\", \"mark\")) )\nthen  end\n"
+}

@@ -132,6 +132,48 @@ fn lit_drl(rng: &mut Rng, ft: Ft, only_true_bools: bool) -> String {
 /// Phase 1-3 operator grammar: the six cmpops, and per D-030 `matches` /
 /// `contains` (String fields), `in` / `not in` (all field types;
 /// cross-type numeric items exercise the promote-only pin of op_i3).
+/// Inline boolean group constraint (D-073): `a == 1 || b > 2`,
+/// `!(x > 5)`, abbreviated `a > 5 && < 10`. Leaves draw over the
+/// pattern's own fields; composites never join eq-hash groups
+/// oracle-side (ib21/ib22), so `==` leaves are safe anywhere.
+fn gen_group_constraint(rng: &mut Rng, fields: &[(String, Ft)]) -> String {
+    let leaf = |rng: &mut Rng| {
+        let (f, ft) = fields[rng.below(fields.len())].clone();
+        gen_alpha_constraint(rng, &f, ft)
+    };
+    match rng.below(10) {
+        // negated single test
+        0..=2 => format!("!({})", leaf(rng)),
+        // negated disjunction
+        3 => format!("!({} || {})", leaf(rng), leaf(rng)),
+        // abbreviated relational range on one numeric field
+        4..=5 => {
+            let nums: Vec<&(String, Ft)> =
+                fields.iter().filter(|(_, ft)| matches!(ft, Ft::I64 | Ft::F64)).collect();
+            if nums.is_empty() {
+                return format!("{} || {}", leaf(rng), leaf(rng));
+            }
+            let (f, ft) = (*rng.pick(&nums)).clone();
+            let a = lit_drl(rng, ft, false);
+            let b = lit_drl(rng, ft, false);
+            let (o1, o2) = if rng.chance(50) { (">", "<") } else { (">=", "<=") };
+            if rng.chance(50) {
+                format!("{f} {o1} {a} && < {b}")
+            } else {
+                format!("{f} {o1} {a} && {f} {o2} {b}")
+            }
+        }
+        // 2-3 way disjunction, possibly with a nested !()
+        _ => {
+            let mut parts = vec![leaf(rng), leaf(rng)];
+            if rng.chance(25) {
+                parts.push(format!("!({})", leaf(rng)));
+            }
+            parts.join(" || ")
+        }
+    }
+}
+
 fn gen_alpha_constraint(rng: &mut Rng, fname: &str, ft: Ft) -> String {
     match ft {
         Ft::Str => match rng.below(10) {
@@ -418,6 +460,13 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 };
                 let c = gen_alpha_constraint(&mut rng, &fname, ft);
                 pats[pi].constraints.push(c);
+            }
+            // D-073 inline boolean groups (~12% of patterns; collect
+            // sources excluded — their gate/identity story is scoped to
+            // plain constraints).
+            if pats[pi].ce != 4 && rng.chance(12) {
+                let fs = types[pats[pi].ti].fields.clone();
+                pats[pi].constraints.push(gen_group_constraint(&mut rng, &fs));
             }
             // Join constraint against an earlier binding. Collect
             // patterns are excluded: a var-referencing collect source

@@ -1,0 +1,60 @@
+{
+ "drl": "rule \"R0\"\nsalience -2\nwhen\n    $p0_0 : T0(f1 == false)\n    $p0_1 : T1()\nthen\n    modify($p0_0) { setF1(true), setF0($p0_1.getF0()) }\nend\nrule \"R1\"\nwhen\n    T0(f0 not in (7, -1000000007), $b1_0_0 : f0, $b1_0_1 : f1)\nthen\n    insert(new T1($b1_0_0, true, $b1_0_1));\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f0": 3,
+      "f1": false
+     },
+     "op": "insert",
+     "type": "T0"
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": -4,
+    "f1": false
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_min_455",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}
