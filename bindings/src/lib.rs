@@ -519,18 +519,48 @@ impl PySession {
 
 #[pymethods]
 impl PySession {
-    /// Session(drl, facts=None): declared types come from the ingested
-    /// tables' schemas (constructor argument order in DRL = column
-    /// order). One-shot: insert(s) then a single fire().
+    /// Session(drl, facts=None, schemas=None): declared types come from
+    /// the ingested tables' schemas plus any EXPLICIT schemas
+    /// ({type: {field: "i64"|"f64"|"bool"|"String"}}, D-048 — lets
+    /// @fact-class keys declare types with zero rows). Constructor
+    /// argument order in DRL = field order.
     #[new]
-    #[pyo3(signature = (drl, facts=None))]
-    fn new(py: Python<'_>, drl: String, facts: Option<Bound<'_, PyDict>>) -> PyResult<Self> {
+    #[pyo3(signature = (drl, facts=None, schemas=None))]
+    fn new(
+        py: Python<'_>,
+        drl: String,
+        facts: Option<Bound<'_, PyDict>>,
+        schemas: Option<Bound<'_, PyDict>>,
+    ) -> PyResult<Self> {
         let mut sess = PySession {
             engine: None,
             schemas: Vec::new(),
             drl,
             built: false,
         };
+        if let Some(sd) = schemas {
+            for (k, v) in sd.iter() {
+                let type_name: String = k.extract()?;
+                let fd: &Bound<'_, PyDict> = v.downcast()?;
+                let mut fields = Vec::new();
+                for (fk, fv) in fd.iter() {
+                    let fname: String = fk.extract()?;
+                    let ft = match fv.extract::<String>()?.as_str() {
+                        "i64" => FieldType::I64,
+                        "f64" => FieldType::F64,
+                        "bool" => FieldType::Bool,
+                        "String" => FieldType::Str,
+                        other => {
+                            return Err(PyValueError::new_err(format!(
+                                "{type_name}.{fname}: unknown subset type {other:?}"
+                            )))
+                        }
+                    };
+                    fields.push((fname, ft));
+                }
+                sess.schemas.push(TypeSchema { name: type_name, fields });
+            }
+        }
         if let Some(f) = facts {
             // Pass 1: schemas from every table, so cross-type rules
             // compile regardless of dict order.
@@ -538,10 +568,18 @@ impl PySession {
             for (k, v) in f.iter() {
                 let type_name: String = k.extract()?;
                 let (fields, cols) = ingest_any(py, &type_name, &v)?;
-                sess.schemas.push(TypeSchema {
-                    name: type_name.clone(),
-                    fields: fields.clone(),
-                });
+                match sess.schemas.iter().find(|s| s.name == type_name) {
+                    Some(declared) if declared.fields != fields => {
+                        return Err(PyValueError::new_err(format!(
+                            "{type_name}: table schema differs from the declared schema"
+                        )))
+                    }
+                    Some(_) => {}
+                    None => sess.schemas.push(TypeSchema {
+                        name: type_name.clone(),
+                        fields: fields.clone(),
+                    }),
+                }
                 pending.push((type_name, fields, cols));
             }
             sess.ensure_built()?;
@@ -550,6 +588,8 @@ impl PySession {
             }
             // constructor handles are discarded; use insert()/insert_row()
             // return values for provenance
+        } else if !sess.schemas.is_empty() {
+            sess.ensure_built()?;
         }
         Ok(sess)
     }
@@ -800,15 +840,16 @@ fn ingest_any(
 /// One-call convenience: build a session from tables, fire, return the
 /// result. `seine.run(drl, {"P": df})`.
 #[pyfunction]
-#[pyo3(signature = (drl, facts, fire_limit=100_000, on_fire=None))]
+#[pyo3(signature = (drl, facts, fire_limit=100_000, on_fire=None, schemas=None))]
 fn run(
     py: Python<'_>,
     drl: String,
     facts: Bound<'_, PyDict>,
     fire_limit: usize,
     on_fire: Option<Bound<'_, PyAny>>,
+    schemas: Option<Bound<'_, PyDict>>,
 ) -> PyResult<PyResult_> {
-    let mut sess = PySession::new(py, drl, Some(facts))?;
+    let mut sess = PySession::new(py, drl, Some(facts), schemas)?;
     sess.fire(py, fire_limit, on_fire)
 }
 
