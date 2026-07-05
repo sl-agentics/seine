@@ -1,0 +1,39 @@
+{
+  "name": "bl_mvl_AlphaNodeTest_testAlphaDelete",
+  "provenance": {
+    "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/mvel/integrationtests/AlphaNodeTest.java",
+    "method": "AlphaNodeTest#testAlphaDelete",
+    "expect_fire_count": 1,
+    "adaptation": []
+  },
+  "types": [
+    {
+      "name": "Person",
+      "fields": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "likes",
+          "type": "String"
+        },
+        {
+          "name": "age",
+          "type": "i64"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "type": "Person",
+      "fields": {
+        "name": "Mario",
+        "likes": "",
+        "age": 0
+      }
+    }
+  ],
+  "drl": "rule R1 when\n  $p : Person()\nthen delete($p); end\nrule R2 when\n  $p : Person()\nthen delete($p); end\n"
+}

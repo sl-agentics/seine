@@ -1,0 +1,38 @@
+{
+  "name": "bl_cop_EqualsTest_testEqualitySupport",
+  "provenance": {
+    "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/compiler/integrationtests/operators/EqualsTest.java",
+    "method": "EqualsTest#testEqualitySupport",
+    "expect_fire_count": null,
+    "adaptation": [
+      "dropped global java.util.List results",
+      "stripped global stmt: results.add( $p.getName() )",
+      "stripped global stmt: results.add( \"This rule should NEVER fir"
+    ]
+  },
+  "types": [
+    {
+      "name": "PersonWithSpecificEquals",
+      "fields": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "age",
+          "type": "i64"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "type": "PersonWithSpecificEquals",
+      "fields": {
+        "name": "bob",
+        "age": 30
+      }
+    }
+  ],
+  "drl": "\n\n\nrule \"test equality support\"\n    salience 10\nwhen\n    $p : PersonWithSpecificEquals( name == \"bob\" )\nthen $p.setName( \"mark\" ); update( $p ); end\n\nrule \"test 2\"\nwhen\n    $p : PersonWithSpecificEquals( name == \"bob\" )\nthen  end\n"
+}

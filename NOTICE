@@ -19,3 +19,13 @@ for the product itself.
 The differential test harness in this repository links against Drools
 9.44.0.Final (retrieved from Maven Central) at test time only; Drools is not
 distributed with, embedded in, or required by the Seine engine crate.
+
+The scenarios under scenarios/baseline/ are adapted from test cases in the
+Drools 9.44.0.Final regression suite (drools-test-coverage module,
+https://github.com/apache/incubator-kie-drools, Apache License 2.0,
+Copyright Red Hat, Inc. and/or its affiliates, and the KIE community).
+Each scenario records its upstream source file and test method in a
+"provenance" field, together with the adaptations applied (DRL rule text
+adapted to declared scalar types; test-harness statements translated to
+scenario facts). These adaptations are derivative works of the upstream
+test content and are used under the Apache License 2.0.

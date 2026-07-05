@@ -1,0 +1,34 @@
+{
+  "name": "bl_mvl_Misc2Test_testStringCoercionComparison",
+  "provenance": {
+    "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/mvel/integrationtests/Misc2Test.java",
+    "method": "Misc2Test#testStringCoercionComparison",
+    "expect_fire_count": 1,
+    "adaptation": []
+  },
+  "types": [
+    {
+      "name": "Person",
+      "fields": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "age",
+          "type": "i64"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "type": "Person",
+      "fields": {
+        "name": "90201304122000000000000015",
+        "age": 38
+      }
+    }
+  ],
+  "drl": "\nrule R1 when\n $p : Person( name < \"90201304122000000000000017\" )\nthen  end\n"
+}

@@ -1,0 +1,904 @@
+package	class	method	extraction_route	gate_route	detail
+org.drools.compiler.integrationtests.operators	AndTest	testExplicitAnd	skip:multi-fire		
+org.drools.compiler.integrationtests.operators	ContainsTest	testContainsCheese	skip:stmt-unrecognized:cheesery.getCheeses().add(stilton)		
+org.drools.compiler.integrationtests.operators	ContainsTest	testContainsInArray	skip:setter-nonliteral:Primitives.stringArray		
+org.drools.compiler.integrationtests.operators	ContainsTest	testNotContainsOperator	skip:ctor-arity:Order/2		
+org.drools.compiler.integrationtests.operators	EnabledTest	testEnabledExpression	"skip:stmt-unrecognized:results = (List) session.getGlobal(""results"")"		
+org.drools.compiler.integrationtests.operators	EnabledTest	testEnabledExpression2	skip:listener-api		
+org.drools.compiler.integrationtests.operators	EqualsTest	testEqualitySupport	extracted	baseline-pass	
+org.drools.compiler.integrationtests.operators	EqualsTest	testNotEqualsOperator	skip:setter-nonliteral:Primitives.booleanWrapper		
+org.drools.compiler.integrationtests.operators	EqualsTest	testCharComparisons	skip:setter-nonliteral:Primitives.charPrimitive		
+org.drools.compiler.integrationtests.operators	EvalRewriteTest	testEvalRewrite	skip:ctor-arity:Order/2		
+org.drools.compiler.integrationtests.operators	EvalRewriteTest	testEvalRewriteMatches	skip:ctor-arity:Order/2		
+org.drools.compiler.integrationtests.operators	EvalRewriteTest	testEvalRewriteWithSpecialOperators	skip:ctor-arity:Order/2		
+org.drools.compiler.integrationtests.operators	EvalTest	testEvalDefaultCompiler	skip:kie-container-api		
+org.drools.compiler.integrationtests.operators	EvalTest	testEvalNoPatterns	extracted	out-of-subset	engine error: DRL parse error: expected comparison operator, got )
+org.drools.compiler.integrationtests.operators	EvalTest	testEvalMore	extracted	out-of-subset	engine error: DRL parse error: unexpected character '&'
+org.drools.compiler.integrationtests.operators	EvalTest	testEvalCE	skip:fact-nonbean		
+org.drools.compiler.integrationtests.operators	EvalTest	testEvalException	extracted	out-of-subset	"engine error: DRL parse error: expected keyword ""rule"", got function"
+org.drools.compiler.integrationtests.operators	EvalTest	testEvalInline	skip:fact-nonbean		
+org.drools.compiler.integrationtests.operators	EvalTest	testEvalWithLineBreaks	skip:fact-nonbean		
+org.drools.compiler.integrationtests.operators	EvalTest	testEvalWithBigDecimal	skip:bean-unknown:BigDecimal		
+org.drools.compiler.integrationtests.operators	EvalTest	testFieldBiningsAndEvalSharing	skip:stmt-unrecognized:evalSharingTest(drl)		
+org.drools.compiler.integrationtests.operators	EvalTest	testFieldBiningsAndPredicateSharing	skip:stmt-unrecognized:evalSharingTest(drl)		
+org.drools.compiler.integrationtests.operators	EvalTest	testCastingInsideEvals	skip:global-in-lhs-or-complex-rhs		
+org.drools.compiler.integrationtests.operators	EvalTest	testAlphaEvalWithOrCE	extracted	out-of-subset	engine error: DRL parse error: expected comparison operator, got (
+org.drools.compiler.integrationtests.operators	EvalTest	testModifyWithLiaToEval	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	EvalTest	testBigDecimalWithFromAndEval	extracted	out-of-subset	"engine error: DRL parse error: expected ""("", got ."
+org.drools.compiler.integrationtests.operators	EvalTest	testPredicate	skip:ctor-nonliteral:Person		
+org.drools.compiler.integrationtests.operators	EvalTest	testPredicateException	skip:stmt-unrecognized:Throwable cause = e.getCause()		
+org.drools.compiler.integrationtests.operators	ExistsTest	testExistsIterativeModifyBug	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	ExistsTest	testNodeSharingNotExists	skip:multi-fire		
+org.drools.compiler.integrationtests.operators	ExistsTest	testLastMemoryEntryExistsBug	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	ExistsTest	testExistsWithOrAndSubnetwork	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got (
+org.drools.compiler.integrationtests.operators	ExistsTest	testSharedExistsWithNot	skip:fact-nonbean		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P1CFiring1	"skip:stmt-unrecognized:check(""age >= 18"", 1, new Person(""Mario"", 45))"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P1CFiring2	"skip:stmt-unrecognized:check(""age == 8 || == 45"", 1, new Person(""Mario"", 45), new P"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P1CNotFiring	"skip:stmt-unrecognized:check(""age >= 18"", 0, new Person(""Sofia"", 8))"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P1CNotFiringWithAnd	"skip:stmt-unrecognized:check(""name == \""Sofia\"" && age >= 18"", 0, new Person(""Sofia"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P1CNotFiringWithParenthesis	"skip:stmt-unrecognized:check(""(name == \""Sofia\"" && age >= 18)"", 0, new Person(""Sof"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P1CNotFiringWithOr	"skip:stmt-unrecognized:check(""age >= 18 || name == \""Mario\"""", 0, new Person(""Sofia"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P1CNotFiringWithParenthesisAndOr	"skip:stmt-unrecognized:check(""(name == \""Sofia\"" && age >= 18) || name == \""Mario\"""		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P2CFiring	"skip:stmt-unrecognized:check(""age >= 18, name.startsWith(\""M\"")"", 1, new Person(""Ma"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P2CFiringWithIn	"skip:stmt-unrecognized:check(""age >= 18, name in(\""Mario\"", \""Mark\"")"", 1, new Pers"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P2CNotFiring1	"skip:stmt-unrecognized:check(""age >= 18, name.startsWith(\""M\"")"", 0, new Person(""Ma"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test1P2CNotFiring2	"skip:stmt-unrecognized:check(""age < 18, name.startsWith(\""M\"")"", 0, new Person(""Sof"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test2P1CFiring	"skip:stmt-unrecognized:check(""age >= 18"", ""name.startsWith(\""M\"")"", 1, new Person("""		
+org.drools.compiler.integrationtests.operators	ForAllTest	test2P1CNotFiring	"skip:stmt-unrecognized:check(""age >= 1"", ""name.startsWith(\""M\"")"", 0, new Person(""M"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test2P2CFiring	"skip:stmt-unrecognized:check("""", ""age >= 18, name.startsWith(\""M\"")"", 1, new Person"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test2P2CNotFiring1	"skip:stmt-unrecognized:check("""", ""age >= 18, name.startsWith(\""M\"")"", 0, new Person"		
+org.drools.compiler.integrationtests.operators	ForAllTest	test2P3CFiring	"skip:stmt-unrecognized:check(""name.length() < 6"", ""age >= 18, name.startsWith(\""M\"""		
+org.drools.compiler.integrationtests.operators	ForAllTest	testNoFiring	"skip:stmt-unrecognized:check("""", ""age >= 18"", 0)"		
+org.drools.compiler.integrationtests.operators	ForAllTest	testWithDate	skip:facttype-api		
+org.drools.compiler.integrationtests.operators	ForAllTest	testWithIndexedAlpha	skip:fact-nonbean		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithNotEqualConstraint	skip:bean-unknown:String		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithNotEqualConstraintOnDate	skip:bean-unknown:Date		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithEmptyListConstraintCombinedWithOrFiring	skip:stmt-unrecognized:checkForallWithEmptyListConstraintCombinedWithOrFiring(true)		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithEmptyListConstraintCombinedWithOrNotFiring	skip:stmt-unrecognized:checkForallWithEmptyListConstraintCombinedWithOrFiring(false		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithMultipleConstraints	"skip:stmt-unrecognized:checkForallWithComplexExpression(""value > 1, value < 10"")"		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithAnd	"skip:stmt-unrecognized:checkForallWithComplexExpression(""value > 1 && value < 10"")"		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithAndInMultipleConstraints	"skip:stmt-unrecognized:checkForallWithComplexExpression(""value > 1, value > 2 && va"		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithOr	"skip:stmt-unrecognized:checkForallWithComplexExpression(""value < 1 || value > 50"")"		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithIn	"skip:stmt-unrecognized:checkForallWithComplexExpression(""value in (1, 43)"")"		
+org.drools.compiler.integrationtests.operators	ForAllTest	testForallWithNotIn	"skip:stmt-unrecognized:checkForallWithComplexExpression(""value not in (1, 42)"")"		
+org.drools.compiler.integrationtests.operators	FormulaTest	testConstants	skip:dialect-mvel		
+org.drools.compiler.integrationtests.operators	FormulaTest	testBoundField	skip:dialect-mvel		
+org.drools.compiler.integrationtests.operators	FromOnlyExecModelTest	testFromSharingWithNativeImage	skip:stmt-unrecognized:NativeImageTestUtil.setNativeImage()		
+org.drools.compiler.integrationtests.operators	FromOnlyExecModelTest	testFromSharingWithNativeImageWithoutLambdaExternalisation	skip:stmt-unrecognized:NativeImageTestUtil.setNativeImage()		
+org.drools.compiler.integrationtests.operators	FromTest	testFromSharing	skip:stmt-unrecognized:testFromSharingCommon(kieBaseTestConfiguration, new HashMap<		
+org.drools.compiler.integrationtests.operators	FromTest	testFromSharingWithPropertyReactive	skip:engine-internals		
+org.drools.compiler.integrationtests.operators	FromTest	testFromSharingWithAccumulate	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	FromTest	testFromWithSingleValue	skip:bean-unknown:ListsContainer		
+org.drools.compiler.integrationtests.operators	FromTest	testFromWithSingleValueAndIncompatibleType	skip:no-fire-call		
+org.drools.compiler.integrationtests.operators	FromTest	testFromWithInterfaceAndAbstractClass	skip:bean-unknown:Container2		
+org.drools.compiler.integrationtests.operators	FromTest	testFromWithInterfaceAndConcreteClass	skip:bean-unknown:Container2b		
+org.drools.compiler.integrationtests.operators	FromTest	testFromWithInterfaceAndFinalClass	skip:no-fire-call		
+org.drools.compiler.integrationtests.operators	FromTest	testBasicFrom	skip:stmt-unrecognized:cheesery.addCheese(stilton)		
+org.drools.compiler.integrationtests.operators	FromTest	testFromWithNewConstructor	skip:kie-container-api		
+org.drools.compiler.integrationtests.operators	FromTest	testFromDeclarationWithWorkingMemoryLogger	"skip:stmt-unrecognized:cheesery.addCheese(new Cheese(""stilton"", 22))"		
+org.drools.compiler.integrationtests.operators	FromTest	testFromArrayIteration	skip:ctor-arity:DomainObjectHolder/0		
+org.drools.compiler.integrationtests.operators	FromTest	testFromExprFollowedByNot	skip:setter-nonliteral:Person.pet		
+org.drools.compiler.integrationtests.operators	FromTest	testFromNestedAccessors	skip:ctor-arity:Order/2		
+org.drools.compiler.integrationtests.operators	FromTest	testFromNodeWithMultipleBetas	"skip:stmt-unrecognized:p.addAddress(new Address(""x"", 1, ""x""))"		
+org.drools.compiler.integrationtests.operators	FromTest	testFromWithStrictModeOn	skip:no-fire-call		
+org.drools.compiler.integrationtests.operators	FromTest	testJavaImplicitWithFrom	"skip:stmt-unrecognized:testDialectWithFrom(""java"")"		
+org.drools.compiler.integrationtests.operators	FromTest	testMVELImplicitWithFrom	"skip:stmt-unrecognized:testDialectWithFrom(""mvel"")"		
+org.drools.compiler.integrationtests.operators	FromTest	testMultipleFroms	"skip:stmt-unrecognized:cheesery.addCheese(new Cheese(""stilton"", 15))"		
+org.drools.compiler.integrationtests.operators	FromTest	testNetworkBuildErrorAcrossEntryPointsAndFroms	skip:entry-points		
+org.drools.compiler.integrationtests.operators	FromTest	testUpdateFromCollect	skip:loop-in-test		
+org.drools.compiler.integrationtests.operators	FromTest	testJoinAndFrom	skip:stmt-unrecognized:runKSessionWithAgendaGroup(RULE_HEAD +		
+org.drools.compiler.integrationtests.operators	FromTest	testFromAndJoin	skip:stmt-unrecognized:runKSessionWithAgendaGroup(RULE_HEAD +		
+org.drools.compiler.integrationtests.operators	InstanceOfTest	testInstanceof	skip:setter-nonliteral:Person.address		
+org.drools.compiler.integrationtests.operators	InTest	testInOperator	extracted	out-of-subset	engine error: DRL parse error: expected ',' or ')', got in
+org.drools.compiler.integrationtests.operators	InTest	testNegatedIn	extracted	out-of-subset	engine error: DRL parse error: unexpected character '!'
+org.drools.compiler.integrationtests.operators	MatchesTest	testMatchesMVEL	"skip:stmt-unrecognized:map.put(""content"", ""hello ;="")"		
+org.drools.compiler.integrationtests.operators	MatchesTest	testMatchesMVEL2	"skip:stmt-unrecognized:map.put(""content"", ""String with . and (routine)"")"		
+org.drools.compiler.integrationtests.operators	MatchesTest	testMatchesMVEL3	"skip:stmt-unrecognized:map.put(""content"", ""String with . and ()"")"		
+org.drools.compiler.integrationtests.operators	MatchesTest	testMatchesNotMatchesCheese	extracted	out-of-subset	"engine error: DRL parse error: expected ""("", got :"
+org.drools.compiler.integrationtests.operators	MatchesTest	testNotMatchesSucceeds	"skip:stmt-unrecognized:testMatchesSuccessFail(""-..x..xrwx"", 0)"		
+org.drools.compiler.integrationtests.operators	MatchesTest	testNotMatchesFails	"skip:stmt-unrecognized:testMatchesSuccessFail(""d..x..xrwx"", 1)"		
+org.drools.compiler.integrationtests.operators	MathTest	testAddition	skip:ctor-nonliteral:Person		
+org.drools.compiler.integrationtests.operators	MathTest	testNumberComparisons	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	MathTest	testShiftOperator	skip:dialect-mvel		
+org.drools.compiler.integrationtests.operators	MemberOfTest	testMemberOfAndNotMemberOf	skip:stmt-unrecognized:cheesery.getCheeses().add(stilton)		
+org.drools.compiler.integrationtests.operators	MemberOfTest	testMemberOfWithOr	skip:setter-nonliteral:Person.pet		
+org.drools.compiler.integrationtests.operators	NotTest	testLastMemoryEntryNotBug	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	NotTest	testNegatedConstaintInNot	extracted	out-of-subset	engine error: DRL parse error: unexpected character '!'
+org.drools.compiler.integrationtests.operators	NotTest	testMissingRootBlockerEquality	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	NotTest	testNotWithInnerJoin	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	OrTest	testOr	skip:external-wm-api		
+org.drools.compiler.integrationtests.operators	OrTest	testOrCE	skip:null-field:Person.likes		
+org.drools.compiler.integrationtests.operators	OrTest	testOrCEFollowedByEval	skip:engine-internals		
+org.drools.compiler.integrationtests.operators	OrTest	testOrWithAndUsingNestedBindings	skip:stmt-unrecognized:ksession = kbase.newKieSession()		
+org.drools.compiler.integrationtests.operators	OrTest	testOrWithBinding	skip:multi-fire		
+org.drools.compiler.integrationtests.operators	OrTest	testOrWithFrom	skip:ctor-arity:Order/2		
+org.drools.compiler.integrationtests.operators	OrTest	testOrWithReturnValueRestriction	extracted	out-of-subset	engine error: DRL parse error: unexpected character '|'
+org.drools.compiler.integrationtests.operators	OrTest	testBindingsWithOr	skip:facttype-api		
+org.drools.compiler.integrationtests.operators	OrTest	testConstraintConnectorOr	extracted	out-of-subset	engine error: DRL parse error: unexpected character '|'
+org.drools.compiler.integrationtests.operators	OrTest	testVariableBindingWithOR	skip:facttype-api		
+org.drools.compiler.integrationtests.operators	OrTest	testRestrictionsWithOr	extracted	out-of-subset	engine error: DRL parse error: expected literal, got (
+org.drools.compiler.integrationtests.operators	OrTest	testEmptyIdentifier	extracted	out-of-subset	"engine error: DRL parse error: expected ""("", got Cheese"
+org.drools.compiler.integrationtests.operators	OrTest	testIndexAfterOr	skip:fact-nonbean		
+org.drools.compiler.integrationtests.operators	OrTest	testOrWithDifferenceOffsetsForConsequence	skip:fact-nonbean		
+org.drools.compiler.integrationtests.operators	SoundsLikeTest	testSoundsLike	"skip:stmt-unrecognized:testFiredRules(""package org.drools.compiler.integrationtests"		
+org.drools.compiler.integrationtests.operators	SoundsLikeTest	testSoundsLikeNegativeCase	"skip:stmt-unrecognized:testFiredRules(""package org.drools.compiler.integrationtests"		
+org.drools.compiler.integrationtests.operators	SoundsLikeTest	testNotSoundsLike	"skip:stmt-unrecognized:testFiredRules(""package org.drools.compiler.integrationtests"		
+org.drools.compiler.integrationtests.operators	SoundsLikeTest	testNotSoundsLikeNegativeCase	"skip:stmt-unrecognized:testFiredRules(""package org.drools.compiler.integrationtests"		
+org.drools.compiler.integrationtests.drl	AbstractDeclareTest	testDeclaresWithArrayFields	skip:stmt-unrecognized:if (kieBaseTestConfiguration.isIdentity()) {		
+org.drools.compiler.integrationtests.drl	BindTest	testFactBindings	skip:listener-api		
+org.drools.compiler.integrationtests.drl	BindTest	testBindingToMissingField	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	BindTest	testFieldBindingOnWrongFieldName	skip:stmt-unrecognized:testBingWrongFieldName(drl)		
+org.drools.compiler.integrationtests.drl	BindTest	testBindingsOnConnectiveExpressions	extracted	out-of-subset	engine error: DRL parse error: unexpected character '|'
+org.drools.compiler.integrationtests.drl	BindTest	testAutomaticBindings	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got ;
+org.drools.compiler.integrationtests.drl	CommentTest	testCommentDelimiterInString	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	CommentTest	testCommentWithCommaInRHS	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	ConsequenceTest	testConsequenceException	extracted	out-of-subset	"engine error: DRL parse error: expected ""("", got :"
+org.drools.compiler.integrationtests.drl	ConsequenceTest	testConsequenceBuilderException	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	ConsequenceTest	testMetaConsequence	"skip:stmt-unrecognized:results = (List) session.getGlobal(""results"")"		
+org.drools.compiler.integrationtests.drl	ConsequenceTest	testMVELConsequenceWithMapsAndArrays	skip:dialect-mvel		
+org.drools.compiler.integrationtests.drl	ConsequenceTest	testMVELConsequenceWithoutSemiColon1	skip:listener-api		
+org.drools.compiler.integrationtests.drl	DeclareTest	testDeclaredTypesDefaultHashCode	skip:declare-annotations-or-extends		
+org.drools.compiler.integrationtests.drl	DeclareTest	testDeclareAndFrom	skip:facttype-api		
+org.drools.compiler.integrationtests.drl	DeclareTest	testDeclaredFactAndFunction	skip:facttype-api		
+org.drools.compiler.integrationtests.drl	DeclareTest	testTypeDeclarationOnSeparateResource	skip:multi-fire		
+org.drools.compiler.integrationtests.drl	DeclareTest	testDeclaredTypeAsFieldForAnotherDeclaredType	skip:declare-field-unparsed		
+org.drools.compiler.integrationtests.drl	DeclareTest	testDeclaredTypeWithHundredsProps	skip:loop-in-test		
+org.drools.compiler.integrationtests.drl	DeclareTest	testMvelFunctionWithDeclaredTypeArg	skip:bean-unknown:StringBuilder		
+org.drools.compiler.integrationtests.drl	DeclareTest	testMvelFunctionWithDeclaredTypeArgForGuvnor	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	DeclareTest	testConstructorWithOtherDefaults	skip:stmt-unrecognized:final java.util.List list = new java.util.ArrayList()		
+org.drools.compiler.integrationtests.drl	DeclareTest	testKeyedInterfaceField	skip:stmt-unrecognized:final java.util.List list = new java.util.ArrayList()		
+org.drools.compiler.integrationtests.drl	DRLCepTest	testEventsInDifferentPackages	skip:declare-annotations-or-extends		
+org.drools.compiler.integrationtests.drl	DrlSpecificFeaturesTest	testMVELConsequenceUsingFactConstructors	skip:external-wm-api		
+org.drools.compiler.integrationtests.drl	DrlSpecificFeaturesTest	testTypeUnsafe	skip:threads		
+org.drools.compiler.integrationtests.drl	DrlSpecificFeaturesTest	testNoneTypeSafeDeclarations	skip:drl-dynamic		
+org.drools.compiler.integrationtests.drl	DrlSpecificFeaturesTest	testRHSClone	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	DRLTest	testDuplicateRuleName	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	DRLTest	testEmptyRule	extracted	out-of-subset	engine error: rule empty lhs1: empty LHS not in subset
+org.drools.compiler.integrationtests.drl	DRLTest	testRuleMetaAttributes	"skip:stmt-unrecognized:final Rule rule = kbase.getRule(""org.drools.compiler.integra"		
+org.drools.compiler.integrationtests.drl	DRLTest	testWithInvalidRule	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	DRLTest	testWithInvalidRule2	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	DRLTest	testDuplicateVariableBinding	skip:setter-nonliteral:Person.likes		
+org.drools.compiler.integrationtests.drl	DRLTest	testDeclarationUsage	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	DRLTest	testDeclarationNonExistingField	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	DRLTest	testDRLWithoutPackageDeclaration	skip:facttype-api		
+org.drools.compiler.integrationtests.drl	DRLTest	testPackageNameOfTheBeast	skip:facttype-api		
+org.drools.compiler.integrationtests.drl	DRLTest	testLargeDRL	skip:bean-unknown:A		
+org.drools.compiler.integrationtests.drl	ExceptionTest	testReturnValueException	extracted	out-of-subset	"engine error: DRL parse error: expected keyword ""rule"", got function"
+org.drools.compiler.integrationtests.drl	GlobalTest	testReturnValueAndGlobal	skip:global-in-lhs-or-complex-rhs		
+org.drools.compiler.integrationtests.drl	GlobalTest	testGlobalAccess	skip:stmt-unrecognized:session1.insert(sample)		
+org.drools.compiler.integrationtests.drl	GlobalTest	testEvalNullGlobal	skip:global-in-lhs-or-complex-rhs		
+org.drools.compiler.integrationtests.drl	ImportsTest	testImportFunctions	skip:stmt-unrecognized:testImportFunctionsBase(StaticMethods.class.getCanonicalName		
+org.drools.compiler.integrationtests.drl	ImportsTest	testImport	skip:dialect-mvel		
+org.drools.compiler.integrationtests.drl	ImportsTest	testImportColision	skip:stmt-unrecognized:final InternalKnowledgeBase kbase = (InternalKnowledgeBase) 		
+org.drools.compiler.integrationtests.drl	ImportsTest	testImportConflict	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	ImportsTest	testMissingImport	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	ImportsTest	testMissingImports	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	ImportsTest	testPackageImportWithMvelDialect	skip:dialect-mvel		
+org.drools.compiler.integrationtests.drl	ImportsTest	testImportStaticClass	skip:setter-nonliteral:Cheesery.status		
+org.drools.compiler.integrationtests.drl	ImportsTest	testImportInnerFunctions	skip:stmt-unrecognized:testImportFunctionsBase(org.drools.compiler.integrationtests		
+org.drools.compiler.integrationtests.drl	ImportsTest	testWrongImportWithDeclaredType	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	LiteralTest	testLiteral	extracted	baseline-pass	
+org.drools.compiler.integrationtests.drl	LiteralTest	testLiteralWithEscapes	skip:ctor-nonliteral:Cheese		
+org.drools.compiler.integrationtests.drl	LiteralTest	testLiteralWithBoolean	skip:ctor-nonliteral:Person		
+org.drools.compiler.integrationtests.drl	LiteralTest	testBigLiterals	skip:setter-nonliteral:Primitives.bigDecimal		
+org.drools.compiler.integrationtests.drl	LiteralTest	testBigDecimalIntegerLiteral	skip:setter-nonliteral:Primitives.bigDecimal		
+org.drools.compiler.integrationtests.drl	NestingTest	testNesting	skip:stmt-unrecognized:l.add(add1)		
+org.drools.compiler.integrationtests.drl	NestingTest	testNestedConditionalElements	skip:ctor-nonliteral:Person		
+org.drools.compiler.integrationtests.drl	PatternTest	testDeclaringAndUsingBindsInSamePattern	skip:kie-container-api		
+org.drools.compiler.integrationtests.drl	PatternTest	testEmptyPattern	extracted	out-of-subset	"engine error: DRL parse error: expected ""("", got :"
+org.drools.compiler.integrationtests.drl	PatternTest	testPatternMatchingOnThis	skip:fact-nonbean		
+org.drools.compiler.integrationtests.drl	PatternTest	testPatternOffset	skip:facttype-api		
+org.drools.compiler.integrationtests.drl	PatternTest	testPatternOnClass	skip:engine-internals		
+org.drools.compiler.integrationtests.drl	PatternTest	testPredicateAsFirstPattern	extracted	out-of-subset	"engine error: DRL parse error: expected ""("", got :"
+org.drools.compiler.integrationtests.drl	PatternTest	testConstantLeft	skip:ctor-nonliteral:Person		
+org.drools.compiler.integrationtests.drl	PatternTest	testUppercaseField	skip:facttype-api		
+org.drools.compiler.integrationtests.drl	PatternTest	testUppercaseField2	skip:facttype-api		
+org.drools.compiler.integrationtests.drl	PatternTest	testHelloWorld	"skip:stmt-unrecognized:message.addToList(""hello"")"		
+org.drools.compiler.integrationtests.drl	PatternTest	testBigDecimal	skip:setter-nonliteral:Primitives.bigDecimal		
+org.drools.compiler.integrationtests.drl	PatternTest	testSelfReference	skip:ctor-arity:Order/2		
+org.drools.compiler.integrationtests.drl	PatternTest	testSelfReference2	extracted	out-of-subset	engine error: rule reversed references: Cheese has no field this
+org.drools.compiler.integrationtests.drl	PatternTest	testImplicitDeclarations	skip:global-in-lhs-or-complex-rhs		
+org.drools.compiler.integrationtests.drl	PatternTest	testMethodCalls	skip:multi-fire		
+org.drools.compiler.integrationtests.drl	PatternTest	testSelfJoinWithIndex	skip:external-wm-api		
+org.drools.compiler.integrationtests.drl	PatternTest	testSelfJoinAndNotWithIndex	skip:external-wm-api		
+org.drools.compiler.integrationtests.drl	PatternTest	testQualifiedFieldReference	extracted	out-of-subset	"engine error: DRL parse error: expected "":"", got ."
+org.drools.compiler.integrationtests.drl	PatternTest	testAutovivificationOfVariableRestrictions	extracted	out-of-subset	engine error: DRL parse error: expected literal, got oldPrice
+org.drools.compiler.integrationtests.drl	PatternTest	testParentheses	skip:multi-fire		
+org.drools.compiler.integrationtests.drl	PatternTest	testCovariance	skip:setter-nonliteral:ClassA.b		
+org.drools.compiler.integrationtests.drl	PatternTest	testCheckDuplicateVariables	"skip:stmt-unrecognized:drl = ""package org.drools.compiler.integrationtests.drl;\n"" "		
+org.drools.compiler.integrationtests.drl	PatternTest	testCompilationFailureOnTernaryComparison	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	RHSTest	testGenericsInRHS	skip:no-fire-call		
+org.drools.compiler.integrationtests.drl	RHSTest	testIncrementOperator	skip:fact-nonbean		
+org.drools.compiler.integrationtests.drl	RHSTest	testKnowledgeHelperFixerInStrings	skip:fact-nonbean		
+org.drools.compiler.integrationtests.drl	RuleFlowGroupTest	testRuleFlowGroupWithLockOnActivate	skip:stmt-unrecognized:((InternalAgenda) ksession.getAgenda()).activateRuleFlowGrou		
+org.drools.compiler.integrationtests.drl	VariableTest	testVariableDeclaration	skip:stmt-unrecognized:KieUtil.getKieBuilderFromDrls(kieBaseTestConfiguration, true		
+org.drools.compiler.integrationtests	AlphaTest	testAlphaExpression	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got 5
+org.drools.compiler.integrationtests	AlphaTest	testAlphaNodeSharing	skip:stmt-unrecognized:kieBaseTestConfiguration.setAdditionalKieBaseOptions(ShareAl		
+org.drools.compiler.integrationtests	AlphaTest	testAlphaCompositeConstraints	extracted	out-of-subset	engine error: DRL parse error: unexpected character '|'
+org.drools.compiler.integrationtests	AlphaTest	testAlphaHashingWithConstants	extracted	out-of-subset	engine error: DRL parse error: expected ',' or ')', got +
+org.drools.compiler.integrationtests	AlphaTest	testNPEOnMVELAlphaPredicates	skip:external-wm-api		
+org.drools.compiler.integrationtests	BetaTest	testDefaultBetaConstrains	skip:external-wm-api		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testMinNoMatch	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testMaxNoMatch	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testAveNoMatch	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testSumNoMatch	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testCountNoMatch	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testMinMaxNoMatch	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testMinMaxMatch	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testMinNoMatchAccFrom	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testMinMatchUnification	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testMinNoMatchUnification	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateConsistencyTest	testMinMatchUnificationQuery	skip:kiebase-config		
+org.drools.compiler.integrationtests	AccumulateTest	testAccumulateReverseModify	skip:external-wm-api		
+org.drools.compiler.integrationtests	AccumulateTest	testAccumulateWithExists	skip:stmt-unrecognized:final int day1 = 1		
+org.drools.compiler.integrationtests	AccumulateTest	testImportAccumulateFunction	skip:stmt-unrecognized:testImportAccumulateFunction(drl)		
+org.drools.compiler.integrationtests	AccumulateTest	testImportAccumulateFunctionWithDeclaration	skip:stmt-unrecognized:testImportAccumulateFunction(drl)		
+org.drools.compiler.integrationtests	AccumulateTest	testAccumulateWithSharedNode	skip:stmt-unrecognized:ksession.insert(list)		
+org.drools.compiler.integrationtests	AccumulateTest	testEmptyAccumulateInSubnetwork	skip:fact-nonbean		
+org.drools.compiler.integrationtests	AccumulateTest	testEmptyAccumulateInSubnetworkFollwedByPattern	skip:fact-nonbean		
+org.drools.compiler.integrationtests	AccumulateTest	testAccumulateWithoutSeparator	skip:no-fire-call		
+org.drools.compiler.integrationtests	AccumulateTest	testFromAccumulateWithoutSeparator	skip:no-fire-call		
+org.drools.compiler.integrationtests	AccumulateTest	testReaccumulateForLeftTuple	skip:bean-unknown:ExpectedMessage		
+org.drools.compiler.integrationtests	AccumulateTest	testNoLoopAccumulate	skip:bean-unknown:AtomicInteger		
+org.drools.compiler.integrationtests	AccumulateTest	testAccumulateWithOr	skip:stmt-unrecognized:testAccumulateWithOr(drl)		
+org.drools.compiler.integrationtests	AccumulateTest	testMvelAccumulateWithOr	skip:stmt-unrecognized:testAccumulateWithOr(drl)		
+org.drools.compiler.integrationtests	AccumulateTest	testNormalizeStagedTuplesInAccumulate	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got (
+org.drools.compiler.integrationtests	AccumulateTest	testIncompatibleTypeOnAccumulateFunction	skip:no-fire-call		
+org.drools.compiler.integrationtests	AccumulateTest	testIncompatibleListOnAccumulateFunction	skip:no-fire-call		
+org.drools.compiler.integrationtests	AccumulateTest	testTypedSumOnAccumulate	skip:fact-nonbean		
+org.drools.compiler.integrationtests	AccumulateTest	testSumAccumulateOnNullValue	skip:bean-unknown:PersonWithBoxedAge		
+org.drools.compiler.integrationtests	AccumulateTest	testMinAccumulateOnComparable	"skip:stmt-unrecognized:testMinMaxAccumulateOnComparable(""min"", ""she"")"		
+org.drools.compiler.integrationtests	AccumulateTest	testMaxAccumulateOnComparable	"skip:stmt-unrecognized:testMinMaxAccumulateOnComparable(""max"", ""you"")"		
+org.drools.compiler.integrationtests	AccumulateTest	testTypedMaxOnAccumulate	skip:fact-nonbean		
+org.drools.compiler.integrationtests	AccumulateTest	testVarianceDouble	skip:no-fire-call		
+org.drools.compiler.integrationtests	AccumulateTest	testStandardDeviationDouble	skip:no-fire-call		
+org.drools.compiler.integrationtests	AccumulateTest	testConcurrentLeftAndRightUpdate	skip:external-wm-api		
+org.drools.compiler.integrationtests	AccumulateTest	testDoubleAccumulate	skip:external-wm-api		
+org.drools.compiler.integrationtests	AccumulateTest	testCompileFailureOnMissingImport	skip:no-fire-call		
+org.drools.compiler.integrationtests	AccumulateTest	testAccumulateWithFrom	"skip:stmt-unrecognized:final List<Person> persons = Arrays.asList(new Person(""Mario"		
+org.drools.compiler.integrationtests	AccumulateTest	testAccumulateWith2EntryPoints	skip:entry-points		
+org.drools.compiler.integrationtests	AccumulateTest	testNumericMax	skip:no-drl-string		
+org.drools.compiler.integrationtests	AccumulateTest	testComparableMax	skip:no-drl-string		
+org.drools.compiler.integrationtests	AccumulateTest	testAccumlateResultCannotBeUsedInFunctions	skip:no-fire-call		
+org.drools.compiler.integrationtests	AccumulateTest	testAverageWithNoFacts	skip:external-wm-api		
+org.drools.compiler.integrationtests	AccumulateTest	testAverageFunctionRounding	skip:bean-unknown:BigDecimal		
+org.drools.compiler.integrationtests	AccumulateTest	testNestedAccumulateWithPrefixAnd	skip:fact-nonbean		
+org.drools.compiler.integrationtests	AccumulateTest	testNestedAccumulateWithInfixAnd	skip:fact-nonbean		
+org.drools.compiler.integrationtests	AccumulateTest	testPeerCollectWithEager	skip:kiebase-config		
+org.drools.compiler.integrationtests	ConstraintsTest	testExpressionConstraints1	skip:stmt-unrecognized:testExpressionConstraints(drl)		
+org.drools.compiler.integrationtests	ConstraintsTest	testExpressionConstraints2	skip:stmt-unrecognized:testExpressionConstraints(drl)		
+org.drools.compiler.integrationtests	ConstraintsTest	testExpressionConstraints3	skip:stmt-unrecognized:testExpressionConstraints(drl)		
+org.drools.compiler.integrationtests	ConstraintsTest	testExpressionConstraints4	skip:bean-unknown:Mailbox		
+org.drools.compiler.integrationtests	ConstraintsTest	testDeeplyNestedCompactExpressions	skip:no-fire-call		
+org.drools.compiler.integrationtests	ConstraintsTest	testConstraintConnectors	skip:no-drl-string		
+org.drools.compiler.integrationtests	ConstraintsTest	testConnectorsAndOperators	skip:declare-annotations-or-extends		
+org.drools.compiler.integrationtests	ConstraintsTest	testConstraintExpression	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got 5
+org.drools.compiler.integrationtests	ConstraintsTest	testMethodConstraint	extracted	out-of-subset	engine error: DRL parse error: expected comparison operator, got (
+org.drools.compiler.integrationtests	ConstraintsTest	testDeepNestedConstraints	extracted	out-of-subset	engine error: DRL parse error: unexpected character '|'
+org.drools.compiler.integrationtests	ConstraintsTest	testMultiRestrictionFieldConstraint	skip:no-drl-string		
+org.drools.compiler.integrationtests	ConstraintsTest	testNonBooleanConstraint	skip:stmt-unrecognized:List<org.kie.api.builder.Message> messages = kieBuilder.getR		
+org.drools.compiler.integrationtests	ConstraintsTest	testVarargConstraint	skip:bean-unknown:VarargBean		
+org.drools.compiler.integrationtests	SubnetworkTest	subnetworkSharingWith2SinksAndRightTupleDelete_shouldNotThrowNPE	skip:stmt-unrecognized:testFromCollectInSubnetwork(true)		
+org.drools.compiler.integrationtests	SubnetworkTest	subnetworkNoSharingWith2SinksAndRightTupleDelete_shouldNotThrowNPE	skip:stmt-unrecognized:testFromCollectInSubnetwork(false)		
+org.drools.compiler.integrationtests	FromSharingTest	testSharingFromWithoutHashCodeEquals	skip:bean-unknown:AddressWithoutHashCodeEquals		
+org.drools.compiler.integrationtests	FromSharingTest	testFromSharingWithPropReactvityOnItsConstraint	extracted	out-of-subset	engine error: DRL parse error: `from` is only supported as `from collect` (D-038)
+org.drools.compiler.integrationtests	ImmutableFactsTest	testAlphaConstraint	skip:external-wm-api		
+org.drools.compiler.integrationtests	ImmutableFactsTest	testBetaConstraint	skip:external-wm-api		
+org.drools.compiler.integrationtests	PropertyReactivityTest	testDisablePropertyReactivity	skip:external-wm-api		
+org.drools.compiler.integrationtests	RuleChainingTest	testRuleChainingWithLogicalInserts	skip:listener-api		
+org.drools.compiler.integrationtests	RuleChainingTest	testDoubleInsertLogical	skip:wm-introspection		
+org.drools.compiler.integrationtests	ArrayTest	testEqualsOnIntArray	skip:setter-nonliteral:Primitives.primitiveIntArray		
+org.drools.compiler.integrationtests	ArrayTest	testContainsBooleanArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, true, new Boolean[]{tr		
+org.drools.compiler.integrationtests	ArrayTest	testNotContainsBooleanArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, false, new Boolean[]{t		
+org.drools.compiler.integrationtests	ArrayTest	testContainsByteArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, (byte) 1, new Byte[]{1		
+org.drools.compiler.integrationtests	ArrayTest	testNotContainsByteArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, (byte) 1, new Byte[]{4		
+org.drools.compiler.integrationtests	ArrayTest	testContainsShortArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, (short) 1, new Short[]		
+org.drools.compiler.integrationtests	ArrayTest	testNotContainsShortArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, (short) 1, new Short[]		
+org.drools.compiler.integrationtests	ArrayTest	testContainsCharArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 'c', new Character[]{'		
+org.drools.compiler.integrationtests	ArrayTest	testNotContainsCharArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 'c', new Character[]{'		
+org.drools.compiler.integrationtests	ArrayTest	testContainsIntArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 10, new Integer[]{5, 1		
+org.drools.compiler.integrationtests	ArrayTest	testNotContainsIntArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 10, new Integer[]{40, 		
+org.drools.compiler.integrationtests	ArrayTest	testContainsLongArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 10L, new Long[]{5L, 10		
+org.drools.compiler.integrationtests	ArrayTest	testNotContainsLongArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 10L, new Long[]{40L, 5		
+org.drools.compiler.integrationtests	ArrayTest	testContainsFloatArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 10.0f, new Float[]{5f,		
+org.drools.compiler.integrationtests	ArrayTest	testNotContainsFloatArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 10.0f, new Float[]{40f		
+org.drools.compiler.integrationtests	ArrayTest	testContainsDoubleArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 10.0d, new Double[]{5d		
+org.drools.compiler.integrationtests	ArrayTest	testNotContainsDoubleArray	skip:stmt-unrecognized:addGlobalsToSession(kieSession, list, 10.0d, new Double[]{40		
+org.drools.compiler.integrationtests	ArrayTest	testPrimitiveArray	skip:setter-nonliteral:Primitives.primitiveIntArray		
+org.drools.compiler.integrationtests	ArrayTest	testArrayUsage	skip:loop-in-test		
+org.drools.compiler.integrationtests	ConditionLimitTest	testEvalErrorHandling	skip:external-wm-api		
+org.drools.compiler.integrationtests	PassivePatternTest	testPassiveInsert	skip:fact-nonbean		
+org.drools.compiler.integrationtests	EqualityModeTest	testBasicFactEquality	skip:bean-unknown:FactWithEquals		
+org.drools.compiler.integrationtests	EqualityModeTest	testAccumulate	skip:bean-unknown:FactWithEquals		
+org.drools.mvel.integrationtests	Misc2Test	testUpdateWithNonEffectiveActivations	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testNPEOnMutableGlobal	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testAnalyzeConditionWithVariableRegExp	skip:dialect-mvel		
+org.drools.mvel.integrationtests	Misc2Test	testShareAlphaNodesRegardlessDoubleOrSingleQuotes	extracted	out-of-subset	engine error: DRL parse error: unexpected character '\''
+org.drools.mvel.integrationtests	Misc2Test	testCorrectDeclarationsInConsequence	skip:stmt-unrecognized:Address barcelonaCityCenter		
+org.drools.mvel.integrationtests	Misc2Test	testEvalBeforeNot	skip:bean-unknown:A		
+org.drools.mvel.integrationtests	Misc2Test	testKnowledgeBaseEventSupportLeak	skip:listener-api		
+org.drools.mvel.integrationtests	Misc2Test	testReuseAgendaAfterException	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testBooleanPropertyStartingWithEmpty	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testMVELForLoop	skip:loop-in-test		
+org.drools.mvel.integrationtests	Misc2Test	testBigDecimalComparison	skip:setter-nonliteral:Person.bigDecimal		
+org.drools.mvel.integrationtests	Misc2Test	testIntSorting	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testIntSorting2	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testPropertyReactiveAccumulateModification	skip:query-api		
+org.drools.mvel.integrationtests	Misc2Test	testMvelAssignmentToPublicField	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Misc2Test	testMvelInvokeAsList	skip:dialect-mvel		
+org.drools.mvel.integrationtests	Misc2Test	testDynamicAddRule	skip:engine-internals		
+org.drools.mvel.integrationtests	Misc2Test	testNumberCoercionOnNonGenericMap	skip:stmt-unrecognized:values.put( Parameter.PARAM_A, 4.0 )		
+org.drools.mvel.integrationtests	Misc2Test	testPropertyReactivityWithNestedAccessorsInModify	skip:bean-unknown:DataSample		
+org.drools.mvel.integrationtests	Misc2Test	testMvelResolvingGenericVariableDeclaredInParentClass	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testMvelParsingParenthesisInString	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testCompilationMustFailComparingAClassLiteral	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testDeclaredTypeExtendingInnerClass	skip:declare-annotations-or-extends		
+org.drools.mvel.integrationtests	Misc2Test	testAllowEqualityBetweenObjectAndPrimitiveInt	extracted	out-of-subset	engine error: DRL parse error: accumulate source must be a plain unbound pattern
+org.drools.mvel.integrationtests	Misc2Test	testJitConstraintWithOperationOnBigDecimal	skip:bean-unknown:Model		
+org.drools.mvel.integrationtests	Misc2Test	testJitComparable	skip:bean-unknown:IntegerWrapperImpl		
+org.drools.mvel.integrationtests	Misc2Test	testJitComparableNoGeneric	skip:bean-unknown:ComparableInteger		
+org.drools.mvel.integrationtests	Misc2Test	testJitComparable2	skip:bean-unknown:IntegerWrapperImpl2		
+org.drools.mvel.integrationtests	Misc2Test	testEqualityOfDifferentTypes	skip:declare-annotations-or-extends		
+org.drools.mvel.integrationtests	Misc2Test	testUnificationInRule	skip:declare-type-out:A		
+org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR	extracted	out-of-subset	engine error: DRL parse error: expected literal, got null
+org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR2	extracted	out-of-subset	engine error: DRL parse error: expected ',' or ')', got !=
+org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR3	extracted	out-of-subset	engine error: DRL parse error: expected literal, got null
+org.drools.mvel.integrationtests	Misc2Test	testDeclarationsScopeUsingOR4	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testQueryAfterEvalInsideOR	extracted	out-of-subset	engine error: DRL parse error: unexpected character '='
+org.drools.mvel.integrationtests	Misc2Test	testPackageVisibility	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testNullValueInFrom	skip:stmt-unrecognized:list.add( 1 )		
+org.drools.mvel.integrationtests	Misc2Test	testNumberInQuotes	extracted	out-of-subset	engine error: rule Init: empty LHS not in subset
+org.drools.mvel.integrationtests	Misc2Test	testStringCoercionComparison	extracted	baseline-pass	
+org.drools.mvel.integrationtests	Misc2Test	testAvoidUnwantedSemicolonWhenDelimitingExpression	skip:dialect-mvel		
+org.drools.mvel.integrationtests	Misc2Test	testJitCastOfPrimitiveType	skip:stmt-unrecognized:ksession.insert( Long.valueOf( 6 ) )		
+org.drools.mvel.integrationtests	Misc2Test	testSelfChangingRuleSet	skip:stmt-unrecognized:Collection<KiePackage> kpkgs = KieBaseUtil.getKieBaseFromKie		
+org.drools.mvel.integrationtests	Misc2Test	testMatchIntegers	skip:stmt-unrecognized:ksession.insert( Integer.valueOf( 1 ) )		
+org.drools.mvel.integrationtests	Misc2Test	testDurationAnnotation	skip:no-drl-string		
+org.drools.mvel.integrationtests	Misc2Test	testDurationAnnotationOnKie	skip:no-drl-string		
+org.drools.mvel.integrationtests	Misc2Test	testDurationAnnotationWithError	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testPhreakWithConcurrentUpdates	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testPhreakWith2Nots	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testPhreakTMS	skip:wm-introspection		
+org.drools.mvel.integrationtests	Misc2Test	testHelloWorld	skip:kie-container-api		
+org.drools.mvel.integrationtests	Misc2Test	testPhreakInnerJoinNot	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testPhreakAccumulate	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testQueryAndRetract	skip:listener-api		
+org.drools.mvel.integrationtests	Misc2Test	testAddSameResourceTwice	skip:stmt-unrecognized:List<org.kie.api.builder.Message> messages = kieBuilder.getR		
+org.drools.mvel.integrationtests	Misc2Test	testTwoTimers	skip:kie-container-api		
+org.drools.mvel.integrationtests	Misc2Test	testUnsupportedPolymorphicDeclaration	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testUnaryNegation	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testNotNodeUpdateBlocker	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testFailedStaticImport	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testNamedConsequence	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Misc2Test	testNamedConsequenceWithNot	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Misc2Test	testBetaNodeInSubnetworkInStreamMode	skip:stmt-unrecognized:KieBaseTestConfiguration streamConfig = TestParametersUtil.g		
+org.drools.mvel.integrationtests	Misc2Test	testAutomaticallySwitchFromReteOOToPhreak	skip:kie-container-api		
+org.drools.mvel.integrationtests	Misc2Test	testListnersOnStatlessKieSession	skip:listener-api		
+org.drools.mvel.integrationtests	Misc2Test	testImportExceptional	skip:bean-unknown:ArrayList		
+org.drools.mvel.integrationtests	Misc2Test	testMapAccessorWithCustomOp	skip:bean-unknown:ArrayList		
+org.drools.mvel.integrationtests	Misc2Test	testMapAccessorWithBoundVar	skip:bean-unknown:ArrayList		
+org.drools.mvel.integrationtests	Misc2Test	test3IdenticalForall	extracted	out-of-subset	engine error: DRL parse error: expected ',' or ')', got (
+org.drools.mvel.integrationtests	Misc2Test	testSegmentInitialization	skip:bean-unknown:ResourceRequirement		
+org.drools.mvel.integrationtests	Misc2Test	testReportErrorOnWrongDateEffective	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testDeleteInFromNode	"skip:stmt-unrecognized:context.put( ""key"", ""value"" )"		
+org.drools.mvel.integrationtests	Misc2Test	testSortWithNot	skip:bean-unknown:ArrayList		
+org.drools.mvel.integrationtests	Misc2Test	testExistsOr	skip:wm-introspection		
+org.drools.mvel.integrationtests	Misc2Test	testFactLeak	skip:entry-points		
+org.drools.mvel.integrationtests	Misc2Test	testFactStealing	skip:threads		
+org.drools.mvel.integrationtests	Misc2Test	testEventWithSQLTimestamp	skip:threads		
+org.drools.mvel.integrationtests	Misc2Test	testIsGetClash	skip:stmt-unrecognized:Results results = kieBuilder.getResults()		
+org.drools.mvel.integrationtests	Misc2Test	testCollectAccumulate	skip:loop-in-test		
+org.drools.mvel.integrationtests	Misc2Test	testLockOnActive1	skip:listener-api		
+org.drools.mvel.integrationtests	Misc2Test	testLockOnActive2	skip:listener-api		
+org.drools.mvel.integrationtests	Misc2Test	testLockOnActiveWithModify	skip:listener-api		
+org.drools.mvel.integrationtests	Misc2Test	testLockOnActiveWithModifyNoEager	skip:listener-api		
+org.drools.mvel.integrationtests	Misc2Test	testPrimitiveGlobals	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testClashingRules	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testDontFailOnDuplicatedRuleWithDeclaredTypeError	skip:stmt-unrecognized:Results results = kieBuilder.getResults()		
+org.drools.mvel.integrationtests	Misc2Test	testBindingComplexExpression	skip:kiebase-config		
+org.drools.mvel.integrationtests	Misc2Test	testBindingComplexExpressionWithDRL5	skip:kiebase-config		
+org.drools.mvel.integrationtests	Misc2Test	testEvalConstraintWithMvelOperator	skip:bean-unknown:DrlParser		
+org.drools.mvel.integrationtests	Misc2Test	testManyAccumulatesWithSubnetworks	skip:declare-type-out:Applied		
+org.drools.mvel.integrationtests	Misc2Test	testLinkRiaNodesWithSubSubNetworks	extracted	out-of-subset	"engine error: DRL parse error: expected "";"", got ,"
+org.drools.mvel.integrationtests	Misc2Test	testDynamicSalienceUpdate	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testInitialFactLeaking	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testNoLoopWithNamedConsequences	extracted	out-of-subset	engine error: DRL parse error: unexpected character '['
+org.drools.mvel.integrationtests	Misc2Test	testInsertModifyInteractionsWithLockOnActive	"skip:stmt-unrecognized:Message m2 = (Message) ksession.getGlobal( ""m2"" )"		
+org.drools.mvel.integrationtests	Misc2Test	testDynamicSalience	skip:loop-in-test		
+org.drools.mvel.integrationtests	Misc2Test	testCollectAndAccumulate	skip:loop-in-test		
+org.drools.mvel.integrationtests	Misc2Test	testMatchingEventsInStreamMode	skip:listener-api		
+org.drools.mvel.integrationtests	Misc2Test	testRuleDoesNotRefireOnNewSession	skip:stmt-unrecognized:ksession = kbase.newKieSession()		
+org.drools.mvel.integrationtests	Misc2Test	testWildcardImportForTypeField	skip:kie-container-api		
+org.drools.mvel.integrationtests	Misc2Test	testWildcardImportForTypeFieldOldApi	skip:no-drl-string		
+org.drools.mvel.integrationtests	Misc2Test	testTypeCheckInOr	extracted	out-of-subset	engine error: DRL parse error: unexpected character '|'
+org.drools.mvel.integrationtests	Misc2Test	testDynamicNegativeSalienceWithSpace	skip:stmt-unrecognized:FactHandle fh1 = ksession.insert( p1 )		
+org.drools.mvel.integrationtests	Misc2Test	testJoinNoLoop	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testConstraintOnSerializable	skip:bean-unknown:SerializableValue		
+org.drools.mvel.integrationtests	Misc2Test	testQueryCorruption	skip:declare-annotations-or-extends		
+org.drools.mvel.integrationtests	Misc2Test	testPackagingJarWithTypeDeclarations	skip:kie-container-api		
+org.drools.mvel.integrationtests	Misc2Test	testJittingConstraintWithArrayParams	skip:bean-unknown:Strings		
+org.drools.mvel.integrationtests	Misc2Test	testJittingConstraintInvokingStaticMethod	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testGlobalInConstraint	skip:global-in-lhs-or-complex-rhs		
+org.drools.mvel.integrationtests	Misc2Test	testStaticInConstraint	extracted	out-of-subset	engine error: DRL parse error: expected comparison operator, got .
+org.drools.mvel.integrationtests	Misc2Test	testFieldPrecedenceOverGlobal	skip:bean-unknown:EvallerBean		
+org.drools.mvel.integrationtests	Misc2Test	testFieldPrecedenceOverDeclaration	skip:bean-unknown:Evaller		
+org.drools.mvel.integrationtests	Misc2Test	testContainsOnString	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testFunctionJitting	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testGlobalExtractor	skip:global-in-lhs-or-complex-rhs		
+org.drools.mvel.integrationtests	Misc2Test	testSharedNotWithLeftUpdateAndRightInsert	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Misc2Test	testNestedNots1	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got (
+org.drools.mvel.integrationtests	Misc2Test	testNestedNots2	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got (
+org.drools.mvel.integrationtests	Misc2Test	testNestedNots3	extracted	out-of-subset	engine error: DRL parse error: expected identifier, got (
+org.drools.mvel.integrationtests	Misc2Test	testExtendingDate	skip:stmt-unrecognized:List<org.kie.api.builder.Message> messages = kieBuilder.getR		
+org.drools.mvel.integrationtests	Misc2Test	testEvalInSubnetwork	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testRedeclaringRuleAttribute	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testMultilineStatement	skip:stmt-unrecognized:List<org.kie.api.builder.Message> messages = kieBuilder.getR		
+org.drools.mvel.integrationtests	Misc2Test	testExtendsWithStrictModeOff	skip:stmt-unrecognized:KnowledgeBuilderConfigurationImpl pkgBuilderCfg = KnowledgeB		
+org.drools.mvel.integrationtests	Misc2Test	testCompilationFailureWithDuplicatedAnnotation	skip:no-drl-string		
+org.drools.mvel.integrationtests	Misc2Test	testCrossNoLoopWithNodeSharing	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testNotNodesUnlinking	skip:bean-unknown:Trailer		
+org.drools.mvel.integrationtests	Misc2Test	testJITIncompatibleTypes	skip:bean-unknown:Host		
+org.drools.mvel.integrationtests	Misc2Test	testAccumulateWithNodeSharing	skip:bean-unknown:TypeA		
+org.drools.mvel.integrationtests	Misc2Test	testDeletedEvalLeftTuple	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testDeleteFromLeftTuple	skip:bean-unknown:C1		
+org.drools.mvel.integrationtests	Misc2Test	testMethodResolution	skip:bean-unknown:Y		
+org.drools.mvel.integrationtests	Misc2Test	testCorrectErrorMessageOnDeclaredTypeCompilation	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testFieldNameStartingWithUnderscore	skip:stmt-unrecognized:List<org.kie.api.builder.Message> messages = kieBuilder.getR		
+org.drools.mvel.integrationtests	Misc2Test	testSharedQueryNode	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testLeftTupleGetIndex	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testStrOperatorInAccumulate	skip:global-in-lhs-or-complex-rhs		
+org.drools.mvel.integrationtests	Misc2Test	testKeywordAsAttribute	skip:dialect-mvel		
+org.drools.mvel.integrationtests	Misc2Test	testRuleExtendsWithNamedConsequence	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testRuleExtendsWithOverriddenNamedConsequence	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testCustomDynamicSalience	skip:engine-internals		
+org.drools.mvel.integrationtests	Misc2Test	testNotWithSubNetwork	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testGenericsInRHSWithModify	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testQueryWithAgendaGroup	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testQueryUsingQueryWithAgendaGroup	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testFactTemplates	skip:stmt-unrecognized:InternalKnowledgePackage kPackage = CoreComponentFactory.get		
+org.drools.mvel.integrationtests	Misc2Test	testBitwiseOperator	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testNotSubnetwork	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testClassAccumulator	skip:declare-type-out:Class		
+org.drools.mvel.integrationtests	Misc2Test	testSubnetworkAccumulate	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testImportInner	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	Misc2Test	testAlphaIndexing	skip:declare-field-unparsed		
+org.drools.mvel.integrationtests	Misc2Test	testMvelConstraintErrorMessageOnAlpha	skip:field-type-out:Person.address:OUT:Address		
+org.drools.mvel.integrationtests	Misc2Test	testMvelConstraintErrorMessageOnBeta	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testPassiveExists	"skip:stmt-unrecognized:ksession.insert( asList( ""Mario"", ""Mark"" ) )"		
+org.drools.mvel.integrationtests	Misc2Test	testFromAfterOr	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testMalformedAccumulate	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testDuplicateDeclarationInAccumulate1	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testDuplicateDeclarationInAccumulate2	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testCompilationFailureOnNonExistingVariable	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testJittedConstraintStringAndLong	"skip:stmt-unrecognized:ksession.insert( new org.drools.mvel.compiler.Person( ""Eliza"		
+org.drools.mvel.integrationtests	Misc2Test	testKieBuilderWithClassLoader	skip:bean-unknown:URLClassLoader		
+org.drools.mvel.integrationtests	Misc2Test	testInsertAndDelete	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testClearActivationGroupCommand	"skip:stmt-unrecognized:ksession.getAgenda().getAgendaGroup( ""first-agenda"" ).setFoc"		
+org.drools.mvel.integrationtests	Misc2Test	testClearActivationGroupCommandNoImmediatePropagation	"skip:stmt-unrecognized:ksession.getAgenda().getAgendaGroup( ""first-agenda"" ).setFoc"		
+org.drools.mvel.integrationtests	Misc2Test	testDoubleNestedClass	skip:drl-dynamic		
+org.drools.mvel.integrationtests	Misc2Test	testWrongNodeSharing	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testJittedConstraintComparisonWithIncompatibleObjects	skip:bean-unknown:NonStringConstructorClass		
+org.drools.mvel.integrationtests	Misc2Test	testSkipHashingOfNestedProperties	skip:bean-unknown:A1		
+org.drools.mvel.integrationtests	Misc2Test	testErrorReportWithWrongAccumulateFunction	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testVariableMatchesField	extracted	out-of-subset	"engine error: DRL parse error: expected "":"", got matches"
+org.drools.mvel.integrationtests	Misc2Test	testEndMethod	skip:loop-in-test		
+org.drools.mvel.integrationtests	Misc2Test	testDifferentClassesWithOR	skip:bean-unknown:ChildA		
+org.drools.mvel.integrationtests	Misc2Test	testJittingCollectionCreation	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testJittingCollectionCreationInParenthesis	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testFunctionInvokingFunction	skip:threads		
+org.drools.mvel.integrationtests	Misc2Test	testCompilationFailureWithNonExistingField	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testPatternMatchingWithFakeImplicitCast	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testPatternMatchingWithFakeNullSafe	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testLambdaInRHS	"skip:stmt-unrecognized:checkJava8InRhs(""i -> list.add(i)"")"		
+org.drools.mvel.integrationtests	Misc2Test	testMethodReferenceInRHS	"skip:stmt-unrecognized:checkJava8InRhs(""list::add"")"		
+org.drools.mvel.integrationtests	Misc2Test	testCompareToOnInterface	skip:bean-unknown:StringWrapper		
+org.drools.mvel.integrationtests	Misc2Test	testFromEPDontRequireLeftInput	skip:engine-internals		
+org.drools.mvel.integrationtests	Misc2Test	testIn	extracted	out-of-subset	engine error: DRL parse error: unexpected character '|'
+org.drools.mvel.integrationtests	Misc2Test	testNonSerializableInEvaluatorWrapper	skip:kie-container-api		
+org.drools.mvel.integrationtests	Misc2Test	testWrongNodeSharingWithSameHashCode	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testWrongVariableNameWithSameDeclarationName	skip:no-fire-call		
+org.drools.mvel.integrationtests	Misc2Test	testComplexEvals	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testComplexEvals2	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testDeletedRightTupleInChangedBucket	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testJittingFunctionReturningAnInnerClass	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testQueryWithEnum	skip:bean-unknown:AnswerGiver		
+org.drools.mvel.integrationtests	Misc2Test	testOrQueryWithEnum	skip:bean-unknown:AnswerGiver		
+org.drools.mvel.integrationtests	Misc2Test	testModifyWithOr	"skip:stmt-unrecognized:kieSession.insert(List.of(""test""))"		
+org.drools.mvel.integrationtests	Misc2Test	testNormalizeRuleName	skip:fact-nonbean		
+org.drools.mvel.integrationtests	Misc2Test	testWiringClassOnPackageMerge	skip:kie-container-api		
+org.drools.mvel.integrationtests	Misc2Test	testReorderRightMemoryOnIndexedField	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testChildLeftTuplesIterationOnLeftUpdate	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	test1187	skip:external-wm-api		
+org.drools.mvel.integrationtests	Misc2Test	testReportFailingConstraintOnError	skip:loop-in-test		
+org.drools.mvel.integrationtests	Misc2Test	testNpeInLessThanComparison	skip:bean-unknown:TestObject		
+org.drools.mvel.integrationtests	Misc2Test	testUnderscoreDoubleMultiplicationCastedToInt	extracted	baseline-pass	
+org.drools.mvel.integrationtests	Misc2Test	test01841522	skip:bean-unknown:ElementOperation		
+org.drools.mvel.integrationtests	Misc2Test	testMergeMVELDialect	skip:stmt-unrecognized:Collection<KiePackage> knowledgePackages1 = KieBaseUtil.getK		
+org.drools.mvel.integrationtests	Misc2Test	testCollectWithEagerActivation	skip:kiebase-config		
+org.drools.mvel.integrationtests	Misc2Test	testModifyAddToList	skip:dialect-mvel		
+org.drools.mvel.integrationtests	Misc2Test	testKieHelperReleaseId	skip:kie-container-api		
+org.drools.mvel.integrationtests	Misc2Test	testKieHelperKieModuleModel	skip:stmt-unrecognized:KieModuleModel kModuleModel = KieServices.get().newKieModule		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNamedConsequences	"skip:stmt-unrecognized:List<String> results = executeTestWithCondition(""do[t1]"")"		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNonCompilingBreakingConsequences	skip:no-fire-call		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNonCompilingDuplicatedNamedConsequence	skip:no-fire-call		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testOutOfScopeNamedConsequences	skip:no-fire-call		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testAllowedIfDo	"skip:stmt-unrecognized:List<String> results = executeTestWithCondition(""if ( price "		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNotAllowedIfDo	"skip:stmt-unrecognized:List<String> results = executeTestWithCondition(""if ( price "		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testAllowedIfBreak	"skip:stmt-unrecognized:List<String> results = executeTestWithCondition(""if ( price "		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNotAllowedIfBreak	"skip:stmt-unrecognized:List<String> results = executeTestWithCondition(""if ( price "		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNamedConsequencesOutsideOR	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNamedConsequencesInsideOR1	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNamedConsequencesInsideOR2	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testOutOfScopeNamedConsequencesWithOr1	skip:no-fire-call		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testOutOfScopeNamedConsequencesWithOr2	skip:no-fire-call		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNonCompilingIFAfterOR	skip:no-fire-call		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfElse1	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfElseWithConstant	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfElseWithMvelAccessor	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfElse2	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfElseBreak	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNestedIfElseBreak	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfWithModify	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testEndlessIfWithModify	skip:no-fire-call		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfWithModify2	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfWithModify3	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testIfElseWithModify	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testEndlessIfElseWithModify	skip:no-fire-call		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNamedConsequenceAfterNotPattern	skip:global-in-lhs-or-complex-rhs		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testMultipleIfAfterEval	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testMultipleIfElseInARow	skip:global-in-lhs-or-complex-rhs		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testDynamicSalience	skip:loop-in-test		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNamedConsequenceOnEvents	skip:global-in-lhs-or-complex-rhs		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testNoLoop	skip:kiebase-config		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testMVELBreak	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testMVELNoBreak	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testMvelInsertWithNamedConsequence	skip:external-wm-api		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testDeleteWithBreakingBranch	skip:external-wm-api		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testQueryWithBreakingBranch	"skip:stmt-unrecognized:list.add(""test"")"		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testInheritance	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	NamedConsequencesTest	testWrongConsequenceName	skip:no-fire-call		
+org.drools.mvel.integrationtests	MVELTest	testHelloWorld	"skip:stmt-unrecognized:final Date dt = DateUtils.parseDate(""10-Jul-1974"")"		
+org.drools.mvel.integrationtests	MVELTest	testIncrementOperator	skip:fact-nonbean		
+org.drools.mvel.integrationtests	MVELTest	testEvalWithBigDecimal	skip:bean-unknown:BigDecimal		
+org.drools.mvel.integrationtests	MVELTest	testLocalVariableMVELConsequence	skip:stmt-unrecognized:e.printStackTrace()		
+org.drools.mvel.integrationtests	MVELTest	testMVELUsingGlobalsInDebugMode	skip:serialization		
+org.drools.mvel.integrationtests	MVELTest	testDuplicateLocalVariableMVELConsequence	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	MVELTest	testArrays	skip:stmt-unrecognized:statelessKieSession.execute(new TestObject(list))		
+org.drools.mvel.integrationtests	MVELTest	testPackageImports	skip:wm-introspection		
+org.drools.mvel.integrationtests	MVELTest	testSizeCheckInObject	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	MVELTest	testNestedEnum	skip:bean-unknown:Triangle		
+org.drools.mvel.integrationtests	MVELTest	testNestedEnumWithMap	skip:bean-unknown:DMap		
+org.drools.mvel.integrationtests	MVELTest	testNewConstructor	skip:engine-internals		
+org.drools.mvel.integrationtests	MVELTest	testArrayAccessorWithGenerics	skip:engine-internals		
+org.drools.mvel.integrationtests	MVELTest	testArrayAccessorWithStaticFieldAccess	skip:engine-internals		
+org.drools.mvel.integrationtests	MVELTest	testMapAccessorWithStaticFieldAccess	skip:engine-internals		
+org.drools.mvel.integrationtests	MVELTest	testArrayAccessorWithoutGenerics	skip:stmt-unrecognized:List<org.kie.api.builder.Message> errors = kieBuilder.getRes		
+org.drools.mvel.integrationtests	MVELTest	test1	skip:bean-unknown:ParserContext		
+org.drools.mvel.integrationtests	MVELTest	testTokensInString	skip:loop-in-test		
+org.drools.mvel.integrationtests	MVELTest	testGeneratedBeansMVEL	skip:facttype-api		
+org.drools.mvel.integrationtests	MVELTest	testMVELClassReferences	skip:facttype-api		
+org.drools.mvel.integrationtests	MVELTest	testMVELConstraintsWithFloatingPointNumbersInScientificNotation	skip:dialect-mvel		
+org.drools.mvel.integrationtests	MVELTest	testMvelDoubleInvocation	skip:bean-unknown:TestFact		
+org.drools.mvel.integrationtests	MVELTest	testMVELSoundex	skip:serialization		
+org.drools.mvel.integrationtests	MVELTest	testMVELSoundexNoCharParam	skip:serialization		
+org.drools.mvel.integrationtests	MVELTest	testMVELRewrite	skip:serialization		
+org.drools.mvel.integrationtests	MVELTest	testMVELTypeCoercion	skip:stmt-unrecognized:KieBaseTestConfiguration equalityConfig = TestParametersUtil		
+org.drools.mvel.integrationtests	MVELTest	testNoMvelSyntaxInFunctions	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	MVELTest	testModifyObjectWithMutableHashCodeInEqualityMode	skip:stmt-unrecognized:KieBaseTestConfiguration equalityConfig = TestParametersUtil		
+org.drools.mvel.integrationtests	MVELTest	testModifyObjectWithMutableHashCodeInEqualityMode2	skip:stmt-unrecognized:KieBaseTestConfiguration equalityConfig = TestParametersUtil		
+org.drools.mvel.integrationtests	MVELTest	test2ndDashInMvelConsequnence	skip:stmt-unrecognized:KieBaseTestConfiguration equalityConfig = TestParametersUtil		
+org.drools.mvel.integrationtests	MVELTest	testTypeCoercionLongDivByInt	skip:dialect-mvel		
+org.drools.mvel.integrationtests	MVELTest	testTypeCoercionIntCompareToDouble	skip:bean-unknown:IntFact		
+org.drools.mvel.integrationtests	MVELTest	testTypeCoercionFloatCompareToDouble	skip:bean-unknown:FactA		
+org.drools.mvel.integrationtests	QueryTest	testQuery2	skip:query-api		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithParams	"skip:stmt-unrecognized:String [] arguments = new String[]{""value1""}"		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithMultipleResultsOnKnowledgeApi	skip:loop-in-test		
+org.drools.mvel.integrationtests	QueryTest	testTwoQuerries	skip:query-api		
+org.drools.mvel.integrationtests	QueryTest	testDoubleQueryWithExists	skip:external-wm-api		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithCollect	skip:query-api		
+org.drools.mvel.integrationtests	QueryTest	testDroolsQueryCleanup	skip:entry-points		
+org.drools.mvel.integrationtests	QueryTest	testQueriesWithVariableUnification	skip:loop-in-test		
+org.drools.mvel.integrationtests	QueryTest	testQueriesWithVariableUnificationOnPatterns	skip:loop-in-test		
+org.drools.mvel.integrationtests	QueryTest	testQueriesWithVariableUnificationOnNestedFields	skip:loop-in-test		
+org.drools.mvel.integrationtests	QueryTest	testOpenQuery	skip:external-wm-api		
+org.drools.mvel.integrationtests	QueryTest	testStandardQueryListener	skip:stmt-unrecognized:runQueryListenerTest( QueryListenerOption.STANDARD )		
+org.drools.mvel.integrationtests	QueryTest	testNonCloningQueryListener	skip:stmt-unrecognized:runQueryListenerTest( QueryListenerOption.LIGHTWEIGHT )		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithEval	skip:setter-nonliteral:DomainObject.interval		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithIncompatibleArgs	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithSyntaxError	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithWrongParamNumber	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	QueryTest	testGlobalsInQueries	skip:bean-unknown:ArrayList		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithClassArg	extracted	out-of-subset	engine error: DRL parse error: expected comparison operator, got .
+org.drools.mvel.integrationtests	QueryTest	testPassGlobalToNestedQuery	skip:bean-unknown:ArrayList		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithAccessorAsArgument	skip:loop-in-test		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithExpressionAsArgument	skip:loop-in-test		
+org.drools.mvel.integrationtests	QueryTest	testNotExistingDeclarationInQuery	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	QueryTest	testQueryInSubnetwork	skip:external-wm-api		
+org.drools.mvel.integrationtests	QueryTest	testOpenQueryNoParams	skip:external-wm-api		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithOptionalOr	skip:bean-unknown:Question		
+org.drools.mvel.integrationtests	QueryTest	testQueryWithFrom	skip:engine-internals		
+org.drools.mvel.integrationtests	Query2Test	testEvalRewrite	skip:ctor-arity:Order/2		
+org.drools.mvel.integrationtests	Query3Test	testDifferent	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Query3Test	testDifferentWithUpdate	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Query3Test	testSame	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Query3Test	testSameWithUpdate	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Query3Test	testExtends	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Query3Test	testExtendsWithUpdate	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	Query3Test	testExtendsWithRetract	skip:bean-unknown:Foo		
+org.drools.mvel.integrationtests	PassiveQueryTest	testPassiveQuery	skip:fact-nonbean		
+org.drools.mvel.integrationtests	PassiveQueryTest	testPassiveQueryNoDataDriven	skip:fact-nonbean		
+org.drools.mvel.integrationtests	PassiveQueryTest	testPassiveQueryDataDriven	skip:fact-nonbean		
+org.drools.mvel.integrationtests	PassiveQueryTest	testReactiveQueryDataDriven	skip:fact-nonbean		
+org.drools.mvel.integrationtests	PassiveQueryTest	testPassiveQueryDataDrivenWithBeta	skip:fact-nonbean		
+org.drools.mvel.integrationtests	PassiveQueryTest	testPassiveQueryNodeSharing	skip:fact-nonbean		
+org.drools.mvel.integrationtests	PassiveQueryTest	testPassiveQueryNodeSharing2	skip:fact-nonbean		
+org.drools.mvel.integrationtests	PassiveQueryTest	testPassiveQueryUsingSegmentPropagator	skip:external-wm-api		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testModifyWithGetter	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testPropReactiveAnnotationOnDifferentDrl	skip:no-fire-call		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testPropReactiveWithParentClassNotImplementingChildInterface	skip:bean-unknown:DummyBean		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testPropReactiveUpdate	skip:external-wm-api		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testSetterInConcreteClass	skip:external-wm-api		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testSetterInConcreteClass2	skip:external-wm-api		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testWatchFieldInExternalPattern	skip:stmt-unrecognized:final FactHandle fh_mario = ksession.insert(mario)		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testWatchFieldInExternalPatternWithNoConstraints	skip:stmt-unrecognized:final FactHandle fh_mario = ksession.insert(mario)		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testWatchFieldInExternalNotPattern	skip:stmt-unrecognized:final FactHandle fh_mario = ksession.insert(mario)		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testPropertyChangeSupportNewAPI	skip:no-drl-string		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testAccumulateWithPR	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testUpdateOnNonExistingProperty	skip:external-wm-api		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testGetterWithoutArgShouldBePropReactve	skip:bean-unknown:StrangeGetter		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testGetterWithArgShouldNotBePropReactve	skip:bean-unknown:StrangeGetter		
+org.drools.mvel.integrationtests	PropertyReactivityTest	testComment	extracted	out-of-subset	"engine error: DRL parse error: expected RHS statement, got Some(""drools"")"
+org.drools.mvel.integrationtests	PropertySpecificTest	testRTNodeEmptyLHS	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRTNodeNoConstraintsNoPropertySpecific	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRTNodeWithConstraintsNoPropertySpecific	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaNodeNoConstraintsNoPropertySpecific	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaNodeWithConstraintsNoPropertySpecific	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testInitialFactBetaNodeWithRightInputAdapter	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testPersonFactBetaNodeWithRightInputAdapter	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testSharedAlphanodeWithBetaNodeConstraintsNoPropertySpecific	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRtnNoConstraintsNoWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRtnNoConstraintsWithWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRtnWithConstraintsNoWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRtnWithConstraintsWithWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRtnSharedAlphaNoWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRtnSharedAlphaWithWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaNoConstraintsNoWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaNoConstraintsWithWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaWithConstraintsNoWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaWithConstraintsWithWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaWithConstraintsWithNegativeWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaSharedAlphaNoWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaSharedAlphaWithWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testComplexBetaSharedAlphaWithWatches	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testComplexBetaSharedAlphaWithWatchesRemoveR1	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testComplexBetaSharedAlphaWithWatchesRemoveR2	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testComplexBetaSharedAlphaWithWatchesRemoveR3	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testPropertySpecificSimplified	skip:facttype-api		
+org.drools.mvel.integrationtests	PropertySpecificTest	testWatchNothing	skip:facttype-api		
+org.drools.mvel.integrationtests	PropertySpecificTest	testWrongPropertyNameInWatchAnnotation	skip:no-fire-call		
+org.drools.mvel.integrationtests	PropertySpecificTest	testDuplicatePropertyNamesInWatchAnnotation	skip:no-fire-call		
+org.drools.mvel.integrationtests	PropertySpecificTest	testWrongUasgeOfWatchAnnotationOnNonPropertySpecificClass	skip:kiebase-config		
+org.drools.mvel.integrationtests	PropertySpecificTest	testPropertySpecificJavaBean	skip:facttype-api		
+org.drools.mvel.integrationtests	PropertySpecificTest	testInfiniteLoop	skip:bean-unknown:AtomicInteger		
+org.drools.mvel.integrationtests	PropertySpecificTest	testClassReactive	skip:kiebase-config		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaNodePropagation	skip:bean-unknown:Hero		
+org.drools.mvel.integrationtests	PropertySpecificTest	testPropSpecOnBetaNode	skip:facttype-api		
+org.drools.mvel.integrationtests	PropertySpecificTest	testEmptyBetaConstraint	skip:bean-unknown:Init		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaWithWatchAfterBeta	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaAfterBetaWithWatch	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	test2DifferentAlphaWatchBeforeSameBeta	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testSameBetasWith2RTNSinks	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaWith2BetaSinks	skip:engine-internals		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaWith2RTNSinksExecInfiniteLoop	skip:no-drl-string		
+org.drools.mvel.integrationtests	PropertySpecificTest	testBetaWith2BetaSinksExecInfiniteLoop	skip:no-drl-string		
+org.drools.mvel.integrationtests	PropertySpecificTest	testRemovedPendingActivation	skip:declare-annotations-or-extends		
+org.drools.mvel.integrationtests	PropertySpecificTest	testAccLong	skip:kiebase-config		
+org.drools.mvel.integrationtests	PropertySpecificTest	testAccBigDecimal	skip:kiebase-config		
+org.drools.mvel.integrationtests	JittingTest	testJitConstraintInvokingConstructor	extracted	out-of-subset	engine error: DRL parse error: expected comparison operator, got Integer
+org.drools.mvel.integrationtests	JittingTest	testJittingConstraintWithInvocationOnLiteral	skip:stmt-unrecognized:testJitting(str)		
+org.drools.mvel.integrationtests	JittingTest	testJittingMethodWithCharSequenceArg	skip:stmt-unrecognized:testJitting(str)		
+org.drools.mvel.integrationtests	JittingTest	testJittingEnum	skip:stmt-unrecognized:kieSession.insert(AnEnum.FIRST)		
+org.drools.mvel.integrationtests	JittingTest	testJittingEnumAttribute	skip:ctor-nonliteral:FactWithEnum		
+org.drools.mvel.integrationtests	JittingTest	testMvelJitDivision	extracted	out-of-subset	engine error: DRL parse error: unexpected character '/'
+org.drools.mvel.integrationtests	JittingTest	testJitMemberOf	skip:declare-type-out:List		
+org.drools.mvel.integrationtests	JittingTest	testJitMapCoercion	"skip:stmt-unrecognized:checkJitMapCoercion(""status < $map.get(\""key\"")"", true, 0)"		
+org.drools.mvel.integrationtests	JittingTest	testJittingBigDecimalAdd	skip:bean-unknown:BigDecimalFact		
+org.drools.mvel.integrationtests	JittingTest	testJittingBigDecimalRemainder	skip:bean-unknown:BigDecimalFact		
+org.drools.mvel.integrationtests	JittingTest	testBigDecimalConstructorCoercion	skip:field-type-out:Person.bigDecimal:OUT:BigDecimal		
+org.drools.mvel.integrationtests	JittingTest	testJittingVarargsCall	skip:fact-nonbean		
+org.drools.mvel.integrationtests	JittingTest	testInvokeVarargsConstructor	skip:bean-unknown:Tester		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeBinding	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeNullComparison	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeNullComparison2	skip:fact-nonbean		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeWithMethod	skip:fact-nonbean		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeNullComparisonReverse	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeNullComparisonReverseComplex	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testDoubleNullSafe	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testMixedNullSafes	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeMemberOf	skip:declare-type-out:java.util.List		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeInnerConstraint	skip:declare-type-out:Content		
+org.drools.mvel.integrationtests	NullSafeDereferencingTest	testNullSafeNestedAccessors	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests	NullTest	testNullValuesIndexing	skip:stmt-unrecognized:final PersonInterface bob = new Person(null, null)		
+org.drools.mvel.integrationtests	NullTest	testNullBehaviour	skip:serialization		
+org.drools.mvel.integrationtests	NullTest	testNullConstraint	skip:serialization		
+org.drools.mvel.integrationtests	NullTest	testNullBinding	skip:ctor-nonliteral:Person		
+org.drools.mvel.integrationtests	NullTest	testNullConstantLeft	skip:ctor-nonliteral:Person		
+org.drools.mvel.integrationtests	NullTest	testNullFieldOnCompositeSink	skip:serialization		
+org.drools.mvel.integrationtests	NullTest	testNullHandling	skip:serialization		
+org.drools.mvel.integrationtests	NullTest	testNullHashing	skip:ctor-nonliteral:Cheese		
+org.drools.mvel.integrationtests	NullTest	testBindingToNullFieldWithEquality	skip:stmt-unrecognized:KieBaseTestConfiguration equalityConfig = TestParametersUtil		
+org.drools.mvel.integrationtests	NullTest	testArithmeticExpressionWithNull	skip:bean-unknown:PrimitiveBean		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrStartsWith	skip:no-drl-string		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrEndsWith	skip:no-drl-string		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrLengthEquals	skip:no-drl-string		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrNotStartsWith	skip:no-drl-string		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrNotEndsWith	skip:no-drl-string		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrLengthNoEquals	skip:no-drl-string		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrWithLogicalOr	skip:loop-in-test		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrWithInlineCastAndFieldOnThis	extracted	out-of-subset	engine error: DRL parse error: unexpected character '#'
+org.drools.mvel.integrationtests	StrEvaluatorTest	testStrWithInlineCastOnThis	skip:fact-nonbean		
+org.drools.mvel.integrationtests	StrEvaluatorTest	testUrlInStringComparison	"skip:stmt-unrecognized:map.put( ""classHistory[0].class.where(system='http://domain/"		
+org.drools.mvel.integrationtests	MapConstraintTest	testMapAccess	"skip:stmt-unrecognized:map.put(""name"", ""Edson"")"		
+org.drools.mvel.integrationtests	MapConstraintTest	testMapAccessWithVariable	"skip:stmt-unrecognized:map.put(""name"", ""Edson"")"		
+org.drools.mvel.integrationtests	MapConstraintTest	testMapAccessWithVariable2	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	MapConstraintTest	testMapNullConstraint	skip:listener-api		
+org.drools.mvel.integrationtests	MapConstraintTest	testMapAccessorWithPrimitiveKey	skip:bean-unknown:MapContainerBean		
+org.drools.mvel.integrationtests	MapConstraintTest	testMapModel	"skip:stmt-unrecognized:mark.put(""type"", ""Person"")"		
+org.drools.mvel.integrationtests	MapConstraintTest	testListOfMaps	"skip:stmt-unrecognized:mapOne.put(""MSG"", ""testMessage"")"		
+org.drools.mvel.integrationtests	MapConstraintTest	testAccessingMapValues	skip:bean-unknown:Pet		
+org.drools.mvel.integrationtests	MapConstraintTest	testMapOfMap	skip:bean-unknown:MapOfMapContainerBean		
+org.drools.mvel.integrationtests	MatchTest	testGetObjectsOnePattern	skip:wm-introspection		
+org.drools.mvel.integrationtests	MatchTest	testGetObjectsTwoPatterns	skip:wm-introspection		
+org.drools.mvel.integrationtests	MatchTest	testGetObjectsAccumulateWithNoMatchingFacts	extracted	out-of-subset	engine error: DRL parse error: expected comparison operator, got )
+org.drools.mvel.integrationtests	MatchTest	testGetObjectsExists	skip:ctor-nonliteral:Foo		
+org.drools.mvel.integrationtests	MatchTest	testObjectsDeepOnNestedAccumulate	skip:fact-nonbean		
+org.drools.mvel.integrationtests	MatchTest	testObjectsDeepOnAccumulateWithoutReverse	skip:bean-unknown:CloudProcess		
+org.drools.mvel.integrationtests	MatchTest	testGetObjectsAccumulate	skip:ctor-nonliteral:Foo		
+org.drools.mvel.integrationtests	MatchTest	testGetObjectsAccumulateWithNestedExists	skip:ctor-nonliteral:Foo		
+org.drools.mvel.integrationtests	RuleExecutionTest	testNoAll	skip:fact-nonbean		
+org.drools.mvel.integrationtests	RuleExecutionTest	testAll	skip:fact-nonbean		
+org.drools.mvel.integrationtests	RuleExecutionTest	testAllWithBeforeAndAfter	skip:fact-nonbean		
+org.drools.mvel.integrationtests	RuleExecutionTest	testOnDeleteMatchConsequence	skip:external-wm-api		
+org.drools.mvel.integrationtests	PolymorphismTest	testModifySubclassOverWindow	skip:fact-nonbean		
+org.drools.mvel.integrationtests	PolymorphismTest	testModifySubclass	skip:wm-introspection		
+org.drools.mvel.integrationtests	PolymorphismTest	testModifySubclass2	skip:wm-introspection		
+org.drools.mvel.integrationtests	DateComparisonTest	testDateComparisonThan	skip:ctor-arity:Cheese/1		
+org.drools.mvel.integrationtests	DateComparisonTest	testDateComparisonAfter	skip:ctor-arity:Cheese/1		
+org.drools.mvel.integrationtests	DateComparisonTest	testDateComparisonAfterWithThisBinding	skip:ctor-arity:Cheese/1		
+org.drools.mvel.integrationtests	FunctionsTest	testFunction	skip:no-drl-string		
+org.drools.mvel.integrationtests	FunctionsTest	testFunctionException	skip:no-drl-string		
+org.drools.mvel.integrationtests	FunctionsTest	testFunctionWithPrimitives	skip:no-drl-string		
+org.drools.mvel.integrationtests	FunctionsTest	testFunctionCallingFunctionWithEclipse	skip:kiebase-config		
+org.drools.mvel.integrationtests	FunctionsTest	testJBRULES3117	extracted	out-of-subset	engine error: DRL parse error: unexpected character '['
+org.drools.mvel.integrationtests	ExtendsTest	testExtends	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testGeneratedMethods	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testDeepExt	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testIllegalExtendsLegacy	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendsLegacy	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendsAcrossFiles	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testFieldInit	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testBoxedFieldInit	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testExpressionFieldInit	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testHierarchy	skip:no-drl-string		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendOverride	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testRedefineDefaults	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendFromOtherPackage	skip:declare-annotations-or-extends		
+org.drools.mvel.integrationtests	ExtendsTest	testInheritAnnotationsInOtherPackage	skip:wm-introspection		
+org.drools.mvel.integrationtests	ExtendsTest	testInheritFromClassWithDefaults	skip:declare-annotations-or-extends		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendSelf	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendCircular	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendsDump	skip:facttype-api		
+org.drools.mvel.integrationtests	ExtendsTest	testDeclareInheritance	skip:engine-internals		
+org.drools.mvel.integrationtests	ExtendsTest	testDeclareExtendsJavaParent	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	ExtendsTest	testDeclareExtendsJavaParentOuterPackaga	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	ExtendsTest	testDeclareExtendsMissingJavaParent	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	ExtendsTest	testDeclareExtendsWithFullyQualifiedName	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendsBasic	skip:external-wm-api		
+org.drools.mvel.integrationtests	ExtendsTest	testExtendsBasic2	skip:no-drl-string		
+org.drools.mvel.integrationtests	AlphaNodeTest	testAlpha	extracted	baseline-pass	
+org.drools.mvel.integrationtests	AlphaNodeTest	testSharedAlpha	extracted	baseline-pass	
+org.drools.mvel.integrationtests	AlphaNodeTest	testBeta	skip:fact-nonbean		
+org.drools.mvel.integrationtests	AlphaNodeTest	testSharedAlphaWithBeta	skip:fact-nonbean		
+org.drools.mvel.integrationtests	AlphaNodeTest	testAlphaModify	extracted	out-of-subset	"engine error: DRL parse error: expected RHS statement, got Some("";"")"
+org.drools.mvel.integrationtests	AlphaNodeTest	testAlphaDelete	extracted	baseline-pass	
+org.drools.mvel.integrationtests	AlphaNodeTest	testAlphaModifyDelete	extracted	out-of-subset	"engine error: DRL parse error: expected RHS statement, got Some("";"")"
+org.drools.mvel.integrationtests	AlphaNodeTest	testBetaModifyWithAlpha	skip:fact-nonbean		
+org.drools.mvel.integrationtests	AlphaNodeTest	testAlphaModifyWithBeta	skip:fact-nonbean		
+org.drools.mvel.integrationtests	AlphaNodeTest	test3Alpha	extracted	out-of-subset	"engine error: DRL parse error: expected RHS statement, got Some("";"")"
+org.drools.mvel.integrationtests	ExistentialOperatorTest	testForallAfterOr	skip:facttype-api		
+org.drools.mvel.integrationtests	EnumTest	testEnums	skip:stmt-unrecognized:final java.util.List list = new java.util.ArrayList()		
+org.drools.mvel.integrationtests	EnumTest	testEnumsWithCompositeBuildingProcess	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	EnumTest	testQueryEnum	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests	EnumTest	testInnerEnum	skip:bean-unknown:StringBuilder		
+org.drools.mvel.integrationtests	KnownExecModelDifferenceTest	setter_intToWrapperLongCoercion	skip:stmt-unrecognized:if (kieBaseTestConfiguration.isExecutableModel()) {		
+org.drools.mvel.integrationtests	KnownExecModelDifferenceTest	setter_intToPrimitiveLongCoercion	skip:dialect-mvel		
+org.drools.mvel.integrationtests	KnownExecModelDifferenceTest	setter_intToWrapperLongCoercionVarargs	skip:stmt-unrecognized:if (kieBaseTestConfiguration.isExecutableModel()) {		
+org.drools.mvel.integrationtests	KnownExecModelDifferenceTest	setter_intToPrimitiveLongCoercionVarargs	skip:dialect-mvel		
+org.drools.mvel.integrationtests	KnownExecModelDifferenceTest	property_subClassMethod_genericsReturnType	skip:stmt-unrecognized:if (kieBaseTestConfiguration.isExecutableModel()) {		
+org.drools.mvel.integrationtests	KnownExecModelDifferenceTest	property_subClassMethod_explicitReturnType	skip:bean-unknown:ElectricCar		
+org.drools.mvel.integrationtests	KnownExecModelDifferenceTest	invalid_cast_intToString	skip:stmt-unrecognized:if (kieBaseTestConfiguration.isExecutableModel()) {		
+org.drools.mvel.integrationtests	KnownExecModelDifferenceTest	generics_addStringToBigDecimalList	skip:stmt-unrecognized:if (kieBaseTestConfiguration.isExecutableModel()) {		
+org.drools.mvel.integrationtests	EdgeCaseNonExecModelTest	testNamedConsequencesInsideOR1	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	EdgeCaseNonExecModelTest	testNamedConsequencesInsideOR2	skip:stmt-unrecognized:List<String> results = executeTestWithDRL(str)		
+org.drools.mvel.integrationtests	DeclarativeAgendaTest	testFiredRuleDoNotRefireAfterUnblock	skip:external-wm-api		
+org.drools.mvel.integrationtests	DeclarativeAgendaTest	testExplicitUndercutWithDeclarativeAgenda	skip:dialect-mvel		
+org.drools.mvel.integrationtests	TypeDeclarationTest	testRecursiveDeclaration	skip:facttype-api		
+org.drools.mvel.integrationtests	TypeDeclarationTest	testCircularDeclaration	skip:facttype-api		
+org.drools.mvel.integrationtests	TypeDeclarationTest	testCircularDeclarationWithExtension	skip:facttype-api		
+org.drools.mvel.integrationtests	NullCheckOnExistentialNodeTest	testNot	skip:stmt-unrecognized:check( drl, 0, 1 )		
+org.drools.mvel.integrationtests	NullCheckOnExistentialNodeTest	testExists	skip:stmt-unrecognized:check( drl, 1, 0 )		
+org.drools.mvel.integrationtests	NullCheckOnExistentialNodeTest	testNotIndexable	skip:stmt-unrecognized:check( drl, 0, 1 )		
+org.drools.mvel.integrationtests	DroolsTest	test1	skip:loop-in-test		
+org.drools.mvel.integrationtests	LinkingTest	testSubNetworkSharing	skip:engine-internals		
+org.drools.mvel.integrationtests	LinkingTest	testSubNetworkSharingMemories	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testSubNetworkRiaLinking	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testNonReactiveSubNetworkInShareMasks	skip:engine-internals		
+org.drools.mvel.integrationtests	LinkingTest	testNonReactiveSubNetworkOwnSegmentMasks	skip:engine-internals		
+org.drools.mvel.integrationtests	LinkingTest	testNestedSubNetwork	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testNestedSubNetworkMasks	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testJoinNodes	skip:engine-internals		
+org.drools.mvel.integrationtests	LinkingTest	testExistsNodes1	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testExistsNodes2	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testNotNodeUnlinksWithNoConstriants	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testNotNodeDoesNotUnlinksWithConstriants	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testNotNodes1	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testNotNodes2	skip:external-wm-api		
+org.drools.mvel.integrationtests	LinkingTest	testNotNodeMasksWithConstraints	skip:engine-internals		
+org.drools.mvel.integrationtests	LinkingTest	testNotNodeMasksWithoutConstraints	skip:engine-internals		
+org.drools.mvel.integrationtests	LinkingTest	testForallNodes	skip:engine-internals		
+org.drools.mvel.integrationtests	LinkingTest	testAccumulateNodes1	skip:stmt-unrecognized:wm = kbase.newKieSession()		
+org.drools.mvel.integrationtests	LinkingTest	testAccumulateNodes2	skip:stmt-unrecognized:wm = kbase.newKieSession()		
+org.drools.mvel.integrationtests	LinkingTest	testSubnetwork	skip:threads		
+org.drools.mvel.integrationtests	LinkingTest	testNestedSubnetwork	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	testSingleEmptyLhs	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	testSingleSharedEmptyLhs	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	testSinglePattern	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	testSingleSharedPattern	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	testMultiSharedPattern	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	testSubnetworkNoSharing	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	tesSubnetworkAfterShare	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	tesShareInSubnetwork	skip:engine-internals		
+org.drools.mvel.integrationtests	SegmentCreationTest	testBranchCESingleSegment	skip:external-wm-api		
+org.drools.mvel.integrationtests	SegmentCreationTest	testBranchCEMultipleSegments	skip:external-wm-api		
+org.drools.mvel.integrationtests.session	UpdateTest	testModifyBlock	"skip:stmt-unrecognized:doModifyTest(""test_ModifyBlock.drl"")"		
+org.drools.mvel.integrationtests.session	UpdateTest	testModifyBlockWithPolymorphism	"skip:stmt-unrecognized:doModifyTest(""test_ModifyBlockWithPolymorphism.drl"")"		
+org.drools.mvel.integrationtests.session	UpdateTest	testModifyBlockWithFrom	skip:stmt-unrecognized:bob.addAddress(addr)		
+org.drools.mvel.integrationtests.session	UpdateTest	testJavaModifyBlock	skip:stmt-unrecognized:ksession.insert(new OuterClass.InnerClass(1))		
+org.drools.mvel.integrationtests.session	UpdateTest	testModifyJava	"skip:stmt-unrecognized:testModifyWithDialect(""java"")"		
+org.drools.mvel.integrationtests.session	UpdateTest	testModifyMVEL	"skip:stmt-unrecognized:testModifyWithDialect(""mvel"")"		
+org.drools.mvel.integrationtests.session	UpdateTest	testModifySimple	extracted	out-of-subset	"engine error: DRL parse error: expected RHS statement, got Some("";"")"
+org.drools.mvel.integrationtests.session	UpdateTest	testModifyWithLockOnActive	"skip:stmt-unrecognized:session.getAgenda().getAgendaGroup(""feeding"").setFocus()"		
+org.drools.mvel.integrationtests.session	UpdateTest	testMissingClosingBraceOnModify	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests.session	UpdateTest	testInvalidModify1	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests.session	UpdateTest	testInvalidModify2	skip:stmt-unrecognized:List<Message> errors = kieBuilder.getResults().getMessages(M		
+org.drools.mvel.integrationtests.session	UpdateTest	testJoinNodeModifyObject	skip:loop-in-test		
+org.drools.mvel.integrationtests.session	UpdateTest	testModifyCommand	skip:wm-introspection		
+org.drools.mvel.integrationtests.session	UpdateTest	testNotIterativeModifyBug	skip:external-wm-api		
+org.drools.mvel.integrationtests.session	UpdateTest	testLLR	skip:serialization		
+org.drools.mvel.integrationtests.session	UpdateTest	noDormantCheckOnModifies	skip:listener-api		
+org.drools.mvel.integrationtests.session	UpdateTest	testPeerUpdate	skip:fact-nonbean		
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testRuntimeTypeCoercion	skip:external-wm-api		
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testRuntimeTypeCoercion2	skip:external-wm-api		
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testUnwantedCoersion	skip:bean-unknown:InnerBean		
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testCoercionOfStringValueWithoutQuotes	skip:facttype-api		
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testPrimitiveToBoxedCoercionInMethodArgument	extracted	out-of-subset	engine error: DRL parse error: expected literal, got TypeCoercionTest
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testStringCoercion	extracted	out-of-subset	engine error: rule R2: constraint type mismatch (Str Eq I64)
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testIntCoercion	extracted	out-of-subset	engine error: rule R2: constraint type mismatch (I64 Eq Str)
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testCoercionInJoin	skip:fact-nonbean		
+org.drools.mvel.integrationtests.session	TypeCoercionTest	testCoercionInJoinOnField	skip:fact-nonbean		
+org.drools.mvel.integrationtests.session	DeleteTest	deleteFactTest	skip:external-wm-api		
+org.drools.mvel.integrationtests.session	DeleteTest	deleteFactTwiceTest	skip:external-wm-api		
+org.drools.mvel.integrationtests.session	DeleteTest	deleteUpdatedFactTest	skip:external-wm-api		
+org.drools.mvel.integrationtests.session	DeleteTest	deleteUpdatedFactDifferentClassTest	skip:external-wm-api		
+org.drools.mvel.integrationtests.session	DeleteTest	testRetractLeftTuple	skip:field-type-out:ClassA.b:OUT:ClassB		
+org.drools.mvel.integrationtests.session	DeleteTest	testAssertRetract	skip:loop-in-test		
+org.drools.mvel.integrationtests.session	DeleteTest	testEmptyAfterRetractInIndexedMemory	skip:stmt-unrecognized:final org.drools.mvel.compiler.Person p = new org.drools.mve		
+org.drools.mvel.integrationtests.session	DeleteTest	testModifyRetractAndModifyInsert	skip:stmt-unrecognized:final org.drools.mvel.compiler.Person bob = new org.drools.m		
+org.drools.mvel.integrationtests.session	DeleteTest	testModifyRetractWithFunction	skip:wm-introspection		
+org.drools.mvel.integrationtests.session	FieldAccessTest	testAccessFieldsFromSubClass	skip:setter-nonliteral:Person.pet		
+org.drools.mvel.integrationtests.session	FieldAccessTest	testAccessClassTypeField	extracted	out-of-subset	engine error: DRL parse error: expected literal, got null
+org.drools.mvel.integrationtests.session	FieldAccessTest	testGenericsOption	skip:setter-nonliteral:Person.address		
+org.drools.mvel.integrationtests.session	InsertTest	testInsert	skip:bean-unknown:Pet		
+org.drools.mvel.integrationtests.session	InsertTest	testInsertionOrder	skip:stmt-unrecognized:ksession = kbase.newKieSession()		
+org.drools.mvel.integrationtests.session	InsertTest	testInsertFinalClassInstance	skip:bean-unknown:PersonFinal		
+org.drools.mvel.integrationtests.session	CrossProductTest	testCrossProductRemovingIdentityEquals	"skip:stmt-unrecognized:final List list2 = Arrays.asList(""42:43"", ""43:42"", ""World:42"		

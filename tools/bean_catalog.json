@@ -1,0 +1,2582 @@
+{
+  "org.drools.testcoverage.common.model.AFact": {
+    "fields": {
+      "field1": {
+        "type": "String"
+      },
+      "field2": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "field1",
+        "field2"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.AbstractBean": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "value": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "id",
+        "value"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Address": {
+    "fields": {
+      "street": {
+        "type": "String"
+      },
+      "number": {
+        "type": "i64",
+        "default": 0
+      },
+      "city": {
+        "type": "String"
+      },
+      "suburb": {
+        "type": "String"
+      },
+      "zipCode": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "street"
+      ],
+      {
+        "params": [],
+        "presets": {
+          "street": "",
+          "number": 0,
+          "city": ""
+        }
+      },
+      [
+        "street",
+        "number",
+        "city"
+      ],
+      [
+        "street",
+        "suburb",
+        "zipCode"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.AggregableFact": {
+    "fields": {
+      "value": {
+        "type": "f64",
+        "default": 0.0
+      }
+    },
+    "ctors": [
+      [
+        "value"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Alarm": {
+    "fields": {
+      "message": {
+        "type": "String"
+      },
+      "number": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "message"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Cell": {
+    "fields": {
+      "value": {
+        "type": "i64",
+        "default": 0
+      },
+      "row": {
+        "type": "i64",
+        "default": 0
+      },
+      "col": {
+        "type": "i64",
+        "default": 0
+      },
+      "state": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "value"
+      ],
+      [
+        "state",
+        "row",
+        "col"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Cheese": {
+    "fields": {
+      "type": {
+        "type": "String"
+      },
+      "price": {
+        "type": "i64",
+        "default": 0
+      },
+      "oldPrice": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "type"
+      ],
+      [
+        "type",
+        "price"
+      ],
+      [
+        "type",
+        "price",
+        "oldPrice"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Cheesery": {
+    "fields": {
+      "cheeses": {
+        "type": "OUT:List<Cheese>"
+      },
+      "status": {
+        "type": "i64",
+        "default": 0
+      },
+      "totalAmount": {
+        "type": "i64",
+        "default": 0
+      },
+      "maturity": {
+        "type": "OUT:Maturity"
+      },
+      "age": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.ChildEventA": {
+    "fields": {
+      "name": {
+        "type": "String"
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.testcoverage.common.model.ChildEventB": {
+    "fields": {
+      "id": {
+        "type": "String"
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.testcoverage.common.model.ClassA": {
+    "fields": {
+      "b": {
+        "type": "OUT:ClassB"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.ClassB": {
+    "fields": {
+      "id": {
+        "type": "String",
+        "default": "123"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.Customer": {
+    "fields": {
+      "custid": {
+        "type": "i64",
+        "default": 0
+      },
+      "name": {
+        "type": "String"
+      },
+      "sales": {
+        "type": "i64",
+        "default": 0
+      },
+      "tenthSaleFree": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.testcoverage.common.model.DomainObject": {
+    "fields": {
+      "message": {
+        "type": "String"
+      },
+      "value": {
+        "type": "i64",
+        "default": 0
+      },
+      "value2": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "interval": {
+        "type": "OUT:Interval"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.DomainObjectHolder": {
+    "fields": {
+      "objects": {
+        "type": "OUT:DomainObject[]"
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.testcoverage.common.model.Employee": {
+    "fields": {
+      "position": {
+        "type": "String",
+        "default": ""
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.EventA": {
+    "fields": {
+      "timeValue": {
+        "type": "i64",
+        "default": 0
+      },
+      "duration": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.FactA": {
+    "fields": {
+      "field1": {
+        "type": "String"
+      },
+      "field2": {
+        "type": "i64"
+      },
+      "field3": {
+        "type": "f64"
+      },
+      "field4": {
+        "type": "i64"
+      },
+      "enumVal": {
+        "type": "OUT:TestEnum"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "field1"
+      ],
+      [
+        "field2"
+      ],
+      [
+        "field1",
+        "field2",
+        "field3"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.FactB": {
+    "fields": {
+      "f1": {
+        "type": "String"
+      },
+      "f2": {
+        "type": "i64"
+      },
+      "f3": {
+        "type": "f64"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "f1"
+      ],
+      [
+        "f2"
+      ],
+      [
+        "f1",
+        "f2",
+        "f3"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.FactC": {
+    "fields": {
+      "f1": {
+        "type": "String"
+      },
+      "f2": {
+        "type": "i64"
+      },
+      "f3": {
+        "type": "f64"
+      }
+    },
+    "ctors": [
+      [
+        "f1",
+        "f2",
+        "f3"
+      ],
+      [],
+      [
+        "f1"
+      ],
+      [
+        "f2"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.FactWithList": {
+    "fields": {
+      "items": {
+        "type": "OUT:List<String>"
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.testcoverage.common.model.FirstClass": {
+    "fields": {
+      "item1": {
+        "type": "String"
+      },
+      "item2": {
+        "type": "String"
+      },
+      "item3": {
+        "type": "String"
+      },
+      "item4": {
+        "type": "String"
+      },
+      "item5": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "item1",
+        "item2",
+        "item3",
+        "item4",
+        "item5"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.InternationalAddress": {
+    "fields": {
+      "state": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.Interval": {
+    "fields": {
+      "start": {
+        "type": "i64",
+        "default": 0
+      },
+      "duration": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "start",
+        "duration"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.ListHolder": {
+    "fields": {
+      "list": {
+        "type": "OUT:List<String>"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.LongAddress": {
+    "fields": {
+      "country": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "country"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Message": {
+    "fields": {
+      "message1": {
+        "type": "String",
+        "default": "One"
+      },
+      "message2": {
+        "type": "String",
+        "default": "Two"
+      },
+      "message3": {
+        "type": "String",
+        "default": "Three"
+      },
+      "message4": {
+        "type": "String",
+        "default": "Four"
+      },
+      "message": {
+        "type": "String"
+      },
+      "status": {
+        "type": "i64",
+        "default": 0
+      },
+      "list": {
+        "type": "OUT:List"
+      },
+      "number": {
+        "type": "i64",
+        "default": 0
+      },
+      "birthday": {
+        "type": "OUT:Date"
+      },
+      "fired": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": [
+      [
+        "message"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.MessageEvent": {
+    "fields": {
+      "msg": {
+        "type": "OUT:Message"
+      },
+      "type": {
+        "type": "OUT:Type"
+      },
+      "duration": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      {
+        "params": [
+          "type",
+          "msg"
+        ],
+        "presets": {
+          "duration": 0
+        }
+      },
+      [
+        "type",
+        "msg",
+        "duration"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.MyComparable": {
+    "fields": {
+      "strValue": {
+        "type": "String"
+      },
+      "intValue": {
+        "type": "i64"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "strValue",
+        "intValue"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.MyComparableHolder": {
+    "fields": {
+      "myComparable": {
+        "type": "OUT:MyComparable"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "myComparable"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.MyFact": {
+    "fields": {
+      "name": {
+        "type": "String"
+      },
+      "currentValue": {
+        "type": "i64"
+      },
+      "previousValue": {
+        "type": "i64"
+      }
+    },
+    "ctors": [
+      [
+        "name",
+        "currentValue"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Order": {
+    "fields": {
+      "number": {
+        "type": "i64",
+        "default": 0
+      },
+      "customer": {
+        "type": "String"
+      },
+      "items": {
+        "type": "OUT:Map<Integer,OrderItem>"
+      },
+      "status": {
+        "type": "OUT:OrderStatus"
+      },
+      "date": {
+        "type": "OUT:Date"
+      },
+      "total": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "active": {
+        "type": "bool",
+        "default": false
+      },
+      "val": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.testcoverage.common.model.OrderEvent": {
+    "fields": {
+      "id": {
+        "type": "String"
+      },
+      "customer": {
+        "type": "String"
+      },
+      "total": {
+        "type": "f64",
+        "default": 0.0
+      }
+    },
+    "ctors": [
+      [
+        "id",
+        "customer",
+        "total"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.OrderItem": {
+    "fields": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "i64",
+        "default": 0
+      },
+      "price": {
+        "type": "i64",
+        "default": 0
+      },
+      "seq": {
+        "type": "i64",
+        "default": 0
+      },
+      "order": {
+        "type": "OUT:Order"
+      }
+    },
+    "ctors": [
+      {
+        "params": [],
+        "presets": {
+          "seq": 0
+        }
+      },
+      [
+        "order",
+        "seq"
+      ],
+      [
+        "order",
+        "seq",
+        "name",
+        "type",
+        "price"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.OuterClass": {
+    "fields": {
+      "attr1": {
+        "type": "String"
+      },
+      "intAttr": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.ParentEvent": {
+    "fields": {
+      "eventTimestamp": {
+        "type": "OUT:Date"
+      }
+    },
+    "ctors": [
+      [
+        "eventTimestamp"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Person": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "name": {
+        "type": "String",
+        "default": ""
+      },
+      "age": {
+        "type": "i64",
+        "default": 0
+      },
+      "likes": {
+        "type": "String"
+      },
+      "address": {
+        "type": "OUT:Address"
+      },
+      "addresses": {
+        "type": "OUT:List<Address>"
+      },
+      "pet": {
+        "type": "OUT:Pet"
+      },
+      "alive": {
+        "type": "bool",
+        "default": false
+      },
+      "happy": {
+        "type": "bool",
+        "default": false
+      },
+      "cheese": {
+        "type": "OUT:Cheese"
+      },
+      "hair": {
+        "type": "String"
+      },
+      "salary": {
+        "type": "OUT:BigDecimal"
+      },
+      "map": {
+        "type": "OUT:Map<String,Comparable>"
+      },
+      "object": {
+        "type": "OUT:Object"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "name"
+      ],
+      [
+        "name",
+        "age"
+      ],
+      [
+        "id",
+        "name",
+        "age"
+      ],
+      [
+        "name",
+        "likes",
+        "age"
+      ],
+      [
+        "name",
+        "likes"
+      ],
+      [
+        "name",
+        "age",
+        "salary"
+      ],
+      [
+        "name",
+        "age",
+        "salary",
+        "likes"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.PersonWithSpecificEquals": {
+    "fields": {
+      "name": {
+        "type": "String"
+      },
+      "age": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "name",
+        "age"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Pet": {
+    "fields": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "OUT:PetType"
+      },
+      "age": {
+        "type": "i64",
+        "default": 0
+      },
+      "owner": {
+        "type": "OUT:Person"
+      }
+    },
+    "ctors": [
+      [
+        "name"
+      ],
+      [
+        "name",
+        "age"
+      ],
+      [
+        "type",
+        "age"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Primitives": {
+    "fields": {
+      "booleanPrimitive": {
+        "type": "bool",
+        "default": false
+      },
+      "charPrimitive": {
+        "type": "OUT:char"
+      },
+      "bytePrimitive": {
+        "type": "i64",
+        "default": 0
+      },
+      "shortPrimitive": {
+        "type": "i64",
+        "default": 0
+      },
+      "intPrimitive": {
+        "type": "i64",
+        "default": 0
+      },
+      "longPrimitive": {
+        "type": "i64",
+        "default": 0
+      },
+      "floatPrimitive": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "doublePrimitive": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "stringAttribute": {
+        "type": "String"
+      },
+      "arrayAttribute": {
+        "type": "OUT:Object[]"
+      },
+      "primitiveBooleanArray": {
+        "type": "OUT:boolean[]"
+      },
+      "primitiveByteArray": {
+        "type": "OUT:byte[]"
+      },
+      "primitiveShortArray": {
+        "type": "OUT:short[]"
+      },
+      "primitiveCharArray": {
+        "type": "OUT:char[]"
+      },
+      "primitiveIntArray": {
+        "type": "OUT:int[]"
+      },
+      "primitiveLongArray": {
+        "type": "OUT:long[]"
+      },
+      "primitiveFloatArray": {
+        "type": "OUT:float[]"
+      },
+      "primitiveDoubleArray": {
+        "type": "OUT:double[]"
+      },
+      "stringArray": {
+        "type": "OUT:String[]"
+      },
+      "booleanWrapper": {
+        "type": "bool"
+      },
+      "object": {
+        "type": "OUT:Object"
+      },
+      "bigDecimal": {
+        "type": "OUT:BigDecimal"
+      },
+      "bigInteger": {
+        "type": "OUT:BigInteger"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.testcoverage.common.model.Promotion": {
+    "fields": {
+      "person": {
+        "type": "String"
+      },
+      "job": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "person",
+        "job"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Result": {
+    "fields": {
+      "value": {
+        "type": "OUT:Object"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "value"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Sale": {
+    "fields": {
+      "saleid": {
+        "type": "i64",
+        "default": 0
+      },
+      "custid": {
+        "type": "i64",
+        "default": 0
+      },
+      "amount": {
+        "type": "i64",
+        "default": 0
+      },
+      "discount": {
+        "type": "i64",
+        "default": 0
+      },
+      "rebated": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": [
+      [
+        "saleid",
+        "custid",
+        "amount"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.SecondClass": {
+    "fields": {
+      "item1": {
+        "type": "String"
+      },
+      "item2": {
+        "type": "String"
+      },
+      "item3": {
+        "type": "String"
+      },
+      "item4": {
+        "type": "String"
+      },
+      "item5": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "item1",
+        "item2",
+        "item3",
+        "item4",
+        "item5"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Sensor": {
+    "fields": {
+      "temperature": {
+        "type": "i64",
+        "default": 0
+      },
+      "pressure": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "temperature",
+        "pressure"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.SimplePerson": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "name": {
+        "type": "String",
+        "default": ""
+      },
+      "age": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "name"
+      ],
+      [
+        "name",
+        "age"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.State": {
+    "fields": {
+      "changes": {
+        "type": "OUT:PropertyChangeSupport"
+      },
+      "state": {
+        "type": "String"
+      },
+      "flag": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "state"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.StockTick": {
+    "fields": {
+      "seq": {
+        "type": "i64",
+        "default": 0
+      },
+      "company": {
+        "type": "String"
+      },
+      "price": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "time": {
+        "type": "i64",
+        "default": 0
+      },
+      "duration": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "seq",
+        "company",
+        "price",
+        "time"
+      ],
+      [
+        "seq",
+        "company",
+        "price",
+        "time",
+        "duration"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.Subject": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "age": {
+        "type": "i64",
+        "default": 0
+      },
+      "name": {
+        "type": "String",
+        "default": ""
+      },
+      "dummy": {
+        "type": "i64",
+        "default": 0
+      },
+      "sex": {
+        "type": "String",
+        "default": ""
+      },
+      "value": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "name"
+      ],
+      [
+        "age",
+        "name",
+        "dummy",
+        "sex"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.TestEvent": {
+    "fields": {
+      "id": {
+        "type": "i64"
+      },
+      "name": {
+        "type": "String"
+      },
+      "value": {
+        "type": "OUT:Serializable"
+      }
+    },
+    "ctors": [
+      [
+        "id",
+        "name",
+        "value"
+      ]
+    ]
+  },
+  "org.drools.testcoverage.common.model.TestParam": {
+    "fields": {
+      "value1": {
+        "type": "String"
+      },
+      "value2": {
+        "type": "String"
+      },
+      "elements": {
+        "type": "OUT:Object[]"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Address": {
+    "fields": {
+      "street": {
+        "type": "String"
+      },
+      "suburb": {
+        "type": "String"
+      },
+      "number": {
+        "type": "i64",
+        "default": 0
+      },
+      "zipCode": {
+        "type": "String"
+      },
+      "city": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "street",
+        "suburb",
+        "zipCode"
+      ],
+      [
+        "street",
+        "number",
+        "zipCode"
+      ],
+      [
+        "street"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Approach": {
+    "fields": {
+      "label": {
+        "type": "String"
+      },
+      "label2": {
+        "type": "String"
+      },
+      "time": {
+        "type": "f64"
+      },
+      "time2": {
+        "type": "f64"
+      },
+      "distance": {
+        "type": "f64"
+      },
+      "distance2": {
+        "type": "f64"
+      },
+      "bearing": {
+        "type": "f64"
+      },
+      "bearing2": {
+        "type": "f64"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Asset": {
+    "fields": {
+      "assetCard": {
+        "type": "OUT:AssetCard"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.AssetCard": {
+    "fields": {
+      "number": {
+        "type": "i64",
+        "default": 0
+      },
+      "parent": {
+        "type": "OUT:Asset"
+      },
+      "groupCode": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "number"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Bar": {
+    "fields": {
+      "id": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "id"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Car": {
+    "fields": {
+      "brand": {
+        "type": "String"
+      },
+      "expensive": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.mvel.compiler.Cheese": {
+    "fields": {
+      "type": {
+        "type": "String"
+      },
+      "price": {
+        "type": "i64",
+        "default": 0
+      },
+      "oldPrice": {
+        "type": "i64",
+        "default": 0
+      },
+      "usedBy": {
+        "type": "OUT:Date"
+      },
+      "doublePrice": {
+        "type": "f64",
+        "default": 0.0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "type",
+        "price"
+      ],
+      [
+        "type",
+        "price",
+        "oldPrice"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.CheeseEqual": {
+    "fields": {
+      "type": {
+        "type": "String"
+      },
+      "price": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "type",
+        "price"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Cheesery": {
+    "fields": {
+      "cheeses": {
+        "type": "OUT:List"
+      },
+      "status": {
+        "type": "i64",
+        "default": 0
+      },
+      "totalAmount": {
+        "type": "i64",
+        "default": 0
+      },
+      "maturity": {
+        "type": "OUT:Maturity"
+      },
+      "age": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Child": {
+    "fields": {
+      "parent": {
+        "type": "OUT:Parent"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.ChildHolder": {
+    "fields": {
+      "child": {
+        "type": "OUT:Child"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "child"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Close": {
+    "fields": {
+      "label": {
+        "type": "String"
+      },
+      "label2": {
+        "type": "String"
+      },
+      "time": {
+        "type": "f64"
+      },
+      "distance": {
+        "type": "f64"
+      },
+      "bearing": {
+        "type": "f64"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.DomainObject": {
+    "fields": {
+      "message": {
+        "type": "String"
+      },
+      "value": {
+        "type": "i64",
+        "default": 0
+      },
+      "value2": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "interval": {
+        "type": "OUT:Interval"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Foo": {
+    "fields": {
+      "id": {
+        "type": "String"
+      },
+      "bar": {
+        "type": "OUT:Bar"
+      }
+    },
+    "ctors": [
+      [
+        "id",
+        "bar"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.GrandParent": {
+    "fields": {
+      "name": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "name"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.I18nPerson": {
+    "fields": {
+      "gar\u00e7on": {
+        "type": "String"
+      },
+      "\u00e9l\u00e8ve": {
+        "type": "String"
+      },
+      "\u0438\u043c\u044f": {
+        "type": "String"
+      },
+      "\u540d\u79f0": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.IndexedNumber": {
+    "fields": {
+      "number": {
+        "type": "i64",
+        "default": 0
+      },
+      "index": {
+        "type": "i64",
+        "default": 0
+      },
+      "printed": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "number",
+        "index"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.InsertedObject": {
+    "fields": {
+      "value": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "value"
+      ],
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Interval": {
+    "fields": {
+      "start": {
+        "type": "i64",
+        "default": 0
+      },
+      "duration": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "start",
+        "duration"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.LegacyBean": {
+    "fields": {
+      "strField": {
+        "type": "String"
+      },
+      "intField": {
+        "type": "i64",
+        "default": 0
+      },
+      "objField": {
+        "type": "OUT:Object"
+      },
+      "doubleField": {
+        "type": "f64"
+      },
+      "decimalField": {
+        "type": "OUT:BigDecimal"
+      },
+      "prop": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.LongAddress": {
+    "fields": {
+      "country": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "country"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Message": {
+    "fields": {
+      "message1": {
+        "type": "String",
+        "default": "One"
+      },
+      "message2": {
+        "type": "String",
+        "default": "Two"
+      },
+      "message3": {
+        "type": "String",
+        "default": "Three"
+      },
+      "message4": {
+        "type": "String",
+        "default": "Four"
+      },
+      "message": {
+        "type": "String"
+      },
+      "status": {
+        "type": "i64",
+        "default": 0
+      },
+      "list": {
+        "type": "OUT:List"
+      },
+      "number": {
+        "type": "i64",
+        "default": 0
+      },
+      "birthday": {
+        "type": "OUT:Date"
+      },
+      "fired": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "message"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.MockPersistentSet": {
+    "fields": {
+      "set": {
+        "type": "OUT:Set"
+      },
+      "exception": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.mvel.compiler.Move": {
+    "fields": {
+      "first": {
+        "type": "i64",
+        "default": 0
+      },
+      "second": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "first",
+        "second"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Neighbor": {
+    "fields": {
+      "cell": {
+        "type": "OUT:Cell"
+      },
+      "neighbor": {
+        "type": "OUT:Cell"
+      }
+    },
+    "ctors": [
+      [
+        "cell",
+        "neighbor"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.ObjectWithSet": {
+    "fields": {
+      "set": {
+        "type": "OUT:Set"
+      },
+      "message": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Option": {
+    "fields": {
+      "t": {
+        "type": "OUT:T"
+      }
+    },
+    "ctors": [
+      [
+        "t"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Order": {
+    "fields": {
+      "number": {
+        "type": "i64",
+        "default": 0
+      },
+      "customer": {
+        "type": "String"
+      },
+      "items": {
+        "type": "OUT:Map"
+      },
+      "status": {
+        "type": "OUT:OrderStatus"
+      },
+      "date": {
+        "type": "OUT:Date"
+      },
+      "total": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "active": {
+        "type": "bool",
+        "default": false
+      },
+      "val": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.mvel.compiler.OrderItem": {
+    "fields": {
+      "name": {
+        "type": "String"
+      },
+      "type": {
+        "type": "i64",
+        "default": 0
+      },
+      "price": {
+        "type": "i64",
+        "default": 0
+      },
+      "seq": {
+        "type": "i64",
+        "default": 0
+      },
+      "order": {
+        "type": "OUT:Order"
+      }
+    },
+    "ctors": [
+      {
+        "params": [],
+        "presets": {
+          "seq": 0
+        }
+      },
+      [
+        "order",
+        "seq"
+      ],
+      [
+        "order",
+        "seq",
+        "name",
+        "type",
+        "price"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.OuterClass": {
+    "fields": {
+      "attr1": {
+        "type": "String"
+      },
+      "intAttr": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Parent": {
+    "fields": {
+      "grandParent": {
+        "type": "OUT:GrandParent"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Person": {
+    "fields": {
+      "name": {
+        "type": "String"
+      },
+      "likes": {
+        "type": "String"
+      },
+      "age": {
+        "type": "i64",
+        "default": 0
+      },
+      "bigDecimal": {
+        "type": "OUT:BigDecimal"
+      },
+      "bigInteger": {
+        "type": "OUT:BigInteger"
+      },
+      "hair": {
+        "type": "String"
+      },
+      "sex": {
+        "type": "OUT:char"
+      },
+      "alive": {
+        "type": "bool",
+        "default": false
+      },
+      "happy": {
+        "type": "bool",
+        "default": false
+      },
+      "status": {
+        "type": "String"
+      },
+      "cheese": {
+        "type": "OUT:Cheese"
+      },
+      "address": {
+        "type": "OUT:Address"
+      },
+      "pet": {
+        "type": "OUT:Pet"
+      },
+      "addresses": {
+        "type": "OUT:List<Address>"
+      },
+      "namedAddresses": {
+        "type": "OUT:Map<Object,Address>"
+      },
+      "object": {
+        "type": "OUT:Object"
+      },
+      "notInEqualTestObject": {
+        "type": "OUT:Object"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "name",
+        "age"
+      ],
+      [
+        "name",
+        "age",
+        "happy"
+      ],
+      {
+        "params": [
+          "name"
+        ],
+        "presets": {
+          "likes": "",
+          "age": 0
+        }
+      },
+      {
+        "params": [
+          "name",
+          "likes"
+        ],
+        "presets": {
+          "age": 0
+        }
+      },
+      [
+        "name",
+        "likes",
+        "age"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.PersonHolder": {
+    "fields": {
+      "person": {
+        "type": "OUT:Person"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.PolymorphicFact": {
+    "fields": {
+      "data": {
+        "type": "OUT:Object"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "data"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Precondition": {
+    "fields": {
+      "code": {
+        "type": "String"
+      },
+      "value": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "code",
+        "value"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Primitives": {
+    "fields": {
+      "booleanPrimitive": {
+        "type": "bool",
+        "default": false
+      },
+      "charPrimitive": {
+        "type": "OUT:char"
+      },
+      "bytePrimitive": {
+        "type": "i64",
+        "default": 0
+      },
+      "shortPrimitive": {
+        "type": "i64",
+        "default": 0
+      },
+      "intPrimitive": {
+        "type": "i64",
+        "default": 0
+      },
+      "longPrimitive": {
+        "type": "i64",
+        "default": 0
+      },
+      "floatPrimitive": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "doublePrimitive": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "stringAttribute": {
+        "type": "String"
+      },
+      "arrayAttribute": {
+        "type": "OUT:Object[]"
+      },
+      "primitiveBooleanArray": {
+        "type": "OUT:boolean[]"
+      },
+      "primitiveByteArray": {
+        "type": "OUT:byte[]"
+      },
+      "primitiveShortArray": {
+        "type": "OUT:short[]"
+      },
+      "primitiveCharArray": {
+        "type": "OUT:char[]"
+      },
+      "primitiveIntArray": {
+        "type": "OUT:int[]"
+      },
+      "primitiveLongArray": {
+        "type": "OUT:long[]"
+      },
+      "primitiveFloatArray": {
+        "type": "OUT:float[]"
+      },
+      "primitiveDoubleArray": {
+        "type": "OUT:double[]"
+      },
+      "stringArray": {
+        "type": "OUT:String[]"
+      },
+      "booleanWrapper": {
+        "type": "bool"
+      },
+      "object": {
+        "type": "OUT:Object"
+      },
+      "bigDecimal": {
+        "type": "OUT:BigDecimal"
+      },
+      "bigInteger": {
+        "type": "OUT:BigInteger"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.RoutingMessage": {
+    "fields": {
+      "routingValue": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.SpecialString": {
+    "fields": {
+      "text": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "text"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.State": {
+    "fields": {
+      "changes": {
+        "type": "OUT:PropertyChangeSupport"
+      },
+      "state": {
+        "type": "String"
+      },
+      "flag": {
+        "type": "bool",
+        "default": false
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "state"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.StockTick": {
+    "fields": {
+      "seq": {
+        "type": "i64",
+        "default": 0
+      },
+      "company": {
+        "type": "String"
+      },
+      "price": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "time": {
+        "type": "i64",
+        "default": 0
+      },
+      "duration": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [],
+      [
+        "seq",
+        "company",
+        "price",
+        "time"
+      ],
+      [
+        "seq",
+        "company",
+        "price",
+        "time",
+        "duration"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Target": {
+    "fields": {
+      "label": {
+        "type": "String"
+      },
+      "lat": {
+        "type": "f64"
+      },
+      "lon": {
+        "type": "f64"
+      },
+      "course": {
+        "type": "f64"
+      },
+      "speed": {
+        "type": "f64"
+      },
+      "time": {
+        "type": "f64"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Triangle": {
+    "fields": {
+      "type": {
+        "type": "OUT:Type"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.compiler.Win": {
+    "fields": {
+      "value": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "value"
+      ]
+    ]
+  },
+  "org.drools.mvel.compiler.Worker": {
+    "fields": {
+      "id": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.AFact": {
+    "fields": {
+      "field1": {
+        "type": "String"
+      },
+      "field2": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "field1",
+        "field2"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.BasicEvent": {
+    "fields": {
+      "eventTimestamp": {
+        "type": "OUT:Date"
+      },
+      "eventDuration": {
+        "type": "i64"
+      },
+      "name": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "eventTimestamp",
+        "eventDuration",
+        "name"
+      ],
+      []
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.ChildFact1": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "parentId": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "id",
+        "parentId"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.ChildFact2": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "parentId": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "id",
+        "parentId"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.ChildFact3WithEnum": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "parentId": {
+        "type": "i64",
+        "default": 0
+      },
+      "enumValue": {
+        "type": "OUT:AnEnum"
+      }
+    },
+    "ctors": [
+      [
+        "id",
+        "parentId",
+        "enumValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.ChildFact4WithFirings": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      },
+      "parentId": {
+        "type": "i64",
+        "default": 0
+      },
+      "firings": {
+        "type": "OUT:List<String>"
+      },
+      "evaluationName": {
+        "type": "String"
+      }
+    },
+    "ctors": []
+  },
+  "org.drools.mvel.integrationtests.facts.ClassA": {
+    "fields": {
+      "b": {
+        "type": "OUT:ClassB"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.ClassB": {
+    "fields": {
+      "id": {
+        "type": "String",
+        "default": "123"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithBigDecimal": {
+    "fields": {
+      "bigDecimalValue": {
+        "type": "OUT:BigDecimal"
+      }
+    },
+    "ctors": [
+      [
+        "bigDecimalValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithBoolean": {
+    "fields": {
+      "booleanValue": {
+        "type": "bool",
+        "default": false
+      },
+      "booleanObjectValue": {
+        "type": "bool"
+      }
+    },
+    "ctors": [
+      [
+        "booleanObjectValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithByte": {
+    "fields": {
+      "byteValue": {
+        "type": "i64",
+        "default": 0
+      },
+      "byteObjectValue": {
+        "type": "OUT:Byte"
+      }
+    },
+    "ctors": [
+      [
+        "byteObjectValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithCharacter": {
+    "fields": {
+      "charValue": {
+        "type": "OUT:char"
+      },
+      "characterValue": {
+        "type": "OUT:Character"
+      }
+    },
+    "ctors": [
+      [
+        "characterValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithDouble": {
+    "fields": {
+      "doubleValue": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "doubleObjectValue": {
+        "type": "f64"
+      }
+    },
+    "ctors": [
+      [
+        "doubleObjectValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithEnum": {
+    "fields": {
+      "enumValue": {
+        "type": "OUT:AnEnum"
+      }
+    },
+    "ctors": [
+      [
+        "enumValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithFloat": {
+    "fields": {
+      "floatValue": {
+        "type": "f64",
+        "default": 0.0
+      },
+      "floatObjectValue": {
+        "type": "f64"
+      }
+    },
+    "ctors": [
+      [
+        "floatObjectValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithInteger": {
+    "fields": {
+      "intValue": {
+        "type": "i64",
+        "default": 0
+      },
+      "integerValue": {
+        "type": "i64"
+      }
+    },
+    "ctors": [
+      [
+        "integerValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithList": {
+    "fields": {
+      "items": {
+        "type": "OUT:List<String>"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithLong": {
+    "fields": {
+      "longValue": {
+        "type": "i64",
+        "default": 0
+      },
+      "longObjectValue": {
+        "type": "i64"
+      }
+    },
+    "ctors": [
+      [
+        "longObjectValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithShort": {
+    "fields": {
+      "shortValue": {
+        "type": "i64",
+        "default": 0
+      },
+      "shortObjectValue": {
+        "type": "OUT:Short"
+      }
+    },
+    "ctors": [
+      [
+        "shortObjectValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.FactWithString": {
+    "fields": {
+      "stringValue": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "stringValue"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.Product": {
+    "fields": {
+      "id": {
+        "type": "String"
+      },
+      "category": {
+        "type": "String"
+      },
+      "firings": {
+        "type": "OUT:List<String>"
+      },
+      "description": {
+        "type": "String",
+        "default": ""
+      }
+    },
+    "ctors": [
+      [
+        "id",
+        "category"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.RootFact": {
+    "fields": {
+      "id": {
+        "type": "i64",
+        "default": 0
+      }
+    },
+    "ctors": [
+      [
+        "id"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.TestEvent": {
+    "fields": {
+      "value": {
+        "type": "String"
+      }
+    },
+    "ctors": [
+      [
+        "value"
+      ]
+    ]
+  },
+  "org.drools.mvel.integrationtests.facts.VarargsFact": {
+    "fields": {
+      "valueList": {
+        "type": "OUT:List<Long>"
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.integrationtests.PackageProtected": {
+    "fields": {
+      "x": {
+        "type": "i64",
+        "default": 1
+      }
+    },
+    "ctors": [
+      []
+    ]
+  },
+  "org.drools.mvel.integrationtests.TestObject": {
+    "fields": {
+      "list": {
+        "type": "OUT:List"
+      }
+    },
+    "ctors": [
+      [
+        "list"
+      ]
+    ]
+  }
+}

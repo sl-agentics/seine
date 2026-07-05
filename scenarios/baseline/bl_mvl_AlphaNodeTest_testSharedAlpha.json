@@ -1,0 +1,39 @@
+{
+  "name": "bl_mvl_AlphaNodeTest_testSharedAlpha",
+  "provenance": {
+    "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/mvel/integrationtests/AlphaNodeTest.java",
+    "method": "AlphaNodeTest#testSharedAlpha",
+    "expect_fire_count": 2,
+    "adaptation": []
+  },
+  "types": [
+    {
+      "name": "Person",
+      "fields": [
+        {
+          "name": "name",
+          "type": "String"
+        },
+        {
+          "name": "likes",
+          "type": "String"
+        },
+        {
+          "name": "age",
+          "type": "i64"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "type": "Person",
+      "fields": {
+        "name": "Mario",
+        "likes": "",
+        "age": 0
+      }
+    }
+  ],
+  "drl": "rule R1 when\n  $p : Person(name == \"Mario\")\nthen  end\nrule R2 when\n  $p : Person(name == \"Mario\")\nthen  end\n"
+}

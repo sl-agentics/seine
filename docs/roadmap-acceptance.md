@@ -1,0 +1,46 @@
+# ROADMAP acceptance criteria — upstream Drools tests that define "done"
+
+For every ROADMAP row in FEATURES.md §2, the upstream Drools 9.44.0.Final
+tests below are the acceptance criteria: when the feature lands, run these
+through the extraction pipeline (tools/extract_baseline.py +
+tools/baseline_gate.py) and the resulting scenarios must pass the
+differential gate and join `scenarios/baseline/`. They are expected-to-fail
+today and are NOT run as regressions.
+
+Paths are classes under
+`drools-test-coverage/test-compiler-integration/src/test/java/org/drools/…`;
+counts are @Test methods (grep-approximate). Method-level evidence for the
+already-extracted-but-out-of-subset candidates is in
+`docs/drools-test-routing.tsv` (gate_route = out-of-subset, detail = parse
+error).
+
+| ROADMAP feature (priority) | Acceptance tests | ~methods |
+|---|---|---|
+| `or` CE + parenthesized CE groups (P1) | compiler.integrationtests.operators.OrTest; mvel.integrationtests.Misc2Test (testDeclarationsScopeUsingOR*, or-scope methods) | 14 + ~8 |
+| Inline `&&`/`||`/`!()` constraint groups (P1) | operators.AndTest (explicit-and methods), operators.InTest#testNegatedIn, Misc2Test (combined-constraint methods) | ~15 |
+| Nested/multi-pattern not/exists (P1) | Misc2Test#testNestedNots1..3, compiler.integrationtests.FirstOrderLogicTest (not/exists group methods, ext-DRL) | ~12 |
+| forall (P2) | operators.ForAllTest | 29 |
+| TMS insertLogical (P2) | compiler.integrationtests.ErrorOnInsertLogicalTest; Misc2Test logical-insert methods; drools-tms module suite | 1 + ~6 + module |
+| Push/open/live queries (P2) | mvel.integrationtests.QueryTest (open-query methods), CepQueryTest (non-CEP methods) | ~8 |
+| Query + mutation (P2) | QueryTest (update-after-query methods) | ~5 |
+| Negation inside queries (P2) | QueryTest (query-with-not methods) | ~3 |
+| activation-group (P2) | mvel.integrationtests.ExecutionFlowControlTest#testActivationGroups etc. (ext-DRL) | ~4 |
+| agenda-group / focus / auto-focus / lock-on-active (P3) | ExecutionFlowControlTest (agenda/lock methods, ext-DRL); compiler.integrationtests.CompositeAgendaTest | ~10 + 2 |
+| Accumulate extensions (P3) | compiler.integrationtests.AccumulateTest (multi-function, from-accumulate, collectList/Set methods) | ~30 of 84 |
+| groupby (P3) | drools-model GroupByTest | module |
+| Rule extends (P3) | mvel.integrationtests.ExtendsTest | 25 |
+| Named consequences (P3) | mvel.integrationtests.NamedConsequencesTest; EdgeCaseNonExecModelTest | 39 + 2 |
+| declare extras: defaults/@key/enums (P3) | mvel.integrationtests.TypeDeclarationTest, EnumTest; compiler.integrationtests.AnnotationsTest | 3 + 4 + 5 |
+| @watch/@classReactive/@propertyReactive (P3) | mvel.integrationtests.PropertySpecificTest, PropertyReactivityBlockerTest, PropertyReactivityTest (annotation methods) | 59 + 5 + ~20 |
+| Positional patterns in rules (P4) | Misc2Test positional methods | ~4 |
+| retract alias (P4) | pervasive in older suites (e.g. session.DeleteTest retract methods) | ~5 |
+| Plain-identifier bindings (P4) | compiler.integrationtests.drl.PatternTest (cheese : Cheese() forms) | ~10 |
+| str[startsWith/endsWith/length] (P4) | mvel.integrationtests.StrEvaluatorTest | 10 |
+| soundslike (P4) | operators.SoundsLikeTest | 4 |
+| enabled attribute (P4) | operators.EnabledTest | 2 |
+| halt() (P4) | mvel.integrationtests.DroolsFromRHSTest | 2 |
+| Non-ASCII string values (P4) | mvel.integrationtests.I18nTest (value-only methods) | ~4 |
+
+Ambiguous §5 items (CEP pseudo-clock, bounded eval grammar, globals,
+nulls, Date/BigDecimal, inheritance, equality mode, char, virtual dates,
+declarative agenda) get acceptance rows here only after their ruling.

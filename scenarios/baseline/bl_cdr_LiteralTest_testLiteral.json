@@ -1,0 +1,38 @@
+{
+  "name": "bl_cdr_LiteralTest_testLiteral",
+  "provenance": {
+    "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/compiler/integrationtests/drl/LiteralTest.java",
+    "method": "LiteralTest#testLiteral",
+    "expect_fire_count": null,
+    "adaptation": [
+      "dropped global java.util.List list",
+      "dropped global Cheesery cheesery",
+      "stripped global stmt: list.add( $x )"
+    ]
+  },
+  "types": [
+    {
+      "name": "Cheese",
+      "fields": [
+        {
+          "name": "type",
+          "type": "String"
+        },
+        {
+          "name": "price",
+          "type": "i64"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "type": "Cheese",
+      "fields": {
+        "type": "stilton",
+        "price": 5
+      }
+    }
+  ],
+  "drl": "\n\n\n\n\n\n\n\nrule \"literal test rule\"\n    when\n        Cheese( $x: type, type == \"stilton\" )\n    then  end"
+}

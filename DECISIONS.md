@@ -1833,3 +1833,59 @@ verified on `scenarios/phase0/p0_trivial_adult.json`. Build:
 Next: Rust workspace (engine + harness crates), walking-skeleton engine
 (parse this one rule, columnar arena WM), comparator, `make diff` green on
 p0_trivial_adult. No open divergences.
+
+## Verification-stack pivot (2026-07-05)
+
+### D-059: Tiered corpus anchored by Drools' own regression suite
+Strategy restructure, zero engine changes (tests/docs/harness plumbing
+only). Differential testing is now a layered stack; `make diff` reports
+per tier, all through the same harness/oracle/comparator:
+1. **baseline** (`scenarios/baseline/`) — scenarios ADAPTED from Drools
+   9.44.0.Final's own regression tests (drools-test-coverage,
+   Apache-2.0, attribution in NOTICE, per-scenario `provenance` keys).
+   Third-party spec tests: an in-subset failure here is a faithfulness
+   bug nobody on this project authored. 7 members at close, 7/7 green,
+   0 divergences found. Failing members would quarantine to
+   scenarios/baseline-quarantine/ (excluded like xfail/) pending triage.
+2. **probes** — the D-0xx curated pins (probes/, phase0-2, demo).
+3. **regressions** — graduated fuzz finds. The fuzzer's charter is now
+   explicitly "explore beyond the baseline", not "be comprehensive".
+- **FEATURES.md** is the coverage matrix over the full Drools 9.44
+  feature surface (docs + module structure + test modules):
+  IMPLEMENTED (with D-0xx pins) / ROADMAP (prioritized, with upstream
+  acceptance tests) / CANT (specific architectural constraint) / WONT
+  (exclusion-as-strength). Ten genuinely-ambiguous features are parked
+  in §5 for an explicit ruling, not guessed.
+- Deliverable-2 docs: docs/baseline-extraction.md (pipeline + yield),
+  docs/roadmap-acceptance.md (ROADMAP tests = definition of done),
+  docs/drools-test-skiplist.md (CANT/WONT/not-DRL-behavior tests =
+  honest limitations), docs/drools-test-routing.tsv (903 upstream test
+  methods routed with reasons).
+- Pipeline (tools/): gen_bean_catalog.py (model beans -> catalog, 121
+  beans, ctor delegation resolved), extract_baseline.py (Java test ->
+  scenario JSON; token-based package/import/global removal; WM-inert
+  RHS stripping only; inline scalar `declare` lifting; provenance +
+  JUnit-expected fire counts), baseline_gate.py (4 stages: engine
+  parse gate = SUBSET ARBITER; oracle run; FIRE-COUNT DRIFT CHECK =
+  translation honesty guard; differential).
+- Bring-up lessons the gate caught: single-line DRLs were emptied by
+  line-based package stripping (2 degenerate "passes" + 3 drift cases,
+  all before any scenario was committed); RHS reassembly once produced
+  `thenmodify(...)` (then-splice bug) — the drift guard is what made
+  these visible. Extraction v1 scanned 903 methods across 88
+  inline-DRL classes: 71 candidates, 7 in-subset (the rest are routed
+  feature-wall evidence feeding FEATURES.md), 0 faithfulness bugs.
+- Yield expansion (extractor/harness only, cataloged in
+  docs/baseline-extraction.md): epochs translation for FactHandle
+  update/delete tests (~77 methods; needs a `bare-update` all-set-mask
+  action op in BOTH runners first — the 2-arg session.update semantics
+  per fz_42_3311), per-class helper inlining (~229), counted-loop
+  unrolling (21), query-call translation (recursive scenarios need
+  timeout-guarded oracle runs, D-055 hang hazard), external-.drl
+  resource tests (ExecutionFlowControlTest, FirstOrderLogicTest).
+- Drools sources for reading live at ~/drools-9.44-src (shallow clone,
+  tag 9.44.0.Final of github.com/apache/incubator-kie-drools; re-fetch:
+  `git clone --depth 1 --branch 9.44.0.Final <url>`). Behavior/tests
+  only — no code copied into the engine (NOTICE provenance story).
+- Gate at close: `make test` green; `make diff` = baseline 7/7,
+  probes 332/332, regressions 201/201.

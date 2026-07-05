@@ -1,0 +1,38 @@
+{
+  "name": "bl_mvl_Misc2Test_testUnderscoreDoubleMultiplicationCastedToInt",
+  "provenance": {
+    "source": "drools-9.44.0.Final:drools-test-coverage/test-compiler-integration/src/test/java/org/drools/mvel/integrationtests/Misc2Test.java",
+    "method": "Misc2Test#testUnderscoreDoubleMultiplicationCastedToInt",
+    "expect_fire_count": null,
+    "adaptation": [
+      "dropped global java.util.List list",
+      "stripped inert stmt: int b = (int) ($p * 1_000.0)",
+      "stripped global stmt: list.add(\"\" + b)"
+    ]
+  },
+  "types": [
+    {
+      "name": "Cheese",
+      "fields": [
+        {
+          "name": "type",
+          "type": "String"
+        },
+        {
+          "name": "price",
+          "type": "i64"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "type": "Cheese",
+      "fields": {
+        "type": "gauda",
+        "price": 42
+      }
+    }
+  ],
+  "drl": "rule R when\n  Cheese( $p : price)\nthen  end\n"
+}
