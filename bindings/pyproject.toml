@@ -6,10 +6,22 @@ build-backend = "maturin"
 # PyPI distribution name (the "seine" name is taken); the import
 # remains `import seine`.
 name = "seine-rs"
-version = "0.1.0"
+version = "0.2.0"
 description = "Differentially certified Drools-subset rule engine over Arrow dataframes"
+readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
+authors = [{ name = "Bryan McGuire", email = "bryan@silverlakeagentics.com" }]
+keywords = ["rules-engine", "drools", "rete", "phreak", "arrow", "polars", "dataframe"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Repository = "https://github.com/sl-agentics/seine"
 
 [tool.maturin]
 manifest-path = "Cargo.toml"
