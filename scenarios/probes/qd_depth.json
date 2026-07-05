@@ -1,0 +1,94 @@
+{
+ "name": "qd_depth",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "p",
+     "type": "i64"
+    },
+    {
+     "name": "q",
+     "type": "i64"
+    },
+    {
+     "name": "r",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "W",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "W",
+   "fields": {
+    "w": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "p": 1,
+    "q": 1,
+    "r": 1,
+    "s": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "p": 1,
+    "q": 1,
+    "r": 1,
+    "s": 2
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "p": 2,
+    "q": 1,
+    "r": 1,
+    "s": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "p": 1,
+    "q": 2,
+    "r": 1,
+    "s": 1
+   }
+  }
+ ],
+ "drl": "query Deep(long $x)\n    $v : W($w : w)\n    $a : A(p == $x, q == $w, r == $w, s == $w)\nend\n",
+ "queries": [
+  {
+   "call": "Deep",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "Deep",
+   "args": [
+    1
+   ]
+  }
+ ]
+}

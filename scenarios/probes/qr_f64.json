@@ -1,0 +1,99 @@
+{
+ "name": "qr_f64",
+ "types": [
+  {
+   "name": "Score",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "s",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s0",
+    "s": 2.5
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s1",
+    "s": 1.25
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s2",
+    "s": 0.5
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s3",
+    "s": 3.75
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s4",
+    "s": 10.0
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s5",
+    "s": 0.125
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s6",
+    "s": 7.5
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s7",
+    "s": 100.25
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s8",
+    "s": 0.0
+   }
+  },
+  {
+   "type": "Score",
+   "fields": {
+    "name": "s9",
+    "s": 5.5
+   }
+  }
+ ],
+ "drl": "query ByS(double $x)\n    $s : Score(s == $x)\nend\n",
+ "queries": [
+  {
+   "call": "ByS",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

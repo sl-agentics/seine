@@ -369,6 +369,160 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+## Queries — Phase Q0 (2026-07-04)
+
+### D-049: Query differential harness — scenario/result schema extension
+Scenario gains an optional top-level `"queries"` array: ordered calls run
+AFTER the initial fire and all epochs, against the final WM.
+```json
+"queries": [ {"call": "ByAge", "args": [30, null]} ]
+```
+- `args` are JSON scalars typed like fact fields (integer→long,
+  decimal→double, string, bool). JSON `null` = UNBOUND (Java
+  `Variable.v`) — safe encoding because the subset has no null field
+  values.
+- Oracle runs `session.getQueryResults(name, args...)` per call and emits
+  a result section:
+```json
+"queries": [ {"call":..., "args": <echo>, "identifiers": ["$p","$a"],
+              "rows": [ {"$p": <fact rendering>, "$a": <scalar rendering>} ]} ]
+```
+  Scalar bindings render like accumulate results: `{"type":
+  "Long|Double|String|Boolean", "fields": {"value": ...}}` (String branch
+  added to the oracle renderer; unreachable for pre-query scenarios).
+- **Canonical comparison**: `queries` arrays are positional; `call`/`args`
+  compared semantically; `identifiers` compared as a SET; `rows` are
+  ORDER-SIGNIFICANT, each row a map identifier→rendering. Missing
+  section == empty section (back-compat with pre-query scenarios).
+- Drools' `getIdentifiers()` ORDER is a `HashMap` iteration artifact
+  (verified: bucket order of `String.hashCode & 15` explains q1/q2/q5/q6
+  orders) — deliberately NOT modeled; hence set comparison.
+- Oracle query output is deterministic: 3 independent JVM runs over the
+  full 21-probe set produced byte-identical query sections (facts order
+  still varies per D-006 — queries and facts differ here).
+
+### D-050: Query semantics PINNED — probes q1–q9, qr_*, qc_order, qo_*,
+### qm_mixed, qn_join, qd_depth + live-memory ground truth (MemDump 1–3)
+Everything below is oracle-verified; the full model replays all 50
+probe query calls exactly (scratch model_check.py, 50/50).
+
+**Basics** (q1–q9): queries see the final WM including forward-chained
+facts; duplicate facts yield duplicate rows (multiset); a query whose
+type has no facts yields 0 rows (no error); defining queries perturbs
+NOTHING about rule firings or final facts (q8); repeated calls in one
+session are stable; unbound args unify (each row carries the matched
+value); bound args filter. Row values include ALL identifiers: params
+(bound or unified), pattern bindings, field bindings.
+
+**Row ordering — the full evaluation model.** getQueryResults evaluates
+the query's join chain PULL-style with PHREAK staged sets; everything
+observable reduces to:
+1. Each pattern owns a "right memory" holding the type's alpha-passing
+   facts in REVERSE WM-insertion order ("arrival order") — inserts stage
+   LIFO (`TupleSetsImpl.addInsert` prepends) and drain into the memory at
+   the query's first evaluation. Derived facts sit in the same global
+   insertion sequence at their actual insertion point.
+2. Memory structure per pattern:
+   - ≥1 beta equality constraint → hash table (`TupleIndexHashTable`,
+     128 slots): index fields = FIRST equality (textual order) plus
+     subsequent equalities that are NOT param-unifications, capped at 3
+     (`compositeKeyDepth` default 3; a 2nd unification NEVER indexes —
+     IndexSpec skips it: qc_order QA/QB group by first key only).
+   - no beta equality → plain list (arrival order).
+3. Hashing (verified bit-exact against live tables, startResult=993 for
+   Person.age etc.):
+   - `slot = rehash(h) & 127` where `h` folds `h = 31*h + javaHash(v)`
+     over indexed values, seeded by `seed = 31; seed += 31*seed + extIdx`
+     per index field; `rehash` = JDK6 supplemental
+     (`h ^= h>>>20 ^ h>>>12; h ^= h>>>7 ^ h>>>4`, u32).
+   - javaHash: Long `(v ^ v>>>32) as i32`; Double over
+     `doubleToLongBits`; Boolean 1231/1237; String = UTF-16
+     `31*h + c`.
+   - **extractor index `extIdx` = 1 + rank of the field's accessor
+     method name** among the generated bean's no-arg public methods
+     sorted by name: `getX`/`isX` (bool) per field + `getClass`,
+     `hashCode`, `toString` (slot 0 = `this`). Pinned across 18 type
+     shapes (MemDump3; the boolean `isMarried`→6 case is what broke
+     every simpler rule).
+   - Key-lists: new key PREPENDS into its slot's chain; tuples APPEND
+     within a list (so within-key order = arrival order).
+4. Join iteration per consumed left tuple:
+   - `indexedUnificationJoin` (any indexed param-unification, textual
+     position irrelevant — qo_first/qo_beta U4==U5): ALWAYS full-table
+     iteration, slots ascending → chain order → within-list order,
+     filtering ALL beta constraints (bound params filter, unbound bind).
+   - indexed without unification (qn_join, qo_beta U6): bucket lookup by
+     the left-bound key (hash + value equality), iterate that key-list
+     in arrival order, filter remaining constraints.
+   - plain: whole list in arrival order, filter.
+5. Staging: S1 = [query tuple]; join i consumes S_i head→tail and
+   PREPENDS each emitted child into S_{i+1}; the terminal consumes the
+   last stage head→tail APPENDING rows. (Net effect: single-pattern
+   queries emit rows in slot-DESCENDING/reverse-arrival order; q7's
+   3-pattern parity a1-fwd/b-rev/c-fwd falls out of the same mechanics.)
+
+### D-051: Query subset wall (Phase Q0)
+IN: non-recursive queries of 1–3 positive patterns over declared types;
+typed params; unification `==` on params (any count, any textual
+position); regular join equalities/inequalities to prior bindings or
+`$b.field`; field bindings; literal alpha constraints; bound/unbound/
+mixed invocation from the API; queries coexisting with rules; derived
+facts; multiple calls per scenario; empty results; duplicate rows.
+OUT (documented, excluded from generator + probes reject):
+- query-calling-query, `?query(...)` pull patterns in rules, `query`
+  CEs inside rule LHS;
+- not/exists/accumulate/collect INSIDE query bodies;
+- update/delete epoch actions in scenarios that also declare queries
+  (staged-insert cancellation + removeAdd reordering unprobed; D-016's
+  alpha move-to-front interplay unknown) — insert-only epochs are fine;
+- ≥96 distinct values per indexed key (table resize re-buckets with
+  chain reversal — unmodeled);
+- f64 query args that are NaN/±0.0 (Double.equals vs numeric == at the
+  index boundary unprobed);
+- field names that don't fit the lowercase `getX`/`isX` accessor-sort
+  rule or collide with getClass/hashCode/toString.
+
+### D-052: multi-site unification is PER-SITE against the pattern-entry
+### value; first site binds at pattern EXIT (fz_4242_621/1945, q11_multisite)
+First query-fuzz wave (seed 4242, 2000 cases) caught what the hand
+probes missed: `P(a == $x, b == $x)` with $x UNBOUND matches EVERY P —
+there is NO cross-site consistency inside one pattern. Drools evaluates
+each unification site against the tuple state ON ENTRY to the pattern
+(unbound arg ⇒ every site passes; bound ⇒ every site filters), and the
+FIRST textual site's field value becomes the param's binding when the
+pattern exits — `P(a == $x, b == $x)` rows report $x = a, the swapped
+form reports $x = b, and a FOLLOWING pattern's `c == $x` filters against
+that exit binding (q11 ABC). Bound calls conjoin all sites as expected
+(AB[2] = 0 rows). Engine fix: constraint evaluation reads the entry env;
+unification writes are collected per candidate (first site wins) and
+applied at emission. Index composition is unaffected (2nd site is a
+unification ⇒ never indexed, D-050).
+
+### D-053: beta constraints are SORTED regular-equalities-first; the
+### index NEVER mixes unifications with regular keys (fz_4242_8775,
+### fz_777_145, q12_mixed_index — corrects part of D-050)
+10k-per-seed waves caught two more order divergences, both explained by
+one build-time fact the hand probes could not see (live createMemory
+dumps, MemDump4): the pattern's beta-constraint array is SORTED before
+IndexSpec/setUnificationJoin run — regular (non-unification) equalities
+first, then unifications, then non-indexables. Consequences:
+- If a pattern has ANY regular equality, the index = the regular
+  equalities ONLY (textual order among themselves, duplicates included —
+  `f0 == $b, f0 == $b` builds DoubleCompositeIndex[f0,f0], seed 31810 —
+  cap 3) and `indexedUnificationJoin` is FALSE: bucket lookup on the
+  bound key; unification constraints just filter (bound) or bind at
+  pattern exit (unbound, D-052).
+- Only a pattern with NO regular equality full-iterates, and its index
+  is the FIRST unification alone — so hash-slot order is only ever
+  observable through SINGLE-FIELD seeds. (This is why qc_order/qm_mixed
+  passed under the D-050 formulation: their shapes made both models
+  coincide.)
+- D-050's "first equality + subsequent non-unification equalities"
+  composite is superseded by the above; everything else in D-050 stands.
+Wall addition: operands bound in the SAME pattern (`$b : f1, f0 == $b`)
+compile to alpha predicates in Drools — rejected by the engine, excluded
+from the generator (D-051 extension).
+
 ### D-048: row-object ingestion sugar + seine-rs packaging/CI
 - Lists of row objects — @seine.fact instances, plain dicts, or any
   attribute-bearing objects (dataclasses, Pydantic models) — are

@@ -1,0 +1,113 @@
+{
+ "name": "qr_long",
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "age",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p0",
+    "age": 7
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p1",
+    "age": 3
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p2",
+    "age": 11
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p3",
+    "age": 0
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p4",
+    "age": 14
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p5",
+    "age": 9
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p6",
+    "age": 2
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p7",
+    "age": 12
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p8",
+    "age": 5
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p9",
+    "age": 8
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p10",
+    "age": 1
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p11",
+    "age": 13
+   }
+  }
+ ],
+ "drl": "query ByAge(long $a)\n    $p : Person(age == $a)\nend\n",
+ "queries": [
+  {
+   "call": "ByAge",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

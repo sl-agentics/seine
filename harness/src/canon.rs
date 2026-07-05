@@ -48,6 +48,50 @@ pub fn compare(engine: &J, oracle: &J) -> Result<(), Vec<String>> {
         }
     }
 
+    // Query results (D-049): positional per call; identifiers as a SET
+    // (Drools order is a HashMap artifact); rows ORDER-SIGNIFICANT.
+    if e.queries.len() != o.queries.len() {
+        msgs.push(format!(
+            "query call count differs: engine {} vs oracle {}",
+            e.queries.len(),
+            o.queries.len()
+        ));
+    }
+    for (i, (eq, oq)) in e.queries.iter().zip(o.queries.iter()).enumerate() {
+        if eq.call != oq.call || eq.args != oq.args {
+            msgs.push(format!(
+                "queries[{i}] call/args differ: engine {}{:?} vs oracle {}{:?}",
+                eq.call, eq.args, oq.call, oq.args
+            ));
+            break;
+        }
+        if eq.identifiers != oq.identifiers {
+            msgs.push(format!(
+                "queries[{i}] ({}) identifier sets differ:\n       engine: {:?}\n       oracle: {:?}",
+                eq.call, eq.identifiers, oq.identifiers
+            ));
+            break;
+        }
+        if eq.rows.len() != oq.rows.len() {
+            msgs.push(format!(
+                "queries[{i}] ({}) row count differs: engine {} vs oracle {}",
+                eq.call,
+                eq.rows.len(),
+                oq.rows.len()
+            ));
+            break;
+        }
+        if let Some((ri, (er, or))) =
+            eq.rows.iter().zip(oq.rows.iter()).enumerate().find(|(_, (a, b))| a != b)
+        {
+            msgs.push(format!(
+                "queries[{i}] ({}) row[{ri}] differs:\n       engine: {er:?}\n       oracle: {or:?}",
+                eq.call
+            ));
+            break;
+        }
+    }
+
     if msgs.is_empty() {
         Ok(())
     } else {
@@ -55,9 +99,20 @@ pub fn compare(engine: &J, oracle: &J) -> Result<(), Vec<String>> {
     }
 }
 
+struct CanonQuery {
+    call: String,
+    /// canonical scalars; "null" marks an unbound arg
+    args: Vec<String>,
+    /// sorted (set semantics)
+    identifiers: Vec<String>,
+    /// each row: identifier -> canonical rendering, rows in order
+    rows: Vec<BTreeMap<String, String>>,
+}
+
 struct CanonResult {
     facts: Vec<String>,
     firings: Vec<(String, Vec<String>)>,
+    queries: Vec<CanonQuery>,
 }
 
 fn render_firing((rule, matches): &(String, Vec<String>)) -> String {
@@ -93,7 +148,55 @@ fn canon_result(v: &J) -> Result<CanonResult, String> {
         matches.sort();
         firings.push((rule, matches));
     }
-    Ok(CanonResult { facts, firings })
+
+    // "queries" is optional: pre-query scenarios/oracles omit it.
+    let mut queries = Vec::new();
+    for q in v.get("queries").and_then(J::as_array).unwrap_or(&Vec::new()) {
+        let call = q
+            .get("call")
+            .and_then(J::as_str)
+            .ok_or("query entry missing 'call'")?
+            .to_string();
+        let args = q
+            .get("args")
+            .and_then(J::as_array)
+            .map(|a| {
+                a.iter()
+                    .map(|v| {
+                        if v.is_null() {
+                            Ok("null".to_string())
+                        } else {
+                            canon_scalar(v)
+                        }
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
+        let mut identifiers: Vec<String> = q
+            .get("identifiers")
+            .and_then(J::as_array)
+            .ok_or("query entry missing 'identifiers'")?
+            .iter()
+            .map(|v| v.as_str().map(str::to_string).ok_or("identifier not a string"))
+            .collect::<Result<_, _>>()?;
+        identifiers.sort();
+        let mut rows = Vec::new();
+        for row in q
+            .get("rows")
+            .and_then(J::as_array)
+            .ok_or("query entry missing 'rows'")?
+        {
+            let obj = row.as_object().ok_or("query row not an object")?;
+            let mut m = BTreeMap::new();
+            for (k, v) in obj {
+                m.insert(k.clone(), canon_fact(v)?);
+            }
+            rows.push(m);
+        }
+        queries.push(CanonQuery { call, args, identifiers, rows });
+    }
+    Ok(CanonResult { facts, firings, queries })
 }
 
 fn canon_fact(v: &J) -> Result<String, String> {

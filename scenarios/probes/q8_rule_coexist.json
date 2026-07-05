@@ -1,0 +1,61 @@
+{
+ "name": "q8_rule_coexist",
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "age",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Adult",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "name": "alice",
+    "age": 30
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "bob",
+    "age": 10
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "carol",
+    "age": 45
+   }
+  }
+ ],
+ "drl": "rule \"Adult\"\nwhen\n    $p : Person(age > 18)\nthen\n    insert(new Adult($p.getName()));\nend\n\nquery AdultsQ\n    $p : Person(age > 18)\nend\n\nquery Pairs\n    $p : Person(age > 18, $n : name)\n    $q : Person(age > 18, name != $n)\nend\n",
+ "queries": [
+  {
+   "call": "AdultsQ",
+   "args": []
+  },
+  {
+   "call": "Pairs",
+   "args": []
+  }
+ ]
+}

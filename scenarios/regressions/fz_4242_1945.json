@@ -1,0 +1,97 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f0 > -3.0, f1 != false, $b0_0_0 : f0, $b0_0_1 : f1)\nthen\n    insert(new T1(true, false, $p0_0.isF1()));\nend\nrule \"R1\"\nwhen\n    not T1()\nthen\nend\nrule \"R2\"\nsalience 8\nwhen\n    $p2_0 : T1(f0 in (true), f2 != true, $b2_0_0 : f0, $b2_0_1 : f2)\n    not T0(f1 == $b2_0_1)\nthen\n    delete($p2_0);\nend\nquery Q0(boolean $qa0_0)\n    $qp0_0 : T0(f1 == $qa0_0, f0 >= 4.5, f1 != true)\nend\n\nquery Q1(boolean $qa1_0)\n    $qp1_0 : T1(f2 == $qa1_0, f0 == $qa1_0)\nend\n\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": false,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 5.0,
+        "f1": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_4242_1945",
+  "queries": [
+    {
+      "args": [
+        false
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        false
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null
+      ],
+      "call": "Q1"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

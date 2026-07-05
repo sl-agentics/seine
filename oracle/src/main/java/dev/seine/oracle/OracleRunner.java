@@ -11,6 +11,9 @@ import org.kie.api.event.rule.DefaultAgendaEventListener;
 import org.kie.api.event.rule.DefaultRuleRuntimeEventListener;
 import org.kie.api.event.rule.ObjectInsertedEvent;
 import org.kie.api.runtime.rule.FactHandle;
+import org.kie.api.runtime.rule.QueryResults;
+import org.kie.api.runtime.rule.QueryResultsRow;
+import org.kie.api.runtime.rule.Variable;
 import org.kie.api.io.ResourceType;
 import org.kie.api.runtime.KieSession;
 import org.kie.internal.utils.KieHelper;
@@ -147,6 +150,39 @@ public final class OracleRunner {
                 }
             }
 
+            // Query invocation phase: after all epochs, against final WM.
+            // Scenario "queries" = ordered calls {"call": name, "args": [...]},
+            // JSON null arg = unbound (Variable.v). Result entry echoes the
+            // call and captures identifiers + rows in iteration order.
+            ArrayNode queryOut = M.createArrayNode();
+            for (JsonNode q : scenario.path("queries")) {
+                String qname = q.path("call").asText();
+                List<Object> qargs = new ArrayList<>();
+                for (JsonNode a : q.path("args")) {
+                    if (a.isNull()) qargs.add(Variable.v);
+                    else if (a.isTextual()) qargs.add(a.asText());
+                    else if (a.isBoolean()) qargs.add(a.asBoolean());
+                    else if (a.isFloatingPointNumber()) qargs.add(a.asDouble());
+                    else qargs.add(a.asLong());
+                }
+                QueryResults res = session.getQueryResults(qname, qargs.toArray());
+                ObjectNode qo = M.createObjectNode();
+                qo.put("call", qname);
+                qo.set("args", q.path("args").deepCopy());
+                ArrayNode ids = qo.putArray("identifiers");
+                for (String id : res.getIdentifiers()) ids.add(id);
+                ArrayNode rows = qo.putArray("rows");
+                for (QueryResultsRow row : res) {
+                    ObjectNode ro = M.createObjectNode();
+                    for (String id : res.getIdentifiers()) {
+                        Object v = row.get(id);
+                        ro.set(id, v == null ? M.nullNode() : render(kbase, session, v));
+                    }
+                    rows.add(ro);
+                }
+                queryOut.add(qo);
+            }
+
             ArrayNode facts = M.createArrayNode();
             for (Object o : session.getObjects()) {
                 facts.add(render(kbase, session, o));
@@ -154,6 +190,7 @@ public final class OracleRunner {
             ObjectNode result = M.createObjectNode();
             result.set("facts", facts);
             result.set("firings", firings);
+            result.set("queries", queryOut);
             return result;
         } finally {
             session.dispose();
@@ -242,8 +279,14 @@ public final class OracleRunner {
             return node;
         }
         // Accumulate results are Numbers; collect results are Collections
-        // (D-038). Canonicalize both — collection classes normalize to
-        // "Collection" with an ORDER-SIGNIFICANT element array.
+        // (D-038). Query rows also bind String field values. Canonicalize
+        // all scalars — collection classes normalize to "Collection" with
+        // an ORDER-SIGNIFICANT element array.
+        if (o instanceof String s) {
+            node.put("type", "String");
+            node.putObject("fields").put("value", s);
+            return node;
+        }
         if (o instanceof Number || o instanceof Boolean) {
             node.put("type", simpleName);
             ObjectNode f = node.putObject("fields");

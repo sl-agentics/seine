@@ -1,0 +1,57 @@
+{
+ "name": "qr_bool",
+ "types": [
+  {
+   "name": "Flag",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "b",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Flag",
+   "fields": {
+    "name": "f0",
+    "b": true
+   }
+  },
+  {
+   "type": "Flag",
+   "fields": {
+    "name": "f1",
+    "b": false
+   }
+  },
+  {
+   "type": "Flag",
+   "fields": {
+    "name": "f2",
+    "b": true
+   }
+  },
+  {
+   "type": "Flag",
+   "fields": {
+    "name": "f3",
+    "b": false
+   }
+  }
+ ],
+ "drl": "query ByB(boolean $x)\n    $f : Flag(b == $x)\nend\n",
+ "queries": [
+  {
+   "call": "ByB",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

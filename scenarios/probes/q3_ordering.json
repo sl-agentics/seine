@@ -1,0 +1,19 @@
+{
+  "name": "q3_ordering",
+  "types": [
+    { "name": "Person", "fields": [ { "name": "name", "type": "String" }, { "name": "age", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "Person", "fields": { "name": "p0", "age": 5 } },
+    { "type": "Person", "fields": { "name": "p1", "age": 3 } },
+    { "type": "Person", "fields": { "name": "p2", "age": 9 } },
+    { "type": "Person", "fields": { "name": "p3", "age": 1 } },
+    { "type": "Person", "fields": { "name": "p4", "age": 7 } },
+    { "type": "Person", "fields": { "name": "p5", "age": 3 } }
+  ],
+  "drl": "query All\n    $p : Person(age >= 0)\nend\n",
+  "queries": [
+    { "call": "All", "args": [] },
+    { "call": "All", "args": [] }
+  ]
+}

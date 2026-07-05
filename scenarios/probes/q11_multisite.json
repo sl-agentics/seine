@@ -1,0 +1,24 @@
+{
+  "name": "q11_multisite",
+  "types": [
+    { "name": "P", "fields": [ { "name": "a", "type": "i64" }, { "name": "b", "type": "i64" } ] },
+    { "name": "R", "fields": [ { "name": "c", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "P", "fields": { "a": 1, "b": 1 } },
+    { "type": "P", "fields": { "a": 2, "b": 5 } },
+    { "type": "P", "fields": { "a": 5, "b": 2 } },
+    { "type": "R", "fields": { "c": 5 } },
+    { "type": "R", "fields": { "c": 2 } },
+    { "type": "R", "fields": { "c": 1 } }
+  ],
+  "drl": "query AB(long $x)\n    $p : P(a == $x, b == $x)\nend\n\nquery BA(long $x)\n    $p : P(b == $x, a == $x)\nend\n\nquery ABC(long $x)\n    $p : P(a == $x, b == $x)\n    $r : R(c == $x)\nend\n",
+  "queries": [
+    { "call": "AB", "args": [null] },
+    { "call": "BA", "args": [null] },
+    { "call": "AB", "args": [2] },
+    { "call": "BA", "args": [2] },
+    { "call": "ABC", "args": [null] },
+    { "call": "ABC", "args": [5] }
+  ]
+}

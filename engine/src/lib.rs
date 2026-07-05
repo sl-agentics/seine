@@ -8,8 +8,10 @@
 pub mod drl;
 mod phreak;
 pub mod engine;
+mod queries;
 mod rx;
 pub mod store;
 
 pub use engine::{Engine, EngineError, Firing};
+pub use queries::{QueryOutput, QueryVal};
 pub use store::{FactId, FactView, FieldType, TypeSchema, Value};

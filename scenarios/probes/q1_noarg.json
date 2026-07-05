@@ -1,0 +1,15 @@
+{
+  "name": "q1_noarg",
+  "types": [
+    { "name": "Person", "fields": [ { "name": "name", "type": "String" }, { "name": "age", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "Person", "fields": { "name": "alice", "age": 30 } },
+    { "type": "Person", "fields": { "name": "bob",   "age": 10 } },
+    { "type": "Person", "fields": { "name": "carol", "age": 45 } }
+  ],
+  "drl": "query Adults\n    $p : Person(age > 18)\nend\n",
+  "queries": [
+    { "call": "Adults", "args": [] }
+  ]
+}

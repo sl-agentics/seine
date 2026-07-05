@@ -740,6 +740,143 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         }
     }
 
+    // ------------------------------------------------------------------
+    // Queries (Phase Q0, D-049/D-050/D-051): attached to INSERT-ONLY
+    // programs only — no rule mutation, no external update/delete (the
+    // staged-insert/mutation interplay is outside the pinned subset).
+    // Literal `==` constraints are never generated inside query bodies: a
+    // query alpha node would join the oracle's D-029 eq-literal hash
+    // groups, which the engine's rules-only rewrite does not model.
+    // Query joins are SAME-type only (cross-type key coercion at the
+    // index boundary is unprobed).
+    let epochs_insert_only = epochs.iter().all(|e| {
+        e["actions"]
+            .as_array()
+            .map(|a| a.iter().all(|x| x["op"] == "insert"))
+            .unwrap_or(true)
+    });
+    let mut queries_json: Vec<J> = Vec::new();
+    if !allow_mutation && epochs_insert_only && rng.chance(45) {
+        const QOPS_NOEQ: &[&str] = &["!=", "<", "<=", ">", ">="];
+        let nqueries = 1 + rng.below(2); // 1..2
+        for qi in 0..nqueries {
+            let qname = format!("Q{qi}");
+            let npats = 1 + rng.below(3); // 1..3
+            let mut params: Vec<(String, Ft)> = Vec::new();
+            let mut scalar_binds: Vec<(String, Ft)> = Vec::new();
+            let mut body = String::new();
+            let mut bind_n = 0usize;
+            for pj in 0..npats {
+                let ti = rng.below(ntypes);
+                let nfields = types[ti].fields.len();
+                let mut cons: Vec<String> = Vec::new();
+                // param unifications (first pattern biased to have one)
+                let nunif = if pj == 0 { 1 + rng.below(2) } else { rng.below(2) };
+                for _ in 0..nunif {
+                    let (fname, ft) = types[ti].fields[rng.below(nfields)].clone();
+                    let reuse: Vec<usize> = params
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, (_, pt))| *pt == ft)
+                        .map(|(i, _)| i)
+                        .collect();
+                    let pn = if !reuse.is_empty() && (params.len() >= 3 || rng.chance(30)) {
+                        params[*rng.pick(&reuse)].0.clone()
+                    } else if params.len() < 3 {
+                        let pn = format!("$qa{qi}_{}", params.len());
+                        params.push((pn.clone(), ft));
+                        pn
+                    } else {
+                        continue;
+                    };
+                    cons.push(format!("{fname} == {pn}"));
+                }
+                // literal filters: never `==`, always same-type literals
+                for _ in 0..rng.below(3) {
+                    let (fname, ft) = &types[ti].fields[rng.below(nfields)];
+                    let op = match ft {
+                        Ft::Bool => "!=",
+                        _ => *rng.pick(QOPS_NOEQ),
+                    };
+                    cons.push(format!("{fname} {op} {}", lit_drl(&mut rng, *ft, false)));
+                }
+                // joins to earlier scalar bindings (same-type fields only)
+                for _ in 0..rng.below(3) {
+                    let compat: Vec<(String, Ft)> = scalar_binds
+                        .iter()
+                        .filter(|(_, bt)| types[ti].fields.iter().any(|(_, ft)| ft == bt))
+                        .cloned()
+                        .collect();
+                    if compat.is_empty() {
+                        break;
+                    }
+                    let (bvar, bt) = rng.pick(&compat).clone();
+                    let fnames: Vec<String> = types[ti]
+                        .fields
+                        .iter()
+                        .filter(|(_, ft)| *ft == bt)
+                        .map(|(n, _)| n.clone())
+                        .collect();
+                    let fname = rng.pick(&fnames).clone();
+                    // bool ordering joins are unpinned — rules use ==/!= too
+                    let op = if bt == Ft::Bool {
+                        if rng.chance(60) { "==" } else { "!=" }
+                    } else if rng.chance(60) {
+                        "=="
+                    } else {
+                        *rng.pick(QOPS_NOEQ)
+                    };
+                    cons.push(format!("{fname} {op} {bvar}"));
+                }
+                // field bindings, visible to later patterns' joins
+                for _ in 0..rng.below(3) {
+                    let (fname, ft) = types[ti].fields[rng.below(nfields)].clone();
+                    let bvar = format!("$qb{qi}_{bind_n}");
+                    bind_n += 1;
+                    scalar_binds.push((bvar.clone(), ft));
+                    cons.push(format!("{bvar} : {fname}"));
+                }
+                body.push_str(&format!(
+                    "    $qp{qi}_{pj} : {}({})\n",
+                    types[ti].name,
+                    cons.join(", ")
+                ));
+            }
+            if params.is_empty() {
+                drl.push_str(&format!("query {qname}\n{body}end\n\n"));
+            } else {
+                let plist = params
+                    .iter()
+                    .map(|(n, ft)| {
+                        let jt = match ft {
+                            Ft::I64 => "long",
+                            Ft::F64 => "double",
+                            Ft::Str => "String",
+                            Ft::Bool => "boolean",
+                        };
+                        format!("{jt} {n}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                drl.push_str(&format!("query {qname}({plist})\n{body}end\n\n"));
+            }
+            // 1..3 calls; each arg unbound (null) or a typed literal
+            for _ in 0..(1 + rng.below(3)) {
+                let args: Vec<J> = params
+                    .iter()
+                    .map(|(_, ft)| {
+                        if rng.chance(45) {
+                            J::Null
+                        } else {
+                            lit_json(&mut rng, *ft)
+                        }
+                    })
+                    .collect();
+                queries_json.push(json!({"call": qname, "args": args}));
+            }
+        }
+    }
+
     let types_json: Vec<J> = types
         .iter()
         .map(|t| {
@@ -760,6 +897,9 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     });
     if !epochs.is_empty() {
         scenario["epochs"] = json!(epochs);
+    }
+    if !queries_json.is_empty() {
+        scenario["queries"] = json!(queries_json);
     }
     (name, scenario)
 }

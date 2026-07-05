@@ -1,0 +1,22 @@
+{
+  "name": "q12_mixed_index",
+  "types": [
+    { "name": "W", "fields": [ { "name": "w", "type": "i64" } ] },
+    { "name": "P", "fields": [ { "name": "a", "type": "i64" }, { "name": "b", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "W", "fields": { "w": 1 } },
+    { "type": "P", "fields": { "a": 1, "b": 7 } },
+    { "type": "P", "fields": { "a": 1, "b": 3 } },
+    { "type": "P", "fields": { "a": 2, "b": 7 } },
+    { "type": "P", "fields": { "a": 1, "b": 9 } },
+    { "type": "P", "fields": { "a": 2, "b": 3 } }
+  ],
+  "drl": "query Mixed(long $x)\n    $v : W($k : w)\n    $p : P(b == $x, a == $k)\nend\n\nquery Dup(long $x)\n    $v : W($k : w)\n    $p : P(b == $x, a == $k, a == $k)\nend\n\nquery UnifOnly(long $x)\n    $p : P(b == $x)\nend\n",
+  "queries": [
+    { "call": "Mixed", "args": [null] },
+    { "call": "Mixed", "args": [7] },
+    { "call": "Dup", "args": [null] },
+    { "call": "UnifOnly", "args": [null] }
+  ]
+}

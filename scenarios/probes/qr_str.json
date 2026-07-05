@@ -1,0 +1,99 @@
+{
+ "name": "qr_str",
+ "types": [
+  {
+   "name": "City",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "City",
+   "fields": {
+    "name": "c0",
+    "tag": "a"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c1",
+    "tag": "b"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c2",
+    "tag": "z"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c3",
+    "tag": "aa"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c4",
+    "tag": "ab"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c5",
+    "tag": "ba"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c6",
+    "tag": "hello"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c7",
+    "tag": "x9"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c8",
+    "tag": "q"
+   }
+  },
+  {
+   "type": "City",
+   "fields": {
+    "name": "c9",
+    "tag": "mm"
+   }
+  }
+ ],
+ "drl": "query ByTag(String $t)\n    $c : City(tag == $t)\nend\n",
+ "queries": [
+  {
+   "call": "ByTag",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

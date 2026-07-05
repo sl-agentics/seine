@@ -1,0 +1,21 @@
+{
+  "name": "q7_tri_stage",
+  "types": [
+    { "name": "A", "fields": [ { "name": "n", "type": "String" }, { "name": "k", "type": "i64" } ] },
+    { "name": "B", "fields": [ { "name": "n", "type": "String" }, { "name": "k", "type": "i64" } ] },
+    { "name": "C", "fields": [ { "name": "n", "type": "String" }, { "name": "k", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "A", "fields": { "n": "a1", "k": 1 } },
+    { "type": "A", "fields": { "n": "a2", "k": 1 } },
+    { "type": "B", "fields": { "n": "b1", "k": 1 } },
+    { "type": "B", "fields": { "n": "b2", "k": 1 } },
+    { "type": "C", "fields": { "n": "c1", "k": 1 } },
+    { "type": "C", "fields": { "n": "c2", "k": 1 } }
+  ],
+  "drl": "query Tri(long $x)\n    $a : A(k == $x)\n    $b : B(k == $x)\n    $c : C(k == $x)\nend\n",
+  "queries": [
+    { "call": "Tri", "args": [1] },
+    { "call": "Tri", "args": [null] }
+  ]
+}

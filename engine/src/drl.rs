@@ -4,8 +4,11 @@
 //! scope wall is enforced mechanically):
 //!
 //! ```text
-//! file       := rule*
+//! file       := (rule | query)*
 //! rule       := "rule" name attr* "when" pattern* "then" action* "end"
+//! query      := "query" name [ "(" qparam ("," qparam)* ")" ] pattern* "end"
+//!               (queries take plain positive patterns only — D-051)
+//! qparam     := ("long"|"double"|"String"|"boolean") "$id"
 //! name       := STRING | IDENT
 //! attr       := "salience" ["-"] INT | "no-loop" [BOOL]
 //!             | "salience" "(" salterm [("+"|"-"|"*") salterm] ")"
@@ -181,6 +184,22 @@ pub struct RuleDef {
     pub no_loop: bool,
     pub patterns: Vec<Pattern>,
     pub actions: Vec<Action>,
+}
+
+/// A DRL query (Phase Q0, D-049): typed parameters + positive patterns.
+#[derive(Debug, Clone, PartialEq)]
+pub struct QueryDef {
+    pub name: String,
+    /// (type token, `$name`) pairs in declaration order.
+    pub params: Vec<(String, String)>,
+    pub patterns: Vec<Pattern>,
+}
+
+/// A parsed DRL compilation unit: rules and queries in source order.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct DrlFile {
+    pub rules: Vec<RuleDef>,
+    pub queries: Vec<QueryDef>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -438,6 +457,43 @@ impl Parser {
         }
         self.expect_kw("end")?;
         Ok(RuleDef { name, salience, no_loop, patterns, actions })
+    }
+
+    /// `query Name(type $p, ...) pattern* end` — plain positive patterns
+    /// only; the engine compiler enforces the rest of the D-051 wall.
+    fn query(&mut self) -> Result<QueryDef, DrlError> {
+        self.expect_kw("query")?;
+        let name = match self.next()? {
+            Tok::StrLit(s) => s,
+            Tok::Ident(s) => s,
+            other => Err(DrlError(format!("expected query name, got {other}")))?,
+        };
+        let mut params = Vec::new();
+        if matches!(self.peek(), Some(Tok::Sym("("))) {
+            self.next()?;
+            if !matches!(self.peek(), Some(Tok::Sym(")"))) {
+                loop {
+                    let ty = self.ident()?;
+                    let var = self.dollar_ident()?;
+                    params.push((ty, var));
+                    match self.next()? {
+                        Tok::Sym(",") => continue,
+                        Tok::Sym(")") => break,
+                        other => {
+                            return Err(DrlError(format!("expected ',' or ')', got {other}")))
+                        }
+                    }
+                }
+            } else {
+                self.next()?;
+            }
+        }
+        let mut patterns = Vec::new();
+        while !self.at_kw("end") {
+            patterns.push(self.pattern()?);
+        }
+        self.expect_kw("end")?;
+        Ok(QueryDef { name, params, patterns })
     }
 
     /// One salience-expression term: int literal or `$binding` (D-043).
@@ -839,13 +895,25 @@ fn setter_field(setter: &str) -> Result<String, DrlError> {
         .ok_or_else(|| DrlError(format!("expected setter, got {setter}")))
 }
 
-pub fn parse_rules(src: &str) -> Result<Vec<RuleDef>, DrlError> {
+pub fn parse_file(src: &str) -> Result<DrlFile, DrlError> {
     let mut p = Parser { toks: lex(src)?, pos: 0 };
-    let mut rules = Vec::new();
+    let mut file = DrlFile::default();
     while p.peek().is_some() {
-        rules.push(p.rule()?);
+        if p.at_kw("query") {
+            file.queries.push(p.query()?);
+        } else {
+            file.rules.push(p.rule()?);
+        }
     }
-    Ok(rules)
+    Ok(file)
+}
+
+pub fn parse_rules(src: &str) -> Result<Vec<RuleDef>, DrlError> {
+    let file = parse_file(src)?;
+    if !file.queries.is_empty() {
+        return Err(DrlError("queries not expected here (use parse_file)".into()));
+    }
+    Ok(file.rules)
 }
 
 #[cfg(test)]

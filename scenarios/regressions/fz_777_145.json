@@ -1,0 +1,138 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f0 != true)\nthen\n    insert(new T1($p0_0.getF1(), $p0_0.isF0()));\n    insert(new T1($p0_0.getF1(), $p0_0.isF0()));\nend\nrule \"R1\"\nwhen\n    T0($b1_0_0 : f1, $b1_0_1 : f1)\nthen\n    insert(new T2($b1_0_0, 2, false));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T2(f0 not in (3.0, 1.5), f0 in (-2.0, 5.0, 0.0), $b2_0_0 : f1, $b2_0_1 : f1)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nwhen\n    T2()\nthen\nend\nrule \"R4\"\nno-loop\nwhen\n    T2(f2 == false, f2 == true)\nthen\nend\nrule \"R5\"\nwhen\n    $p5_0 : T1(f0 >= 8, $b5_0_0 : f0, $b5_0_1 : f1)\nthen\n    insert(new T2($p5_0.getF0(), $p5_0.getF0(), $p5_0.isF1()));\nend\nquery Q0(long $qa0_0, boolean $qa0_1)\n    $qp0_0 : T2(f1 == $qa0_0, f2 != true, f2 != true, $qb0_0 : f0)\n    $qp0_1 : T2(f2 == $qa0_1, f0 == $qb0_0, f0 == $qb0_0)\nend\n\nquery Q1(long $qa1_0, boolean $qa1_1)\n    $qp1_0 : T1(f0 == $qa1_0, f1 == $qa1_1, $qb1_0 : f1, $qb1_1 : f1)\n    $qp1_1 : T2(f2 == $qb1_0, f2 == $qb1_0, $qb1_2 : f2)\nend\n\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": -3,
+            "f1": true
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": 100,
+            "f1": false
+          },
+          "type": "T1"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": -1000000007
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -3
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 9
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6.0,
+        "f1": 1,
+        "f2": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -1000000007
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_777_145",
+  "queries": [
+    {
+      "args": [
+        null,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        -4,
+        false
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        100,
+        false
+      ],
+      "call": "Q1"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

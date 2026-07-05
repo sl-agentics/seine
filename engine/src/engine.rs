@@ -529,6 +529,8 @@ pub struct Engine {
     collect_vals: HashMap<FactId, Vec<FactId>>,
     /// Global activation sequence (D-043 tie order).
     act_seq: u64,
+    /// Compiled DRL queries, evaluated on demand (Phase Q0, D-050).
+    queries: Vec<crate::queries::CompiledQuery>,
 }
 
 impl Engine {
@@ -568,11 +570,31 @@ impl Engine {
             init_fact: None,
             collect_vals: HashMap::new(),
             act_seq: 0,
+            queries: Vec::new(),
         })
     }
 
     pub fn add_rules_drl(&mut self, src: &str) -> Result<(), EngineError> {
-        for def in drl::parse_rules(src)? {
+        let file = drl::parse_file(src)?;
+        // Queries compile to on-demand evaluators; they add NOTHING to the
+        // rule network and cannot perturb rule semantics (q8, D-050).
+        for qdef in file.queries {
+            if self.queries.iter().any(|q| q.name == qdef.name) {
+                return Err(EngineError(format!("duplicate query {}", qdef.name)));
+            }
+            if let Some(p) = qdef
+                .patterns
+                .iter()
+                .find(|p| RESERVED_TYPES.contains(&p.type_name.as_str()))
+            {
+                return Err(EngineError(format!(
+                    "query {}: type {} is reserved",
+                    qdef.name, p.type_name
+                )));
+            }
+            self.queries.push(crate::queries::compile_query(&self.store, qdef)?);
+        }
+        for def in file.rules {
             let compiled = self.compile_rule(def)?;
             self.rules.push(compiled);
         }
@@ -2464,6 +2486,17 @@ impl Engine {
             .map(|f| self.store.render(f))
             .collect()
     }
+
+    /// Run a DRL query against the current WM (Phase Q0). `None` args are
+    /// unbound (Drools `Variable.v`); rows come back in the oracle-pinned
+    /// order (D-050).
+    pub fn run_query(
+        &self,
+        name: &str,
+        args: &[Option<Value>],
+    ) -> Result<crate::queries::QueryOutput, EngineError> {
+        crate::queries::run_query(&self.store, &self.queries, name, args)
+    }
 }
 
 fn lit_value(l: &Literal) -> Value {
@@ -2666,6 +2699,11 @@ fn eval_cmp_join(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
 /// Same-type / promoted comparison, exported for the phreak range scans.
 pub(crate) fn eval_cmp_pub(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
     eval_cmp(lhs, op, rhs)
+}
+
+/// Join-constraint comparison (D-020 coercion), exported for queries.
+pub(crate) fn eval_cmp_join_pub(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
+    eval_cmp_join(lhs, op, rhs)
 }
 
 fn eval_cmp(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {

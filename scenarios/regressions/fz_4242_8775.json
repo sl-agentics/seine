@@ -1,0 +1,96 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f0 == false, $b0_0_0 : f1, $b0_0_1 : f0)\n    $p0_1 : T1(f0 != false, f1 in (false), f0 != $b0_0_1, $b0_1_0 : f1)\nthen\n    delete($p0_1);\nend\nrule \"R1\"\nsalience 4\nwhen\n    T1(f0 == false, $b1_0_0 : f1, $b1_0_1 : f0)\n    T1(f0 != false, f1 in (false), f0 != $b1_0_1, $b1_1_0 : f1)\nthen\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0()\nthen\n    insert(new T1($p2_0.isF3(), true));\n    insert(new T1(false, false));\nend\nrule \"R3\"\nwhen\n    exists T0(f1 > 5.5)\n    T1($b3_1_0 : f1)\nthen\nend\nquery Q0(boolean $qa0_0, boolean $qa0_1, long $qa0_2)\n    $qp0_0 : T1(f1 == $qa0_0, f0 == $qa0_1, $qb0_0 : f1, $qb0_1 : f1)\n    $qp0_1 : T0(f0 == $qa0_1, f1 != 1.5, $qb0_2 : f3)\n    $qp0_2 : T0(f2 == $qa0_2, f0 == $qb0_2, $qb0_3 : f2, $qb0_4 : f2)\nend\n\nquery Q1(boolean $qa1_0)\n    $qp1_0 : T1(f0 == $qa1_0, f0 != true, $qb1_0 : f0, $qb1_1 : f0)\nend\n\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": false,
+            "f1": 2.5,
+            "f2": 4,
+            "f3": true
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": false,
+            "f1": 6.0,
+            "f2": 9,
+            "f3": false
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [],
+  "name": "fz_4242_8775",
+  "queries": [
+    {
+      "args": [
+        null,
+        false,
+        5
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        false,
+        false,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        false
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        true
+      ],
+      "call": "Q1"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

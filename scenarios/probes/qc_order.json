@@ -1,0 +1,103 @@
+{
+ "name": "qc_order",
+ "types": [
+  {
+   "name": "Pair",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "u",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Pair",
+   "fields": {
+    "name": "x0",
+    "u": 1,
+    "v": 10
+   }
+  },
+  {
+   "type": "Pair",
+   "fields": {
+    "name": "x1",
+    "u": 2,
+    "v": 20
+   }
+  },
+  {
+   "type": "Pair",
+   "fields": {
+    "name": "x2",
+    "u": 1,
+    "v": 20
+   }
+  },
+  {
+   "type": "Pair",
+   "fields": {
+    "name": "x3",
+    "u": 3,
+    "v": 10
+   }
+  },
+  {
+   "type": "Pair",
+   "fields": {
+    "name": "x4",
+    "u": 2,
+    "v": 10
+   }
+  },
+  {
+   "type": "Pair",
+   "fields": {
+    "name": "x5",
+    "u": 3,
+    "v": 30
+   }
+  }
+ ],
+ "drl": "query QA(long $a, long $b)\n    $p : Pair(u == $a, v == $b)\nend\nquery QB(long $a, long $b)\n    $p : Pair(v == $b, u == $a)\nend\n",
+ "queries": [
+  {
+   "call": "QA",
+   "args": [
+    null,
+    null
+   ]
+  },
+  {
+   "call": "QB",
+   "args": [
+    null,
+    null
+   ]
+  },
+  {
+   "call": "QA",
+   "args": [
+    2,
+    null
+   ]
+  },
+  {
+   "call": "QA",
+   "args": [
+    null,
+    10
+   ]
+  }
+ ]
+}

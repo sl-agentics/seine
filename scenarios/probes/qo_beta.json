@@ -1,0 +1,87 @@
+{
+ "name": "qo_beta",
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "age",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "name": "alice",
+    "age": 30
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "bob",
+    "age": 10
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "carol",
+    "age": 30
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "dave",
+    "age": 45
+   }
+  }
+ ],
+ "drl": "query U4(long $x)\n    $p : Person(age > 0, $n : name)\n    $q : Person(name != $n, age == $x)\nend\nquery U5(long $x)\n    $p : Person(age > 0, $n : name)\n    $q : Person(age == $x, name != $n)\nend\nquery U6(long $x)\n    $p : Person(age > 0, $n : name)\n    $q : Person(name == $n, age == $x)\nend\n",
+ "queries": [
+  {
+   "call": "U4",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "U5",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "U4",
+   "args": [
+    30
+   ]
+  },
+  {
+   "call": "U5",
+   "args": [
+    30
+   ]
+  },
+  {
+   "call": "U6",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "U6",
+   "args": [
+    30
+   ]
+  }
+ ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "q6_types",
+  "types": [
+    { "name": "Person", "fields": [
+      { "name": "name", "type": "String" },
+      { "name": "city", "type": "String" },
+      { "name": "married", "type": "bool" },
+      { "name": "score", "type": "f64" }
+    ] }
+  ],
+  "facts": [
+    { "type": "Person", "fields": { "name": "alice", "city": "oslo",  "married": true,  "score": 2.5 } },
+    { "type": "Person", "fields": { "name": "bob",   "city": "oslo",  "married": false, "score": 1.25 } },
+    { "type": "Person", "fields": { "name": "carol", "city": "bergen","married": true,  "score": 2.5 } }
+  ],
+  "drl": "query ByCity(String $c, boolean $m)\n    $p : Person(city == $c, married == $m, $n : name)\nend\n\nquery ByScore(double $s)\n    $p : Person(score == $s)\nend\n",
+  "queries": [
+    { "call": "ByCity", "args": ["oslo", true] },
+    { "call": "ByCity", "args": [null, true] },
+    { "call": "ByCity", "args": ["oslo", null] },
+    { "call": "ByCity", "args": [null, null] },
+    { "call": "ByScore", "args": [2.5] },
+    { "call": "ByScore", "args": [null] }
+  ]
+}

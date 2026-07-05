@@ -1,0 +1,90 @@
+{
+ "name": "qm_mixed",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "tag": "t1",
+    "k": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "tag": "t2",
+    "k": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "tag": "t1",
+    "k": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "tag": "t2",
+    "k": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "tag": "t1",
+    "k": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "tag": "t2",
+    "k": 1
+   }
+  }
+ ],
+ "drl": "query Match(long $x)\n    $a : A(k == $x, $t : tag)\n    $b : B(k == $x, tag == $t)\nend\n",
+ "queries": [
+  {
+   "call": "Match",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "Match",
+   "args": [
+    1
+   ]
+  }
+ ]
+}

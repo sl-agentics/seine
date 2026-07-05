@@ -1,0 +1,82 @@
+{
+ "name": "qn_join",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    },
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "tag": "t1",
+    "k": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "tag": "t2",
+    "k": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "tag": "t1",
+    "m": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "tag": "t2",
+    "m": 20
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "tag": "t1",
+    "m": 30
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "tag": "t1",
+    "m": 40
+   }
+  }
+ ],
+ "drl": "query Join\n    $a : A(k > 0, $t : tag)\n    $b : B(tag == $t)\nend\n",
+ "queries": [
+  {
+   "call": "Join",
+   "args": []
+  }
+ ]
+}

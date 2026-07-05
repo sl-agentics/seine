@@ -81,12 +81,21 @@ log** for every in-subset program.
   dataclass-or-Pydantic objects ingest directly; `pip install seine-rs`
   (import stays `seine`); GitHub Actions runs the differential gate and
   builds wheels.
+- DRL queries, Phase Q0 (D-049..D-052): non-recursive queries with typed
+  params and unification (`Person(age == $a)` called bound or unbound),
+  certified against `getQueryResults` including exact row order — which
+  required reproducing Drools' TupleIndexHashTable slot layout (JDK
+  supplemental hash, accessor-sort extractor indexes) and PHREAK's LIFO
+  stage reversal. Insert-only programs; scenario `"queries"` +
+  result-`"queries"` sections in the harness.
 
 ## Explicit non-goals (hard walls)
 
 - MVEL dialect (only the minimal Java-like expression subset above).
 - DMN, CEP / temporal operators, complex event processing.
-- Backward chaining, queries, truth maintenance beyond Phase-2 mutation needs.
+- Backward chaining beyond Phase-Q0 pull queries (no recursive queries,
+  no `?query` CEs in rules), truth maintenance beyond Phase-2 mutation
+  needs; query+mutation interplay is walled (D-051).
 - Workbench / KIE tooling / full DRL6 grammar / decision tables / templates.
 - Persistence, marshalling, session clustering, multithreaded firing.
 - Beyond-RAM / disk-backed working memory (the columnar id-based layout keeps

@@ -1,0 +1,20 @@
+{
+  "name": "q10_ops",
+  "types": [
+    { "name": "Person", "fields": [ { "name": "name", "type": "String" }, { "name": "age", "type": "i64" } ] }
+  ],
+  "facts": [
+    { "type": "Person", "fields": { "name": "alice", "age": 30 } },
+    { "type": "Person", "fields": { "name": "ab",    "age": 10 } },
+    { "type": "Person", "fields": { "name": "alpha", "age": 45 } },
+    { "type": "Person", "fields": { "name": "beta",  "age": 7 } }
+  ],
+  "drl": "query MatchQ(long $x)\n    $p : Person(name matches \"a.*\", age == $x)\nend\n\nquery ContainsQ\n    $p : Person(name contains \"ab\")\nend\n\nquery InQ(long $x)\n    $p : Person(age in (7, 30, 45), age == $x)\nend\n",
+  "queries": [
+    { "call": "MatchQ", "args": [null] },
+    { "call": "MatchQ", "args": [30] },
+    { "call": "ContainsQ", "args": [] },
+    { "call": "InQ", "args": [null] },
+    { "call": "InQ", "args": [7] }
+  ]
+}

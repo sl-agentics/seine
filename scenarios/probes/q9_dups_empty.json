@@ -1,0 +1,17 @@
+{
+  "name": "q9_dups_empty",
+  "types": [
+    { "name": "Person", "fields": [ { "name": "name", "type": "String" }, { "name": "age", "type": "i64" } ] },
+    { "name": "Ghost",  "fields": [ { "name": "tag", "type": "String" } ] }
+  ],
+  "facts": [
+    { "type": "Person", "fields": { "name": "twin", "age": 7 } },
+    { "type": "Person", "fields": { "name": "twin", "age": 7 } },
+    { "type": "Person", "fields": { "name": "solo", "age": 8 } }
+  ],
+  "drl": "query Twins\n    $p : Person(age == 7)\nend\n\nquery NoGhosts\n    $g : Ghost(tag == \"x\")\nend\n",
+  "queries": [
+    { "call": "Twins", "args": [] },
+    { "call": "NoGhosts", "args": [] }
+  ]
+}

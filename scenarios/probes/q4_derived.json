@@ -1,0 +1,16 @@
+{
+  "name": "q4_derived",
+  "types": [
+    { "name": "Person", "fields": [ { "name": "name", "type": "String" }, { "name": "age", "type": "i64" } ] },
+    { "name": "Adult",  "fields": [ { "name": "name", "type": "String" } ] }
+  ],
+  "facts": [
+    { "type": "Person", "fields": { "name": "alice", "age": 30 } },
+    { "type": "Person", "fields": { "name": "bob",   "age": 10 } },
+    { "type": "Person", "fields": { "name": "carol", "age": 45 } }
+  ],
+  "drl": "rule \"MkAdult\"\nwhen\n    $p : Person(age > 18)\nthen\n    insert(new Adult($p.getName()));\nend\n\nquery Adults\n    $a : Adult(name != \"nobody\")\nend\n",
+  "queries": [
+    { "call": "Adults", "args": [] }
+  ]
+}

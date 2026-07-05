@@ -1,7 +1,7 @@
 //! Runs a scenario JSON file through seine-engine and produces the canonical
 //! result JSON (same schema the Java oracle emits).
 
-use seine_engine::{Engine, FactView, FieldType, TypeSchema, Value};
+use seine_engine::{Engine, FactView, FieldType, QueryVal, TypeSchema, Value};
 use serde_json::{json, Map, Value as J};
 
 const FIRE_LIMIT: usize = 100_000;
@@ -110,6 +110,51 @@ fn run_scenario(sc: &J) -> Result<J, String> {
             firings.extend(engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?);
         }
     }
+    // Query phase (D-049): ordered calls against the final WM. JSON null
+    // arg = unbound (Variable.v on the oracle side).
+    let mut queries_out = Vec::new();
+    if let Some(queries) = sc.get("queries").and_then(J::as_array) {
+        for call in queries {
+            let name = call
+                .get("call")
+                .and_then(J::as_str)
+                .ok_or("query call missing 'call'")?;
+            let args_json = call.get("args").and_then(J::as_array).cloned().unwrap_or_default();
+            let mut args = Vec::with_capacity(args_json.len());
+            for a in &args_json {
+                args.push(match a {
+                    J::Null => None,
+                    J::Bool(b) => Some(Value::Bool(*b)),
+                    J::String(s) => Some(Value::Str(s.clone())),
+                    J::Number(n) => Some(if n.is_f64() {
+                        Value::F64(n.as_f64().unwrap())
+                    } else {
+                        Value::I64(n.as_i64().ok_or("query arg out of i64 range")?)
+                    }),
+                    other => return Err(format!("unsupported query arg {other}")),
+                });
+            }
+            let out = engine.run_query(name, &args).map_err(|e| e.to_string())?;
+            let rows: Vec<J> = out
+                .rows
+                .iter()
+                .map(|row| {
+                    let mut o = Map::new();
+                    for (ident, v) in out.identifiers.iter().zip(row) {
+                        o.insert(ident.clone(), query_val_to_json(v));
+                    }
+                    J::Object(o)
+                })
+                .collect();
+            queries_out.push(json!({
+                "call": name,
+                "args": args_json,
+                "identifiers": out.identifiers,
+                "rows": rows,
+            }));
+        }
+    }
+
     Ok(json!({
         "facts": engine.facts().iter().map(fact_view_to_json).collect::<Vec<J>>(),
         "firings": firings
@@ -119,7 +164,20 @@ fn run_scenario(sc: &J) -> Result<J, String> {
                 "matches": f.matches.iter().map(fact_view_to_json).collect::<Vec<J>>(),
             }))
             .collect::<Vec<J>>(),
+        "queries": queries_out,
     }))
+}
+
+/// Query row values render like the oracle's: facts as full renderings,
+/// scalars boxed as {"type": Long/Double/String/Boolean, "fields": {"value"}}.
+fn query_val_to_json(v: &QueryVal) -> J {
+    match v {
+        QueryVal::Fact(fv) => fact_view_to_json(fv),
+        QueryVal::Scalar(Value::I64(n)) => json!({"type": "Long", "fields": {"value": n}}),
+        QueryVal::Scalar(Value::F64(n)) => json!({"type": "Double", "fields": {"value": n}}),
+        QueryVal::Scalar(Value::Str(s)) => json!({"type": "String", "fields": {"value": s}}),
+        QueryVal::Scalar(Value::Bool(b)) => json!({"type": "Boolean", "fields": {"value": b}}),
+    }
 }
 
 fn parse_types(types: &J) -> Result<Vec<TypeSchema>, String> {

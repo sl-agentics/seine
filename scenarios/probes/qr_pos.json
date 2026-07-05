@@ -1,0 +1,139 @@
+{
+ "name": "qr_pos",
+ "types": [
+  {
+   "name": "Wide",
+   "fields": [
+    {
+     "name": "p",
+     "type": "String"
+    },
+    {
+     "name": "q",
+     "type": "i64"
+    },
+    {
+     "name": "r",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w0",
+    "q": 0,
+    "r": 0,
+    "s": 0
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w1",
+    "q": 1,
+    "r": 1,
+    "s": 1
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w2",
+    "q": 2,
+    "r": 2,
+    "s": 2
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w3",
+    "q": 3,
+    "r": 3,
+    "s": 3
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w4",
+    "q": 4,
+    "r": 4,
+    "s": 4
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w5",
+    "q": 5,
+    "r": 5,
+    "s": 5
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w6",
+    "q": 6,
+    "r": 6,
+    "s": 6
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w7",
+    "q": 7,
+    "r": 7,
+    "s": 7
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w8",
+    "q": 8,
+    "r": 8,
+    "s": 8
+   }
+  },
+  {
+   "type": "Wide",
+   "fields": {
+    "p": "w9",
+    "q": 9,
+    "r": 9,
+    "s": 9
+   }
+  }
+ ],
+ "drl": "query ByQ(long $x)\n    $w : Wide(q == $x)\nend\nquery ByR(long $x)\n    $w : Wide(r == $x)\nend\nquery ByS2(long $x)\n    $w : Wide(s == $x)\nend\n",
+ "queries": [
+  {
+   "call": "ByQ",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "ByR",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "ByS2",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

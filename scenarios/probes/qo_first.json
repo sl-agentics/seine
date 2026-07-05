@@ -1,0 +1,94 @@
+{
+ "name": "qo_first",
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "name",
+     "type": "String"
+    },
+    {
+     "name": "age",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p0",
+    "age": 7
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p1",
+    "age": 3
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p2",
+    "age": 11
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p3",
+    "age": 0
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "name": "p4",
+    "age": 14
+   }
+  }
+ ],
+ "drl": "query U1(long $x)\n    $p : Person(age == $x, name != \"zzz\")\nend\nquery U2(long $x)\n    $p : Person(name != \"zzz\", age == $x)\nend\nquery U3(long $x)\n    $p : Person(age > -100, age == $x)\nend\n",
+ "queries": [
+  {
+   "call": "U1",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "U2",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "U3",
+   "args": [
+    null
+   ]
+  },
+  {
+   "call": "U1",
+   "args": [
+    7
+   ]
+  },
+  {
+   "call": "U2",
+   "args": [
+    7
+   ]
+  },
+  {
+   "call": "U3",
+   "args": [
+    7
+   ]
+  }
+ ]
+}
