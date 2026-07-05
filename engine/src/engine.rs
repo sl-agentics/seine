@@ -655,12 +655,14 @@ impl Engine {
                                     CeKind::Exists => phreak::Kind::Exists,
                                 }
                             };
+                            let mut s0_in: Staged<FactId> = Staged::default();
+                            s0_in.slot_memory = true; // D-047/fz_7_5801
                             self.trie.push(TrieNode {
                                 node: phreak::Node::new(pat.pindex, kind),
                                 env: (ri, j),
                                 active: HashSet::new(),
                                 pulse: false,
-                                s0_in: Staged::default(),
+                                s0_in,
                                 sinks: Vec::new(),
                                 acc: HashMap::new(),
                                 acc_by_right: HashMap::new(),
@@ -1964,6 +1966,14 @@ impl Engine {
         let indexed = self.rules[env_ri].patterns[env_pos].pindex != phreak::Index::None;
         let mut trg: Staged<Tup> = Staged::default();
         let mut temp: Staged<Tup> = Staged::default();
+        // Rights-phase temp staging is GATED on the left NOT being
+        // staged in the incoming left sets (getStagedType()==NONE in
+        // doRight*: "will get processed via left iteration") — a left
+        // touched on both sides enters temp in the LEFT phase, i.e.
+        // LAST (fz_7_5893).
+        let sl_staged = |l: &Tup, sl: &Staged<Tup>| {
+            sl.upd.iter().any(|(x, _, _)| x == l) || sl.ins.iter().any(|(x, _, _)| x == l)
+        };
 
         // Phase A: left deletes — discard the context, retract the child.
         for (l, o, _) in src.del.iter() {
@@ -1990,11 +2000,15 @@ impl Engine {
         }
 
         // Phase B: right deletes — reverse each stored contribution.
+        // The right's match chain is PREPEND-linked in Drools: visit
+        // NEWEST-first (fz_123_449 — multi-left visit order).
         for (f, o, _) in sr.del.iter() {
             self.trie[ni].node.remove_right(*f);
-            for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default() {
+            for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default().into_iter().rev() {
                 self.acc_remove_match(ni, spec.func, &l, *f);
-                temp.add_upd(l, *o);
+                if !sl_staged(&l, &src) {
+                    temp.add_upd(l, *o);
+                }
             }
         }
 
@@ -2012,8 +2026,9 @@ impl Engine {
             let bucket = self.trie[ni].node.lefts_bucket_pub(fkey.as_ref());
             let matched = self.trie[ni].acc_by_right.get(f).cloned().unwrap_or_default();
             if indexed && !matched.is_empty() && !bucket.contains(&matched[0]) {
-                // index moved: remove all previous matches
-                for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default() {
+                // index moved: remove all previous matches (NEWEST-first,
+                // the prepend-linked right chain — fz_123_449)
+                for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default().into_iter().rev() {
                     self.acc_remove_match(ni, spec.func, &l, *f);
                     temp.add_upd(l, *o);
                 }
@@ -2025,7 +2040,9 @@ impl Engine {
                 };
                 let had = self.trie[ni].acc_by_right.get(f).is_some_and(|v| v.contains(&l));
                 if allowed {
-                    temp.add_upd(l.clone(), *o);
+                    if !sl_staged(&l, &src) {
+                        temp.add_upd(l.clone(), *o);
+                    }
                     if had {
                         self.acc_remove_match(ni, spec.func, &l, *f);
                     }
@@ -2033,7 +2050,9 @@ impl Engine {
                     self.acc_add_match(ni, spec.func, &l, *f, v);
                 } else if had {
                     self.acc_remove_match(ni, spec.func, &l, *f);
-                    temp.add_upd(l.clone(), *o);
+                    if !sl_staged(&l, &src) {
+                        temp.add_upd(l.clone(), *o);
+                    }
                 }
             }
         }
@@ -2102,7 +2121,9 @@ impl Engine {
                 if allowed {
                     let v = self.acc_contribution(&spec, *f);
                     self.acc_add_match(ni, spec.func, &l, *f, v);
-                    temp.add_upd(l, *o);
+                    if !sl_staged(&l, &src) {
+                        temp.add_upd(l, *o);
+                    }
                 }
             }
         }

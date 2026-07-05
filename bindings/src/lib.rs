@@ -498,20 +498,22 @@ impl PySession {
         type_name: &str,
         fields: &[(String, FieldType)],
         cols: Vec<Vec<Value>>,
-    ) -> PyResult<()> {
+    ) -> PyResult<Vec<i64>> {
         let nrows = cols.first().map(|c| c.len()).unwrap_or(0);
         let engine = self.engine.as_mut().expect("built");
+        let mut handles = Vec::with_capacity(nrows);
         for r in 0..nrows {
             let row: Vec<(String, Value)> = fields
                 .iter()
                 .enumerate()
                 .map(|(ci, (n, _))| (n.clone(), cols[ci][r].clone()))
                 .collect();
-            engine
+            let id = engine
                 .insert(type_name, row)
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
+            handles.push(id.0 as i64);
         }
-        Ok(())
+        Ok(handles)
     }
 }
 
@@ -546,13 +548,16 @@ impl PySession {
             for (type_name, fields, cols) in pending {
                 sess.insert_columns(&type_name, &fields, cols)?;
             }
+            // constructor handles are discarded; use insert()/insert_row()
+            // return values for provenance
         }
         Ok(sess)
     }
 
-    /// Insert more rows before fire(): an Arrow table or a dict of
-    /// column lists. The type must already be known to the session.
-    fn insert(&mut self, py: Python<'_>, type_name: String, data: Bound<'_, PyAny>) -> PyResult<()> {
+    /// Insert more rows: an Arrow table or a dict of column lists.
+    /// Returns the new facts' HANDLES (insertion order). The type must
+    /// already be known to the session.
+    fn insert(&mut self, py: Python<'_>, type_name: String, data: Bound<'_, PyAny>) -> PyResult<Vec<i64>> {
         if self.engine.is_none() {
             return Err(PyRuntimeError::new_err(
                 "session has no declared types: construct with facts= to establish schemas",
@@ -574,8 +579,8 @@ impl PySession {
     }
 
     /// Insert a single fact from keyword-style dict (REPL convenience;
-    /// same bulk path, batch of one).
-    fn insert_row(&mut self, type_name: String, row: Bound<'_, PyDict>) -> PyResult<()> {
+    /// same bulk path, batch of one). Returns the new fact's HANDLE.
+    fn insert_row(&mut self, type_name: String, row: Bound<'_, PyDict>) -> PyResult<i64> {
         if self.engine.is_none() {
             return Err(PyRuntimeError::new_err(
                 "session has no declared types: construct with facts= to establish schemas",
@@ -602,10 +607,48 @@ impl PySession {
             vals.push((fname.clone(), v));
         }
         let engine = self.engine.as_mut().unwrap();
-        engine
+        let id = engine
             .insert(&type_name, vals)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(())
+        Ok(id.0 as i64)
+    }
+
+    /// EXTERNAL update by handle (D-047): set the given fields and
+    /// propagate with the changed-fields property mask. Handles come
+    /// from result tables' `_handle` column. Composes with other
+    /// external actions in SESSION-ACTION ORDER (certified).
+    #[pyo3(signature = (handle, **fields))]
+    fn update(
+        &mut self,
+        handle: i64,
+        fields: Option<Bound<'_, PyDict>>,
+    ) -> PyResult<()> {
+        let engine = self
+            .engine
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        let fields = fields
+            .filter(|d| !d.is_empty())
+            .ok_or_else(|| PyValueError::new_err("update: no fields given"))?;
+        let mut vals: Vec<(String, Value)> = Vec::new();
+        for (k, v) in fields.iter() {
+            let name: String = k.extract()?;
+            vals.push((name.clone(), py_scalar("update", &name, &v)?));
+        }
+        engine
+            .update_fact(seine_engine::FactId(handle as u32), vals)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// EXTERNAL delete by handle (D-047).
+    fn delete(&mut self, handle: i64) -> PyResult<()> {
+        let engine = self
+            .engine
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        engine
+            .delete_fact(seine_engine::FactId(handle as u32))
+            .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     /// Run the rules to quiescence and return THIS fire's delta.
