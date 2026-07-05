@@ -2000,11 +2000,13 @@ impl Engine {
         }
 
         // Phase B: right deletes — reverse each stored contribution.
-        // The right's match chain is PREPEND-linked in Drools: visit
-        // NEWEST-first (fz_123_449 — multi-left visit order).
+        // Visit order = match arrival order (fz_123_449 originally
+        // looked like a chain-direction issue; the real mechanism was
+        // the staged-left gate below — 25 round-2 regressions pinned
+        // arrival order, scenarios/regressions/fz_{42,7,123,777,999}_*).
         for (f, o, _) in sr.del.iter() {
             self.trie[ni].node.remove_right(*f);
-            for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default().into_iter().rev() {
+            for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default() {
                 self.acc_remove_match(ni, spec.func, &l, *f);
                 if !sl_staged(&l, &src) {
                     temp.add_upd(l, *o);
@@ -2026,11 +2028,12 @@ impl Engine {
             let bucket = self.trie[ni].node.lefts_bucket_pub(fkey.as_ref());
             let matched = self.trie[ni].acc_by_right.get(f).cloned().unwrap_or_default();
             if indexed && !matched.is_empty() && !bucket.contains(&matched[0]) {
-                // index moved: remove all previous matches (NEWEST-first,
-                // the prepend-linked right chain — fz_123_449)
-                for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default().into_iter().rev() {
+                // index moved: remove all previous matches (arrival order)
+                for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default() {
                     self.acc_remove_match(ni, spec.func, &l, *f);
-                    temp.add_upd(l, *o);
+                    if !sl_staged(&l, &src) {
+                        temp.add_upd(l, *o);
+                    }
                 }
             }
             for l in bucket {

@@ -1,0 +1,92 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0(f1 != false, f1 != true, $b0_0_0 : f2, $b0_0_1 : f0)\nthen\nend\nrule \"R1\"\nsalience -5\nwhen\n    $p1_0 : T1(f0 not in (-1, 1.0, -2), $b1_0_0 : f0, $b1_0_1 : f0)\n    T0()\n    accumulate( T1(f0 < 4, $s1_2 : f0); $a1_2 : min($s1_2) )\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nsalience -7\nwhen\n    $p2_0 : T0(f1 == false, $b2_0_0 : f0, $b2_0_1 : f2)\n    not T1()\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nwhen\n    T0(f1 in (true, false, false), $b3_0_0 : f0, $b3_0_1 : f2)\n    accumulate( T1($s3_1 : f0); $a3_1 : sum($s3_1) )\n    T1(f0 >= -1, f0 <= 0, $b3_2_0 : f0, $b3_2_1 : f0)\nthen\nend\nrule \"R4\"\nsalience 9\nwhen\n    $p4_0 : T1(f0 >= 4, f0 == -1000000007, $b4_0_0 : f0, $b4_0_1 : f0)\nthen\n    delete($p4_0);\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": -3
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": -2,
+        "f1": false,
+        "f2": 10
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -3,
+        "f1": false,
+        "f2": 5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 12,
+        "f1": false,
+        "f2": 10
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": false,
+        "f2": 1
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_8922",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}
