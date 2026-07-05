@@ -1,0 +1,78 @@
+{
+ "drl": "rule \"R2\"\nwhen\n    T1(f0 in (false, true))\nthen\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "f0": true
+     }
+    },
+    {
+     "op": "insert",
+     "type": "T1",
+     "fields": {
+      "f0": false
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "f0": true
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": true
+   },
+   "type": "T1"
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": true
+   }
+  }
+ ],
+ "name": "xv3",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

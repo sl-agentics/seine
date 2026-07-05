@@ -1,0 +1,115 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $a0_0 : ArrayList() from collect( T1(f0 in (true, true), f0 != true) )\n    not T0(f0 contains \"ph\")\nthen\nend\nrule \"R1\"\nsalience -3\nwhen\n    T1($b1_0_0 : f0)\n    not T1(f0 != false, f0 == true)\n    T1(f0 in (true))\nthen\nend\nrule \"R2\"\nwhen\n    T1(f0 in (false, false, true))\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": false
+          },
+          "op": "insert",
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": true
+          },
+          "op": "update",
+          "target": 0
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": false
+          },
+          "type": "T1"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": "ab",
+            "f1": true,
+            "f2": -2,
+            "f3": true
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "zz",
+            "f1": false,
+            "f2": 1,
+            "f3": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": true,
+        "f2": 9,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": true,
+        "f2": 7,
+        "f3": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_14142_258",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -377,8 +377,13 @@ impl AccCtx {
 
 /// Per-rule agenda/terminal state (the beta network itself is shared).
 struct RuleNet {
-    /// k=1 rules: pos0 staging, consumed OLDEST-first (pr08/pr04 pin).
-    s0: Staged<FactId>,
+    /// k=1 rules: pos0 staging as a WINDOW QUEUE (D-047): external
+    /// session actions each close a window and compose ACTION-ORDERED
+    /// at the terminal (xv2/xv3), while events within one window (the
+    /// initial batch, one RHS flush) stay phase-grouped and are consumed
+    /// OLDEST-first (pr08/pr04). Folds apply across windows (one staged
+    /// entry per fact, TupleSets semantics).
+    s0: Vec<Staged<FactId>>,
     /// This rule's LIA and trie path (one node per pattern 1..k-1).
     lia: usize,
     path: Vec<usize>,
@@ -412,6 +417,56 @@ struct RuleNet {
 }
 
 impl RuleNet {
+    /// Window-aware k=1 staging (D-047): TupleSets folds span windows.
+    fn s0_add_ins(&mut self, f: FactId, o: Origin) {
+        if self.s0.iter().any(|w| {
+            w.ins.iter().any(|(x, _, _)| *x == f) || w.upd.iter().any(|(x, _, _)| *x == f)
+        }) {
+            return;
+        }
+        self.s0.last_mut().unwrap().add_ins(f, o);
+    }
+
+    fn s0_add_upd(&mut self, f: FactId, o: Origin) {
+        if self.s0.iter().any(|w| {
+            w.ins.iter().any(|(x, _, _)| *x == f)
+                || w.upd.iter().any(|(x, _, _)| *x == f)
+                || w.del.iter().any(|(x, _, _)| *x == f)
+        }) {
+            return;
+        }
+        self.s0.last_mut().unwrap().add_upd(f, o);
+    }
+
+    fn s0_add_del(&mut self, f: FactId, o: Origin) {
+        for w in self.s0.iter_mut() {
+            if let Some(i) = w.ins.iter().position(|(x, _, _)| *x == f) {
+                w.ins.remove(i); // never materialized: cancel
+                return;
+            }
+        }
+        for w in self.s0.iter_mut() {
+            if let Some(i) = w.upd.iter().position(|(x, _, _)| *x == f) {
+                w.upd.remove(i);
+            }
+        }
+        if self.s0.iter().any(|w| w.del.iter().any(|(x, _, _)| *x == f)) {
+            return;
+        }
+        self.s0.last_mut().unwrap().add_del(f, o);
+    }
+
+    fn s0_dirty(&self) -> bool {
+        self.s0.iter().any(|w| !w.is_empty())
+    }
+
+    /// External action boundary: close the current window (D-047).
+    fn s0_close_window(&mut self) {
+        if !self.s0.last().unwrap().is_empty() {
+            self.s0.push(Staged::default());
+        }
+    }
+
     /// Peer-copy of a batch into this TERMINAL's staging (D-041,
     /// SegmentPropagator.processPeer* for an RTN sink): per-entry
     /// prepends (batch reversal, LIFO stacking); update clashes SKIP;
@@ -626,7 +681,7 @@ impl Engine {
                 self.trie[parent.unwrap()].sinks.push(Sink::Term(ri));
             }
             self.nets.push(RuleNet {
-                s0: Staged::default(),
+                s0: vec![Staged::default()],
                 lia,
                 path,
                 term_pending: Staged::default(),
@@ -1259,11 +1314,81 @@ impl Engine {
         // Multi-fire (D-046): before the first fire_all the initial
         // batch propagates in its prologue; afterwards each insert
         // stages immediately (session.insert semantics — agenda
-        // evaluation still waits for the next fire).
+        // evaluation still waits for the next fire) and closes a k=1
+        // staging window (external actions compose action-ordered at
+        // terminals, D-047).
         if self.lists_built {
             self.on_insert(id, None);
+            for net in self.nets.iter_mut() {
+                net.s0_close_window();
+            }
         }
         Ok(id)
+    }
+
+    /// Nth VISIBLE inserted fact (D-047): the global insertion sequence
+    /// excluding synthetics (InitialFact, accumulate results) — the same
+    /// sequence Drools' objectInserted listener observes, so scenario
+    /// action targets mean the same fact in both engines.
+    pub fn nth_inserted(&self, n: usize) -> Option<FactId> {
+        let hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION]
+            .iter()
+            .filter_map(|t| self.store.type_id(t))
+            .collect();
+        self.store
+            .all_facts_in_insertion_order()
+            .filter(|f| !hidden.contains(&self.store.fact_type(*f)))
+            .nth(n)
+    }
+
+    /// EXTERNAL working-memory update by handle (D-047): set the given
+    /// fields and propagate with the CHANGED-FIELDS property mask (the
+    /// oracle mirror is session.update(fh, obj, modifiedProperties...)).
+    /// No rule origin: no-loop never suppresses external events.
+    pub fn update_fact(
+        &mut self,
+        id: FactId,
+        fields: Vec<(String, Value)>,
+    ) -> Result<(), EngineError> {
+        if !self.store.is_alive(id) {
+            return Err(EngineError(format!("update of dead handle {}", id.0)));
+        }
+        let tid = self.store.fact_type(id);
+        let schema = self.store.schema(tid).clone();
+        let mut mask = 0u64;
+        for (name, v) in fields {
+            let fi = self
+                .store
+                .field_index(tid, &name)
+                .ok_or_else(|| EngineError(format!("{}: no field {name}", schema.name)))?;
+            let ft = self.store.field_type(tid, fi);
+            let v = coerce(v, ft)
+                .ok_or_else(|| EngineError(format!("{}.{name}: type mismatch", schema.name)))?;
+            self.store.set_value(id, fi, v).map_err(EngineError)?;
+            mask |= 1 << fi;
+        }
+        if self.lists_built {
+            self.on_update(id, mask, None);
+            for net in self.nets.iter_mut() {
+                net.s0_close_window();
+            }
+        }
+        Ok(())
+    }
+
+    /// EXTERNAL working-memory delete by handle (D-047).
+    pub fn delete_fact(&mut self, id: FactId) -> Result<(), EngineError> {
+        if !self.store.is_alive(id) {
+            return Err(EngineError(format!("delete of dead handle {}", id.0)));
+        }
+        self.store.kill(id);
+        if self.lists_built {
+            self.on_delete(id, None);
+            for net in self.nets.iter_mut() {
+                net.s0_close_window();
+            }
+        }
+        Ok(())
     }
 
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
@@ -1411,7 +1536,7 @@ impl Engine {
                 self.lias[li].active.insert(f);
                 for i in 0..self.lias[li].k1_rules.len() {
                     let rb = self.lias[li].k1_rules[i];
-                    self.nets[rb].s0.add_ins(f, origin);
+                    self.nets[rb].s0_add_ins(f, origin);
                 }
                 for i in 0..self.lias[li].children.len() {
                     let c = self.lias[li].children[i];
@@ -1442,9 +1567,8 @@ impl Engine {
         }
     }
 
-    fn on_update(&mut self, f: FactId, mask: u64, src_ri: usize) {
+    fn on_update(&mut self, f: FactId, mask: u64, origin: Origin) {
         let ftype = self.store.fact_type(f);
-        let origin = Some(src_ri);
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
             let (ri, pos) = self.lias[li].env;
@@ -1471,9 +1595,9 @@ impl Engine {
             for i in 0..self.lias[li].k1_rules.len() {
                 let rb = self.lias[li].k1_rules[i];
                 match stage {
-                    1 => self.nets[rb].s0.add_ins(f, origin),
-                    2 => self.nets[rb].s0.add_del(f, origin),
-                    _ => self.nets[rb].s0.add_upd(f, origin),
+                    1 => self.nets[rb].s0_add_ins(f, origin),
+                    2 => self.nets[rb].s0_add_del(f, origin),
+                    _ => self.nets[rb].s0_add_upd(f, origin),
                 }
             }
             for i in 0..self.lias[li].children.len() {
@@ -1546,7 +1670,7 @@ impl Engine {
             if self.lias[li].active.remove(&f) {
                 for i in 0..self.lias[li].k1_rules.len() {
                     let rb = self.lias[li].k1_rules[i];
-                    self.nets[rb].s0.add_del(f, origin);
+                    self.nets[rb].s0_add_del(f, origin);
                 }
                 for i in 0..self.lias[li].children.len() {
                     let c = self.lias[li].children[i];
@@ -1617,7 +1741,7 @@ impl Engine {
 
     fn rule_dirty(&self, ri: usize) -> bool {
         let net = &self.nets[ri];
-        !net.s0.is_empty()
+        net.s0_dirty()
             || !net.term_pending.is_empty()
             || net.path.iter().enumerate().any(|(step, &ni)| {
                 let n = &self.trie[ni];
@@ -1674,33 +1798,37 @@ impl Engine {
         let no_loop = self.rules[ri].def.no_loop;
 
         if k == 1 {
-            // LIA -> terminal directly; working-memory staging consumed
-            // OLDEST-first (pr08/pr04 pin).
-            let s0 = self.nets[ri].s0.take();
-            for (f, _, _) in s0.del.iter().rev() {
-                self.nets[ri].act_num.retain(|t, _| t[0] != *f);
-                let pre = self.queue_top_sal(ri).unwrap_or(0);
-                let n0 = self.nets[ri].queue.len();
-                self.nets[ri].queue.retain(|a| a.t[0] != *f);
-                if self.nets[ri].queue.len() != n0 {
-                    self.update_item_salience(ri, pre);
+            // LIA -> terminal directly. WINDOWS compose in order (D-047:
+            // external actions are one window each); within a window
+            // phases apply and staging is consumed OLDEST-first
+            // (pr08/pr04 pin).
+            let windows = std::mem::replace(&mut self.nets[ri].s0, vec![Staged::default()]);
+            for s0 in windows {
+                for (f, _, _) in s0.del.iter().rev() {
+                    self.nets[ri].act_num.retain(|t, _| t[0] != *f);
+                    let pre = self.queue_top_sal(ri).unwrap_or(0);
+                    let n0 = self.nets[ri].queue.len();
+                    self.nets[ri].queue.retain(|a| a.t[0] != *f);
+                    if self.nets[ri].queue.len() != n0 {
+                        self.update_item_salience(ri, pre);
+                    }
                 }
-            }
-            for (f, o, _) in s0.upd.iter().rev() {
-                let queued = self.nets[ri].queue.iter().any(|a| a.t[0] == *f);
-                if queued {
-                    continue; // pending: keep position AND salience (se3)
+                for (f, o, _) in s0.upd.iter().rev() {
+                    let queued = self.nets[ri].queue.iter().any(|a| a.t[0] == *f);
+                    if queued {
+                        continue; // pending: keep position AND salience (se3)
+                    }
+                    if no_loop && *o == Some(ri) {
+                        continue; // own update does not re-activate (j04)
+                    }
+                    self.push_activation(ri, vec![*f]);
                 }
-                if no_loop && *o == Some(ri) {
-                    continue; // own update does not re-activate (j04)
+                for (f, o, _) in s0.ins.iter().rev() {
+                    if no_loop && *o == Some(ri) {
+                        continue;
+                    }
+                    self.push_activation(ri, vec![*f]);
                 }
-                self.push_activation(ri, vec![*f]);
-            }
-            for (f, o, _) in s0.ins.iter().rev() {
-                if no_loop && *o == Some(ri) {
-                    continue;
-                }
-                self.push_activation(ri, vec![*f]);
             }
             return;
         }
@@ -2278,7 +2406,7 @@ impl Engine {
                     }
                     // No setters before update => all-fields mask (D-013/j21).
                     let mask = pending.remove(&f).unwrap_or(u64::MAX);
-                    self.on_update(f, mask, ri);
+                    self.on_update(f, mask, Some(ri));
                 }
                 CompiledAction::Delete { pos } => {
                     self.store.kill(tuple[*pos]);
