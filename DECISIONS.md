@@ -369,6 +369,27 @@ Implemented as a compile-time literal rewrite (share_and_hash_alphas).
 Multi-seed unwalled campaign: seeds 42/7/123/999 clean at 10k; seed 777
 clean after this fix.
 
+### D-048: row-object ingestion sugar + seine-rs packaging/CI
+- Lists of row objects — @seine.fact instances, plain dicts, or any
+  attribute-bearing objects (dataclasses, Pydantic models) — are
+  accepted anywhere tables are. The sugar reshapes rows into the
+  certified dict-of-columns path in schema order (@fact class keys
+  win, then the rows' own @fact class, then first-dict key order) and
+  adds ZERO semantics: None and type errors still reject at the
+  certified boundary. `seine.Session` is now a thin Python wrapper so
+  insert()/insert_row() take row objects too.
+- EXPLICIT schemas: the native session accepts
+  schemas={type: {field: subset-type}}; @fact class keys contribute
+  theirs automatically, so `{Flagged: []}` declares an empty type
+  (previously required a typed Arrow table).
+- Packaging: the PyPI distribution is **seine-rs** (the `seine` name
+  is taken); the import remains `import seine`.
+- CI (.github/workflows/ci.yml): the FULL differential gate (oracle
+  build + cargo test + make diff) on every push/PR, the bindings
+  pytest suite, abi3 wheels (linux + macos arm) as artifacts, and
+  wheels attached to GitHub releases on v* tags. Unverified until the
+  first remote run.
+
 ### D-047: EXTERNAL update/delete by handle CERTIFIED
 Engine surface: `update_fact(id, fields)` (sets values, propagates with
 the CHANGED-FIELDS property mask — oracle mirror is the 3-arg
@@ -829,7 +850,7 @@ window-queue and slot-memory semantics, 5x10k round-3 clean) and the
 Python boundary exposes it (update/delete by handle, handle-returning
 inserts). The full working-memory lifecycle now crosses the boundary:
 insert -> fire -> update/delete -> fire, all differentially certified.
-Remaining ideas (none started): row-object ingestion sugar, wheel CI.
+Row-object sugar and wheel CI landed (D-048). No remaining planned items.
 
 **HANDOFF @ multi-fire close (Session 6, 2026-07-04)** — D-046
 certified the incremental envelope (epochs in harness + generator,

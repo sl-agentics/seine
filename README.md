@@ -77,6 +77,10 @@ log** for every in-subset program.
 - External update/delete by handle certified (D-047): the full WM
   lifecycle crosses the Python boundary (session.update/delete between
   fires, changed-fields property masks, action-ordered k=1 windows).
+- Row-object sugar + CI (D-048): lists of @fact instances/dicts/
+  dataclass-or-Pydantic objects ingest directly; `pip install seine-rs`
+  (import stays `seine`); GitHub Actions runs the differential gate and
+  builds wheels.
 
 ## Explicit non-goals (hard walls)
 

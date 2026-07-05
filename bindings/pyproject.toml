@@ -3,7 +3,9 @@ requires = ["maturin>=1.5,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "seine"
+# PyPI distribution name (the "seine" name is taken); the import
+# remains `import seine`.
+name = "seine-rs"
 version = "0.1.0"
 description = "Differentially certified Drools-subset rule engine over Arrow dataframes"
 requires-python = ">=3.9"
