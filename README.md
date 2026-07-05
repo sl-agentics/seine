@@ -74,6 +74,9 @@ log** for every in-subset program.
 - Multi-fire certified (D-046): insert -> fire -> insert -> fire on one
   session (epoch scenarios, 5-seed campaign clean); sessions are no
   longer one-shot and every fire() returns its own WM delta.
+- External update/delete by handle certified (D-047): the full WM
+  lifecycle crosses the Python boundary (session.update/delete between
+  fires, changed-fields property masks, action-ordered k=1 windows).
 
 ## Explicit non-goals (hard walls)
 
