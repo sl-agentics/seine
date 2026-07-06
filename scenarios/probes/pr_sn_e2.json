@@ -1,0 +1,16 @@
+{
+  "name": "sn_e2",
+  "types": [
+    {"name": "T0", "fields": [{"name": "f0", "type": "bool"}, {"name": "f1", "type": "i64"}]},
+    {"name": "T1", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "T2", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "G", "fields": [{"name": "g", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "T0", "fields": {"f0": true, "f1": 1}},
+    {"type": "T1", "fields": {"k": 2}},
+    {"type": "T2", "fields": {"m": 1}},
+    {"type": "G", "fields": {"g": 1}}
+  ],
+  "drl": "rule R_hi salience 20 when $t : T0($b : f1, f0 == false) not(T1(k == $b) and T2()) then end\nrule R_upd salience 10 when $g : G() $t : T0() then modify($t){ setF1(2) } end\nrule R_lo salience 5 when $t : T0($b : f1, f0 == false) not(T1(k == $b) and T2()) then end\nrule R_ctl salience 4 when $t : T0($b : f1, f0 == false) not T1(k == $b) then end\n"
+}

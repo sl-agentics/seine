@@ -1,0 +1,14 @@
+{
+  "name": "sn_f4",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 1}},
+    {"type": "A", "fields": {"k": 3}},
+    {"type": "B", "fields": {"m": 4}}
+  ],
+  "drl": "rule R1 when not((A(k == 1) and B(m == 1)) or (A(k == 2) and B(m == 2))) then end\nrule R2 when not((A(k == 3) and B(m == 3)) or (A(k == 4) and B(m == 4))) then end\nrule R3 when not((A(k == 2) and B(m == 2)) or (A(k == 1) and B(m == 1))) then end\n"
+}

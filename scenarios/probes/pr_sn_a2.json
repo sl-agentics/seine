@@ -1,0 +1,17 @@
+{
+  "name": "sn_a2",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "E", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "F", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 1}},
+    {"type": "C", "fields": {"k": 1}}
+  ],
+  "drl": "rule R_full when exists(A() and B()) then end\nrule R_half when exists(C() and D()) then end\nrule R_none when exists(E() and F()) then end\n"
+}

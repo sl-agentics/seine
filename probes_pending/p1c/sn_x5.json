@@ -1,0 +1,23 @@
+{
+  "name": "sn_x5",
+  "types": [
+    {"name": "P", "fields": [{"name": "f0", "type": "i64"}]},
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 1}}
+  ],
+  "epochs": [
+    {
+      "facts": [
+        {"type": "P", "fields": {"f0": 1}},
+        {"type": "P", "fields": {"f0": 2}},
+        {"type": "P", "fields": {"f0": 3}}
+      ],
+      "actions": [{"op": "delete", "target": 1}]
+    }
+  ],
+  "drl": "rule R_not when $p : P() not(A() and B()) then end\n"
+}

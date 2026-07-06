@@ -228,6 +228,12 @@ pub enum Kind {
     /// used; evaluation is engine-side (eval_query_ce_node) through the
     /// Q1 stack machine. Never reaches do_node.
     Query,
+    /// Subnetwork-fed not/exists (P1c/D-089): the counting machine
+    /// (PhreakSubnetworkNotExistsNode port). Left staging and sinks live
+    /// on the node; rights are subnetwork TUPLES staged engine-side
+    /// (TrieNode.sn_right). Never reaches do_node.
+    SubnetNot,
+    SubnetExists,
 }
 
 /// Beta-memory index kind (D-032). Equality hash indexes apply to every
@@ -720,14 +726,14 @@ pub struct Out<'a> {
 }
 
 impl<'a> Out<'a> {
-    fn child_ins(&mut self, t: Tup, o: Origin, ph: u8) {
+    pub(crate) fn child_ins(&mut self, t: Tup, o: Origin, ph: u8) {
         self.trg.add_ins_ph(t, o, ph);
     }
 
     /// updateChildLeftTuple: a child staged as INSERT in the pending
     /// moves into the current batch KEEPING its insert kind; a pending
     /// UPDATE moves as an update; otherwise stage an update normally.
-    fn child_upd(&mut self, t: Tup, o: Origin, ph: u8) {
+    pub(crate) fn child_upd(&mut self, t: Tup, o: Origin, ph: u8) {
         if self.pending.remove_ins(&t) {
             // kind kept for the first sink; peers resolve their own
             // staged state and see an UPDATE (D-071/fz_42_890).
@@ -742,7 +748,7 @@ impl<'a> Out<'a> {
     /// deleteChildLeftTuple: a never-consumed pending INSERT cancels at
     /// the first sink but still reaches the peers as a NORMALIZED delete
     /// (fz_123_2748); a pending UPDATE is unstaged before the delete.
-    fn child_del(&mut self, t: Tup, o: Origin) {
+    pub(crate) fn child_del(&mut self, t: Tup, o: Origin) {
         if self.pending.remove_ins(&t) {
             self.trg.norm_del.push((t, o, 0));
             return;
@@ -767,6 +773,9 @@ pub fn do_node<E: JoinEnv>(
         Kind::Not | Kind::Exists => do_existential_node(env, node_idx, node, sl, sr, &mut out),
         Kind::Acc => unreachable!("accumulate nodes evaluate engine-side"),
         Kind::Query => unreachable!("?query CE nodes evaluate engine-side (D-056)"),
+        Kind::SubnetNot | Kind::SubnetExists => {
+            unreachable!("subnetwork CE nodes evaluate engine-side (D-089)")
+        }
     }
 }
 

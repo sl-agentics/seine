@@ -1,0 +1,13 @@
+{
+  "name": "sn_a7",
+  "types": [
+    {"name": "S", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "T", "fields": [{"name": "k", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "S", "fields": {"k": 1}},
+    {"type": "T", "fields": {"k": 1}},
+    {"type": "T", "fields": {"k": 1}}
+  ],
+  "drl": "rule R1 when not(S($y : k) and S(k == $y)) then end\nrule R2 when not(S($z : k) and S(k != $z)) then end\nrule R3 when not(T($w : k) and T(k == $w)) then end\n"
+}

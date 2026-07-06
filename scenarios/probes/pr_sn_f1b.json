@@ -1,0 +1,14 @@
+{
+  "name": "sn_f1b",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "C", "fields": {"k": 1}}
+  ],
+  "drl": "rule R1 when not(A() or B()) then end\nrule R2 when (not C()) or (not D()) then end\n"
+}

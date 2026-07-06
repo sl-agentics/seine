@@ -1,0 +1,19 @@
+{
+  "name": "sn_a9",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "c", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "E", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "F", "fields": [{"name": "c", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 1}},
+    {"type": "D", "fields": {"k": 1}},
+    {"type": "E", "fields": {"m": 1}},
+    {"type": "F", "fields": {"c": 1}}
+  ],
+  "drl": "rule R1 when not(A($y : k) and B(m == $y) and C(c == $y)) then end\nrule R2 when exists(D($z : k) and E(m == $z) and F(c == $z)) then end\nrule R3 when not(D($w : k) and E(m == $w) and F(c == $w)) then end\n"
+}

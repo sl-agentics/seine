@@ -3016,3 +3016,80 @@ exists=reverse, external-not=reverse) BEFORE Rust. Generator: group
 draws with the type-DAG termination discipline extended to inner
 patterns; fuzz-gate EVERY discriminator (D-083 lesson) — the
 external-vs-rule-origin unblock asymmetry gets targeted weight.
+
+### D-089: P1c LANDED — group CEs as trie-branch subnetworks + the
+### counting machine; D-088's origin-keyed unblock claim CORRECTED
+### (replica tools/model_check_subnet.py + probes sn_b3e/sn_x5;
+### corpus 793/793 at first differential contact; fuzz gate pending)
+
+**Correction to D-088 (the replica's catch):** the "external-vs-
+rule-origin unblock asymmetry" was a SECOND-layer confound. The real
+axis is the PHASE that creates the not-children: leftIns children
+fire ARRIVAL order (the left walk), rightDel unblock children fire
+REVERSE-arrival (the right walk). Origin correlated in all seven
+D-088 probes because rule-origin deletes always landed before the
+not's first evaluation (staged ins+del FOLD at the RIA hop — the
+pair never forms, children ride leftIns) while external deletes
+landed after (formed matches die via rightDel). Discriminators:
+sn_b3e (rule-origin delete + EAGER no-loop not that already
+evaluated → fires REVERSE) and sn_x5 (external delete folding with
+held staging before any evaluation → fires ARRIVAL). No origin flag
+exists anywhere in the implementation — one machine, one mechanism.
+The dual behavior DISSOLVES; faithful reproduction needs no
+provenance tracking.
+
+**Replica (tools/model_check_subnet.py):** certified mechanics fixed
+(LIFO staging, head-first consumption, merge/append_into_pending,
+first-sink append + later-sink peer flip, terminal FIFO, agenda
+salience/decl, eager-per-flush vs lazy accumulation), free dimensions
+= RIA transfer direction, counting-node child staging per phase, tip
+delete-walk, external variant, fork sink order. 16/512 survivors =
+one parity family; the source-faithful member (RIA hop REVERSES via
+per-entry prepend; child creations prepend; walks head-first; NO
+external special-casing) was implemented and confirmed by the probe
+battery. c3-not additionally pinned fork build order: the subnetwork
+attaches FIRST (Drools GroupElementBuilder order), the outer node is
+a LATER sink of the fork.
+
+**Implementation:**
+- Parser (drl.rs): CeNode gains Not/Exists; `not (`/`exists (`
+  intercepted at lhs_unary; normalize_ce = the LogicTransformer
+  mirror (NotOr → and-of-nots; ExistOr → not(and(not,not)); AndOr
+  left-major pull-up; single-child pack); lower_group fences
+  RIA-in-RIA (not(not), not(exists(and)), composite or-branches),
+  >3 inner elements, acc/collect/?query inside groups, bindings on
+  bare-CE members (D-031 kept), and collapses single-pattern groups
+  (the or_a41 fence lift). Group-inner bindings join the
+  duplicate-declaration check (no shadowing — subset stricter than
+  Drools, generator never emits it).
+- Engine (engine.rs/phreak.rs): groups FLATTEN in compile_rule
+  ([inner..., Outer] with SubRole markers; inner tuple slots extend
+  the main prefix without claiming rule-tuple positions; inner
+  bindings scoped out after the group → later references fail with
+  the faithful "unknown binding" error, sn_g1). build_network hangs
+  the subnet branch off the fork (inner chain = ordinary shared trie
+  join nodes — sharing identity for free, incl. ne_t13
+  name-sensitivity inside groups, sn_d4), tips carry Sink::Ria into
+  the outer node; kinds SubnetNot/SubnetExists evaluate engine-side
+  (eval_subnet_node): counting per start-left (truncation to the
+  fork prefix), phase order leftDel/rightIns/leftIns/rightUpd-NOOP/
+  rightDel/leftUpd, children through the D-041/D-071 Out clash
+  machinery. RIA staging = per-entry prepend with TupleSets folds
+  (same-batch ins+del cancels — sn_c5b no-refire vs sn_c5
+  cross-firing refire). Linking: inner positions never gate; subnet
+  NOT never gates (fires with an empty inner alpha before any
+  subnetwork data, sn_c7); subnet EXISTS waits for a producible
+  branch (all inner alphas populated) or live matches
+  (staticDoLink/UnlinkRiaNode asymmetry).
+- D-076 wall extension (Bryan's ruling): insertLogical from rules
+  with group CEs = compile error (justification revalidation over
+  subnetworks unprobed). D-057 ?query-mix wall covers groups via CE
+  kind. Groups in query bodies remain fenced (D-073).
+- Probes: 44 promoted (pr_sn_*), incl. the full order battery,
+  rewrite pins, sharing, masks, external epochs. sn_g1..g4 stay
+  UNPROMOTED as fence evidence (g1 = both-sides compile error;
+  g2/g3/g4 = engine fence vs Drools-legal RIA-in-RIA, recorded in
+  D-088). Gate at this commit: make test green (incl. 2 new parser
+  test suites), make diff 793/793 (11 baseline + 507 probes + 275
+  regressions). Generator + 5x10k fuzz: NEXT (gate line appended
+  below when witnessed).

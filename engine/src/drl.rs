@@ -168,6 +168,15 @@ pub struct Pattern {
     /// Some(_) makes this a `?name(args;)` pull query CE (D-056):
     /// type_name holds the QUERY name, constraints/acc are empty.
     pub q_args: Option<Vec<QArg>>,
+    /// Some(_) makes this a GROUP CE (P1c/D-089): `not(A(…) and B(…))` /
+    /// `exists(A and B)` — `ce` holds the outer kind, the inner
+    /// patterns are positives (bindings allowed, group-scoped) or bare
+    /// not/exists (binding-free, D-031). type_name/constraints/binding
+    /// of the group pattern itself are unused. Surface `or` forms are
+    /// rewritten away at parse time (LogicTransformer mirror):
+    /// `not(A or B)` = `not(A) and not(B)`; `exists(A or B)` =
+    /// `not( not(A) and not(B) )`.
+    pub group: Option<Vec<Pattern>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -226,13 +235,17 @@ pub struct RuleDef {
     pub parent: usize,
 }
 
-/// Rule-LHS conditional-element tree (D-070). `or` rewrites to subrules
-/// at parse time: the LHS expands to DNF, one pattern list per branch.
+/// Rule-LHS conditional-element tree (D-070/D-089). `or` rewrites to
+/// subrules at parse time: the LHS expands to DNF, one pattern list per
+/// branch. Not/Exists wrap a subtree (`not(…)` group forms, P1c) and
+/// normalize via the LogicTransformer-mirror rewrites before lowering.
 #[derive(Debug, Clone, PartialEq)]
 enum CeNode {
     Pat(Pattern),
     And(Vec<CeNode>),
     Or(Vec<CeNode>),
+    Not(Box<CeNode>),
+    Exists(Box<CeNode>),
 }
 
 /// One positional argument of a positional pattern or query call (D-054).
@@ -555,21 +568,32 @@ impl Parser {
             actions.extend(self.actions()?);
         }
         self.expect_kw("end")?;
-        // `or` rewrite (D-070): expand the CE tree to DNF, one subrule
-        // per branch, in left-major order (or_a23: earlier or-groups
-        // vary slowest). Subrules share name/attributes/RHS.
-        let branches = expand_ce(&CeNode::And(lhs));
+        // `or` rewrite (D-070) + group normalization (D-089): the
+        // LogicTransformer-mirror pass rewrites `or` out from under
+        // not/exists, then the tree expands to DNF, one subrule per
+        // branch, in left-major order (or_a23: earlier or-groups vary
+        // slowest). Subrules share name/attributes/RHS.
+        let tree = normalize_ce(CeNode::And(lhs))?;
+        let branches = expand_ce(&tree)?;
         // Drools' duplicate-declaration rule for FACT bindings (D-070,
         // or_a26/or_b1..b4): within one branch a name may bind once;
         // across or-branches the same name is legal iff it binds the
         // SAME pattern type (field bindings repeat freely, or_a6).
-        let mut by_name: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+        // Group-inner fact bindings join the check (conservative: inner
+        // names may not shadow outer ones — resolution stays
+        // unambiguous; the subset is stricter than Drools here).
+        let mut by_name: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
         for b in &branches {
             let mut in_branch = std::collections::HashSet::new();
-            for p in b {
+            let all = b.iter().flat_map(|p| {
+                std::iter::once(p).chain(p.group.iter().flatten())
+            });
+            for p in all {
                 if let Some(v) = &p.binding {
-                    if !in_branch.insert(v.as_str())
-                        || by_name.insert(v.as_str(), &p.type_name)
+                    if !in_branch.insert(v.clone())
+                        || by_name
+                            .insert(v.clone(), p.type_name.clone())
                             .is_some_and(|t| t != p.type_name)
                     {
                         return Err(DrlError(format!(
@@ -628,6 +652,25 @@ impl Parser {
     /// expression — bare juxtaposition inside parens is a Drools parse
     /// error (or_a42), mirrored here.
     fn lhs_unary(&mut self) -> Result<CeNode, DrlError> {
+        // `not ( … )` / `exists ( … )` GROUP forms (P1c/D-089): the
+        // keyword directly followed by '(' wraps a CE subtree. Bare
+        // `not T(...)` (Ident after the keyword) stays on the pattern
+        // path. A single-pattern group `not (A())` collapses to the
+        // bare CE at lowering (the or_a41 fence lift).
+        if (self.at_kw("not") || self.at_kw("exists"))
+            && matches!(self.toks.get(self.pos + 1), Some(Tok::Sym("(")))
+        {
+            let is_not = self.at_kw("not");
+            self.next()?;
+            self.expect_sym("(")?;
+            let inner = self.lhs_or()?;
+            self.expect_sym(")")?;
+            return Ok(if is_not {
+                CeNode::Not(Box::new(inner))
+            } else {
+                CeNode::Exists(Box::new(inner))
+            });
+        }
         if !matches!(self.peek(), Some(Tok::Sym("("))) {
             return Ok(CeNode::Pat(self.pattern()?));
         }
@@ -873,6 +916,7 @@ impl Parser {
                 ce: CeKind::Positive,
                 acc: None,
                 q_args: Some(args),
+                group: None,
             });
         }
         if self.at_kw("accumulate") {
@@ -957,6 +1001,7 @@ impl Parser {
                 ce: CeKind::Positive,
                 acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var }),
                 q_args: None,
+                group: None,
             });
         }
         if ce != CeKind::Positive {
@@ -970,7 +1015,7 @@ impl Parser {
                 ));
             }
         }
-        Ok(Pattern { binding, type_name, constraints, ce, acc: None, q_args: None })
+        Ok(Pattern { binding, type_name, constraints, ce, acc: None, q_args: None, group: None })
     }
 
     /// `accumulate( <source pattern> ; $r : func([$arg]) )` — built-in
@@ -1033,6 +1078,7 @@ impl Parser {
             ce: CeKind::Positive,
             acc: Some(AccSpec { func, arg, result_var }),
             q_args: None,
+            group: None,
         })
     }
 
@@ -1374,26 +1420,212 @@ fn demote(e: CExpr) -> Constraint {
     }
 }
 
-/// DNF expansion of a CE tree (D-070): Or concatenates branch lists in
-/// listed order (nested or flattens, or_a13x); And crosses factor branch
-/// lists left-major (earlier factors vary slowest, or_a23).
-fn expand_ce(n: &CeNode) -> Vec<Vec<Pattern>> {
-    match n {
-        CeNode::Pat(p) => vec![vec![p.clone()]],
-        CeNode::Or(xs) => xs.iter().flat_map(expand_ce).collect(),
-        CeNode::And(xs) => xs.iter().fold(vec![Vec::new()], |acc, x| {
-            let bs = expand_ce(x);
-            acc.iter()
-                .flat_map(|pre| {
-                    bs.iter().map(|b| {
-                        let mut v = pre.clone();
-                        v.extend(b.iter().cloned());
-                        v
-                    })
-                })
-                .collect()
-        }),
+/// LogicTransformer-mirror normalization (D-089, pinned by sn_f1/f2/f4):
+/// bottom-up, `or` is rewritten out from under not/exists —
+/// `not(A or B)` → `and(not A, not B)` (NotOrTransformation);
+/// `exists(A or B)` → `not( and( not(A), not(B) ) )`
+/// (ExistOrTransformation); an `and` child holding an `or` distributes
+/// first (AndOr pull-up, left-major like or_a23). Single-child groups
+/// pack. After normalize, Or appears only ABOVE all Not/Exists nodes.
+fn normalize_ce(n: CeNode) -> Result<CeNode, DrlError> {
+    fn pack(mut xs: Vec<CeNode>, or: bool) -> CeNode {
+        if xs.len() == 1 {
+            return xs.pop().unwrap();
+        }
+        // flatten same-type nesting (GroupElement.pack)
+        let mut flat = Vec::new();
+        for x in xs {
+            match (or, x) {
+                (true, CeNode::Or(inner)) => flat.extend(inner),
+                (false, CeNode::And(inner)) => flat.extend(inner),
+                (_, other) => flat.push(other),
+            }
+        }
+        if or { CeNode::Or(flat) } else { CeNode::And(flat) }
     }
+    /// Distribute And-over-Or (left-major) so a not/exists child with a
+    /// buried `or` becomes a top Or of and-branches.
+    fn pull_or_up(n: CeNode) -> CeNode {
+        match n {
+            CeNode::And(xs) if xs.iter().any(|x| matches!(x, CeNode::Or(_))) => {
+                let branches = xs.iter().fold(vec![Vec::new()], |acc: Vec<Vec<CeNode>>, x| {
+                    let bs: Vec<CeNode> = match x {
+                        CeNode::Or(alts) => alts.clone(),
+                        other => vec![other.clone()],
+                    };
+                    acc.iter()
+                        .flat_map(|pre| {
+                            bs.iter().map(|b| {
+                                let mut v = pre.clone();
+                                v.push(b.clone());
+                                v
+                            })
+                        })
+                        .collect()
+                });
+                CeNode::Or(branches.into_iter().map(|b| pack(b, false)).collect())
+            }
+            other => other,
+        }
+    }
+    Ok(match n {
+        CeNode::Pat(_) => n,
+        CeNode::And(xs) => {
+            let xs = xs.into_iter().map(normalize_ce).collect::<Result<Vec<_>, _>>()?;
+            pack(xs, false)
+        }
+        CeNode::Or(xs) => {
+            let xs = xs.into_iter().map(normalize_ce).collect::<Result<Vec<_>, _>>()?;
+            pack(xs, true)
+        }
+        CeNode::Not(x) => {
+            let x = pull_or_up(normalize_ce(*x)?);
+            match x {
+                CeNode::Or(bs) => normalize_ce(CeNode::And(
+                    bs.into_iter().map(|b| CeNode::Not(Box::new(b))).collect(),
+                ))?,
+                other => CeNode::Not(Box::new(other)),
+            }
+        }
+        CeNode::Exists(x) => {
+            let x = pull_or_up(normalize_ce(*x)?);
+            match x {
+                CeNode::Or(bs) => normalize_ce(CeNode::Not(Box::new(CeNode::And(
+                    bs.into_iter().map(|b| CeNode::Not(Box::new(b))).collect(),
+                ))))?,
+                other => CeNode::Exists(Box::new(other)),
+            }
+        }
+    })
+}
+
+/// Lower a normalized not/exists child into ONE pattern: a bare CE
+/// (single plain inner pattern — the or_a41 collapse) or a GROUP CE
+/// (P1c/D-089). Fences: composite groups nested inside groups
+/// (RIA-in-RIA), acc/collect/?query inside groups, bindings on bare-CE
+/// members (D-031), inner element count 2..=3.
+fn lower_group(kind: CeKind, child: &CeNode) -> Result<Pattern, DrlError> {
+    fn leaf(elem: &CeNode) -> Result<Pattern, DrlError> {
+        match elem {
+            CeNode::Pat(p) => {
+                if p.acc.is_some() {
+                    return Err(DrlError(
+                        "accumulate/collect inside not/exists groups is out of subset (D-089)"
+                            .into(),
+                    ));
+                }
+                if p.q_args.is_some() {
+                    return Err(DrlError(
+                        "?query CEs inside not/exists are out of subset (D-057)".into(),
+                    ));
+                }
+                Ok(p.clone())
+            }
+            CeNode::Not(x) | CeNode::Exists(x) => {
+                let inner_kind = if matches!(elem, CeNode::Not(_)) {
+                    CeKind::Not
+                } else {
+                    CeKind::Exists
+                };
+                match x.as_ref() {
+                    CeNode::Pat(p) if p.ce == CeKind::Positive => {
+                        let mut p = leaf(&CeNode::Pat(p.clone()))?;
+                        if p.binding.is_some()
+                            || p.constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
+                        {
+                            return Err(DrlError(
+                                "bindings are not allowed in not/exists patterns".into(),
+                            ));
+                        }
+                        p.ce = inner_kind;
+                        Ok(p)
+                    }
+                    _ => Err(DrlError(
+                        "composite groups nested inside not/exists are out of subset \
+                         (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)"
+                            .into(),
+                    )),
+                }
+            }
+            _ => Err(DrlError(
+                "composite groups nested inside not/exists are out of subset \
+                 (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)"
+                    .into(),
+            )),
+        }
+    }
+    match child {
+        // single plain inner pattern: collapse to the bare CE (or_a41)
+        CeNode::Pat(p0) if p0.ce == CeKind::Positive && p0.group.is_none() => {
+            let mut p = leaf(child)?;
+            if p.binding.is_some()
+                || p.constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
+            {
+                return Err(DrlError("bindings are not allowed in not/exists patterns".into()));
+            }
+            p.ce = kind;
+            Ok(p)
+        }
+        CeNode::And(elems) => {
+            if !(2..=3).contains(&elems.len()) {
+                return Err(DrlError(format!(
+                    "not/exists groups are limited to 2-3 inner patterns, got {} (D-089)",
+                    elems.len()
+                )));
+            }
+            let inner = elems.iter().map(leaf).collect::<Result<Vec<_>, _>>()?;
+            Ok(Pattern {
+                binding: None,
+                type_name: String::new(),
+                constraints: Vec::new(),
+                ce: kind,
+                acc: None,
+                q_args: None,
+                group: Some(inner),
+            })
+        }
+        _ => Err(DrlError(
+            "composite groups nested inside not/exists are out of subset \
+             (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)"
+                .into(),
+        )),
+    }
+}
+
+/// DNF expansion of a normalized CE tree (D-070): Or concatenates branch
+/// lists in listed order (nested or flattens, or_a13x); And crosses
+/// factor branch lists left-major (earlier factors vary slowest,
+/// or_a23). Not/Exists nodes lower to single (possibly group) patterns.
+fn expand_ce(n: &CeNode) -> Result<Vec<Vec<Pattern>>, DrlError> {
+    Ok(match n {
+        CeNode::Pat(p) => vec![vec![p.clone()]],
+        CeNode::Not(x) => vec![vec![lower_group(CeKind::Not, x)?]],
+        CeNode::Exists(x) => vec![vec![lower_group(CeKind::Exists, x)?]],
+        CeNode::Or(xs) => {
+            let mut out = Vec::new();
+            for x in xs {
+                out.extend(expand_ce(x)?);
+            }
+            out
+        }
+        CeNode::And(xs) => {
+            let mut acc: Vec<Vec<Pattern>> = vec![Vec::new()];
+            for x in xs {
+                let bs = expand_ce(x)?;
+                acc = acc
+                    .iter()
+                    .flat_map(|pre| {
+                        bs.iter().map(|b| {
+                            let mut v = pre.clone();
+                            v.extend(b.iter().cloned());
+                            v
+                        })
+                    })
+                    .collect();
+            }
+            acc
+        }
+    })
 }
 
 pub fn parse_file(src: &str) -> Result<DrlFile, DrlError> {
@@ -1546,6 +1778,79 @@ mod tests {
         // bindings inside CE patterns are rejected (D-031)
         assert!(parse_rules("rule R when A() not B($x : n) then end").is_err());
         assert!(parse_rules("rule R when A() exists $b : B() then end").is_err());
+    }
+
+
+    #[test]
+    fn group_ce_parsing_and_rewrites() {
+        // basic group
+        let rules =
+            parse_rules("rule R when not(A() and B()) then end").unwrap();
+        assert_eq!(rules.len(), 1);
+        let p = &rules[0].patterns[0];
+        assert_eq!(p.ce, CeKind::Not);
+        let g = p.group.as_ref().unwrap();
+        assert_eq!(g.len(), 2);
+        assert_eq!(g[0].type_name, "A");
+        assert_eq!(g[1].type_name, "B");
+
+        // single-pattern group collapses to the bare CE (or_a41 lift)
+        let rules = parse_rules("rule R when not (A()) then end").unwrap();
+        assert_eq!(rules[0].patterns[0].ce, CeKind::Not);
+        assert!(rules[0].patterns[0].group.is_none());
+
+        // De Morgan: not(A or B) == and(not A, not B) — ONE subrule,
+        // TWO bare not patterns (sn_f1a)
+        let rules =
+            parse_rules("rule R when not(A() or B()) then end").unwrap();
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].patterns.len(), 2);
+        assert!(rules[0].patterns.iter().all(|p| p.ce == CeKind::Not && p.group.is_none()));
+
+        // double negation: exists(A or B) == not(and(not A, not B)) —
+        // ONE group pattern with two inner bare nots (sn_f2)
+        let rules =
+            parse_rules("rule R when exists(A() or B()) then end").unwrap();
+        assert_eq!(rules.len(), 1);
+        let p = &rules[0].patterns[0];
+        assert_eq!(p.ce, CeKind::Not);
+        let g = p.group.as_ref().unwrap();
+        assert_eq!(g.len(), 2);
+        assert!(g.iter().all(|ip| ip.ce == CeKind::Not));
+
+        // not(or of ands) distributes into two group conjuncts (sn_f4)
+        let rules = parse_rules(
+            "rule R when not((A() and B()) or (C() and D())) then end",
+        )
+        .unwrap();
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].patterns.len(), 2);
+        assert!(rules[0].patterns.iter().all(|p| p.group.is_some()));
+
+        // inner bindings + bare CEs inside groups parse (sn_a6/sn_g5)
+        parse_rules("rule R when not(A($y : k) and B(m == $y)) then end").unwrap();
+        parse_rules("rule R when not(A() and not(B())) then end").unwrap();
+        parse_rules("rule R when not(A() and exists(B())) then end").unwrap();
+    }
+
+    #[test]
+    fn group_ce_fences() {
+        // RIA-in-RIA (D-089)
+        assert!(parse_rules("rule R when not(exists(A() and B())) then end").is_err());
+        assert!(parse_rules("rule R when not(not(A())) then end").is_err());
+        assert!(parse_rules("rule R when exists((A() and B()) or C()) then end").is_err());
+        // >3 inner patterns
+        assert!(
+            parse_rules("rule R when not(A() and B() and C() and D()) then end").is_err()
+        );
+        // bindings on bare-CE members stay out (D-031)
+        assert!(parse_rules("rule R when not(A($x : k) and not(B($y : m))) then end").is_err());
+        // accumulate / ?query inside groups
+        assert!(parse_rules(
+            "rule R when not(accumulate( A($v : k) ; $s : sum($v) ) and B()) then end"
+        )
+        .is_err());
+        assert!(parse_rules("rule R when not(?q($x;) and B()) then end").is_err());
     }
 
     #[test]

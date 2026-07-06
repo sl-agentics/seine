@@ -185,6 +185,23 @@ struct CompiledPattern {
     /// `?query` pull CE spec (D-056): the pattern's tuple element is a
     /// synthetic row fact of the query's hidden row type.
     qce: Option<CompiledQce>,
+    /// P1c/D-089 subnetwork role: Inner patterns build the subnet branch
+    /// (ordinary joins off the fork, tuple slots BEYOND the main prefix);
+    /// the Outer pseudo-pattern is the counting CE node fed by the
+    /// branch tip through the RIA hop.
+    sub: SubRole,
+}
+
+/// Subnetwork role of a compiled pattern (P1c/D-089).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SubRole {
+    None,
+    /// Member of a group CE's subnetwork branch (a positive join or a
+    /// bare not/exists per its own `ce` kind — sn_g5 shapes).
+    Inner,
+    /// The group's outer counting node: `len` inner patterns precede it;
+    /// `plen` = main-prefix tuple length (start-tuple truncation).
+    Outer { len: usize, plen: usize },
 }
 
 /// Compiled `?query(args;)` CE (D-056).
@@ -413,6 +430,11 @@ struct Lia {
 enum Sink {
     Node(usize),
     Term(usize),
+    /// RIA hop (P1c/D-089): this node is a subnetwork TIP whose child
+    /// tuples stage into the outer counting node's rights — per-entry
+    /// prepend, i.e. the batch REVERSES (doRiaNode2 walk + addInsert;
+    /// pinned by the sn replica against sn_a3/b3/b4/x*).
+    Ria(usize),
 }
 
 /// One SHARED beta node in the prefix trie (D-036/D-037): rules whose
@@ -455,6 +477,17 @@ struct TrieNode {
     /// inherited interest (unlike inline accumulates, whose opaque
     /// lambdas force ALL-SET and always re-propagate).
     collect_left_gate: Option<u64>,
+    /// Subnetwork CE state (P1c/D-089, SubnetNot/SubnetExists only) —
+    /// the counting machine per PhreakSubnetworkNotExistsNode. Rights
+    /// are subnetwork TUPLES staged through the RIA hop (per-entry
+    /// prepend = the pinned reversal); matches key by the tuple's START
+    /// left (truncation to sn_plen). One child per left, a left copy.
+    sn_right: Staged<Tup>,
+    sn_matches: HashMap<Tup, Vec<Tup>>,
+    sn_lefts: Vec<Tup>,
+    sn_has_child: HashSet<Tup>,
+    /// Main-prefix tuple length (start-tuple truncation, D-089).
+    sn_plen: usize,
 }
 
 /// One accumulate context: the function state, the stored per-match
@@ -1018,9 +1051,18 @@ impl Engine {
             } else {
                 let mut prefix = keys[ri][0].clone();
                 let mut parent: Option<usize> = None;
+                // P1c/D-089: the parent BEFORE the open group's subnet
+                // branch — the outer counting node's LEFT input forks
+                // there. The subnetwork attaches first (Drools build
+                // order; sn_c3 R1 pins the resulting sink order).
+                let mut fork_parent: Option<Option<usize>> = None;
                 for j in 1..k {
                     prefix.push_str("||");
                     prefix.push_str(&keys[ri][j]);
+                    let role = self.rules[ri].patterns[j].sub;
+                    if role == SubRole::Inner && fork_parent.is_none() {
+                        fork_parent = Some(parent);
+                    }
                     let nid = match trie_index.get(&prefix) {
                         Some(&nid) => nid,
                         None => {
@@ -1029,6 +1071,11 @@ impl Engine {
                                 phreak::Kind::Query
                             } else if pat.acc.is_some() {
                                 phreak::Kind::Acc
+                            } else if matches!(pat.sub, SubRole::Outer { .. }) {
+                                match pat.ce {
+                                    CeKind::Not => phreak::Kind::SubnetNot,
+                                    _ => phreak::Kind::SubnetExists,
+                                }
                             } else {
                                 match pat.ce {
                                     CeKind::Positive => phreak::Kind::Join,
@@ -1049,16 +1096,37 @@ impl Engine {
                                 acc: HashMap::new(),
                                 acc_by_right: HashMap::new(),
                                 collect_left_gate: None,
+                                sn_right: Staged::default(),
+                                sn_matches: HashMap::new(),
+                                sn_lefts: Vec::new(),
+                                sn_has_child: HashSet::new(),
+                                sn_plen: match pat.sub {
+                                    SubRole::Outer { plen, .. } => plen,
+                                    _ => 0,
+                                },
                             });
                             let nid = self.trie.len() - 1;
                             trie_index.insert(prefix.clone(), nid);
-                            match parent {
-                                None => self.lias[lia].children.push(nid),
-                                Some(p) => self.trie[p].sinks.push(Sink::Node(nid)),
+                            if let SubRole::Outer { .. } = role {
+                                // left input = the fork; rights = the
+                                // subnet tip through the RIA hop
+                                match fork_parent.unwrap_or(None) {
+                                    None => self.lias[lia].children.push(nid),
+                                    Some(p) => self.trie[p].sinks.push(Sink::Node(nid)),
+                                }
+                                self.trie[parent.unwrap()].sinks.push(Sink::Ria(nid));
+                            } else {
+                                match parent {
+                                    None => self.lias[lia].children.push(nid),
+                                    Some(p) => self.trie[p].sinks.push(Sink::Node(nid)),
+                                }
                             }
                             nid
                         }
                     };
+                    if matches!(role, SubRole::Outer { .. }) {
+                        fork_parent = None;
+                    }
                     path.push(nid);
                     parent = Some(nid);
                 }
@@ -1256,6 +1324,11 @@ impl Engine {
             return format!("QCE|{}|priv{ri}.{pos}", qce.qi);
         }
         let _ = (ri, pos);
+        if let SubRole::Outer { len, plen } = p.sub {
+            // the inner chain is already part of the trie prefix string;
+            // the outer key adds the CE kind + shape (D-089)
+            return format!("SN|{:?}|{len}|{plen}", p.ce);
+        }
         let mut s = format!("{}|{:?}|b{}", p.type_id.0, p.ce, p.bind_fields);
         for c in &p.cmps {
             let _ = write!(s, ";{}", c.field_idx);
@@ -1436,11 +1509,64 @@ impl Engine {
                 bind_fields: 0,
                 acc: None,
                 qce: None,
+                sub: SubRole::None,
             });
             tuple_len = 1;
         }
 
-        for p in def.patterns.iter() {
+        // P1c/D-089 flattening: a group CE lowers to its inner patterns
+        // (the subnetwork branch — tuple slots BEYOND the main prefix,
+        // bindings scoped to the group) followed by the Outer counting
+        // pseudo-pattern. `sub_off` counts positive inners of the OPEN
+        // group; `group_binds` collects its scoped binding names.
+        let flat: Vec<(&drl::Pattern, SubRole)> = def
+            .patterns
+            .iter()
+            .flat_map(|p| -> Vec<(&drl::Pattern, SubRole)> {
+                match &p.group {
+                    Some(inner) => inner
+                        .iter()
+                        .map(|ip| (ip, SubRole::Inner))
+                        .chain(std::iter::once((p, SubRole::Outer { len: inner.len(), plen: 0 })))
+                        .collect(),
+                    None => vec![(p, SubRole::None)],
+                }
+            })
+            .collect();
+        let mut sub_off = 0usize;
+        let mut group_binds: Vec<String> = Vec::new();
+        for (p, role) in flat {
+            if let SubRole::Outer { len, .. } = role {
+                // The outer counting node: no alpha input (rights arrive
+                // through the RIA hop), no constraints, no tuple slot.
+                // Scoped bindings leave scope here — later references
+                // fail with "unknown binding", the faithful Drools error
+                // (sn_g1).
+                for b in group_binds.drain(..) {
+                    fact_binds.remove(&b);
+                    field_binds.remove(&b);
+                }
+                sub_off = 0;
+                let tid = self
+                    .store
+                    .type_id(INITIAL_FACT)
+                    .ok_or_else(|| err("internal: InitialFact type missing".into()))?;
+                patterns.push(CompiledPattern {
+                    type_id: tid,
+                    cmps: Vec::new(),
+                    listen_mask: 0,
+                    ce: p.ce,
+                    tpos: None,
+                    beta: false,
+                    pindex: phreak::Index::None,
+                    index_ci: None,
+                    bind_fields: 0,
+                    acc: None,
+                    qce: None,
+                    sub: SubRole::Outer { len, plen: tuple_len },
+                });
+                continue;
+            }
             if p.type_name == INITIAL_FACT {
                 return Err(err(format!("type name {INITIAL_FACT} is reserved")));
             }
@@ -1553,7 +1679,8 @@ impl Engine {
                     bind_fields: 0,
                     acc: None,
                     qce: Some(CompiledQce { qi, args, row_tid, bound_mask }),
-                });
+                    sub: SubRole::None,
+            });
                 continue;
             }
             let type_id = self.store.type_id(&p.type_name).ok_or_else(|| {
@@ -1567,9 +1694,18 @@ impl Engine {
                 }
             })?;
             let tpos = if p.ce == CeKind::Positive {
-                let t = tuple_len;
-                tuple_len += 1;
-                Some(t)
+                if role == SubRole::Inner {
+                    // subnet-branch slot: extends the main prefix without
+                    // claiming a rule-tuple position (the outer node
+                    // truncates back to the prefix, D-089)
+                    let t = tuple_len + sub_off;
+                    sub_off += 1;
+                    Some(t)
+                } else {
+                    let t = tuple_len;
+                    tuple_len += 1;
+                    Some(t)
+                }
             } else {
                 None
             };
@@ -1577,6 +1713,9 @@ impl Engine {
                 let t = tpos.ok_or_else(|| err("binding on a CE pattern".into()))?;
                 if fact_binds.insert(b.clone(), (t, type_id)).is_some() {
                     return Err(err(format!("duplicate binding {b}")));
+                }
+                if role == SubRole::Inner {
+                    group_binds.push(b.clone());
                 }
             }
             let mut cmps = Vec::new();
@@ -1600,6 +1739,9 @@ impl Engine {
                         let t = tpos.ok_or_else(|| err("binding in a CE pattern".into()))?;
                         if field_binds.insert(var.clone(), (t, fi, ft)).is_some() {
                             return Err(err(format!("duplicate binding {var}")));
+                        }
+                        if role == SubRole::Inner {
+                            group_binds.push(var.clone());
                         }
                     }
                     Constraint::Cmp { field, op, rhs } => {
@@ -1868,6 +2010,7 @@ impl Engine {
                 bind_fields,
                 acc,
                 qce: None,
+                sub: role,
             });
         }
 
@@ -1916,6 +2059,14 @@ impl Engine {
                         if patterns.iter().any(|p| p.acc.is_some() || p.qce.is_some()) {
                             return Err(err(
                                 "insertLogical from accumulate/collect/?query rules is out of subset (D-076)".into(),
+                            ));
+                        }
+                        // D-089 extension (Bryan's ruling): group-CE
+                        // justifiers are walled — revalidation over
+                        // subnetworks is unprobed.
+                        if patterns.iter().any(|p| p.sub != SubRole::None) {
+                            return Err(err(
+                                "insertLogical from rules with not/exists GROUP CEs is out of subset (D-089/D-076)".into(),
                             ));
                         }
                         actions.push(CompiledAction::InsertLogical { type_id: tid, args: srcs });
@@ -2552,6 +2703,9 @@ impl Engine {
         }
         for ni in 0..self.trie.len() {
             let (ri, pos) = self.trie[ni].env;
+            if matches!(self.rules[ri].patterns[pos].sub, SubRole::Outer { .. }) {
+                continue; // subnet CE nodes take rights via the RIA hop
+            }
             if self.alpha_passes(ri, pos, f) {
                 self.trie[ni].active.insert(f);
                 self.maybe_pulse(ni);
@@ -2639,7 +2793,7 @@ impl Engine {
         for ni in 0..self.trie.len() {
             let (ri, pos) = self.trie[ni].env;
             let pat = &self.rules[ri].patterns[pos];
-            if pat.type_id != ftype {
+            if pat.type_id != ftype || matches!(pat.sub, SubRole::Outer { .. }) {
                 continue;
             }
             let was_in = self.trie[ni].active.contains(&f);
@@ -2761,6 +2915,30 @@ impl Engine {
             // simply fires nothing — qx6_empty).
             return true;
         }
+        // P1c/D-089 subnetwork linking (staticDoLink/UnlinkRiaNode):
+        // inner positions never gate the MAIN path directly; the outer
+        // node gates per its kind — a subnet NOT links when the branch
+        // cannot produce (sn_c7: fires with an inner alpha empty), a
+        // subnet EXISTS waits for a producible branch (all inner alphas
+        // populated) or live matches whose retracts still need a window.
+        if pat.sub == SubRole::Inner {
+            return true;
+        }
+        if let SubRole::Outer { len, .. } = pat.sub {
+            if pat.ce == CeKind::Not {
+                return true;
+            }
+            let node = &self.trie[self.nets[ri].path[pos - 1]];
+            if !node.sn_matches.is_empty() || !node.sn_right.is_empty() {
+                return true;
+            }
+            return (pos - len..pos).all(|ip| {
+                let n = &self.trie[self.nets[ri].path[ip - 1]];
+                let ipat = &self.rules[ri].patterns[ip];
+                // inner bare nots do not require data (bare-CE analog)
+                ipat.ce == CeKind::Not || !n.active.is_empty()
+            });
+        }
         let node = &self.trie[self.nets[ri].path[pos - 1]];
         match pat.ce {
             CeKind::Positive | CeKind::Exists => !node.active.is_empty(),
@@ -2789,12 +2967,15 @@ impl Engine {
         let net = &self.nets[ri];
         net.s0_dirty()
             || !net.term_pending.is_empty()
-            || net.path.iter().enumerate().any(|(step, &ni)| {
+            || net.path.iter().any(|&ni| {
                 let n = &self.trie[ni];
                 !n.node.s_right.is_empty()
                     || !n.node.s_left.is_empty()
                     || !n.win.is_empty()
-                    || (step == 0 && !n.s0_in.is_empty())
+                    || !n.sn_right.is_empty()
+                    // LIA children can sit at any path step of a group
+                    // rule (the outer counting node is one, D-089)
+                    || !n.s0_in.is_empty()
             })
     }
 
@@ -2952,13 +3133,16 @@ impl Engine {
             for (s0w, slw, srw) in batches {
             let mut fresh: Staged<Tup> = Staged::default();
             if step == 0 {
+                self.tms.left_touched.clear();
+            }
+            if !s0w.is_empty() {
+                // pattern-0 fact staging: any LIA child on the path
+                // drains its own copy (a group rule's outer counting
+                // node is a level-1 child too, D-089)
                 let s0 = s0w;
-                self.tms.left_touched = s0
-                    .upd
-                    .iter()
-                    .chain(s0.del.iter())
-                    .map(|(f, o, _)| (*f, *o))
-                    .collect();
+                self.tms.left_touched.extend(
+                    s0.upd.iter().chain(s0.del.iter()).map(|(f, o, _)| (*f, *o)),
+                );
                 fresh.ins = s0.ins.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
                 fresh.upd = s0.upd.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
                 fresh.del = s0.del.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
@@ -2966,7 +3150,11 @@ impl Engine {
             let pending = slw;
             let src = Staged::merge_into_pending(pending, fresh);
             let sr = srw;
-            if src.is_empty() && sr.is_empty() {
+            let sn_dirty = matches!(
+                self.trie[ni].node.kind,
+                phreak::Kind::SubnetNot | phreak::Kind::SubnetExists
+            ) && !self.trie[ni].sn_right.is_empty();
+            if src.is_empty() && sr.is_empty() && !sn_dirty {
                 continue;
             }
             // Cross-window child clashes resolve against the FIRST
@@ -2976,6 +3164,9 @@ impl Engine {
             let mut first_pending = match first_sink {
                 Some(Sink::Node(c)) => self.trie[c].node.s_left.take(),
                 Some(Sink::Term(rb)) => self.nets[rb].term_pending.take(),
+                // RIA hop: clash folds happen at the sn_right staging
+                // itself (doRiaNode2 removeInsert semantics)
+                Some(Sink::Ria(_)) => Staged::default(),
                 None => Staged::default(),
             };
             let mut trg: Staged<Tup> = Staged::default();
@@ -2990,6 +3181,11 @@ impl Engine {
                 }
             } else if self.trie[ni].node.kind == phreak::Kind::Acc {
                 trg = self.eval_acc_node(ni, env_ri, env_pos, src, sr, &mut first_pending);
+            } else if matches!(
+                self.trie[ni].node.kind,
+                phreak::Kind::SubnetNot | phreak::Kind::SubnetExists
+            ) {
+                trg = self.eval_subnet_node(ni, src, &mut first_pending);
             } else {
                 let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri] };
                 phreak::do_node(
@@ -3022,6 +3218,24 @@ impl Engine {
                                 Staged::append_into_pending(first_pending.take(), trg.clone());
                         } else if !trg.is_empty() {
                             self.nets[rb].peer_merge_term(&trg);
+                        }
+                    }
+                    Sink::Ria(c) => {
+                        // RIA hop (D-089): stage the subnetwork batch
+                        // into the outer counting node's rights with the
+                        // pinned per-entry-prepend REVERSAL + TupleSets
+                        // folds (doRiaNode2: a delete of a still-staged
+                        // insert cancels outright — sn_c5b). All RIA
+                        // sinks receive the same treatment (peer copies
+                        // carry no extra flip).
+                        for (t, o, _) in trg.ins.iter() {
+                            self.trie[c].sn_right.add_ins(t.clone(), *o);
+                        }
+                        for (t, o, _) in trg.del.iter().chain(trg.norm_del.iter()) {
+                            self.trie[c].sn_right.add_del(t.clone(), *o);
+                        }
+                        for (t, o, _) in trg.upd.iter() {
+                            self.trie[c].sn_right.add_upd(t.clone(), *o);
                         }
                     }
                 }
@@ -3069,6 +3283,104 @@ impl Engine {
             }
             self.push_activation(ri, t.clone());
         }
+    }
+
+    /// PhreakSubnetworkNotExistsNode.doSubNetworkNode (P1c/D-089): the
+    /// COUNTING machine — no blocker model. Each left keeps a matches
+    /// list of live subnetwork tuples (correlated by START-tuple
+    /// truncation to sn_plen); only count edges act: not fires at
+    /// 0 matches (leftIns) and on ->0 (rightDel), exists on 0->1
+    /// (rightIns); children die on the inverse edges. Phase order:
+    /// leftDel, rightIns, leftIns, rightUpd (NO-OP — "here before,
+    /// here now": in-place inner updates never refire, sn_b7/sn_e1),
+    /// rightDel (deliberately late), leftUpd (child UPDATE -> refire,
+    /// mask-gated upstream; sn_b10). Counting subsumes handover:
+    /// support 2->1 = no refire, no cancel (sn_b6).
+    fn eval_subnet_node(
+        &mut self,
+        ni: usize,
+        src: Staged<Tup>,
+        first_pending: &mut Staged<Tup>,
+    ) -> Staged<Tup> {
+        let sr = self.trie[ni].sn_right.take();
+        let plen = self.trie[ni].sn_plen;
+        let is_not = self.trie[ni].node.kind == phreak::Kind::SubnetNot;
+        let mut trg: Staged<Tup> = Staged::default();
+        let node = &mut self.trie[ni];
+        let mut out = phreak::Out { trg: &mut trg, pending: first_pending };
+        // --- leftDel ---
+        for (l, o, _) in src.del.iter().chain(src.norm_del.iter()) {
+            if let Some(i) = node.sn_lefts.iter().position(|x| x == l) {
+                node.sn_lefts.remove(i);
+            }
+            if node.sn_has_child.remove(l) {
+                out.child_del(l.clone(), *o);
+            }
+            node.sn_matches.remove(l);
+        }
+        // --- rightIns (before leftIns, "so 'not' knows if there are
+        // matches before creating the child") ---
+        for (s, o, _) in sr.ins.iter() {
+            let p: Tup = s[..plen.min(s.len())].to_vec();
+            let m = node.sn_matches.entry(p.clone()).or_default();
+            if m.contains(s) {
+                continue; // value-identity idempotency (re-delivered peer)
+            }
+            m.push(s.clone());
+            if m.len() == 1 {
+                if is_not {
+                    if node.sn_has_child.remove(&p) {
+                        out.child_del(p.clone(), *o);
+                    }
+                } else {
+                    // exists 0->1: the child is created HERE, in the
+                    // right walk, even for same-batch lefts (sn_a3 R3 /
+                    // sn_b4 reverse-arrival pins)
+                    if node.sn_has_child.insert(p.clone()) {
+                        out.child_ins(p.clone(), *o, 1);
+                    }
+                }
+            }
+        }
+        // --- leftIns ---
+        for (l, o, _) in src.ins.iter() {
+            node.sn_lefts.push(l.clone());
+            let has_matches = node.sn_matches.get(l).is_some_and(|m| !m.is_empty());
+            if is_not && !has_matches {
+                if node.sn_has_child.insert(l.clone()) {
+                    out.child_ins(l.clone(), *o, 0);
+                }
+            }
+        }
+        // --- rightUpd: NO-OP ("does nothing; here before, here now") ---
+        // --- rightDel (late, so nothing staged here is then unstaged) ---
+        for (s, o, _) in sr.del.iter() {
+            let p: Tup = s[..plen.min(s.len())].to_vec();
+            let Some(m) = node.sn_matches.get_mut(&p) else { continue };
+            if let Some(i) = m.iter().position(|x| x == s) {
+                m.remove(i);
+            }
+            if m.is_empty() {
+                node.sn_matches.remove(&p);
+                if !node.sn_lefts.contains(&p) {
+                    continue; // left died too (deleteLeft nulled matches)
+                }
+                if is_not {
+                    if node.sn_has_child.insert(p.clone()) {
+                        out.child_ins(p.clone(), *o, 2);
+                    }
+                } else if node.sn_has_child.remove(&p) {
+                    out.child_del(p.clone(), *o);
+                }
+            }
+        }
+        // --- leftUpd (very last) ---
+        for (l, o, _) in src.upd.iter() {
+            if node.sn_has_child.contains(l) {
+                out.child_upd(l.clone(), *o, 2);
+            }
+        }
+        trg
     }
 
     /// PhreakAccumulateNode.doNode (D-038): leftDel, rightDel, rightUpd,

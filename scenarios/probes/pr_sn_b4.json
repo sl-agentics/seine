@@ -1,5 +1,5 @@
 {
-  "name": "sn_b3x",
+  "name": "sn_b4",
   "types": [
     {"name": "P", "fields": [{"name": "f0", "type": "i64"}]},
     {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
@@ -8,8 +8,8 @@
   "facts": [
     {"type": "P", "fields": {"f0": 1}},
     {"type": "P", "fields": {"f0": 2}},
-    {"type": "A", "fields": {"k": 1}},
-    {"type": "B", "fields": {"m": 1}}
+    {"type": "P", "fields": {"f0": 3}},
+    {"type": "A", "fields": {"k": 1}}
   ],
-  "drl": "rule R_del salience 10 when $b : B() then delete($b); end\nrule R_not when $p : P() not(A() and B()) then end\n"
+  "drl": "rule R_ins salience 10 when $a : A() then insert(new B(1)); end\nrule R_ex when $p : P() exists(A() and B()) then end\n"
 }
