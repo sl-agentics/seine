@@ -3323,3 +3323,13 @@ or-subrule churn; D-091 attribution DISPROVEN by the port). D-042
 trio unchanged (revisit trigger stands). Cleanup candidate: the
 inert TrieNode.win / close_boundary_windows plumbing is permanently
 obsolete post-port. P1c + D-091 both certified on this tree.
+
+### D-091 cleanup: the obsolete D-084 boundary-window plumbing DELETED
+The inert machinery is gone: `close_boundary_windows` (no-op'd since
+the D-084 fence), `TrieNode.win` and its constructor/rule_dirty/walk
+integration (the walk consumes staging directly — one LIFO-merged
+batch, held-drain semantics carried entirely by the D-091 dirty-flag
+lifecycle), and the orphaned `Node::lefts_empty`/`rights_empty`
+advance-eligibility helpers. Behavior-neutral by construction (the
+window vec was permanently empty); verified: `make test` green,
+corpus 799/799, spot fuzz seed 42 x 10k clean.
