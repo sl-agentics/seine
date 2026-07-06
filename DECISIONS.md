@@ -2834,3 +2834,17 @@ total). xfail stays 75 name-keyed files; corpus/fuzz gate unchanged
 from the wave-2 close (749/749, 50k clean at 0a614a7). With this the
 D-075/D-080 hardening worklist is CLOSED — P1c (nested existential CE
 groups) is unblocked.
+
+**HANDOFF @ triage close (2026-07-06)** — D-087 landed at 707090a:
+xfail fully itemized (zero pins), the D-075/D-080 hardening worklist
+is CLOSED. Gate re-verified at that commit: `make test` green,
+`make diff` 749/749 (11/463/275). No engine changes this session —
+documentation, tooling, memory only. NEXT: **P1c nested existential
+CE groups** (FEATURES §2 P1: multi-pattern/nested `not(…and…)`,
+`exists(…or…)`; pairs with the D-070 CE-group machinery) on the
+hardened base — probe-first per §0. Deferred, trigger-gated: D-084
+sources-port (Bryan: later session, likely Opus; validation harness
+pre-built), D-042 trio (value-bearing variant or new mechanism
+evidence; revisit naturally rides the D-084 port). Reminder for any
+TMS-adjacent probing: 2–3 oracle runs before trusting a PASS (D-080),
+and tools/triage_xfail.py re-screens the quarantine in one command.
