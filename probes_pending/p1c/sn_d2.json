@@ -1,0 +1,11 @@
+{
+  "name": "sn_d2",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [],
+  "drl": "rule R_shared when not(A() and B()) then end\nrule R_overnested when not((A() and B()) or (A() and B())) then end\nrule R_twice_nosh when (not(C() and D())) and (not(C() and D())) then end\nrule R_twice_sh when (not(A() and B())) and (not(A() and B())) then end\nrule R_ornots when ((not A()) or (not B())) and ((not A()) or (not B())) then end\n"
+}

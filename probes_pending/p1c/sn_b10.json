@@ -1,0 +1,20 @@
+{
+  "name": "sn_b10",
+  "types": [
+    {"name": "P", "fields": [{"name": "f0", "type": "i64"}]},
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "E", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "F", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "G", "fields": [{"name": "g", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"f0": 1}},
+    {"type": "C", "fields": {"k": 1}},
+    {"type": "D", "fields": {"m": 1}},
+    {"type": "G", "fields": {"g": 1}}
+  ],
+  "drl": "rule R_not salience 20 when $p : P($v : f0) not(A() and B()) then end\nrule R_not2 salience 19 when $p : P() not(E() and F()) then end\nrule R_ex salience 18 when $p : P($w : f0) exists(C() and D()) then end\nrule R_upd salience 10 when $g : G() $p : P() then modify($p){ setF0(2) } end\n"
+}

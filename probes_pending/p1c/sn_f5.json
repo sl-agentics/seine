@@ -1,0 +1,15 @@
+{
+  "name": "sn_f5",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 1}},
+    {"type": "C", "fields": {"k": 1}}
+  ],
+  "drl": "rule R1 when (A() or B()) not(C() and D()) then end\nrule R2 when (A() or B()) exists(C() and D()) then end\n"
+}

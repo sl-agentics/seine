@@ -1,0 +1,13 @@
+{
+  "name": "sn_g1",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "Q", "fields": [{"name": "n", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "Q", "fields": {"n": 1}}
+  ],
+  "drl": "rule R1 when not(A($y : k) and B()) $q : Q(n == $y) then end\n"
+}

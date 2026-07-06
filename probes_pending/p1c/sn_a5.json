@@ -1,0 +1,16 @@
+{
+  "name": "sn_a5",
+  "types": [
+    {"name": "P", "fields": [{"name": "f0", "type": "i64"}]},
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"f0": 1}},
+    {"type": "P", "fields": {"f0": 2}},
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "A", "fields": {"k": 2}},
+    {"type": "B", "fields": {"m": 1}}
+  ],
+  "drl": "rule R1 when $p : P($x : f0) not(A(k == $x) and B(m == $x)) then end\nrule R2 when $p : P($y : f0) exists(A(k == $y) and B(m == $y)) then end\n"
+}

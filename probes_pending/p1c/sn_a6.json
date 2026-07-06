@@ -1,0 +1,16 @@
+{
+  "name": "sn_a6",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "C", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 2}},
+    {"type": "C", "fields": {"k": 1}},
+    {"type": "D", "fields": {"m": 1}}
+  ],
+  "drl": "rule R1 when not(A($y : k) and B(m == $y)) then end\nrule R2 when not(C($z : k) and D(m == $z)) then end\nrule R3 when exists(A($w : k) and B(m == $w)) then end\nrule R4 when exists(C($v : k) and D(m == $v)) then end\n"
+}

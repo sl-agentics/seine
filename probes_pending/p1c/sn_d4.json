@@ -1,0 +1,16 @@
+{
+  "name": "sn_d4",
+  "types": [
+    {"name": "P", "fields": [{"name": "f0", "type": "i64"}]},
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"f0": 1}},
+    {"type": "P", "fields": {"f0": 2}},
+    {"type": "P", "fields": {"f0": 3}},
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 2}}
+  ],
+  "drl": "rule R1 when $p : P() not(A($y : k) and B(m == $y)) then end\nrule R2 when $p : P() not(A($z : k) and B(m == $z)) then end\nrule R3 when $p : P() not(A($y : k) and B(m == $y)) then end\n"
+}

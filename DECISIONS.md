@@ -2848,3 +2848,171 @@ pre-built), D-042 trio (value-bearing variant or new mechanism
 evidence; revisit naturally rides the D-084 port). Reminder for any
 TMS-adjacent probing: 2–3 oracle runs before trusting a PASS (D-080),
 and tools/triage_xfail.py re-screens the quarantine in one command.
+
+
+## Phase P1c — nested existential CE groups (2026-07-06)
+
+### D-088: PROBE FINDINGS (pre-implementation — Bryan review gate):
+### RIA-subnetwork semantics for not(…and…)/exists(…or…) PINNED
+### (probe ladder sn_* — 33 scenarios in probes_pending/p1c/, all
+### decoded, zero contradictions; order probes byte-stable across 2
+### independent JVM launches; sources: LogicTransformer,
+### GroupElementBuilder, PhreakSubnetworkNotExistsNode,
+### RuleNetworkEvaluator.doRiaNode/doRiaNode2, RightInputAdapterNode)
+
+NO ENGINE CHANGES in this checkpoint — findings only, per Bryan's
+"report before implementing" directive. The engine still walls all
+these shapes (D-031); the oracle ran every probe.
+
+**Acceptance envelope (scope per Bryan step 3).** Misc2Test
+#testNestedNots1/2/3 exercise: not(A and B); not((A and B) or (C and
+B)); repeated identical conjuncts across/within rules (sharing —
+DROOLS-444 was the crash); ((not A) or (not B)) or-of-bare-nots (P1a
+DNF already covers); all leading-CE on EMPTY WM asserting fire
+counts. sn_d2 reproduces testNestedNots2's counts exactly
+(1,1,1,1,4 = 8). FirstOrderLogicTest#testRemoveIdentitiesSubNetwork:
+`P($l : likes) not(C(t == $l) and C(t == $l))` outer-correlated
+self-join group + retract-driven unblock — shape adapted (the test's
+RemoveIdentitiesOption.YES is a config = WONT; under default config
+self-pairs DO count, sn_a7, j09-consistent). NOTE: neither test is
+machine-extractable to baseline (JDK fact classes String()/Integer();
+kbase config) — acceptance weight rides the adapted probe mirrors,
+as with the Q phases.
+
+**Compile model (LogicTransformer, drools-base — parse-time rewrites
+the engine must mirror):**
+1. `not(A or B)` → `and(not A, not B)` (De Morgan). Observable:
+   sn_f1a — not(A or B) fires ONCE on empty WM while `(not A) or
+   (not B)` fires TWICE (DNF subrules).
+2. `exists(A or B)` → `not( and( not(A), not(B) ) )` — double
+   negation, NOT exists-per-branch. Observable: sn_f2 — fires ONCE
+   even when both A and B present ((exists A) or (exists B) fires
+   twice); sn_f3 — gains/loses membership without refires while ≥1
+   member type is populated. CONSEQUENCE: exists(…or…) REQUIRES bare
+   nots nested inside a subnetwork (sn_g5 pins that shape directly).
+3. or-inside-and pulls up to top-level DNF = P1a subrule machinery
+   (sn_f5: (A or B) + not(C and D) = 2 subrule firings).
+4. Single-child groups collapse (pack): only not(AND)/exists(AND)
+   reach the network builder.
+
+**Network build (GroupElementBuilder).** The inner AND chains
+ORDINARY join nodes off the FORK tuple source (the outer prefix —
+inner constraints see outer bindings, sn_a5; inner bindings cross
+inner patterns, sn_a6/sn_a9 at 3 patterns). A RightInputAdapterNode
+converts the subnetwork tip into the outer CE node's right input.
+(NotNode carries TupleStartEqualsConstraint, ExistsNode empty
+constraints — both irrelevant to evaluation, which correlates
+structurally.)
+
+**Evaluation (PhreakSubnetworkNotExistsNode) — a THIRD CE machine,
+counting-based, NOT the bare-CE blocker model:**
+- Per-left matches list; each subnetwork tuple maps to its start
+  left by PARENTAGE (BetaNode.getStartTuple: parent walk to the fork
+  index + peer walk to this node). No blocker search, no right
+  memory scans, no index machinery at the outer node.
+- Phase order: leftDel, rightIns, leftIns, rightUpd(=NO-OP),
+  rightDel (deliberately last), leftUpd (after rightDel).
+- Transitions only at count edges: not fires at 0 matches (leftIns)
+  and on →0 (rightDel); exists fires on 0→1 (rightIns); children die
+  on the inverse edges. Counting subsumes handover: support/blocker
+  2→1 = NO refire, NO cancel (sn_b6).
+- Subnetwork-tuple UPDATES are literally dropped ("here before, here
+  now"): in-place inner updates never refire — even value-CHANGED
+  still-alpha-passing ones (sn_b7, sn_e1). Only alpha TRANSITIONS
+  act (exit sn_b8, entry sn_b9 — modify-entry reaches subnetworks).
+- LEFT updates propagate a child UPDATE → fired activations REFIRE,
+  gated by the outer pattern's listen mask (sn_b10: `$v : f0`
+  binding listens {f0} and refires; bare `P()` does not). no-loop
+  scopes per rule as usual (sn_c8).
+- Pending activations cancel on pair-formation (sn_b2) and on
+  last-support loss (sn_b2x), exactly like bare CEs.
+- Evaluation window: the subnetwork evaluates INLINE at the outer
+  node's turn (stack resume in doRiaNode; RIA stages SubnetworkTuples
+  into the outer node's staged RIGHTS with same-batch ins+del
+  folding to nothing). Lazy rules accumulate; eager (no-loop) rules
+  see per-flush windows (sn_c9: eager not/exists fire P1,P2; lazy
+  fire P2,P1 off the LIFO-accumulated batch). Same-RHS delete+insert
+  of a support: NO refire (sn_c5b — phase order keeps count ≥1);
+  cross-firing delete-then-reinsert: REFIRES (sn_c5 — the ne_x2
+  queue-on-unlink analog; exists sinks unlink when the subnetwork
+  path unlinks, so the transition force-queues).
+- Linking asymmetry (staticDoLink/UnlinkRiaNode): subnetwork-path
+  LINK links the outer sink; subnetwork-path UNLINK **links a NOT
+  sink** (nothing can block — sn_c7: not fires with the inner alpha
+  EMPTY, before any subnetwork data ever existed) and **unlinks an
+  EXISTS sink** (holds staging until support is possible).
+
+**Order pins (the headline: subnetwork CEs are EXACTLY INVERTED vs
+bare CEs within a window):**
+- not children ride the LEFT walk → ARRIVAL order: initial batch
+  sn_a3 (P1,P2,P3), rule-origin mass-unblock sn_b3/sn_b3x.
+  Bare not = reverse-arrival (ne_n4/pr_hw_not_unblock).
+- exists children ride the RIGHT walk (subnetwork staging) →
+  REVERSE-ARRIVAL: initial batch sn_a3 (P3,P2,P1), mass-support
+  sn_b4. Bare exists = arrival (pr_hw_exists_support).
+- EXTERNAL-action windows flip the not side: external delete
+  unblocks fire REVERSE-arrival (sn_x1, sn_x2) vs rule-origin
+  arrival (sn_b3, sn_b3x) — 2×2 filled per the D-083 lesson (origin
+  is the discriminator, not left count). External insert support =
+  reverse-arrival like rule-origin (sn_x1 epoch 3).
+- Pass-through: a not node PRESERVES its incoming batch order (then
+  the standard D-013 prefix reversal applies at later joins — sn_c3
+  R3: P2Q1,P2Q2,P1Q1,P1Q2); an exists node REVERSES the incoming
+  batch (sn_c3 R2 full reversal of the join output).
+- Sharing: the certified trie model extends verbatim — first sink
+  preserved, later sinks flipped (sn_d1 twins; sn_d3 not+exists
+  sharing ONE subnetwork RIA with kind-specific orders), and
+  referenced inner-binding NAMES are identity-significant exactly
+  like ne_t13/t14 (sn_d4: $y/$z twins do NOT share — no flip; $y/$y
+  twin DOES — flipped).
+
+**Quirk check:** the D-041/mn6 subnetwork false-admit does NOT
+reproduce for not-groups (sn_e2 — mask-hit modify of an
+alpha-FAILING outer fact stays correctly excluded; bare-not control
+agrees). The quirk stays collect-specific; no new Drools quirks
+surfaced; every probe fits one model.
+
+**Walls verified against the oracle (all recorded, honest fences):**
+- Inner bindings referenced DOWNSTREAM of the group = faithful
+  Drools COMPILE ERROR (sn_g1) — engine mirrors as parse error.
+- Legal-in-Drools but PROPOSED OUT of P1c (recorded behavior for the
+  fence notes): `not(exists(A and B))` (sn_g2), `not(not(A))`
+  (sn_g3 — fires iff A exists), `exists((A and B) or C)` (sn_g4 —
+  composite or-branches build RIA-inside-RIA after the rewrite).
+  Fence = clean parse error on composite groups NESTED inside
+  groups; bare not/exists inside a group stay IN (sn_g5 — required
+  by the exists(or) rewrite and the forall shape not(A and not B),
+  both behave compositionally).
+
+**Proposed P1c envelope (for Bryan's review):**
+IN: not/exists over AND-groups of 2–3 positive patterns; inner
+bindings crossing inner patterns and referencing outer bindings;
+literal alphas + the certified operator set inside groups; bare
+not/exists nested INSIDE groups; not(or)/exists(or) with
+single-pattern branches (compiled via the pinned rewrites); leading
+(InitialFact) and any-position groups; multiple groups per rule;
+shared groups across rules; group CEs inside or-branches; rule-RHS
+and external mutation of inner/outer facts; D-031's parenthesized
+single-pattern fence lifts (`not (A())` = bare not after collapse).
+OUT (compile-rejected, mirroring the acceptance envelope): composite
+groups nested inside groups (RIA-in-RIA: not(exists(and)),
+not(not()), exists(or) with composite branches); bindings escaping
+groups (faithful Drools error); groups in query bodies (D-073 fence
+stands); accumulate/collect/?query inside groups; group CEs in
+insertLogical-justifier rules (D-076 wall extension — revalidation
+over subnetworks unprobed); >3 inner patterns.
+
+**Implementation sketch (NOT started; post-review):** parse-time
+rewrites (De Morgan / double-negation / collapse) → subnetwork = a
+trie BRANCH off the fork prefix reusing the certified join nodes,
+tipped by an RIA staging into the outer node's rights (peer copies
+for later sinks — existing machinery); new SubnetNot/SubnetExists
+node implementing the counting machine with the pinned phase order;
+start-tuple correlation = the branch's fork-prefix tuple id (native
+to the trie); linking gates per the asymmetry; queue-on-unlink
+reuses D-032. Replica-first (model_check pattern) against all 33
+probes for the list-level order fine structure (not=arrival,
+exists=reverse, external-not=reverse) BEFORE Rust. Generator: group
+draws with the type-DAG termination discipline extended to inner
+patterns; fuzz-gate EVERY discriminator (D-083 lesson) — the
+external-vs-rule-origin unblock asymmetry gets targeted weight.

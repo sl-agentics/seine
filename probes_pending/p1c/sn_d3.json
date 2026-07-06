@@ -1,0 +1,17 @@
+{
+  "name": "sn_d3",
+  "types": [
+    {"name": "P", "fields": [{"name": "f0", "type": "i64"}]},
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "G", "fields": [{"name": "g", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "P", "fields": {"f0": 1}},
+    {"type": "P", "fields": {"f0": 2}},
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 1}},
+    {"type": "G", "fields": {"g": 1}}
+  ],
+  "drl": "rule R_ex salience 20 when $p : P() exists(A() and B()) then end\nrule R_del salience 10 when $g : G() $b : B() then delete($b) end\nrule R_not when $p : P() not(A() and B()) then end\n"
+}

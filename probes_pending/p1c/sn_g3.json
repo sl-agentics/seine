@@ -1,0 +1,11 @@
+{
+  "name": "sn_g3",
+  "types": [
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "E", "fields": [{"name": "k", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "A", "fields": {"k": 1}}
+  ],
+  "drl": "rule R1 when not(not(A())) then end\nrule R2 when not(not(E())) then end\n"
+}

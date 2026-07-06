@@ -1,0 +1,17 @@
+{
+  "name": "sn_c9",
+  "types": [
+    {"name": "G", "fields": [{"name": "g", "type": "i64"}]},
+    {"name": "P", "fields": [{"name": "f0", "type": "i64"}]},
+    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
+    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
+    {"name": "CM", "fields": [{"name": "c", "type": "i64"}]}
+  ],
+  "facts": [
+    {"type": "G", "fields": {"g": 1}},
+    {"type": "G", "fields": {"g": 2}},
+    {"type": "A", "fields": {"k": 1}},
+    {"type": "B", "fields": {"m": 1}}
+  ],
+  "drl": "rule R_src salience 10 when $g : G($v : g) then insert(new P($v)); end\nrule R_ex_eager no-loop when $p : P() exists(A() and B()) then end\nrule R_ex_lazy salience -5 when $p : P() exists(A() and B()) then end\nrule R_not_eager no-loop salience -8 when $p : P() not(A() and CM()) then end\nrule R_not_lazy salience -10 when $p : P() not(A() and CM()) then end\n"
+}
