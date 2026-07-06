@@ -1,0 +1,67 @@
+{
+ "name": "pr_hw_reentry_not",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 5,
+    "f1": false
+   }
+  }
+ ],
+ "drl": "rule R0 when not T0(f0 == 5) then end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "f0": 9
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "f0": 5
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

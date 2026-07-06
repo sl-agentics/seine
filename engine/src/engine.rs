@@ -2165,6 +2165,14 @@ impl Engine {
     }
 
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
+        // D-081: slot memory does not survive a fire boundary —
+        // same-window out-and-back restores the original slot
+        // (fz_7_5801), but re-entries after an intervening
+        // fireAllRules place at the head like any fresh add
+        // (hw_hb4/hb5, fz_min_1144).
+        for ni in 0..self.trie.len() {
+            self.trie[ni].s0_in.clear_slots();
+        }
         if !self.lists_built {
             self.lists_built = true;
             let initial: Vec<FactId> = self.store.live_facts().collect();
@@ -2232,6 +2240,15 @@ impl Engine {
         }
         if let Some(e) = self.pending_err.take() {
             return Err(EngineError(e));
+        }
+        // D-081: slot memory does not survive the fire boundary —
+        // same-fire-window out-and-back restores the original slot
+        // (fz_7_5801: cancel + re-add within one epoch's actions), but
+        // re-entries after this fire returns place at the head like any
+        // fresh add (hb4/hb5, fz_min_1144: exits mid-fire or in a prior
+        // epoch never slot-restore later).
+        for ni in 0..self.trie.len() {
+            self.trie[ni].s0_in.clear_slots();
         }
         Ok(firings)
     }

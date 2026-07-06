@@ -75,6 +75,12 @@ impl<T: Clone + PartialEq> Staged<T> {
             && self.norm_del.is_empty()
     }
 
+    /// Drop remembered cancelled-slot positions (D-081: slot restore
+    /// is scoped to the current fire boundary).
+    pub fn clear_slots(&mut self) {
+        self.cancelled_slots.clear();
+    }
+
     pub fn take(&mut self) -> Staged<T> {
         let slot_memory = self.slot_memory;
         let out = std::mem::take(self);
@@ -1458,7 +1464,15 @@ impl Node {
             .iter()
             .copied()
             .find(|f| {
-                !sr.del.iter().any(|(x, _, _)| x == f) && env.allowed_ce(node_idx, l, *f)
+                // staged-deleted rights are ineligible — UNLESS the same
+                // fact is ALSO staged-inserted (alpha out-and-back within
+                // one batch, hw_ex1a/fz_42_3924): Drools' re-added right
+                // is a fresh unstaged RightTuple and re-blocks; only a
+                // del-then-ins sequence leaves both staged (ins-then-del
+                // folds), so both-present uniquely marks re-entry.
+                let staged_del = sr.del.iter().any(|(x, _, _)| x == f);
+                let re_added = sr.ins.iter().any(|(x, _, _)| x == f);
+                (!staged_del || re_added) && env.allowed_ce(node_idx, l, *f)
             })
     }
 

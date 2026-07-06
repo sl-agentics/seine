@@ -1,0 +1,80 @@
+{
+ "name": "pr_hw_not_unblock",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 1,
+    "f1": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "g0": 7
+   }
+  }
+ ],
+ "drl": "rule RD salience -5 when T0(f0 == 99) $t : T1() then delete($t); end\nrule RX when T0(f0 < 50) not T1() then end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T0",
+     "fields": {
+      "f0": 2,
+      "f1": false
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T0",
+     "fields": {
+      "f0": 99,
+      "f1": false
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

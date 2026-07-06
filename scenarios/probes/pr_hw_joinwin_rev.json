@@ -1,0 +1,61 @@
+{
+ "name": "pr_hw_joinwin_rev",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 1,
+    "f1": false
+   }
+  }
+ ],
+ "drl": "rule R1 when T0($b : f0) then insert(new T1($b)); end\nrule RJ salience -2 when T1() T0() then end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T0",
+     "fields": {
+      "f0": 2,
+      "f1": false
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

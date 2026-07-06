@@ -2469,3 +2469,45 @@ per Bryan: D-075/D-080 hardening worklist (two pins already queued:
 ex1a out-and-back right re-entry, hb4 exists multi-right left order;
 then collect/dyn-salience/query-row families), THEN P1c nested
 existential CE groups on the hardened base.
+
+
+## Hardening wave 1 — D-075/D-080 latent order-bug backlog (2026-07-06)
+
+### D-081: alpha out-and-back re-entry + slot-memory fire-boundary
+### (fz_42_3924 + fz_min_1144 families graduated from xfail)
+Bryan's directive: harden the quarantined latents before P1c. Two
+mechanisms pinned and fixed, nine probes promoted (pr_hw_*):
+1. **Existential right re-entry (pr_hw_reentry_not/ortwin, hw_ex1a):**
+   a fact leaving and re-entering a not/exists alpha within one staged
+   batch (update-out then update-back) leaves BOTH a del and an ins
+   staged (del-then-ins does not fold; ins-then-del does). The blocker
+   re-search treated any staged-del right as ineligible, so the engine
+   unblocked and fired where Drools re-blocks against the re-added
+   (fresh, unstaged) RightTuple and nets ZERO firings. Fix: a
+   staged-del right that is ALSO staged-ins is eligible — both-present
+   uniquely marks re-entry. Clears fz_42_3924 + fz_min_3924b (the
+   or-twin variant needs nothing extra: subrule sharing was innocent).
+2. **Slot memory is scoped to the fire boundary (pr_hw_slot_*):**
+   D-047's cancelled-slot restore (fz_7_5801) applies to out-and-back
+   WITHIN one fire window (cancel + re-add in one epoch's actions).
+   Re-entries after fireAllRules returns place at the HEAD like fresh
+   adds — the engine's slots persisted forever, reconstructing stale
+   orders (fz_min_1144: exists left-batch fired newest-first instead
+   of arrival order; the earlier "exists iteration order" theory was
+   wrong — the STAGING order was the bug). Fix: cancelled slots clear
+   when fire_all returns. fz_7_5801 + min preserved exactly.
+Also pinned as probes: exists mass-support = left-ARRIVAL order while
+not mass-unblock stays reverse-arrival (pr_hw_exists_support /
+pr_hw_not_unblock, refining ne_n4's asymmetry); multi-window join
+activation order falls out of the certified phase machinery
+(pr_hw_joinwin*, 3 probes — family A's core was never broken).
+**Wave-1 gate (WITNESSED):** tiers 11/431/252 green pre-gate; fuzz
+5x10k = 50,000 cases, ZERO divergences (xfail hits = quarantined
+names only). Graduated: fz_42_3924(+min), fz_42_1144(+min+plain) —
+xfail worklist 5 smaller.
+
+OPEN, next in queue: fz_999_5014's residual = the JOIN-edition
+re-entry (rightDel kills the re-add's fresh children — same
+single-FactId identity gap at join nodes); fz_min_455 (modify-layer
+join order); collect pair (fz_min_4816/xf_min_9976); dyn-salience
+pair order (fz_min_6812); query rows (fz_min_3959).

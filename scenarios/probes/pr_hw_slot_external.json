@@ -1,0 +1,86 @@
+{
+ "name": "pr_hw_slot_external",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 8,
+    "f1": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 9,
+    "f1": false
+   }
+  }
+ ],
+ "drl": "rule R1 when T0(f0 >= 10) then insert(new T1(7)); end\nrule RX when T0(f1 == false) exists T1() then end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "f1": true
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "f1": true
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "f0": 5,
+      "f1": false
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "f0": 11,
+      "f1": false
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}
