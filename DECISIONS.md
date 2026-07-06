@@ -2727,8 +2727,39 @@ D-051), so the gate's surface is exactly the probed shape.
 + 275 regressions); fuzz seeds 42/7/123/777/999 x 10,000 = 50,000
 cases, ZERO divergences, zero quarantined-name draws. Configuration:
 hold-LIFO boundary semantics (D-084 advance disabled) + D-085 marker
-+ D-086 query link gate. xfail 74 -> 72: OUT 3959-pair (D-086),
-9976-pair (D-085), 4035/2742/3482/6009 graduated green; IN (back)
-455-pair + 4816-pair (the D-084 fence). Remaining 72 = 68 D-080 TMS
-envelope + D-042 order-trio (nb3, fz_7_2364, fz_min_7_2364) +
-455/4816 fence.
++ D-086 query link gate. xfail count now 75: OUT this wave
+3959-pair (D-086), 9976-pair (D-085), 3482 graduated green (4035/
+2742/6009 were fuzz finds, never parked); IN (back) 455-pair +
+4816-pair (the D-084 fence). The 75 = 68 D-080 TMS envelope +
+D-042 order-trio (nb3, fz_7_2364, fz_min_7_2364) + the 4-scenario
+D-084 fence.
+
+**HANDOFF @ wave-2 close (2026-07-06) — Bryan's rulings + the wave-3
+worklist:**
+- D-084 (455/4816 fence): RESUME VIA SOURCES-PORT ONLY — Bryan ruled
+  black-box has hit its limit (six falsified rounds); the port of the
+  drools-core staged-tuple lifecycle (SegmentMemory.getStagedLeftTuples,
+  PathMemory link notifications, RuleExecutor.evaluateNetworkIfDirty)
+  is deferred to a LATER session, likely Opus (read-the-source-and-
+  port-a-located-mechanism work). Do NOT black-box this class further.
+  Validation harness for that port is already in place: pr_rl2..rl10 +
+  fz_42_4035/fz_123_2742/fz_123_3482/fz_999_6009 (green, guard rounds
+  3-6) + the 4 fenced scenarios (455-pair, 4816-pair).
+- NEXT SESSION (fresh context): D-080 TMS envelope TRIAGE — classify
+  the 68 TMS xfail witnesses into (a) pinnable → probe + fix, (b)
+  Drools-nondeterministic → verify 3x across JVM launches, fence as
+  UNCERTIFIABLE with the runs documented (fz_42_84 family expected
+  here — quarantine-and-document is the CORRECT outcome for
+  nondeterminism, not cracking), (c) genuinely-ambiguous micro-timing
+  → fence with a D-entry. Commit triage results; keep DECISIONS
+  current. Reminder: oracle TMS probes need 2-3 runs before trusting
+  any PASS (D-080 note).
+- Fold the D-042 order-trio (nb3, fz_7_2364, fz_min_7_2364 —
+  mut+del+not order-only quarantines, pre-TMS) into that triage or
+  fence it explicitly with its own entry.
+- State at handoff: HEAD 0a614a7, corpus 749/749, 50k fuzz clean,
+  xfail 75 = 68 TMS witnesses + D-042 order-trio (3) + the D-084
+  fence (455-pair + 4816-pair = 4). Tooling from this wave:
+  RunnerDump.java pattern (graft memory dumps into a copy of the
+  oracle runner — hand-built session reproductions missed what it
+  caught), pr_rl9-style inert-RHS full-queue readouts.
