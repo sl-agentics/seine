@@ -2763,3 +2763,74 @@ worklist:**
   RunnerDump.java pattern (graft memory dumps into a copy of the
   oracle runner — hand-built session reproductions missed what it
   caught), pr_rl9-style inert-RHS full-queue readouts.
+
+
+## D-080 TMS envelope triage (2026-07-06, post-wave-2)
+
+### D-087: xfail quarantine triaged — ZERO in-envelope pins; every
+### witness classified and fenced on 10-run oracle evidence
+### (tools/triage_xfail.py; per-witness table in docs/xfail-triage.md)
+
+Executed the wave-2 handoff mandate: classify the 68 D-080 TMS
+witnesses into pin / fence-nondeterministic / fence-ambiguous, folding
+in the D-042 order-trio. Method: engine once + oracle x10 INDEPENDENT
+JVM LAUNCHES per witness (above the D-080 2-3x bar), canonical D-003
+comparison, plus a textual screen of every witness against the
+D-078/D-080 fence line (markers: A = justifier same-RHS mutation,
+B = stated insert of the logical type, RD = rule delete of it,
+SJ = CE-only self-justifier).
+
+**Headline: the pin bucket is EMPTY.** All 45 deterministic divergers
+carry fence markers (census A 25 / B 29 / RD 12 / SJ 17; combos led by
+A,B x14 and pure SJ x13) — no witness diverges inside the certified
+envelope, the fence sits exactly where D-078/D-080 drew it, and no
+engine change is warranted. The remaining 23 TMS witnesses have no
+stable oracle to certify against at all (22 runaways + 1 order-nondet).
+
+Classification (all 75 xfail files, non-TMS families included):
+- (i) COMPOUND TRANSIENT-VISIBILITY, 45 — oracle 10/10 identical;
+  small firing-multiset deltas in BOTH directions (differing transient
+  windows, not a systematic under/over-fire); 5 also differ in final
+  facts. Narrative pair: xf_tms_min812 (engine parks the self-defeat;
+  Drools lets a sibling accumulate rule fire ONCE against the transient
+  before the lazy retraction — 2 firings vs 1, same facts) and
+  fz_7_9902 (firing logs IDENTICAL; the oracle nets one extra stated
+  duplicate — stated/justified key bookkeeping, no timing component).
+  Fenced per D-080, now itemized per witness.
+- (ii) DROOLS RUNAWAY, 22 — oracle fire-limit 10/10 for EVERY witness;
+  all SJ shapes (the fz_42_946 family); the engine terminates on all
+  of them (2–15 firings — the certified self-defeat park). The
+  fz_42_84 family (84/581/2657) did NOT reproduce D-080's pass/limit
+  flip in 10 launches; the recorded launch-dependence stands — either
+  way there is no stable oracle answer to certify against, and clean
+  termination is the strictly better behavior.
+- (iii) DROOLS ORDER-NONDET, 1 — fz_123_6887 (B,RD): 6/10 vs 4/10
+  firing-order flip across launches (same 14-firing multiset, same
+  facts; an R5/R3 refire-interleave swap). A NEW nondeterminism
+  witness beyond the 84-family — further independent evidence the
+  fence line sits where Drools' own behavior stops being a function
+  of the program. (The engine is additionally 3 transient refires
+  short of both variants — family-(i) class; facts match.)
+- (iv) D-042 ORDER-TRIO, 3 — nb3/fz_7_2364/fz_min_7_2364 (no TMS):
+  oracle 10/10 stable, engine order-only (first swap @2–3). The
+  accepted carve-out is RE-AFFIRMED on stronger evidence; the
+  D-081/D-083 re-entry machinery did not dislodge it (the class
+  siblings fz_999_8145/fz_27182_1227 graduated at D-083; this trio is
+  the residue). Revisit per D-042's trigger only (value-bearing
+  variant or new mechanism evidence), most naturally alongside the
+  D-084 sources-port (both are RuleExecutor/staging internals).
+- (v) D-084 FENCE, 4 — the 455/4816 pairs re-verified
+  oracle-DETERMINISTIC 10/10: the held-staging class is deterministic
+  mechanics, not nondeterminism — consistent with Bryan's
+  sources-port ruling. fz_42_4816 is ORDER-ONLY (swap @51 of 64);
+  the other three carry equal-count firing/fact swaps.
+
+No engine, corpus, or generator changes — documentation artifacts
+only. tools/triage_xfail.py is rerunnable (engine + N fresh-JVM
+oracle replicates + shape screen; prints a loud PIN-CANDIDATE line if
+any diverger ever appears without a fence marker) and reproduced the
+identical taxonomy on an independent 3-launch smoke run (13 launches
+total). xfail stays 75 name-keyed files; corpus/fuzz gate unchanged
+from the wave-2 close (749/749, 50k clean at 0a614a7). With this the
+D-075/D-080 hardening worklist is CLOSED — P1c (nested existential CE
+groups) is unblocked.
