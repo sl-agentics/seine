@@ -290,6 +290,13 @@ struct GenPattern {
     bindings: Vec<(String, usize, Ft)>,
     /// Accumulate rendering: (function name, arg render, result var).
     acc: Option<(String, String, String)>,
+    /// Group CE inners (P1c/D-089), ce 5 = not-group / 6 = exists-group:
+    /// (type idx, constraints, render-as-bare-not). Inner bindings stay
+    /// group-scoped (never registered outward). `group_or` renders the
+    /// two inners as an `or` (the parse-time rewrite path: De Morgan /
+    /// double negation).
+    group: Vec<(usize, Vec<String>, bool)>,
+    group_or: bool,
 }
 
 pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
@@ -376,6 +383,8 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                         .map(|(v, fi, ft)| (v.replace(&from, &to), *fi, *ft))
                         .collect(),
                     acc: None,
+                    group: Vec::new(),
+                    group_or: false,
                 });
             }
             copied = take;
@@ -414,6 +423,9 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             } else {
                 ce
             };
+            // P1c/D-089: ~35% of bare-CE draws become GROUP CEs
+            // (5 = not-group, 6 = exists-group; inners drawn below).
+            let ce = if (ce == 1 || ce == 2) && rng.chance(35) { ce + 4 } else { ce };
             pats.push(GenPattern {
                 ti,
                 ce,
@@ -421,6 +433,8 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 constraints: Vec::new(),
                 bindings: Vec::new(),
                 acc: None,
+                group: Vec::new(),
+                group_or: false,
             });
         }
 
@@ -463,7 +477,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         // Constraints, bindings, join tests (fresh patterns only — a
         // reused prefix keeps its constraint list verbatim).
         for pi in copied..npat {
-            let ncmp = rng.below(3);
+            let ncmp = if pats[pi].ce >= 5 { 0 } else { rng.below(3) };
             for _ in 0..ncmp {
                 let (fname, ft) = {
                     let fs = &types[pats[pi].ti].fields;
@@ -475,14 +489,14 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             // D-073 inline boolean groups (~12% of patterns; collect
             // sources excluded — their gate/identity story is scoped to
             // plain constraints).
-            if pats[pi].ce != 4 && rng.chance(12) {
+            if pats[pi].ce != 4 && pats[pi].ce < 5 && rng.chance(12) {
                 let fs = types[pats[pi].ti].fields.clone();
                 pats[pi].constraints.push(gen_group_constraint(&mut rng, &fs));
             }
             // Join constraint against an earlier binding. Collect
             // patterns are excluded: a var-referencing collect source
             // is an RIA subnetwork, out of subset (D-041).
-            if pi > 0 && pats[pi].ce != 4 && rng.chance(55) {
+            if pi > 0 && pats[pi].ce != 4 && pats[pi].ce < 5 && rng.chance(55) {
                 let earlier: Vec<(String, Ft)> = pats[..pi]
                     .iter()
                     .flat_map(|p| p.bindings.iter().map(|(v, _, ft)| (v.clone(), *ft)))
@@ -556,6 +570,91 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     }
                 }
             }
+            // Group CE inners (P1c/D-089): two inner patterns; shapes —
+            // plain `and`, outer-binding correlation (sn_a5),
+            // inner-crossing binding (sn_a6), bare-not inner (sn_g5 /
+            // forall substrate), `or` form (fuzzes the De Morgan /
+            // double-negation rewrites; no inner bindings there —
+            // rewritten branches are bare CEs, D-031).
+            if pats[pi].ce >= 5 {
+                let or_form = rng.chance(18);
+                let t1 = rng.below(ntypes);
+                let t2 = rng.below(ntypes);
+                let mut c1: Vec<String> = Vec::new();
+                let mut c2: Vec<String> = Vec::new();
+                if rng.chance(55) {
+                    let fs = &types[t1].fields;
+                    let (fname, ft) = fs[rng.below(fs.len())].clone();
+                    c1.push(gen_alpha_constraint(&mut rng, &fname, ft));
+                }
+                if rng.chance(55) {
+                    let fs = &types[t2].fields;
+                    let (fname, ft) = fs[rng.below(fs.len())].clone();
+                    c2.push(gen_alpha_constraint(&mut rng, &fname, ft));
+                }
+                // correlation to an earlier OUTER binding (constraint,
+                // not a binding — legal in or-forms too)
+                if pi > 0 && rng.chance(45) {
+                    let earlier: Vec<(String, Ft)> = pats[..pi]
+                        .iter()
+                        .flat_map(|p| p.bindings.iter().map(|(v, _, ft)| (v.clone(), *ft)))
+                        .collect();
+                    if !earlier.is_empty() {
+                        let (tgt, cs) =
+                            if rng.chance(50) { (t1, &mut c1) } else { (t2, &mut c2) };
+                        let fs = &types[tgt].fields;
+                        let fi = rng.below(fs.len());
+                        let (fname, ft) = fs[fi].clone();
+                        let compat: Vec<&(String, Ft)> = earlier
+                            .iter()
+                            .filter(|(_, bft)| ft.join_compatible(*bft))
+                            .collect();
+                        if !compat.is_empty() {
+                            let (var, bft) = (*rng.pick(&compat)).clone();
+                            let op = if ft == Ft::Bool || bft == Ft::Bool {
+                                *rng.pick(OPS_EQ)
+                            } else {
+                                *rng.pick(OPS_ORD)
+                            };
+                            cs.push(format!("{fname} {op} {var}"));
+                        }
+                    }
+                }
+                let mut bare_not_2 = false;
+                if !or_form {
+                    // bare-not second inner (no bindings on IT, D-031) —
+                    // combinable with the crossing below: the combined
+                    // shape is the forall correlation substrate
+                    // not(A($g : f) and not(B(f' op $g))), sn_a10
+                    bare_not_2 = rng.chance(17);
+                    // inner-crossing binding: inner-1 binds, inner-2
+                    // filters on it (group-scoped var)
+                    if rng.chance(30) {
+                        let fs1 = &types[t1].fields;
+                        let fi1 = rng.below(fs1.len());
+                        let (f1name, f1t) = fs1[fi1].clone();
+                        let gv = format!("$g{ri}_{pi}");
+                        let fs2 = &types[t2].fields;
+                        let compat: Vec<(String, Ft)> = fs2
+                            .iter()
+                            .filter(|(_, ft)| ft.join_compatible(f1t))
+                            .cloned()
+                            .collect();
+                        if !compat.is_empty() {
+                            let (f2name, f2t) = rng.pick(&compat).clone();
+                            let op = if f1t == Ft::Bool || f2t == Ft::Bool {
+                                *rng.pick(OPS_EQ)
+                            } else {
+                                *rng.pick(OPS_ORD)
+                            };
+                            c1.push(format!("{gv} : {f1name}"));
+                            c2.push(format!("{f2name} {op} {gv}"));
+                        }
+                    }
+                }
+                pats[pi].group = vec![(t1, c1, false), (t2, c2, bare_not_2)];
+                pats[pi].group_or = or_form;
+            }
         }
 
         // Guard constraint for the update rule.
@@ -585,19 +684,30 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     constraints: p.constraints.clone(),
                     bindings: p.bindings.clone(),
                     acc: None,
+                    group: p.group.clone(),
+                    group_or: p.group_or,
                 })
                 .collect(),
         );
 
         // RHS actions.
         let mut actions: Vec<String> = Vec::new();
-        let max_ti = pats.iter().map(|p| p.ti).max().unwrap();
+        let max_ti = pats
+            .iter()
+            .flat_map(|p| {
+                std::iter::once(p.ti).chain(p.group.iter().map(|(gt, _, _)| *gt))
+            })
+            .max()
+            .unwrap();
         let can_insert = max_ti + 1 < ntypes && delete_pos.is_none();
         // insertLogical eligibility (D-076): never from acc/collect
         // rules (engine wall); the DAG bound uses POSITIVE patterns only
         // — not/exists over the logical type may still justify it (the
         // t10 self-defeat family terminates by the eager-retract pin).
-        let has_acc = pats.iter().any(|p| p.ce >= 3);
+        let has_acc = pats.iter().any(|p| p.ce >= 3 && p.ce <= 4);
+        // D-089 wall (Bryan's ruling): group-CE justifiers are out —
+        // the generator never draws insertLogical from group rules.
+        let has_group = pats.iter().any(|p| p.ce >= 5);
 
         if can_insert {
             let nins = rng.below(3);
@@ -613,7 +723,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 // in the same RHS (the compound transient-visibility
                 // micro-timings are documented-open, not fuzzed).
                 if tms && tgt_ti == logical_ti {
-                    if has_acc || update_pos.is_some() || delete_pos.is_some() {
+                    if has_acc || has_group || update_pos.is_some() || delete_pos.is_some() {
                         continue;
                     }
                     actions.push(format!(
@@ -677,7 +787,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         // would fuzz the unprobed acc-sharing surface (D-038 spirit).
         let guard_text = guard_field.as_ref().map(|(_, g)| format!("{g} == false"));
         let mut branches: Vec<Vec<GenPattern>> = vec![pats.clone()];
-        if pats.iter().all(|p| p.ce < 3) && rng.chance(18) {
+        if pats.iter().all(|p| p.ce < 3 || p.ce >= 5) && rng.chance(18) {
             let nb = if rng.chance(25) { 3 } else { 2 };
             for _ in 1..nb {
                 let mut copy: Vec<GenPattern> = pats.clone();
@@ -759,6 +869,19 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 }
                 let arg = if func == "count" { String::new() } else { avar.clone() };
                 return format!("accumulate( {src}; {rvar} : {func}({arg}) )");
+            }
+            if p.ce >= 5 {
+                let kw = if p.ce == 5 { "not" } else { "exists" };
+                let inners: Vec<String> = p
+                    .group
+                    .iter()
+                    .map(|(ti, cs, bare_not)| {
+                        let body = format!("{}({})", types[*ti].name, cs.join(", "));
+                        if *bare_not { format!("not({body})") } else { body }
+                    })
+                    .collect();
+                let joiner = if p.group_or { " or " } else { " and " };
+                return format!("{kw}({})", inners.join(joiner));
             }
             let ce = match p.ce {
                 1 => "not ",

@@ -958,7 +958,7 @@ impl Engine {
                     let tid = r
                         .patterns
                         .iter()
-                        .find(|p| p.tpos == Some(pos))
+                        .find(|p| p.tpos == Some(pos) && p.sub != SubRole::Inner)
                         .map(|p| p.type_id);
                     if let Some(tid) = tid {
                         if logical_tids.contains(&tid) {
@@ -1983,6 +1983,7 @@ impl Engine {
                         let lhs_ft = self.store.field_type(type_id, cmps[*ci].field_idx);
                         let src_pat = patterns
                             .iter()
+                            .rev()
                             .find(|q: &&CompiledPattern| q.tpos == Some(*ti))
                             .expect("binding source pattern");
                         let rhs_ft = self.store.field_type(src_pat.type_id, *fi);
@@ -3020,11 +3021,14 @@ impl Engine {
                 .collect();
             // ?query-CE positions hold synthetic row facts that never
             // retract (pull semantics, D-056) — excluded from pruning.
+            // Subnet-INNER positives are excluded too (D-089): their
+            // tpos are subnet-branch slots that do not exist in rule
+            // tuples.
             let positives: Vec<(usize, usize)> = self.rules[ri]
                 .patterns
                 .iter()
                 .enumerate()
-                .filter(|(_, p)| p.qce.is_none())
+                .filter(|(_, p)| p.qce.is_none() && p.sub != SubRole::Inner)
                 .filter_map(|(pos, p)| p.tpos.map(|t| (pos, t)))
                 .collect();
             let pre = self.queue_top_sal(ri).unwrap_or(0);
@@ -4288,7 +4292,8 @@ impl Engine {
                     dead || {
                         // alpha re-check of f's own slots only
                         self.rules[*ri].patterns.iter().enumerate().any(|(pos, pat)| {
-                            pat.tpos.map(|t| tuple[t] == f).unwrap_or(false)
+                            pat.sub != SubRole::Inner
+                                && pat.tpos.map(|t| tuple[t] == f).unwrap_or(false)
                                 && !self.alpha_passes(*ri, pos, f)
                         })
                     }
@@ -4402,9 +4407,11 @@ impl Engine {
             let k = self.rules[ri].patterns.len();
             (0..k).any(|pos| {
                 let pat = &self.rules[ri].patterns[pos];
-                pat.tpos
-                    .map(|tp| !self.alpha_passes(ri, pos, t[tp]))
-                    .unwrap_or(false)
+                pat.sub != SubRole::Inner
+                    && pat
+                        .tpos
+                        .map(|tp| !self.alpha_passes(ri, pos, t[tp]))
+                        .unwrap_or(false)
             })
         };
         if left_death {
