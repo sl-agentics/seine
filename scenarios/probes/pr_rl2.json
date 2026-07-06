@@ -1,0 +1,67 @@
+{
+ "name": "pr_rl2",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "h0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 0,
+    "f1": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "g0": 100
+   }
+  }
+ ],
+ "drl": "rule R0 salience -5 when T0(f1 == false) T1($g : g0) then end\nrule Rout salience -10 when $p : T0(f1 == false, f0 == 0) then modify($p) { setF1(true) } end\nrule Rmid salience -15 when T0(f1 == true, f0 == 0) then insert(new T1(7)); insert(new T1(8)); end\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T0",
+     "fields": {
+      "f0": 1,
+      "f1": false
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

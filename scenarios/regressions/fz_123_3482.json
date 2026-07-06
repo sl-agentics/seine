@@ -1,0 +1,170 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f0 != 4.0)\n    T1(f1 <= 1, $b0_1_0 : f0)\nthen\n    insert(new T3(5, true));\n    insert(new T2(true, $b0_1_0, false, false));\nend\nrule \"R1\"\nwhen\n    $p1_0 : T1(f0 != 4.0)\n    T1(f1 <= 1, $b1_1_0 : f0)\n    accumulate( T2(f1 <= 0.5, f2 != false, $s1_2 : f1); $a1_2 : sum($s1_2) )\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nwhen\n    T0()\n    T0(f0 != \"alpha\", $b2_1_0 : f0)\nthen\n    insert(new T1(-3.0, -2, 7));\n    insert(new T1(6.0, 1, -1000000007));\nend\nrule \"R3\"\nsalience -6\nwhen\n    T0()\n    $p3_1 : T0(f0 != \"alpha\", $b3_1_0 : f0)\nthen\n    insert(new T3(8, $p3_1.isF1()));\n    insert(new T1(-2.0, 12, 6));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f2": true
+          },
+          "op": "update",
+          "target": 2
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": true,
+            "f1": -0.5,
+            "f2": true,
+            "f3": false
+          },
+          "type": "T2"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "op": "delete",
+          "target": 0
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": -1.0,
+            "f1": -1,
+            "f2": 9
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": 7,
+            "f1": true
+          },
+          "type": "T3"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": 5,
+        "f1": false
+      },
+      "type": "T3"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 1.0,
+        "f2": true,
+        "f3": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 1.0,
+        "f2": false,
+        "f3": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -1.5,
+        "f2": true,
+        "f3": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": -1.0,
+        "f1": 8,
+        "f2": 100
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_3482",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

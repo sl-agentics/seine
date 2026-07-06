@@ -1,0 +1,89 @@
+{
+ "name": "pr_rl9",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "h0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "g0": 1
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "g0": 2
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "h0": 9
+   }
+  }
+ ],
+ "drl": "rule R salience -5 when T1($a : g0) T1(g0 >= $a) T2(h0 > 0) then end\nrule Rdel salience -10 when $t : T2(h0 == 9) then delete($t); end\n",
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "T1",
+     "fields": {
+      "g0": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T2",
+     "fields": {
+      "h0": 7
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "T1",
+     "fields": {
+      "g0": 4
+     }
+    }
+   ]
+  }
+ ]
+}

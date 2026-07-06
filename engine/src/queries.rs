@@ -830,6 +830,37 @@ fn drain_pattern(
     m.clone()
 }
 
+/// D-086: a query's path is LINKED when some or-branch has every
+/// positive fact pattern's alpha populated by at least one live fact.
+/// An armed query's agenda item queues on WM events only while linked
+/// (fz_min_3959: an unlinked branch accumulates staged facts into ONE
+/// drain window that opens at the linking event).
+pub fn query_linked(store: &FactStore, queries: &[CompiledQuery], qi: usize) -> bool {
+    queries[qi].branches.iter().any(|branch| {
+        branch.iter().all(|node| match node {
+            CNode::Fact(pat) => store.live_facts_of(pat.tid).any(|f| {
+                pat.alpha.iter().all(|(fi, t)| {
+                    let v = store.value(f, *fi);
+                    match t {
+                        AlphaTest::Cmp { op, rhs } => eval_cmp_pub(&v, *op, rhs),
+                        AlphaTest::Matches(r) => {
+                            matches!(&v, Value::Str(s) if r.accepts(s))
+                        }
+                        AlphaTest::Contains(n) => {
+                            matches!(&v, Value::Str(s) if s.contains(n.as_str()))
+                        }
+                        AlphaTest::InList { items, negated } => {
+                            let hit = items.iter().any(|i| eval_cmp_pub(&v, CmpOp::Eq, i));
+                            hit != *negated
+                        }
+                    }
+                })
+            }),
+            _ => true,
+        })
+    })
+}
+
 /// Evaluate a query's own network with no driving tuples — the agenda-
 /// item evaluation of a PENDING query (D-058): every fact pattern of the
 /// query drains one window. Called queries have their OWN items and are

@@ -302,6 +302,16 @@ impl Node {
     /// BetaNode.modifyObject on a mask MISS: the right tuple is re-added
     /// (removeAdd to the END, re-keyed) immediately, without staging and
     /// without child updates (fz_42_4359/3433 vs fz_42_1057 pins).
+    /// D-084: boundary-advance eligibility — per-side memory emptiness
+    /// (a quiet opposite side makes the held staging pure memory-fill).
+    pub fn lefts_empty(&self) -> bool {
+        self.lefts.is_empty()
+    }
+
+    pub fn rights_empty(&self) -> bool {
+        self.rights.is_empty()
+    }
+
     pub fn re_add_right_fact(&mut self, f: FactId, key: Option<Vec<Value>>) {
         if let Some(i) = self.rights.iter().position(|(x, _)| *x == f) {
             self.rights.remove(i);

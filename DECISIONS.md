@@ -2633,3 +2633,102 @@ fz_42_84-family Drools-nondeterminism witnesses).
 Fuzz gate (WITNESSED): seeds 42/7/123/777/999 x 10,000 = 50,000
 cases, ZERO divergences (~315s/seed; seed 999 drew 1 name-suppressed
 quarantined xfail, no new failures).
+
+
+## Hardening wave 2 — the D-081 queue (2026-07-06, post-D-083)
+
+### D-084 (OPEN, fenced): held-staging drain semantics across fire
+### boundaries — six-round elimination record; 455/4816 families
+### re-parked; ten new oracle pins landed as green probes
+
+fz_min_455's mechanism (SEINE_TRACE): a rule left empty by its own
+firing goes unlinked; a later flush's right insert stages at its node
+and is never evaluated before the fire call ends. At the next call
+the engine drains the held right LIFO-merged AFTER that call's fresh
+stagings — Drools pairs the held right FIRST (fill [#1,#2,#4], not
+[#1,#4,#2]). The probe ladder pr_rl2..rl10 (all PROMOTED, all GREEN —
+they pin drain orders that hold-semantics already reproduces) plus
+four fuzz counterexamples drove six elimination rounds over candidate
+mechanisms; EVERY round's survivor was falsified by the next 10k-seed
+gate (the D-083 fuzz-gate lesson working as designed):
+
+1. Eager re-queue of unlinked-was-linked dirty rules — killed by
+   pr_rl3 (two same-fire flushes drain as ONE accumulated batch).
+2. Fire-end forced drain of every ever-linked dirty path — killed by
+   xu2 + pr_hw_not_unblock (not-gated rules hold).
+3. Whole-node fire-boundary windows — killed by fz_42_4035 + pr_rl9's
+   inert-RHS full-queue readout (both-sides-live nodes LIFO-merge).
+4. One-side-empty node windows — killed by fz_123_2742 (external-
+   origin held rights hold even with the left side gone).
+5. Per-side windows + other-side-quiet — killed by fz_123_3482
+   (a rule-flush left on a shared prefix must stay held).
+6. Per-side + rule-flush-origin-only — killed by fz_999_6009 (a
+   rule-flush T2 class where the advance re-orders R2's deletes).
+
+RULING (stop-rule: a scope predicate past ~3 conjuncts that fuzz
+keeps falsifying is a wrong reification): the boundary-advance is
+DISABLED (close_boundary_windows no-ops; the TrieNode.win plumbing
+and the walk's window-batch loop stay, inert, for the resumed hunt).
+The engine keeps the pre-D-084 hold-everything-LIFO semantics —
+oracle-wrong for exactly TWO shapes, both re-parked to xfail:
+fz_min_455 + fz_7_455 and fz_42_4816 + fz_min_4816. Every other
+casualty of the six rounds PASSES under hold semantics and is
+graduated green: fz_42_4035, fz_123_2742, fz_123_3482, fz_999_6009
+(regressions — they now guard the resumed hunt from repeating rounds
+3-6), pr_rl2..rl10 (probes).
+
+Next step when resumed (decide with Bryan first): port the real
+staged-tuple lifecycle from the drools-core sources
+(SegmentMemory.getStagedLeftTuples, PathMemory link notifications,
+RuleExecutor.evaluateNetworkIfDirty, LazyPhreakBuilder segment
+init) — the D-025 precedent — rather than a seventh black-box round.
+The 455-class draw rate is ~1-2 per 50k cases; the fence is name-
+keyed in xfail and the four scenarios document the exact envelope.
+
+### D-085: accumulate propagateResult drops the peer kept-kind marker
+### — xf_min_9976 + fz_999_9976 closed
+
+eval_acc_node's propagateResult path resolves a result UPDATE against
+the FIRST sink's pending insert (normalizeStagedTuples) and re-stages
+it as an INSERT — but omitted the trg.peer_upd marker that
+Out::child_upd sets (D-071 kept-kind). With the first sink NEVER
+evaluating (a never-linked sharer holding the pending insert
+forever), the second sink's peer_merge_left saw a plain insert for a
+tuple LIVE at that peer and dropped the staging entirely
+(re-add-to-memory-end, no refire) — eating the oracle's refire of the
+existing activation when a collect result grows. One line: push the
+marker before add_ins_ph. Shape: two rules sharing a leading
+`collect(...)` where the first-built sink's second pattern never
+matches (fz_999_9976's R1 f1-matches filter).
+
+### D-086: armed query items queue only while the query path is
+### LINKED — fz_min_3959 + fz_999_3959 closed
+
+The blanket pending=armed over-approximation ("a drain that appends
+nothing is inert") is unsound across multi-epoch scenarios: an armed
+query (D-058) whose every or-branch misses some positive pattern does
+NOT queue on WM events in Drools — its staged facts accumulate and
+drain as ONE window at the linking event. fz_min_3959: Q1's
+`T0(f1 != true)` pattern is empty until epoch-2's insert, so Drools'
+memory = [10] + [-1e9,-5,100] (epoch-1's 100 rides the epoch-2
+window, newest-first within it) while the engine drained per-epoch
+([10][100][-1e9,-5]) and swapped rows. Mechanism confirmed by grafted
+runner dumps (RunnerDump: JoinNode(17) key-list [10,-1e9,100] with
+ZERO query calls — the fill is eager via the armed item, gated by
+linking; a plain KieSession replica without the arming ?query rules
+fills lazily in one reverse-insertion batch). Engine:
+queries::query_linked (some branch with every positive pattern's
+alpha populated) gates mark_queries_pending. Pull evaluations
+(?query CE / getQueryResults) drain regardless, as before. In-subset
+the link transition is monotonic (queries + mutation stay walled,
+D-051), so the gate's surface is exactly the probed shape.
+
+**Wave-2 gate (WITNESSED):** corpus 749/749 (11 baseline + 463 probes
++ 275 regressions); fuzz seeds 42/7/123/777/999 x 10,000 = 50,000
+cases, ZERO divergences, zero quarantined-name draws. Configuration:
+hold-LIFO boundary semantics (D-084 advance disabled) + D-085 marker
++ D-086 query link gate. xfail 74 -> 72: OUT 3959-pair (D-086),
+9976-pair (D-085), 4035/2742/3482/6009 graduated green; IN (back)
+455-pair + 4816-pair (the D-084 fence). Remaining 72 = 68 D-080 TMS
+envelope + D-042 order-trio (nb3, fz_7_2364, fz_min_7_2364) +
+455/4816 fence.

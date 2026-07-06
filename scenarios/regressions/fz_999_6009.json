@@ -1,0 +1,147 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    ( T2(f1 < \"a\", f2 matches \"(a|be)*(a|b)?e*\", f0 contains \"ph\" || f0 > \"b\") )\n    or\n    ( T2(f1 < \"a\", f2 <= \"a\", f2 < \"\", f1 contains \"\") )\nthen\nend\nrule \"R1\"\nsalience -5\nwhen\n    ( T1($b1_0_0 : f2) and T1($b1_1_0 : f1) and $p1_2 : T0() )\n    or\n    ( T1($b1_0_0 : f2) and T1($b1_1_0 : f1) and $p1_2 : T0() )\nthen\n    insert(new T2($p1_2.getF1(), \"\", $p1_2.getF1(), true));\nend\nrule \"R2\"\nwhen\n    T2(f2 >= \"beta\", f3 == true)\n    $p2_1 : T2($b2_1_0 : f2)\nthen\n    delete($p2_1);\nend\nrule \"R3\"\nwhen\n    T2(f2 >= \"beta\", f3 == true)\n    T2($b3_1_0 : f2)\n    T1(f1 in (1.5, 5.5), f1 != -2.5, $b3_2_0 : f0)\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": 4,
+            "f1": 4.0,
+            "f2": 3
+          },
+          "type": "T1"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 10,
+            "f1": 5.5,
+            "f2": 0
+          },
+          "op": "insert",
+          "type": "T1"
+        },
+        {
+          "op": "delete",
+          "target": 2
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": -2.5,
+            "f1": "",
+            "f2": 3.0
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": 4.5,
+        "f1": "ab",
+        "f2": -0.5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": "beta",
+        "f2": "",
+        "f3": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 5,
+        "f1": 2.5,
+        "f2": -2
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 0.5,
+        "f1": "beta",
+        "f2": 0.0
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": "zz",
+        "f2": "alpha",
+        "f3": true
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_999_6009",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

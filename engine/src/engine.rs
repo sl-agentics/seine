@@ -433,6 +433,14 @@ struct TrieNode {
     pulse: bool,
     /// Level-1 only: pattern-0 fact staging from the owning LIA.
     s0_in: Staged<FactId>,
+    /// D-084: staging held across a fire boundary by an EVER-linked
+    /// rule closes into a window here (FIFO); each window evaluates as
+    /// its OWN batch before the current staging, so a later fire's
+    /// stagings land after the held ones (fz_min_455, pr_rl2/rl3/rl5;
+    /// 4035-class multi-node child timing). Never-linked-only nodes
+    /// never close — their staging accumulates into one merged batch
+    /// (fz_7_145, jr10, pr_rl4).
+    win: Vec<(Staged<FactId>, Staged<Tup>, Staged<FactId>)>,
     /// Child sinks in build order (first = preserved propagation).
     sinks: Vec<Sink>,
     /// Accumulate contexts per left tuple (D-038).
@@ -629,6 +637,14 @@ struct RuleNet {
     /// (fz_42_1464); an unqueued rule accumulates staged input
     /// (fz_42_124, fz_7_145).
     queued: bool,
+    /// D-084: the rule's item has EXISTED (the path linked at least
+    /// once). A dirty was-linked rule re-queues even while unlinked —
+    /// its evaluation before quiescence drains staged inputs into the
+    /// node memories (one accumulated-LIFO batch), so a later fire
+    /// call's fresh stagings land AFTER them (fz_min_455 pairing,
+    /// pr_rl2/rl3/rl5). Never-linked rules have no item and keep
+    /// holding (fz_7_145, pr_hw_jr10, pr_rl4).
+    ever_linked: bool,
 }
 
 impl RuleNet {
@@ -1028,6 +1044,7 @@ impl Engine {
                                 active: HashSet::new(),
                                 pulse: false,
                                 s0_in,
+                                win: Vec::new(),
                                 sinks: Vec::new(),
                                 acc: HashMap::new(),
                                 acc_by_right: HashMap::new(),
@@ -1057,6 +1074,7 @@ impl Engine {
                 item_sal: 0,
                 act_num: HashMap::new(),
                 queued: false,
+                ever_linked: false,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -2241,6 +2259,12 @@ impl Engine {
         if let Some(e) = self.pending_err.take() {
             return Err(EngineError(e));
         }
+        // D-084 fire-boundary windows: close every ever-linked node's
+        // held staging into a window (see close_boundary_windows) so it
+        // drains as its OWN batch — FIFO across fire calls, LIFO within
+        // (fz_min_455, pr_rl2/rl3/rl5; never-linked rules keep one
+        // merged window: fz_7_145, jr10, pr_rl4).
+        self.close_boundary_windows();
         // D-081: slot memory does not survive the fire boundary —
         // same-fire-window out-and-back restores the original slot
         // (fz_7_5801: cancel + re-add within one epoch's actions), but
@@ -2253,13 +2277,105 @@ impl Engine {
         Ok(firings)
     }
 
-    /// D-058: WM events queue every query's agenda item; a pending item's
-    /// evaluation just drains its pattern memories (one window). Marking
-    /// is a safe over-approximation — a drain that appends nothing leaves
-    /// the memory (and so every observable) unchanged.
+    /// D-084: at the fire boundary, a node still holding staged input
+    /// closes it into a window IF any rule over the node has ever
+    /// linked (its agenda item exists; the staging belongs to a batch
+    /// that ended with the fire). The window evaluates as its own
+    /// batch before any later staging — so a held right pairs BEFORE
+    /// the next call's fresh right (fz_min_455), two same-fire flushes
+    /// stay ONE batch (pr_rl3), and held multi-node staging keeps its
+    /// child-creation timing (fz_42_4035). Never-linked-only nodes keep
+    /// accumulating into the open staging (fz_7_145, jr10, pr_rl4).
+    fn close_boundary_windows(&mut self) {
+        // D-084 OPEN: every boundary-advance predicate tried was
+        // falsified by a fuzz round (six rounds — see DECISIONS.md);
+        // the advance is DISABLED until the real Drools staged-tuple
+        // lifecycle is ported. Hold-everything-LIFO stands; the
+        // oracle-wrong shapes (fz_min_455/fz_7_455, fz_42_4816/
+        // fz_min_4816) are fenced in xfail/. The window plumbing
+        // below stays, inert, for the resumed hunt.
+        if true {
+            return;
+        }
+        for ni in 0..self.trie.len() {
+            let held = !self.trie[ni].s0_in.is_empty()
+                || !self.trie[ni].node.s_left.is_empty()
+                || !self.trie[ni].node.s_right.is_empty();
+            if !held {
+                continue;
+            }
+            // PER-SIDE pure memory-advance: one side's held staging
+            // closes into a window only when the OTHER input is
+            // completely quiet — memory empty AND nothing staged — so
+            // the drain can only fill memory, never pair
+            // (fz_min_455/pr_rl2/rl3: held rights, left long gone;
+            // pr_rl5: held lefts, right gone). Any activity on the
+            // other side keeps the whole staging held and LIFO-merged
+            // into the next fire (pr_rl9/fz_42_4035: both live;
+            // fz_123_2742: staged left deletes ride with the held
+            // rights; fz_123_3482: staged lefts ride with them).
+            // Not/exists nodes never advance (xu2, pr_hw_not_unblock).
+            if self.trie[ni].node.kind != phreak::Kind::Join {
+                continue;
+            }
+            let attached = (0..self.rules.len()).any(|ri| {
+                self.nets[ri].ever_linked
+                    && self.nets[ri].path.contains(&ni)
+                    && !self.rules[ri]
+                        .patterns
+                        .iter()
+                        .enumerate()
+                        .any(|(p, pat)| pat.ce == CeKind::Not && !self.pos_linked(ri, p))
+            });
+            if !attached {
+                continue;
+            }
+            let left_quiet = self.trie[ni].node.lefts_empty()
+                && self.trie[ni].s0_in.is_empty()
+                && self.trie[ni].node.s_left.is_empty();
+            let right_quiet =
+                self.trie[ni].node.rights_empty() && self.trie[ni].node.s_right.is_empty();
+            // rule-flush staging advances; external-origin holds
+            let all_rule = |s: &Staged<FactId>| {
+                s.ins.iter().all(|(_, o, _)| o.is_some())
+            };
+            let all_rule_t = |s: &Staged<phreak::Tup>| {
+                s.ins.iter().all(|(_, o, _)| o.is_some())
+            };
+            let sl_held = (!self.trie[ni].s0_in.is_empty()
+                || !self.trie[ni].node.s_left.is_empty())
+                && all_rule(&self.trie[ni].s0_in)
+                && all_rule_t(&self.trie[ni].node.s_left);
+            if right_quiet && sl_held {
+                // held LEFT staging, right side quiet: advance lefts
+                let s0 = self.trie[ni].s0_in.take();
+                let sl = self.trie[ni].node.s_left.take();
+                self.trie[ni].win.push((s0, sl, Staged::default()));
+            } else if left_quiet
+                && !self.trie[ni].node.s_right.is_empty()
+                && all_rule(&self.trie[ni].node.s_right)
+            {
+                // held RIGHT staging, left side quiet: advance rights
+                let sr = self.trie[ni].node.s_right.take();
+                self.trie[ni].win.push((Staged::default(), Staged::default(), sr));
+            }
+        }
+    }
+
+    /// D-058: WM events queue an ARMED query's agenda item; a pending
+    /// item's evaluation drains its pattern memories (one window).
+    /// D-086 (fz_min_3959): the item queues only while the query's path
+    /// is LINKED — some or-branch with every positive pattern's alpha
+    /// populated. An armed query whose branches all miss a pattern
+    /// accumulates staged facts and drains them as ONE window at the
+    /// linking event (the blanket pending=armed over-approximation
+    /// split that window and reordered the memory: batches [10][100]
+    /// [-1e9,-5] vs Drools' [10][-1e9,-5,100]). Pull evaluations
+    /// (?query CE / getQueryResults) drain regardless of linking.
     fn mark_queries_pending(&mut self) {
-        for (p, armed) in self.query_pending.iter_mut().zip(&self.query_armed) {
-            *p = *armed;
+        for qi in 0..self.queries.len() {
+            self.query_pending[qi] =
+                self.query_armed[qi] && crate::queries::query_linked(&self.store, &self.queries, qi);
         }
     }
 
@@ -2657,8 +2773,13 @@ impl Engine {
     }
 
     /// Dirty-notification: (re)queue the rule's agenda item if the rule
-    /// is currently linked.
+    /// is currently linked. (An unlinked-but-was-linked rule does NOT
+    /// re-queue mid-fire — its staged input accumulates and drains once
+    /// at the fire boundary, D-084/pr_rl3.)
     fn refresh_linked(&mut self, ri: usize) {
+        if self.rule_linked(ri) {
+            self.nets[ri].ever_linked = true;
+        }
         if !self.nets[ri].queued && self.rule_linked(ri) && self.rule_dirty(ri) {
             self.nets[ri].queued = true;
         }
@@ -2672,6 +2793,7 @@ impl Engine {
                 let n = &self.trie[ni];
                 !n.node.s_right.is_empty()
                     || !n.node.s_left.is_empty()
+                    || !n.win.is_empty()
                     || (step == 0 && !n.s0_in.is_empty())
             })
     }
@@ -2818,9 +2940,19 @@ impl Engine {
         for step in 0..self.nets[ri].path.len() {
             let ni = self.nets[ri].path[step];
             let (env_ri, env_pos) = self.trie[ni].env;
+            // D-084: closed fire-boundary windows evaluate FIRST, each
+            // as its own batch (FIFO across fires, staged order within);
+            // the current staging is the last batch.
+            let mut batches = std::mem::take(&mut self.trie[ni].win);
+            batches.push((
+                self.trie[ni].s0_in.take(),
+                self.trie[ni].node.s_left.take(),
+                self.trie[ni].node.s_right.take(),
+            ));
+            for (s0w, slw, srw) in batches {
             let mut fresh: Staged<Tup> = Staged::default();
             if step == 0 {
-                let s0 = self.trie[ni].s0_in.take();
+                let s0 = s0w;
                 self.tms.left_touched = s0
                     .upd
                     .iter()
@@ -2831,9 +2963,9 @@ impl Engine {
                 fresh.upd = s0.upd.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
                 fresh.del = s0.del.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
             }
-            let pending = self.trie[ni].node.s_left.take();
+            let pending = slw;
             let src = Staged::merge_into_pending(pending, fresh);
-            let sr = self.trie[ni].node.s_right.take();
+            let sr = srw;
             if src.is_empty() && sr.is_empty() {
                 continue;
             }
@@ -2893,6 +3025,7 @@ impl Engine {
                         }
                     }
                 }
+            }
             }
         }
 
@@ -3200,8 +3333,16 @@ impl Engine {
                         // propagateResult: normalizeStagedTuples against
                         // the first sink's pending, THEN addUpdate — a
                         // pending insert re-stages as an UPDATE here,
-                        // unlike updateChildLeftTuple (D-041).
+                        // unlike updateChildLeftTuple (D-041). The
+                        // resolved insert keeps its kind for the FIRST
+                        // sink only — every other sink resolves its OWN
+                        // child and an already-consumed peer stages an
+                        // UPDATE (D-071 kept-kind; D-085/xf_min_9976:
+                        // dropping the marker ate the refire when the
+                        // first sink was never-linked with the insert
+                        // still pending).
                         if first_pending.remove_ins(&child) {
+                            trg.peer_upd.push(child.clone());
                             trg.add_ins_ph(child, o, 0);
                         } else {
                             first_pending.remove_upd(&child);
