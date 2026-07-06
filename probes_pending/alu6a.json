@@ -1,0 +1,62 @@
+{
+ "drl": "rule \"R0\"\nsalience -7\nwhen\n    T0($b0_0_0 : f1)\n    accumulate(T0(f1 != -3, f0 >= $b0_0_0, $s0_1 : f0); $a0_1 : min($s0_1))\nthen\nend\nrule \"R2\"\nsalience -8\nno-loop\nwhen\n    $p2_0 : T0(f2 == false)\nthen\n    $p2_0.setF1($p2_0.getF0());\n    update($p2_0);\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": -2,
+    "f1": -1,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 12,
+    "f1": 2,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 6,
+    "f1": -3,
+    "f2": false
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "alu6a",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

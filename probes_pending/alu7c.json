@@ -1,0 +1,59 @@
+{
+ "name": "alu7c",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "S",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "G",
+   "fields": [
+    {
+     "name": "g",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "b": -10
+   }
+  },
+  {
+   "type": "S",
+   "fields": {
+    "v": 12
+   }
+  },
+  {
+   "type": "S",
+   "fields": {
+    "v": -2
+   }
+  },
+  {
+   "type": "G",
+   "fields": {
+    "g": 1
+   }
+  }
+ ],
+ "drl": "rule R_acc when $p : P($b : b) accumulate(S(v >= $b, $s : v); $m : sum($s)) then end\nrule R_low salience -5 when $g : G() $p : P() then modify($p){ setB(5) } end\n"
+}

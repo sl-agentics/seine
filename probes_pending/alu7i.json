@@ -1,0 +1,70 @@
+{
+ "name": "alu7i",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    },
+    {
+     "name": "c",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "S",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "G",
+   "fields": [
+    {
+     "name": "g",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "b": -10,
+    "c": 0
+   }
+  },
+  {
+   "type": "S",
+   "fields": {
+    "v": 3,
+    "w": 9
+   }
+  },
+  {
+   "type": "S",
+   "fields": {
+    "v": -2,
+    "w": 0
+   }
+  },
+  {
+   "type": "G",
+   "fields": {
+    "g": 1
+   }
+  }
+ ],
+ "drl": "rule R_acc when $p : P($b : b, $c : c) accumulate(S(v >= $b, w <= $c, $s : v); $m : min($s)) then end\nrule R_low salience -5 when $g : G() $p : P() then modify($p){ setB(2), setC(9) } end\n"
+}

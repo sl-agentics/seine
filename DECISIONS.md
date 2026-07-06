@@ -3333,3 +3333,70 @@ lifecycle), and the orphaned `Node::lefts_empty`/`rights_empty`
 advance-eligibility helpers. Behavior-neutral by construction (the
 window vec was permanently empty); verified: `make test` green,
 corpus 799/799, spot fuzz seed 42 x 10k clean.
+
+## D-090a discriminator ladder (2026-07-06, post-D-091)
+
+### D-092: THE 8426 MECHANISM PINNED (pre-implementation — Bryan
+### review gate): Drools' accumulate LEFT-UPDATE merge skips the
+### min/max refold whenever the extremum's removal is not the LAST
+### dirtying step of the walk — a stale extremum survives in the
+### function context and result fact forever, with a CORRECT match
+### set. (AccDump ground truth + 9-probe ladder + two out-of-sample
+### confirmations; sources: PhreakAccumulateNode
+### .doLeftUpdatesProcessChildren/removeMatch/reaccumulateForLeftTuple,
+### MinMaxAccumulateFunction.tryReverse.)
+
+**The mechanism (probe-pinned, all arms):** the same-bucket left-
+update path walks the right memory merged against the left's match
+list (cursor pairing). Per element, an `isDirty` flag is ASSIGNED
+(last-writer-wins): removal of the CURRENT EXTREMUM -> true (min/max
+tryReverse fails only for the extremum; non-extremal removals are
+no-op-reversible -> false); a KEPT match -> false
+(hasRequiredDeclarations() == false for built-ins); a newly-allowed
+ADD -> no write. Per-removal refolds are suppressed
+(removeMatch(..., reaccumulate=false)); the ONE refold runs at walk
+end iff the final isDirty is true. Consequence: the fold goes stale
+(fn/result keep the removed extremum) whenever the extremum removal
+is followed by any kept match or non-extremal removal — while the
+MATCH SET is maintained correctly, so reversible functions
+(sum/count/average) are always right and the quirk is INVISIBLE to
+them (alu6b/alu7c green). The result NEVER self-heals (quiescent
+fn{min=stale}, AccDump).
+
+**Evidence:** ground truth via oracle/…/AccDump.java (RunnerDump
+pattern: per-firing dump of acc memories, match chains + stored
+contributions, function context, result fact). fz_min_8426 firing 11:
+matches {12, 6} correct, fn{min=-2} stale — the fired -2 decoded
+exactly. Ladder (probes_pending/alu*): 7a [rm-extremum, keep] ->
+STALE; 7b [keep, rm-extremum LAST] -> refold (this is also why
+pr_acc_lu_range was green); 7c sum -> correct (reversible); 7d
+[rm, keep, rm-nonextremal] -> STALE (the arm that killed the naive
+last-writer model: the trailing removal is no-op-reversible ->
+writes false); 7f 4-source -> full merge confirmed (no walk
+truncation; memory unmoved by reAddRight); 7g [keep, rm-extremum,
+keep] -> STALE and 7h [keep, keep, rm-extremum] -> refold (both
+predicted BEFORE running); 7i [rm-extremum, ADD] -> refold (add
+writes nothing). alu6 ablations: or-twins not load-bearing;
+insertion order load-bearing (walk order); both-roles NOT the axis —
+the fz_min_8426 both-roles shape merely arranges extremum-removal-
+then-kept in one walk. alu3/4/5 (earlier, green) never exercised
+the merge (salience layout: the acc's first evaluation happened
+post-churn) — retained as fold-from-scratch controls.
+
+**Scope:** leftUpd merge ONLY (rightDel/rightUpd and the indexed
+bucket-change path pass reaccumulate=true and refold correctly —
+acc4/acc12 pins unaffected). Observable surface = min/max over i64
+(D-039 walls f64 min/max results). Deterministic given event
+history; faithful reproduction requires the merge walk (memory order
+x match-list cursor), tryReverse-fails-only-for-extremum, the
+last-writer isDirty, and the end-gate — in the engine's
+eval_acc_node left-update path, which today re-derives cleanly
+(correct-but-unfaithful).
+
+**Port shape (post-approval):** eval_acc_node's left-update arm
+replaces clean re-derivation with the pinned merge machine for
+min/max; probes alu7a/7d/7f/7g + the 8426 pair flip green and all
+alu* promote; fuzz-gate 5x10k before logging the gate line. NO
+ENGINE CHANGES in this commit — probes + AccDump only; gates
+unchanged (engine still diverges on 7a/7d/7f/7g + the quarantined
+8426 pair, all sitting in probes_pending/ + xfail/ until the port).
