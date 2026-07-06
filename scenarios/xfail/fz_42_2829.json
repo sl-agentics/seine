@@ -1,0 +1,73 @@
+{
+  "drl": "rule \"R0\"\nsalience -1\nwhen\n    T2(f2 != true, $b0_0_0 : f2)\nthen\nend\nrule \"R1\"\nwhen\n    ( T2($b1_0_0 : f2, $b1_0_1 : f2) )\n    or\n    ( T2($b1_0_0 : f2, $b1_0_1 : f2) )\nthen\nend\nrule \"R2\"\nsalience 4\nwhen\n    T0(f0 != false, f0 != true)\n    exists T0(f0 == true)\n    $p2_2 : T0(f0 != true, f0 != true)\nthen\n    delete($p2_2);\nend\nrule \"R3\"\nwhen\n    T2(f1 == false, $b3_0_0 : f0)\nthen\nend\nrule \"R4\"\nsalience -6\nwhen\n    $p4_0 : T1($b4_0_0 : f2, f2 == false)\nthen\n    insertLogical(new T2(7, $p4_0.isF2(), false));\n    modify($p4_0) { setF2(true), setF0($p4_0.getF1()), setF0(6) }\nend\nrule \"R5\"\nwhen\n    T2(f2 != false, !(f1 != false), $b5_0_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1,
+        "f1": true,
+        "f2": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0,
+        "f1": 1,
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_2829",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

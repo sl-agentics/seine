@@ -1,0 +1,108 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $a0_0 : ArrayList() from collect( T0(f0 not in (4, 2.5)) )\n    exists T0(f0 > -1.0, f0 > 12 && f0 < 3)\n    T1($b0_2_0 : f1)\nthen\nend\nrule \"R1\"\nsalience 6\nwhen\n    T1($b1_0_0 : f1)\n    exists T1(f0 in (4.0, 5.5), f1 == $b1_0_0)\nthen\nend\nrule \"R2\"\nwhen\n    T1($b2_0_0 : f0, $b2_0_1 : f1)\nthen\nend\nrule \"R3\"\nsalience 7\nwhen\n    T0($b3_0_0 : f0)\n    not T1(f1 != true)\nthen\n    insertLogical(new T1($b3_0_0, false));\nend\nrule \"R4\"\nno-loop\nwhen\n    $p4_0 : T0($b4_0_0 : f0)\n    not T1(f1 != true)\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nwhen\n    ( T1(!(f1 != true)) and T1(f0 <= 100, f0 <= 10, $b5_1_0 : f1) and T1(f1 in (false), f1 != true, $b5_2_0 : f0) )\n    or\n    ( T1(!(f1 != true)) and T1(f0 <= 100, f0 not in (2.0, 3.0, -1.5), $b5_1_0 : f1) and T1(f1 in (false), f1 != true, $b5_2_0 : f0) )\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 12
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": -5
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 7
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": 8
+          },
+          "type": "T0"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 11
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": -5
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 1
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": -1000000007
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 10
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_42_5213",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

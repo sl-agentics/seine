@@ -1,0 +1,97 @@
+{
+  "drl": "rule \"R0\"\nsalience($b0_0_0)\nwhen\n    $p0_0 : T0($b0_0_0 : f0)\nthen\n    insert(new T1($p0_0.getF0(), true));\nend\nrule \"R1\"\nwhen\n    ( $p1_0 : T1() and not T2(f2 != false) )\n    or\n    ( $p1_0 : T1() and not T2(f0 contains \"l\") )\n    or\n    ( $p1_0 : T1() and not T2(f2 != false) )\nthen\n    insertLogical(new T2(\"ab\", $p1_0.getF0(), $p1_0.isF1()));\nend\nrule \"R2\"\nwhen\n    T1(f0 > 4.0, $b2_0_0 : f0, $b2_0_1 : f1)\nthen\n    insertLogical(new T2(\"beta\", 3.0, $b2_0_1));\nend\nrule \"R3\"\nwhen\n    $p3_0 : T1(f1 == false)\nthen\n    modify($p3_0) { setF1(true) }\nend\nrule \"R4\"\nwhen\n    T0(f0 <= 5.5, $b4_0_0 : f0)\nthen\n    insert(new T1($b4_0_0, false));\n    insertLogical(new T2(\"beta\", $b4_0_0, true));\nend\nrule \"R5\"\nwhen\n    (or (and $p5_0 : T1() not T2(f2 != false)) (and $p5_0 : T1() not T2(f0 < \"b\")))\nthen\n    insertLogical(new T2(\"ab\", $p5_0.getF0(), $p5_0.isF1()));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": -1.5,
+            "f1": true
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 10
+          },
+          "type": "T0"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 0.5,
+            "f1": false
+          },
+          "op": "insert",
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": -1.0,
+            "f1": true
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 0.5,
+            "f1": true
+          },
+          "type": "T1"
+        }
+      ]
+    }
+  ],
+  "facts": [],
+  "name": "fz_7_4106",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

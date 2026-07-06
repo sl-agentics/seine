@@ -1,0 +1,97 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T2(f3 != true)\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T1(f2 contains \"a\", f0 > -2.0, f1 == false)\nthen\n    insertLogical(new T2($p1_0.getF2(), $p1_0.isF3(), $p1_0.getF0(), $p1_0.isF1()));\n    modify($p1_0) { setF1(true), setF2($p1_0.getF2()), setF2($p1_0.getF2()) }\nend\nrule \"R2\"\nwhen\n    $p2_0 : T1(f1 != false, f3 != true || f0 not in (4.0), f1 == false)\nthen\n    $p2_0.setF1(true);\n    update($p2_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -2.0,
+        "f1": false,
+        "f2": "zz",
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 5.5,
+        "f1": false,
+        "f2": "beta",
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": true,
+        "f2": 2.5,
+        "f3": true
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_42_8819",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

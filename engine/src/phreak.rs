@@ -407,6 +407,11 @@ impl Node {
         self.s_left = pending;
     }
 
+    /// Tuples currently blocked by `f` (D-076/tms_t21 park scope).
+    pub fn blocked_of(&self, f: FactId) -> Option<Vec<Tup>> {
+        self.blocked.get(&f).cloned()
+    }
+
     pub fn push_right(&mut self, f: FactId, key: Option<Vec<Value>>) {
         self.rights.push((f, key));
     }

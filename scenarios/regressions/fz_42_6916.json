@@ -1,0 +1,68 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T2($b0_0_0 : f0, $b0_0_1 : f1)\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T1($b1_0_0 : f0, $b1_0_1 : f0, f1 == false)\nthen\n    insertLogical(new T2($p1_0.isF1(), $p1_0.isF1()));\n    insertLogical(new T2(true, $p1_0.isF1()));\n    modify($p1_0) { setF1(true) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "b",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": 8
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_6916",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

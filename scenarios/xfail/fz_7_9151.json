@@ -1,0 +1,114 @@
+{
+  "drl": "rule \"R0\"\nsalience 5\nwhen\n    T3(f2 not in (true), $b0_0_0 : f1, $b0_0_1 : f0)\nthen\nend\nrule \"R1\"\nsalience -9\nwhen\n    T0($b1_0_0 : f0, $b1_0_1 : f0)\n    T1($b1_1_0 : f0, $b1_1_1 : f0)\n    T3(f3 != true, f1 == \"zz\", $b1_2_0 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0(f1 == true, f2 not in (5, 0, 1), $b2_0_0 : f2)\n    not T3(f2 != false, f2 != false)\nthen\n    insertLogical(new T3($p2_0.isF1(), \"\", true, $p2_0.isF1()));\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0()\nthen\n    insert(new T2(\"\"));\n    insertLogical(new T3($p3_0.isF1(), \"alpha\", false, true));\nend\nrule \"R4\"\nwhen\n    accumulate( T3(f1 contains \"ab\", f3 != false); $a4_0 : count() )\nthen\nend\nrule \"R5\"\nwhen\n    $p5_0 : T0(f2 <= 10, f0 == 0, $b5_0_0 : f2, $b5_0_1 : f2)\nthen\n    insert(new T3($p5_0.isF1(), \"a\", $p5_0.isF1(), false));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": "beta",
+        "f2": false,
+        "f3": false
+      },
+      "type": "T3"
+    },
+    {
+      "fields": {
+        "f0": -4,
+        "f1": true,
+        "f2": 9
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "alpha"
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 1,
+        "f1": true,
+        "f2": 3
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": "alpha",
+        "f2": false,
+        "f3": true
+      },
+      "type": "T3"
+    },
+    {
+      "fields": {
+        "f0": "alpha"
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_7_9151",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

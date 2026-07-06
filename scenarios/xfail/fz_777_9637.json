@@ -1,0 +1,55 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0(f0 in (6, 7), $b0_0_0 : f1, $b0_0_1 : f1)\nthen\nend\nrule \"R1\"\nwhen\n    T1(f1 != 5, f1 > -1000000007, $b1_0_0 : f0, $b1_0_1 : f1)\nthen\nend\nrule \"R2\"\nwhen\n    not T1(f1 > -5)\nthen\n    insertLogical(new T1(-4, 12));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 2,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1,
+        "f1": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_777_9637",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

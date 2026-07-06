@@ -1,0 +1,82 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    not T1()\nthen\nend\nrule \"R1\"\nwhen\n    (or not T1() not T1())\nthen\n    insertLogical(new T1(\"ab\", false, true));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": false,
+        "f2": -3,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": false,
+        "f2": -1000000007,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": false,
+        "f2": 12,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": false,
+        "f2": 100,
+        "f3": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_42_946",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

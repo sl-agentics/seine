@@ -1,0 +1,66 @@
+{
+  "drl": "rule \"R0\"\nsalience 8\nwhen\n    T0(f2 contains \"l\", $b0_0_0 : f2, $b0_0_1 : f0)\n    not T1(f0 < $b0_0_1)\n    T0(!(f0 in (-1000000007, -2, 11) || f2 >= \"\"))\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f1 != true, f2 <= \"a\", $b1_0_0 : f0, $b1_0_1 : f1)\nthen\n    insert(new T1($p1_0.getF0()));\n    insertLogical(new T1($b1_0_0));\nend\nrule \"R2\"\nwhen\n    ( $p2_0 : T1(f0 > 1.0, f0 > 0) )\n    or\n    ( $p2_0 : T1(f0 > 1.0, f0 > 0) )\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nsalience 4\nwhen\n    $p3_0 : T0(f1 != true, $b3_0_0 : f2)\nthen\n    insert(new T1($p3_0.getF0()));\n    insertLogical(new T1($p3_0.getF0()));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 2,
+        "f1": false,
+        "f2": "zz"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0.5
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -3.0
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 3.0
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 3.5
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_6368",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

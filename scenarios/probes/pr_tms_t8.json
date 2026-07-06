@@ -1,0 +1,64 @@
+{
+ "name": "pr_tms_t8",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "c",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 1
+   }
+  }
+ ],
+ "drl": "rule J salience 2 when A(a > 0) then insertLogical(new LK(1)); end\nrule Brk salience 10 when $a : A() C() then $a.setA(-5); update($a); end\nrule Mid salience 5 when LK() C() then insert(new B(99)); end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "C",
+     "fields": {
+      "c": 1
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

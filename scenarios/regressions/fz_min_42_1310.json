@@ -1,0 +1,54 @@
+{
+ "drl": "rule \"R1\"\nsalience 10\nwhen\n    accumulate( T2(f1 >= \"a\"); $a1_0 : count() )\n    T2()\nthen\nend\nrule \"R2\"\nsalience -7\nwhen\n    not T2()\nthen\n    insertLogical(new T2(-3.0, \"ab\"));\nend\n",
+ "facts": [],
+ "name": "fz_min_42_1310",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    }
+   ],
+   "name": "T2"
+  }
+ ]
+}

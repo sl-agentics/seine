@@ -229,6 +229,8 @@ struct CompiledAcc {
 
 enum CompiledAction {
     Insert { type_id: TypeId, args: Vec<Src> },
+    /// D-076: TMS-justified insert.
+    InsertLogical { type_id: TypeId, args: Vec<Src> },
     Set { pos: usize, field_idx: usize, arg: Src },
     Update { pos: usize },
     Delete { pos: usize },
@@ -274,6 +276,120 @@ struct Act {
 }
 
 use crate::phreak::{self, Origin, Staged, Tup};
+
+/// TMS equality-key value: Value with Java-equals semantics for doubles
+/// (Double.equals = bit comparison: NaN==NaN, +0.0 != -0.0 — tms_u6).
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+enum KeyVal {
+    I(i64),
+    F(u64),
+    S(String),
+    B(bool),
+}
+
+fn key_vals(vals: &[Value]) -> Vec<KeyVal> {
+    vals.iter()
+        .map(|v| match v {
+            Value::I64(n) => KeyVal::I(*n),
+            Value::F64(x) => KeyVal::F(x.to_bits()),
+            Value::Str(s) => KeyVal::S(s.clone()),
+            Value::Bool(b) => KeyVal::B(*b),
+        })
+        .collect()
+}
+
+/// One justification: the ACTIVATION (subrule + fired tuple) whose
+/// insertLogical supports the key. `seq` = global creation order (the
+/// queryable graph's stable ordering; also the deterministic retract
+/// order within a revalidation wave).
+#[derive(Clone, Debug)]
+struct Justif {
+    ri: usize,
+    tuple: Tup,
+    seq: u64,
+}
+
+/// One TMS equality key (D-076): at most one JUSTIFIED handle with its
+/// belief set, plus any number of STATED handles (identity-mode inserts
+/// coexist — tms_w1/w5). `had_justified` drives the pinned Drools
+/// delete quirk (dump3: once a key has hosted a justified handle,
+/// deleting a stated sibling is a silent no-op).
+#[derive(Default, Debug)]
+struct EqKeyEntry {
+    justified: Option<FactId>,
+    beliefs: Vec<Justif>,
+    stated: Vec<FactId>,
+    had_justified: bool,
+    /// Values of a PENDING logical belief (dep recorded on a
+    /// stated-only key, dump-b): an RHS delete of the stated handle
+    /// UNSTAGES it into a live justified fact (dump7/fz_42_2659);
+    /// an external delete nets materialize-then-die = nothing (dump8).
+    pending_vals: Option<Vec<Value>>,
+}
+
+/// The truth-maintenance state — kept FIRST-CLASS and queryable (D-076
+/// design constraint): the justification graph IS the why-engine's
+/// substrate; retraction is derived from it, not the other way around.
+#[derive(Default)]
+struct Tms {
+    /// Value-equality keys over ALL declared fields (D-066).
+    keys: HashMap<(TypeId, Vec<KeyVal>), EqKeyEntry>,
+    /// Every live fact of a logical type -> its key.
+    by_fact: HashMap<FactId, (TypeId, Vec<KeyVal>)>,
+    /// Activation -> keys it currently supports, in support order.
+    by_act: Vec<((usize, Tup), Vec<(TypeId, Vec<KeyVal>)>)>,
+    /// Types that appear in any insertLogical (the mutation wall's and
+    /// the bookkeeping's scope).
+    logical_tids: HashSet<TypeId>,
+    seq: u64,
+    /// Keys the CURRENT firing's insertLogicals touched — drives the
+    /// refire-supersede pass (fz_7777_112/74: Drools removes an
+    /// activation's previous-firing deps that the new firing did not
+    /// re-establish; dump-c's stable belief count is replace-not-keep).
+    firing_keys: Vec<(TypeId, Vec<KeyVal>)>,
+    /// PARKED tuples (the self-defeat quirk, t10/t11/t15): Drools
+    /// leaks the dead blocker, so the tuple ignores right-side churn
+    /// entirely; only LEFT-side events (tuple-fact update / death /
+    /// alpha-break) unpark it. Terminal INS arrivals are skipped while
+    /// parked; terminal UPD unparks and re-activates.
+    parked: Vec<(usize, Tup)>,
+    /// Terminal-del unmatches observed during the POST-FIRING force
+    /// evaluation (D-076/t11): Drools checks salience preemption BEFORE
+    /// re-evaluating the fired rule's network, so the dep removal lands
+    /// when the item is next REACHED in the pop loop — the engine keeps
+    /// its certified force-evaluation (window claiming, D-037) and
+    /// defers only the TMS side-effect. The bool = the breaking action
+    /// property-hit the tuple's LEFT side (LIA staging), which makes an
+    /// eager (no-loop/dyn) justifier's entry drain at the FLUSH instead
+    /// (tms_t20_b_s vs nb_ns event dumps).
+    deferred: Vec<(usize, Tup, bool)>,
+    /// Facts touched by the CURRENT evaluation's left-side staging,
+    /// with the staging origin (eager-flush drains are OWN-origin only,
+    /// min3783 vs tms_t20_b_s).
+    left_touched: Vec<(FactId, Origin)>,
+    /// Ambient flag: inside the post-firing force evaluation.
+    defer_mode: bool,
+    /// The activation currently executing its RHS (self-break laziness,
+    /// fz_42_2442).
+    current_act: Option<(usize, Tup)>,
+}
+
+/// Queryable justification view (D-076): what supports this fact, and
+/// what stated siblings share its equality key.
+#[derive(Clone, Debug)]
+pub struct SupportView {
+    pub rule: String,
+    pub tuple: Vec<FactId>,
+    pub seq: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct JustificationView {
+    pub fact: FactId,
+    pub rendering: FactView,
+    pub supports: Vec<SupportView>,
+    pub stated_siblings: Vec<FactId>,
+}
 
 /// Level-0 network node: one per distinct pattern-0 identity (the LIA +
 /// its alpha chain). Shared across every rule whose first pattern has the
@@ -652,6 +768,8 @@ pub struct Engine {
     /// Deferred evaluation error (?query CE runtime backstops surface
     /// here because evaluate_rule has no error channel).
     pending_err: Option<String>,
+    /// Truth maintenance (D-076) — queryable justification graph.
+    tms: Tms,
 }
 
 impl Engine {
@@ -698,6 +816,7 @@ impl Engine {
             query_pending: Vec::new(),
             query_armed: Vec::new(),
             pending_err: None,
+            tms: Tms::default(),
         })
     }
 
@@ -757,6 +876,61 @@ impl Engine {
             return Err(EngineError(
                 "?query CEs cannot coexist with update/modify/delete actions (D-057)".into(),
             ));
+        }
+        // D-076 walls. Logical types = every type any insertLogical
+        // targets (unit-wide).
+        let logical_tids: HashSet<TypeId> = self
+            .rules
+            .iter()
+            .flat_map(|r| r.actions.iter())
+            .filter_map(|a| match a {
+                CompiledAction::InsertLogical { type_id, .. } => Some(*type_id),
+                _ => None,
+            })
+            .collect();
+        if !logical_tids.is_empty() {
+            // (1) TMS retracts are WM deletes the query drain windows
+            // would see — same reasoning as the D-057 mutation wall.
+            if has_qce {
+                return Err(EngineError(
+                    "?query CEs cannot coexist with insertLogical (D-076/D-057)".into(),
+                ));
+            }
+            // (2) Mutating a fact of a logically-inserted type is a
+            // Drools RUNTIME error with murky triggers (tms_u1/tms_u4);
+            // the subset walls it at compile time (Bryan's ruling).
+            for r in &self.rules {
+                for a in &r.actions {
+                    let pos = match a {
+                        CompiledAction::Set { pos, .. } => *pos,
+                        CompiledAction::Update { pos } => *pos,
+                        _ => continue,
+                    };
+                    let tid = r
+                        .patterns
+                        .iter()
+                        .find(|p| p.tpos == Some(pos))
+                        .map(|p| p.type_id);
+                    if let Some(tid) = tid {
+                        if logical_tids.contains(&tid) {
+                            return Err(EngineError(format!(
+                                "rule {}: setters/update/modify on a logically-inserted type are out of subset (D-076; Drools runtime-errors on this — tms_u1)",
+                                r.def.name
+                            )));
+                        }
+                    }
+                }
+            }
+            self.tms.logical_tids = logical_tids;
+            // (3) Facts of logical types inserted BEFORE this unit
+            // compiled (multi-unit sessions) would predate key
+            // bookkeeping; single-unit sessions insert facts after
+            // add_rules_drl, so retrofit is unnecessary — enforce that.
+            if self.store.live_facts().next().is_some() {
+                return Err(EngineError(
+                    "insertLogical requires rules to be added before any facts (D-076)".into(),
+                ));
+            }
         }
         self.rule_order = (0..self.rules.len()).collect();
         self.rule_order
@@ -1682,7 +1856,8 @@ impl Engine {
         let mut actions = Vec::new();
         for a in &def.actions {
             match a {
-                Action::Insert { type_name, args } => {
+                Action::Insert { type_name, args } | Action::InsertLogical { type_name, args } => {
+                    let logical = matches!(a, Action::InsertLogical { .. });
                     if type_name == INITIAL_FACT || type_name.starts_with(QROW_PREFIX) {
                         return Err(err(format!("type name {type_name} is reserved")));
                     }
@@ -1716,7 +1891,19 @@ impl Engine {
                         }
                         srcs.push(src);
                     }
-                    actions.push(CompiledAction::Insert { type_id: tid, args: srcs });
+                    if logical {
+                        // D-076 walls: justifying-tuple revalidation
+                        // re-runs the LHS match — acc/collect/?query
+                        // conditions are not revalidatable.
+                        if patterns.iter().any(|p| p.acc.is_some() || p.qce.is_some()) {
+                            return Err(err(
+                                "insertLogical from accumulate/collect/?query rules is out of subset (D-076)".into(),
+                            ));
+                        }
+                        actions.push(CompiledAction::InsertLogical { type_id: tid, args: srcs });
+                    } else {
+                        actions.push(CompiledAction::Insert { type_id: tid, args: srcs });
+                    }
                 }
                 Action::Set { var, field, arg } => {
                     let (pos, tid) = *fact_binds
@@ -1868,6 +2055,7 @@ impl Engine {
             return Err(EngineError(format!("{type_name}: unknown field {extra}")));
         }
         let id = self.store.insert(tid, ordered).map_err(EngineError)?;
+        self.tms_note_stated(id);
         // Multi-fire (D-046): before the first fire_all the initial
         // batch propagates in its prologue; afterwards each insert
         // stages immediately (session.insert semantics — agenda
@@ -1912,6 +2100,11 @@ impl Engine {
             return Err(EngineError(format!("update of dead handle {}", id.0)));
         }
         let tid = self.store.fact_type(id);
+        if self.tms.logical_tids.contains(&tid) {
+            return Err(EngineError(
+                "external update of a logically-inserted type is out of subset (D-076; Drools runtime-errors — tms_u1/u4)".into(),
+            ));
+        }
         let schema = self.store.schema(tid).clone();
         let mut mask = 0u64;
         for (name, v) in fields {
@@ -1934,15 +2127,21 @@ impl Engine {
         Ok(())
     }
 
-    /// EXTERNAL working-memory delete by handle (D-047).
+    /// EXTERNAL working-memory delete by handle (D-047). Routes through
+    /// the TMS quirk model (D-076): on a justified key the JUSTIFIED
+    /// handle dies whichever handle was named; a stated sibling of a
+    /// once-justified key no-ops (dump3).
     pub fn delete_fact(&mut self, id: FactId) -> Result<(), EngineError> {
         self.reject_mutation_with_qce("delete")?;
         if !self.store.is_alive(id) {
             return Err(EngineError(format!("delete of dead handle {}", id.0)));
         }
-        self.store.kill(id);
+        let Some(victim) = self.tms_route_delete(id) else {
+            return Ok(()); // pinned no-op quirk
+        };
+        self.store.kill(victim);
         if self.lists_built {
-            self.on_delete(id, None);
+            self.on_delete(victim, None);
             for net in self.nets.iter_mut() {
                 net.s0_close_window();
             }
@@ -2059,7 +2258,31 @@ impl Engine {
     fn next_activation(&mut self, last: Option<usize>) -> Option<usize> {
         if let Some(l) = last {
             self.evaluate_rule(l, true, false);
-            if self.nets[l].queue.is_empty() {
+            self.tms.defer_mode = false;
+            // D-076 (min608 vs t11): Drools' RuleExecutor re-evaluates
+            // the fired rule's network — including the TMS dep removal —
+            // unless a STRICTLY-higher-salience item waits (equal
+            // salience / earlier decl does NOT preempt it). Drain the
+            // deferred unmatches now unless someone strictly outranks l.
+            if self.tms.deferred.iter().any(|(ri, _, _)| *ri == l) {
+                let l_sal = self.item_salience(l);
+                let higher = (0..self.rules.len()).any(|rj| {
+                    rj != l && self.nets[rj].queued && self.item_salience(rj) > l_sal
+                }) || (0..self.queries.len())
+                    .any(|qi| self.query_pending[qi] && 0 > l_sal);
+                if !higher {
+                    while let Some(i) =
+                        self.tms.deferred.iter().position(|(ri, _, _)| *ri == l)
+                    {
+                        let (_, tuple, _) = self.tms.deferred.remove(i);
+                        self.tms_on_terminal_del(l, &tuple);
+                    }
+                    self.evaluate_rule(l, false, false);
+                }
+            }
+            if self.nets[l].queue.is_empty()
+                && !self.tms.deferred.iter().any(|(ri, _, _)| *ri == l)
+            {
                 self.nets[l].queued = false; // emptied item leaves agenda
             }
         }
@@ -2072,6 +2295,25 @@ impl Engine {
             if self.rules[ri].def.no_loop
                 || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
             {
+                // D-076 flush-drain rules: NO-LOOP eager items drain
+                // only own-origin left hits (t20 dumps vs min3783);
+                // DYN-SALIENCE items drain UNCONDITIONALLY — their
+                // flush evaluation is the D-043 salience-currency
+                // machinery and Drools' dep removal rides it
+                // (fz_999_3020: the justifier's foreign-origin break
+                // lands before the witness pops).
+                let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
+                while let Some(di) = self
+                    .tms
+                    .deferred
+                    .iter()
+                    .position(|(dri, _, eok)| *dri == ri && (*eok || dyn_sal))
+                {
+                    // (dyn entries here only from FORCE evals; flush
+                    // evals process them inline per the wrapper)
+                    let (_, tuple, _) = self.tms.deferred.remove(di);
+                    self.tms_on_terminal_del(ri, &tuple);
+                }
                 self.evaluate_rule(ri, false, true);
                 // removeRuleAgendaItemWhenEmpty applies to EAGER
                 // evaluations too (fz_42_8775): an emptied item leaves
@@ -2095,7 +2337,8 @@ impl Engine {
             let mut best: Option<(i32, usize, bool, usize)> = None; // (sal, decl, is_query, idx)
             for i in 0..self.rule_order.len() {
                 let ri = self.rule_order[i];
-                if !self.nets[ri].queued {
+                let has_deferred = self.tms.deferred.iter().any(|(dri, _, _)| *dri == ri);
+                if !self.nets[ri].queued && !has_deferred {
                     continue;
                 }
                 let sal = self.item_salience(ri);
@@ -2125,6 +2368,12 @@ impl Engine {
             if is_query {
                 self.drain_query_item(ri);
                 continue;
+            }
+            // D-076: process deferred terminal-del unmatches when the
+            // item is REACHED (Drools evaluateNetworkIfDirty position).
+            while let Some(i) = self.tms.deferred.iter().position(|(dri, _, _)| *dri == ri) {
+                let (_, tuple, _) = self.tms.deferred.remove(i);
+                self.tms_on_terminal_del(ri, &tuple);
             }
             self.evaluate_rule(ri, false, false);
             if self.nets[ri].queue.is_empty() {
@@ -2296,6 +2545,7 @@ impl Engine {
             }
             self.note_link_effects(&mut was);
         }
+        self.tms_eager_break(f);
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
@@ -2320,6 +2570,7 @@ impl Engine {
                 self.note_link_effects(&mut was);
             }
         }
+        self.tms_eager_break(f);
     }
 
     /// Per-rule agenda effects after ONE node event:
@@ -2392,7 +2643,26 @@ impl Engine {
             })
     }
 
-    fn evaluate_rule(&mut self, ri: usize, force: bool, _eager: bool) {
+    /// D-076: TMS terminal-del side-effects defer out of BOTH the
+    /// post-firing force evaluation (t11/min608) and the eager-flush
+    /// evaluation (min3783) — they drain at the flush only for
+    /// own-origin left hits (tms_t20_b_s), else at the item's pop.
+    /// The flag is scoped HERE, around the whole body: any early exit
+    /// of the inner fn (e.g. the unlinked-rule path) leaking it turns
+    /// the drain loops into non-firing infinite spins that no
+    /// fire-limit can catch (the seed-42 and seed-123 gate hangs).
+    fn evaluate_rule(&mut self, ri: usize, force: bool, eager: bool) {
+        // DYN-SALIENCE flush evaluations process TMS dels INLINE — the
+        // flush IS Drools' salience-currency evaluation and dep removal
+        // rides it (fz_999_3020); no-loop flushes defer (min3783/t20).
+        let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
+        self.tms.defer_mode = force || (eager && !dyn_sal);
+        self.evaluate_rule_inner(ri, force, eager);
+        self.tms.defer_mode = false;
+    }
+
+    fn evaluate_rule_inner(&mut self, ri: usize, force: bool, eager: bool) {
+        let _ = eager;
         if !self.rule_dirty(ri) {
             return;
         }
@@ -2463,6 +2733,11 @@ impl Engine {
             // phases apply and staging is consumed OLDEST-first
             // (pr08/pr04 pin).
             let windows = std::mem::replace(&mut self.nets[ri].s0, vec![Staged::default()]);
+            self.tms.left_touched = windows
+                .iter()
+                .flat_map(|w| w.upd.iter().chain(w.del.iter()))
+                .map(|(f, o, _)| (*f, *o))
+                .collect();
             for s0 in windows {
                 for (f, _, _) in s0.del.iter().rev() {
                     self.nets[ri].act_num.retain(|t, _| t[0] != *f);
@@ -2472,6 +2747,8 @@ impl Engine {
                     if self.nets[ri].queue.len() != n0 {
                         self.update_item_salience(ri, pre);
                     }
+                    self.tms_on_terminal_del(ri, &vec![*f]);
+                    self.tms_parked_del(ri, &vec![*f]);
                 }
                 for (f, o, _) in s0.upd.iter().rev() {
                     let queued = self.nets[ri].queue.iter().any(|a| a.t[0] == *f);
@@ -2481,10 +2758,14 @@ impl Engine {
                     if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                         continue; // own update does not re-activate (j04)
                     }
+                    self.tms_unpark_upd(ri, &vec![*f]);
                     self.push_activation(ri, vec![*f]);
                 }
                 for (f, o, _) in s0.ins.iter().rev() {
                     if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
+                        continue;
+                    }
+                    if self.tms_parked_ins(ri, &vec![*f]) {
                         continue;
                     }
                     self.push_activation(ri, vec![*f]);
@@ -2507,6 +2788,12 @@ impl Engine {
             let mut fresh: Staged<Tup> = Staged::default();
             if step == 0 {
                 let s0 = self.trie[ni].s0_in.take();
+                self.tms.left_touched = s0
+                    .upd
+                    .iter()
+                    .chain(s0.del.iter())
+                    .map(|(f, o, _)| (*f, *o))
+                    .collect();
                 fresh.ins = s0.ins.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
                 fresh.upd = s0.upd.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
                 fresh.del = s0.del.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
@@ -2593,6 +2880,8 @@ impl Engine {
             if self.nets[ri].queue.len() != n0 {
                 self.update_item_salience(ri, pre);
             }
+            self.tms_on_terminal_del(ri, t);
+            self.tms_parked_del(ri, t);
         }
         for (t, o, _) in src.upd.iter() {
             if self.nets[ri].queue.iter().any(|a| a.t == *t) {
@@ -2601,11 +2890,15 @@ impl Engine {
             if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                 continue;
             }
+            self.tms_unpark_upd(ri, t);
             // fired activation re-added: salience RE-EVALUATED (D-043)
             self.push_activation(ri, t.clone());
         }
         for (t, o, _) in src.ins.iter() {
             if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
+                continue;
+            }
+            if self.tms_parked_ins(ri, t) {
                 continue;
             }
             self.push_activation(ri, t.clone());
@@ -3005,10 +3298,34 @@ impl Engine {
                 v.remove(i);
             }
         }
+        // @key-all fallout (D-078/fz_42_2019): Drools' collect reverse is
+        // Collection.remove(Object) = remove the FIRST equals() element
+        // (value equality under @key-all declares), not the identical
+        // instance. Pick the list victim by value before the removal.
+        let list_victim = if func == AccFunc::Collect {
+            let tidf = self.store.fact_type(f);
+            let nfld = self.store.schema(tidf).fields.len();
+            let fvals = key_vals(&(0..nfld).map(|i| self.store.value(f, i)).collect::<Vec<_>>());
+            self.trie[ni].acc[l]
+                .list
+                .iter()
+                .copied()
+                .find(|x| {
+                    *x == f || {
+                        self.store.fact_type(*x) == tidf
+                            && key_vals(
+                                &(0..nfld).map(|i| self.store.value(*x, i)).collect::<Vec<_>>(),
+                            ) == fvals
+                    }
+                })
+                .unwrap_or(f)
+        } else {
+            f
+        };
         let ctx = self.trie[ni].acc.get_mut(l).expect("acc ctx");
         let Some(i) = ctx.matches.iter().position(|(rf, _)| *rf == f) else { return };
         let (_, stored) = ctx.matches.remove(i);
-        if !ctx.try_reverse(func, f, &stored) {
+        if !ctx.try_reverse(func, list_victim, &stored) {
             ctx.reset_state();
             let remaining = ctx.matches.clone();
             for (rf, vv) in &remaining {
@@ -3149,6 +3466,19 @@ impl Engine {
     }
 
     fn execute_rhs(&mut self, ri: usize, tuple: &[FactId]) -> Result<(), EngineError> {
+        // D-076 refire-supersede prologue: snapshot this activation's
+        // prior support keys; deps not re-established by THIS firing are
+        // removed in the epilogue (fz_7777_112/74, dump-c).
+        let tms_act = (ri, tuple.to_vec());
+        let tms_prev: Vec<(TypeId, Vec<KeyVal>)> = self
+            .tms
+            .by_act
+            .iter()
+            .find(|(a, _)| *a == tms_act)
+            .map(|(_, ks)| ks.clone())
+            .unwrap_or_default();
+        self.tms.firing_keys.clear();
+        self.tms.current_act = Some(tms_act.clone());
         // Declaration snapshot: binding values are extracted once when the
         // consequence starts (fz_7_2525).
         let snapshot: Vec<Vec<Value>> = tuple
@@ -3181,7 +3511,24 @@ impl Engine {
                             .collect::<Result<_, _>>()?
                     };
                     let fid = self.store.insert(tid, values).map_err(EngineError)?;
+                    self.tms_note_stated(fid);
                     self.on_insert(fid, Some(ri));
+                }
+                CompiledAction::InsertLogical { type_id, args } => {
+                    let tid = *type_id;
+                    let values: Vec<Value> = {
+                        let schema = self.store.schema(tid).clone();
+                        args.clone()
+                            .iter()
+                            .zip(schema.fields.iter())
+                            .map(|(a, (_, ft))| {
+                                coerce(self.eval_src(a, tuple, &snapshot), *ft).ok_or_else(|| {
+                                    EngineError("RHS insertLogical: arg type mismatch".into())
+                                })
+                            })
+                            .collect::<Result<_, _>>()?
+                    };
+                    self.tms_insert_logical(ri, &tuple.to_vec(), tid, values)?;
                 }
                 CompiledAction::Set { pos, field_idx, arg } => {
                     let f = tuple[*pos];
@@ -3203,11 +3550,59 @@ impl Engine {
                     self.on_update(f, mask, Some(ri));
                 }
                 CompiledAction::Delete { pos } => {
-                    self.store.kill(tuple[*pos]);
-                    self.on_delete(tuple[*pos], Some(ri));
+                    // D-076: delete routes through the TMS quirk model —
+                    // a justified-key delete kills the JUSTIFIED handle
+                    // whichever handle was named; a stated sibling of a
+                    // once-justified key is a silent no-op (dump3); a
+                    // stated handle with a pending logical belief
+                    // UNSTAGES it (dump7).
+                    let (victim, materialize) = self.tms_route_delete_ex(tuple[*pos], true);
+                    if let Some(victim) = victim {
+                        self.store.kill(victim);
+                        self.on_delete(victim, Some(ri));
+                    }
+                    if let Some((tid, vals)) = materialize {
+                        self.tms_materialize(tid, vals)?;
+                    }
                 }
             }
         }
+        // D-076 refire-supersede epilogue: previous-firing deps this
+        // firing did not re-establish are removed; emptied belief sets
+        // retract their justified facts (nested actions + fixpoint).
+        let stale: Vec<(TypeId, Vec<KeyVal>)> = tms_prev
+            .into_iter()
+            .filter(|k| !self.tms.firing_keys.contains(k))
+            .collect();
+        if !stale.is_empty() {
+            let mut to_retract: Vec<FactId> = Vec::new();
+            if let Some(i) = self.tms.by_act.iter().position(|(a, _)| *a == tms_act) {
+                let (_, keys) = &mut self.tms.by_act[i];
+                keys.retain(|k| !stale.contains(k));
+                if keys.is_empty() {
+                    self.tms.by_act.remove(i);
+                }
+            }
+            for key in &stale {
+                if let Some(e) = self.tms.keys.get_mut(key) {
+                    e.beliefs.retain(|j| !(j.ri == tms_act.0 && j.tuple == tms_act.1));
+                    if e.beliefs.is_empty() {
+                        if let Some(jf) = e.justified.take() {
+                            self.tms.by_fact.remove(&jf);
+                            to_retract.push(jf);
+                        }
+                    }
+                }
+            }
+            for jf in to_retract {
+                if self.store.is_alive(jf) {
+                    self.store.kill(jf);
+                    self.on_delete(jf, None);
+                }
+            }
+        }
+        self.tms.firing_keys.clear();
+        self.tms.current_act = None;
         Ok(())
     }
 
@@ -3223,6 +3618,380 @@ impl Engine {
     /// InitialFact and accumulate-result facts never appear here
     /// (matches session.getObjects(): result Numbers/Collections are not
     /// working-memory objects).
+    // ------------------------------------------------------------------
+    // Truth maintenance (D-076). The justification graph is FIRST-CLASS
+    // and queryable — the why-engine's substrate. Retraction is derived
+    // from the graph (belief set empties -> justified handle retracts).
+    // ------------------------------------------------------------------
+
+    fn tms_key_of(&self, tid: TypeId, f: FactId) -> (TypeId, Vec<KeyVal>) {
+        let n = self.store.schema(tid).fields.len();
+        let vals: Vec<Value> = (0..n).map(|i| self.store.value(f, i)).collect();
+        (tid, key_vals(&vals))
+    }
+
+    /// STATED insert bookkeeping for logical types (identity mode:
+    /// stated equals coexist — tms_w1/w5; the key just tracks them).
+    fn tms_note_stated(&mut self, f: FactId) {
+        let tid = self.store.fact_type(f);
+        if !self.tms.logical_tids.contains(&tid) {
+            return;
+        }
+        let key = self.tms_key_of(tid, f);
+        self.tms.keys.entry(key.clone()).or_default().stated.push(f);
+        self.tms.by_fact.insert(f, key);
+    }
+
+    /// insertLogical (D-076): merge onto the key's justified handle,
+    /// no-op-with-dep onto stated-only keys (dump-b), else create the
+    /// justified fact. Same-activation deps are idempotent (dump-c).
+    fn tms_insert_logical(
+        &mut self,
+        ri: usize,
+        tuple: &Tup,
+        tid: TypeId,
+        values: Vec<Value>,
+    ) -> Result<(), EngineError> {
+        let key = (tid, key_vals(&values));
+        let act = (ri, tuple.clone());
+        let seq = self.tms.seq;
+        self.tms.seq += 1;
+        let entry = self.tms.keys.entry(key.clone()).or_default();
+        let need_insert = entry.justified.is_none() && entry.stated.is_empty();
+        if entry.justified.is_some() || !entry.stated.is_empty() {
+            if !entry.beliefs.iter().any(|j| j.ri == ri && j.tuple == *tuple) {
+                entry.beliefs.push(Justif { ri, tuple: tuple.clone(), seq });
+            }
+            if entry.justified.is_none() && entry.pending_vals.is_none() {
+                entry.pending_vals = Some(values.clone());
+            }
+        }
+        let mut inserted = None;
+        if need_insert {
+            let f = self.store.insert(tid, values).map_err(EngineError)?;
+            let e = self.tms.keys.get_mut(&key).expect("key just created");
+            e.justified = Some(f);
+            e.had_justified = true;
+            e.beliefs.push(Justif { ri, tuple: tuple.clone(), seq });
+            self.tms.by_fact.insert(f, key.clone());
+            inserted = Some(f);
+        }
+        self.tms.firing_keys.push(key.clone());
+        match self.tms.by_act.iter_mut().find(|(a, _)| *a == act) {
+            Some((_, keys)) => {
+                if !keys.contains(&key) {
+                    keys.push(key);
+                }
+            }
+            None => self.tms.by_act.push((act, vec![key])),
+        }
+        if let Some(f) = inserted {
+            self.on_insert(f, Some(ri));
+        }
+        Ok(())
+    }
+
+    /// Delete routing with the pinned Drools quirk (dumps 1/2a/3):
+    /// on a key with a live justified handle, delete() kills the
+    /// JUSTIFIED fact whichever handle was named; once a key has hosted
+    /// a justified handle, deleting a stated sibling silently no-ops.
+    fn tms_route_delete(&mut self, f: FactId) -> Option<FactId> {
+        self.tms_route_delete_ex(f, false).0
+    }
+
+    /// `rhs` = the delete comes from a rule consequence: a stated-handle
+    /// delete then UNSTAGES a pending logical belief into a live
+    /// justified fact (dump7). External deletes net materialize-then-die
+    /// (dump8) — nothing survives, so no materialization is produced.
+    fn tms_route_delete_ex(&mut self, f: FactId, rhs: bool) -> (Option<FactId>, Option<(TypeId, Vec<Value>)>) {
+        let Some(key) = self.tms.by_fact.get(&f).cloned() else {
+            return (Some(f), None); // not a logical-type fact: normal delete
+        };
+        let Some(e) = self.tms.keys.get_mut(&key) else {
+            return (Some(f), None);
+        };
+        if let Some(jf) = e.justified {
+            e.justified = None;
+            e.beliefs.clear();
+            let empty = e.stated.is_empty();
+            self.tms.by_fact.remove(&jf);
+            for (_, keys) in self.tms.by_act.iter_mut() {
+                keys.retain(|k| *k != key);
+            }
+            self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
+            if empty {
+                // no surviving handles: the key vanishes — a later
+                // stated insert starts FRESH (fz_42_1395); the no-op
+                // delete quirk only protects SIBLINGS that coexisted
+                // with the justified handle (dump3).
+                self.tms.keys.remove(&key);
+            }
+            return (Some(jf), None);
+        }
+        if e.had_justified {
+            return (None, None); // dump3: undeletable stated sibling
+        }
+        e.stated.retain(|x| *x != f);
+        self.tms.by_fact.remove(&f);
+        if rhs && e.stated.is_empty() && !e.beliefs.is_empty() {
+            if let Some(vals) = e.pending_vals.take() {
+                // unstage (dump7): the pending justified belief becomes
+                // a live fact after the stated handle dies; its deps
+                // are already in place.
+                return (Some(f), Some((key.0, vals)));
+            }
+        }
+        e.beliefs.clear(); // stated-only key dies with its handles (tms_e6)
+        for (_, keys) in self.tms.by_act.iter_mut() {
+            keys.retain(|k| *k != key);
+        }
+        self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
+        if self.tms.keys.get(&key).map(|e| e.justified.is_none() && e.stated.is_empty()).unwrap_or(false) {
+            self.tms.keys.remove(&key);
+        }
+        (Some(f), None)
+    }
+
+    /// Materialize an unstaged justified belief (dump7): insert the
+    /// pending values as the key's justified handle.
+    fn tms_materialize(&mut self, tid: TypeId, vals: Vec<Value>) -> Result<(), EngineError> {
+        let key = (tid, key_vals(&vals));
+        let f = self.store.insert(tid, vals).map_err(EngineError)?;
+        if let Some(e) = self.tms.keys.get_mut(&key) {
+            e.justified = Some(f);
+            e.had_justified = true;
+        }
+        self.tms.by_fact.insert(f, key);
+        self.on_insert(f, None);
+        Ok(())
+    }
+
+    /// EAGER unmatch path (D-076, t1/t5/t8; Drools ModifyPreviousTuples
+    /// analog): a DELETE or alpha-breaking UPDATE of a fact cancels the
+    /// justifying activations whose tuples CONTAIN it, inside the same
+    /// WM action — deps drop, emptied belief sets retract (nested
+    /// actions cascade recursively, e7). CE- and beta-mediated breaks
+    /// take the LAZY path at the justifier's terminal instead
+    /// (tms_on_terminal_del — t11/t12/min_1310).
+    fn tms_eager_break(&mut self, f: FactId) {
+        if self.tms.by_act.is_empty() {
+            return;
+        }
+        let broken: Vec<(usize, Tup)> = self
+            .tms
+            .by_act
+            .iter()
+            .filter(|((ri, tuple), _)| {
+                // a justifier breaking its OWN tuple mid-firing lands
+                // LAZY at its terminal instead (fz_42_2442: R3's higher-
+                // salience activation fires before the retract).
+                if self.tms.current_act.as_ref() == Some(&(*ri, tuple.clone())) {
+                    return false;
+                }
+                // eager teardown reaches the terminal DIRECTLY only for
+                // k=1 justifiers (LIA->terminal); k>=2 tuples die via
+                // staged network propagation = the LAZY path
+                // (min3783: a witness fires on the transient between a
+                // join-justifier's tuple-fact delete and its item's
+                // evaluation, exactly like t11/t12).
+                if !self.nets[*ri].path.is_empty() {
+                    return false;
+                }
+                tuple.contains(&f) && {
+                    let dead = !self.store.is_alive(f);
+                    dead || {
+                        // alpha re-check of f's own slots only
+                        self.rules[*ri].patterns.iter().enumerate().any(|(pos, pat)| {
+                            pat.tpos.map(|t| tuple[t] == f).unwrap_or(false)
+                                && !self.alpha_passes(*ri, pos, f)
+                        })
+                    }
+                }
+            })
+            .map(|(a, _)| a.clone())
+            .collect();
+        for act in broken {
+            self.tms_drop_act_deps(&act);
+        }
+    }
+
+    /// LAZY unmatch path (D-076, t11/t12/t15/min_1310): dep removal
+    /// rides the TERMINAL tuple delete at the justifier's own agenda
+    /// evaluation (Drools cancelActivation ->
+    /// removeLogicalDependencies). Self-defeat quirk: when a retracted
+    /// fact could have been the not-CE blocker of the act's own tuple,
+    /// the unblock's terminal re-add is suppressed ONE-SHOT — the tuple
+    /// stays parked until a left-side event re-propagates it (t15's
+    /// revival by property-relevant update; t10/t11 fire once).
+    fn tms_on_terminal_del(&mut self, ri: usize, tuple: &Tup) {
+        if self.tms.by_act.is_empty() {
+            return;
+        }
+        let act = (ri, tuple.clone());
+        if !self.tms.by_act.iter().any(|(a, _)| *a == act) {
+            return;
+        }
+        if self.tms.defer_mode {
+            if !self.tms.deferred.iter().any(|(r, t, _)| (*r, t) == (act.0, &act.1)) {
+                let eager_ok = act.1.iter().any(|f| {
+                    self.tms
+                        .left_touched
+                        .iter()
+                        .any(|(lf, lo)| lf == f && *lo == Some(act.0))
+                });
+                self.tms.deferred.push((act.0, act.1, eager_ok));
+            }
+            return;
+        }
+        let retracted = self.tms_drop_act_deps(&act);
+        for f in retracted.clone() {
+            let ftid = self.store.fact_type(f);
+            // alpha check on the (now-dead) fact's stale values — the
+            // aliveness gate would always fail post-retract.
+            let self_blocker = self.rules[ri].patterns.iter().enumerate().any(|(pos, pat)| {
+                pat.ce == CeKind::Not && pat.type_id == ftid && {
+                    let rule = &self.rules[ri];
+                    let env = JoinEnvImpl { store: &self.store, rule };
+                    pat.cmps.iter().all(|c| {
+                        if let Test::Group { g, cross_var, .. } = &c.test {
+                            return *cross_var
+                                || eval_gexpr(g, &self.store, f, None, pat.tpos);
+                        }
+                        let lhs = self.store.value(f, c.field_idx);
+                        match &c.test {
+                            Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
+                            Test::Cmp { .. } => true,
+                            other => eval_alpha_test(&lhs, other),
+                        }
+                    }) && phreak::JoinEnv::allowed(&env, pos - 1, tuple, f)
+                }
+            });
+            if self_blocker {
+                self.tms.parked.push((ri, tuple.clone()));
+                // Drools leaks the WHOLE blocked list of the dying
+                // blocker (tms_t21: sibling tuples blocked by the same
+                // self-defeat fact stay parked too, firing once not
+                // per-tuple).
+                for pos in 0..self.rules[ri].patterns.len() {
+                    let pat = &self.rules[ri].patterns[pos];
+                    if pat.ce != CeKind::Not || pat.type_id != ftid || pos == 0 {
+                        continue;
+                    }
+                    let ni = self.nets[ri].path[pos - 1];
+                    if let Some(lefts) = self.trie[ni].node.blocked_of(f) {
+                        for lt in lefts {
+                            if !self.tms.parked.iter().any(|(r, t)| *r == ri && *t == lt) {
+                                self.tms.parked.push((ri, lt));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Park bookkeeping at terminal events (D-076 self-defeat quirk).
+    /// INS while parked: skipped (right-side churn can re-add children;
+    /// Drools' parked tuple never sees them). UPD: left-side event —
+    /// unpark and activate. DEL: unpark only when a tuple fact died or
+    /// fails its alpha (left-side death); blocking churn keeps the park.
+    fn tms_parked_ins(&self, ri: usize, t: &Tup) -> bool {
+        self.tms.parked.iter().any(|(pri, pt)| *pri == ri && pt == t)
+    }
+
+    fn tms_unpark_upd(&mut self, ri: usize, t: &Tup) -> bool {
+        if let Some(i) = self.tms.parked.iter().position(|(pri, pt)| *pri == ri && pt == t) {
+            self.tms.parked.remove(i);
+            true
+        } else {
+            false
+        }
+    }
+
+    fn tms_parked_del(&mut self, ri: usize, t: &Tup) {
+        let Some(i) = self.tms.parked.iter().position(|(pri, pt)| *pri == ri && pt == t) else {
+            return;
+        };
+        let left_death = t.iter().any(|f| !self.store.is_alive(*f)) || {
+            let k = self.rules[ri].patterns.len();
+            (0..k).any(|pos| {
+                let pat = &self.rules[ri].patterns[pos];
+                pat.tpos
+                    .map(|tp| !self.alpha_passes(ri, pos, t[tp]))
+                    .unwrap_or(false)
+            })
+        };
+        if left_death {
+            self.tms.parked.remove(i);
+        }
+    }
+
+    /// Remove an activation's deps; retract facts whose belief sets
+    /// emptied (nested WM deletes — cascades recurse through
+    /// tms_eager_break/terminal processing). Returns the retracted facts.
+    fn tms_drop_act_deps(&mut self, act: &(usize, Tup)) -> Vec<FactId> {
+        let keys = match self.tms.by_act.iter().position(|(a, _)| a == act) {
+            Some(i) => self.tms.by_act.remove(i).1,
+            None => return Vec::new(),
+        };
+        let mut to_retract: Vec<(u64, FactId)> = Vec::new();
+        for key in keys {
+            let Some(e) = self.tms.keys.get_mut(&key) else { continue };
+            e.beliefs.retain(|j| !(j.ri == act.0 && j.tuple == act.1));
+            if e.beliefs.is_empty() {
+                if let Some(jf) = e.justified.take() {
+                    self.tms.by_fact.remove(&jf);
+                    to_retract.push((self.tms.seq, jf));
+                }
+                if e.stated.is_empty() {
+                    self.tms.keys.remove(&key); // fz_42_1395: fresh start
+                }
+            }
+        }
+        to_retract.sort_by_key(|(s, f)| (*s, f.0));
+        let mut out = Vec::new();
+        for (_, jf) in to_retract {
+            if self.store.is_alive(jf) {
+                self.store.kill(jf);
+                self.on_delete(jf, None);
+                out.push(jf);
+            }
+        }
+        out
+    }
+
+    /// The queryable justification graph (D-076): every justified fact
+    /// with its supports and stated siblings — the why-engine substrate.
+    pub fn justifications(&self) -> Vec<JustificationView> {
+        let mut out: Vec<JustificationView> = Vec::new();
+        for ((_, _), e) in self.tms.keys.iter().map(|(k, e)| (k, e)) {
+            let Some(jf) = e.justified else { continue };
+            let mut supports: Vec<SupportView> = e
+                .beliefs
+                .iter()
+                .map(|j| SupportView {
+                    rule: self.rules[j.ri].def.name.clone(),
+                    tuple: j.tuple.clone(),
+                    seq: j.seq,
+                })
+                .collect();
+            supports.sort_by_key(|s| s.seq);
+            out.push(JustificationView {
+                fact: jf,
+                rendering: self.store.render(jf),
+                supports,
+                stated_siblings: e.stated.iter().copied().filter(|f| self.store.is_alive(*f)).collect(),
+            });
+        }
+        out.sort_by_key(|v| v.fact.0);
+        out
+    }
+
+    /// Why does this fact hold? None for unkeyed or purely stated facts.
+    pub fn why(&self, f: FactId) -> Option<JustificationView> {
+        self.justifications().into_iter().find(|v| v.fact == f)
+    }
+
     pub fn facts(&self) -> Vec<FactView> {
         let mut hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION]
             .iter()

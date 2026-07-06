@@ -1,0 +1,128 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T1(f3 != true, $b0_0_0 : f3, $b0_0_1 : f1, f3 == false)\nthen\n    insert(new T2(-1, $p0_0.getF0(), 100));\n    insertLogical(new T2($p0_0.getF0(), $p0_0.getF0(), 6));\n    modify($p0_0) { setF3(true), setF1($p0_0.getF0()) }\nend\nrule \"R1\"\nsalience($b1_0_0 - $b1_0_0)\nwhen\n    T2(f1 < -2, $b1_0_0 : f2)\n    T2(f2 == -1000000007, f0 == 11, $b1_1_0 : f2)\nthen\nend\nrule \"R2\"\nsalience 7\nwhen\n    accumulate( T2(f1 != 12, f0 >= -1000000007, $s2_0 : f0); $a2_0 : max($s2_0) )\nthen\nend\nrule \"R3\"\nwhen\n    T0(f1 == false, f0 == 0.0, $b3_0_0 : f1)\n    accumulate( T1($s3_1 : f0); $a3_1 : min($s3_1) )\nthen\n    insert(new T2(11, -1, 10));\nend\nrule \"R4\"\nwhen\n    $p4_0 : T1(f0 != -1)\nthen\n    insertLogical(new T2($p4_0.getF2(), $p4_0.getF0(), $p4_0.getF2()));\n    insertLogical(new T2(1, 9, $p4_0.getF2()));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "op": "delete",
+          "target": 2
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 5.0,
+            "f1": false
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": -0.5,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 2,
+        "f1": -1.5,
+        "f2": 9,
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -3,
+        "f1": 8,
+        "f2": 6
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": 2,
+        "f2": 3
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": -3,
+        "f1": 4.0,
+        "f2": 2,
+        "f3": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -4,
+        "f1": -0.5,
+        "f2": 2,
+        "f3": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_3767",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

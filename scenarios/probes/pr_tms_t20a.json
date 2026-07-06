@@ -1,0 +1,46 @@
+{
+ "name": "pr_tms_t20a",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "i64"
+    },
+    {
+     "name": "g1",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": true,
+    "f1": false,
+    "f2": 10
+   }
+  }
+ ],
+ "drl": "rule R0 salience -4 no-loop when $a : T0() $b : T0(f1 == false) then insertLogical(new T1($a.getF2(), $a.isF1())); $b.setF1(true); update($b); end\nrule R2 when T1() then end"
+}

@@ -1,0 +1,41 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f0 > -3, f1 != true, $b0_0_0 : f0)\nthen\nend\nrule \"R1\"\nwhen\n    (or $p1_0 : T0(f0 < -3, f1 == false, $b1_0_0 : f1, $b1_0_1 : f1, f1 == false) $p1_0 : T0(f0 >= 0, f1 == false, $b1_0_0 : f1, $b1_0_1 : f1, f1 == false))\nthen\n    insertLogical(new T1($p1_0.getF0(), $b1_0_1));\n    $p1_0.setF1(true);\n    update($p1_0);\nend\nrule \"R2\"\nsalience 6\nwhen\n    $p2_0 : T0(f1 != false, f1 == true, $b2_0_0 : f1, f1 == false)\n    T1(f1 not in (true, false), f1 in (false), $b2_1_0 : f0)\nthen\n    modify($p2_0) { setF1(true), setF0(8) }\nend\nrule \"R3\"\nsalience -6\nwhen\n    $p3_0 : T1(f1 in (false, false, false), !(f0 < -1000000007))\n    accumulate( T0(); $a3_1 : count() )\n    T1()\nthen\n    delete($p3_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 9,
+        "f1": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_123_3893",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

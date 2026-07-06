@@ -1,0 +1,46 @@
+{
+ "drl": "rule \"R0\"\nsalience -4\nno-loop\nwhen\n    $p0_0 : T0()\n    $p0_1 : T0()\nthen\n    insertLogical(new T1($p0_0.getF2(), $p0_0.isF1()));\n    update($p0_1);\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": true,
+    "f1": false,
+    "f2": 10
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "pr_tms_noloop_bare_upd",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

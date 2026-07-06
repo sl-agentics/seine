@@ -323,6 +323,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     // D-035 — node-sharing identity incl. the bound-field set is modeled
     // by the engine's static sink-order flips).
     let allow_mutation = rng.chance(60);
+    // D-076 TMS scenarios (~30%): the LAST type is the LOGICAL type —
+    // insertLogical targets it exclusively, and (mutation wall) no rule
+    // setter/update and no external update ever touches it. Deletes stay
+    // free (the delete-quirk model is part of the certified surface).
+    let logical_ti = ntypes - 1;
+    let tms = ntypes >= 2 && rng.chance(30);
     let max_extra_pat = 3;
     let mut drl = String::new();
     // Types any rule may DELETE: external actions must not target them
@@ -429,6 +435,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 .filter(|(i, p)| {
                     *i >= copied
                         && p.ce == 0
+                        && !(tms && p.ti == logical_ti)
                         && types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Bool)
                 })
                 .map(|(i, _)| i)
@@ -440,8 +447,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             }
         };
         let delete_pos = {
-            let positives: Vec<usize> =
-                pats.iter().enumerate().filter(|(_, p)| p.ce == 0).map(|(i, _)| i).collect();
+            let positives: Vec<usize> = pats
+                .iter()
+                .enumerate()
+                .filter(|(_, p)| p.ce == 0 && !(tms && p.ti == logical_ti))
+                .map(|(i, _)| i)
+                .collect();
             if update_pos.is_none() && !positives.is_empty() && rng.chance(20) {
                 Some(*rng.pick(&positives))
             } else {
@@ -582,6 +593,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         let mut actions: Vec<String> = Vec::new();
         let max_ti = pats.iter().map(|p| p.ti).max().unwrap();
         let can_insert = max_ti + 1 < ntypes && delete_pos.is_none();
+        // insertLogical eligibility (D-076): never from acc/collect
+        // rules (engine wall); the DAG bound uses POSITIVE patterns only
+        // — not/exists over the logical type may still justify it (the
+        // t10 self-defeat family terminates by the eager-retract pin).
+        let has_acc = pats.iter().any(|p| p.ce >= 3);
+
         if can_insert {
             let nins = rng.below(3);
             for _ in 0..nins {
@@ -591,9 +608,31 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 for (_, tft) in &tgt_fields {
                     args.push(gen_arg(&mut rng, &types, &mut pats, ri, *tft, false));
                 }
-                actions.push(format!("insert(new {}({}));", types[tgt_ti].name, args.join(", ")));
+                // D-080 envelope: the logical type is PURE — only
+                // insertLogical touches it, and justifiers never mutate
+                // in the same RHS (the compound transient-visibility
+                // micro-timings are documented-open, not fuzzed).
+                if tms && tgt_ti == logical_ti {
+                    if has_acc || update_pos.is_some() || delete_pos.is_some() {
+                        continue;
+                    }
+                    actions.push(format!(
+                        "insertLogical(new {}({}));",
+                        types[tgt_ti].name,
+                        args.join(", ")
+                    ));
+                } else {
+                    actions.push(format!("insert(new {}({}));", types[tgt_ti].name, args.join(", ")));
+                }
             }
         }
+        // D-080: CE-only self-justifiers (not/exists over the logical
+        // type + insertLogical of it) are NOT fuzzed — multi-dep
+        // self-defeat cycles are genuine Drools RUNAWAYS (or-twin /
+        // fz_42_946 family) and the transient-visibility drain rule has
+        // unpinned structure beyond the t20 matrix (min812). The
+        // single-tuple semantics stay certified via the hand probes
+        // (pr_tms_t10/t11/t15/t21).
         if let Some(pos) = update_pos {
             let var = ensure_fact_var(&mut pats, ri, pos);
             let (gfi, gname) = guard_field.clone().unwrap();
@@ -772,7 +811,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     let nfacts = rng.below(7);
     let mut facts = Vec::new();
     for _ in 0..nfacts {
-        let ti = rng.below(ntypes);
+        let ti = rng.below(if tms { logical_ti } else { ntypes });
         let t = &types[ti];
         let mut fields = serde_json::Map::new();
         for (fname, ft) in &t.fields {
@@ -806,7 +845,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     safe.iter().copied().filter(|i| !ext_deleted.contains(i)).collect();
                 let roll = rng.below(100);
                 if roll < 40 || alive.is_empty() {
-                    let ti = rng.below(ntypes);
+                    let ti = rng.below(if tms { logical_ti } else { ntypes });
                     let t = &types[ti];
                     let mut fields = serde_json::Map::new();
                     for (fname, ft) in &t.fields {
@@ -817,6 +856,14 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     let target = *rng.pick(&alive);
                     let tname = facts[target]["type"].as_str().unwrap();
                     let t = types.iter().find(|t| t.name == tname).unwrap();
+                    // D-076 mutation wall: external updates never touch
+                    // the logical type — delete it instead (in-subset,
+                    // exercises the quirk model).
+                    if tms && tname == types[logical_ti].name {
+                        ext_deleted.insert(target);
+                        eactions.push(json!({"op": "delete", "target": target}));
+                        continue;
+                    }
                     let nf = 1 + rng.below(2.min(t.fields.len()));
                     let mut fields = serde_json::Map::new();
                     for _ in 0..nf {
@@ -833,7 +880,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             let nef = rng.below(3);
             let mut efacts = Vec::new();
             for _ in 0..nef {
-                let ti = rng.below(ntypes);
+                let ti = rng.below(if tms { logical_ti } else { ntypes });
                 let t = &types[ti];
                 let mut fields = serde_json::Map::new();
                 for (fname, ft) in &t.fields {
@@ -868,7 +915,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     // type, unbound-eligible). An UNBOUND CE arg requires the param to be
     // bound in EVERY callee branch (D-057) — tracked at generation.
     let mut q2_queries: Vec<(String, Vec<(Ft, bool)>)> = Vec::new();
-    if !allow_mutation && epochs_insert_only && rng.chance(45) {
+    if !tms && !allow_mutation && epochs_insert_only && rng.chance(45) {
         const QOPS_NOEQ: &[&str] = &["!=", "<", "<=", ">", ">="];
         let nqueries = 1 + rng.below(2); // 1..2
         for qi in 0..nqueries {

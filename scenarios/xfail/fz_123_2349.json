@@ -1,0 +1,100 @@
+{
+  "drl": "rule \"R0\"\nsalience 8\nwhen\n    T2($b0_0_0 : f2, $b0_0_1 : f0)\nthen\nend\nrule \"R1\"\nsalience 6\nwhen\n    $p1_0 : T1($b1_0_0 : f0, f1 == false)\nthen\n    insertLogical(new T2(\"ab\", 100, $p1_0.isF1()));\n    $p1_0.setF1(true);\n    update($p1_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": 11,
+        "f2": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": "b",
+        "f2": true,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": -2,
+        "f2": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": "alpha",
+        "f2": true,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_2349",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

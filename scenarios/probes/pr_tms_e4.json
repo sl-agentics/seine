@@ -1,0 +1,57 @@
+{
+ "name": "pr_tms_e4",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "c",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [],
+ "drl": "rule R when not A() then insertLogical(new LK(1)); end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "A",
+     "fields": {
+      "a": 7
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

@@ -902,3 +902,4 @@ org.drools.mvel.integrationtests.session	InsertTest	testInsert	skip:bean-unknown
 org.drools.mvel.integrationtests.session	InsertTest	testInsertionOrder	skip:stmt-unrecognized:ksession = kbase.newKieSession()		
 org.drools.mvel.integrationtests.session	InsertTest	testInsertFinalClassInstance	skip:bean-unknown:PersonFinal		
 org.drools.mvel.integrationtests.session	CrossProductTest	testCrossProductRemovingIdentityEquals	"skip:stmt-unrecognized:final List list2 = Arrays.asList(""42:43"", ""43:42"", ""World:42"		
+org.drools.compiler.integrationtests	ErrorOnInsertLogicalTest	testErrorHandling	skip:external-wm-api		

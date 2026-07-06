@@ -12,6 +12,6 @@ mod queries;
 mod rx;
 pub mod store;
 
-pub use engine::{Engine, EngineError, Firing};
+pub use engine::{Engine, EngineError, Firing, JustificationView, SupportView};
 pub use queries::{QueryOutput, QueryVal};
 pub use store::{FactId, FactView, FieldType, TypeSchema, Value};

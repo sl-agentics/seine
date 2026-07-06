@@ -1,0 +1,50 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0(f0 == true, f0 != false, $b0_0_0 : f0, $b0_0_1 : f0)\nthen\n    insertLogical(new T1(\"b\", $b0_0_0));\n    insertLogical(new T1(\"b\", true));\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f0 == true, f0 == true, f0 in (true, false) || f0 == false, $b1_0_0 : f0, $b1_0_1 : f0)\nthen\n    insertLogical(new T1(\"alpha\", $p1_0.isF0()));\n    insertLogical(new T1(\"\", false));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T1(f1 == true, $b2_0_0 : f0, $b2_0_1 : f0)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nwhen\n    T1($b3_0_0 : f0, $b3_0_1 : f1)\nthen\nend\nrule \"R4\"\nwhen\n    T0(f0 == false, f0 == false, $b4_0_0 : f0, $b4_0_1 : f0)\nthen\n    insertLogical(new T1(\"ab\", $b4_0_0));\n    insertLogical(new T1(\"alpha\", true));\nend\nrule \"R5\"\nwhen\n    $p5_0 : T0(f0 != true, $b5_0_0 : f0)\nthen\n    delete($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_4048",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

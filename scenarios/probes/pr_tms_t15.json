@@ -1,0 +1,94 @@
+{
+ "name": "pr_tms_t15",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "c",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "d",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 1
+   }
+  }
+ ],
+ "drl": "rule P when A(a > 0) not LK() then insertLogical(new LK(1)); end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "D",
+     "fields": {
+      "d": 1
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "a": 2
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

@@ -1,0 +1,68 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1($b0_0_0 : f2, $b0_0_1 : f2)\nthen\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f0, $b1_0_1 : f2)\n    not T1(f0 != 7, f2 not in (-1000000007, 6.0, 11))\n    T0(f1 == false, f1 != true)\nthen\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0(f1 != false || f0 not in (false), $b2_0_0 : f1, $b2_0_1 : f0, f0 == false)\nthen\n    insertLogical(new T1(-1000000007, -2, 1));\n    insertLogical(new T1(7, -2, -4));\n    modify($p2_0) { setF0(true), setF1(true) }\nend\nrule \"R3\"\nwhen\n    T1(f2 in (1.0, 2, 100), $b3_0_0 : f0, $b3_0_1 : f2)\n    not T1(f1 != -1000000007, f1 == -5, f2 > $b3_0_1)\n    T0(f0 != false, $b3_2_0 : f0, $b3_2_1 : f0)\nthen\nend\nrule \"R4\"\nwhen\n    $a4_0 : ArrayList() from collect( T0(f0 == false) )\nthen\n    insert(new T1(0, -1000000007, 3));\n    insert(new T1(-1, -2, 11));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 0,
+        "f1": 12,
+        "f2": -1
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 8,
+        "f1": 9,
+        "f2": 4
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_777_1157",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0($b0_0_0 : f0, $b0_0_1 : f0)\n    not T1(f2 > 3.0 || f0 == -1000000007, f1 == $b0_0_1)\nthen\n    insertLogical(new T1(-2, $p0_0.getF0(), 5.0, false));\nend\nrule \"R1\"\nsalience -10\nwhen\n    T1(f3 == false, f2 not in (4.0), f1 <= 7 || f0 < 8 || !(f1 == 2), $b1_0_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 100
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_930",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

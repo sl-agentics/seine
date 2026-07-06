@@ -1,0 +1,69 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    T1(!(f1 < 11), $b0_0_0 : f1, $b0_0_1 : f1)\nthen\nend\nrule \"R1\"\nwhen\n    T1(f2 != false)\nthen\nend\nrule \"R2\"\nsalience -5\nwhen\n    T0(f1 == true, f1 != true)\n    $p2_1 : T1(f0 != false)\nthen\n    delete($p2_1);\nend\nrule \"R3\"\nno-loop\nwhen\n    $p3_0 : T0(f0 >= -2, $b3_0_0 : f1, f1 == false)\nthen\n    insertLogical(new T1($b3_0_0, -1000000007, true));\n    $p3_0.setF1(true);\n    $p3_0.setF0(-0.5);\n    update($p3_0);\nend\nrule \"R4\"\nwhen\n    ( $p4_0 : T0(f0 not in (-2.0), $b4_0_0 : f1) and T0(f0 == 1.5, f1 != true, $b4_1_0 : f1) and T0(f0 != -2.5, f1 != $b4_0_0, $b4_2_0 : f1) )\n    or\n    ( $p4_0 : T0(f0 not in (-2.0), $b4_0_0 : f1) and T0(f1 != true, f1 != true, $b4_1_0 : f1) and T0(f1 != false, f1 != $b4_0_0, $b4_2_0 : f1) )\nthen\n    insertLogical(new T1(true, 2, $p4_0.isF1()));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 4.5,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": 12,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 11,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": 1,
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_777_4039",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

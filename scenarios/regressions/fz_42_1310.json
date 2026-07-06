@@ -1,0 +1,54 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T2(f1 < \"a\", f1 < \"a\")\nthen\nend\nrule \"R1\"\nsalience 10\nwhen\n    accumulate( T2(f1 >= \"a\"); $a1_0 : count() )\n    T2()\nthen\nend\nrule \"R2\"\nsalience -7\nwhen\n    not T2()\nthen\n    insertLogical(new T2(-3.0, \"ab\"));\nend\nrule \"R3\"\nwhen\n    accumulate( T1($s3_0 : f0); $a3_0 : average($s3_0) )\nthen\n    insert(new T2(0.5, \"zz\"));\n    insert(new T2(1.5, \"ab\"));\nend\nrule \"R4\"\nwhen\n    ( $p4_0 : T0(f1 > \"alpha\", $b4_0_0 : f1, $b4_0_1 : f3, f2 == false) )\n    or\n    ( $p4_0 : T0(f1 > \"alpha\", $b4_0_0 : f1, $b4_0_1 : f3, f2 == false) )\nthen\n    insertLogical(new T2(0.0, \"b\"));\n    insert(new T1($p4_0.getF0(), $b4_0_1));\n    modify($p4_0) { setF2(true), setF1($b4_0_0) }\nend\nrule \"R5\"\nsalience 7\nno-loop\nwhen\n    T2(f0 in (4), f0 > 3.0 && < -3.0)\nthen\nend\n",
+  "facts": [],
+  "name": "fz_42_1310",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

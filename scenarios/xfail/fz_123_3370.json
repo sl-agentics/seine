@@ -1,0 +1,82 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    accumulate( T1(f2 == true, f1 != false, $s0_0 : f0); $a0_0 : average($s0_0) )\nthen\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f1, $b1_0_1 : f1)\nthen\nend\nrule \"R2\"\nwhen\n    not T0(f2 == true, f0 >= \"alpha\", f2 != true || f1 in (100, 3.0, 3.5) || !(f1 in (1, 12, -3)))\nthen\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0()\n    not T1()\nthen\n    insertLogical(new T1($p3_0.getF1(), $p3_0.isF2(), $p3_0.isF2()));\nend\nrule \"R4\"\nsalience -8\nwhen\n    ( T0() and not T1() )\n    or\n    ( T0() and not T1() )\n    or\n    ( T0() and not T1() )\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": 6,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": -5,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": 11,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": 6,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": 0,
+        "f2": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_123_3370",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

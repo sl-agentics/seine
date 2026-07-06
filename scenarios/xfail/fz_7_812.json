@@ -1,0 +1,106 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T2(f0 in (6.0), f0 <= 6, !(f1 == false || f2 in (100)))\nthen\nend\nrule \"R1\"\nwhen\n    T2($b1_0_0 : f0, $b1_0_1 : f1)\n    accumulate( T2(f2 > 0, f0 < 12, f2 in (-2) || f1 == true || !(f2 <= -1000000007), f2 == $b1_0_0); $a1_1 : count() )\nthen\nend\nrule \"R2\"\nwhen\n    not T2()\nthen\n    insertLogical(new T2(0, false, 7));\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": 2.5,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": -3.0,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 4.0,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_812",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+ "drl": "rule \"R2\"\nwhen\n    T1()\nthen\nend\nrule \"R4\"\nno-loop\nwhen\n    $p4_0 : T0()\n    not T1()\nthen\n    insertLogical(new T1(\"beta\", $p4_0.getF0(), $p4_0.isF1()));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 100,
+    "f1": true
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "pr_tms_defeat_eqsal",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

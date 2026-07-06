@@ -1,0 +1,108 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f1 >= 2.0)\n    exists T1()\n    not T1(f0 in (-1.5, 1.5), !(f0 in (12, -2, 9) || f0 == 1))\nthen\n    insertLogical(new T1($p0_0.getF1()));\nend\nrule \"R1\"\nwhen\n    ( not T1() )\n    or\n    ( not T1() )\nthen\n    insertLogical(new T1(-5));\nend\nrule \"R2\"\nwhen\n    T0(f1 >= 2.0)\n    exists T1()\nthen\n    insertLogical(new T1(-1000000007));\nend\nrule \"R3\"\nwhen\n    T0(f0 != false)\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f1": -1,
+            "f2": true
+          },
+          "op": "update",
+          "target": 1
+        }
+      ],
+      "facts": []
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": false,
+            "f1": 7,
+            "f2": true
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "op": "delete",
+          "target": 1
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": false,
+            "f1": 9,
+            "f2": true
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": true,
+            "f1": 11,
+            "f2": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": 100,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": -1000000007,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": -1,
+        "f2": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_1353",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -2230,3 +2230,242 @@ D-075 latent order bugs touch the existential machinery P1c would
 extend — harden first (fz_min_455 / fz_min_4816 / fz_min_6812 /
 fz_min_3959 in xfail/ are the worklist), then lift the D-031
 "bare not/exists only" fence.
+
+
+## Truth maintenance — TMS phase (2026-07-05)
+
+### D-076: insertLogical / justification / cascading retract (probe
+### ladder tms_e*/t*/w*/u* + TmsDump reflection; Bryan-supervised)
+Oracle = Drools 9.44.0.Final WITH the drools-tms module (required since
+Drools 8: insertLogical without it is a build error; classpath addition
+proven corpus-inert, all tiers green). All pins oracle-verified; the
+stated/justified internals fell to TmsDump reflection (getEqualityKey /
+getBeliefSet) after black-box witnesses contradicted every model.
+
+**THE DESIGN CONSTRAINT (product-critical, Bryan's brief): the
+justification graph is QUERYABLE, not internal bookkeeping.** The
+engine keeps the TMS as first-class state (equality keys -> justified
+handle + belief set of (rule, tuple, seq) supports + stated siblings)
+and derives retraction FROM the graph. Public surface:
+`Engine::justifications() -> Vec<JustificationView>` and
+`Engine::why(fact)` — per justified fact: rendering, ordered supports
+(rule name + matched tuple + seq), stated siblings. This IS the
+why-engine's substrate: "what justifies this fact" is a lookup, "what
+would have to change for it to retract" is the support list.
+Integration test tms_queryable.rs pins the surface.
+
+- **Equality (D-066 mechanism):** value-equality over ALL declared
+  fields. Oracle side: declare blocks now emit `@key` on every field
+  (without @key, declared types are identity — tms_e1: no sharing;
+  with it, equal logical inserts merge — tms_e2). @key-all proven
+  corpus-inert (full tiers green before any TMS scenario existed).
+  f64 keys use Java Double.equals bit semantics: NaN==NaN,
+  +0.0 != -0.0 (tms_u6; engine keys via f64::to_bits). Partial @key
+  stays out of subset (tms_e11 evidence: key-subset equality, first
+  object's non-key fields win).
+- **Lifecycle:** justified handle per key; deps merge across rules and
+  tuples (e2/e3/e10, dump-d beliefs=2); same-activation deps are
+  idempotent (dump-c); last-dep removal auto-retracts with cascades
+  (e7). Flagship not-CE shape works (e4).
+- **Timing — TWO paths (t1/t5/t8 vs t11/t12/t15/min_1310; dump5's
+  event sequences settled it):** dep removal rides Drools'
+  cancelActivation -> removeLogicalDependencies at TERMINAL-tuple
+  deletion. (1) EAGER: a DELETE or alpha-breaking UPDATE of a fact IN
+  the justifying tuple cancels within the breaking WM action
+  (ModifyPreviousTuples analog) — before any later pop, regardless of
+  the justifier's salience (t5: sal-2 justifier's fact retracted
+  before a sal-5 witness). EXCEPT self-inflicted breaks: a justifier
+  breaking its OWN tuple mid-firing lands lazy (fz_42_2442 — a
+  higher-salience rule fires on the fact first). (2) LAZY: network-
+  mediated breaks (not/exists blocker transitions — facts NOT in the
+  tuple) process at the justifier's agenda-item evaluation,
+  salience-ordered: higher-salience rules FIRE on the transient fact
+  first (t11: a sal-100 witness fires on a fact that then retracts;
+  t12; min_1310's accumulate rule fired on a transient logical fact).
+  Drools checks salience preemption BEFORE re-evaluating a fired
+  rule's network, so the engine keeps its certified post-firing force
+  evaluation (window claiming, D-037) and DEFERS only the TMS
+  side-effect. Drain points, all probe-pinned: (a) the post-firing
+  continuation drains unless a STRICTLY-higher-salience item waits —
+  equal salience/earlier decl does NOT preempt it (min608 vs t11);
+  (b) an EAGER (no-loop/dyn-salience) justifier's entry drains at the
+  flush IFF the breaking action property-HIT the tuple's LEFT side —
+  right-side-only breaks wait (the tms_t20 2x2 event dumps: only
+  binding+setter kills the transient before an equal-decl witness);
+  (c) otherwise the item's next pop. A bare no-loop own-update with
+  NOTHING breaking removes NO deps (pr_tms_noloop_bare_upd: the
+  logical fact survives — j04's skip is not a cancellation).
+- **Refire-supersede (fz_7777_112/74, dump-c):** when an activation
+  REFIRES, deps from its previous firing not re-established by the new
+  firing are removed at end-of-firing (Drools
+  cancelRemainingPreviousLogicalDependencies): update-keeps-match with
+  same value = stable fact, no blip; changed bindings retract the old
+  value's fact after the refire. Engine: prologue snapshot +
+  epilogue sweep in execute_rhs.
+- **Self-defeat parks, left-side events revive (t10/t11/t15):**
+  `A() not LK() -> insertLogical(LK)` fires ONCE, fact absent, NO
+  refire — the retraction's unblock re-add is suppressed (Drools
+  leaks the dead blocker); a property-relevant UPDATE of a tuple fact
+  re-propagates and REFIRES (t15: two firings), unrelated events do
+  not. Engine: one-shot suppress_once consumed at push_activation.
+- **Stated/justified interplay (w1..w5, dumps 1-3; Bryan: model
+  faithfully):** stated inserts are plain identity-mode inserts —
+  stated equals COEXIST with the justified fact (w1/w5). insertLogical
+  onto a stated-only key inserts nothing but records a dep that
+  evaporates with the stated fact (dump-b, e6). THE QUIRK: delete() on
+  a key with a live justified handle kills the JUSTIFIED fact +
+  belief set whichever handle was named (dumps 1/2a); once a key has
+  hosted a justified handle, deleting a stated sibling is a SILENT
+  NO-OP (dump3 — the fact is effectively undeletable). Modeled
+  exactly; bug-shaped but deterministic and pinned.
+- **Walls (Bryan: compile-time):** (1) setters/update/modify on a
+  logically-inserted TYPE — Drools runtime-errors with murky triggers
+  (tms_u1 "cannot modify", tms_u4 "mixed stated and justified" even
+  with no live justified handle); subset walls it at compile time,
+  external updates at call time. (2) insertLogical from
+  accumulate/collect/?query rules (justifying-tuple revalidation
+  cannot re-run those conditions). (3) ?query CEs + insertLogical in
+  one unit (D-057 extension: TMS retracts are WM deletes the drain
+  windows would see). (4) rules-before-facts required once a unit has
+  insertLogical.
+- Acceptance-test routing (honest): ErrorOnInsertLogicalTest =
+  function-blocks/exceptions + external-wm-api; Misc2Test
+  testPhreakTMS = arithmetic + wm-introspection; testQueryCorruption =
+  declare-annotations; drools-tms module tests = internals
+  (skiplist). ZERO baseline yield — certification weight = the 20
+  promoted pr_tms_* probes + differential fuzz, as with the Q phases.
+
+### D-077: stated/justified key lifecycle — the full quirk model
+### (fz_42_1395/2442/2659, dumps 6-8, NamedEntryPoint/SimpleBeliefSystem
+### sources as behavior reference)
+The first TMS campaign's finds completed the stated/justified pins:
+- **Key death (fz_42_1395):** when the justified handle dies and no
+  stated siblings remain, the KEY VANISHES — a later stated insert of
+  the same value starts a FRESH key (deletable normally). The dump3
+  undeletable-sibling quirk applies only to siblings that COEXISTED
+  with a justified handle.
+- **Pending logical beliefs UNSTAGE (fz_42_2659, dump7/dump8):** an
+  insertLogical onto a stated-only key records a dep + PENDING values
+  (no WM insert — dump-b). Deleting the stated handle from a RULE
+  consequence UNSTAGES the belief: the justified fact MATERIALIZES
+  live (rules fire on it; it dies only when its deps do). An EXTERNAL
+  session.delete nets materialize-then-die inside the call (dump8's
+  +WM/-WM pair) — nothing observable survives, which the engine
+  models as key death (tms_e6 differential-green either way).
+- **Collect removal is Collection.remove(Object) (fz_42_2019,
+  D-078 fallout of @key-all):** value-equality removes the FIRST
+  equal element of a collect list, not the identical instance — the
+  engine's collect reverse now picks the list victim by value.
+Latent find quarantined per the D-075 pattern: fz_42_3924 (+ min) —
+or-twin not-nodes with an update-away-and-back epoch, bisect-proven
+pre-existing (pre-TMS engine byte-identical; fails under the PRE-@key
+oracle too) — scenarios/xfail/.
+
+### D-078: TMS generator grammar + certification gate
+Generator: ~30% of scenarios designate the LAST type as the LOGICAL
+type; CE-only matches of the logical type may self-justify (the t10
+family); setters/updates never touch it (wall-safe by construction);
+external updates reroute to deletes; ?query rules and TMS never mix.
+Smoke fuzz immediately caught the refire-supersede gap (fz_7777_112/74,
+minimized + graduated). After the first full campaign (57 finds), the
+envelope was FENCED per Bryan's ruling (D-080): the logical type is
+PURE — only insertLogical produces it (no stated inserts by rules,
+initial facts, or epochs; no rule deletes of it; external deletes
+remain), and justifiers carry no mutation actions in the same RHS.
+
+### D-080: TMS certified envelope — compound transient-visibility
+### micro-timing documented-open (Bryan's fence+quarantine ruling)
+Three timing layers were pinned and fixed from the first campaign
+(D-076's drain points; the unstage materialization D-077). The
+residual 36 finds (~0.12% of draws, 32 order-only) are COMPOUND
+stacks of transient-visibility micro-timing — which third-party rules
+glimpse a logical fact between its insertion and its lazily-processed
+retraction — under (a) justifiers that mutate/delete in the same RHS
+as insertLogical (26) and (b) stated/justified key mixing under rule
+deletes, where Drools' immediateDelete vs staged cancellation paths
+diverge (10, min4048 family). Every single-mechanism minimization
+PASSES (promoted as probes); only the compounds diverge, and each
+peel exposed another RuleExecutor internal. Per the D-042/D-075
+pattern: the 36 sit in scenarios/xfail/ as witnesses, the generator
+no longer draws the two shapes (D-078), and the SEMANTICS of mixing
+remain certified by the hand-probe matrix (w-series, t20 2x2, dumps).
+**Bonus finding: Drools itself is NONDETERMINISTIC on three of the
+shapes** (fz_42_84/581/2657 — identity-hash-order-dependent TMS
+cascade churn: the same scenario terminates or hits the fire limit
+across JVM launches). Those are un-certifiable by any differential
+harness and sit in xfail as nondeterminism witnesses — independent
+evidence that the fence line is drawn where Drools' own behavior
+stops being a function of the program.
+
+**Recursion accounting (Bryan's question):** the cascade is
+call-recursive (retract -> on_delete -> eager-break -> retract), but
+(a) it TERMINATES structurally — each level kills >=1 live justified
+fact, nothing resurrects mid-cascade (no rule fires during
+propagation), keys merge idempotently so cycles can't sustain; and
+(b) stack depth is SUBSET-BOUNDED — a chain link needs derived values
+and the subset has no arithmetic (D-061), so RHS args are copies
+(same key, merge) or literals (finite): depth <= #rules x
+literal-combos. Locked by the depth-12 chain test in
+tms_queryable.rs. P3 constraint arithmetic would lift the bound —
+its roadmap row now carries a "cascade goes iterative first" prereq.
+
+(Pre-commit catches: the defer flag leaked out of evaluations into
+the drain loops TWICE — first past eager evaluations (seed 42 wedged
+3h), then past the UNLINKED-RULE early return (seed 123 wedged 6h;
+gdb backtrace off the live process pinned the exact loop). Both are
+non-firing infinite spins the fire-limit cannot catch. Fix is now
+STRUCTURAL: evaluate_rule is a wrapper that scopes the flag around
+evaluate_rule_inner — no per-exit hygiene to forget. Lesson recorded:
+slow gate = `ps` + `gdb -p <pid> -batch -ex bt` FIRST, not waiting.)
+
+Second-campaign refinements (three more pins, then the fence closed):
+- **Eager unmatch is k=1-scoped** (pr_tms_k2lazy/min3783): the
+  tuple-fact-delete teardown reaches the terminal directly only for
+  single-positive-pattern justifiers; k>=2 tuples die via staged
+  propagation = the LAZY path — a witness fires on the transient
+  between a join-justifier's tuple-fact delete and its item's
+  evaluation. Every t1/t5/t8 eager pin used k=1.
+- **Flush drains are OWN-ORIGIN only** (min3783 vs tms_t20_b_s): the
+  eager-flush dep-removal fires for the justifier's own left-side
+  action; foreign-origin left hits wait for the pop. TMS terminal-del
+  side-effects now defer out of BOTH the post-firing force evaluation
+  and eager-flush evaluations.
+- **The self-defeat park covers the dead blocker's WHOLE blocked
+  list** (pr_tms_t21: sibling tuples blocked by the same fact stay
+  parked; the rule fires once, not per-tuple).
+- **CE-only self-justifiers are fenced out of the generator**
+  (fz_42_946 family): with >=2 deps on one key (or-twin branches,
+  multi-rule justification), the self-defeat cycle is a GENUINE
+  DROOLS RUNAWAY (fire-limit, 17 of the second campaign's finds) —
+  the engine terminates where Drools does not. Single-tuple semantics
+  stay certified via pr_tms_t10/t11/t15/t21. Remaining second-campaign
+  witnesses quarantined; fz_999_9976 bisect-proven pre-existing
+  (collect join-order latent, D-075 family).
+
+### D-079: CEP-as-TMS investigation queued (Bryan's post-TMS note)
+Bryan: the D-060 WONT on CEP (incl. the deterministic pseudo-clock)
+may soften now that TMS is landed — IF the non-wallclock CEP subset is
+a SPECIAL CASE of TMS: event `@expires`/window lifetimes as justified
+facts whose support is a logical-clock window fact, expiration =
+justification loss = the certified D-076 cascade. Queued as a
+ROADMAP-P3 INVESTIGATION row (FEATURES §2): the deliverable is a
+mapping memo (probe-first, PseudoClockEventsTest as reference), not an
+implementation. D-060's "second WM lifecycle" objection stands unless
+the reduction is clean; if it IS clean, the objection dissolves by
+construction (one lifecycle: TMS).
+
+**TMS gate (WITNESSED, final binary):** tiers baseline 11/11, probes
+431/431, regressions 252/252; fuzz seeds 42/7/123/777/999 x 10,000 =
+**50,000 cases, ZERO divergences**, xfail hits = quarantined names
+only. Corpus at close: 431 probes (33 pr_tms_* + timing matrix),
+252 regressions (incl. fz_999_3020 dyn-salience flush pin), 92 xfail
+witnesses (D-080 envelope + Drools-nondeterminism + pre-existing
+latents), baseline 11.
+
+**HANDOFF @ TMS close** — insertLogical/justification/cascade landed
+(D-076..D-080) with the QUERYABLE justification graph
+(Engine::justifications()/why()) as the why-engine substrate. Next
+per Bryan: D-075/D-080 hardening worklist (two pins already queued:
+ex1a out-and-back right re-entry, hb4 exists multi-right left order;
+then collect/dyn-salience/query-row families), THEN P1c nested
+existential CE groups on the hardened base.

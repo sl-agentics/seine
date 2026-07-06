@@ -1,0 +1,95 @@
+{
+  "drl": "rule \"R0\"\nsalience 3\nwhen\n    $p0_0 : T0()\nthen\n    insert(new T1($p0_0.getF2(), $p0_0.getF2(), \"alpha\"));\n    insert(new T3(5, false));\nend\nrule \"R1\"\nwhen\n    $p1_0 : T3(f0 > 8, $b1_0_0 : f1)\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nwhen\n    ( not T3(f0 not in (4.0), f1 == true) )\n    or\n    ( not T3(f0 not in (4.0), f1 == true) )\n    or\n    ( not T3(f0 not in (4.0), f1 == true) )\nthen\n    insertLogical(new T3(7, true));\nend\nrule \"R3\"\nsalience($b3_0_0 - $b3_0_0)\nwhen\n    T3($b3_0_0 : f0, $b3_0_1 : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1.5,
+        "f1": -1.0,
+        "f2": -5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": false
+      },
+      "type": "T3"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": 8,
+        "f2": "b"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -2.0,
+        "f1": 1.5,
+        "f2": 8
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_42_2657",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

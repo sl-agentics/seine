@@ -210,8 +210,14 @@ public final class OracleRunner {
         for (JsonNode type : types) {
             sb.append("declare ").append(type.path("name").asText()).append('\n');
             for (JsonNode field : type.path("fields")) {
+                // @key on every field (D-076): declared-type equality =
+                // value-equality over all fields, so Drools TMS equality
+                // keys match the engine's D-066 mechanism. Inert for the
+                // pre-TMS corpus (identity assert mode; hashing keys on
+                // field values) — proven by full-tier re-runs.
                 sb.append("    ").append(field.path("name").asText())
-                  .append(" : ").append(javaType(field.path("type").asText())).append('\n');
+                  .append(" : ").append(javaType(field.path("type").asText()))
+                  .append(" @key").append('\n');
             }
             sb.append("end\n");
         }

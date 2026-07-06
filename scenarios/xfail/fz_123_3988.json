@@ -1,0 +1,96 @@
+{
+  "drl": "rule \"R0\"\nsalience 8\nwhen\n    T2($b0_0_0 : f2)\nthen\nend\nrule \"R1\"\nsalience -10\nwhen\n    T1(f0 in (\"ab\", \"b\"), $b1_0_0 : f0, $b1_0_1 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    T1(f1 != true, f1 == true, $b2_0_0 : f0)\nthen\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0(f1 == false, f0 >= -2, f0 > -5 && f0 < 10, $b3_0_0 : f0, $b3_0_1 : f1, f1 == false)\n    T1(!(f1 != true))\n    T1(f1 == false, f1 != false, f0 < \"\" || f0 in (\"a\", \"zz\", \"a\") || !(f1 == false), f1 != $b3_0_1, $b3_2_0 : f0)\nthen\n    modify($p3_0) { setF1(true) }\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0(f0 != 0, f1 == false)\nthen\n    insertLogical(new T2(false, -4, $p4_0.getF0(), $p4_0.isF1()));\n    modify($p4_0) { setF1(true) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -1,
+        "f2": -1,
+        "f3": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 5,
+        "f2": 4,
+        "f3": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -3,
+        "f2": 1,
+        "f3": false
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_123_3988",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

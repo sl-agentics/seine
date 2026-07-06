@@ -1,0 +1,84 @@
+{
+  "drl": "rule \"R0\"\nsalience 8\nwhen\n    $p0_0 : T0($b0_0_0 : f1, $b0_0_1 : f2)\n    not T1()\nthen\n    insertLogical(new T1($p0_0.getF0(), $p0_0.getF0(), $p0_0.isF3(), $p0_0.isF3()));\nend\nrule \"R1\"\nsalience 6\nwhen\n    $p1_0 : T0(f0 contains \"a\", f1 not in (7, 9), $b1_0_0 : f0, $b1_0_1 : f1)\nthen\n    insertLogical(new T1(\"beta\", \"a\", $p1_0.isF3(), true));\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": "",
+            "f1": -5,
+            "f2": -0.5,
+            "f3": true
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": "alpha",
+            "f1": 7,
+            "f2": -2.5,
+            "f3": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "",
+        "f1": 11,
+        "f2": 2.5,
+        "f3": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_777_7329",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

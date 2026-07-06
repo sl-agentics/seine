@@ -1,0 +1,71 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    $p0_0 : T2()\n    $p0_1 : T2(f1 == false)\nthen\n    insertLogical(new T3(true, false));\n    modify($p0_1) { setF1(true), setF0($p0_0.getF0()) }\nend\nrule \"R3\"\nsalience 7\nwhen\n    T3()\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 1,
+    "f1": false
+   },
+   "type": "T2"
+  }
+ ],
+ "name": "fz_min_42_2442",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}

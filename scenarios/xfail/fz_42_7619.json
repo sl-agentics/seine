@@ -1,0 +1,86 @@
+{
+  "drl": "rule \"R0\"\nsalience 10\nwhen\n    $p0_0 : T0(f1 != true, $b0_0_0 : f1, f1 == false)\nthen\n    insert(new T1($p0_0.getF0(), false));\n    modify($p0_0) { setF1(true), setF0($p0_0.getF0()) }\nend\nrule \"R1\"\nwhen\n    $a1_0 : ArrayList() from collect( T1(f1 == true, f1 != false) )\n    $a1_1 : ArrayList() from collect( T2() )\nthen\nend\nrule \"R2\"\nsalience -7\nwhen\n    $p2_0 : T1(f1 == false)\nthen\n    insertLogical(new T2($p2_0.getF0(), $p2_0.getF0(), $p2_0.isF1()));\n    insertLogical(new T2($p2_0.getF0(), \"alpha\", false));\n    $p2_0.setF1(true);\n    $p2_0.setF0($p2_0.getF0());\n    update($p2_0);\nend\nrule \"R3\"\nwhen\n    T2(f1 matches \"ab+zz\", f2 == true || f0 matches \"zz+abal*\")\n    T2(f2 == false, f2 == false, $b3_1_0 : f1, $b3_1_1 : f2)\n    $a3_2 : ArrayList() from collect( T2(f0 != \"\", f0 in (\"b\")) )\nthen\nend\nrule \"R4\"\nsalience 6\nno-loop\nwhen\n    T1(f0 > \"\", f0 contains \"z\", f1 == false || f1 == true || !(f1 != true), $b4_0_0 : f0)\n    accumulate( T2(); $a4_1 : count() )\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": "beta",
+        "f2": false
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_42_7619",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

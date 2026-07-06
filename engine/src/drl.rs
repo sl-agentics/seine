@@ -182,6 +182,9 @@ pub enum RhsArg {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
     Insert { type_name: String, args: Vec<RhsArg> },
+    /// `insertLogical(new T(...));` (D-076): TMS-justified insert — the
+    /// fact auto-retracts when its last justification unmatches.
+    InsertLogical { type_name: String, args: Vec<RhsArg> },
     /// `$p.setX(arg);` — mutates immediately, contributes X to the pending
     /// modification mask consumed by the next `update($p)`.
     Set { var: String, field: String, arg: RhsArg },
@@ -1212,7 +1215,8 @@ impl Parser {
     /// Parse one RHS statement; `modify` desugars to several actions.
     fn actions(&mut self) -> Result<Vec<Action>, DrlError> {
         match self.peek() {
-            Some(Tok::Ident(w)) if w == "insert" => {
+            Some(Tok::Ident(w)) if w == "insert" || w == "insertLogical" => {
+                let logical = w == "insertLogical";
                 self.next()?;
                 self.expect_sym("(")?;
                 self.expect_kw("new")?;
@@ -1235,7 +1239,11 @@ impl Parser {
                 }
                 self.expect_sym(")")?;
                 self.expect_sym(";")?;
-                Ok(vec![Action::Insert { type_name, args }])
+                Ok(vec![if logical {
+                    Action::InsertLogical { type_name, args }
+                } else {
+                    Action::Insert { type_name, args }
+                }])
             }
             Some(Tok::Ident(w)) if w == "update" => {
                 self.next()?;

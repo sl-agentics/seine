@@ -1,0 +1,85 @@
+{
+ "drl": "rule \"R0\"\nno-loop\nwhen\n    $p0_0 : T3()\nthen\n    delete($p0_0);\nend\nrule \"R3\"\nno-loop\nwhen\n    $p3_0 : T2()\nthen\n    insert(new T3($p3_0.getF2(), $p3_0.isF3()));\n    insertLogical(new T3($p3_0.getF2(), true));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 5.5,
+    "f1": "zz",
+    "f2": -1000000007,
+    "f3": true
+   },
+   "type": "T2"
+  }
+ ],
+ "name": "fz_min_42_2659",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}

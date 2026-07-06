@@ -1,0 +1,87 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    ( not T1(f0 == \"\") )\n    or\n    ( not T1(f0 == \"\") )\nthen\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f0": "ab"
+     },
+     "op": "update",
+     "target": 0
+    },
+    {
+     "fields": {
+      "f0": ""
+     },
+     "op": "update",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": ""
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_min_3924b",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}

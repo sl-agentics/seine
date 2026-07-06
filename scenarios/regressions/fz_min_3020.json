@@ -1,0 +1,50 @@
+{
+ "drl": "rule \"R3\"\nwhen\n    (or $p3_0 : T0(f0 == false, $b3_0_0 : f1, $b3_0_1 : f2) $p3_0 : T0(f0 == false, $b3_0_0 : f1, $b3_0_1 : f2, f1 in (1.0)))\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nsalience($b4_0_0)\nwhen\n    T0($b4_0_0 : f2)\n    T0()\nthen\n    insertLogical(new T1($b4_0_0));\nend\nrule \"R5\"\nwhen\n    T1()\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": false,
+    "f1": 0,
+    "f2": 100
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": true,
+    "f1": -4,
+    "f2": -1000000007
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_min_3020",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

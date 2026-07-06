@@ -1,0 +1,59 @@
+{
+  "drl": "rule \"R0\"\nsalience 4\nno-loop\nwhen\n    T1(f0 != true)\n    T1(f2 not in (false, false, false), $b0_1_0 : f1, $b0_1_1 : f2)\n    T0(f0 > 7, f0 <= 0, $b0_2_0 : f0)\nthen\nend\nrule \"R1\"\nsalience($b1_1_0)\nno-loop\nwhen\n    T0($b1_0_0 : f1)\n    T0(f1 > 10, f1 == 1.5, $b1_1_0 : f0, $b1_1_1 : f0)\n    T1(f1 contains \"a\")\nthen\nend\nrule \"R2\"\nwhen\n    T1(f0 != true)\n    T1(f2 not in (false, false, false), $b2_1_0 : f1, $b2_1_1 : f2)\n    accumulate( T1(f2 == false, f2 in (false, false, true), f1 == $b2_1_0); $a2_2 : count() )\nthen\nend\nrule \"R3\"\nsalience($b3_1_0 + $b3_1_0)\nwhen\n    T1(f1 contains \"\")\n    $p3_1 : T0(f0 != 0, $b3_1_0 : f0, $b3_1_1 : f0)\n    exists T1(f0 in (false, true), f0 == true || f0 != true)\nthen\n    delete($p3_1);\nend\nrule \"R4\"\nsalience -9\nwhen\n    not T1(f0 == true, f2 in (true, false, false))\n    T0()\nthen\n    insertLogical(new T1(true, \"\", false));\nend\nrule \"R5\"\nsalience -6\nwhen\n    T0(f1 == 11)\nthen\n    insertLogical(new T1(true, \"zz\", true));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 12,
+        "f1": -2
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": 11
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -2,
+        "f1": 4
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_931",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

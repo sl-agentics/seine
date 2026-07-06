@@ -1,0 +1,40 @@
+{
+  "drl": "rule \"R0\"\nsalience -2\nno-loop\nwhen\n    $p0_0 : T0(f0 > 5.0, f0 in (3))\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    T1(f2 in (false), $b1_0_0 : f1, $b1_0_1 : f0)\nthen\nend\nrule \"R2\"\nno-loop\nwhen\n    (or $p2_0 : T0(f0 != 4.5, $b2_0_0 : f0, $b2_0_1 : f0) $p2_0 : T0(f0 != 4.5, $b2_0_0 : f0, $b2_0_1 : f0) $p2_0 : T0(f0 >= 5, $b2_0_0 : f0, $b2_0_1 : f0))\nthen\n    insert(new T1($b2_0_0, $b2_0_0, true));\n    insertLogical(new T1($b2_0_0, $p2_0.getF0(), true));\nend\nrule \"R3\"\nwhen\n    T0()\nthen\nend\nrule \"R4\"\nwhen\n    $p4_0 : T1(f0 < 5.0)\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nwhen\n    $p5_0 : T1(f0 < 0.0, f2 != true)\nthen\n    delete($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1000000007
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_8757",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

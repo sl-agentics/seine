@@ -1,0 +1,45 @@
+{
+  "drl": "rule \"R0\"\nsalience -2\nwhen\n    T1(f2 in (true), $b0_0_0 : f1, $b0_0_1 : f2)\nthen\nend\nrule \"R1\"\nsalience -1\nwhen\n    T1(f1 >= 9, !(f2 != false))\nthen\nend\nrule \"R2\"\nwhen\n    T1($b2_0_0 : f2)\nthen\nend\nrule \"R3\"\nsalience -9\nwhen\n    $p3_0 : T1(f2 == true, f0 in (\"alpha\"), $b3_0_0 : f2, $b3_0_1 : f2)\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nno-loop\nwhen\n    $p4_0 : T0(f1 != false)\n    not T1()\nthen\n    insertLogical(new T1(\"beta\", $p4_0.getF0(), $p4_0.isF1()));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 100,
+        "f1": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_608",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

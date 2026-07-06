@@ -1,0 +1,98 @@
+{
+ "drl": "rule \"R2\"\nsalience -3\nwhen\n    T0($b2_0_0 : f0)\nthen\n    insertLogical(new T3(\"\", $b2_0_0, \"\", false));\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f0": 4
+     },
+     "op": "update",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": -1000000007
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 11
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_min_7777_112",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}

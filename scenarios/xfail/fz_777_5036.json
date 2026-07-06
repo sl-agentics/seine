@@ -1,0 +1,88 @@
+{
+  "drl": "rule \"R0\"\nsalience 5\nwhen\n    T2(f1 == true, f1 != false, $b0_0_0 : f1)\nthen\nend\nrule \"R1\"\nwhen\n    T2()\nthen\nend\nrule \"R2\"\nsalience -6\nwhen\n    $p2_0 : T1(f0 != false, $b2_0_0 : f2)\nthen\n    insert(new T2($p2_0.getF2(), $p2_0.isF0()));\n    insertLogical(new T2(10, true));\nend\nrule \"R3\"\nsalience 6\nwhen\n    $a3_0 : ArrayList() from collect( T0(f0 == true) )\nthen\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0(f1 != false, $b4_0_0 : f0, f0 == false)\nthen\n    insertLogical(new T2(8, $b4_0_0));\n    insert(new T1(false, 5.0, 12));\n    modify($p4_0) { setF0(true) }\nend\nrule \"R5\"\nwhen\n    $a5_0 : ArrayList() from collect( T0(f0 != false) )\nthen\n    insert(new T2(-5, false));\n    insert(new T1(false, -1.5, -3));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": 4.5,
+        "f2": 0
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": -3.0,
+        "f2": 9
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_777_5036",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

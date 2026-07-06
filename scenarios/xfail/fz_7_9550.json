@@ -1,0 +1,110 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $a0_0 : ArrayList() from collect( T2(f0 == -1000000007, f2 <= 1.0) )\nthen\nend\nrule \"R1\"\nsalience -7\nwhen\n    $p1_0 : T0($b1_0_0 : f2, $b1_0_1 : f0, f2 == false)\n    not T2()\n    T0($b1_2_0 : f2, $b1_2_1 : f2)\nthen\n    insertLogical(new T2($p1_0.getF1(), \"beta\", $p1_0.getF1()));\n    $p1_0.setF2(true);\n    $p1_0.setF0(true);\n    update($p1_0);\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 3,
+            "f1": 5.0
+          },
+          "op": "insert",
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": -4,
+            "f1": 2.0
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": true,
+            "f1": 9,
+            "f2": false
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": false,
+            "f1": 0,
+            "f2": false
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": -5,
+        "f1": 6.0
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": 9,
+        "f2": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_7_9550",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

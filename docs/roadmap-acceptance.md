@@ -16,9 +16,9 @@ error).
 
 | ROADMAP feature (priority) | Acceptance tests | ~methods |
 |---|---|---|
+| CEP-as-TMS investigation (P3, D-079 — memo, not implementation) | PseudoClockEventsTest (reference behavior only; extraction blocked on CEP runtime regardless) | n/a |
 | Nested/multi-pattern not/exists (P1) | Misc2Test#testNestedNots1..3, compiler.integrationtests.FirstOrderLogicTest (not/exists group methods, ext-DRL) | ~12 |
 | forall (P2) | operators.ForAllTest | 29 |
-| TMS insertLogical (P2, PRODUCT-CRITICAL per D-066) | compiler.integrationtests.ErrorOnInsertLogicalTest; Misc2Test logical-insert methods; drools-tms module suite | 1 + ~6 + module |
 | Null field values (P2, D-063) | mvel.integrationtests.NullTest; NullCheckOnExistentialNodeTest (null-value methods) | 10 + ~3 |
 | Push/open/live queries (P2) | mvel.integrationtests.QueryTest (open-query methods), CepQueryTest (non-CEP methods) | ~8 |
 | Query + mutation (P2) | QueryTest (update-after-query methods) | ~5 |
@@ -29,7 +29,7 @@ error).
 | groupby (P3) | drools-model GroupByTest | module |
 | Rule extends (P3) | mvel.integrationtests.ExtendsTest | 25 |
 | Named consequences (P3) | mvel.integrationtests.NamedConsequencesTest; EdgeCaseNonExecModelTest | 39 + 2 |
-| Constraint arithmetic, closed grammar (P3, D-061) | operators.MathTest (in-grammar methods), operators.FormulaTest (subset) | ~3 + ~1 |
+| Constraint arithmetic, closed grammar (P3, D-061) | operators.MathTest (in-grammar methods), operators.FormulaTest (subset) | ~3 + ~1 — PREREQ: the D-076 TMS cascade must go iterative first (arithmetic unlocks unbounded justification chains; today's call-recursive cascade is safe only because chains are rule-count-bounded) |
 | Date field type (P3, D-064) | mvel.integrationtests.DateComparisonTest | 3 |
 | declare extras: defaults/@key/enums (P3) | mvel.integrationtests.TypeDeclarationTest, EnumTest; compiler.integrationtests.AnnotationsTest | 3 + 4 + 5 |
 | @watch/@classReactive/@propertyReactive (P3) | mvel.integrationtests.PropertySpecificTest, PropertyReactivityBlockerTest, PropertyReactivityTest (annotation methods) | 59 + 5 + ~20 |

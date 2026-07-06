@@ -1,0 +1,70 @@
+{
+  "drl": "rule \"R0\"\nsalience 9\nno-loop\nwhen\n    (or exists T1() exists T1())\nthen\nend\nrule \"R1\"\nsalience($b1_0_0)\nwhen\n    $p1_0 : T0($b1_0_0 : f1, f2 == false)\nthen\n    insertLogical(new T1(12, \"a\", 1, false));\n    insertLogical(new T1($b1_0_0, \"alpha\", 2, $p1_0.isF0()));\n    $p1_0.setF2(true);\n    update($p1_0);\nend\nrule \"R2\"\nsalience -3\nwhen\n    T1(f1 contains \"ph\", $b2_0_0 : f3)\nthen\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0(f0 == false, f0 == false)\nthen\n    insertLogical(new T1(-3, \"alpha\", 9, false));\n    modify($p3_0) { setF0(true), setF1($p3_0.getF1()) }\nend\nrule \"R4\"\nsalience 1\nwhen\n    accumulate( T1(); $a4_0 : count() )\nthen\nend\nrule \"R5\"\nwhen\n    ( T0(f2 != false, f0 in (true), f0 != false || f1 >= 11, $b5_0_0 : f2, $b5_0_1 : f2) )\n    or\n    ( T0(f0 == true, f0 in (true), f0 != false || f1 >= 11, $b5_0_0 : f2, $b5_0_1 : f2) )\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": false,
+            "f1": 10,
+            "f2": false
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": true,
+            "f1": -1000000007,
+            "f2": false
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": []
+    }
+  ],
+  "facts": [],
+  "name": "fz_42_166",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+ "drl": "rule \"R0\"\nsalience -4\nno-loop\nwhen\n    $p0_0 : T0($b0_0_0 : f2)\n    $p0_1 : T0(f1 == false)\nthen\n    insertLogical(new T1($p0_0.getF2(), $p0_0.isF1()));\n    $p0_1.setF1(true);\n    $p0_1.setF2(-4);\n    update($p0_1);\nend\nrule \"R2\"\nwhen\n    $p2_0 : T1()\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": true,
+    "f1": false,
+    "f2": 10
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "pr_tms_selfbreak_flush",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

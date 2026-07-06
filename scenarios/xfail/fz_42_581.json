@@ -1,0 +1,95 @@
+{
+  "drl": "rule \"R0\"\nsalience -5\nwhen\n    $p0_0 : T1(f1 != true || f1 != true, $b0_0_0 : f1, $b0_0_1 : f1)\n    T0(f2 != true, f2 == false, $b0_1_0 : f2, $b0_1_1 : f1)\nthen\n    insertLogical(new T2($b0_1_1, \"alpha\"));\n    insert(new T2($p0_0.getF0(), \"a\"));\nend\nrule \"R1\"\nsalience 2\nwhen\n    $p1_0 : T1(f1 != true || f1 != true, $b1_0_0 : f1, $b1_0_1 : f1)\n    T0(f2 != true, f2 == false, $b1_1_0 : f2, $b1_1_1 : f1)\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nsalience 6\nwhen\n    ( not T2(f0 in (-1)) )\n    or\n    ( not T2(f0 in (-1)) )\n    or\n    ( not T2(f0 > -2) )\nthen\n    insertLogical(new T2(-1, \"alpha\"));\nend\nrule \"R3\"\nno-loop\nwhen\n    not T2(f0 >= -3.0)\n    $a3_1 : ArrayList() from collect( T2(f1 in (\"ab\"), f0 >= 8) )\n    T0(f1 in (-4, 100, 7), $b3_2_0 : f2, $b3_2_1 : f2)\nthen\nend\nrule \"R4\"\nwhen\n    T2(f1 >= \"b\", f1 not in (\"\", \"\"))\n    accumulate( T2(f0 in (0, 2, -2.5), f1 contains \"et\", $s4_1 : f0); $a4_1 : sum($s4_1) )\n    accumulate( T0(f0 < -1.5, f1 == $a4_1, $s4_2 : f0); $a4_2 : max($s4_2) )\nthen\nend\nrule \"R5\"\nwhen\n    T2($b5_0_0 : f1)\n    T0(f1 >= 5, f0 < -1.0, $b5_1_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 3,
+        "f1": "ab"
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 4.5,
+        "f1": 3,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6.0,
+        "f1": -2,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 2,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": ""
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_42_581",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

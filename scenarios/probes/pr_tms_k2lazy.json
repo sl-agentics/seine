@@ -1,0 +1,56 @@
+{
+ "drl": "rule \"R1\"\nsalience 10\nno-loop\nwhen\n    T0(f2 in (100, 0.0))\n    $p1_1 : T0()\n    T2()\nthen\n    delete($p1_1);\nend\nrule \"R3\"\nsalience -1\nno-loop\nwhen\n    T0(f2 in (100, 0.0))\n    $p3_1 : T0()\nthen\n    insertLogical(new T2($p3_1.isF0()));\nend\nrule \"R4\"\nwhen\n    T2()\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": false,
+    "f1": -1000000007,
+    "f2": 100,
+    "f3": true
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "pr_tms_k2lazy",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  }
+ ]
+}

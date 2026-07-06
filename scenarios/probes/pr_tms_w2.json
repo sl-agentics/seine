@@ -1,0 +1,76 @@
+{
+ "name": "pr_tms_w2",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "c",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "b": 1
+   }
+  }
+ ],
+ "drl": "rule S when B() then insert(new LK(7)); end\nrule J when A() then insertLogical(new LK(7)); end\nrule W salience -5 when LK() C() then end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "A",
+     "fields": {
+      "a": 1
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "C",
+     "fields": {
+      "c": 1
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

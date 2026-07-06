@@ -46,6 +46,7 @@ otherwise-extractable classes are recorded per-method in
 
 | Upstream tests | What they actually test |
 |---|---|
+| drools-tms module unit tests (EqualityKeyTest, LazyTMSEnablingTest) | TMS internals via InternalWorkingMemory — behavior certified via pr_tms_* probe ladder + D-076 reflection dumps instead |
 | LinkingTest, UnlinkingTest, SegmentCreationTest, SegmentMemorySegmentPrototypeTest, NodePositionInPathTest, PathEndNodeTest, NodesPartitioningTest, ObjectTypeNodeTest, AlphaNodeRangeIndexingTest, JoinNodeRangeIndexingTest, IndexingTest, SharingTest (node-memory methods), AlphaNetworkModifyTest, PropertySpecificTest (mask-introspection methods, 30) | PHREAK/Rete node internals via InternalWorkingMemory — Seine pins the OBSERVABLE semantics instead (D-0xx probe ladders) |
 | DRLDumperTest, ParserTest, NewLineAtEoFTest, ConsequenceOffsetTest, RuleMetadataTest, SwitchOverStringTest, KnownExecModelDifferenceTest (exec-model diffs), FromOnlyExecModelTest, EdgeCaseNonExecModelTest (exec-model methods) | Parser/AST/exec-model artifacts, not runtime behavior |
 | BigRuleSetCompilationTest, ConditionLimitTest (compile-perf methods), OutOfMemoryTest | Build performance/limits |

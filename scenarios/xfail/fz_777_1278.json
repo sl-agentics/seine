@@ -1,0 +1,60 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f1 == true, $b0_0_0 : f1)\n    accumulate( T0(f2 != $b0_0_0); $a0_1 : count() )\nthen\nend\nrule \"R1\"\nsalience -2\nwhen\n    T0(f2 == false, $b1_0_0 : f0, $b1_0_1 : f1)\n    not T2()\n    not T1(f1 != false, f1 == true)\nthen\n    insertLogical(new T2(\"\"));\nend\nrule \"R2\"\nno-loop\nwhen\n    ( T1() and exists T2(f0 contains \"ph\" || f0 in (\"b\", \"a\") || !(f0 contains \"b\")) and not T0(f2 != true, f0 != -4) )\n    or\n    ( T1() and exists T2(f0 contains \"a\") and not T0(f1 < -1000000007, f0 not in (-3, 10, 12)) )\n    or\n    ( T1() and exists T2(f0 contains \"ph\" || f0 in (\"b\", \"a\") || !(f0 contains \"b\")) and not T0(f1 >= 0, f0 in (100, 9)) )\nthen\n    insertLogical(new T2(\"a\"));\nend\nrule \"R3\"\nsalience 8\nwhen\n    $p3_0 : T2(f0 contains \"ph\", !(f0 contains \"ph\"), $b3_0_0 : f0, $b3_0_1 : f0)\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nwhen\n    T2(f0 contains \"zz\", f0 <= \"alpha\", $b4_0_0 : f0, $b4_0_1 : f0)\nthen\nend\nrule \"R5\"\nwhen\n    T2(f0 contains \"z\", f0 < \"zz\", $b5_0_0 : f0, $b5_0_1 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": ""
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_777_1278",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

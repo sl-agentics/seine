@@ -1,0 +1,69 @@
+{
+ "drl": "rule \"R1\"\nwhen\n    $a1_0 : ArrayList() from collect( T1() )\n    T1(f0 not in (false))\nthen\nend\nrule \"R2\"\nsalience -2\nwhen\n    $a2_0 : ArrayList() from collect( T1() )\n    T1()\nthen\nend\n",
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "fields": {
+      "f0": false,
+      "f1": "b",
+      "f2": true
+     },
+     "type": "T1"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": false,
+    "f1": "beta",
+    "f2": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "xf_min_9976",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

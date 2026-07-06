@@ -1,0 +1,65 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T2(f1 != false, f1 == false, f0 <= \"zz\" || f1 == true, $b0_0_0 : f1)\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T1(f1 == false, f0 not in (\"alpha\"), $b1_0_0 : f0, $b1_0_1 : f1, f1 == false)\nthen\n    insertLogical(new T2(\"ab\", true));\n    insertLogical(new T2($p1_0.getF0(), false));\n    $p1_0.setF1(true);\n    update($p1_0);\nend\nrule \"R2\"\nsalience 2\nwhen\n    T2($b2_0_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_7_1879",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

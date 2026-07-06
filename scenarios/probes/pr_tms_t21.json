@@ -1,0 +1,38 @@
+{
+ "name": "pr_tms_t21",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 1
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "a": 2
+   }
+  }
+ ],
+ "drl": "rule P when A() not LK() then insertLogical(new LK(1)); end"
+}

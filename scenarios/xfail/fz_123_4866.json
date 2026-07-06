@@ -1,0 +1,54 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    ( not T2(f0 <= 0.5) )\n    or\n    ( not T2(f0 <= 0.5) )\nthen\n    insertLogical(new T2(-1.5, false, 4.5, true));\nend\nrule \"R1\"\nsalience -8\nwhen\n    ( T0(f2 >= 6.0, f2 < 11, f1 == true || f1 not in (false), $b1_0_0 : f0, $b1_0_1 : f2) and T1(f0 == \"\", f0 matches \"t\", $b1_1_0 : f0, $b1_1_1 : f0) and not T2() )\n    or\n    ( T0(f2 >= 6.0, f0 >= -1.0, f1 != true, $b1_0_0 : f0, $b1_0_1 : f2) and T1(f0 == \"\", f0 matches \"ezz\", $b1_1_0 : f0, $b1_1_1 : f0) and not T2() )\n    or\n    ( T0(f2 < 0.0, f2 < 11, f1 == true || f1 not in (false), $b1_0_0 : f0, $b1_0_1 : f2) and T1(f0 == \"\", f0 matches \"t\", $b1_1_0 : f0, $b1_1_1 : f0) and not T2() )\nthen\nend\nrule \"R2\"\nwhen\n    T0(f2 >= 6.0, f2 < 11, f1 == true || f1 not in (false), $b2_0_0 : f0, $b2_0_1 : f2)\n    T1(f0 == \"\", f0 matches \"t\", $b2_1_0 : f0, $b2_1_1 : f0)\n    T1($b2_2_0 : f0, $b2_2_1 : f0)\nthen\n    insertLogical(new T2(4.0, true, $b2_0_1, false));\nend\n",
+  "facts": [],
+  "name": "fz_123_4866",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

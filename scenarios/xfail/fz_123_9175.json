@@ -1,0 +1,76 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0(f2 <= 3.5 || f2 >= 5, $b0_0_0 : f0, $b0_0_1 : f1)\n    $p0_1 : T2(f1 >= -0.5, f0 >= \"b\", f0 >= \"b\" || f0 in (\"\"), f1 == $b0_0_1, $b0_1_0 : f1)\n    accumulate( T0(f3 != true, f3 != true, f2 <= $b0_1_0, $s0_2 : f2); $a0_2 : min($s0_2) )\nthen\n    delete($p0_1);\nend\nrule \"R1\"\nno-loop\nwhen\n    (or not T2(f0 < \"beta\" || f1 == 4.5) not T2(f0 < \"beta\" || f1 == 4.5))\nthen\n    insertLogical(new T2(\"\", 1.0));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T2(f0 matches \"ab\", f1 in (-2.0))\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nsalience 6\nwhen\n    T2()\nthen\nend\nrule \"R4\"\nwhen\n    T1(f2 == false, $b4_0_0 : f2, $b4_0_1 : f2)\n    $p4_1 : T0(f0 == $b4_0_1)\nthen\n    insert(new T2(\"beta\", $p4_1.getF2()));\nend\nrule \"R5\"\nwhen\n    accumulate( T0(!(f0 != true), $s5_0 : f2); $a5_0 : sum($s5_0) )\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": 4.5,
+        "f2": 4.0,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0,
+        "f1": 5,
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_123_9175",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

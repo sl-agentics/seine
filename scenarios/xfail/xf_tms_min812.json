@@ -1,0 +1,54 @@
+{
+ "drl": "rule \"R1\"\nwhen\n    T2($b1_0_0 : f0)\n    accumulate(T2(f2 > 0, f2 == $b1_0_0); $a1_1 : count())\nthen\nend\nrule \"R2\"\nwhen\n    not T2()\nthen\n    insertLogical(new T2(0, false, 7));\nend\n",
+ "facts": [],
+ "name": "xf_tms_min812",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ],
+   "name": "T2"
+  }
+ ]
+}
