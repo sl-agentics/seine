@@ -678,6 +678,15 @@ struct RuleNet {
     /// pr_rl2/rl3/rl5). Never-linked rules have no item and keep
     /// holding (fz_7_145, pr_hw_jr10, pr_rl4).
     ever_linked: bool,
+    /// D-091: RuleExecutor.dirty — the network-needs-evaluation flag,
+    /// SEPARATE from `queued` (item on the agenda). Set by every
+    /// staging notify while LINKED (queueRuleAgendaItem.setDirty) and
+    /// by link/unlink transitions; cleared when the network evaluates.
+    /// Gates evaluation (evaluateNetworkIfDirty) — staging that arrives
+    /// while UNLINKED does not set it, so a queued-but-clean item pops
+    /// without draining (the faithful hold). Item removal requires
+    /// !dirty && queue-empty (removeRuleAgendaItemWhenEmpty).
+    dirty: bool,
 }
 
 impl RuleNet {
@@ -1143,6 +1152,7 @@ impl Engine {
                 act_num: HashMap::new(),
                 queued: false,
                 ever_linked: false,
+                dirty: false,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -2542,20 +2552,26 @@ impl Engine {
     /// with creation-order terminal appends.
     fn next_activation(&mut self, last: Option<usize>) -> Option<usize> {
         if let Some(l) = last {
-            self.evaluate_rule(l, true, false);
-            self.tms.defer_mode = false;
-            // D-076 (min608 vs t11): Drools' RuleExecutor re-evaluates
-            // the fired rule's network — including the TMS dep removal —
-            // unless a STRICTLY-higher-salience item waits (equal
-            // salience / earlier decl does NOT preempt it). Drain the
-            // deferred unmatches now unless someone strictly outranks l.
-            if self.tms.deferred.iter().any(|(ri, _, _)| *ri == l) {
-                let l_sal = self.item_salience(l);
-                let higher = (0..self.rules.len()).any(|rj| {
-                    rj != l && self.nets[rj].queued && self.item_salience(rj) > l_sal
-                }) || (0..self.queries.len())
-                    .any(|qi| self.query_pending[qi] && 0 > l_sal);
-                if !higher {
+            // D-091 (RuleExecutor.fire / haltRuleFiring): the just-fired
+            // rule re-evaluates its network ONLY on the fire-loop's
+            // CONTINUE path. When a STRICTLY-higher-salience item waits,
+            // it HALTS without the self re-evaluation — the item stays
+            // queued and its DIRTY flag keeps it alive to the deferred
+            // pop, which then drains everything staged since (incl.
+            // input that arrived while the path was unlinked —
+            // fz_min_455's held right). The same strictly-higher gate
+            // already governed the TMS defer drain (D-076, min608 vs
+            // t11) — Drools' halt structure is WHY that pin exists; one
+            // mechanism, now unified.
+            let l_sal = self.item_salience(l);
+            let higher = (0..self.rules.len()).any(|rj| {
+                rj != l && self.nets[rj].queued && self.item_salience(rj) > l_sal
+            }) || (0..self.queries.len())
+                .any(|qi| self.query_pending[qi] && 0 > l_sal);
+            if !higher {
+                self.evaluate_rule(l, true, false);
+                self.tms.defer_mode = false;
+                if self.tms.deferred.iter().any(|(ri, _, _)| *ri == l) {
                     while let Some(i) =
                         self.tms.deferred.iter().position(|(ri, _, _)| *ri == l)
                     {
@@ -2564,11 +2580,15 @@ impl Engine {
                     }
                     self.evaluate_rule(l, false, false);
                 }
+            } else {
+                self.tms.defer_mode = false;
             }
             if self.nets[l].queue.is_empty()
+                && !self.nets[l].dirty
                 && !self.tms.deferred.iter().any(|(ri, _, _)| *ri == l)
             {
-                self.nets[l].queued = false; // emptied item leaves agenda
+                // removeRuleAgendaItemWhenEmpty: !dirty && empty (D-091)
+                self.nets[l].queued = false;
             }
         }
         for i in 0..self.rule_order.len() {
@@ -2600,10 +2620,35 @@ impl Engine {
                     self.tms_on_terminal_del(ri, &tuple);
                 }
                 self.evaluate_rule(ri, false, true);
+                // D-091: with the halted (outranked) self re-evaluation
+                // gone, the deferred entry for an eager justifier's own
+                // break is created BY this flush evaluation — drain the
+                // flush-eligible entries it just produced and propagate,
+                // so the removal still lands at the SAME flush
+                // (evaluateEagerList inside haltRuleFiring; t20 pins:
+                // pr_tms_selfbreak_flush / pr_tms_t20d).
+                let mut drained = false;
+                while let Some(di) = self
+                    .tms
+                    .deferred
+                    .iter()
+                    .position(|(dri, _, eok)| *dri == ri && (*eok || dyn_sal))
+                {
+                    drained = true;
+                    let (_, tuple, _) = self.tms.deferred.remove(di);
+                    self.tms_on_terminal_del(ri, &tuple);
+                }
+                if drained {
+                    self.evaluate_rule(ri, false, true);
+                }
                 // removeRuleAgendaItemWhenEmpty applies to EAGER
                 // evaluations too (fz_42_8775): an emptied item leaves
                 // the agenda and stops claiming shared-node windows.
-                if self.nets[ri].queued && self.nets[ri].queue.is_empty() {
+                // D-091: removal requires !dirty as well.
+                if self.nets[ri].queued
+                    && self.nets[ri].queue.is_empty()
+                    && !self.nets[ri].dirty
+                {
                     self.nets[ri].queued = false;
                 }
             }
@@ -2662,7 +2707,10 @@ impl Engine {
             }
             self.evaluate_rule(ri, false, false);
             if self.nets[ri].queue.is_empty() {
-                self.nets[ri].queued = false; // evaluated empty: removed
+                if !self.nets[ri].dirty {
+                    // removeRuleAgendaItemWhenEmpty (D-091)
+                    self.nets[ri].queued = false;
+                }
                 continue;
             }
             // dynamic salience may have moved this item; re-check.
@@ -2890,7 +2938,9 @@ impl Engine {
         for ri in 0..self.rules.len() {
             let now = self.rule_linked(ri);
             if was[ri] && !now {
+                // doUnlinkRule: setDirty(true) + enqueue (D-032/D-091)
                 self.nets[ri].queued = true;
+                self.nets[ri].dirty = true;
             }
             self.refresh_linked(ri);
             was[ri] = now;
@@ -2959,8 +3009,14 @@ impl Engine {
         if self.rule_linked(ri) {
             self.nets[ri].ever_linked = true;
         }
-        if !self.nets[ri].queued && self.rule_linked(ri) && self.rule_dirty(ri) {
-            self.nets[ri].queued = true;
+        if self.rule_linked(ri) && self.rule_dirty(ri) {
+            // SegmentMemory.notifyRuleLinkSegment -> queueRuleAgendaItem:
+            // setDirty(true) on EVERY staging notify while linked, enqueue
+            // if not queued (D-091).
+            self.nets[ri].dirty = true;
+            if !self.nets[ri].queued {
+                self.nets[ri].queued = true;
+            }
         }
     }
 
@@ -3001,6 +3057,10 @@ impl Engine {
     fn evaluate_rule_inner(&mut self, ri: usize, force: bool, eager: bool) {
         let _ = eager;
         if !self.rule_dirty(ri) {
+            // nothing staged anywhere: the evaluation is a no-op walk —
+            // it still clears the executor flag (evaluateNetwork ->
+            // setDirty(false), D-091)
+            self.nets[ri].dirty = false;
             return;
         }
         let k = self.rules[ri].patterns.len();
@@ -3046,6 +3106,15 @@ impl Engine {
         // Agenda-item gate: only a queued item evaluates (the just-fired
         // rule is force-evaluated, fz_42_5243).
         if !force && !self.nets[ri].queued {
+            return;
+        }
+        // evaluateNetworkIfDirty (D-091): the FLAG gates every
+        // evaluation, force included — staging that arrived while the
+        // path was UNLINKED never set it, so a queued-but-clean item
+        // pops without draining (the faithful hold; fz_min_455's T1
+        // drains at the deferred pop because the unlink transition
+        // itself set the flag).
+        if !self.nets[ri].dirty {
             return;
         }
 
@@ -3111,6 +3180,7 @@ impl Engine {
                     self.push_activation(ri, vec![*f]);
                 }
             }
+            self.nets[ri].dirty = false; // evaluateNetwork -> setDirty(false)
             return;
         }
 
@@ -3287,6 +3357,7 @@ impl Engine {
             }
             self.push_activation(ri, t.clone());
         }
+        self.nets[ri].dirty = false; // evaluateNetwork -> setDirty(false)
     }
 
     /// PhreakSubnetworkNotExistsNode.doSubNetworkNode (P1c/D-089): the

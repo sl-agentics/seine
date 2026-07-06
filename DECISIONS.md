@@ -3237,3 +3237,89 @@ trio (nb3/fz_7_2364 — Bryan: the revisit naturally rides this port).
 Risk surface: evaluation-window claiming for shared nodes (D-037)
 shifts in preempted scenarios; the eager-list placement must keep
 fz_42_4138/4141; the full corpus + 5x10k gate arbitrates.
+
+### D-091 LANDED: the RuleExecutor dirty-flag lifecycle port — the
+### D-084 fence LIFTED, 455/4816 families graduated green
+### (Bryan-approved after the reclassification premise was refuted by
+### measurement: oracle deterministic 15+ launches, no HashSet in the
+### traced path — the finding of record is the DETERMINISTIC
+### mechanism below)
+
+Implementation (surgical, three sites in engine.rs):
+1. `RuleNet.dirty` — the executor's network-needs-evaluation flag,
+   SEPARATE from `queued`. Set on every staging notify while LINKED
+   (refresh_linked ~ queueRuleAgendaItem.setDirty) and on link/unlink
+   transitions (note_link_effects ~ doLinkRule/doUnlinkRule); cleared
+   when the network evaluates (both completion paths of
+   evaluate_rule_inner, and on the no-op fast path). The flag GATES
+   every evaluation, force included (evaluateNetworkIfDirty): staging
+   that arrives while UNLINKED never sets it, so a queued-but-clean
+   item pops without draining — the faithful hold.
+2. The post-firing self re-evaluation in next_activation is now
+   CONDITIONAL on the fire-loop's continue path: when a
+   STRICTLY-higher-salience item waits, the just-fired rule HALTS
+   without re-evaluating (RuleExecutor.fire: haltRuleFiring breaks
+   BEFORE the in-loop evaluateNetworkIfDirty). The gate is the same
+   strictly-higher predicate that governed the D-076 TMS defer drain
+   (min608 vs t11) — Drools' halt structure is WHY that pin exists;
+   the two are now one mechanism. fz_42_5243 (just-fired re-eval
+   after self-unlink) lives on the continue path — preserved.
+3. Item removal requires `!dirty && queue-empty`
+   (removeRuleAgendaItemWhenEmpty) at all three dequeue sites
+   (post-firing, eager loop, pop loop) — a dirty-but-empty item
+   survives to its next pop and drains everything staged since.
+
+One fallout, fixed faithfully: the eager-flush TMS drain
+(pr_tms_selfbreak_flush / pr_tms_t20d) — the deferred entry for an
+eager justifier's own break was previously created by the (now
+correctly halted) force-evaluation; the eager block now drains the
+flush-eligible entries its own evaluation produces and re-evaluates,
+so the dep removal lands at the SAME flush (evaluateEagerList inside
+haltRuleFiring — the t20 2x2 pins hold).
+
+Validation:
+- The four D-084-fenced scenarios FLIP GREEN and are graduated to
+  regressions after 4x stability checks: fz_min_455 + fz_7_455,
+  fz_42_4816 + fz_min_4816 — the six-round black-box class closed by
+  porting the real mechanism (evaluation TIMING, a whole-agenda
+  property black-box staging probes could not reach).
+- fz_min_2256/fz_999_2256 do NOT flip — the D-090b same-class
+  suspicion is DISPROVEN; the pair stays quarantined as its own
+  family (multi-epoch or-subrule churn, own ladder when picked up).
+- D-042 trio (nb3, fz_7_2364, fz_min_7_2364): unchanged (still
+  order-only red) — the port did not dislodge it, consistent with
+  D-087's re-affirmation; its revisit trigger stands.
+- rl-ladder pr_rl2..rl10 + the round-3..6 guards
+  (fz_42_4035/fz_123_2742/fz_123_3482/fz_999_6009): all green — the
+  drain orders they pinned fall out of the true mechanism.
+- Corpus: 799/799 (11 baseline + 509 probes + 279 regressions).
+- xfail 79 -> 75 (the four graduations; 8426/2256 quarantines stay).
+- D-084's inert boundary-window plumbing (TrieNode.win +
+  close_boundary_windows) remains disabled and now PERMANENTLY
+  obsolete — the hold/drain semantics are carried by the dirty-flag
+  lifecycle; the plumbing can be deleted in a cleanup pass.
+
+Provenance: comprehension-only reading of RuleExecutor, PathMemory,
+SegmentMemory, RuleNetworkEvaluator, TupleSetsImpl,
+RuleAgendaConflictResolver — behavior ported, no code copied or
+transliterated; validated against the oracle (same discipline as the
+TupleIndexHashTable and query-stack-machine ports). NOTICE's existing
+comprehension clause covers it; no NOTICE change required.
+**D-091 gate (WITNESSED):** `make test` green; corpus **799/799**
+(11 baseline + 509 probes + 279 regressions, incl. the four
+graduated D-084 scenarios); fuzz seeds 42/7/123/777/999 x 10,000 =
+**50,000 cases, ZERO divergences** (xfail draws = the two documented
+quarantines fz_123_8426 / fz_999_2256 only, name-suppressed). The
+D-084 fence is LIFTED; the held-staging class is CLOSED via the
+sources-port. Remaining xfail: 75 = 68 D-080 TMS envelope + D-042
+order-trio (3) + the 8426/2256 quarantine pairs (4).
+
+**HANDOFF @ D-091 close (2026-07-06)** — The D-084 worklist is done:
+the fence lifted via the real mechanism (evaluation timing), not a
+seventh black-box round. Open quarantines with their own ladders
+when picked up: fz_123_8426 (accumulate both-roles churn; naive
+theory falsified by pr_acc_lu_range), fz_999_2256 (multi-epoch
+or-subrule churn; D-091 attribution DISPROVEN by the port). D-042
+trio unchanged (revisit trigger stands). Cleanup candidate: the
+inert TrieNode.win / close_boundary_windows plumbing is permanently
+obsolete post-port. P1c + D-091 both certified on this tree.
