@@ -279,9 +279,26 @@ pub struct Node {
     temp_next: HashMap<FactId, Option<FactId>>,
     /// Beta-memory index kind (equality hash / comparison range / none).
     pub index: Index,
+    /// D-082: left ARRIVAL sequence (stamped oldest-first per staged
+    /// batch). Memory (`lefts`) order is certified staged-iteration
+    /// order — NOT arrival — so the update-entry right pass sorts its
+    /// walk by this instead.
+    lseq: HashMap<Tup, u64>,
+    lseq_next: u64,
 }
 
 impl Node {
+    pub fn stamp_left_seq(&mut self, l: &Tup) {
+        if !self.lseq.contains_key(l) {
+            self.lseq.insert(l.clone(), self.lseq_next);
+            self.lseq_next += 1;
+        }
+    }
+
+    pub fn left_seq(&self, l: &Tup) -> u64 {
+        self.lseq.get(l).copied().unwrap_or(0)
+    }
+
     /// BetaNode.modifyObject on a mask MISS: the right tuple is re-added
     /// (removeAdd to the END, re-keyed) immediately, without staging and
     /// without child updates (fz_42_4359/3433 vs fz_42_1057 pins).
@@ -318,6 +335,8 @@ impl Node {
             temp_blocked: HashMap::new(),
             temp_next: HashMap::new(),
             index,
+            lseq: HashMap::new(),
+            lseq_next: 1,
         }
     }
 
@@ -966,10 +985,18 @@ fn do_join_node<E: JoinEnv>(
             }
         }
     }
-    // --- right inserts: staged list head-first (newest staged first),
-    // each APPENDED to memory (TupleList.add); joined against pre-batch
-    // lefts ---
-    for (f, o, _) in sr_ins_iter(&sr.ins) {
+    // --- FRESH right inserts (ph=0): staged list head-first (newest
+    // staged first), each APPENDED to memory (TupleList.add); joined
+    // against pre-batch lefts ---
+    // --- FRESH right inserts (ph=0): staged list head-first (newest
+    // staged first), each APPENDED to memory (TupleList.add); joined
+    // against pre-batch lefts. Memory push order is UNCHANGED certified
+    // behavior; arrival is tracked separately in lseq for pass B
+    // (D-082). ---
+    for (f, o, ph) in sr_ins_iter(&sr.ins) {
+        if *ph == 1 {
+            continue; // update-entry rights: late pass below (D-082)
+        }
         let rkey = env.key_of_right(node_idx, *f);
         node.rights.push((*f, rkey.clone()));
         for l in node.lefts_bucket(rkey.as_ref()) {
@@ -979,7 +1006,12 @@ fn do_join_node<E: JoinEnv>(
             }
         }
     }
-    // --- left inserts: append to memory, join against full right memory ---
+    // --- left inserts: append to memory, join against full right
+    // memory; arrival seq stamped oldest-first (.rev of the
+    // prepend-staged list) ---
+    for (l, _, _) in sl.ins.iter().rev() {
+        node.stamp_left_seq(l);
+    }
     for (l, o, _) in &sl.ins {
         node.lefts.push((l.clone(), env.key_of_left(node_idx, l)));
         let lkey = node.lefts.last().and_then(|(_, k)| k.clone());
@@ -987,6 +1019,29 @@ fn do_join_node<E: JoinEnv>(
             if env.allowed(node_idx, l, f) {
                 let t = node.create_child(l, f, None, None);
                 out.child_ins(t, *o, 0);
+            }
+        }
+    }
+    // --- UPDATE-ENTRY right inserts (ph=1, D-082 model-check survivor):
+    // processed AFTER left inserts (they see same-batch lefts in
+    // memory), walking the left bucket NEWEST-first. Pinned by the
+    // jr1..jr10 re-entry ladder vs the jw fresh-right matrix
+    // (tools/model_check_join.py — jw3 and jr10 are event-identical
+    // with opposite oracle orders; provenance is the discriminator).
+    for (f, o, ph) in sr_ins_iter(&sr.ins) {
+        if *ph != 1 {
+            continue;
+        }
+        let rkey = env.key_of_right(node_idx, *f);
+        node.rights.push((*f, rkey.clone()));
+        let mut lefts = node.lefts_bucket(rkey.as_ref());
+        // newest ARRIVAL first — bucket order is memory order, which is
+        // NOT arrival order for same-batch staged lefts; lseq is.
+        lefts.sort_by_key(|l| std::cmp::Reverse(node.left_seq(l)));
+        for l in lefts {
+            if env.allowed(node_idx, &l, *f) {
+                let t = node.create_child(&l, *f, None, None);
+                out.child_ins(t, *o, 1);
             }
         }
     }

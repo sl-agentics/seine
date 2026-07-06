@@ -2511,3 +2511,49 @@ re-entry (rightDel kills the re-add's fresh children — same
 single-FactId identity gap at join nodes); fz_min_455 (modify-layer
 join order); collect pair (fz_min_4816/xf_min_9976); dyn-salience
 pair order (fz_min_6812); query rows (fz_min_3959).
+
+
+### D-082: right-insert PROVENANCE is semantic — model-check survivor,
+### partial landing, and the D-083 discriminator plan (WIP CHECKPOINT)
+
+**The finding (tools/model_check_join.py, 1536 candidate machines
+eliminated against 13 oracle fire-sequences -> one core survivor):**
+right-insert provenance is semantic. FRESH-INSERT rights join
+pre-batch lefts (the certified D-013 behavior, unchanged).
+UPDATE-ENTRY rights (alpha entry via modify) process in a LATE pass
+AFTER left-inserts — they see same-batch lefts in memory — walking
+lefts NEWEST-ARRIVAL-first. Forced by pr_hw_jw3 vs pr_hw_jr10:
+event-identical timelines, opposite oracle orders; entry provenance
+is the only difference. Implemented as: ph=1 provenance tag on
+update-entry right staging (engine.rs alpha-transition site) + late
+pass B in do_join_node + an arrival-sequence side-table
+(Node.lseq — certified memory ORDER untouched; arrival is tracked
+separately because staged-iteration fill order is NOT arrival order,
+and coupling them corrupts later batches' walks).
+
+**Verified fixed by this:** fz_999_5014 (+min), fz_min_6812 +
+fz_42_6812 (the dyn-salience pair-order latent — same root), the
+pr_hw_jr1..jr10 re-entry ladder (10/10, promoted to probes), wave-1
+pr_hw_* probes hold. (5014/6812 stay in xfail until D-083 closes —
+they pass today; graduation happens when the tree is fully green.)
+
+**The open conflict (why this is a checkpoint, not a close):** two
+oracle-certified behaviors conflict under the current model. The
+fz_min_455 fix (rights-arrival memory fill) breaks 34 D-013-era
+probes; BOTH are oracle-certified in different shapes. And 7
+scenarios are KNOWN-RED at this commit — u12_selfjoin_multi_hot,
+u13_unindexed_hot_mid, u16_two_updates_compound (D-027 update-order
+pins) + fz_42_1176, fz_42_3408, fz_777_3846, fz_999_3298 — certified
+shapes where SOME update-entries must stay early. They name the
+discriminator precisely. A finer discriminator is still hiding.
+
+**The D-083 plan (next session, fresh context):** extend the replica
+with the 7 counterexample timelines + oracle expectations. Enumerate
+candidate discriminator dimensions — pure-entry vs re-entry,
+rule-origin vs external, linked-history — and eliminate against the
+counterexamples. Do NOT pre-commit to any one discriminator; let the
+counterexamples select the survivor. Both behaviors are
+oracle-certified, so the goal is faithfully reproducing the real
+provenance-dependent dual behavior, not choosing one. Then implement
+the survivor. Same eliminate-against-the-oracle loop that just
+cleared four families.

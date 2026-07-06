@@ -2532,7 +2532,11 @@ impl Engine {
                 (false, true) => {
                     self.trie[ni].active.insert(f);
                     self.maybe_pulse(ni);
-                    self.trie[ni].node.s_right.add_ins(f, origin);
+                    // D-082: ph=1 marks UPDATE-entry (alpha transition
+                    // via modify) — joins process these in a separate
+                    // late pass (after left inserts, lefts walked
+                    // newest-first), unlike fresh-insert rights.
+                    self.trie[ni].node.s_right.add_ins_ph(f, origin, 1);
                 }
                 (true, false) => {
                     self.trie[ni].active.remove(&f);
