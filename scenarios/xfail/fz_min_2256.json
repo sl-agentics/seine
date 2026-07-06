@@ -1,0 +1,76 @@
+{
+ "drl": "rule \"R2\"\nwhen\n    $p2_0 : T0(f0 == false)\n    T0(f0 == true)\n    T1()\nthen\nend\nrule \"R5\"\nwhen\n    (or $p5_0 : T0(f1 != true, $b5_0_0 : f1, f0 == false) $p5_0 : T0(f1 != false, $b5_0_0 : f1, f0 == false))\nthen\n    insert(new T1(\"b\", $p5_0.isF0(), \"a\", $b5_0_0));\n    $p5_0.setF0(true);\n    update($p5_0);\nend\n",
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "fields": {
+      "f0": false,
+      "f1": false
+     },
+     "type": "T0"
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "fields": {
+      "f0": "zz",
+      "f1": false,
+      "f2": "beta",
+      "f3": true
+     },
+     "type": "T1"
+    },
+    {
+     "fields": {
+      "f0": false,
+      "f1": true
+     },
+     "type": "T0"
+    }
+   ]
+  }
+ ],
+ "facts": [],
+ "name": "fz_min_2256",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

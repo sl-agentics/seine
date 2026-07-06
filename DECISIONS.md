@@ -3093,3 +3093,147 @@ a LATER sink of the fork.
   test suites), make diff 793/793 (11 baseline + 507 probes + 275
   regressions). Generator + 5x10k fuzz: NEXT (gate line appended
   below when witnessed).
+
+**P1c gate (WITNESSED):** corpus 795/795 (11 baseline + 509 probes +
+275 regressions — 45 pr_sn_* + pr_acc_lu_range promoted); fuzz seeds
+42/7/123/777/999 x 10,000 = **50,000 cases** with group CEs in ~19%
+of cases (and/or forms, outer-correlation, inner-crossing, bare-not
+inners incl. the forall-correlation shape): seeds 42/7/777 zero
+divergences; seeds 123 and 999 drew ONE divergence each —
+fz_123_8426 and fz_999_2256, BOTH bisected PRE-EXISTING (pre-P1c
+engine byte-identical on both minimized repros; the
+D-071/D-072/D-075/D-077 widened-grammar-flushes-latents precedent),
+both quarantined per D-075 (D-090a/b below), and both seeds RERUN
+CLEAN modulo the name-keyed suppression. The first campaign launch
+also caught an unlinked-queue-pruning PANIC in new code, fixed at
+400852b (inner tpos values share the numeric space of later MAIN
+slots by design — every rule-tuple-space consumer now excludes
+SubRole::Inner; the pindex source lookup scans backward). Note for
+the D-084 port: sn_right staging is NOT in the (inert) TrieNode.win
+plumbing — integrate it if the boundary-advance returns.
+
+**forall reducibility (Bryan's Q4, flagged — stays P2):** Drools'
+ForallBuilder rewrites `forall(base, remaining…)` to
+`not(base and not(remaining…))`. The MULTI-pattern single-remaining
+form is a pure parse rewrite onto the D-089 substrate — zero new
+machinery; the load-bearing correlation shape
+`not(A($y : k) and not(B(m == $y)))` is probe-backed (sn_a10) and in
+the fuzz grammar. NOT free: the flagship SINGLE-pattern form injects
+a `this == <base>` identity join (no fact-identity operator in the
+subset), and multi-remaining builds RIA-in-RIA (fenced). Recorded in
+FEATURES.md; forall remains its own phase.
+
+### D-090a (quarantine): fz_123_8426 — accumulate leftUpd churn with
+### the source and the left touched in ONE batch; LATENT, own-ladder
+Minimized to 2 rules / 3 facts / no epochs (xfail/fz_min_8426): R0 =
+`T0($b : f1)` + `accumulate(T0(f1 != -3, f0 >= $b, $s : f0);
+min($s))` at salience -7; R2 (sal -8, no-loop, or-twins) rewrites
+every T0's f1 := f0. In the churn tail the oracle's min for left
+T0(f0=6) returns **-2** — a source fact whose `f0 >= $b` beta
+constraint FAILS under the updated binding — while the engine
+re-filters and returns 6. The naive theory (left updates never
+re-filter range-constrained matches) is FALSIFIED by
+pr_acc_lu_range (promoted, green: a clean left update over a range
+source re-filters correctly in BOTH runners). Distinguishing
+ingredients: the SAME facts are both accumulate LEFT and SOURCE
+candidates, one RHS batch updates them in both roles (the fz_7_5893
+both-sides temp-staging machinery), min's no-reverse refold path.
+Needs its own discriminator ladder (both-roles x constraint-kind x
+refold matrix). NOT the D-084 class (single fire call).
+
+### D-090b (quarantine): fz_999_2256 — or-subrule self-emptying RHS
+### across MULTI-EPOCH external inserts; LATENT; suspected member of
+### the D-091 evaluation-timing class
+Minimized to 2 rules / 0 initial facts / 2 insert-epochs
+(xfail/fz_min_2256): R5 (or-twins over `T0(f0 == false)` variants)
+inserts a T1 and setF0(true)+update — emptying its own alpha
+(subrule unlink) — across two external-insert windows; R2 (plain
+3-pattern join, inert RHS) pairs a different T1/order than the
+oracle in the tail. The P1c group CE in the original draw was NOT
+load-bearing (minimizer dropped it). The self-emptying-unlink +
+fire-boundary shape matches the D-091 halt/deferred-evaluation
+mechanism — LISTED IN THE PORT'S VALIDATION BATTERY: if the port
+flips it green, attribution is confirmed and it graduates; if not,
+it gets its own ladder. (Both quarantines: full + min pairs in
+xfail/, name-keyed fuzz suppression, xfail count 75 -> 79.)
+
+## D-084 sources-port — recon (2026-07-06, post-P1c gate)
+
+### D-091: THE 455 MECHANISM FOUND IN SOURCE (pre-implementation —
+### Bryan review gate): the just-fired rule re-evaluates its network
+### ONLY on the fire-loop's CONTINUE path; an OUTRANKED (halted) rule
+### defers to its next agenda pop, and a DIRTY-but-EMPTY item stays
+### queued. The engine's unconditional post-firing force-evaluation
+### evaluates too EARLY, shrinking the drain window.
+### (Sources: RuleExecutor.fire/evaluateNetworkIfDirty/
+### removeRuleAgendaItemWhenEmpty, PathMemory.doLinkRule/doUnlinkRule/
+### queueRuleAgendaItem, SegmentMemory.notifyRuleLinkSegment,
+### RuleNetworkEvaluator.evaluateNetwork/innerEval,
+### RuleAgendaConflictResolver.doCompare; verified against
+### SEINE_TRACE + SEINE_HANDLES runs of fz_min_455 on both runners.)
+
+**The lifecycle as it actually is:**
+1. Per-rule executor state = QUEUED (item in the agenda group) plus a
+   separate DIRTY flag. DIRTY is set by (a) every staging notify on a
+   LINKED path — SegmentMemory.notifyRuleLinkSegment fires on each
+   staging event, → PathMemory.linkSegment → (isRuleLinked) →
+   doLinkRule → queueRuleAgendaItem = setDirty(true) + enqueue if not
+   queued — and (b) LINKED→UNLINKED transitions (doUnlinkRule =
+   setDirty(true) + enqueue). Staging on an UNLINKED path only marks
+   the segment's dirtyNodeMask — the executor is not notified (the
+   hold, fz_7_145).
+2. Network evaluation happens ONLY at (a) item pop
+   (evaluateNetworkAndFire → evaluateNetworkIfDirty: if dirty, walk
+   ALL segments draining staged sets regardless of current link
+   state, then dirty=false), and (b) INSIDE the fire loop after each
+   firing — on the CONTINUE path only.
+3. The fire loop (RuleExecutor.fire): fireActivation →
+   flushPropagations → dyn-salience requeue → haltRuleFiring
+   { fire-limit; evaluateEagerList(); peek next item; HALT iff the
+   next item STRICTLY outranks (salience DESC, loadOrder ASC —
+   RuleAgendaConflictResolver.doCompare < 0) } → on HALT: break with
+   NO self re-evaluation → else evaluateNetworkIfDirty(self), next
+   tuple.
+4. removeRuleAgendaItemWhenEmpty: remove ONLY when !dirty AND the
+   tuple list is empty. A dirty-but-empty item survives; its next pop
+   drains everything staged since — including input that arrived
+   while the path was UNLINKED.
+
+**fz_min_455 decoded (trace-verified both sides):** R0 (sal -2)
+fires, its modify empties its own LIA (unlink → dirty + queued) and
+restages T0 for R1 (sal 0). Drools: R0 HALTS (R1 outranks) without
+evaluating; R1 refires and inserts T1#3, which stages at R0's join
+(no notify — unlinked — but the item is already queued+dirty); R0's
+pop then drains the left-del AND T1#3 in ONE window → T1#3 reaches
+the right MEMORY in fire 1. Fire 2 stages only the fresh T1#5; the
+new left joins the memory [T1#2, T1#3, T1#5] in memory order and the
+first-fired R0 activation pairs the FRESH right (value-bearing: its
+modify copies f0=3). The ENGINE force-evaluated R0 immediately after
+its firing — draining ONLY the left-del — so T1#3 arrived at a
+dequeued, unlinked rule and HELD across the fire boundary,
+LIFO-merged behind fire-2's stagings → held-paired-first, f0=-4.
+D-084's six black-box rounds all failed because the free parameter
+was EVALUATION TIMING (a whole-agenda property), not staging-list
+placement (a node-local one).
+
+**Coexistence with the certified pins:** fz_42_5243 (just-fired rule
+re-evaluates even after self-unlink) lives on the CONTINUE path —
+5243's executor was not outranked. The discriminator between 5243
+and 455 is exactly haltRuleFiring's strict-outrank peek. fz_42_8775
+(emptied item stops claiming windows) = removal with !dirty && empty
+— unchanged. D-018's outrank walk (rules below the executor are not
+evaluated) is the peek discipline itself — unchanged.
+
+**Port shape (engine, post-approval):** add a per-rule DIRTY flag
+beside `queued`; restructure next_activation from
+walk-all-queued-rules-per-firing into pop-item/fire-loop semantics:
+evaluate once at pop; per firing: flush → eager list → peek →
+halt-without-self-eval iff strictly outranked, else self
+re-evaluate; item removal only when !dirty && queue empty. Expected
+casualties to re-pin: none of the rl-ladder (pr_rl2..rl10 pinned
+drain ORDERS the true mechanism must reproduce); the D-084 fence
+pairs (455-pair, 4816-pair) must FLIP to green; watch the D-042
+trio (nb3/fz_7_2364 — Bryan: the revisit naturally rides this port).
+Risk surface: evaluation-window claiming for shared nodes (D-037)
+shifts in preempted scenarios; the eager-list placement must keep
+fz_42_4138/4141; the full corpus + 5x10k gate arbitrates.
