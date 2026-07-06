@@ -1,0 +1,135 @@
+{
+  "drl": "rule \"R0\"\nsalience 9\nwhen\n    T1(f0 == false, f0 == false, $b0_0_0 : f0)\nthen\nend\nrule \"R1\"\nsalience($b1_0_1 + $b1_0_1)\nwhen\n    $p1_0 : T2(f1 == -1.0, f2 == false, $b1_0_0 : f0, $b1_0_1 : f1, f2 == false)\n    $a1_1 : ArrayList() from collect( T1(f0 == false, f0 != false) )\nthen\n    modify($p1_0) { setF2(true), setF1(-2.5) }\nend\nrule \"R2\"\nwhen\n    T0()\n    exists T0(f0 != -2.5, f0 >= -2.0)\n    $p2_2 : T1(f0 != false, f0 != false, f0 in (true, true, false) || f0 == false, $b2_2_0 : f0)\nthen\n    insert(new T2(\"zz\", -3.0, $b2_2_0));\n    insert(new T2(\"ab\", 4.0, $p2_2.isF0()));\nend\nrule \"R3\"\nwhen\n    $p3_0 : T1(f0 not in (false, false), $b3_0_0 : f0)\nthen\n    insert(new T2(\"ab\", 4.5, $p3_0.isF0()));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": true
+          },
+          "op": "update",
+          "target": 3
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 0.5,
+            "f1": -5,
+            "f2": true
+          },
+          "type": "T0"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f1": 1.5
+          },
+          "op": "update",
+          "target": 1
+        },
+        {
+          "op": "delete",
+          "target": 2
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 3.0,
+            "f1": -1000000007,
+            "f2": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": 5.0,
+        "f1": 10,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": -3.0,
+        "f2": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": 3.5,
+        "f2": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_42_440",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

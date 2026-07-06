@@ -46,12 +46,12 @@ into §1–§4.
 | Numeric cross-type promotion + coercion at literals, joins, indexes | D-020, D-028, D-029 | m.i session `TypeCoercionTest`, m.i `Misc2Test` (coercion methods) | Join `==` coerces to LEFT field's type; literals promote; alpha eq-hash groups coerce (w-series). |
 | Field bindings `$x : f`, fact bindings `$p : T(…)` | D-007, D-013 | c.i drl `BindTest` | Bindings-as-RHS-snapshots per D-020. |
 | Comma-AND constraint conjunction | D-007 | c.i operators `AndTest` (comma forms) | Inline `&&`/`||`/`!()` groups: D-073. |
-| Multi-pattern joins (any k), self-joins, cross-pattern constraints | D-013, D-014, D-015, D-028 | m.i session `CrossProductTest`, c.i `BetaTest` | Left-major enumeration + PHREAK staging pinned to firing order. |
+| Multi-pattern joins (any k), self-joins, cross-pattern constraints | D-013, D-014, D-015, D-028, D-082, D-083 | m.i session `CrossProductTest`, c.i `BetaTest` | Left-major enumeration + PHREAK staging pinned to firing order; update-entry rights split on out-and-back re-entry (D-083). |
 | Node sharing: alpha literal sharing + ≥3 eq-hash threshold | D-029 | m.i `AlphaNodeTest`, c.i `AlphaTest` | Coerced-key hashing, first-built-literal inheritance. |
 | Node sharing: beta prefix trie, per-batch sink propagation flips | D-033, D-036, D-037 | c.i `SharingTest` (subset), m.i `AlphaNodeTest#testSharedAlpha` | Bound-field-set + named-var-reference identity. |
 | Property reactivity (default ALWAYS): listen masks, update masks | D-013 (j06–j21), D-040, D-041 | m.i `PropertyReactivityTest` (subset; many methods use `@watch`/API) | `@watch`/`@classReactive`/`@propertyReactive` annotations are ROADMAP. |
 | RHS: `insert(new T(…))` with literals/bindings/getters | D-007, D-010 | c.i drl `ConsequenceTest`, `RHSTest` | Insert-time propagation (D-046). |
-| RHS: setters + `update($x)`, `modify($x){…}` blocks | D-013 (j10), D-023, D-024 | m.i session `UpdateTest`, `BasicUpdateTest` | Update cascade/requeue semantics fully pinned (D-023/D-024). |
+| RHS: setters + `update($x)`, `modify($x){…}` blocks | D-013 (j10), D-023, D-024, D-083 | m.i session `UpdateTest`, `BasicUpdateTest` | Update cascade/requeue semantics fully pinned (D-023/D-024); alpha-entry via modify = plain right insert (D-083). |
 | RHS: `delete($x)` (activation cancellation, unblocking) | D-013 (j05/j11), D-031 | m.i session `DeleteTest` | `retract` keyword alias not parsed (ROADMAP, trivial). |
 | Bare `update()` ALL-SET class-reactive mask | D-025 (fz_42_3311) | m.i `PropertySpecificTest` (class-reactive methods) | u64::MAX sentinel mask. |
 | `no-loop` | D-010, D-013 (j04), D-018 | c.i `ExecutionFlowControlTest#testNoLoop` (ext-DRL) | Eager evaluation windows per D-018. |
@@ -65,7 +65,7 @@ into §1–§4.
 | `accumulate` inline: `sum/count/average/min/max` | D-038, D-039 | c.i `AccumulateTest` (built-in inline methods), `AccumulateConsistencyTest` | Exact float op-sequencing, reverse/re-accumulate, null retraction, result typing walls = faithful Drools compile errors. |
 | `collect` (`ArrayList()/List() from collect`) | D-038, D-040, D-041 | c.i `FirstOrderLogicTest#testCollect*` (ext-DRL) | Left-modify gate; subnetwork collect sources fenced (see §3 CANT / mn6 note). |
 | Multi-fire sessions (insert → fire → insert → fire) | D-046 (mf1–mf6) | m.i session `StatefulSessionTest` (subset) | Epochs in scenario schema; firing log continues. |
-| External update/delete by handle + property masks | D-047 (xu/xv series) | m.i `PropertyReactivityTest`, session `UpdateTest` (API-side methods) | 3-arg `session.update(fh, obj, props)` mirror; window queues, slot memory. |
+| External update/delete by handle + property masks | D-047 (xu/xv series), D-083 | m.i `PropertyReactivityTest`, session `UpdateTest` (API-side methods) | 3-arg `session.update(fh, obj, props)` mirror; window queues, slot memory; out-and-back re-entries take the late join pass (D-083). |
 | Queries: non-recursive, params, unification `==`, bound/unbound calls | D-049, D-050, D-052, D-053 | m.i `QueryTest`, `Query2Test`, `Query3Test` (subset) | Row ORDER pinned incl. TupleIndexHashTable iteration (seed 993 hash model). |
 | Queries: positional syntax, `or` bodies, query calls, recursion (fenced) | D-054, D-055 | m.i `QueryTest` (positional/chained methods), `AbstractBackwardChainingTest` | Fence: 2-branch base-first self-recursion; cyclic data = clean error (Drools hangs). |
 | `?query` pull CEs in rules (the backward-chaining bridge) | D-056, D-057, D-058 | m.i `PassiveQueryTest` | Lazy pull windows, stateful query memories, agenda-item arming, all-unbound CE sharing. |

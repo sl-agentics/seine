@@ -2557,3 +2557,79 @@ oracle-certified, so the goal is faithfully reproducing the real
 provenance-dependent dual behavior, not choosing one. Then implement
 the survivor. Same eliminate-against-the-oracle loop that just
 cleared four families.
+
+
+### D-083: update-entry rights split on RE-ENTRY, not provenance —
+### pure entries are PLAIN inserts; the D-082 conflict is closed
+### (tools/model_check_join2.py: 32 machines x 22 oracle timelines,
+### unique survivor; corpus 732/732)
+
+Executed the D-082 plan, two elimination rounds:
+
+**Round 1 — the 7 counterexamples select provenance.** Rebuilt the
+replica as a full two-level join-pipeline port (model_check_join2.py):
+certified mechanics FIXED (LIFO staging, head-first consumption,
+memory append-on-process, reorder re-appends hot lefts at the END in
+staged order with child reAdds, Rupd/Lupd cursor sync-walks, plain
+right-inserts walking the post-reorder bucket memory-forward, LIFO trg,
+terminal dels->upds->ins) and ONLY the update-entry-right treatment
+free. Timelines hand-extracted from oracle logs: u12/u13/u16 (flip
+batches decompose as: refires via the upd channel, then RU children in
+post-reorder MEMORY-REVERSED order), fz_42_1176 (RU block before
+Lupd-new children — Drools' rightInserts-after-leftUpdates phase order
+made visible; hot-refresh order = child-list order via LIFO staging),
+fz_42_3408 (three flush batches, incl. B2's re-appended block firing
+between the B3 hot block and the colds), fz_999_3298 (LIA-level:
+node "arrival" = staged-processing order, insertion-REVERSED within a
+batch), fz_777_3846 (left-side update-entry = plain LINS; its children
+fire BEFORE the right-RU block purely from trg LIFO). 64 machines ->
+unique survivor: rule-origin = plain / external = late+lseq-desc.
+Landed as ph = origin.is_none(); tree went 718/718.
+
+**Round 2 — the fuzz gate falsifies provenance within minutes.**
+Seed-42 case 440 (external PURE-entry + same-epoch facts-insert on a
+LINKED node) diverged: the oracle fires it PLAIN. Bisect: identical at
+D-082 — a pre-existing hole the jr ladder never drew (jr1-jr8 are all
+out-and-back RE-entries; jr10's pure entry is masked by never-linked
+staging accumulation, fz_7_145 — with held staging it reproduces under
+PLAIN treatment, no late pass involved). New probes filled the matrix
+(pure/re-entry x action/facts-insert): pr_hw_jr11/jr16/jr18 (pure +
+same-batch inserts, both flavors) fire PLAIN orders exactly;
+pr_hw_jr17 (re-entry + facts-insert) fires the late order. Replica
+round 2 with gate dimension {provenance, reentry, always_late, never}
+x late-pass treatment, 32 machines x 22 timelines -> unique survivor:
+
+- **gate = REENTRY: an update-entry right whose fact has a staged DEL
+  at the same node in the same batch (left the alpha earlier in the
+  batch, out-and-back) takes the late pass (after left-inserts, lefts
+  walked newest-lseq-first, LIFO trg — D-082's machinery, unchanged).**
+- **ALL pure entries — rule-origin or external — are ordinary right
+  inserts: rightInserts slot, post-reorder memory-forward walk.** The
+  reorder phase's re-append of hot lefts is what makes their children
+  fire hot-block-first (memory-reversed) — no special walk needed.
+
+This is the SAME staged-del+staged-ins signature D-081 pinned for
+existential re-entries — one mechanism across node kinds. D-082's
+"fresh-vs-update provenance" was a proxy: in its data, every rule
+case was pure and every discriminating external case was a re-entry.
+
+Engine: ph=1 iff s_right.del holds the fact at the (false,true)
+alpha transition (engine.rs); the D-082 late pass + lseq side-table
+stand, now correctly gated. The one-line provenance version is gone.
+
+State: corpus 732/732 (11 baseline + 454 probes + 267 regressions) —
+the 7 counterexamples green (u12/u13/u16
+were D-027-era pins red since the D-082 checkpoint), pr_hw_jr11/16/
+17/18 promoted, fz_42_440 + fz_42_6521 (both provenance-falsifiers
+from the round-1 fuzz run) graduated. xfail graduates
+(bisect-attributed, 4x stability-checked): fz_999_5014,
+fz_42_6812+min (D-082's late pass, documented), fz_27182_1227+min,
+fz_999_8145+min, fz_7_9151 (already green at D-082 — cleared by the
+D-081/D-082 waves, never re-checked). xfail 87 -> 79, all re-verified
+still-red under the final model = D-080 TMS envelope + the D-081
+queue (fz_min_455 rights-arrival fill, fz_min_4816/xf_min_9976
+collect pair, fz_min_3959 query rows, nb3, xf_tms_min812,
+fz_42_84-family Drools-nondeterminism witnesses).
+Fuzz gate (WITNESSED): seeds 42/7/123/777/999 x 10,000 = 50,000
+cases, ZERO divergences (~315s/seed; seed 999 drew 1 name-suppressed
+quarantined xfail, no new failures).

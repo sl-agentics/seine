@@ -2532,11 +2532,23 @@ impl Engine {
                 (false, true) => {
                     self.trie[ni].active.insert(f);
                     self.maybe_pulse(ni);
-                    // D-082: ph=1 marks UPDATE-entry (alpha transition
-                    // via modify) — joins process these in a separate
-                    // late pass (after left inserts, lefts walked
-                    // newest-first), unlike fresh-insert rights.
-                    self.trie[ni].node.s_right.add_ins_ph(f, origin, 1);
+                    // D-082/D-083: ph=1 marks a RE-ENTRY — the fact has
+                    // a staged DEL at this node (left the alpha earlier
+                    // in the same batch, out-and-back). Joins process
+                    // those in a late pass (after left inserts, lefts
+                    // walked newest-arrival-first; jr1..jr8/jr17 pins).
+                    // PURE entries — any provenance — are ordinary
+                    // right inserts (rightInserts slot, post-reorder
+                    // memory walk): u12/u13/u16 + 4 fz counterexamples,
+                    // jr10/jr11/jr16/jr18, fz_42_440. The D-083
+                    // model-check survivor (tools/model_check_join2.py,
+                    // 32 machines x 22 oracle timelines, unique); the
+                    // same staged-del+staged-ins signature D-081 pinned
+                    // for existential re-entries.
+                    let reentry =
+                        self.trie[ni].node.s_right.del.iter().any(|(x, _, _)| *x == f);
+                    let ph = if reentry { 1 } else { 0 };
+                    self.trie[ni].node.s_right.add_ins_ph(f, origin, ph);
                 }
                 (true, false) => {
                     self.trie[ni].active.remove(&f);

@@ -1,0 +1,71 @@
+{
+ "name": "pr_hw_jr17",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "i64"
+    },
+    {
+     "name": "g1",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "g0": 5,
+    "g1": true
+   }
+  }
+ ],
+ "drl": "rule RJ when T0() T2(g1 == true) then end",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "g1": false
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "g1": true
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "T0",
+     "fields": {
+      "f0": 2
+     }
+    }
+   ]
+  }
+ ]
+}
