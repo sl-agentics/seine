@@ -4020,3 +4020,38 @@ link-trigger dimensions plus 4-6 discriminating probes (held-side
 swaps, insert-vs-advance triggers per CE), then ports, then the E1
 fuzz gate. No engine changes in this commit; the E1 gate stays
 blocked pending the asymmetry.
+
+## CEP E1 Arc-0 kickoff (2026-07-07, plan pure-pondering-seahorse)
+
+### D-102 (recon): the u-ladder asymmetry DISSOLVED — not/exists was
+### never the variable; the mechanism is PER-INSERT FLUSH WINDOWS in
+### event sessions (unifying cf5x18 with u4)
+The v-probe batch (probes_pending/cep/cep_v2..v5) triangulated the
+three-way confound (CE kind x relink-trigger kind x P1 location):
+- v2 {exists, insert-relink, P1 HELD} -> fresh-first (certified)
+- v3 {not, advance-relink, P1 IN MEMORY} -> fresh-first (certified)
+- u3 {not, advance, held} -> fresh-first (certified)
+- cf5x18 {exists, insert-relink, P1 IN MEMORY} -> P1-FIRST (deviant)
+Only the {insert-relink AND memory-resident partner} cell deviates —
+CE kind is INERT. The mechanism (source-anchored:
+`shouldFlush = isStreamMode()` in BetaNode.assertObject): in STREAM
+sessions every INSERT force-flushes the path — the relink-triggering
+E0 insert evaluates the network in its own MINI-WINDOW, pairing the
+re-entered IF left with MEMORY rights (P1) immediately; later
+same-epoch inserts (P2) flush into their own windows; the rule queue
+composes ACTION-ORDERED across windows (the D-047 shape). v2 shows
+no deviation because P1 was still STAGED at flush time (a flush
+joins MEMORY, not staging); advance-triggered relinks never flush
+(a3: expiration retractions queue to the epoch's fire). This is the
+SAME mechanism as u4 (per-RHS-insert windows) — one port covers
+both. v4 pins two-held-generation arrival order; v5 pins the
+mixed-location sequence (fresh, held, memory) for the not side.
+**Port shape (next):** in event sessions (!event_specs.is_empty()),
+every insert (external, epoch-fact, RHS) closes its window AND
+immediately evaluates affected linked rules' networks (activation
+queueing only, no agenda pop — forceFlushLeftTuple semantics),
+riding the existing D-047 s0_close_window + evaluate_rule
+machinery. Extend tools/model_check_temporal.py with the flush
+dimension + not/exists node semantics BEFORE porting (the u3
+hand-model of our own engine came out wrong — the checker is the
+arbiter). Gate: v-probes + full u/t/a ladders + corpus + fuzz_cep.
