@@ -93,6 +93,10 @@ class Gen:
         epochs = []
         for _ in range(r.randint(1, 3)):
             actions = []
+            if r.random() < 0.15:
+                # D-104: in-place session reset — the paged-batch axis
+                actions.append({"op": "reset"})
+                clock = 0
             if r.random() < 0.9:
                 ms = r.choice([30, 50, 100, 100, 150, 300, 600])
                 actions.append({"op": "advance", "ms": ms})

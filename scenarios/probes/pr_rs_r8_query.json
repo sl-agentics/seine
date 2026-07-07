@@ -1,0 +1,72 @@
+{
+ "name": "pr_rs_r8_query",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when P($v : v) then end\nquery qp(long $v) P(v == $v) end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "reset"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ],
+ "queries": [
+  {
+   "call": "qp",
+   "args": [
+    1
+   ]
+  },
+  {
+   "call": "qp",
+   "args": [
+    2
+   ]
+  }
+ ]
+}

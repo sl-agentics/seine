@@ -1,0 +1,64 @@
+{
+ "name": "pr_rs_r3_tms",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J when P($v : v) then insertLogical(new D(\"x\")); end\nrule RD salience 5 when D() then end\nrule ND salience -5 when not D() Q() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "reset"
+    }
+   ],
+   "facts": [
+    {
+     "type": "Q",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ]
+}

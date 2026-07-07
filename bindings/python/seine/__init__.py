@@ -109,6 +109,13 @@ class Session:
     def delete(self, handle):
         return self._native.delete(handle)
 
+    def reset(self):
+        """In-place reset for paged batches (D-104): clears all facts,
+        the agenda, TMS state, the pseudo-clock and handle numbering;
+        keeps the compiled rules and queries. The session behaves like
+        a fresh one afterwards."""
+        return self._native.reset()
+
     def fire(self, fire_limit=100_000, on_fire=None):
         return self._native.fire(fire_limit, on_fire)
 

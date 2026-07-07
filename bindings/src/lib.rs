@@ -950,6 +950,16 @@ impl PySession {
     }
 
     /// EXTERNAL delete by handle (D-047).
+    /// D-104: in-place session reset for paged batches — clears WM,
+    /// agenda, TMS, clock and handle numbering; keeps rules/queries.
+    fn reset(&mut self) -> PyResult<()> {
+        let engine = self
+            .engine
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        engine.reset().map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
     fn delete(&mut self, handle: i64) -> PyResult<()> {
         let engine = self
             .engine

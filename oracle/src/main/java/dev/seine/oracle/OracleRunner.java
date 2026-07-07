@@ -94,7 +94,8 @@ public final class OracleRunner {
         try {
             ArrayNode firings = M.createArrayNode();
             final KieSession fsession = session;
-            session.addEventListener(new DefaultAgendaEventListener() {
+            final org.kie.api.event.rule.AgendaEventListener firingListener =
+                    new DefaultAgendaEventListener() {
                 @Override
                 public void afterMatchFired(AfterMatchFiredEvent event) {
                     ObjectNode firing = M.createObjectNode();
@@ -105,20 +106,23 @@ public final class OracleRunner {
                     }
                     firings.add(firing);
                 }
-            });
+            };
+            session.addEventListener(firingListener);
 
             // D-047: the VISIBLE insertion sequence (external + rule
             // inserts, InitialFact filtered) — external actions target
             // facts by index into this list, matching the engine's.
             final java.util.List<FactHandle> inserted = new ArrayList<>();
-            session.addEventListener(new DefaultRuleRuntimeEventListener() {
+            final org.kie.api.event.rule.RuleRuntimeEventListener insertListener =
+                    new DefaultRuleRuntimeEventListener() {
                 @Override
                 public void objectInserted(ObjectInsertedEvent event) {
                     if (!event.getObject().getClass().getSimpleName().equals("InitialFactImpl")) {
                         inserted.add(event.getFactHandle());
                     }
                 }
-            });
+            };
+            session.addEventListener(insertListener);
 
             for (JsonNode fact : scenario.path("facts")) {
                 session.insert(instantiate(kbase, scenario, fact));
@@ -160,6 +164,18 @@ public final class OracleRunner {
                         ((org.drools.core.time.SessionPseudoClock) session.getSessionClock())
                                 .advanceTime(action.path("ms").asLong(),
                                         java.util.concurrent.TimeUnit.MILLISECONDS);
+                    } else if (op.equals("reset")) {
+                        // Arc 2 (D-104): in-place session reset —
+                        // StatefulKnowledgeSessionImpl.reset() clears WM,
+                        // agenda, handle counters, entry points and the
+                        // pseudo-clock, KEEPING the KieBase. The runner's
+                        // insertion index restarts with it.
+                        ((org.drools.kiesession.session.StatefulKnowledgeSessionImpl) session).reset();
+                        inserted.clear();
+                        // reset() drops event listeners (measured, rs_r1/r2)
+                        // — re-register the runner's observability
+                        session.addEventListener(firingListener);
+                        session.addEventListener(insertListener);
                     } else {
                         throw new IllegalArgumentException("unknown epoch action op: " + op);
                     }

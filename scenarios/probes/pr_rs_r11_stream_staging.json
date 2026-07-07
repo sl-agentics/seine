@@ -1,0 +1,74 @@
+{
+ "name": "pr_rs_r11_stream_staging",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  }
+ ],
+ "drl": "rule TJ0 when $a : E1() $b : E1(this after[0ms,50ms] $a) then end\nrule TJ1 when $a : E1() $b : E1(this after[0ms,50ms] $a) then end\nrule R when exists E1() P($v : v) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "reset"
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 10
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 20
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ]
+}

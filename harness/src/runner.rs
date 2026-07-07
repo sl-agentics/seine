@@ -114,6 +114,9 @@ fn run_scenario(sc: &J) -> Result<J, String> {
                             .ok_or(format!("delete target {target} out of range"))?;
                         engine.delete_fact(id).map_err(|e| e.to_string())?;
                     }
+                    "reset" => {
+                        engine.reset().map_err(|e| e.to_string())?;
+                    }
                     other => return Err(format!("unknown epoch action op {other:?}")),
                 }
             }

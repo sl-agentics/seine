@@ -2677,6 +2677,60 @@ impl Engine {
     /// excluding synthetics (InitialFact, accumulate results) — the same
     /// sequence Drools' objectInserted listener observes, so scenario
     /// action targets mean the same fact in both engines.
+    /// D-104 (Arc 2): in-place session reset — the paged-batch
+    /// lifecycle. Mirrors StatefulKnowledgeSessionImpl.reset():
+    /// clears WM, agenda, TMS, clock/deadlines, handle numbering and
+    /// all staging; KEEPS the compiled rules/queries/event specs.
+    /// The network rebuilds to its just-compiled state and the next
+    /// fire re-runs the prologue (re-creating the InitialFact — the
+    /// oracle re-fires not-CE rules, probe rs_r7).
+    pub fn reset(&mut self) -> Result<(), EngineError> {
+        self.clock_ms = 0;
+        self.deadlines.clear();
+        self.pending_expirations.clear();
+        self.in_expiration_drain = false;
+        self.in_stream_flush = false;
+        self.flush_trigger_tid = None;
+        self.ever_linked.clear();
+        self.store.reset();
+        self.lias.clear();
+        self.trie.clear();
+        self.nets.clear();
+        self.lists_built = false;
+        self.init_fact = None;
+        self.collect_vals.clear();
+        self.act_seq = 0;
+        self.query_mem = Default::default();
+        self.query_pending = vec![false; self.queries.len()];
+        self.query_armed = vec![false; self.queries.len()];
+        self.pending_err = None;
+        self.tms = Tms::default();
+        // rebuild the network from the compiled rules (pattern keys are
+        // pure; the alpha-sharing rewrites already live in the cmps)
+        let keys: Vec<Vec<String>> = self
+            .rules
+            .iter()
+            .enumerate()
+            .map(|(ri, r)| {
+                r.patterns
+                    .iter()
+                    .enumerate()
+                    .map(|(pos, p)| self.pattern_key(p, ri, pos))
+                    .collect()
+            })
+            .collect();
+        self.build_network(&keys);
+        let init_tid = self.store.type_id(INITIAL_FACT).unwrap();
+        if self
+            .rules
+            .iter()
+            .any(|r| r.patterns.iter().any(|p| p.type_id == init_tid))
+        {
+            self.init_fact = Some(self.store.insert(init_tid, Vec::new()).map_err(EngineError)?);
+        }
+        Ok(())
+    }
+
     pub fn nth_inserted(&self, n: usize) -> Option<FactId> {
         let hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_DECIMAL]
             .iter()

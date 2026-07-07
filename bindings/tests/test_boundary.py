@@ -286,3 +286,26 @@ def test_positioned_drl_error_reaches_python():
     msg = str(ei.value)
     assert "line 1" in msg, msg
     assert "^" in msg, msg
+
+
+def test_reset_paged_batches():
+    """D-104: page1 / reset / page2 == fresh(page2)."""
+    import seine
+
+    @seine.fact
+    class RP:
+        v: int
+
+    rule = seine.Rule("r")
+    rule.when(RP, RP.v > 0)
+    s = seine.Session([rule], facts={"RP": {"v": [1, 2]}})
+    r1 = s.fire()
+    assert len(r1.firings()) == 2
+    s.reset()
+    s.insert(RP, [RP(v=3)])
+    r2 = s.fire()
+    assert len(r2.firings()) == 1
+
+    fresh = seine.Session([rule], facts={"RP": {"v": [3]}})
+    rf = fresh.fire()
+    assert len(rf.firings()) == len(r2.firings())

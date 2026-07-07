@@ -337,6 +337,25 @@ impl FactStore {
         &self.schemas
     }
 
+    /// D-104 (Engine::reset): drop every fact and handle, keep the
+    /// schemas (incl. hidden types registered after construction).
+    /// Handle numbering restarts — the oracle's insertion index does
+    /// the same (StatefulKnowledgeSessionImpl.reset clears
+    /// handleFactory counters).
+    pub fn reset(&mut self) {
+        self.expired.clear();
+        self.handles.clear();
+        for (s, d) in self.schemas.iter().zip(self.data.iter_mut()) {
+            d.columns = s
+                .fields
+                .iter()
+                .enumerate()
+                .map(|(i, (_, ft))| Column::new(*ft, s.nullable >> i & 1 == 1))
+                .collect();
+            d.rows = 0;
+        }
+    }
+
     /// Register a hidden type after construction (?query-CE row types,
     /// D-056). Existing TypeIds are unaffected.
     pub fn add_schema(&mut self, schema: TypeSchema) -> TypeId {

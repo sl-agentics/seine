@@ -4564,3 +4564,41 @@ wall rule-naming, rule-scoped naming); suites 9; corpus 867
 byte-identical (zero behavior change — error paths only); bindings
 61/61; lint 926/926 (b8 annotated expect_inert — its rule
 deliberately never references the event type).
+
+### D-104: Engine::reset() — in-place session reset for paged
+### batches (Arc 2), differential vs
+### StatefulKnowledgeSessionImpl.reset()
+Oracle-first: the runner gained {"op":"reset"} casting to the impl
+class. FIRST MEASUREMENT FINDING: **reset() drops the session's
+event listeners** — the initial ladder showed post-reset firings
+happening but unlogged (rs_r1/r3/r7) and the insertion-index
+listener dead (rs_r2 crashed on target 0). The runner re-registers
+its listeners after reset; the pin set then came out clean:
+- rs_r1 basic: pre-reset WM/agenda gone; post-reset fires fresh.
+- rs_r2 handles: the insertion index RESTARTS (post-reset target 0
+  = the first post-reset insert; handleFactory counters cleared).
+- rs_r3 TMS: logical facts vanish (no re-justification residue);
+  not-CE observers fire fresh.
+- rs_r4 clock: pseudo-clock back to 0; an event whose ts would be
+  ancient under the old clock lives a full fresh lifetime, and the
+  ts+expires+1 boundary works on the NEW clock.
+- rs_r5/r11: held staging (unlinked paths, ph4 generations,
+  shared-node stashes) cleared — nothing leaks into post-reset
+  composition.
+- rs_r7 InitialFact: re-created — not-CE rules RE-FIRE post-reset
+  (lists_built=false re-runs the prologue).
+- rs_r8 queries: fresh; rs_r9 double-reset; rs_r10 reset with
+  PENDING expirations mid-flight (corpse flags + pending list
+  cleared; same-ts re-inserts unaffected).
+**Engine::reset()**: clears every runtime field (store facts/
+handles/expired via FactStore::reset keeping schemas; lias/trie/
+nets rebuilt via build_network from the compiled rules — pattern
+keys are pure, the alpha-sharing rewrites live in the cmps; TMS/
+deadlines/clock/pending/ever_linked/query state to defaults;
+lists_built=false; InitialFact re-asserted). Rules, queries,
+event_specs, rule_order survive.
+Gates: 10-probe ladder promoted (pr_rs_*); suites 9; corpus 877;
+bindings 62/62 (Session.reset() + paged-batch equivalence test);
+lint 936; fuzz_cep now DRAWS {"op":"reset"} at 0.15/epoch (clock
+tracking resets with it) — campaign seeds 73/79/83 = 0/0/0 across
+3000 scenarios of reset x CEP x TMS x flush composition.
