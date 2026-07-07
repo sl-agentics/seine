@@ -1,0 +1,139 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T1()\n    $a0_1 : ArrayList() from collect( T0(f0 matches \"p*l.?\", f0 == \"zz\") )\nthen\n    drools.setFocus(\"gb\");\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    (or (and T0(f1 == true, f1 != true, f0 == \"b\" || f1 != true) T0(f1 in (false))) (and T0(f1 == true, f1 != true, f1 == true) T0(f1 != true)))\nthen\nend\nrule \"R2\"\nwhen\n    T0(f0 matches \"l\", $b2_0_0 : f1, $b2_0_1 : f1)\n    not T0(f1 == true, f1 != false)\n    T1(f2 == true, $b2_2_0 : f1, $b2_2_1 : f2)\nthen\nend\nrule \"R3\"\nsalience -6\nagenda-group \"gb\"\nwhen\n    (or $p3_0 : T0(f1 != true || f0 >= \"alpha\") $p3_0 : T0(f0 > \"beta\", f1 == false))\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nsalience -2\nwhen\n    T1(f0 contains \"a\", $b4_0_0 : f0)\n    T0(f0 == $b4_0_0, $b4_1_0 : f1, $b4_1_1 : f0)\nthen\nend\nrule \"R5\"\nwhen\n    T1(f0 contains \"a\", $b5_0_0 : f0)\n    T0(f0 == $b5_0_0, $b5_1_0 : f1, $b5_1_1 : f0)\nthen\nend\nquery Q0(String $qa0_0)\n    $qp0_0 : T0(f0 == $qa0_0, $qb0_0 : f1, $qb0_1 : f0)\nend\n\nrule QR0\nwhen\n    T1(f0 <= \"a\", $qr0_b0 : f2)\n    T1($qr0_b1 : f2)\n    ?Q0($qr0_x0;)\n    ?Q0($qr0_x1;)\nthen\n    insert(new QOut(1, 8, 5.5, $qr0_x1, true));\nend\n\nrule QRtwin salience 1\nwhen\n    T1(f0 <= \"a\", $qr0_b0 : f2)\n    T1($qr0_b1 : f2)\n    ?Q0($qr0_x0;)\n    ?Q0($qr0_x1;)\nthen\n    insert(new QOut(2, 0, 0.0, \"t\", false));\nend\n\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": "ab",
+            "f1": true
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": "a",
+            "f1": -3,
+            "f2": false
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": 3,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": 5,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9103_4499",
+  "queries": [
+    {
+      "args": [
+        null
+      ],
+      "call": "Q0"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "tag",
+          "type": "i64"
+        },
+        {
+          "name": "i",
+          "type": "i64"
+        },
+        {
+          "name": "d",
+          "type": "f64"
+        },
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "z",
+          "type": "bool"
+        }
+      ],
+      "name": "QOut"
+    }
+  ]
+}

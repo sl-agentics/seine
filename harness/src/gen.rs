@@ -1348,10 +1348,10 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         // EVERY callee branch (the engine compile-rejects the rest,
         // D-057). Twin rules copy an LHS verbatim to draw the shared-CE
         // multi-sink polarity (qx3_two_rules/qx5_three_rules).
-        // Rule DELETES are drawn independently of allow_mutation — the
-        // engine compile-rejects ?query CEs beside ANY mutation action
-        // (D-057), so QR rules attach only to fully insert-only programs.
-        if !q2_queries.is_empty() && rule_deleted_types.is_empty() && rng.chance(60) {
+        // D-107: the D-057 walls are LIFTED — QR rules now draw beside
+        // mutation programs too (pull-at-activation composes; the qmut
+        // ladder pins the semantics).
+        if !q2_queries.is_empty() && rng.chance(60) {
             let mut qout_used = false;
             let mut qr_lhs: Vec<String> = Vec::new(); // twin candidates
             let nqr = 1 + rng.below(3); // 1..3
@@ -1522,6 +1522,21 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             })
         })
         .collect();
+
+    // D-107: per-epoch query draws — each scenario-level call may also
+    // run mid-scenario against an epoch's post-quiescence WM
+    if !epochs.is_empty() && !queries_json.is_empty() {
+        for q in queries_json.clone() {
+            if rng.chance(30) {
+                let ei = rng.below(epochs.len());
+                let e = &mut epochs[ei];
+                if e.get("queries").is_none() {
+                    e["queries"] = json!([]);
+                }
+                e["queries"].as_array_mut().unwrap().push(q);
+            }
+        }
+    }
 
     let mut scenario = json!({
         "name": name,

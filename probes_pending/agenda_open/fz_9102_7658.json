@@ -1,0 +1,64 @@
+{
+  "drl": "rule \"R0\"\nsalience 7\nwhen\n    (or T2(f1 not in (\"beta\"), f1 > \"b\") T2(f1 contains \"ph\", f1 > \"b\"))\nthen\nend\nrule \"R1\"\nwhen\n    accumulate( T1(f0 > 5, f0 not in (-3, 100), $s1_0 : f0); $a1_0 : sum($s1_0) )\nthen\n    insert(new T2($a1_0, \"zz\"));\nend\nrule \"R2\"\nsalience 9\nwhen\n    $p2_0 : T2(f0 > 4.0)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0(f0 not in (11, 8, 4.5), f0 > 2)\nthen\n    insert(new T1($p3_0.getF0()));\nend\nrule \"R4\"\nwhen\n    accumulate( T0(f0 in (100, -5)); $a4_0 : count() )\n    $p4_1 : T0($b4_1_0 : f0)\nthen\n    drools.setFocus(\"ga\");\n    insert(new T1($p4_1.getF0()));\n    insert(new T2(6, \"zz\"));\nend\nrule \"R5\"\nsalience 1\nagenda-group \"ga\"\nwhen\n    accumulate( T1(f0 < 1.5, f0 >= 12, $s5_0 : f0); $a5_0 : average($s5_0) )\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1000000007
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": "b"
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 7
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 1
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9102_7658",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

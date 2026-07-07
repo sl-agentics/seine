@@ -65,6 +65,7 @@ fn run_scenario(sc: &J) -> Result<J, String> {
     // epoch runs its ordered actions (insert / update / delete-by-
     // global-insertion-index), then legacy "facts" inserts, then fires
     // again; the firing log continues.
+    let mut queries_out = Vec::new();
     if let Some(epochs) = sc.get("epochs").and_then(J::as_array) {
         for epoch in epochs {
             for action in epoch.get("actions").and_then(J::as_array).unwrap_or(&Vec::new()) {
@@ -133,12 +134,39 @@ fn run_scenario(sc: &J) -> Result<J, String> {
                 engine.insert(type_name, fields).map_err(|e| e.to_string())?;
             }
             firings.extend(engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?);
+            // Arc 5 (D-107): per-epoch query invocation — queries run
+            // against the WM as of THIS epoch's quiescence
+            if let Some(eq) = epoch.get("queries").and_then(J::as_array) {
+                run_query_calls(&mut engine, eq, &mut queries_out)?;
+            }
         }
     }
     // Query phase (D-049): ordered calls against the final WM. JSON null
     // arg = unbound (Variable.v on the oracle side).
-    let mut queries_out = Vec::new();
+
     if let Some(queries) = sc.get("queries").and_then(J::as_array) {
+        run_query_calls(&mut engine, queries, &mut queries_out)?;
+    }
+
+    Ok(json!({
+        "facts": engine.facts().iter().map(fact_view_to_json).collect::<Vec<J>>(),
+        "firings": firings
+            .iter()
+            .map(|f| json!({
+                "rule": f.rule,
+                "matches": f.matches.iter().map(fact_view_to_json).collect::<Vec<J>>(),
+            }))
+            .collect::<Vec<J>>(),
+        "queries": queries_out,
+    }))
+}
+
+fn run_query_calls(
+    engine: &mut seine_engine::Engine,
+    queries: &[J],
+    queries_out: &mut Vec<J>,
+) -> Result<(), String> {
+    {
         for call in queries {
             let name = call
                 .get("call")
@@ -179,18 +207,7 @@ fn run_scenario(sc: &J) -> Result<J, String> {
             }));
         }
     }
-
-    Ok(json!({
-        "facts": engine.facts().iter().map(fact_view_to_json).collect::<Vec<J>>(),
-        "firings": firings
-            .iter()
-            .map(|f| json!({
-                "rule": f.rule,
-                "matches": f.matches.iter().map(fact_view_to_json).collect::<Vec<J>>(),
-            }))
-            .collect::<Vec<J>>(),
-        "queries": queries_out,
-    }))
+    Ok(())
 }
 
 /// Query row values render like the oracle's: facts as full renderings,

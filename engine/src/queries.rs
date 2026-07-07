@@ -835,8 +835,27 @@ fn drain_pattern(
     site: (usize, usize, usize),
     pat: &QPattern,
 ) -> Vec<FactId> {
+    let alpha_ok = |f: FactId| {
+        pat.alpha.iter().all(|(fi, t)| {
+            let v = store.value(f, *fi);
+            match t {
+                AlphaTest::Cmp { op, rhs } => eval_cmp_pub(&v, *op, rhs),
+                AlphaTest::Matches(r) => matches!(&v, Value::Str(s) if r.accepts(s)),
+                AlphaTest::Contains(n) => {
+                    matches!(&v, Value::Str(s) if s.contains(n.as_str()))
+                }
+                AlphaTest::InList { items, negated } => {
+                    let hit = items.iter().any(|i| eval_cmp_pub(&v, CmpOp::Eq, i));
+                    hit != *negated
+                }
+            }
+        })
+    };
     let m = mem.0.entry(site).or_default();
-    m.retain(|f| store.is_alive(*f));
+    // D-107 (qm1): an external UPDATE can flip an accumulated fact out
+    // of the pattern — the window re-tests alpha at every drain (still-
+    // passing facts keep their qx8-pinned accumulation).
+    m.retain(|f| store.is_alive(*f) && alpha_ok(*f));
     let seen: std::collections::HashSet<FactId> = m.iter().copied().collect();
     let mut fresh: Vec<FactId> = store
         .live_facts_of(pat.tid)

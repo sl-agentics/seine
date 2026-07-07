@@ -1,6 +1,6 @@
-//! D-057 walls: out-of-subset ?query-CE shapes must be COMPILE errors
-//! (never silent leniencies — an engine-legal/oracle-legal divergence
-//! would void the differential guarantee).
+//! D-057 walls (as amended by D-107): out-of-subset ?query-CE SHAPES
+//! stay compile errors; the qce x mutation walls are LIFTED — the qmut
+//! ladder pinned pull-at-activation semantics and mutation composes.
 
 use seine_engine::{Engine, FieldType, TypeSchema, Value};
 
@@ -49,13 +49,13 @@ fn q2_walls_reject() {
         ))
         .unwrap_err();
     assert!(err.to_string().contains("push"), "{err}");
-    // ?query CE mixed with mutation actions anywhere in the unit
-    let err = engine()
+    // D-107: ?query CE mixed with mutation actions now COMPILES (the
+    // qmut ladder pinned pull-at-activation; mutation composes)
+    assert!(engine()
         .add_rules_drl(&format!(
             "{BVALS}\nrule R1\nwhen\n    ?BVals($x;)\nthen\n    insert(new Out($x));\nend\n\nrule R2\nwhen\n    $a : A()\nthen\n    delete($a);\nend\n"
         ))
-        .unwrap_err();
-    assert!(err.to_string().contains("D-057"), "{err}");
+        .is_ok());
     // ?query CE mixed with not/exists in the same rule
     let err = engine()
         .add_rules_drl(&format!(
@@ -94,7 +94,10 @@ fn q2_walls_reject() {
 }
 
 #[test]
-fn q2_external_mutation_rejected() {
+fn q2_external_mutation_composes() {
+    // D-107: external mutation with resident ?query CEs is IN subset —
+    // pull-at-activation (the qm2/qm3 pins: churn on the queried side
+    // does not re-pull existing matches).
     let mut e = engine();
     e.add_rules_drl(&format!(
         "{BVALS}\nrule R1\nwhen\n    $a : A()\n    ?BVals($x;)\nthen\n    insert(new Out($x));\nend\n"
@@ -102,10 +105,8 @@ fn q2_external_mutation_rejected() {
     .unwrap();
     let h = e.insert("A", vec![("id".into(), Value::I64(1))]).unwrap();
     e.fire_all(100_000).unwrap();
-    let err = e.delete_fact(h).unwrap_err();
-    assert!(err.to_string().contains("D-057"), "{err}");
-    let err = e
-        .update_fact(h, vec![("id".into(), Value::I64(2))])
-        .unwrap_err();
-    assert!(err.to_string().contains("D-057"), "{err}");
+    e.update_fact(h, vec![("id".into(), Value::I64(2))]).unwrap();
+    e.fire_all(100_000).unwrap();
+    e.delete_fact(h).unwrap();
+    e.fire_all(100_000).unwrap();
 }

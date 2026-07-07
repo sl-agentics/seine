@@ -1,0 +1,65 @@
+{
+ "name": "pr_qm4_qce_rhs_update",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "query qp(long $v) P(v == $v, g == false) end\nrule M salience 10 when $p : P(v == 1, g == false) Q(v == 99) then $p.setV(2); update($p); end\nrule R when Q($x : v, v < 50) ?qp($x;) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1,
+    "g": false
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "Q",
+     "fields": {
+      "v": 99
+     }
+    }
+   ]
+  }
+ ]
+}

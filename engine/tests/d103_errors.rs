@@ -52,6 +52,9 @@ fn semantic_walls_stay_loud_without_position() {
 
 #[test]
 fn unit_walls_name_offending_rules() {
+    // D-107 lifted the D-057 qce x mutation wall — the unit now
+    // COMPILES; the wall-naming contract is asserted on the still-
+    // standing D-106 undeclared-setFocus wall instead.
     let mut e = seine_engine::Engine::new(vec![seine_engine::TypeSchema {
         name: "P".into(),
         fields: vec![("v".into(), seine_engine::FieldType::I64)],
@@ -63,9 +66,20 @@ query qp(long $v) P(v == $v) end
 rule UsesQuery when P($x : v) ?qp($x;) then end
 rule Mutates when $p : P(v > 0) then delete($p); end
 "#;
-    let err = e.add_rules_drl(src).unwrap_err().to_string();
-    assert!(err.contains("UsesQuery"), "{err}");
-    assert!(err.contains("Mutates"), "{err}");
+    assert!(e.add_rules_drl(src).is_ok(), "D-107: qce x mutation compiles");
+
+    let mut e2 = seine_engine::Engine::new(vec![seine_engine::TypeSchema {
+        name: "P".into(),
+        fields: vec![("v".into(), seine_engine::FieldType::I64)],
+        nullable: 0,
+    }])
+    .unwrap();
+    let err = e2
+        .add_rules_drl(r#"rule Focuser when P() then drools.setFocus("nowhere"); end"#)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("Focuser"), "{err}");
+    assert!(err.contains("nowhere"), "{err}");
 }
 
 #[test]

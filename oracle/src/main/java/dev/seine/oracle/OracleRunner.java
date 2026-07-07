@@ -133,6 +133,7 @@ public final class OracleRunner {
             }
             // Multi-fire epochs (D-046) + external WM actions (D-047):
             // ordered actions, then legacy "facts" inserts, then fire.
+            ArrayNode queryOut = M.createArrayNode();
             for (JsonNode epoch : scenario.path("epochs")) {
                 for (JsonNode action : epoch.path("actions")) {
                     String op = action.path("op").asText();
@@ -184,6 +185,10 @@ public final class OracleRunner {
                     session.insert(instantiate(kbase, scenario, fact));
                 }
                 fired = session.fireAllRules(FIRE_LIMIT);
+                // Arc 5 (D-107): per-epoch query invocation
+                if (epoch.has("queries")) {
+                    runQueryCalls(kbase, session, epoch.path("queries"), queryOut);
+                }
                 if (fired >= FIRE_LIMIT) {
                     throw new IllegalStateException("fire limit " + FIRE_LIMIT + " reached (non-terminating?)");
                 }
@@ -193,41 +198,7 @@ public final class OracleRunner {
             // Scenario "queries" = ordered calls {"call": name, "args": [...]},
             // JSON null arg = unbound (Variable.v). Result entry echoes the
             // call and captures identifiers + rows in iteration order.
-            ArrayNode queryOut = M.createArrayNode();
-            for (JsonNode q : scenario.path("queries")) {
-                String qname = q.path("call").asText();
-                List<Object> qargs = new ArrayList<>();
-                for (JsonNode a : q.path("args")) {
-                    if (a.isNull()) qargs.add(Variable.v);
-                    else if (a.isTextual()) qargs.add(a.asText());
-                    else if (a.isBoolean()) qargs.add(a.asBoolean());
-                    else if (a.isFloatingPointNumber()) qargs.add(a.asDouble());
-                    else qargs.add(a.asLong());
-                }
-                QueryResults res = session.getQueryResults(qname, qargs.toArray());
-                ObjectNode qo = M.createObjectNode();
-                qo.put("call", qname);
-                qo.set("args", q.path("args").deepCopy());
-                ArrayNode ids = qo.putArray("identifiers");
-                for (String id : res.getIdentifiers()) ids.add(id);
-                ArrayNode rows = qo.putArray("rows");
-                for (QueryResultsRow row : res) {
-                    ObjectNode ro = M.createObjectNode();
-                    for (String id : res.getIdentifiers()) {
-                        Object v;
-                        try {
-                            v = row.get(id);
-                        } catch (RuntimeException e) {
-                            // identifiers local to another or-branch are
-                            // absent from this row: row.get throws
-                            v = null;
-                        }
-                        ro.set(id, v == null ? M.nullNode() : render(kbase, session, v));
-                    }
-                    rows.add(ro);
-                }
-                queryOut.add(qo);
-            }
+            runQueryCalls(kbase, session, scenario.path("queries"), queryOut);
 
             ArrayNode facts = M.createArrayNode();
             for (Object o : session.getObjects()) {
@@ -401,5 +372,44 @@ public final class OracleRunner {
             fields.put("_unrenderable", o.toString());
         }
         return node;
+    }
+
+    private static void runQueryCalls(KieBase kbase,
+            org.kie.api.runtime.KieSession session,
+            JsonNode calls, ArrayNode queryOut) {
+        for (JsonNode q : calls) {
+                String qname = q.path("call").asText();
+                List<Object> qargs = new ArrayList<>();
+                for (JsonNode a : q.path("args")) {
+                    if (a.isNull()) qargs.add(Variable.v);
+                    else if (a.isTextual()) qargs.add(a.asText());
+                    else if (a.isBoolean()) qargs.add(a.asBoolean());
+                    else if (a.isFloatingPointNumber()) qargs.add(a.asDouble());
+                    else qargs.add(a.asLong());
+                }
+                QueryResults res = session.getQueryResults(qname, qargs.toArray());
+                ObjectNode qo = M.createObjectNode();
+                qo.put("call", qname);
+                qo.set("args", q.path("args").deepCopy());
+                ArrayNode ids = qo.putArray("identifiers");
+                for (String id : res.getIdentifiers()) ids.add(id);
+                ArrayNode rows = qo.putArray("rows");
+                for (QueryResultsRow row : res) {
+                    ObjectNode ro = M.createObjectNode();
+                    for (String id : res.getIdentifiers()) {
+                        Object v;
+                        try {
+                            v = row.get(id);
+                        } catch (RuntimeException e) {
+                            // identifiers local to another or-branch are
+                            // absent from this row: row.get throws
+                            v = null;
+                        }
+                        ro.set(id, v == null ? M.nullNode() : render(kbase, session, v));
+                    }
+                    rows.add(ro);
+                }
+                queryOut.add(qo);
+            }
     }
 }

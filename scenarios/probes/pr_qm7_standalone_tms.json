@@ -1,0 +1,88 @@
+{
+ "name": "pr_qm7_standalone_tms",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "query qd(String $t) D(tag == $t) end\nrule J when P($v : v, g == false) then insertLogical(new D(\"x\")); end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1,
+    "g": false
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "g": true
+     }
+    }
+   ],
+   "facts": [],
+   "queries": [
+    {
+     "call": "qd",
+     "args": [
+      "x"
+     ]
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "g": false
+     }
+    }
+   ],
+   "facts": [],
+   "queries": [
+    {
+     "call": "qd",
+     "args": [
+      "x"
+     ]
+    }
+   ]
+  }
+ ]
+}

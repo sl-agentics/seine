@@ -996,6 +996,10 @@ pub struct Engine {
     /// Deferred evaluation error (?query CE runtime backstops surface
     /// here because evaluate_rule has no error channel).
     pending_err: Option<String>,
+    /// D-107: per-site ?query-CE child rows, keyed by the calling left
+    /// tuple — the leftDel/leftUpd arms retract them (caller-side
+    /// churn = fresh re-pull, qm8/qm9/qm10 pins).
+    qce_children: HashMap<(usize, usize), HashMap<Tup, Vec<FactId>>>,
     /// Truth maintenance (D-076) — queryable justification graph.
     tms: Tms,
 }
@@ -1067,6 +1071,7 @@ impl Engine {
             query_pending: Vec::new(),
             query_armed: Vec::new(),
             pending_err: None,
+            qce_children: HashMap::new(),
             tms: Tms::default(),
         })
     }
@@ -1087,6 +1092,7 @@ impl Engine {
                 crate::queries::compile_queries(&self.store, file.queries, &RESERVED_TYPES)?;
             crate::queries::validate_calls(&self.queries)?;
             self.query_pending = vec![false; self.queries.len()];
+        self.qce_children.clear();
             self.query_armed = vec![false; self.queries.len()];
             // Hidden row types for ?query CEs (D-056): fields = params.
             for q in &self.queries {
@@ -1153,13 +1159,9 @@ impl Engine {
                 }
             }
         }
-        if has_qce && !mutating.is_empty() {
-            return Err(EngineError(format!(
-                "?query CEs cannot coexist with update/modify/delete actions (D-057) —                  ?query rules: [{}]; mutating rules: [{}]",
-                qce_rules.join(", "),
-                mutating.join(", ")
-            )));
-        }
+        // D-107: the D-057 qce x mutation wall LIFTED (pull-at-
+        // activation, qm4 pin: RHS updates do not re-pull).
+        let _ = (&qce_rules, &mutating);
         // D-076 walls. Logical types = every type any insertLogical
         // targets (unit-wide).
         let logical_tids: HashSet<TypeId> = self
@@ -1174,23 +1176,9 @@ impl Engine {
         if !logical_tids.is_empty() {
             // (1) TMS retracts are WM deletes the query drain windows
             // would see — same reasoning as the D-057 mutation wall.
-            if has_qce {
-                let logical_rules: Vec<&str> = self
-                    .rules
-                    .iter()
-                    .filter(|r| {
-                        r.actions
-                            .iter()
-                            .any(|a| matches!(a, CompiledAction::InsertLogical { .. }))
-                    })
-                    .map(|r| r.def.name.as_str())
-                    .collect();
-                return Err(EngineError(format!(
-                    "?query CEs cannot coexist with insertLogical (D-076/D-057) —                      ?query rules: [{}]; insertLogical rules: [{}]",
-                    qce_rules.join(", "),
-                    logical_rules.join(", ")
-                )));
-            }
+            // D-107: the D-076/D-057 qce x insertLogical wall LIFTED
+            // (qm5 pin: TMS retraction composes with the pull).
+            let _ = has_qce;
             // (2) Mutating a fact of a logically-inserted type is a
             // Drools RUNTIME error with murky triggers (tms_u1/tms_u4);
             // the subset walls it at compile time (Bryan's ruling).
@@ -2746,6 +2734,7 @@ impl Engine {
         self.act_seq = 0;
         self.query_mem = Default::default();
         self.query_pending = vec![false; self.queries.len()];
+        self.qce_children.clear();
         self.query_armed = vec![false; self.queries.len()];
         self.pending_err = None;
         self.tms = Tms::default();
@@ -3268,16 +3257,11 @@ impl Engine {
 
     /// D-057: external update/delete with ?query CEs compiled is out of
     /// subset (left churn at query nodes is unprobed).
-    fn reject_mutation_with_qce(&self, what: &str) -> Result<(), EngineError> {
-        if self
-            .rules
-            .iter()
-            .any(|r| r.patterns.iter().any(|p| p.qce.is_some()))
-        {
-            return Err(EngineError(format!(
-                "external {what} with ?query CEs is out of subset (D-057)"
-            )));
-        }
+    fn reject_mutation_with_qce(&self, _what: &str) -> Result<(), EngineError> {
+        // D-107 (Arc 5): the D-057 wall LIFTED — the qmut ladder pinned
+        // ?query CEs as PULL-AT-ACTIVATION (queried-side churn never
+        // re-evaluates existing matches), which the D-056 drain-window
+        // machinery already implements. Mutation composes.
         Ok(())
     }
 
@@ -4841,15 +4825,47 @@ impl Engine {
         src: Staged<Tup>,
         sink_count: usize,
     ) -> Result<Staged<Tup>, EngineError> {
-        if !src.upd.is_empty() || !src.del.is_empty() || !src.norm_del.is_empty() {
-            return Err(EngineError(
-                "?query CE under left update/delete is out of subset (D-057)".into(),
-            ));
-        }
         let qce = self.rules[env_ri].patterns[env_pos]
             .qce
             .clone()
             .expect("query node pattern has a qce spec");
+        // D-107 (qm8/qm9/qm10): caller-side churn — leftDel retracts
+        // the left's pulled rows; leftUpd = retract + FRESH re-pull
+        // (the oracle re-fires with the new values as new activations).
+        let site = (env_ri, env_pos);
+        let mut pre: Staged<Tup> = Staged::default();
+        for (t, o, ph) in src.del.iter().chain(src.norm_del.iter()) {
+            if let Some(rows) = self
+                .qce_children
+                .get_mut(&site)
+                .and_then(|m| m.remove(t))
+            {
+                for fid in rows {
+                    let mut child = t.clone();
+                    child.push(fid);
+                    pre.del.push((child, *o, *ph));
+                    self.store.kill(fid);
+                }
+            }
+        }
+        let mut upd_ins: Vec<(Tup, Origin, u8)> = Vec::new();
+        for (t, o, ph) in src.upd.iter() {
+            if let Some(rows) = self
+                .qce_children
+                .get_mut(&site)
+                .and_then(|m| m.remove(t))
+            {
+                for fid in rows {
+                    let mut child = t.clone();
+                    child.push(fid);
+                    pre.del.push((child, *o, *ph));
+                    self.store.kill(fid);
+                }
+            }
+            upd_ins.push((t.clone(), *o, *ph));
+        }
+        let mut src = src;
+        src.ins.extend(upd_ins);
         // src head→tail = real staged order (full LIFO across windows,
         // qx6_windows); bound args read the left tuple.
         let calls: Vec<Vec<Option<Value>>> = src
@@ -4885,6 +4901,12 @@ impl Engine {
         for (call_idx, values) in staged {
             let fid = self.store.insert(qce.row_tid, values).map_err(EngineError)?;
             let (left, o, ph) = &src.ins[call_idx];
+            self.qce_children
+                .entry(site)
+                .or_default()
+                .entry(left.clone())
+                .or_default()
+                .push(fid);
             let mut child = left.clone();
             child.push(fid);
             children.push((child, *o, *ph));
@@ -4892,7 +4914,7 @@ impl Engine {
         if sink_count > 1 {
             children.reverse(); // QueryTupleSets.addTo re-reversal (D-056)
         }
-        let mut trg: Staged<Tup> = Staged::default();
+        let mut trg: Staged<Tup> = pre;
         trg.ins = children;
         Ok(trg)
     }

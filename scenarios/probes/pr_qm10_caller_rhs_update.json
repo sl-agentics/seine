@@ -1,0 +1,64 @@
+{
+ "name": "pr_qm10_caller_rhs_update",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "query qp(long $v) P(v == $v, g == false) end\nrule M salience 10 when $q : Q(v == 1) P(v == 99, g == false) then $q.setV(2); update($q); end\nrule R when Q($x : v) ?qp($x;) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1,
+    "g": false
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2,
+    "g": false
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 99,
+      "g": false
+     }
+    }
+   ]
+  }
+ ]
+}

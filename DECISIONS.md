@@ -4755,3 +4755,55 @@ identified. Consequences:
 Banked at Bryan's direction; agenda-group core remains CERTIFIED
 for the covered surface (13-probe ladder + 30 campaign pins +
 5x10k fuzz draws, all green).
+
+### D-107: queries across mutation epochs — the D-057 walls LIFTED
+### (Arc 5)
+Schema first: per-epoch query invocation ({"queries": [...]} inside
+an epoch) in BOTH runners — queries run against that epoch's
+post-quiescence WM; results append to the flat queries log.
+**The qmut ladder (9 probes, pr_qm*) pinned the semantics:**
+- ?query CEs are PULL-AT-ACTIVATION: churn on the QUERIED side
+  never re-evaluates existing or absent matches (qm2: an update
+  flipping a fact into the query result does NOT retro-fire the
+  resident caller; qm4: RHS updates same; qm3: deletes same).
+- CALLER-side churn is a fresh re-pull: update = the old match
+  dies + a new activation pulls against the current WM (qm8/qm10);
+  delete kills the match (qm9).
+- TMS composes (qm5/qm7): logical retraction/re-assertion is
+  visible to the NEXT pull, never retroactively.
+- Standalone queries see the current WM per call (qm1) — which
+  exposed a REAL bug: the D-056 accumulated drain windows kept
+  facts an external UPDATE had flipped out of the pattern; the
+  window now RE-TESTS alpha at every drain (still-passing facts
+  keep their qx8-pinned accumulation).
+**Lifted**: the compile wall (qce x update/modify/delete), the
+qce x insertLogical wall (D-076/D-057), the runtime
+reject_mutation_with_qce, AND the walk-level left-upd/del wall —
+the qce node now carries per-site child-row memory
+(qce_children): leftDel retracts the left's pulled rows (row facts
+killed); leftUpd = retract + fresh re-pull as NEW activations.
+reset() clears it. q2_walls flipped to assert composition; the
+D-103 wall-naming test repointed at the D-106 setFocus wall.
+**Generator**: the qce-vs-mutation exclusion lifted; per-epoch
+query draws (30% of drawn calls also run mid-scenario).
+**Campaign 5x10k**: 10 divergences — triaged by strip-test +
+pre-Arc-5 bisect: 7 = the BANKED D-106 agenda-approximation tail
+(filed with the caveat witnesses), 2 pre-existing non-query finds
+(fz_9104_1496 accumulate-class, fz_9105_5693 TMS-class — filed in
+probes_pending/fuzz_finds with 6127), and ONE ours:
+**OPEN_fz_9103_4499** (probes_pending/qmut) — double-?query-CE
+rules over-fire QOut (x17) under plain epoch INSERTS (no mutation;
+the over-pull is in the fresh-left x armed-query composition).
+Gates: ladder 9/9 promoted (corpus 987); suites clean; bindings
+72; lint 978.
+**OPS INCIDENT (doctrine escalation)**: a `git checkout -` after a
+detached-HEAD bisect landed on a STALE previous-location; worse,
+the session had been committing on a DETACHED HEAD for 14 commits
+(main sat at b375c9a while D-103..D-106 lived detached — the stash
+that "resolved" earlier dances had silently detached us). Recovery:
+ff-merge main to the detached tip + clean stash pop; nothing lost.
+NEW STANDING RULES: (1) NEVER bisect via stash/checkout in-place —
+use `git worktree` (now twice-escalated); (2) after ANY checkout,
+verify `git branch --show-current` is main before committing;
+(3) periodically confirm `git log origin/main..main` counts match
+expectations.
