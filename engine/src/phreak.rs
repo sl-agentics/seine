@@ -1166,13 +1166,18 @@ fn do_join_node<E: JoinEnv>(
                 .iter()
                 .map(|(l, _, _)| (l.clone(), l[0]))
                 .collect();
-            let mem_lefts: Vec<Tup> =
+            // pre-batch memory snapshot in ARRIVAL (lseq) order — the
+            // per-fact arm1 iterates it (cf53: fire-2 memory arm is
+            // arrival, fire-3 confirms lseq carries across fires)
+            let mut mem_lefts: Vec<Tup> =
                 node.lefts.iter().map(|(l, _)| l.clone()).collect();
+            mem_lefts.sort_by_key(|l| node.left_seq(l));
             for (l, _, _) in sl.ins.iter().rev() {
                 node.stamp_left_seq(l);
                 node.left_fire.insert(l.clone(), fno);
             }
-            for (l, f) in facts.iter() {
+            // fills enter memory in ARRIVAL order
+            for (l, f) in facts.iter().rev() {
                 let lkey = env.key_of_left(node_idx, l);
                 node.lefts.push((l.clone(), lkey));
                 let _ = f;

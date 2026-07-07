@@ -221,17 +221,16 @@ def run(cfg, ce, op, lo, hi, fires, shared=False):
                 sl = []
                 sr = []
                 facts = sorted(fills, key=lambda x: -x[1])  # newest first
-                pre_mem_lefts = [a for a in lmem]
-                for e in facts:
-                    lmem.append((e[0], e[1], fno))
+                pre_mem_lefts = sorted(lmem, key=lambda x: x[1])  # arrival
                 for e in reversed(facts):
                     rmem.append((e[0], e[1], fno))
+                    lmem.append((e[0], e[1], fno))
                 for e in facts:
                     # arm 1: older staged lefts (arrival) then memory
                     # lefts (prior newest-first — the pscan shape)
                     older_l = sorted([a for a in facts if a[1] < e[1]],
                                      key=lambda x: x[1])
-                    mem_l = sorted(pre_mem_lefts, key=lambda x: -x[1])
+                    mem_l = pre_mem_lefts
                     for a in older_l + mem_l:
                         if a[0] in expired or a[0] == IF_TS:
                             continue
@@ -432,6 +431,18 @@ PINS2 = [
      [[("ins", "AB", 22), ("ins", "AB", 24)]],
      {"sink0": [[(22, 22), (24, 24), (22, 24)]],
       "peer": [[(22, 24), (24, 24), (22, 22)]]}),
+    # 53x53: shared AB self-join after[0,100]; fire1 AB12, AB34;
+    # fire2 AB50 (memory-arm order = ARRIVAL); fire3 AB121 (12 aged out)
+    ("cf53", None, "after", 0, 100,
+     [[("ins", "AB", 12), ("ins", "AB", 34)],
+      [("adv", []), ("ins", "AB", 50)],
+      [("adv", []), ("ins", "AB", 121)]],
+     {"sink0": [[(12, 12), (34, 34), (12, 34)],
+                [(50, 50), (34, 50), (12, 50)],
+                [(121, 121), (50, 121), (34, 121)]],
+      "peer": [[(12, 34), (34, 34), (12, 12)],
+               [(12, 50), (34, 50), (50, 50)],
+               [(34, 121), (50, 121), (121, 121)]]}),
     # 721: shared E0xE1 after[0,150]; fire1 A40,B15 (no pair);
     # fire2 A47 then B47 -> creations [(40,47),(47,47)]
     ("cf721", None, "after", 0, 150,
