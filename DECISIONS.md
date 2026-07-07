@@ -4343,3 +4343,37 @@ add two-rule shared-node shapes, a flush-pair-at-link dim
 {always, single-rule-only, external-only, never}, lazy-vs-eager
 consume per eval site; pins 551/616/134 + t6/t7/t14/t15 + the
 u/v regression guard set.
+
+### D-102 (sitting 2 close): sharing suppression LANDED (9 -> 4);
+### the temporal-walk micro-order table is CYCLE 4's input — six
+### hand-model flips say enumerate, don't derive
+**Landed and gated** (matrix 45, corpus 857, suites 8): a temporal
+node SHARED by >1 rule never flush-pairs (cf101x551/173/998 —
+force-flushing a shared segment would feed multiple rule paths out
+of agenda order; the pop composes instead). Engine: node_shared
+(path-membership count) forces the linked-left stash on shared
+temporal nodes regardless of link transitions.
+**OPEN (4 cases: cf101x987, cf202x526, cf202x853, cf303x810) + the
+cycle-4 table.** 526's two-rule shape exposed the temporal walk's
+MICRO-ORDER as 4 coupled dimensions the pins now constrain from
+BOTH ends (measured creation/consume orders):
+- 551: creations [(27,31),(7,26),(7,31)] — leftIns iterates
+  ARRIVAL (27 before 7 despite prepend-head=7); each left x
+  pre_rights NEWEST-first ([26,31] from memory [31,26]); sink0
+  (decl-first rule) consumes FORWARD; peer consumes REVERSE.
+- 526: creations [(38,80),(67,80)] — rightIns partner scan
+  ARRIVAL-ASC (38 memory-gen before 67 fresh); sink0 FORWARD,
+  peer REVERSE.
+- t1 (single rule): rightIns partners must yield firings
+  newest-FIRST — under sink0-FORWARD this needs partner scan
+  DESC, contradicting 526's ASC unless generation-split
+  (fresh-newest-first vs memory-arrival) or consume differs
+  unshared-vs-shared.
+DO NOT hand-derive further (six sign-flips this sitting). Cycle 4:
+a micro-checker over {partner scan: asc|desc|fresh-first-desc|
+fresh-first-asc, pre_rights scan: push|reverse, leftIns iter:
+head|arrival, sink0 consume: fwd|rev, peer consume: fwd|rev,
+(un)shared split: yes|no} against pins t1/t14/t15/551-both-rules/
+526-both-rules/616/134 (all orderings recorded above and in the
+probe JSONs; the fuzz keeps under tmp/cepfuzz_*). Then re-gate,
+classify 987/853/810, campaign to zero.

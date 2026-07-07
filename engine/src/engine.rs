@@ -2846,6 +2846,16 @@ impl Engine {
         // linked-ness per node BEFORE mutation (temporal stash gate)
         let node_linked: Vec<bool> =
             (0..self.trie.len()).map(|ni| self.rule_linked(self.trie[ni].env.0)).collect();
+        // D-102 (cf101x551 vs t14): a node SHARED by >1 rule never
+        // flush-pairs — force-flushing a shared segment would push
+        // tuples into multiple rule paths out of agenda order; the
+        // certified pop path composes them instead (lazy creation-
+        // order for every sharing terminal).
+        let node_shared: Vec<bool> = (0..self.trie.len())
+            .map(|ni| {
+                self.nets.iter().filter(|n| n.path.contains(&ni)).count() > 1
+            })
+            .collect();
         for (ni, p) in pre.0.iter().enumerate() {
             let t = &mut self.trie[ni];
             // pre-tail DELS stash at ALL nodes: staged deletes from
@@ -2872,7 +2882,7 @@ impl Engine {
                 // for the self-drain.
                 if node_linked[ni] {
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
-                    let (s0_all, sl_all) = if pre.2[t.env.0] {
+                    let (s0_all, sl_all) = if pre.2[t.env.0] || node_shared[ni] {
                         (
                             std::mem::take(&mut t.s0_in.ins),
                             std::mem::take(&mut t.node.s_left.ins),
