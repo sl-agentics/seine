@@ -71,5 +71,6 @@
     }
    ]
   }
- ]
+ ],
+ "engine_fenced": true
 }

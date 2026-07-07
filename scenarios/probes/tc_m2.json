@@ -44,5 +44,6 @@
    }
   }
  ],
- "drl": "rule R when accumulate( P($b : k); $r : max($b) ) Q(n > $r) then end\n"
+ "drl": "rule R when accumulate( P($b : k); $r : max($b) ) Q(n > $r) then end\n",
+ "expect_inert": true
 }

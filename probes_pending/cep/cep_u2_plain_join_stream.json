@@ -33,7 +33,7 @@
    ]
   }
  ],
- "drl": "rule R when $p : P() $q : Q(v > $p.v) then end\n",
+ "drl": "rule R when P($pv : v) $q : Q(v > $pv) then end\n",
  "facts": [
   {
    "type": "P",

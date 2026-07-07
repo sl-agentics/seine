@@ -89,5 +89,6 @@
    }
   }
  ],
- "drl": "rule R1 when $x : A($k : k) accumulate( P(k == $k, $a : v); $s : sum($a) ) B(m >= 0) then end\n"
+ "drl": "rule R1 when $x : A($k : k) accumulate( P(k == $k, $a : v); $s : sum($a) ) B(m >= 0) then end\n",
+ "expect_inert": true
 }

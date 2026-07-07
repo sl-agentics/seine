@@ -41,5 +41,6 @@
    }
   }
  ],
- "drl": "rule R1 when A(a == 2.5) then insert(new E(1)); end\nrule R2 when A(a == -7) then insert(new E(2)); end\nrule R4 when A(a == 9 || a == 10) then insert(new E(4)); end"
+ "drl": "rule R1 when A(a == 2.5) then insert(new E(1)); end\nrule R2 when A(a == -7) then insert(new E(2)); end\nrule R4 when A(a == 9 || a == 10) then insert(new E(4)); end",
+ "expect_inert": true
 }

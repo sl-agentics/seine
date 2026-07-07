@@ -41,5 +41,6 @@
    }
   }
  ],
- "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?BVals($x;)\nthen\n    insert(new Out($aid, $x));\nend\n"
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    A($aid : id)\n    ?BVals($x;)\nthen\n    insert(new Out($aid, $x));\nend\n",
+ "expect_inert": true
 }

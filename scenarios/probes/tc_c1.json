@@ -44,5 +44,6 @@
    }
   }
  ],
- "drl": "rule R when accumulate( P($a : v); $r : count($a) ) Q(w > $r) then end\n"
+ "drl": "rule R when accumulate( P($a : v); $r : count($a) ) Q(w > $r) then end\n",
+ "expect_inert": true
 }

@@ -37,5 +37,6 @@
    }
   }
  ],
- "drl": "rule \"eq0\" when I(n == 1.5) then end\nrule \"eq1\" when I(n == 1.5) then end\nrule \"eq2\" when I(n == 1.5) then end\n"
+ "drl": "rule \"eq0\" when I(n == 1.5) then end\nrule \"eq1\" when I(n == 1.5) then end\nrule \"eq2\" when I(n == 1.5) then end\n",
+ "expect_inert": true
 }

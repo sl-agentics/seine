@@ -37,5 +37,6 @@
    }
   }
  ],
- "drl": "rule R when A() or B()\n C(c > 0) then insert(new C(9)); end"
+ "drl": "rule R when A() or B()\n C(c > 0) then insert(new C(9)); end",
+ "expect_inert": true
 }

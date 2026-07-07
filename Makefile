@@ -32,6 +32,10 @@ diff: oracle
 diff-duckdb:
 	.venv/bin/python tools/diff_duckdb.py scenarios/duckdb/*.json
 
+# D-102: probe liveness + engine-validity + fence-regression audit
+lint-probes:
+	python3 tools/lint_probes.py
+
 diff-baseline: oracle
 	cargo run -q -p seine-harness -- diff $(BASELINE)
 

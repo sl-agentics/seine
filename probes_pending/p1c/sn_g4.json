@@ -1,17 +1,81 @@
 {
-  "name": "sn_g4",
-  "types": [
-    {"name": "A", "fields": [{"name": "k", "type": "i64"}]},
-    {"name": "B", "fields": [{"name": "m", "type": "i64"}]},
-    {"name": "C", "fields": [{"name": "k", "type": "i64"}]},
-    {"name": "D", "fields": [{"name": "m", "type": "i64"}]},
-    {"name": "E", "fields": [{"name": "k", "type": "i64"}]},
-    {"name": "F", "fields": [{"name": "m", "type": "i64"}]}
-  ],
-  "facts": [
-    {"type": "C", "fields": {"k": 1}},
-    {"type": "E", "fields": {"k": 1}},
-    {"type": "F", "fields": {"m": 1}}
-  ],
-  "drl": "rule R1 when exists((A() and B()) or C()) then end\nrule R2 when exists((E() and F()) or D()) then end\nrule R3 when exists((A() and B()) or D()) then end\n"
+ "name": "sn_g4",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "F",
+   "fields": {
+    "m": 1
+   }
+  }
+ ],
+ "drl": "rule R1 when exists((A() and B()) or C()) then end\nrule R2 when exists((E() and F()) or D()) then end\nrule R3 when exists((A() and B()) or D()) then end\n",
+ "engine_fenced": true
 }
