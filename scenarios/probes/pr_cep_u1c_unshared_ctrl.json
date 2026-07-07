@@ -1,0 +1,71 @@
+{
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 1000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1500
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 2000
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_cep_u1c_unshared_ctrl",
+ "drl": "rule R when exists E1() P() then end\n"
+}

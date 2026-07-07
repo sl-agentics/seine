@@ -4407,3 +4407,35 @@ guards. Engine reverted to 317b178's green state (matrix 45,
 corpus 857, campaign residual 4: cf101x987, cf202x526+853,
 cf303x810 — 526 re-opens with the partner-scan revert, plus the
 853/810/987 unclassified).
+
+### D-102 (cycle 4, round 2): the SIMULATING checker converged — the
+### survivor ported faithfully via three port-bug fixes; campaign
+### residual = ONE structural pin (853-class), fenced by analysis
+Round 2 rebuilt model_check_stream.run() to SIMULATE the landed
+semantics (drain_t, linked stashes, sharing suppression, eager
+corpse flags, quiescence deletes) so pop-entry states DERIVE —
+the round-1 encoding hazard is gone. Two-rule pins compare per
+consume role (sink0 = decl-first rule, peer = sharers).
+**The survivor** (unique, all pins): partner scan = THIS-FIRE
+lefts (filled OR self-drained this fire) in ARRIVAL order, then
+prior-fire lefts NEWEST-first; pre_rights push-order; leftIns
+head-first; sink0+single consume REVERSE-creation, peer FORWARD;
+IF-toggle = pair-at-flush UNLESS the path holds PRE-LINK (ph=4)
+rights, in which case the ENTIRE flush evaluation defers to the
+pop (u1-vs-u1c: a fresh-with-the-relink P2 takes the flush window;
+a held P2 forces one pop batch — measured on u1s/u1c controls,
+promoted).
+**Port** (three bugs found by trace, each a model-to-engine
+mapping): (1) drained lefts must stamp fire_no too (t15-class);
+(2) the fire boundary is END-incremented (between-fire inserts
+stamp the NEXT fire); (3) the this-fire partition sorts by lseq,
+not positional order (fills push in prepend order). Plus the
+pair_unless_held gate checks BEFORE the stash empties staging.
+**State: 45-rung matrix green; corpus 859 green; suites 8; both
+1000-campaigns' residuals cleared except cf202x853** — a
+three-left same-batch shared AB-self-join whose creation order
+groups by LEFT (leftIns-driven), which the checker PROVES the
+current dim space cannot express (every config fails exactly it):
+the walk needs a STRUCTURE dimension (per-fact interleaving for
+same-batch self-joins) — next cycle's single question, pinned
+with both rule orders in the checker.

@@ -60,14 +60,36 @@ class Node:
         return s
 
 
-def run(cfg, ce, op, lo, hi, fires):
-    (plain_dr, plain_held, plain_rgen, temp_dr, temp_lorder, uflush) = cfg
+def run(cfg, ce, op, lo, hi, fires, shared=False):
+    """Cycle-4 round 2: simulate the LANDED flush semantics (fixed) +
+    the temporal-walk micro-order dims (enumerated). Entry states
+    DERIVE from the simulation — nothing is hand-encoded.
+
+    Landed-fixed semantics: unlinked temporal deltas self-drain
+    (drain_t); linked temporal flushes stash BOTH sides when the path
+    was ALREADY linked pre-insert; the LINK-TRANSITION flush fills+
+    pairs lefts x right memory UNLESS the node is SHARED (then stash);
+    rights never flush-pair; plain-join semantics per cycle 3
+    (stay/hidden/pre_lifo_then_post_arr); expiration = eager corpse
+    flag + quiescence delete (post-fire removal here).
+
+    cfg = (pscan, rscan, liter, c_sink0, c_peer)
+      pscan: pop rightIns partner order over lefts:
+             this_fire_arr_mem_desc | this_eval_arr_mem_desc | asc | desc
+      rscan: leftIns x pre-batch right memory: push | reverse
+      liter: pop leftIns iteration: head | arrival
+      c_sink0/c_peer: per-window consume: fwd | rev
+
+    Returns {"sink0": [...per-fire firings...], "peer": [...]}.
+    """
+    (pscan, rscan, liter, c_sink0, c_peer, if_flush) = cfg
     temporal = ce is None
-    lmem, rmem = [], []   # (ts, seq)
-    sl, sr = [], []       # staged (prepend): (ts, seq, linkgen) 'pre'|'post'
+    lmem, rmem = [], []   # (ts, seq, fire_no_filled)
+    sl, sr = [], []       # staged (prepend): (ts, seq, linkgen)
     enablers = {}
+    expired = set()
     seq = [0]
-    out = []
+    out = {"sink0": [], "peer": []}
 
     def stamp():
         seq[0] += 1
@@ -84,13 +106,14 @@ def run(cfg, ce, op, lo, hi, fires):
 
     for fno, fire in enumerate(fires):
         windows = []
+        pending_expire = []
         for step in fire:
             if step[0] == "adv":
                 for ts in step[1]:
                     if ts in enablers:
                         enablers[ts] = False
-                # expiration deletes: staged rights annihilate; memory
-                # rights get a pending del processed at the fire walk
+                    expired.add(ts)          # eager corpse flag
+                    pending_expire.append(ts)  # lazy quiescence delete
                 continue
             _, role, ts = step
             was_if = if_now()
@@ -100,151 +123,154 @@ def run(cfg, ce, op, lo, hi, fires):
             if role in ("A", "AB"):
                 sl.insert(0, (ts, stamp(), fno))
             if role in ("B", "AB"):
-                # linkgen relative to the PRE-INSERT link state: a right
-                # staged while unlinked (incl. the link trigger itself)
-                # is 'pre'; staged onto an already-linked path is 'post'
                 sr.insert(0, (ts, stamp(), "pre" if not was_linked else "post"))
             if_toggled = ce is not None and if_now() and not was_if
-            # ---- the FLUSH for this insert ----
+            # ---- the FLUSH ----
             if not linked():
-                if uflush == "drain_t" and temporal:
-                    # unlinked temporal insert self-drains to memory
+                if temporal:
+                    # drain_t: unlinked temporal deltas self-drain
                     if role in ("B", "AB"):
                         e = sr.pop(0)
-                        rmem.append((e[0], e[1]))
+                        rmem.append((e[0], e[1], fno))
                     if role in ("A", "AB"):
                         e = sl.pop(0)
-                        lmem.append((e[0], e[1]))
+                        lmem.append((e[0], e[1], fno))
                 continue
             creations = []
-            # left deltas (incl. IF toggles) pair x right MEMORY, consume
             if if_toggled:
-                lmem.append((IF_TS, stamp()))
-                for b in rmem:
-                    creations.append((IF_TS, b[0]))
-            if role in ("A", "AB") and temporal:
-                # temporal left delta
-                if temp_dr == "walk" or True:
-                    e = sl.pop(0)
-                    lmem.append((e[0], e[1]))
-                    for b in rmem:
-                        if eligible(op, lo, hi, e[0], b[0]):
-                            creations.append((e[0], b[0]))
-            elif role in ("A", "AB") and not temporal and ce is None:
-                e = sl.pop(0)
-                lmem.append((e[0], e[1]))
-                for b in rmem:
-                    creations.append((e[0], b[0]))
-            # right deltas
-            dr = temp_dr if temporal else plain_dr
-            if role in ("B", "AB") and dr == "walk":
-                e = sr.pop(0)
-                rmem.append((e[0], e[1]))
-                for a in sorted(lmem, key=lambda x: x[1]):
-                    if temporal:
-                        if eligible(op, lo, hi, a[0], e[0]):
-                            creations.append((a[0], e[0]))
+                held_pre = any(e[2] == "pre" for e in sr)
+                mode = if_flush
+                if if_flush == "pair_unless_held":
+                    mode = "stage" if held_pre else "pair"
+                if mode == "stage":
+                    # the toggle rides to the FIRE walk (staged left)
+                    sl.insert(0, (IF_TS, stamp(), fno))
+                else:
+                    lmem.append((IF_TS, stamp(), fno))
+                    if mode == "pair":
+                        for b in rmem:
+                            if b[0] not in expired:
+                                creations.append((IF_TS, b[0]))
+            if temporal:
+                if role in ("A", "AB"):
+                    if was_linked or shared:
+                        pass  # landed: pre-linked or shared -> stash (stay staged)
                     else:
-                        creations.append((a[0], e[0]))
-            # held staging visibility: plain_held=visible would let the
-            # eval consume held items too (the measured-broken mode);
-            # model only "hidden" faithfully for held (visible = consume
-            # all in staged order, pairing x memory)
-            if not temporal and plain_held == "visible":
-                while sl:
+                        # LINK-TRANSITION flush: lefts fill + pair x right memory
+                        e = sl.pop(0)
+                        lmem.append((e[0], e[1], fno))
+                        for b in rmem:
+                            if b[0] in expired:
+                                continue
+                            if eligible(op, lo, hi, e[0], b[0]):
+                                creations.append((e[0], b[0]))
+                # rights: never flush-pair (stay staged) — landed
+            else:
+                if role in ("A", "AB") and ce is None:
                     e = sl.pop(0)
-                    lmem.append((e[0], e[1]))
+                    lmem.append((e[0], e[1], fno))
                     for b in rmem:
                         creations.append((e[0], b[0]))
-                while sr:
-                    e = sr.pop(0)
-                    rmem.append((e[0], e[1]))
+                # plain rights: stay (cycle-3 landed)
             if creations:
                 windows.append(creations)
-        # ---- the FIRE evaluation (D-091: linked paths only —
-        # unlinked staging HOLDS across the fire) ----
+        # ---- the FIRE evaluation ----
         creations = []
-        # IF UNLINK maintenance runs regardless of the gate (a blocked
-        # CE retracts its IF even when the fire evaluates nothing)
         if ce is not None and not if_now():
-            lmem = [(t, s) for (t, s) in lmem if t != IF_TS]
+            lmem = [e for e in lmem if e[0] != IF_TS]
         fire_linked = (
             (bool(lmem or sl) and bool(rmem or sr)) if temporal else bool(if_now())
         )
         if not fire_linked:
-            out.append([c for win in windows for c in reversed(win)])
+            for role, mode in (("sink0", c_sink0), ("peer", c_peer)):
+                out[role].append([c for w in windows
+                                  for c in (w if mode == "fwd" else list(reversed(w)))])
+            # quiescence delete
+            lmem = [e for e in lmem if e[0] not in expired or e[0] == IF_TS]
+            rmem = [e for e in rmem if e[0] not in expired]
+            sl = [e for e in sl if e[0] not in expired]
+            sr = [e for e in sr if e[0] not in expired]
             continue
-        # advance-sourced IF toggle materializes here
         if ce is not None:
             present = if_now()
-            have = any(t == IF_TS for t, _ in lmem)
+            have = any(e[0] == IF_TS for e in lmem) or any(e[0] == IF_TS for e in sl)
             if present and not have:
-                lmem.append((IF_TS, stamp()))
-                # pairs with right MEMORY in memory order
+                lmem.append((IF_TS, stamp(), fno))
                 for b in rmem:
-                    creations.append((IF_TS, b[0]))
+                    if b[0] not in expired:
+                        creations.append((IF_TS, b[0]))
             if not present and have:
-                lmem = [(t, s) for (t, s) in lmem if t != IF_TS]
-        # expiration dels: remove dead staged rights (annihilate) and
-        # memory rights (they never pair again) — model: enabler deaths
-        # only affect the IF; B-side expirations arrive via adv lists
-        # handled in pins by not reusing dead ts values.
+                lmem = [e for e in lmem if e[0] != IF_TS]
         if temporal:
-            # temporal fire walk (cycle-1 survivor): fills lefts,
-            # rightIns newest-first x lefts-arrival, leftIns x pre-walk
-            # right memory (temp_lorder)
             pre_r = list(rmem)
             fills = list(sl)
             sl = []
+            fill_seqs = set()
             for e in reversed(fills):
-                lmem.append((e[0], e[1]))
+                lmem.append((e[0], e[1], fno))
+                fill_seqs.add(e[1])
             rights = list(sr)
             sr = []
             for e in rights:  # staged order = newest first
-                rmem.append((e[0], e[1]))
-                for a in sorted(lmem, key=lambda x: x[1]):
+                rmem.append((e[0], e[1], fno))
+                # partner scan (THE cycle-4 dim)
+                if pscan == "this_fire_arr_mem_desc":
+                    this_f = [a for a in lmem if a[2] == fno]
+                    prior = [a for a in lmem if a[2] != fno]
+                    part = sorted(this_f, key=lambda x: x[1]) + \
+                           sorted(prior, key=lambda x: -x[1])
+                elif pscan == "this_eval_arr_mem_desc":
+                    this_e = [a for a in lmem if a[1] in fill_seqs]
+                    prior = [a for a in lmem if a[1] not in fill_seqs]
+                    part = sorted(this_e, key=lambda x: x[1]) + \
+                           sorted(prior, key=lambda x: -x[1])
+                elif pscan == "asc":
+                    part = sorted(lmem, key=lambda x: x[1])
+                else:
+                    part = sorted(lmem, key=lambda x: -x[1])
+                for a in part:
+                    if a[0] in expired or a[0] == IF_TS:
+                        continue
                     if eligible(op, lo, hi, a[0], e[0]):
                         creations.append((a[0], e[0]))
-            lefts_iter = fills if temp_lorder == "head" else list(reversed(fills))
+            lefts_iter = fills if liter == "head" else list(reversed(fills))
+            pre_r_iter = pre_r if rscan == "push" else list(reversed(pre_r))
             for e in lefts_iter:
-                for b in pre_r:
+                for b in pre_r_iter:
+                    if b[0] in expired:
+                        continue
                     if eligible(op, lo, hi, e[0], b[0]):
                         creations.append((e[0], b[0]))
         else:
-            # plain fire walk: rightIns (generation-ordered) x pre-walk
-            # left MEMORY; then leftIns head-first x full right memory
             pre_l = list(lmem)
             rights = list(sr)
             sr = []
             pre = [e for e in rights if e[2] == "pre"]
-            post = [e for e in rights if e[2] == "post"]
-            pre_arr = sorted(pre, key=lambda x: x[1])
-            post_arr = sorted(post, key=lambda x: x[1])
-            if plain_rgen == "pre_lifo_then_post_lifo":
-                seqr = pre + post
-            elif plain_rgen == "pre_lifo_then_post_arr":
-                seqr = pre + post_arr
-            elif plain_rgen == "pre_arr_then_post_lifo":
-                seqr = pre_arr + post
-            elif plain_rgen == "pre_arr_then_post_arr":
-                seqr = pre_arr + post_arr
-            elif plain_rgen == "arrival":
-                seqr = sorted(rights, key=lambda x: x[1])
-            else:
-                seqr = rights  # head/LIFO
+            post_arr = sorted([e for e in rights if e[2] == "post"], key=lambda x: x[1])
+            seqr = pre + post_arr  # cycle-3 survivor: pre_lifo_then_post_arr
             for e in seqr:
-                rmem.append((e[0], e[1]))
+                rmem.append((e[0], e[1], fno))
                 for a in pre_l:
+                    if a[0] in expired:
+                        continue
                     creations.append((a[0], e[0]))
             lefts = list(sl)
             sl = []
             for e in lefts:
-                lmem.append((e[0], e[1]))
+                lmem.append((e[0], e[1], fno))
                 for b in rmem:
-                    creations.append((e[0], b[0]))
+                    if b[0] not in expired:
+                        creations.append((e[0], b[0]))
         if creations:
             windows.append(creations)
-        out.append([c for win in windows for c in reversed(win)])
+        for role, mode in (("sink0", c_sink0), ("peer", c_peer)):
+            out[role].append([c for w in windows
+                              for c in (w if mode == "fwd" else list(reversed(w)))])
+        # quiescence delete (post-fire)
+        lmem = [e for e in lmem if e[0] not in expired or e[0] == IF_TS]
+        rmem = [e for e in rmem if e[0] not in expired]
+        sl = [e for e in sl if e[0] not in expired]
+        sr = [e for e in sr if e[0] not in expired]
     return out
 
 
@@ -321,27 +347,69 @@ PINS = [
          [("ins", "E+", 1000), ("ins", "B", 2)],
          [("adv", [1000]), ("ins", "B", 3)]],
         [[(IF_TS, 1)], [], [(IF_TS, 3), (IF_TS, 2), (IF_TS, 1)]]),
+    # u1c: exists; P2 arrives WITH the advance fire (held pre-link);
+    # E+ alone at fire3 -> [(2),(1)]
+    pin("u1c", "exists", None, 0, 0,
+        [[("ins", "E+", 1000), ("ins", "B", 1)],
+         [("adv", [1000]), ("ins", "B", 2)],
+         [("ins", "E+", 2000)]],
+        [[(IF_TS, 1)], [], [(IF_TS, 2), (IF_TS, 1)]]),
+]
+
+# --- cycle-4 two-rule pins: want = {"sink0": [...], "peer": [...]} ---
+PINS2 = [
+    # 551 fire1: A=E1, B=E0, after[0,100]; arrivals B31,B26,A27,A7
+    ("cf551", None, "after", 0, 100,
+     [[("ins", "B", 31), ("ins", "B", 26), ("ins", "A", 27), ("ins", "A", 7)]],
+     {"sink0": [[(27, 31), (7, 26), (7, 31)]],
+      "peer": [[(7, 31), (7, 26), (27, 31)]]}),
+    # 526: A=E0, B=E1, after[0,50]; fire1 B9,A38,A24,A4 -> (4,9);
+    # fire2 adv(nothing dies) + B80, A67
+    ("cf526", None, "after", 0, 50,
+     [[("ins", "B", 9), ("ins", "A", 38), ("ins", "A", 24), ("ins", "A", 4)],
+      [("adv", []), ("ins", "B", 80), ("ins", "A", 67)]],
+     {"sink0": [[(4, 9)], [(38, 80), (67, 80)]],
+      "peer": [[(4, 9)], [(67, 80), (38, 80)]]}),
+    # 616 fire1: self-join after[0,150]; AB22, AB24
+    ("cf616", None, "after", 0, 150,
+     [[("ins", "AB", 22), ("ins", "AB", 24)]],
+     {"sink0": [[(22, 22), (24, 24), (22, 24)]],
+      "peer": [[(22, 24), (24, 24), (22, 22)]]}),
+    # 853 fire1: three-left shared self-join before[0,100];
+    # AB1, AB21, AB23 one prologue batch
+    ("cf853", None, "before", 0, 100,
+     [[("ins", "AB", 1), ("ins", "AB", 21), ("ins", "AB", 23)]],
+     {"sink0": [[(1, 1), (21, 1), (21, 21), (23, 21), (23, 1), (23, 23)]],
+      "peer": [[(23, 23), (23, 1), (23, 21), (21, 21), (21, 1), (1, 1)]]}),
+    # 134: self-join before[0,150]; fire1 AB14,AB6; fire3 adv kills
+    # 14,6 + AB1209; fire4 adv(nothing) + AB1257
+    ("cf134", None, "before", 0, 150,
+     [[("ins", "AB", 14), ("ins", "AB", 6)],
+      [("adv", [14, 6]), ("ins", "AB", 1209)],
+      [("adv", []), ("ins", "AB", 1257)]],
+     {"sink0": [[(14, 14), (6, 6), (14, 6)], [(1209, 1209)],
+                [(1257, 1209), (1257, 1257)]],
+      "peer": [[(14, 6), (6, 6), (14, 14)], [(1209, 1209)],
+               [(1257, 1257), (1257, 1209)]]}),
 ]
 
 
 def main():
-    # cycle-3 dims (matches run()'s cfg tuple)
     dims = [
-        ["walk", "stay"],                   # plain_delta_rights
-        ["hidden", "visible"],              # plain_held
-        ["pre_lifo_then_post_lifo", "pre_lifo_then_post_arr",
-         "pre_arr_then_post_lifo", "pre_arr_then_post_arr",
-         "head", "arrival"],                # plain_rgen (link-relative)
-        ["walk", "stay"],                   # temp_delta_rights
-        ["head", "arrival"],                # temp_lorder
-        ["drain_t", "noop"],                # uflush
+        ["this_fire_arr_mem_desc", "this_eval_arr_mem_desc", "asc", "desc"],  # pscan
+        ["push", "reverse"],   # rscan
+        ["head", "arrival"],   # liter
+        ["fwd", "rev"],        # c_sink0
+        ["fwd", "rev"],        # c_peer
+        ["pair", "fill", "stage", "pair_unless_held"],  # if_flush
     ]
     survivors = []
     for cfg in itertools.product(*dims):
         ok = True
+        # single-rule pins: firings compare against the sink0 role
         for name, ce, op, lo, hi, fires, want in PINS:
             try:
-                got = run(cfg, ce, op, lo, hi, fires)
+                got = run(cfg, ce, op, lo, hi, fires)["sink0"]
             except Exception:
                 ok = False
                 break
@@ -349,22 +417,43 @@ def main():
                 ok = False
                 break
         if ok:
+            for name, ce, op, lo, hi, fires, want in PINS2:
+                try:
+                    got = run(cfg, ce, op, lo, hi, fires, shared=True)
+                except Exception:
+                    ok = False
+                    break
+                if got["sink0"] != want["sink0"] or got["peer"] != want["peer"]:
+                    ok = False
+                    break
+        if ok:
             survivors.append(cfg)
     print(f"{len(survivors)} survivor(s)")
     for s in survivors[:16]:
-        print("  pdr=%s pheld=%s prgen=%s tdr=%s tlord=%s uflush=%s" % s)
+        print("  pscan=%s rscan=%s liter=%s sink0=%s peer=%s iff=%s" % s)
     if not survivors:
-        best = {}
+        best = []
         for cfg in itertools.product(*dims):
             bad = []
             for name, ce, op, lo, hi, fires, want in PINS:
                 try:
-                    if run(cfg, ce, op, lo, hi, fires) != want:
+                    if run(cfg, ce, op, lo, hi, fires)["sink0"] != want:
                         bad.append(name)
                 except Exception:
                     bad.append(name + "!")
-            if len(bad) <= 2:
-                print("  near-miss:", cfg, "fails", bad)
+            for name, ce, op, lo, hi, fires, want in PINS2:
+                try:
+                    got = run(cfg, ce, op, lo, hi, fires, shared=True)
+                    if got["sink0"] != want["sink0"]:
+                        bad.append(name + ":s0")
+                    if got["peer"] != want["peer"]:
+                        bad.append(name + ":pr")
+                except Exception:
+                    bad.append(name + "!")
+            best.append((len(bad), cfg, bad))
+        best.sort(key=lambda x: x[0])
+        for n, cfg, bad in best[:8]:
+            print(n, cfg, bad)
 
 
 if __name__ == "__main__":

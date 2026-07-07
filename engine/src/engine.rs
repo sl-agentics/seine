@@ -936,6 +936,7 @@ pub struct Engine {
     pending_expirations: Vec<FactId>,
     in_expiration_drain: bool,
     in_stream_flush: bool,
+    fire_no: u64,
     store: FactStore,
     rules: Vec<CompiledRule>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
@@ -1025,6 +1026,7 @@ impl Engine {
             pending_expirations: Vec::new(),
             in_expiration_drain: false,
             in_stream_flush: false,
+            fire_no: 0,
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_parents: Vec::new(),
@@ -2843,6 +2845,20 @@ impl Engine {
             Vec::with_capacity(self.trie.len());
         let mut dstash: Vec<(Vec<(FactId, Origin, u8)>, Vec<(Tup, Origin, u8)>, Vec<(FactId, Origin, u8)>)> =
             Vec::with_capacity(self.trie.len());
+        // per-rule PRE-LINK staging check BEFORE the stash empties it
+        // (if_flush = pair_unless_held, u1c/987)
+        let rule_held_pre: Vec<bool> = (0..self.rules.len())
+            .map(|ri| {
+                self.nets[ri].path.iter().any(|&ni| {
+                    self.trie[ni]
+                        .node
+                        .s_right
+                        .ins
+                        .iter()
+                        .any(|(_, _, ph)| *ph == 4)
+                })
+            })
+            .collect();
         // linked-ness per node BEFORE mutation (temporal stash gate)
         let node_linked: Vec<bool> =
             (0..self.trie.len()).map(|ni| self.rule_linked(self.trie[ni].env.0)).collect();
@@ -2926,7 +2942,12 @@ impl Engine {
             if std::env::var("SEINE_FLUSH_DEBUG").is_ok() && (self.nets[ri].queued || is_touched) {
                 eprintln!("flush: r{ri} queued={} touched={is_touched}", self.nets[ri].queued);
             }
-            if self.nets[ri].queued && is_touched {
+            // D-102 cycle-4 (u1c/987, if_flush=pair_unless_held): a
+            // path holding PRE-LINK (ph=4) rights does not evaluate at
+            // the flush — its IF-toggle cascade would pair against
+            // right memory early; the whole composition waits for the
+            // pop (where pre-LIFO rights precede the IF re-pairs).
+            if self.nets[ri].queued && is_touched && !rule_held_pre[ri] {
                 dbg_eval("flush", ri);
                 self.in_stream_flush = true;
                 self.evaluate_rule(ri, false, false);
@@ -2958,7 +2979,7 @@ impl Engine {
                         phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
                     );
                     node.self_drain_delta(
-                        &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush },
+                        &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no },
                         nidx,
                     );
                     self.trie[ni].node = node;
@@ -3188,6 +3209,7 @@ impl Engine {
             self.trie[ni].s0_in.clear_slots();
         }
 
+        self.fire_no += 1; // D-102 cycle-4: fire boundary — between-fire inserts stamp the NEXT fire
         Ok(firings)
     }
 
@@ -3633,7 +3655,7 @@ impl Engine {
                         // existential variant: blocked lefts re-search
                         // and unmatched ones stay DETACHED (D-031,
                         // NotNode.reorderRightTuple's null sink).
-                        let env = JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush };
+                        let env = JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                         if pat.ce == CeKind::Not {
                             self.trie[ni].node.not_mask_miss_re_add(&env, pos - 1, f);
                         } else {
@@ -3712,7 +3734,7 @@ impl Engine {
                             phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, false),
                         );
                         node.drain_staged_rights_to_memory_if(
-                            &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush },
+                            &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no },
                             nidx,
                             None,
                             &|f| self.store.is_alive(f),
@@ -4038,7 +4060,7 @@ impl Engine {
             ) {
                 trg = self.eval_subnet_node(ni, src, &mut first_pending);
             } else {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                 phreak::do_node(
                     &env,
                     env_pos - 1,
@@ -4307,7 +4329,7 @@ impl Engine {
         // reverse(stored)+accumulate(new) per still/newly allowed left.
         for (f, _, _) in sr.upd.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                 phreak::JoinEnv::key_of_right(&env, node_idx, *f)
             };
             self.trie[ni].node.re_add_right_tuple(*f, key);
@@ -4327,7 +4349,7 @@ impl Engine {
             }
             for l in bucket {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                     phreak::JoinEnv::allowed(&env, node_idx, &l, *f)
                 };
                 let had = self.trie[ni].acc_by_right.get(f).is_some_and(|v| v.contains(&l));
@@ -4354,7 +4376,7 @@ impl Engine {
         // functions take no left declarations, D-038/acc11).
         for (l, _, _) in src.upd.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                 phreak::JoinEnv::key_of_left(&env, node_idx, l)
             };
             self.trie[ni].node.re_add_left_tuple(l, key);
@@ -4381,7 +4403,7 @@ impl Engine {
             }
             for f in bucket {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                     phreak::JoinEnv::allowed(&env, node_idx, l, f)
                 };
                 let had = self.trie[ni]
@@ -4401,13 +4423,13 @@ impl Engine {
         // Phase E: right inserts (before left inserts).
         for (f, o, _) in sr.ins.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                 phreak::JoinEnv::key_of_right(&env, node_idx, *f)
             };
             self.trie[ni].node.push_right(*f, key.clone());
             for l in self.trie[ni].node.lefts_bucket_pub(key.as_ref()) {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                     phreak::JoinEnv::allowed(&env, node_idx, &l, *f)
                 };
                 if allowed {
@@ -4423,14 +4445,14 @@ impl Engine {
         // Phase F: left inserts — init context, fold the matching bucket.
         for (l, o, _) in src.ins.iter() {
             let lkey = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                 phreak::JoinEnv::key_of_left(&env, node_idx, l)
             };
             self.trie[ni].node.push_left(l.clone(), lkey.clone());
             self.trie[ni].acc.insert(l.clone(), AccCtx::new());
             for f in self.trie[ni].node.rights_bucket_pub(lkey.as_ref()) {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
                     phreak::JoinEnv::allowed(&env, node_idx, l, f)
                 };
                 if allowed {
@@ -5231,7 +5253,7 @@ impl Engine {
             let self_blocker = self.rules[ri].patterns.iter().enumerate().any(|(pos, pat)| {
                 pat.ce == CeKind::Not && pat.type_id == ftid && {
                     let rule = &self.rules[ri];
-                    let env = JoinEnvImpl { store: &self.store, rule, flush: self.in_stream_flush };
+                    let env = JoinEnvImpl { store: &self.store, rule, flush: self.in_stream_flush, fire_no: self.fire_no };
                     pat.cmps.iter().all(|c| {
                         if let Test::Group { g, cross_var, .. } = &c.test {
                             return *cross_var
@@ -5568,9 +5590,13 @@ struct JoinEnvImpl<'a> {
     store: &'a FactStore,
     rule: &'a CompiledRule,
     flush: bool,
+    fire_no: u64,
 }
 
 impl phreak::JoinEnv for JoinEnvImpl<'_> {
+    fn fire_no(&self) -> u64 {
+        self.fire_no
+    }
     fn in_flush(&self) -> bool {
         self.flush
     }

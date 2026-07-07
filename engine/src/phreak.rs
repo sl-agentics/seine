@@ -295,6 +295,7 @@ pub struct Node {
     /// walk by this instead.
     lseq: HashMap<Tup, u64>,
     lseq_next: u64,
+    left_fire: HashMap<Tup, u64>,
 }
 
 impl Node {
@@ -352,6 +353,7 @@ impl Node {
             temporal,
             lseq: HashMap::new(),
             lseq_next: 1,
+            left_fire: HashMap::new(),
         }
     }
 
@@ -411,6 +413,7 @@ impl Node {
     /// moves the trigger's staged ins (both sides) to memory in
     /// arrival order, creating no children.
     pub fn self_drain_delta<E: JoinEnv>(&mut self, env: &E, node_idx: usize) {
+        let fno = env.fire_no();
         let ins = std::mem::take(&mut self.s_right.ins);
         for (f, _, _) in ins.iter().rev() {
             let rkey = env.key_of_right(node_idx, *f);
@@ -420,6 +423,7 @@ impl Node {
         for (l, _, _) in lins.iter().rev() {
             self.stamp_left_seq(l);
             let lkey = env.key_of_left(node_idx, l);
+            self.left_fire.insert(l.clone(), fno);
             self.lefts.push((l.clone(), lkey));
         }
     }
@@ -769,6 +773,12 @@ pub trait JoinEnv {
     /// persists until the quiescence delete).
     fn is_expired(&self, _f: FactId) -> bool {
         false
+    }
+    /// D-102 cycle 4: the current fire index — left fills AND left
+    /// self-drains stamp it; the pop partner scan treats THIS-fire
+    /// lefts as fresh (arrival) and prior-fire lefts newest-first.
+    fn fire_no(&self) -> u64 {
+        0
     }
     /// D-102 (cf101x134): TRUE during a stream-flush evaluation —
     /// temporal nodes then FILL lefts without pairing (children are
@@ -1122,6 +1132,7 @@ fn do_join_node<E: JoinEnv>(
         }
         for (l, _, _) in &sl.ins {
             let lkey = env.key_of_left(node_idx, l);
+            node.left_fire.insert(l.clone(), env.fire_no());
             node.lefts.push((l.clone(), lkey));
         }
         for (f, o, ph) in sr_ins_iter(&sr.ins) {
@@ -1130,8 +1141,26 @@ fn do_join_node<E: JoinEnv>(
             }
             let rkey = env.key_of_right(node_idx, *f);
             node.rights.push((*f, rkey));
-            let mut partners: Vec<Tup> = node.lefts.iter().map(|(l, _)| l.clone()).collect();
-            partners.sort_by_key(|l| node.left_seq(l));
+            // D-102 cycle-4 round-2 survivor (model_check_stream,
+            // simulated states): partner scan = THIS-FIRE lefts
+            // (filled OR self-drained this fire) in ARRIVAL order,
+            // then prior-fire lefts NEWEST-first.
+            let fno = env.fire_no();
+            let mut this_fire: Vec<Tup> = node
+                .lefts
+                .iter()
+                .filter(|(l, _)| node.left_fire.get(l) == Some(&fno))
+                .map(|(l, _)| l.clone())
+                .collect();
+            this_fire.sort_by_key(|l| node.left_seq(l));
+            let mut prior: Vec<Tup> = node
+                .lefts
+                .iter()
+                .filter(|(l, _)| node.left_fire.get(l) != Some(&fno))
+                .map(|(l, _)| l.clone())
+                .collect();
+            prior.sort_by_key(|l| std::cmp::Reverse(node.left_seq(l)));
+            let partners: Vec<Tup> = this_fire.into_iter().chain(prior).collect();
             for l in partners {
                 if l.iter().any(|lf| env.is_expired(*lf)) {
                     continue; // D-102: corpse lefts make no NEW pairs
