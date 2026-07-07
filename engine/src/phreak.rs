@@ -383,16 +383,45 @@ impl Node {
         node_idx: usize,
         exclude: Option<FactId>,
     ) {
-        // the link-TRIGGERING fact's own staging is at-link, not
-        // pre-link: it stays staged and processes via rightIns (t1/t15)
+        self.drain_staged_rights_to_memory_if(env, node_idx, exclude, &|_| true)
+    }
+
+    /// D-102/a3: the drain runs from LIA-loop link effects — BEFORE the
+    /// trie loop stages the dying fact's delete — so DEAD facts' held
+    /// ins must stay staged for the del-annihilation to find them.
+    pub fn drain_staged_rights_to_memory_if<E: JoinEnv>(
+        &mut self,
+        env: &E,
+        node_idx: usize,
+        exclude: Option<FactId>,
+        alive: &dyn Fn(FactId) -> bool,
+    ) {
         let ins = std::mem::take(&mut self.s_right.ins);
-        let (keep, drain): (Vec<_>, Vec<_>) =
-            ins.into_iter().partition(|(f, _, _)| Some(*f) == exclude);
+        let (keep, drain): (Vec<_>, Vec<_>) = ins
+            .into_iter()
+            .partition(|(f, _, _)| Some(*f) == exclude || !alive(*f));
         for (f, _, _) in drain.iter().rev() {
             let rkey = env.key_of_right(node_idx, *f);
             self.rights.push((*f, rkey));
         }
         self.s_right.ins = keep;
+    }
+
+    /// D-102 (drain_t): an UNLINKED temporal node's per-insert flush
+    /// moves the trigger's staged ins (both sides) to memory in
+    /// arrival order, creating no children.
+    pub fn self_drain_delta<E: JoinEnv>(&mut self, env: &E, node_idx: usize) {
+        let ins = std::mem::take(&mut self.s_right.ins);
+        for (f, _, _) in ins.iter().rev() {
+            let rkey = env.key_of_right(node_idx, *f);
+            self.rights.push((*f, rkey));
+        }
+        let lins = std::mem::take(&mut self.s_left.ins);
+        for (l, _, _) in lins.iter().rev() {
+            self.stamp_left_seq(l);
+            let lkey = env.key_of_left(node_idx, l);
+            self.lefts.push((l.clone(), lkey));
+        }
     }
 
     pub fn push_left(&mut self, l: Tup, key: Option<Vec<Value>>) {

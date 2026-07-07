@@ -129,6 +129,12 @@ enum GExpr {
 /// admit only Some(true). Certified null-free scenarios are
 /// bit-identical: without Null every leaf is Some(_) and the
 /// combinators degenerate to two-valued logic.
+fn dbg_eval(ctx: &str, ri: usize) {
+    if std::env::var("SEINE_EVAL_DEBUG").is_ok() {
+        eprintln!("EVAL[{ctx}] rule {ri}");
+    }
+}
+
 fn eval_gexpr(
     g: &GExpr,
     store: &FactStore,
@@ -2608,10 +2614,12 @@ impl Engine {
         // staging window (external actions compose action-ordered at
         // terminals, D-047).
         if self.lists_built {
+            let pre = self.stage_snapshot();
             self.on_insert(id, None);
             for net in self.nets.iter_mut() {
                 net.s0_close_window();
             }
+            self.stream_flush(&pre);
         }
         Ok(id)
     }
@@ -2727,6 +2735,142 @@ impl Engine {
         }
     }
 
+    /// D-102: per-node staged-length snapshot for trigger-scoped
+    /// flushes. Captured BEFORE an insert's on_insert; the insert's
+    /// own propagation is the HEAD segment beyond these lengths
+    /// (staging prepends).
+    fn stage_snapshot(&self) -> (Vec<(usize, usize, usize)>, Vec<usize>) {
+        // Per-node (s0_in, s_left, s_right) ins lengths for TOUCH
+        // detection + per-rule k=1 s0 sizes. The STASH is rights-only
+        // (D-102: the flush is LEFT-flushing — forceFlushLeftTuple;
+        // held rights stay until a normal evaluation); the wider
+        // lengths scope the flush to the trigger's own paths (a7c:
+        // untouched paths must not process staged deletes early).
+        (
+            self.trie
+                .iter()
+                .map(|t| (t.s0_in.ins.len(), t.node.s_left.ins.len(), t.node.s_right.ins.len()))
+                .collect(),
+            self.nets
+                .iter()
+                .map(|n| n.s0.iter().map(|w| w.ins.len() + w.del.len() + w.upd.len()).sum())
+                .collect(),
+        )
+    }
+
+    /// D-102 (model-check survivor drain_t/nonflush): the STREAM-mode
+    /// per-insert flush, TRIGGER-SCOPED — Drools' forceFlushLeftTuple
+    /// carries EMPTY tuple sets, so only the triggering insert's own
+    /// propagation flushes; pre-existing staged backlogs stay held
+    /// (v2), and TMS deferred state is untouched (a7c). Mechanics:
+    /// stash the pre-insert staged tails, evaluate QUEUED rules over
+    /// the delta (activation queueing only — each flush is its own
+    /// D-047-style window), SELF-DRAIN unlinked temporal deltas to
+    /// memory (t6/t14 — this replaced drain-at-link), restore stashes.
+    fn stream_flush(&mut self, pre: &(Vec<(usize, usize, usize)>, Vec<usize>)) {
+        self.stream_flush_ex(pre, true)
+    }
+
+    fn stream_flush_ex(
+        &mut self,
+        pre: &(Vec<(usize, usize, usize)>, Vec<usize>),
+        close_windows: bool,
+    ) {
+        if self.event_specs.is_empty() || !self.lists_built {
+            return;
+        }
+        if close_windows {
+            for net in self.nets.iter_mut() {
+                net.s0_close_window();
+            }
+        }
+        // touched nodes/rules = staging grew during this insert
+        let touched_node: Vec<bool> = self
+            .trie
+            .iter()
+            .enumerate()
+            .map(|(ni, t)| {
+                let p = pre.0[ni];
+                t.s0_in.ins.len() > p.0
+                    || t.node.s_left.ins.len() > p.1
+                    || t.node.s_right.ins.len() > p.2
+            })
+            .collect();
+        // stash pre-insert HELD RIGHT tails (delta = head segments) —
+        // JOIN nodes only (D-102/a3-measured): a held right at a
+        // not/exists node is a BLOCKER whose absence flips admission;
+        // the flush walk must see it (E1 blocks E2 at the fire-1
+        // flush), while held JOIN rights stay unpaired (v2's P1).
+        let mut stash: Vec<Vec<(FactId, Origin, u8)>> = Vec::with_capacity(self.trie.len());
+        for (ni, p) in pre.0.iter().enumerate() {
+            let t = &mut self.trie[ni];
+            if !matches!(t.node.kind, phreak::Kind::Join) {
+                stash.push(Vec::new());
+                continue;
+            }
+            let d = t.node.s_right.ins.len() - p.2.min(t.node.s_right.ins.len());
+            stash.push(t.node.s_right.ins.split_off(d));
+        }
+        for ri in 0..self.rules.len() {
+            let s0_now: usize =
+                self.nets[ri].s0.iter().map(|w| w.ins.len() + w.del.len() + w.upd.len()).sum();
+            let is_touched = s0_now > pre.1[ri]
+                || self.nets[ri].path.iter().any(|&ni| touched_node[ni]);
+            if std::env::var("SEINE_FLUSH_DEBUG").is_ok() && (self.nets[ri].queued || is_touched) {
+                eprintln!("flush: r{ri} queued={} touched={is_touched}", self.nets[ri].queued);
+            }
+            if self.nets[ri].queued && is_touched {
+                dbg_eval("flush", ri);
+                self.evaluate_rule(ri, false, false);
+            }
+        }
+        // self-drain: deltas left staged at UNLINKED temporal nodes
+        // move to memory (arrival order), no children
+        for ni in 0..self.trie.len() {
+            if self.trie[ni].node.temporal {
+                let nidx = self.trie[ni].env.1 - 1;
+                let (ri, _) = self.trie[ni].env;
+                if !self.trie[ni].node.s_right.ins.is_empty()
+                    || !self.trie[ni].node.s_left.ins.is_empty()
+                {
+                    let mut node = std::mem::replace(
+                        &mut self.trie[ni].node,
+                        phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
+                    );
+                    node.self_drain_delta(
+                        &JoinEnvImpl { store: &self.store, rule: &self.rules[ri] },
+                        nidx,
+                    );
+                    self.trie[ni].node = node;
+                }
+            }
+        }
+        // restore the held right tails
+        let mut touched: Vec<usize> = Vec::new();
+        for (ni, sr_tail) in stash.into_iter().enumerate() {
+            if !sr_tail.is_empty() {
+                touched.push(ni);
+            }
+            self.trie[ni].node.s_right.ins.extend(sr_tail);
+        }
+        // a linked rule whose path holds restored staging stays
+        // queued+dirty (the flush's empty-queue dequeue must not
+        // orphan the held work)
+        if !touched.is_empty() {
+            for ri in 0..self.rules.len() {
+                if self.nets[ri].path.iter().any(|ni| touched.contains(ni))
+                    && self.rule_linked(ri)
+                {
+                    if std::env::var("SEINE_FLUSH_DEBUG").is_ok() {
+                        eprintln!("flush: REQUEUE r{ri}");
+                    }
+                    self.nets[ri].queued = true;
+                    self.nets[ri].dirty = true;
+                }
+            }
+        }
+    }
+
     /// CEP E1: advance the pseudo-clock. Due expirations apply as a
     /// deadline-ordered batch of EXTERNAL deletes at this action's
     /// position (a3: Drools batches all due retractions into the next
@@ -2811,7 +2955,13 @@ impl Engine {
             self.lists_built = true;
             let initial: Vec<FactId> = self.store.live_facts().collect();
             for f in initial {
+                // D-102: STREAM sessions flush per pre-fire insert too
+                // (session.insert before fireAllRules force-flushes) —
+                // WITHOUT window closes: the initial batch composes as
+                // ONE window (a3's batch pin holds pre- and post-flush).
+                let pre = self.stage_snapshot();
                 self.on_insert(f, None);
+                self.stream_flush_ex(&pre, false);
             }
         }
         let mut firings = Vec::new();
@@ -2933,6 +3083,7 @@ impl Engine {
             }) || (0..self.queries.len())
                 .any(|qi| self.query_pending[qi] && 0 > l_sal);
             if !higher {
+                dbg_eval("post-fire-force", l);
                 self.evaluate_rule(l, true, false);
                 self.tms.defer_mode = false;
                 if self.tms.deferred.iter().any(|(ri, _, _)| *ri == l) {
@@ -2942,6 +3093,7 @@ impl Engine {
                         let (_, tuple, _) = self.tms.deferred.remove(i);
                         self.tms_on_terminal_del(l, &tuple);
                     }
+                    dbg_eval("post-fire-deferred", l);
                     self.evaluate_rule(l, false, false);
                 }
             } else {
@@ -2983,6 +3135,7 @@ impl Engine {
                     let (_, tuple, _) = self.tms.deferred.remove(di);
                     self.tms_on_terminal_del(ri, &tuple);
                 }
+                dbg_eval("eager", ri);
                 self.evaluate_rule(ri, false, true);
                 // D-091: with the halted (outranked) self re-evaluation
                 // gone, the deferred entry for an eager justifier's own
@@ -3069,6 +3222,7 @@ impl Engine {
                 let (_, tuple, _) = self.tms.deferred.remove(i);
                 self.tms_on_terminal_del(ri, &tuple);
             }
+            dbg_eval("pop", ri);
             self.evaluate_rule(ri, false, false);
             if self.nets[ri].queue.is_empty() {
                 if !self.nets[ri].dirty {
@@ -3334,24 +3488,26 @@ impl Engine {
                 self.nets[ri].queued = true;
                 self.nets[ri].dirty = true;
             }
-            if !was[ri] && now {
-                // D-101 (t14/model-check): at the LINK moment, temporal
-                // nodes drain PRE-LINK staged rights into memory in
-                // ARRIVAL order (reverse of the prepend-staged list),
-                // no children — the D-094 memory-fill lineage. The
-                // evaluation's leftIns then meets them as pre-batch
-                // MEMORY; post-link rights stage normally.
+            if !was[ri] && now && !self.tms.expiring.is_empty() {
+                // D-102 (model-check survivor, ldrain_plain=nonflush):
+                // an ADVANCE-triggered link (we're inside an expiration
+                // batch — tms.expiring is non-empty exactly then) drains
+                // held staged rights at PLAIN nodes into memory in
+                // ARRIVAL order, no children (u3/v5 pins). Temporal
+                // nodes never drain here — their unlinked inserts
+                // self-drain at flush time (drain_t; t6/t14).
                 for &ni in &self.nets[ri].path.clone() {
-                    if self.trie[ni].node.temporal {
+                    if !self.trie[ni].node.temporal {
                         let nidx = self.trie[ni].env.1 - 1;
                         let mut node = std::mem::replace(
                             &mut self.trie[ni].node,
-                            phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
+                            phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, false),
                         );
-                        node.drain_staged_rights_to_memory(
+                        node.drain_staged_rights_to_memory_if(
                             &JoinEnvImpl { store: &self.store, rule: &self.rules[ri] },
                             nidx,
-                            cur,
+                            None,
+                            &|f| self.store.is_alive(f),
                         );
                         self.trie[ni].node = node;
                     }
@@ -4490,7 +4646,9 @@ impl Engine {
                     let fid = self.store.insert(tid, values).map_err(EngineError)?;
                     self.schedule_expiration(fid);
                     self.tms_note_stated(fid);
+                    let pre = self.stage_snapshot();
                     self.on_insert(fid, Some(ri));
+                    self.stream_flush(&pre);
                 }
                 CompiledAction::InsertLogical { type_id, args } => {
                     let tid = *type_id;
