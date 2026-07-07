@@ -1,0 +1,60 @@
+{
+ "name": "cep_u2b_plain_join_cloud",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E0x",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when $p : P() $q : Q(v > $p.v) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "v": 5
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "v": 6
+   }
+  }
+ ],
+ "epochs": []
+}

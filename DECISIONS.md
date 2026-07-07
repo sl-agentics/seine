@@ -3997,3 +3997,26 @@ ARRIVAL-first in Drools vs fresh-first certified — STREAM-mode
 staging semantics for event-typed facts differ from CLOUD at PLAIN
 nodes too. The E1 fuzz gate stays blocked pending the u-ladder
 (exists/not/plain-join x event re-link shapes).
+
+### D-101 (u-ladder recon): STREAM-mode composition scope BOUNDED;
+### per-RHS-insert windows PINNED; the not/exists relink walk
+### asymmetry OPEN (next model-check cycle)
+Oracle pins (probes_pending/cep/cep_u*): **u2/u2b** — a plain-plain
+join (no event types in the rule) orders IDENTICALLY in event
+(STREAM) and no-event (CLOUD) sessions: the stream composition
+changes are CONFINED to event-fed/CE-relink shapes; the certified
+corpus classes cannot perturb (bounding result). **u4** — RHS
+inserts in a STREAM session flush PER-INSERT: a consumer fires two
+same-RHS inserts in ARRIVAL order (certified CLOUD = LIFO batch) —
+the D-047 window machinery applies per RHS insert in event sessions
+(shouldFlush = isStreamMode() in assertObject, the D-084-era source
+read). **u3 vs u1/cf5x18 (OPEN)** — the P-side pair order after a
+CE relink SPLITS by CE kind: a NOT-relink (expiration-triggered)
+orders (IF,P2),(IF,P1) = the certified cloud walk; an EXISTS-relink
+(insert-triggered) orders (IF,P1),(IF,P2) = the temporal walk shape.
+Two hand-model rounds contradicted (the D-083 signal) — the next
+cycle extends tools/model_check_temporal.py with CE-kind and
+link-trigger dimensions plus 4-6 discriminating probes (held-side
+swaps, insert-vs-advance triggers per CE), then ports, then the E1
+fuzz gate. No engine changes in this commit; the E1 gate stays
+blocked pending the asymmetry.

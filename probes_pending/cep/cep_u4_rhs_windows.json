@@ -1,0 +1,52 @@
+{
+ "name": "cep_u4_rhs_windows",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule G salience 10 when P(v == 1) then insert(new Q(5)); insert(new Q(6)); end\nrule C when $q : Q() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": []
+}
