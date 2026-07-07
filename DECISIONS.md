@@ -4090,3 +4090,39 @@ v2–v5, cf5x0/17/18. Implement the survivor with the head-segment
 staging split (snapshot staged lengths before on_insert; flush only
 the delta; restore the withheld tail). Then: full ladders + corpus +
 fuzz_cep shakedown → 3×1000 gate → D-101/D-102 close + FEATURES.
+
+### D-102 (checker cycle close): the survivor family PORTED to 13/14
+### on branch d102-flush-wip; ONE regression (a3) open — eval-boundary
+### split of an expiration del pair
+The model check (74b7bbd) survived as: trigger-scoped LEFT-flushing
+stream flush (forceFlushLeftTuple semantics — held RIGHTS stay
+staged; the trigger's own right delta + all left staging flush),
+touch-scoped to the trigger's paths (a7c: untouched paths must not
+process staged deletes early), plus plain-node drain-at-link at
+NONFLUSH (advance-triggered) links only, alive-filtered (a3's dead
+facts stay staged for del-annihilation). Implementation on branch
+**d102-flush-wip** (main stays green at 74b7bbd): stream_flush_ex
+with per-node right-tail stash/restore + requeue, prologue
+per-insert flushes WITHOUT window closes (the initial batch is ONE
+window — a3's batch pin), temporal self-drain replacing the old
+drain-at-link, SEINE_FLUSH_DEBUG hooks.
+**Green on the branch:** cf5x18/u1 (the seed), u3, u4, v2, v3, v4,
+v5, min_sj, t1, t6, t7, t14, a1, a6, a7c, a7d — 13/14 of the
+spot-check matrix (all previously-forked rungs now pass).
+**OPEN (a3_mid_advance):** the two-expiration batch (E1@100, E2@200,
+one advance(300)) regresses: Rmid fires transiently. Trace diff
+(baseline vs branch): baseline processes E1's rightDel and E2's
+leftDel in ONE Rmid evaluation (leftDel phase kills the parked E2
+before the rightDel unblocks — no activation); the branch splits
+them across TWO evaluations with a firing between (E1-rightDel
+eval unblocks parked E2 -> activation -> fires -> E2-leftDel eval
+prunes too late). Four hypotheses eliminated empirically: the
+plain drain (gated off — still fails), prologue window closes
+(removed — still fails), dead-fact drains (alive filter — still
+fails), the requeue (debug shows it never fires on a3). The
+remaining delta is HOW fire-2's evaluation windows split under the
+branch — needs eval-boundary tracing (add an evaluation counter to
+SEINE_TRACE) comparing baseline/branch step structure on a3.
+Fresh-context task: instrument, isolate the split, fix, then the
+FULL gate sequence (all ladders + corpus 834 + fuzz_cep shakedown
+60 -> 3x1000) and the D-101/D-102 close.
