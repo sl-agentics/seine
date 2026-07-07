@@ -224,8 +224,9 @@ def run(cfg, ce, op, lo, hi, fires, shared=False):
                 pre_mem_lefts = [a for a in lmem]
                 for e in facts:
                     lmem.append((e[0], e[1], fno))
-                for e in facts:
+                for e in reversed(facts):
                     rmem.append((e[0], e[1], fno))
+                for e in facts:
                     # arm 1: older staged lefts (arrival) then memory
                     # lefts (prior newest-first — the pscan shape)
                     older_l = sorted([a for a in facts if a[1] < e[1]],
@@ -429,9 +430,12 @@ PINS2 = [
     # 853 fire1: three-left shared self-join before[0,100];
     # AB1, AB21, AB23 one prologue batch
     ("cf853", None, "before", 0, 100,
-     [[("ins", "AB", 1), ("ins", "AB", 21), ("ins", "AB", 23)]],
-     {"sink0": [[(1, 1), (21, 1), (21, 21), (23, 21), (23, 1), (23, 23)]],
-      "peer": [[(23, 23), (23, 1), (23, 21), (21, 21), (21, 1), (1, 1)]]}),
+     [[("ins", "AB", 1), ("ins", "AB", 21), ("ins", "AB", 23)],
+      [("adv", []), ("ins", "AB", 71)]],
+     {"sink0": [[(1, 1), (21, 1), (21, 21), (23, 21), (23, 1), (23, 23)],
+                [(71, 23), (71, 21), (71, 1), (71, 71)]],
+      "peer": [[(23, 23), (23, 1), (23, 21), (21, 21), (21, 1), (1, 1)],
+               [(71, 71), (71, 1), (71, 21), (71, 23)]]}),
     # 134: self-join before[0,150]; fire1 AB14,AB6; fire3 adv kills
     # 14,6 + AB1209; fire4 adv(nothing) + AB1257
     ("cf134", None, "before", 0, 150,

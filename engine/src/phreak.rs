@@ -1171,9 +1171,13 @@ fn do_join_node<E: JoinEnv>(
                 let _ = f;
             }
             let origin = sl.ins.first().map(|(_, o, _)| *o).unwrap_or(None);
-            for (i, (l_f, fid)) in facts.iter().enumerate() {
+            // rights enter MEMORY in ARRIVAL order (853 fire-2: the
+            // next fire's leftIns x memory iterates arrival)
+            for (_, fid) in facts.iter().rev() {
                 let rkey = env.key_of_right(node_idx, *fid);
                 node.rights.push((*fid, rkey));
+            }
+            for (i, (l_f, fid)) in facts.iter().enumerate() {
                 // arm 1: older staged lefts (arrival = reverse of the
                 // remaining prepend list) then memory lefts
                 let older_staged: Vec<&Tup> =

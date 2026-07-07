@@ -4465,3 +4465,27 @@ radius — every ported mechanism needs a fresh-seed population
 measure before commit, not just the matrix.** The 101/202/303 keeps
 were all shapes the mechanisms addressed; the fresh seeds were the
 first population draw AFTER the ports.
+
+### D-102 (853 closed; the residual is TWO cases, one class): rights
+### enter memory in ARRIVAL order after per-fact AB walks; the
+### 412-class pins the NEXT discriminator (and exposes a flawed
+### control probe)
+The per-fact AB walk left rights memory NEWEST-first; 853's fire-2
+(unpinned in the checker — the pin only covered fire 1) showed the
+next fire's leftIns x memory iterates ARRIVAL. Fixed in the engine
+AND the model in lockstep; the 853 pin extended to fire 2; checker
+survivor unique and unchanged. State: **5997/6000 campaign evidence
+green** (548+551 keeps, 47-rung matrix, corpus 861, suites 8).
+**OPEN (cf7x597 + cf29x412 — one class):** at an exists-relink
+where the enabler ALSO arrives with held pre-link rights, the
+oracle DOES flush-evaluate (creations [(IF,held),(IF,memory)]
+window then the fresh pair) — contradicting u1c where the same
+held-right shape required the deferred pop batch. Candidate
+discriminator: the enabler type's UNCONSTRAINED alpha is shared
+with other rules (412: E0 feeds TJ0/$a + J1 + the exists) vs
+u1c's private enabler. **The u1s "shared-alpha" control was
+FLAWED**: its second rule constrained the alpha (ts > 999999),
+which builds a DIFFERENT alpha node — it never tested sharing.
+Next sitting: a true shared-alpha probe pair (unconstrained
+second rule), then the pair_unless_held gate learns the real
+condition, checker-first.
