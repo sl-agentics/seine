@@ -3400,3 +3400,53 @@ alu* promote; fuzz-gate 5x10k before logging the gate line. NO
 ENGINE CHANGES in this commit — probes + AccDump only; gates
 unchanged (engine still diverges on 7a/7d/7f/7g + the quarantined
 8426 pair, all sitting in probes_pending/ + xfail/ until the port).
+
+### D-093: 8426 RULING — CORRECT, don't reproduce: the stale-extremum
+### defect is DURABLE upstream (verified on 10.1.0 + byte-identical on
+### main) and Seine deliberately diverges; doctrine refined
+Bryan's ruling, executed after the upstream check came back on the
+"persists" branch:
+- **Upstream verification:** the D-092 mechanism is unchanged on
+  current Drools main (doLeftUpdatesProcessChildren's last-writer
+  isDirty + removeMatch(reaccumulate=false) + MinAccumulateFunction.
+  tryReverse all byte-identical), and EMPIRICALLY reproduced on
+  Drools 10.1.0 (throwaway oracle from Maven Central: alu7a fires the
+  stale -2; fz_min_8426 firing[11] carries -2 — identical to
+  9.44.0.Final). No fix ever landed upstream.
+- **The ruling:** Seine keeps its CORRECT re-derivation (no engine
+  change; the correct min/max IS the intended semantics — Drools'
+  own match bookkeeping agrees with Seine and contradicts its own
+  fold). This is an INTENTIONAL, DOCUMENTED divergence on a
+  value-bearing upstream defect — the first of its kind in the
+  project.
+- **DOCTRINE (banked):** Seine faithfully reproduces Drools'
+  semantics and stable/intentional behaviors — quirks included (the
+  D-076 delete quirk, orderings, coercions) — but CORRECTS
+  value-bearing DEFECTS where Drools' own state is self-inconsistent
+  (here: match set says {12,6}, fold says -2, forever). Faithfulness
+  is to Drools-the-spec, not to defects — even durable ones.
+- **Witness reclassification:** xfail/fz_123_8426 + fz_min_8426 +
+  alu6a + alu7a/7d/7f/7g = DOCUMENTED-EXPECTED-DIVERGENCE witnesses
+  (Seine correct, Drools durably buggy) — excluded from the gate like
+  the Drools-nondeterminism families, same honest-quarantine
+  machinery, opposite polarity. Eleven green probes promoted
+  (pr_alu3/4/5, pr_alu6b/c/d/e, pr_alu7b/c/h/i + the earlier
+  pr_acc_lu_range): they pin the CORRECT behaviors both engines agree
+  on (reversible-function churn, extremum-removal-last refolds,
+  removal-then-add refolds, fold-from-scratch controls).
+- **Generator gate (D-093 wall):** min/max accumulates draw only in
+  mutation-free scenarios, and external UPDATE actions reroute to
+  deletes when a min/max accumulate exists (the defect surface needs
+  a left-update merge; sum/count/average are immune and keep full
+  churn coverage). Without the gate every fuzz campaign would re-draw
+  known-expected divergences.
+- **Upstream report FILED:** apache/incubator-kie-issues#2366
+  (2026-07-07, open) — title, affected versions (9.44.0.Final,
+  10.1.0, main), self-contained KieHelper reproducer, root cause with
+  the arm table, suggested isDirty |= fix, discriminating-case
+  matrix. Text preserved in docs/drools-bug-stale-minmax.md. If
+  upstream fixes it, the divergence becomes convergence — track the
+  issue when bumping oracle versions.
+- The D-090a "own ladder" work is CLOSED by this entry (mechanism
+  D-092, ruling D-093). Remaining from the quarantine backlog:
+  fz_999_2256 (D-090b — next).

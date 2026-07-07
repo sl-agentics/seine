@@ -330,6 +330,15 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     // D-035 — node-sharing identity incl. the bound-field set is modeled
     // by the engine's static sink-order flips).
     let allow_mutation = rng.chance(60);
+    // D-093: min/max accumulates draw only in mutation-free scenarios —
+    // Drools (9.44.0 through current main/10.1.0) has a stale-extremum
+    // defect on the accumulate LEFT-UPDATE merge (the refold is skipped
+    // unless the extremum's removal is the last dirtying step, D-092).
+    // Seine deliberately computes the CORRECT value (Bryan's ruling:
+    // faithfulness is to Drools-the-spec, not durable upstream defects),
+    // so churn shapes would diverge by design. sum/count/average are
+    // reversible and immune — they keep full mutation coverage.
+    let mut has_minmax = false;
     // D-076 TMS scenarios (~30%): the LAST type is the LOGICAL type —
     // insertLogical targets it exclusively, and (mutation wall) no rule
     // setter/update and no external update ever touches it. Deletes stay
@@ -556,7 +565,15 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     pats[pi].bindings.push((rvar, usize::MAX, Ft::I64));
                 } else {
                     let (fi, fname, ft) = rng.pick(&numeric).clone();
-                    let func = *rng.pick(&["sum", "average", "min", "max"]);
+                    let funcs: &[&str] = if allow_mutation {
+                        &["sum", "average"]
+                    } else {
+                        &["sum", "average", "min", "max"]
+                    };
+                    let func = *rng.pick(funcs);
+                    if matches!(func, "min" | "max") {
+                        has_minmax = true;
+                    }
                     let avar = format!("$s{ri}_{pi}");
                     pats[pi].constraints.push(format!("{avar} : {fname}"));
                     let rvar = format!("$a{ri}_{pi}");
@@ -982,7 +999,10 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     // D-076 mutation wall: external updates never touch
                     // the logical type — delete it instead (in-subset,
                     // exercises the quirk model).
-                    if tms && tname == types[logical_ti].name {
+                    // D-093: external updates never coexist with min/max
+                    // accumulates either (the stale-extremum defect
+                    // surface) — reroute to a delete likewise.
+                    if (tms && tname == types[logical_ti].name) || has_minmax {
                         ext_deleted.insert(target);
                         eactions.push(json!({"op": "delete", "target": target}));
                         continue;
