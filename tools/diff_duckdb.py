@@ -33,11 +33,17 @@ assert duckdb.__version__ == "1.5.4", f"oracle version drift: {duckdb.__version_
 SQLT = {"i64": "BIGINT", "f64": "DOUBLE", "String": "VARCHAR", "bool": "BOOLEAN"}
 
 
+def sql_type(t):
+    if t.startswith("decimal("):
+        return "DECIMAL" + t[len("decimal"):]
+    return SQLT[t]
+
+
 def build_db(scn):
     con = duckdb.connect()
     for t in scn["types"]:
         cols = ", ".join(
-            f'"{f["name"]}" {SQLT[f["type"]]}{"" if f.get("nullable") else " NOT NULL"}'
+            f'"{f["name"]}" {sql_type(f["type"])}{"" if f.get("nullable") else " NOT NULL"}'
             for f in t["fields"]
         )
         sep = ", " if cols else ""
@@ -45,7 +51,12 @@ def build_db(scn):
     for i, fact in enumerate(scn.get("facts", [])):
         t = next(t for t in scn["types"] if t["name"] == fact["type"])
         names = ["idx"] + [f'"{f["name"]}"' for f in t["fields"]]
-        vals = [i] + [fact["fields"].get(f["name"]) for f in t["fields"]]
+        import decimal as _d
+        vals = [i] + [
+            _d.Decimal(v) if isinstance(v, str) and f["type"].startswith("decimal(") and v is not None
+            else v
+            for f, v in ((f, fact["fields"].get(f["name"])) for f in t["fields"])
+        ]
         ph = ", ".join("?" * len(vals))
         con.execute(f'INSERT INTO "t_{fact["type"]}" ({", ".join(names)}) VALUES ({ph})', vals)
     return con
@@ -272,7 +283,7 @@ def engine_match_sets(path):
         for mfact in f["matches"]:
             if mfact["type"] == "InitialFact":
                 continue
-            if mfact["type"] in ("Long", "Double"):
+            if mfact["type"] in ("Long", "Double", "Decimal"):
                 v = mfact["fields"]["value"]
                 row.append(("acc", round(float(v), 9)))
             elif "__h" in mfact["fields"]:

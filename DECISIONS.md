@@ -3748,3 +3748,49 @@ limits. PEP-563 latent bug noted: 0.2.0's raw __annotations__ read
 breaks under `from __future__ import annotations` even for int/str
 fields — the get_type_hints move lands in phase 5 as a fix
 regardless. Phase 4 (engine decimals) proceeds toward this target.
+
+### D-098 phase 4 LANDED: exact decimals in the engine — pin-J
+### conformant, DuckDB-differential witnessed
+Types: FieldType::Dec{p,s} (1<=p<=38, Arrow Decimal128-compatible);
+Value::Dec{u: i128, s} self-carrying; ColData::Dec per-row (u,s)
+(user fields pre-normalized to field scale by coerce; acc results
+store exact computed scale). Helpers (store.rs): dec_cmp — exact
+cross-scale compare with the overflow-decides-by-sign trick (no
+256-bit arithmetic: if the scale-aligned side overflows i128 it
+strictly exceeds the other, so its sign is the answer); dec_parse
+(exact strings only), dec_rescale (exact widening, HALF-UP narrowing
+per pin J), dec_fits (declared precision), dec_render, dec_normalize
+(trailing-zero strip — KeyVal::D TMS identity, 1.10 == 1.1).
+Ingestion: strings/integers only — IEEE floats REJECTED (coerce
+wall); half-up to field scale; loud precision-overflow errors.
+Literals: written decimals (lexed f64) recover EXACTLY via shortest
+round-trip repr (exact for <= 15 significant digits); conversion at
+every compile site (cmp, groups, in-lists, RHS insert/setter args).
+**The D-097-4 wall**: decimal-vs-f64 comparison is a COMPILE error
+naming itself; f64 never converts to decimal anywhere. Eval: dec
+arms in eval_cmp (Dec-Dec, Dec-I64 exact), keys_match (cross-scale
+value-equal join keys), value_ord (range scans), min/max fold.
+Aggregates: sum exact over i128 with scale-aligning folds and LOUD
+overflow (DECIMAL(38) posture, pin J), result widens to
+DECIMAL(38,s) via the new ACC_DECIMAL ("Decimal") hidden type;
+average -> f64 (pin J: AVG is DOUBLE — the one deliberate
+decimal-to-float edge); min/max preserve the decimal; ruling-2
+composition: empty/all-null decimal sum = 0 AT THE FIELD'S SCALE and
+fires. Eq-hash exclusion: decimal Eq literals are chain members
+only, never eq-hash group members (cross-scale value equality vs
+representation hashing — plain alpha eval is exact; deliberate,
+documented). Walls: queries over decimal types (with nullable, one
+wall family); salience rejects Dec via the numeric check.
+**Gates:** engine/tests/d098_decimals.rs 6/6 first run (exact
+comparisons incl. the 0.1+0.2 class, cross-scale join equality,
+half-up rounding incl. negatives, precision overflow + float
+rejection, the wall's compile error, aggregate matrix, in-lists +
+RHS round-trip). make test 8 suites green; corpus 812/812 untouched.
+DuckDB corpus 11/11 (3 new decimal probes). Fuzz: generator draws
+decimal(p,s) fields p 8-12, s 0-3 (values at field scale;
+family-matched joins so decimals cross scales but never meet f64)
+EOF
+echo prepped— **seeds 44/55/66 x 2000 = 6,000 decimal+null cases, ZERO
+divergences, zero rejects** (+ 60-case shakedown). Phase 5 (Arrow/
+typing boundary incl. the ratified D-098 surface + the PEP-563 fix)
+and phase 6 (FEATURES promotion) remain.

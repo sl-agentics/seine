@@ -560,6 +560,16 @@ impl Node {
                 // D-097/pin F: a null key component never equi-joins —
                 // not even against another null (UNKNOWN, not equal).
                 (Value::Null, _) | (_, Value::Null) => false,
+                // D-098: decimal keys match by VALUE across scales (pin J).
+                (Value::Dec { u: a, s: x }, Value::Dec { u: b, s: y }) => {
+                    crate::store::dec_cmp(*a, *x, *b, *y) == std::cmp::Ordering::Equal
+                }
+                (Value::Dec { u: a, s: x }, Value::I64(b)) => {
+                    crate::store::dec_cmp(*a, *x, *b as i128, 0) == std::cmp::Ordering::Equal
+                }
+                (Value::I64(a), Value::Dec { u: b, s: y }) => {
+                    crate::store::dec_cmp(*a as i128, 0, *b, *y) == std::cmp::Ordering::Equal
+                }
                 (Value::I64(a), Value::F64(b)) => *a == *b as i64,
                 (Value::F64(a), Value::I64(b)) => *a == *b as f64,
                 (a, b) => a == b,
@@ -619,6 +629,15 @@ impl Node {
             (Value::F64(x), Value::F64(y)) => x.partial_cmp(y).unwrap_or(Ordering::Equal),
             (Value::Str(x), Value::Str(y)) => x.cmp(y),
             (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
+            (Value::Dec { u: x, s: xs }, Value::Dec { u: y, s: ys }) => {
+                crate::store::dec_cmp(*x, *xs, *y, *ys)
+            }
+            (Value::Dec { u: x, s: xs }, Value::I64(y)) => {
+                crate::store::dec_cmp(*x, *xs, *y as i128, 0)
+            }
+            (Value::I64(x), Value::Dec { u: y, s: ys }) => {
+                crate::store::dec_cmp(*x as i128, 0, *y, *ys)
+            }
             _ => Ordering::Equal,
         }
     }

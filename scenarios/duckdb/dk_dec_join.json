@@ -1,0 +1,64 @@
+{
+ "name": "dk_dec_join",
+ "oracle": "duckdb",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "amount",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "opt",
+     "type": "decimal(10,2)",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": []
+  }
+ ],
+ "drl": "rule R1 when M(tag == 1, $a : amount) M(tag == 2, amount == $a) then end\nrule R2 when M(tag == 1, $a : amount) M(tag == 2, amount < $a) then end\nrule R3 when M(tag == 1, $a : opt) M(tag == 2, amount == $a) then end\n",
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "amount": "1.50",
+    "tag": 1,
+    "opt": null
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "1.50",
+    "tag": 2,
+    "opt": null
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "0.75",
+    "tag": 2,
+    "opt": null
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "2.00",
+    "tag": 1,
+    "opt": null
+   }
+  }
+ ],
+ "epochs": []
+}

@@ -141,6 +141,7 @@ struct Env {
 fn java_hash(v: &Value) -> u32 {
     match v {
         Value::Null => 0, // unreachable: nullable types are walled from queries (D-097)
+        Value::Dec { .. } => 0, // unreachable: Dec walled from queries (D-098)
         Value::I64(n) => {
             let u = *n as u64;
             (u ^ (u >> 32)) as u32
@@ -307,9 +308,16 @@ fn compile_query(
     for b in &def.branches {
         for pat in b {
             if let Some(tid) = store.type_id(&pat.name) {
-                if store.schema(tid).nullable != 0 {
+                let sch = store.schema(tid);
+                if sch.nullable != 0 {
                     return err(format!(
                         "{} has nullable fields — queries over nullable types are walled (D-097)",
+                        pat.name
+                    ));
+                }
+                if sch.fields.iter().any(|(_, ft)| matches!(ft, FieldType::Dec { .. })) {
+                    return err(format!(
+                        "{} has decimal fields — queries over decimal types are walled (D-098)",
                         pat.name
                     ));
                 }

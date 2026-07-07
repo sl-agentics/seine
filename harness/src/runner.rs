@@ -181,6 +181,10 @@ fn query_val_to_json(v: &QueryVal) -> J {
         QueryVal::Scalar(Value::Bool(b)) => json!({"type": "Boolean", "fields": {"value": b}}),
         // unreachable: nullable types are walled from queries (D-097)
         QueryVal::Scalar(Value::Null) => J::Null,
+        // unreachable: decimal types are walled from queries (D-098)
+        QueryVal::Scalar(Value::Dec { u, s }) => {
+            json!({"type": "Decimal", "fields": {"value": seine_engine::dec_render(*u, *s)}})
+        }
     }
 }
 
@@ -209,6 +213,18 @@ fn parse_types(types: &J) -> Result<Vec<TypeSchema>, String> {
                 Some("f64") => FieldType::F64,
                 Some("String") => FieldType::Str,
                 Some("bool") => FieldType::Bool,
+                Some(t) if t.starts_with("decimal(") && t.ends_with(')') => {
+                    let inner = &t["decimal(".len()..t.len() - 1];
+                    let (p, s) = inner
+                        .split_once(',')
+                        .ok_or_else(|| format!("bad decimal type {t:?}"))?;
+                    let p: u8 = p.trim().parse().map_err(|_| format!("bad decimal type {t:?}"))?;
+                    let s: u8 = s.trim().parse().map_err(|_| format!("bad decimal type {t:?}"))?;
+                    if p == 0 || p > 38 || s > p {
+                        return Err(format!("decimal(p,s) needs 1<=p<=38, 0<=s<=p, got {t:?}"));
+                    }
+                    FieldType::Dec { p, s }
+                }
                 other => return Err(format!("unknown field type {other:?}")),
             };
             let nullable = f.get("nullable").and_then(J::as_bool).unwrap_or(false);
@@ -260,6 +276,7 @@ fn fact_view_to_json(fv: &FactView) -> J {
             Value::Str(s) => json!(s),
             Value::Bool(b) => json!(b),
             Value::Null => J::Null,
+            Value::Dec { u, s } => json!(seine_engine::dec_render(*u, *s)),
         };
         fields.insert(name.clone(), jv);
     }

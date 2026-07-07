@@ -38,7 +38,8 @@ class Gen:
         for ti in range(self.r.randint(2, 3)):
             fields = []
             for fi in range(self.r.randint(1, 4)):
-                ft = self.r.choice(["i64", "i64", "f64", "String", "bool"])
+                ft = self.r.choice(["i64", "i64", "f64", "String", "bool",
+                                    f"decimal({self.r.randint(8, 12)},{self.r.randint(0, 3)})"])
                 fields.append({
                     "name": f"f{fi}",
                     "type": ft,
@@ -46,8 +47,21 @@ class Gen:
                 })
             self.types.append({"name": f"T{ti}", "fields": fields})
 
+    @staticmethod
+    def dec_scale(ft):
+        return int(ft[ft.index(",") + 1:-1])
+
+    def dec_str(self, ft):
+        s = self.dec_scale(ft)
+        u = self.r.randint(0, 40 * 10 ** s)
+        if s == 0:
+            return str(u)
+        return f"{u // 10 ** s}.{u % 10 ** s:0{s}d}"
+
     def lit(self, ft):
         r = self.r
+        if ft.startswith("decimal("):
+            return self.dec_str(ft)
         if ft == "i64":
             return str(r.randint(0, 4))
         if ft == "f64":
@@ -60,6 +74,8 @@ class Gen:
         if f.get("nullable") and self.r.random() < 0.3:
             return None
         ft = f["type"]
+        if ft.startswith("decimal("):
+            return self.dec_str(ft)
         if ft == "i64":
             return self.r.randint(0, 4)
         if ft == "f64":
@@ -83,7 +99,9 @@ class Gen:
             return f'{f["name"]} {r.choice(["==", "!="])} null'
         if kind < 0.45:
             return f'{f["name"]} {self.cmp_op(ft)} {self.lit(ft)}'
-        if kind < 0.6 and allow_group_unsafe and ft in ("i64", "String"):
+        if kind < 0.6 and allow_group_unsafe and (
+            ft in ("i64", "String") or ft.startswith("decimal(")
+        ):
             items = [self.lit(ft) for _ in range(r.randint(2, 3))]
             if r.random() < 0.35:
                 items.append("null")
@@ -93,8 +111,11 @@ class Gen:
             if r.random() < 0.5:
                 return f'{f["name"]} matches {r.choice(RX)}'
             return f'{f["name"]} contains "{r.choice(["a", "b", "z"])}"'
-        # join to an earlier binding of the SAME field type (no i64/f64 mix)
-        cands = [v for (v, vt, _) in binds if vt == ft]
+        # join to an earlier binding of the SAME type family (no i64/f64
+        # mix per D-020; decimals join decimals ACROSS scales — value
+        # semantics both sides — and never meet f64, the D-097-4 wall)
+        fam = lambda t: "dec" if t.startswith("decimal(") else t
+        cands = [v for (v, vt, _) in binds if fam(vt) == fam(ft)]
         if cands:
             return f'{f["name"]} {self.cmp_op(ft)} ${r.choice(cands)}'
         return f'{f["name"]} {self.cmp_op(ft)} {self.lit(ft)}'
@@ -129,7 +150,8 @@ class Gen:
     def acc_ce(self, binds, vcount):
         r = self.r
         t = r.choice(self.types)
-        num = [f for f in t["fields"] if f["type"] in ("i64", "f64")]
+        num = [f for f in t["fields"]
+               if f["type"] in ("i64", "f64") or f["type"].startswith("decimal(")]
         fn = r.choice(["sum", "count", "average", "min", "max"])
         if not num:
             fn = "count"
@@ -203,7 +225,7 @@ def engine_sets(path):
         for m in f["matches"]:
             if m["type"] == "InitialFact":
                 continue
-            if m["type"] in ("Long", "Double"):
+            if m["type"] in ("Long", "Double", "Decimal"):
                 row.append(("acc", round(float(m["fields"]["value"]), 9)))
             elif "__h" in m["fields"]:
                 row.append(("h", h2idx[m["fields"]["__h"]]))

@@ -1,0 +1,72 @@
+{
+ "name": "dk_dec_cmp",
+ "oracle": "duckdb",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "amount",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "opt",
+     "type": "decimal(10,2)",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": []
+  }
+ ],
+ "drl": "rule R1 when M(amount == 1.25) then end\nrule R2 when M(amount > 1.5) then end\nrule R3 when M(amount == 2) then end\nrule R4 when M(amount in (1.25, 3.5)) then end\nrule R5 when M(opt == null) then end\n",
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "amount": "1.25",
+    "tag": 0,
+    "opt": null
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "1.51",
+    "tag": 0,
+    "opt": null
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "2.00",
+    "tag": 0,
+    "opt": null
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "3.50",
+    "tag": 0,
+    "opt": "9.99"
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "1.49",
+    "tag": 0,
+    "opt": null
+   }
+  }
+ ],
+ "epochs": []
+}

@@ -1,0 +1,56 @@
+{
+ "name": "dk_dec_acc",
+ "oracle": "duckdb",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "amount",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "opt",
+     "type": "decimal(10,2)",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": []
+  }
+ ],
+ "drl": "rule R1 when accumulate( M(tag == 1, $x : amount); $s : sum($x) ) then end\nrule R2 when accumulate( M(tag == 1, $x : amount); $a : average($x) ) then end\nrule R3 when accumulate( M(tag == 1, $x : amount); $m : min($x) ) then end\nrule R4 when accumulate( M(tag == 1, $x : opt); $s : sum($x) ) then end\nrule R5 when accumulate( M(tag == 9, $x : amount); $s : sum($x) ) then end\n",
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "amount": "0.10",
+    "tag": 1,
+    "opt": null
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "0.20",
+    "tag": 1,
+    "opt": "5.00"
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "amount": "0.30",
+    "tag": 1,
+    "opt": null
+   }
+  }
+ ],
+ "epochs": []
+}

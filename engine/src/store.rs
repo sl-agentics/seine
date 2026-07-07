@@ -21,6 +21,9 @@ pub enum FieldType {
     F64,
     Str,
     Bool,
+    /// Exact decimal, Arrow Decimal128-compatible (D-095/D-098):
+    /// unscaled i128 at the declared scale; 1 <= p <= 38, 0 <= s <= p.
+    Dec { p: u8, s: u8 },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -35,6 +38,11 @@ pub enum Value {
     /// Null == Null (identity/staging semantics); JOIN-KEY matching
     /// must NOT use that — bucket lookups skip null keys (pin F).
     Null,
+    /// Exact decimal (D-098): self-carrying unscaled value + scale.
+    /// Comparisons are VALUE-based across scales (pin J) via dec_cmp;
+    /// PartialEq derives representation equality — value-sensitive
+    /// paths (keys, TMS) go through dec_cmp/normalization instead.
+    Dec { u: i128, s: u8 },
 }
 
 impl Value {
@@ -49,12 +57,124 @@ impl Value {
             // (nullable-walled surface) — I64 is a harmless sentinel
             // for the walled paths (queries reject nullable types).
             Value::Null => FieldType::I64,
+            // p is not recoverable from a value; 38 is the storage max.
+            Value::Dec { s, .. } => FieldType::Dec { p: 38, s: *s },
         }
     }
 
     pub fn is_null(&self) -> bool {
         matches!(self, Value::Null)
     }
+}
+
+/// Exact cross-scale decimal comparison (pin J: value equality is
+/// scale-independent). Aligns the smaller-scale side up with checked
+/// multiplication; on overflow the widened side strictly exceeds any
+/// i128 the other side holds, so its SIGN decides — exact and total
+/// without 256-bit arithmetic.
+pub fn dec_cmp(au: i128, as_: u8, bu: i128, bs: u8) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    if as_ == bs {
+        return au.cmp(&bu);
+    }
+    let (lo_u, lo_s, hi_u, hi_s, flip) =
+        if as_ < bs { (au, as_, bu, bs, false) } else { (bu, bs, au, as_, true) };
+    let pow = 10i128.checked_pow((hi_s - lo_s) as u32);
+    let scaled = pow.and_then(|p| lo_u.checked_mul(p));
+    let ord = match scaled {
+        Some(v) => v.cmp(&hi_u),
+        // |lo_u * 10^d| > i128::MAX >= |hi_u| -> sign of lo_u decides
+        None => {
+            if lo_u > 0 {
+                Ordering::Greater
+            } else {
+                Ordering::Less
+            }
+        }
+    };
+    if flip { ord.reverse() } else { ord }
+}
+
+/// Canonical (unscaled, scale): trailing decimal zeros stripped — the
+/// value-identity form for TMS keys and hashes (1.10 == 1.1, pin H/J).
+pub fn dec_normalize(mut u: i128, mut s: u8) -> (i128, u8) {
+    while s > 0 && u % 10 == 0 {
+        u /= 10;
+        s -= 1;
+    }
+    (u, s)
+}
+
+/// Render at the value's own scale: "1.25", "-3.50", "7".
+pub fn dec_render(u: i128, s: u8) -> String {
+    if s == 0 {
+        return u.to_string();
+    }
+    let neg = u < 0;
+    let abs = u.unsigned_abs().to_string();
+    let s = s as usize;
+    let (int, frac) = if abs.len() > s {
+        (abs[..abs.len() - s].to_string(), abs[abs.len() - s..].to_string())
+    } else {
+        ("0".to_string(), format!("{:0>width$}", abs, width = s))
+    };
+    format!("{}{}.{}", if neg { "-" } else { "" }, int, frac)
+}
+
+/// Parse an exact decimal string ("1.25", "-3.5", "7") into
+/// (unscaled, scale). No exponents, no floats — exactness only.
+pub fn dec_parse(txt: &str) -> Option<(i128, u8)> {
+    let t = txt.trim();
+    let (neg, t) = match t.strip_prefix('-') {
+        Some(r) => (true, r),
+        None => (false, t.strip_prefix('+').unwrap_or(t)),
+    };
+    let (int_part, frac_part) = match t.split_once('.') {
+        Some((a, b)) => (a, b),
+        None => (t, ""),
+    };
+    if int_part.is_empty() && frac_part.is_empty() {
+        return None;
+    }
+    if !int_part.chars().all(|c| c.is_ascii_digit())
+        || !frac_part.chars().all(|c| c.is_ascii_digit())
+        || frac_part.len() > 38
+    {
+        return None;
+    }
+    let digits = format!("{int_part}{frac_part}");
+    let mut u: i128 = 0;
+    for c in digits.chars() {
+        u = u.checked_mul(10)?.checked_add((c as u8 - b'0') as i128)?;
+    }
+    Some((if neg { -u } else { u }, frac_part.len() as u8))
+}
+
+/// Rescale to a target scale: exact when widening; HALF-UP (away from
+/// zero) when narrowing (pin J); None on i128 overflow.
+pub fn dec_rescale(u: i128, s: u8, target: u8) -> Option<(i128, u8)> {
+    use std::cmp::Ordering::*;
+    match s.cmp(&target) {
+        Equal => Some((u, target)),
+        Less => {
+            let p = 10i128.checked_pow((target - s) as u32)?;
+            Some((u.checked_mul(p)?, target))
+        }
+        Greater => {
+            let p = 10i128.checked_pow((s - target) as u32)?;
+            let q = u / p;
+            let r = u % p;
+            let half = p / 2;
+            let adj = if r.abs() >= half { u.signum() } else { 0 };
+            Some((q + adj, target))
+        }
+    }
+}
+
+/// Enforce a declared precision: |u| must fit in p digits.
+pub fn dec_fits(u: i128, p: u8) -> bool {
+    let max = 10i128.checked_pow(p as u32).map(|x| x - 1).unwrap_or(i128::MAX);
+    u.abs() <= max
 }
 
 #[derive(Clone, Debug)]
@@ -81,6 +201,10 @@ enum ColData {
     F64(Vec<f64>),
     Str(Vec<String>),
     Bool(Vec<bool>),
+    /// Per-row (unscaled, scale): user fields arrive pre-normalized to
+    /// the field's declared scale (Engine::coerce); accumulate result
+    /// rows store their exact computed scale (D-098).
+    Dec(Vec<(i128, u8)>),
 }
 
 impl Column {
@@ -90,6 +214,7 @@ impl Column {
             FieldType::F64 => ColData::F64(Vec::new()),
             FieldType::Str => ColData::Str(Vec::new()),
             FieldType::Bool => ColData::Bool(Vec::new()),
+            FieldType::Dec { .. } => ColData::Dec(Vec::new()),
         };
         Column { data, valid: if nullable { Some(Vec::new()) } else { None } }
     }
@@ -105,6 +230,7 @@ impl Column {
                 ColData::F64(c) => c.push(0.0),
                 ColData::Str(c) => c.push(String::new()),
                 ColData::Bool(c) => c.push(false),
+                ColData::Dec(c) => c.push((0, 0)),
             }
             return Ok(());
         }
@@ -113,6 +239,7 @@ impl Column {
             (ColData::F64(c), Value::F64(x)) => c.push(x),
             (ColData::Str(c), Value::Str(x)) => c.push(x),
             (ColData::Bool(c), Value::Bool(x)) => c.push(x),
+            (ColData::Dec(c), Value::Dec { u, s }) => c.push((u, s)),
             (_, v) => return Err(format!("column type mismatch for value {v:?}")),
         }
         if let Some(valid) = &mut self.valid {
@@ -134,6 +261,7 @@ impl Column {
             (ColData::F64(c), Value::F64(x)) => c[row] = x,
             (ColData::Str(c), Value::Str(x)) => c[row] = x,
             (ColData::Bool(c), Value::Bool(x)) => c[row] = x,
+            (ColData::Dec(c), Value::Dec { u, s }) => c[row] = (u, s),
             (_, v) => return Err(format!("column type mismatch for value {v:?}")),
         }
         if let Some(valid) = &mut self.valid {
@@ -153,6 +281,10 @@ impl Column {
             ColData::F64(c) => Value::F64(c[row]),
             ColData::Str(c) => Value::Str(c[row].clone()),
             ColData::Bool(c) => Value::Bool(c[row]),
+            ColData::Dec(c) => {
+                let (u, s) = c[row];
+                Value::Dec { u, s }
+            }
         }
     }
 }

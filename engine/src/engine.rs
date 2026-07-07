@@ -33,7 +33,9 @@ pub(crate) const INITIAL_FACT: &str = "InitialFact";
 pub(crate) const ACC_LONG: &str = "Long";
 pub(crate) const ACC_DOUBLE: &str = "Double";
 pub(crate) const ACC_COLLECTION: &str = "Collection";
-const RESERVED_TYPES: [&str; 4] = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION];
+const ACC_DECIMAL: &str = "Decimal";
+const RESERVED_TYPES: [&str; 5] =
+    [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_DECIMAL];
 /// Hidden row types for ?query CEs (D-056): one per query, fields = the
 /// query's params. Rows render as QueryArgs match elements and never
 /// appear in the final fact set.
@@ -366,6 +368,9 @@ enum KeyVal {
     /// D-097: nulls COLLAPSE in TMS value-equality keys (pin H:
     /// GROUP BY/DISTINCT treat NULLs as one group).
     Null,
+    /// D-098: decimal keys are VALUE-identical across scales —
+    /// normalized (trailing zeros stripped) so 1.10 == 1.1 (pin J).
+    D(i128, u8),
 }
 
 fn key_vals(vals: &[Value]) -> Vec<KeyVal> {
@@ -376,6 +381,10 @@ fn key_vals(vals: &[Value]) -> Vec<KeyVal> {
             Value::Str(s) => KeyVal::S(s.clone()),
             Value::Bool(b) => KeyVal::B(*b),
             Value::Null => KeyVal::Null,
+            Value::Dec { u, s } => {
+                let (nu, ns) = crate::store::dec_normalize(*u, *s);
+                KeyVal::D(nu, ns)
+            }
         })
         .collect()
 }
@@ -557,6 +566,10 @@ struct AccCtx {
     matches: Vec<(FactId, Value)>,
     sum_i: i64,
     sum_f: f64,
+    /// D-098: exact decimal sum (unscaled, scale) — scales align UP as
+    /// contributions arrive; overflow past i128/DECIMAL(38) panics
+    /// loudly (DuckDB errors there too, pin J).
+    sum_d: (i128, u8),
     count: i64,
     minmax: Option<Value>,
     list: Vec<FactId>,
@@ -570,6 +583,7 @@ impl AccCtx {
             matches: Vec::new(),
             sum_i: 0,
             sum_f: 0.0,
+            sum_d: (0, 0),
             count: 0,
             minmax: None,
             list: Vec::new(),
@@ -581,6 +595,7 @@ impl AccCtx {
     fn reset_state(&mut self) {
         self.sum_i = 0;
         self.sum_f = 0.0;
+        self.sum_d = (0, 0);
         self.count = 0;
         self.minmax = None;
         self.list.clear();
@@ -599,6 +614,17 @@ impl AccCtx {
             AccFunc::Sum => match v {
                 Value::I64(x) => self.sum_i += x,
                 Value::F64(x) => self.sum_f += x,
+                Value::Dec { u, s } => {
+                    let t = (self.sum_d.1).max(*s);
+                    let (a, _) = crate::store::dec_rescale(self.sum_d.0, self.sum_d.1, t)
+                        .expect("decimal sum overflow (DECIMAL(38) exceeded)");
+                    let (b, _) = crate::store::dec_rescale(*u, *s, t)
+                        .expect("decimal sum overflow (DECIMAL(38) exceeded)");
+                    self.sum_d = (
+                        a.checked_add(b).expect("decimal sum overflow (DECIMAL(38) exceeded)"),
+                        t,
+                    );
+                }
                 _ => {}
             },
             AccFunc::Count => self.count += 1,
@@ -606,6 +632,9 @@ impl AccCtx {
                 let x = match v {
                     Value::I64(n) => *n as f64,
                     Value::F64(n) => *n,
+                    // pin J: AVG(decimal) is DOUBLE — the one place a
+                    // decimal deliberately becomes a float.
+                    Value::Dec { u, s } => *u as f64 / 10f64.powi(*s as i32),
                     _ => 0.0,
                 };
                 self.sum_f += x;
@@ -619,6 +648,9 @@ impl AccCtx {
                             (Value::I64(a), Value::I64(b)) => a.cmp(b),
                             (Value::F64(a), Value::F64(b)) => {
                                 a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                            }
+                            (Value::Dec { u: a, s: x }, Value::Dec { u: b, s: y }) => {
+                                crate::store::dec_cmp(*a, *x, *b, *y)
                             }
                             _ => std::cmp::Ordering::Equal,
                         };
@@ -650,6 +682,17 @@ impl AccCtx {
                 match v {
                     Value::I64(x) => self.sum_i -= x,
                     Value::F64(x) => self.sum_f -= x,
+                    Value::Dec { u, s } => {
+                        let t = (self.sum_d.1).max(*s);
+                        let (a, _) = crate::store::dec_rescale(self.sum_d.0, self.sum_d.1, t)
+                            .expect("decimal sum overflow (DECIMAL(38) exceeded)");
+                        let (b, _) = crate::store::dec_rescale(*u, *s, t)
+                            .expect("decimal sum overflow (DECIMAL(38) exceeded)");
+                        self.sum_d = (
+                            a.checked_sub(b).expect("decimal sum overflow (DECIMAL(38) exceeded)"),
+                            t,
+                        );
+                    }
                     _ => {}
                 }
                 true
@@ -662,6 +705,7 @@ impl AccCtx {
                 let x = match v {
                     Value::I64(n) => *n as f64,
                     Value::F64(n) => *n,
+                    Value::Dec { u, s } => *u as f64 / 10f64.powi(*s as i32),
                     _ => 0.0,
                 };
                 self.sum_f -= x;
@@ -684,6 +728,16 @@ impl AccCtx {
         match func {
             AccFunc::Sum => Some(match arg_ft {
                 FieldType::I64 => Value::I64(self.sum_i),
+                // D-098 ruling 2 composition: an empty/all-null decimal
+                // sum is 0 AT THE FIELD'S SCALE and still fires.
+                FieldType::Dec { s, .. } => {
+                    let (u, us) = self.sum_d;
+                    if us == 0 && u == 0 {
+                        Value::Dec { u: 0, s }
+                    } else {
+                        Value::Dec { u, s: us }
+                    }
+                }
                 _ => Value::F64(self.sum_f),
             }),
             AccFunc::Count => Some(Value::I64(self.count)),
@@ -927,6 +981,14 @@ impl Engine {
             nullable: 0,
         });
         schemas.push(TypeSchema { name: ACC_COLLECTION.into(), fields: Vec::new(), nullable: 0 });
+        // D-098: decimal accumulate results. The column stores per-row
+        // (unscaled, scale) exactly as computed; the declared (p, s)
+        // here is nominal (this insert path bypasses coerce).
+        schemas.push(TypeSchema {
+            name: ACC_DECIMAL.into(),
+            fields: vec![("value".into(), FieldType::Dec { p: 38, s: 0 })],
+            nullable: 0,
+        });
         Ok(Engine {
             store: FactStore::new(schemas),
             rules: Vec::new(),
@@ -1311,8 +1373,15 @@ impl Engine {
                         Ok(GExpr::IsNull { field_idx: fi, negated })
                     }
                     CmpRhs::Lit(l) => {
-                        check_cmp_types(rname, lhs_ft, *op, lit_type(l))?;
-                        let v = lit_value(l);
+                        let mut v = lit_value(l);
+                        let mut ft = lit_type(l);
+                        if matches!(lhs_ft, FieldType::Dec { .. }) {
+                            v = lit_for_dec(&v).ok_or_else(|| {
+                                err(format!("group literal {l:?} is not an exact decimal (D-098)"))
+                            })?;
+                            ft = v.type_of();
+                        }
+                        check_cmp_types(rname, lhs_ft, *op, ft)?;
                         let _ = write!(key, "g{fi}{op:?}{v:?}");
                         Ok(GExpr::Cmp { field_idx: fi, op: *op, rhs: Src::Lit(v) })
                     }
@@ -1515,7 +1584,10 @@ impl Engine {
                         }
                         Test::Unknown => {}
                         Test::Cmp { op, rhs: Src::Lit(v) } => {
-                            if *op == CmpOp::Eq && !v.is_null() {
+                            if *op == CmpOp::Eq
+                                && !v.is_null()
+                                && !matches!(v, Value::Dec { .. })
+                            {
                                 let ft = self.store.field_type(pat.type_id, c.field_idx);
                                 let coerced = match (v, ft) {
                                     (Value::F64(x), FieldType::I64) => Value::I64(*x as i64),
@@ -1888,7 +1960,20 @@ impl Engine {
                             continue;
                         }
                         let (src, rhs_ft, rhs_var) = match rhs {
-                            CmpRhs::Lit(l) => (Src::Lit(lit_value(l)), lit_type(l), None),
+                            CmpRhs::Lit(l) => {
+                                let mut v = lit_value(l);
+                                let mut ft = lit_type(l);
+                                if matches!(lhs_ft, FieldType::Dec { .. }) {
+                                    v = lit_for_dec(&v).ok_or_else(|| {
+                                        err(format!(
+                                            "{}.{field}: literal {l:?} is not an exact decimal (D-098)",
+                                            p.type_name
+                                        ))
+                                    })?;
+                                    ft = v.type_of();
+                                }
+                                (Src::Lit(v), ft, None)
+                            }
                             CmpRhs::Var(v) => {
                                 if acc_opaque.contains(v) {
                                     return Err(err(format!(
@@ -1962,6 +2047,15 @@ impl Engine {
                         for l in items {
                             if matches!(l, Literal::Null) {
                                 vals.push(Value::Null); // 3VL member (pin C)
+                                continue;
+                            }
+                            if matches!(lhs_ft, FieldType::Dec { .. }) {
+                                let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
+                                    err(format!(
+                                        "in-list literal {l:?} is not an exact decimal (D-098)"
+                                    ))
+                                })?;
+                                vals.push(v);
                                 continue;
                             }
                             check_cmp_types(&rname, lhs_ft, CmpOp::Eq, lit_type(l))?;
@@ -2065,7 +2159,8 @@ impl Engine {
                             (Some(fi), self.store.field_type(type_id, fi))
                         }
                     };
-                    let numeric = matches!(arg_ft, FieldType::I64 | FieldType::F64);
+                    let numeric =
+                        matches!(arg_ft, FieldType::I64 | FieldType::F64 | FieldType::Dec { .. });
                     if spec.arg.is_some() && !numeric && spec.func != AccFunc::Count {
                         // count ignores its argument; the value-bearing
                         // functions stay numeric-only (subset wall)
@@ -2077,9 +2172,14 @@ impl Engine {
                     // result type per D-038 pins
                     let (result_name, result_ft) = match spec.func {
                         AccFunc::Count => (ACC_LONG, FieldType::I64),
+                        // pin J: AVG over decimal is DOUBLE
                         AccFunc::Average => (ACC_DOUBLE, FieldType::F64),
                         AccFunc::Sum | AccFunc::Min | AccFunc::Max => match arg_ft {
                             FieldType::I64 => (ACC_LONG, FieldType::I64),
+                            // sum widens to DECIMAL(38,s); min/max preserve (pin J)
+                            FieldType::Dec { s, .. } => {
+                                (ACC_DECIMAL, FieldType::Dec { p: 38, s })
+                            }
                             _ => (ACC_DOUBLE, FieldType::F64),
                         },
                         AccFunc::Collect => (ACC_COLLECTION, FieldType::I64),
@@ -2206,6 +2306,17 @@ impl Engine {
                             srcs.push(Src::Lit(Value::Null));
                             continue;
                         }
+                        if let (RhsArg::Lit(l), FieldType::Dec { .. }) = (arg, ftype) {
+                            if !matches!(l, Literal::Str(_)) {
+                                let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
+                                    err(format!(
+                                        "insert new {type_name}: arg for {fname} is not an exact decimal (D-098)"
+                                    ))
+                                })?;
+                                srcs.push(Src::Lit(v));
+                                continue;
+                            }
+                        }
                         let (src, src_ft) = self.compile_arg(
                             &rname,
                             arg,
@@ -2265,6 +2376,17 @@ impl Engine {
                             arg: Src::Lit(Value::Null),
                         });
                         continue;
+                    }
+                    if let (RhsArg::Lit(l), FieldType::Dec { .. }) = (arg, ftype) {
+                        if !matches!(l, Literal::Str(_)) {
+                            let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
+                                err(format!(
+                                    "setter {var}.{field}: not an exact decimal literal (D-098)"
+                                ))
+                            })?;
+                            actions.push(CompiledAction::Set { pos, field_idx: fi, arg: Src::Lit(v) });
+                            continue;
+                        }
                     }
                     let (src, src_ft) =
                         self.compile_arg(&rname, arg, &fact_binds, &field_binds, &acc_opaque, &def, &patterns)?;
@@ -2436,7 +2558,7 @@ impl Engine {
     /// sequence Drools' objectInserted listener observes, so scenario
     /// action targets mean the same fact in both engines.
     pub fn nth_inserted(&self, n: usize) -> Option<FactId> {
-        let hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION]
+        let hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_DECIMAL]
             .iter()
             .filter_map(|t| self.store.type_id(t))
             .collect();
@@ -4665,7 +4787,7 @@ impl Engine {
     }
 
     pub fn facts(&self) -> Vec<FactView> {
-        let mut hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION]
+        let mut hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_DECIMAL]
             .iter()
             .filter_map(|n| self.store.type_id(n))
             .collect();
@@ -4704,6 +4826,7 @@ fn scalar_view(v: Value) -> FactView {
         Value::Str(_) => "String",
         Value::Bool(_) => "Boolean",
         Value::Null => "Null",
+        Value::Dec { .. } => "Decimal", // unreachable: Dec walled from queries (D-098)
     };
     FactView {
         type_name: type_name.into(),
@@ -4726,6 +4849,27 @@ fn first_group_field(g: &GExpr) -> usize {
         GExpr::Unknown => 0,
         GExpr::And(xs) | GExpr::Or(xs) => first_group_field(&xs[0]),
         GExpr::Not(x) => first_group_field(x),
+    }
+}
+
+/// D-098: a written decimal literal (lexed as f64) recovered EXACTLY
+/// via the shortest round-trip representation — exact for every
+/// literal with <= 15 significant digits; longer literals fail
+/// dec_parse (exponent forms) or round (documented wall).
+fn f64_lit_to_dec(x: f64) -> Option<Value> {
+    let (u, s) = crate::store::dec_parse(&format!("{x}"))?;
+    Some(Value::Dec { u, s })
+}
+
+/// Convert a compile-time literal for a decimal-typed field: written
+/// integers scale exactly; written decimals via shortest repr; the
+/// f64 WALL applies only to f64-typed BINDINGS, not written literals.
+fn lit_for_dec(v: &Value) -> Option<Value> {
+    match v {
+        Value::I64(n) => Some(Value::Dec { u: *n as i128, s: 0 }),
+        Value::F64(x) => f64_lit_to_dec(*x),
+        Value::Dec { .. } => Some(v.clone()),
+        _ => None,
     }
 }
 
@@ -4752,6 +4896,12 @@ fn lit_type(l: &Literal) -> FieldType {
 
 /// Java-style: exact match, or i64 widening into f64.
 fn assignable(src: FieldType, dst: FieldType) -> bool {
+    if let (FieldType::Dec { .. }, FieldType::Dec { .. }) = (src, dst) {
+        return true; // runtime rescale + precision check in coerce (D-098)
+    }
+    if let (FieldType::I64, FieldType::Dec { .. }) = (src, dst) {
+        return true;
+    }
     src == dst || (src == FieldType::I64 && dst == FieldType::F64)
 }
 
@@ -4762,6 +4912,25 @@ fn coerce(v: Value, target: FieldType) -> Option<Value> {
         // nullability authority (loud error for non-nullable, D-097).
         (Value::Null, _) => Some(Value::Null),
         (Value::I64(n), FieldType::F64) => Some(Value::F64(n as f64)),
+        // D-098 decimal ingestion: exact strings and integers only —
+        // JSON/IEEE floats are REJECTED (no lossy round-trips for
+        // money). Rescale to the field's declared scale (exact when
+        // widening, HALF-UP when narrowing, pin J) and enforce the
+        // declared precision (loud error on overflow).
+        (Value::Str(txt), FieldType::Dec { p, s }) => {
+            let (u0, s0) = crate::store::dec_parse(&txt)?;
+            let (u, s) = crate::store::dec_rescale(u0, s0, s)?;
+            crate::store::dec_fits(u, p).then_some(Value::Dec { u, s })
+        }
+        (Value::I64(n), FieldType::Dec { p, s }) => {
+            let (u, s) = crate::store::dec_rescale(n as i128, 0, s)?;
+            crate::store::dec_fits(u, p).then_some(Value::Dec { u, s })
+        }
+        (Value::Dec { u: u0, s: s0 }, FieldType::Dec { p, s }) => {
+            let (u, s) = crate::store::dec_rescale(u0, s0, s)?;
+            crate::store::dec_fits(u, p).then_some(Value::Dec { u, s })
+        }
+        (Value::F64(_), FieldType::Dec { .. }) => None, // the wall
         (v, t) if v.type_of() == t => Some(v),
         _ => None,
     }
@@ -4774,7 +4943,18 @@ fn check_cmp_types(
     rhs: FieldType,
 ) -> Result<(), EngineError> {
     let numeric = |t| matches!(t, FieldType::I64 | FieldType::F64);
+    let dec = |t| matches!(t, FieldType::Dec { .. });
+    // D-097 ruling 4: decimal never meets f64 — a COMPILE error,
+    // stricter than DuckDB's cast-to-double (pin J documents the
+    // un-walled semantics). decimal-vs-i64/decimal stays (exact).
+    if (dec(lhs) && rhs == FieldType::F64) || (lhs == FieldType::F64 && dec(rhs)) {
+        return Err(EngineError(format!(
+            "rule {rule}: decimal-vs-double comparison is WALLED (money never meets floats, D-097 ruling 4)"
+        )));
+    }
     let ok = (numeric(lhs) && numeric(rhs))
+        || (dec(lhs) && (dec(rhs) || rhs == FieldType::I64))
+        || (lhs == FieldType::I64 && dec(rhs))
         || (lhs == FieldType::Str && rhs == FieldType::Str)
         || (lhs == FieldType::Bool
             && rhs == FieldType::Bool
@@ -4955,6 +5135,15 @@ pub(crate) fn eval_cmp_join_pub(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
 fn eval_cmp(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
     use std::cmp::Ordering;
     let ord: Option<Ordering> = match (lhs, rhs) {
+        (Value::Dec { u: a, s: x }, Value::Dec { u: b, s: y }) => {
+            Some(crate::store::dec_cmp(*a, *x, *b, *y))
+        }
+        (Value::Dec { u: a, s: x }, Value::I64(b)) => {
+            Some(crate::store::dec_cmp(*a, *x, *b as i128, 0))
+        }
+        (Value::I64(a), Value::Dec { u: b, s: y }) => {
+            Some(crate::store::dec_cmp(*a as i128, 0, *b, *y))
+        }
         (Value::I64(a), Value::I64(b)) => Some(a.cmp(b)),
         (Value::I64(a), Value::F64(b)) => (*a as f64).partial_cmp(b),
         (Value::F64(a), Value::I64(b)) => a.partial_cmp(&(*b as f64)),

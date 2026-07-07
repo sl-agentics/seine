@@ -14,4 +14,4 @@ pub mod store;
 
 pub use engine::{Engine, EngineError, Firing, JustificationView, SupportView};
 pub use queries::{QueryOutput, QueryVal};
-pub use store::{FactId, FactView, FieldType, TypeSchema, Value};
+pub use store::{dec_parse, dec_render, FactId, FactView, FieldType, TypeSchema, Value};
