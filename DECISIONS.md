@@ -4727,3 +4727,31 @@ dirt visibility, dyn-ness} is EXCLUDED for them wholesale.
 Stable config hard-coded (83/88); certified gates green (suites 9,
 corpus 956x3 tiers, bindings 72, lint). The h1-h3 discriminator
 probes ride probes_pending/agenda_open as oracle pins.
+
+### ⚠⚠ D-106 STANDING CAVEAT (Bryan's ruling, 2026-07-07): THE HALT
+### MODEL IS WRONG — IT IS A CLOSE APPROXIMATION, NOT THE MECHANISM ⚠⚠
+**READ THIS BEFORE TOUCHING THE AGENDA EXECUTOR OR TRUSTING ITS
+SEMANTICS AT THE MARGINS.** The shipped halt/continue model
+(peek-evaluates-dirty + transparent-top + pre-force drain list,
+no blocker pool) satisfies 83/88 witnesses and every certified
+gate, but the FIVE open witnesses (probes_pending/agenda_open:
+fz_9001_7397, fz_9003_6467, fz_9004_214, fz_9005_873,
+fz_9005_2842) PROVE it is not Drools' actual mechanism — it is a
+behavioral approximation that happens to coincide on the covered
+surface. The matrix run (10 configs x 88 witnesses) excluded the
+entire {peek pool, dirt visibility, dyn-ness} hypothesis space, so
+the true mechanism is structured along a dimension we have NOT
+identified. Consequences:
+- Any future agenda-adjacent divergence should be triaged against
+  THIS caveat first: do not patch the approximation locally; the
+  revisit should re-derive the executor's halt from the five
+  witnesses (trace-level decode each) and/or the Drools
+  RuleExecutor source, checker-first.
+- The five witnesses and the h1-h3 oracle discriminator probes are
+  the pinned evidence base for that revisit; keep them current.
+- New agenda features (auto-focus, lock-on-active — the ruled
+  follow-up) must NOT build on the approximation without closing
+  this first.
+Banked at Bryan's direction; agenda-group core remains CERTIFIED
+for the covered surface (13-probe ladder + 30 campaign pins +
+5x10k fuzz draws, all green).
