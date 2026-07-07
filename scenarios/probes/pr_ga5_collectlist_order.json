@@ -1,5 +1,5 @@
 {
- "name": "ga4_acc_per_key",
+ "name": "pr_ga5_collectlist_order",
  "types": [
   {
    "name": "T",
@@ -24,7 +24,7 @@
    ]
   }
  ],
- "drl": "rule R when T($k : k) accumulate( T(k == $k, $v : v); $s : sum($v) ) then end\n",
+ "drl": "rule R when accumulate( T($k : k, $v : v); $l : collectList($v) ) then end\n",
  "facts": [
   {
    "type": "T",

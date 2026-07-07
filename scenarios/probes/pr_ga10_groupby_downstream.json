@@ -1,5 +1,5 @@
 {
- "name": "ga14_set_strings",
+ "name": "pr_ga10_groupby_downstream",
  "types": [
   {
    "name": "T",
@@ -24,27 +24,26 @@
    ]
   }
  ],
- "drl": "rule R when accumulate( T($k : k); $s : collectSet($k) ) then end\n",
+ "drl": "rule R when groupby( T($k : k); $k; $c : count() ) Out(n == $c) then end\n",
  "facts": [
   {
    "type": "T",
    "fields": {
-    "k": "zeta",
+    "k": "a",
     "v": 1
    }
   },
   {
    "type": "T",
    "fields": {
-    "k": "alpha",
+    "k": "a",
     "v": 2
    }
   },
   {
-   "type": "T",
+   "type": "Out",
    "fields": {
-    "k": "mm",
-    "v": 3
+    "n": 2
    }
   }
  ],

@@ -1,5 +1,5 @@
 {
- "name": "ga10_groupby_downstream",
+ "name": "pr_ga11_list_strings",
  "types": [
   {
    "name": "T",
@@ -24,7 +24,7 @@
    ]
   }
  ],
- "drl": "rule R when groupby( T($k : k); $k; $c : count() ) Out(n == $c) then end\n",
+ "drl": "rule R when accumulate( T($k : k); $l : collectList($k) ) then end\n",
  "facts": [
   {
    "type": "T",
@@ -36,14 +36,8 @@
   {
    "type": "T",
    "fields": {
-    "k": "a",
+    "k": "b",
     "v": 2
-   }
-  },
-  {
-   "type": "Out",
-   "fields": {
-    "n": 2
    }
   }
  ],

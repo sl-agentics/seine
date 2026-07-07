@@ -1,0 +1,128 @@
+{
+  "drl": "rule \"R0\"\nagenda-group \"ga\"\nwhen\n    $p0_0 : T2($b0_0_0 : f3)\n    exists(T2($g0_1 : f0) and T1(f1 == $g0_1))\n    $p0_2 : T1($b0_2_0 : f0)\nthen\nend\nrule \"R1\"\nsalience -2\nwhen\n    T2(f1 > 100, $b1_0_0 : f0)\n    T2(f2 == 6, $b1_1_0 : f0)\n    T3(f0 contains \"ab\", $b1_2_0 : f1)\nthen\nend\nrule \"R2\"\nwhen\n    ( T2(f1 > 100, $b2_0_0 : f0) and T2(f2 == 6, $b2_1_0 : f0) and T3(f1 <= 0.0, $b2_2_0 : f3) )\n    or\n    ( T2(f0 == false, $b2_0_0 : f0) and T2(f1 > 12, $b2_1_0 : f0) and T3(f1 == 11, $b2_2_0 : f3) )\nthen\nend\nrule \"R3\"\nsalience($b3_0_1 - 0)\nwhen\n    T3(f2 <= 1.5, $b3_0_0 : f1, $b3_0_1 : f2)\n    T3()\nthen\nend\nrule \"R4\"\nsalience -3\nwhen\n    T0($b4_0_0 : f2, $b4_0_1 : f2)\nthen\n    drools.setFocus(\"ga\");\n    insert(new T2($b4_0_1, 0, 1, true));\n    insert(new T1(\"\", true));\nend\nrule \"R5\"\nsalience 9\nwhen\n    $p5_0 : T2()\nthen\n    insertLogical(new T3(\"zz\", $p5_0.getF1(), $p5_0.getF1(), true));\n    insertLogical(new T3(\"alpha\", 0.0, 6.0, false));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -4,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 8,
+        "f1": true,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7,
+        "f1": false,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": -1000000007,
+        "f2": 100,
+        "f3": false
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_9202_77",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

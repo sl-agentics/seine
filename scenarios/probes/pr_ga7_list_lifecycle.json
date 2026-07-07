@@ -1,5 +1,5 @@
 {
- "name": "ga3_groupby",
+ "name": "pr_ga7_list_lifecycle",
  "types": [
   {
    "name": "T",
@@ -24,7 +24,7 @@
    ]
   }
  ],
- "drl": "rule R when groupby( T($k : k, $v : v); $k; $s : sum($v) ) then end\n",
+ "drl": "rule R when accumulate( T($v : v); $l : collectList($v) ) then end\n",
  "facts": [
   {
    "type": "T",
@@ -39,21 +39,25 @@
     "k": "a",
     "v": 2
    }
-  },
-  {
-   "type": "T",
-   "fields": {
-    "k": "b",
-    "v": 3
-   }
-  },
-  {
-   "type": "T",
-   "fields": {
-    "k": "a",
-    "v": 2
-   }
   }
  ],
- "epochs": []
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "T",
+     "fields": {
+      "k": "a",
+      "v": 9
+     }
+    }
+   ]
+  }
+ ]
 }

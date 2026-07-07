@@ -1,5 +1,5 @@
 {
- "name": "ga9_groupby_empty",
+ "name": "pr_ga12_groupby_emptykey",
  "types": [
   {
    "name": "T",
@@ -29,8 +29,15 @@
   {
    "type": "T",
    "fields": {
-    "k": "a",
+    "k": "",
     "v": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "",
+    "v": 2
    }
   },
   {
@@ -41,15 +48,5 @@
    }
   }
  ],
- "epochs": [
-  {
-   "actions": [
-    {
-     "op": "delete",
-     "target": 0
-    }
-   ],
-   "facts": []
-  }
- ]
+ "epochs": []
 }

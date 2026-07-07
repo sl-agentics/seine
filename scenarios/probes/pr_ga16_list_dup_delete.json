@@ -1,5 +1,5 @@
 {
- "name": "ga15_set_dup_delete",
+ "name": "pr_ga16_list_dup_delete",
  "types": [
   {
    "name": "T",
@@ -15,7 +15,7 @@
    ]
   }
  ],
- "drl": "rule R when accumulate( T($v : v); $s : collectSet($v) ) then end\n",
+ "drl": "rule R when accumulate( T($v : v); $l : collectList($v) ) then end\n",
  "facts": [
   {
    "type": "T",

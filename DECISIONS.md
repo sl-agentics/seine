@@ -4824,3 +4824,44 @@ on faithfulness axis 2 (value-bearing defect: correct + report —
 the D-039/D-090 pattern), not as engine bugs. The same lens applies
 to their earlier sibling fz_9001_6127 (accumulate x update x eager)
 in the same directory.
+
+### D-108: structured aggregation — collectList, collectSet, groupby
+### (Arc 6); DRL-level, oracle-probed end to end
+**Recon overturned the plan's premise**: all three work in the
+9.44 DRL TEXT surface (groupby was expected to be model-only). The
+16-pin ga-ladder (promoted, pr_ga*) pinned:
+- **collectList**: fold=append in NETWORK STAGING ORDER (fire-1
+  batches arrive reverse-insertion — the certified D-027 world;
+  ga7: incremental thereafter — deletes remove in place, late
+  inserts append); duplicates kept, ONE instance leaves per
+  reverse (ga16); strings collect fine (ga11).
+- **collectSet**: COUNTED-set semantics — a duplicate value
+  survives a sibling fact's delete (ga15). Iteration order in
+  Drools is raw HashSet internals (ga13: [3,100,-5,-1000000007];
+  ga14 strings by hashCode) — the D-052-class unspecified order,
+  resolved per the D-090 pattern: BOTH sides canonicalize SORTED
+  under a distinct SetCollection type (oracle render patched for
+  java.util.Set; engine stores sorted; list order stays
+  significant).
+- **groupby( SOURCE ; $key ; $res : func($arg) )**: one activation
+  per live key; the match element is the [result, key] composite
+  (QueryArgs-rendered, ga3 raw); re-keys migrate with both groups
+  re-firing (ga8); emptied groups retract SILENTLY (ga9); results
+  and keys bind downstream (ga10 joins on $c); empty-string keys
+  group fine (ga12); any contributing change re-fires (no
+  value-dedup). Engine: per-key AccCtx groups on the acc node,
+  per-pattern hidden row types ([res, key]) for downstream binds,
+  children [left, rowfact]. **Leading position ONLY** — groupby
+  after other patterns is walled loudly (the ga-pins are all
+  leading; the joined form is the next slice, with query-side
+  aggregation composition).
+**Fuzz**: the generator draws collectList/collectSet (results
+opaque — no downstream comparisons); 30k campaign: ZERO divergences
+involve the new functions (4 witnesses triaged: 3 banked-agenda
+tail, 1 new sibling of the OPEN qce class — OPEN_fz_9201_1660 filed
+with 4499, which hits the D-055 step-limit backstop loudly).
+Lint gains the open_divergence category (filed witnesses are
+neither ghosts nor fences). Gates: suites clean, corpus
+1003-scenario probes tier + all tiers green, lint 998.
+Python sugar for the new functions: deferred with the joined-
+groupby slice (one authoring pass for both).

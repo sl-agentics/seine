@@ -1,5 +1,5 @@
 {
- "name": "ga12_groupby_emptykey",
+ "name": "pr_ga8_groupby_rekey",
  "types": [
   {
    "name": "T",
@@ -29,14 +29,14 @@
   {
    "type": "T",
    "fields": {
-    "k": "",
+    "k": "a",
     "v": 1
    }
   },
   {
    "type": "T",
    "fields": {
-    "k": "",
+    "k": "a",
     "v": 2
    }
   },
@@ -48,5 +48,18 @@
    }
   }
  ],
- "epochs": []
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "k": "b"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
 }

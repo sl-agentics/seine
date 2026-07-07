@@ -1,5 +1,5 @@
 {
- "name": "ga5_collectlist_order",
+ "name": "pr_ga15_set_dup_delete",
  "types": [
   {
    "name": "T",
@@ -13,26 +13,10 @@
      "type": "i64"
     }
    ]
-  },
-  {
-   "name": "Out",
-   "fields": [
-    {
-     "name": "n",
-     "type": "i64"
-    }
-   ]
   }
  ],
- "drl": "rule R when accumulate( T($k : k, $v : v); $l : collectList($v) ) then end\n",
+ "drl": "rule R when accumulate( T($v : v); $s : collectSet($v) ) then end\n",
  "facts": [
-  {
-   "type": "T",
-   "fields": {
-    "k": "a",
-    "v": 1
-   }
-  },
   {
    "type": "T",
    "fields": {
@@ -44,16 +28,26 @@
    "type": "T",
    "fields": {
     "k": "b",
-    "v": 3
+    "v": 2
    }
   },
   {
    "type": "T",
    "fields": {
-    "k": "a",
-    "v": 2
+    "k": "c",
+    "v": 7
    }
   }
  ],
- "epochs": []
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ]
 }

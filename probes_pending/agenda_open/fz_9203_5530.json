@@ -1,0 +1,79 @@
+{
+  "drl": "rule \"R0\"\nsalience -5\nwhen\n    ( $p0_0 : T0() )\n    or\n    ( $p0_0 : T0() )\nthen\n    drools.setFocus(\"gb\");\n    insertLogical(new T1(-4, $p0_0.getF0(), $p0_0.getF0()));\nend\nrule \"R1\"\nsalience -5\nwhen\n    ( $p1_0 : T0($b1_0_0 : f0) )\n    or\n    ( $p1_0 : T0($b1_0_0 : f0) )\n    or\n    ( $p1_0 : T0($b1_0_0 : f0) )\nthen\n    insertLogical(new T1(-2, $p1_0.getF0(), $b1_0_0));\nend\nrule \"R2\"\nsalience 1\nwhen\n    $p2_0 : T0(f0 not in (-1.0, 4.5), f0 == -1000000007, $b2_0_0 : f0, $b2_0_1 : f0)\nthen\n    drools.setFocus(\"gb\");\n    insertLogical(new T1(8, $p2_0.getF0(), $b2_0_1));\n    insertLogical(new T1($b2_0_0, 10, $b2_0_0));\nend\nrule \"R3\"\nagenda-group \"gb\"\nwhen\n    accumulate( T0(f0 <= 2, f0 != -1000000007); $a3_0 : count() )\n    T0(f0 == $a3_0, $b3_1_0 : f0, $b3_1_1 : f0)\nthen\nend\nrule \"R4\"\nsalience 6\nwhen\n    T1($b4_0_0 : f2, $b4_0_1 : f2)\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": -2
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": 5
+          },
+          "op": "update",
+          "target": 2
+        }
+      ],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": 4
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 12
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9203_5530",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
- "name": "ga7_list_lifecycle",
+ "name": "pr_ga1_collectlist",
  "types": [
   {
    "name": "T",
@@ -39,25 +39,21 @@
     "k": "a",
     "v": 2
    }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "b",
+    "v": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 2
+   }
   }
  ],
- "epochs": [
-  {
-   "actions": [
-    {
-     "op": "delete",
-     "target": 0
-    }
-   ],
-   "facts": [
-    {
-     "type": "T",
-     "fields": {
-      "k": "a",
-      "v": 9
-     }
-    }
-   ]
-  }
- ]
+ "epochs": []
 }

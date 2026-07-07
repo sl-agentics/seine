@@ -440,6 +440,10 @@ impl Node {
         }
     }
 
+    pub fn lefts_snapshot(&self) -> Vec<Tup> {
+        self.lefts.iter().map(|(l, _)| l.clone()).collect()
+    }
+
     pub fn push_left(&mut self, l: Tup, key: Option<Vec<Value>>) {
         self.lefts.push((l, key));
     }

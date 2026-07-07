@@ -172,6 +172,9 @@ pub struct AccSpec {
     pub arg: Option<String>,
     /// The result binding, visible downstream.
     pub result_var: String,
+    /// D-108 groupby: the KEY binding (a source binding) — Some makes
+    /// this a per-group accumulation with one activation per live key.
+    pub group_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1050,6 +1053,12 @@ impl Parser {
             }
             return self.accumulate_pattern();
         }
+        if self.at_kw("groupby") {
+            if ce != CeKind::Positive {
+                return Err(self.perr("not/exists over groupby not in subset"));
+            }
+            return self.groupby_pattern();
+        }
         let first = self.ident()?;
         let (binding, type_name) = if first.starts_with('$') {
             self.expect_sym(":")?;
@@ -1116,7 +1125,7 @@ impl Parser {
                 type_name: src.type_name,
                 constraints: src.constraints,
                 ce: CeKind::Positive,
-                acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var }),
+                acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var , group_key: None }),
                 q_args: None,
                 group: None,
             });
@@ -1136,6 +1145,72 @@ impl Parser {
     /// `accumulate( <source pattern> ; $r : func([$arg]) )` — built-in
     /// functions only; multi-function and custom (init/action/result)
     /// accumulates are out of subset (D-038).
+    /// D-108: `groupby( SOURCE ; $key ; $res : func($arg) )` — one
+    /// activation per live key (ga3/ga8/ga9/ga10 pins).
+    fn groupby_pattern(&mut self) -> Result<Pattern, DrlError> {
+        self.expect_kw("groupby")?;
+        self.expect_sym("(")?;
+        let src = self.pattern()?;
+        if src.ce != CeKind::Positive || src.acc.is_some() || src.binding.is_some() {
+            return Err(self.perr("groupby source must be a plain unbound pattern"));
+        }
+        self.expect_sym(";")?;
+        let key_var = self.dollar_ident()?;
+        if !src
+            .constraints
+            .iter()
+            .any(|c| matches!(c, Constraint::Bind { var, .. } if var == &key_var))
+        {
+            return Err(self.perr(format!(
+                "groupby key {key_var} must be a binding declared in the source pattern"
+            )));
+        }
+        self.expect_sym(";")?;
+        let result_var = self.dollar_ident()?;
+        self.expect_sym(":")?;
+        let fname = self.ident()?;
+        let func = match fname.as_str() {
+            "sum" => AccFunc::Sum,
+            "count" => AccFunc::Count,
+            "average" => AccFunc::Average,
+            "min" => AccFunc::Min,
+            "max" => AccFunc::Max,
+            "collectList" => AccFunc::CollectList,
+            "collectSet" => AccFunc::CollectSet,
+            other => {
+                return Err(self.perr(format!(
+                    "groupby function {other:?} not in subset"
+                )))
+            }
+        };
+        self.expect_sym("(")?;
+        let arg = if matches!(self.peek(), Some(Tok::Sym(")"))) {
+            None
+        } else {
+            Some(self.dollar_ident()?)
+        };
+        self.expect_sym(")")?;
+        self.expect_sym(")")?;
+        if func != AccFunc::Count && arg.is_none() {
+            return Err(self.perr(format!("{fname} requires a bound argument")));
+        }
+        if let Some(a) = &arg {
+            if !src
+                .constraints
+                .iter()
+                .any(|c| matches!(c, Constraint::Bind { var, .. } if var == a))
+            {
+                return Err(self.perr(format!(
+                    "groupby argument {a} must be a binding declared in the source pattern"
+                )));
+            }
+        }
+        Ok(Pattern {
+            acc: Some(AccSpec { func, arg, result_var, group_key: Some(key_var) }),
+            ..src
+        })
+    }
+
     fn accumulate_pattern(&mut self) -> Result<Pattern, DrlError> {
         self.expect_kw("accumulate")?;
         self.expect_sym("(")?;
@@ -1191,7 +1266,7 @@ impl Parser {
             type_name: src.type_name,
             constraints: src.constraints,
             ce: CeKind::Positive,
-            acc: Some(AccSpec { func, arg, result_var }),
+            acc: Some(AccSpec { func, arg, result_var, group_key: None }),
             q_args: None,
             group: None,
         })

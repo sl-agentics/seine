@@ -50,6 +50,11 @@ def main():
         except Exception as ex:
             ghosts.append((f, f"unparseable JSON: {ex}"))
             continue
+        if scn.get("open_divergence"):
+            # a filed OPEN divergence witness (engine may error or
+            # diverge; the pending dir holds it until its class closes)
+            ok += 1
+            continue
         if scn.get("engine_fenced"):
             # deliberate oracle-recon probe of a WALLED shape: the
             # engine must reject it LOUDLY (a fence regression check)

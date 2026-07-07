@@ -1,5 +1,5 @@
 {
- "name": "ga6_set_order",
+ "name": "pr_ga9_groupby_empty",
  "types": [
   {
    "name": "T",
@@ -24,15 +24,8 @@
    ]
   }
  ],
- "drl": "rule R when accumulate( T($v : v); $s : collectSet($v) ) then end\n",
+ "drl": "rule R when groupby( T($k : k, $v : v); $k; $s : sum($v) ) then end\n",
  "facts": [
-  {
-   "type": "T",
-   "fields": {
-    "k": "a",
-    "v": 3
-   }
-  },
   {
    "type": "T",
    "fields": {
@@ -43,10 +36,20 @@
   {
    "type": "T",
    "fields": {
-    "k": "a",
-    "v": 2
+    "k": "b",
+    "v": 3
    }
   }
  ],
- "epochs": []
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ]
 }

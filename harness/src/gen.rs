@@ -582,10 +582,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     pats[pi].bindings.push((rvar, usize::MAX, Ft::I64));
                 } else {
                     let (fi, fname, ft) = rng.pick(&numeric).clone();
+                    // D-108: the collectors draw too — their results are
+                    // OPAQUE (Collections; no downstream comparisons)
                     let funcs: &[&str] = if allow_mutation {
-                        &["sum", "average"]
+                        &["sum", "average", "collectList", "collectSet"]
                     } else {
-                        &["sum", "average", "min", "max"]
+                        &["sum", "average", "min", "max", "collectList", "collectSet"]
                     };
                     let func = *rng.pick(funcs);
                     if matches!(func, "min" | "max") {
@@ -599,7 +601,9 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     // min/max over double args do not COMPILE in
                     // downstream comparisons (Drools Number typing,
                     // D-039) — leave those results unbound outward.
-                    if !(matches!(func, "min" | "max") && ft == Ft::F64) {
+                    if !(matches!(func, "min" | "max") && ft == Ft::F64)
+                        && !matches!(func, "collectList" | "collectSet")
+                    {
                         pats[pi].bindings.push((rvar, fi, rft));
                     }
                 }

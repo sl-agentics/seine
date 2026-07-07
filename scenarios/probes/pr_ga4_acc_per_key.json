@@ -1,5 +1,5 @@
 {
- "name": "ga8_groupby_rekey",
+ "name": "pr_ga4_acc_per_key",
  "types": [
   {
    "name": "T",
@@ -24,7 +24,7 @@
    ]
   }
  ],
- "drl": "rule R when groupby( T($k : k, $v : v); $k; $s : sum($v) ) then end\n",
+ "drl": "rule R when T($k : k) accumulate( T(k == $k, $v : v); $s : sum($v) ) then end\n",
  "facts": [
   {
    "type": "T",
@@ -46,20 +46,14 @@
     "k": "b",
     "v": 3
    }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 2
+   }
   }
  ],
- "epochs": [
-  {
-   "actions": [
-    {
-     "op": "update",
-     "target": 0,
-     "fields": {
-      "k": "b"
-     }
-    }
-   ],
-   "facts": []
-  }
- ]
+ "epochs": []
 }

@@ -1,5 +1,5 @@
 {
- "name": "ga2_collectset",
+ "name": "pr_ga14_set_strings",
  "types": [
   {
    "name": "T",
@@ -24,34 +24,27 @@
    ]
   }
  ],
- "drl": "rule R when accumulate( T($v : v); $s : collectSet($v) ) then end\n",
+ "drl": "rule R when accumulate( T($k : k); $s : collectSet($k) ) then end\n",
  "facts": [
   {
    "type": "T",
    "fields": {
-    "k": "a",
+    "k": "zeta",
     "v": 1
    }
   },
   {
    "type": "T",
    "fields": {
-    "k": "a",
+    "k": "alpha",
     "v": 2
    }
   },
   {
    "type": "T",
    "fields": {
-    "k": "b",
+    "k": "mm",
     "v": 3
-   }
-  },
-  {
-   "type": "T",
-   "fields": {
-    "k": "a",
-    "v": 2
    }
   }
  ],

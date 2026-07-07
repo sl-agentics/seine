@@ -328,11 +328,14 @@ struct CompiledAcc {
     /// Source field accumulated over (None for count/collect).
     arg_field: Option<usize>,
     arg_ft: FieldType,
-    /// Hidden result type (ACC_LONG / ACC_DOUBLE / ACC_COLLECTION).
+    /// Hidden result type (ACC_LONG / ACC_DOUBLE / ACC_COLLECTION,
+    /// or the per-rule groupby row type).
     result_tid: TypeId,
     /// Original arg variable name — identity-significant like any
     /// referenced variable (D-037 spirit; conservative).
     arg_name: Option<String>,
+    /// D-108 groupby: the source field the group key reads.
+    key_field: Option<usize>,
 }
 
 enum CompiledAction {
@@ -615,6 +618,14 @@ struct AccCtx {
     vlist: Vec<(FactId, Value)>,
     /// D-108 collectSet: COUNTED values in first-arrival order.
     vset: Vec<(Value, usize)>,
+}
+
+/// D-108: one live groupby group.
+struct GbGroup {
+    key: Value,
+    ctx: AccCtx,
+    row: Option<FactId>,
+    propagated: bool,
 }
 
 impl AccCtx {
@@ -1035,6 +1046,11 @@ pub struct Engine {
     /// Hidden per-query row types for ?query CEs (D-056), aligned with
     /// `queries`.
     qrow_tids: Vec<TypeId>,
+    /// D-108: hidden per-pattern groupby row types ([res, key]).
+    gbrow_tids: Vec<TypeId>,
+    /// D-108: per-node groupby groups (leading-position only), keyed by
+    /// the canonicalized key value.
+    gb_state: HashMap<usize, HashMap<String, GbGroup>>,
     /// Persistent query-network pattern memories (D-056, qx8_statemem):
     /// drain windows accumulate across evaluations.
     query_mem: crate::queries::QueryMem,
@@ -1128,6 +1144,8 @@ impl Engine {
             act_seq: 0,
             queries: Vec::new(),
             qrow_tids: Vec::new(),
+            gbrow_tids: Vec::new(),
+            gb_state: HashMap::new(),
             query_mem: crate::queries::QueryMem::default(),
             query_pending: Vec::new(),
             query_armed: Vec::new(),
@@ -1154,6 +1172,7 @@ impl Engine {
             crate::queries::validate_calls(&self.queries)?;
             self.query_pending = vec![false; self.queries.len()];
         self.qce_children.clear();
+        self.gb_state.clear();
             self.query_armed = vec![false; self.queries.len()];
             // Hidden row types for ?query CEs (D-056): fields = params.
             for q in &self.queries {
@@ -1808,7 +1827,7 @@ impl Engine {
         }
     }
 
-    fn compile_rule(&self, def: RuleDef) -> Result<CompiledRule, EngineError> {
+    fn compile_rule(&mut self, def: RuleDef) -> Result<CompiledRule, EngineError> {
         let rname = def.name.clone();
         let err = |m: String| EngineError(format!("rule {rname}: {m}"));
         if def.patterns.is_empty() {
@@ -2402,12 +2421,58 @@ impl Engine {
                             acc_opaque.insert(spec.result_var.clone());
                         }
                     }
+                    let (result_tid, key_field) = if let Some(kv) = &spec.group_key {
+                        let init_tid = self.store.type_id(INITIAL_FACT).unwrap();
+                        if !patterns.iter().all(|q: &CompiledPattern| q.type_id == init_tid) {
+                            return Err(err(
+                                "groupby after other patterns is out of subset (leading position only, D-108)"
+                                    .into(),
+                            ));
+                        }
+                        // D-108 groupby: resolve the key binding to its
+                        // source field; the result rides a PER-PATTERN
+                        // hidden row type [result, key] so both bind
+                        // downstream (ga10) and render as the composite
+                        // (ga3 raw: QueryArgs [result, key]).
+                        let kf = p
+                            .constraints
+                            .iter()
+                            .find_map(|c| match c {
+                                Constraint::Bind { var, field } if var == kv => {
+                                    self.store.field_index(type_id, field)
+                                }
+                                _ => None,
+                            })
+                            .ok_or_else(|| {
+                                err(format!("groupby key {kv} is not a source binding"))
+                            })?;
+                        let key_ft = self.store.field_type(type_id, kf);
+                        let row_tid = self.store.add_schema(TypeSchema {
+                            name: format!("__gbrow${}${}", rname, t),
+                            fields: vec![
+                                ("res".into(), result_ft),
+                                ("key".into(), key_ft),
+                            ],
+                            nullable: 0,
+                        });
+                        self.gbrow_tids.push(row_tid);
+                        if field_binds
+                            .insert(kv.clone(), (t, 1, key_ft))
+                            .is_some()
+                        {
+                            return Err(err(format!("duplicate binding {kv}")));
+                        }
+                        (row_tid, Some(kf))
+                    } else {
+                        (result_tid, None)
+                    };
                     Some(CompiledAcc {
                         func: spec.func,
                         arg_field,
                         arg_ft,
                         result_tid,
                         arg_name: spec.arg.clone(),
+                        key_field,
                     })
                 }
             };
@@ -2805,6 +2870,7 @@ impl Engine {
         self.query_mem = Default::default();
         self.query_pending = vec![false; self.queries.len()];
         self.qce_children.clear();
+        self.gb_state.clear();
         self.query_armed = vec![false; self.queries.len()];
         self.pending_err = None;
         self.tms = Tms::default();
@@ -2843,6 +2909,7 @@ impl Engine {
         self.store
             .all_facts_in_insertion_order()
             .filter(|f| !hidden.contains(&self.store.fact_type(*f)))
+            .filter(|f| !self.gbrow_tids.contains(&self.store.fact_type(*f)))
             .nth(n)
     }
 
@@ -3419,6 +3486,19 @@ impl Engine {
                     if let Some(vals) = self.collect_scalar_vals.get(&f) {
                         fv.elems =
                             Some(vals.iter().map(|v| Some(scalar_view(v.clone()))).collect());
+                    }
+                    // D-108 groupby rows render as the [res, key]
+                    // composite (ga3 raw: QueryArgs)
+                    if self.gbrow_tids.contains(&self.store.fact_type(f)) {
+                        fv = FactView {
+                            type_name: "QueryArgs".into(),
+                            fields: Vec::new(),
+                            handle: u32::MAX,
+                            elems: Some(vec![
+                                Some(scalar_view(self.store.value(f, 0))),
+                                Some(scalar_view(self.store.value(f, 1))),
+                            ]),
+                        };
                     }
                     fv
                 })
@@ -4393,7 +4473,15 @@ impl Engine {
                     }
                 }
             } else if self.trie[ni].node.kind == phreak::Kind::Acc {
-                trg = self.eval_acc_node(ni, env_ri, env_pos, src, sr, &mut first_pending);
+                let is_gb = self.rules[env_ri].patterns[env_pos]
+                    .acc
+                    .as_ref()
+                    .is_some_and(|a| a.key_field.is_some());
+                trg = if is_gb {
+                    self.eval_groupby_node(ni, env_ri, env_pos, src, sr, &mut first_pending)
+                } else {
+                    self.eval_acc_node(ni, env_ri, env_pos, src, sr, &mut first_pending)
+                };
             } else if matches!(
                 self.trie[ni].node.kind,
                 phreak::Kind::SubnetNot | phreak::Kind::SubnetExists
@@ -4603,6 +4691,212 @@ impl Engine {
     /// updates are reverse(stored)+accumulate(new); min/max reinit and
     /// refold when reverse is unsupported. The single result child per
     /// left reuses its synthetic fact, updating the value in place.
+    /// D-108 groupby node (LEADING position — the left is the
+    /// InitialFact tuple; joined groupby is fenced): per-key AccCtx,
+    /// one child [l, rowfact] per live group; empty groups retract
+    /// silently (ga9); any contributing change re-fires (ga8/ga15);
+    /// re-keys migrate (ga8).
+    fn eval_groupby_node(
+        &mut self,
+        ni: usize,
+        env_ri: usize,
+        env_pos: usize,
+        src: Staged<Tup>,
+        sr: Staged<FactId>,
+        first_pending: &mut Staged<Tup>,
+    ) -> Staged<Tup> {
+        let spec = self.rules[env_ri].patterns[env_pos].acc.clone().unwrap();
+        let kf = spec.key_field.unwrap();
+        let mut trg: Staged<Tup> = Staged::default();
+        let mut touched: Vec<String> = Vec::new();
+        let mut touch = |k: String, touched: &mut Vec<String>| {
+            if !touched.contains(&k) {
+                touched.push(k);
+            }
+        };
+
+        // left delete: the whole node clears
+        for (l, o, _) in src.del.iter() {
+            self.trie[ni].node.remove_left(l);
+            if let Some(groups) = self.gb_state.remove(&ni) {
+                for (_, g) in groups {
+                    if g.propagated {
+                        if let Some(r) = g.row {
+                            let mut child = l.clone();
+                            child.push(r);
+                            if first_pending.remove_ins(&child) {
+                                trg.norm_del.push((child, *o, 0));
+                            } else {
+                                first_pending.remove_upd(&child);
+                                trg.add_del(child, *o);
+                            }
+                            self.store.kill(r);
+                        }
+                    }
+                }
+            }
+        }
+
+        // right deletes: reverse out of the fact's group
+        for (f, _o, _) in sr.del.iter() {
+            self.trie[ni].node.remove_right(*f);
+            let groups = self.gb_state.entry(ni).or_default();
+            let hit = groups
+                .iter()
+                .find(|(_, g)| g.ctx.matches.iter().any(|(rf, _)| rf == f))
+                .map(|(k, _)| k.clone());
+            if let Some(k) = hit {
+                let g = groups.get_mut(&k).unwrap();
+                let Some(i) = g.ctx.matches.iter().position(|(rf, _)| rf == f) else { continue };
+                let (_, stored) = g.ctx.matches.remove(i);
+                if !g.ctx.try_reverse(spec.func, *f, &stored) {
+                    g.ctx.reset_state();
+                    let remaining = g.ctx.matches.clone();
+                    for (rf, vv) in &remaining {
+                        g.ctx.apply(spec.func, *rf, vv);
+                    }
+                }
+                touch(k, &mut touched);
+            }
+        }
+
+        // right updates: possibly re-keyed — remove from the OLD group,
+        // fold into the CURRENT-key group
+        for (f, _o, _) in sr.upd.iter() {
+            let groups = self.gb_state.entry(ni).or_default();
+            let hit = groups
+                .iter()
+                .find(|(_, g)| g.ctx.matches.iter().any(|(rf, _)| rf == f))
+                .map(|(k, _)| k.clone());
+            if let Some(k) = hit {
+                let g = groups.get_mut(&k).unwrap();
+                if let Some(i) = g.ctx.matches.iter().position(|(rf, _)| rf == f) {
+                    let (_, stored) = g.ctx.matches.remove(i);
+                    if !g.ctx.try_reverse(spec.func, *f, &stored) {
+                        g.ctx.reset_state();
+                        let remaining = g.ctx.matches.clone();
+                        for (rf, vv) in &remaining {
+                            g.ctx.apply(spec.func, *rf, vv);
+                        }
+                    }
+                }
+                touch(k, &mut touched);
+            }
+            let key_v = self.store.value(*f, kf);
+            let kk = scalar_canon_key(&key_v);
+            let v = self.acc_contribution(&spec, *f);
+            let groups = self.gb_state.entry(ni).or_default();
+            let g = groups.entry(kk.clone()).or_insert_with(|| GbGroup {
+                key: key_v,
+                ctx: AccCtx::new(),
+                row: None,
+                propagated: false,
+            });
+            g.ctx.apply(spec.func, *f, &v);
+            g.ctx.matches.push((*f, v));
+            touch(kk, &mut touched);
+        }
+
+        // right inserts: fold into the key's group
+        for (f, _o, _) in sr.ins.iter() {
+            let key = {
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                phreak::JoinEnv::key_of_right(&env, env_pos - 1, *f)
+            };
+            self.trie[ni].node.push_right(*f, key);
+            let key_v = self.store.value(*f, kf);
+            let kk = scalar_canon_key(&key_v);
+            let v = self.acc_contribution(&spec, *f);
+            let groups = self.gb_state.entry(ni).or_default();
+            let g = groups.entry(kk.clone()).or_insert_with(|| GbGroup {
+                key: key_v,
+                ctx: AccCtx::new(),
+                row: None,
+                propagated: false,
+            });
+            g.ctx.apply(spec.func, *f, &v);
+            g.ctx.matches.push((*f, v));
+            touch(kk, &mut touched);
+        }
+
+        // left insert: register the left (groups may already exist from
+        // this same batch's rights — they emit below)
+        for (l, o, _) in src.ins.iter() {
+            let lkey = {
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                phreak::JoinEnv::key_of_left(&env, env_pos - 1, l)
+            };
+            self.trie[ni].node.push_left(l.clone(), lkey);
+            let _ = o;
+        }
+
+        // result phase: per touched group against the (single) left
+        let lefts = self.trie[ni].node.lefts_snapshot();
+        let Some(l) = lefts.first().cloned() else {
+            return trg;
+        };
+        let origin: Origin = None;
+        for kk in touched.into_iter().rev() {
+            let (empty, row, propagated, result) = {
+                let groups = self.gb_state.entry(ni).or_default();
+                let Some(g) = groups.get(&kk) else { continue };
+                (
+                    g.ctx.matches.is_empty(),
+                    g.row,
+                    g.propagated,
+                    g.ctx.result_value(spec.func, spec.arg_ft),
+                )
+            };
+            if empty {
+                if propagated {
+                    if let Some(r) = row {
+                        let mut child = l.clone();
+                        child.push(r);
+                        if first_pending.remove_ins(&child) {
+                            trg.norm_del.push((child, origin, 0));
+                        } else {
+                            first_pending.remove_upd(&child);
+                            trg.add_del(child, origin);
+                        }
+                        self.store.kill(r);
+                    }
+                }
+                self.gb_state.entry(ni).or_default().remove(&kk);
+                continue;
+            }
+            let Some(res_v) = result else { continue };
+            let key_v = self.gb_state.entry(ni).or_default()[&kk].key.clone();
+            let r = match row {
+                Some(r) => {
+                    self.store.set_value(r, 0, res_v).expect("gb res set");
+                    r
+                }
+                None => {
+                    let r = self
+                        .store
+                        .insert(spec.result_tid, vec![res_v, key_v])
+                        .expect("gb row insert");
+                    self.gb_state.entry(ni).or_default().get_mut(&kk).unwrap().row = Some(r);
+                    r
+                }
+            };
+            let mut child = l.clone();
+            child.push(r);
+            if propagated {
+                if first_pending.remove_ins(&child) {
+                    trg.add_ins(child, origin);
+                } else {
+                    first_pending.remove_upd(&child);
+                    trg.add_upd(child, origin);
+                }
+            } else {
+                trg.add_ins(child, origin);
+                self.gb_state.entry(ni).or_default().get_mut(&kk).unwrap().propagated = true;
+            }
+        }
+        trg
+    }
+
     fn eval_acc_node(
         &mut self,
         ni: usize,
@@ -5820,6 +6114,7 @@ impl Engine {
             .filter_map(|n| self.store.type_id(n))
             .collect();
         hidden.extend(self.qrow_tids.iter().copied());
+        hidden.extend(self.gbrow_tids.iter().copied());
         self.store
             .live_facts()
             .filter(|f| !hidden.contains(&self.store.fact_type(*f)))

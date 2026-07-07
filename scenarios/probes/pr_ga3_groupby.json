@@ -1,5 +1,5 @@
 {
- "name": "ga11_list_strings",
+ "name": "pr_ga3_groupby",
  "types": [
   {
    "name": "T",
@@ -24,7 +24,7 @@
    ]
   }
  ],
- "drl": "rule R when accumulate( T($k : k); $l : collectList($k) ) then end\n",
+ "drl": "rule R when groupby( T($k : k, $v : v); $k; $s : sum($v) ) then end\n",
  "facts": [
   {
    "type": "T",
@@ -36,7 +36,21 @@
   {
    "type": "T",
    "fields": {
+    "k": "a",
+    "v": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
     "k": "b",
+    "v": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
     "v": 2
    }
   }
