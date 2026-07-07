@@ -28,6 +28,10 @@ diff: oracle
 	cargo run -q -p seine-harness -- diff $(REGRESSIONS) || rc=1; \
 	exit $$rc
 
+# D-097: data-type semantics differential (DuckDB oracle, D-095 axis 3)
+diff-duckdb:
+	.venv/bin/python tools/diff_duckdb.py scenarios/duckdb/*.json
+
 diff-baseline: oracle
 	cargo run -q -p seine-harness -- diff $(BASELINE)
 

@@ -1,0 +1,85 @@
+{
+ "name": "dk_join_nulls",
+ "oracle": "duckdb",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64",
+     "nullable": true
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": []
+  }
+ ],
+ "drl": "rule R1 when T(w == 1, $av : v) U(k == $av) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "v": 1,
+    "w": 1,
+    "s": null
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": null,
+    "w": 1,
+    "s": null
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 2,
+    "w": 1,
+    "s": null
+   }
+  },
+  {
+   "type": "U",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "U",
+   "fields": {
+    "k": null
+   }
+  },
+  {
+   "type": "U",
+   "fields": {
+    "k": 2
+   }
+  }
+ ],
+ "epochs": []
+}

@@ -1,0 +1,63 @@
+{
+ "name": "dk_not_exists",
+ "oracle": "duckdb",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64",
+     "nullable": true
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": []
+  }
+ ],
+ "drl": "rule R1 when T(w == 1) not U(k == 5) then end\nrule R2 when T(w == 1) exists U(k == null) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "v": 1,
+    "w": 1,
+    "s": null
+   }
+  },
+  {
+   "type": "U",
+   "fields": {
+    "k": null
+   }
+  },
+  {
+   "type": "U",
+   "fields": {
+    "k": 3
+   }
+  }
+ ],
+ "epochs": []
+}

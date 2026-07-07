@@ -3692,3 +3692,25 @@ groups, in/not-in traps, null string ops, eq-hash null-key join,
 aggregate skips + ruling-2 sum) — 8/8. make test 7 suites green.
 **make diff 812/812 byte-identical** — the certified Drools corpus
 is untouched by the core 3VL changes (the opt-in design holds).
+
+### D-097 phase 2 LANDED: the DuckDB differential runner + first
+### null corpus — 8/8
+tools/diff_duckdb.py (venv; asserts the 1.5.4 pin) translates
+oracle:"duckdb" scenarios: types -> tables (nullable columns), facts
+-> rows with idx = visible insertion order, each rule LHS -> SQL
+(constraints map to the direct SQL operators — which IS the 3VL
+authority; surface null tests -> IS [NOT] NULL; in-lists verbatim
+incl. null members; matches/contains -> regexp_full_match/contains
+with proper single-quoting; not/exists -> [NOT] EXISTS; accumulate
+-> correlated scalar subquery with sum/count COALESCE(...,0) per
+ruling 2 and avg/min/max gated IS NOT NULL = the no-propagate
+equivalence). Comparator: order-INSENSITIVE per-rule multisets of
+(visible-handle tuples + acc values); engine side runs with
+SEINE_HANDLES=1 and maps __h through result.facts (synthetics like
+InitialFact carry handles and are skipped). `make diff-duckdb`.
+scenarios/duckdb/: 8 hand probes (cmp+negation 3VL, connective
+tables, in/not-in traps, null-key joins incl. eq-hash, null string
+ops, not/exists over null keys, aggregates with null skips, all-null
+sum-0/min-no-propagate) — **8/8 PASS on first full contact** after
+two comparator fixes (SQL string quoting; handle mapping). Phase 3
+(null-rich generator + duckdb fuzz gate) and phase 4 (decimals) next.

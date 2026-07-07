@@ -1,0 +1,75 @@
+{
+ "name": "dk_inlist",
+ "oracle": "duckdb",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64",
+     "nullable": true
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "s",
+     "type": "String",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64",
+     "nullable": true
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": []
+  }
+ ],
+ "drl": "rule R1 when T(v in (1, null)) then end\nrule R2 when T(v not in (2, null)) then end\nrule R3 when T(v not in (2, 9)) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "v": 1,
+    "w": 0,
+    "s": null
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 2,
+    "w": 0,
+    "s": null
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 3,
+    "w": 0,
+    "s": null
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": null,
+    "w": 0,
+    "s": null
+   }
+  }
+ ],
+ "epochs": []
+}
