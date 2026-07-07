@@ -4276,3 +4276,38 @@ seeds) pinned FIVE mechanisms, each oracle-probed before porting:
    insert-triggered links; in_expiration_drain flag replaces it.
 State: 31-rung matrix + q/b probes green; suites 8; corpus 834/834;
 lint clean; shakedowns seeds 5/11/23 = 0/0/0 divergences.
+
+### D-102 (campaign): 3x1000 = 12 divergences -> temporal-stay fix
+### -> 9 remain (0.3%); the two-rule discriminator found; fill-only
+### overshoots — next cycle needs a flush-pairing pin ladder
+Campaign seeds 101/202/303 (3000 scenarios): 12 divergences. The
+kept cases produced a NEW discriminator class the 39-pin matrix
+provably could not see: TWO same-body temporal rules at different
+salience (cf101x616/cf101x134). Since single-rule pins cannot
+distinguish flush-window pairing from one-batch-newest-first
+composition, these shapes expose WHERE pairs are created:
+- cf101x616 pinned **temporal delta rights do not flush-pair**
+  (temp_dr=stay): the shared node's pairs are created at the FIRST
+  reaching evaluation (the higher-salience rule's pop); the second
+  rule's terminal receives them and appends CREATION-order at its
+  own pop (certified D-027 lazy semantics). PORTED: the flush stash
+  takes temporal-join rights on LINKED paths (unlinked deltas stay
+  for the t6/t14 self-drain). Cleared 3 of 12; full gates green.
+- cf101x134 shows the SAME two-rule reversal driven by temporal
+  LEFT deltas pairing against memory rights at the flush. A pure
+  fill-only flush (lefts fill, no children) cleared it but BROKE 6
+  t/u-family pins (measured, reverted) — some flush pairing is
+  real; the boundary between fill-only and pairing needs its own
+  pin ladder (vary: left-vs-right delta, linked-ness at the flush,
+  window structure, two-rule observers). NEXT CYCLE's shape.
+Residual: 9/3000 (0.3%) — the temporal two-rule micro-order family
+(kept under tmp/cepfuzz_101/202/303) + one observer-order case
+(cf101x987). All counts/WM/composition classes are CLOSED; what
+remains is pair-creation-site micro-order visible only through
+shared-network two-rule shapes.
+Also landed: 20 pins promoted to scenarios/probes (u/v/b/q + the
+u2c/u2d/v2c discriminators, recreated after being lost to the
+topology churn — never committed); corpus now 851; lint 910/910
+incl. fence guards; model_check_stream main() dims fixed to
+cycle-3 (the earlier dims edit was ANOTHER silent no-op replace —
+assert-your-anchors is now doctrine, twice proven).

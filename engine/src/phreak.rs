@@ -770,6 +770,12 @@ pub trait JoinEnv {
     fn is_expired(&self, _f: FactId) -> bool {
         false
     }
+    /// D-102 (cf101x134): TRUE during a stream-flush evaluation —
+    /// temporal nodes then FILL lefts without pairing (children are
+    /// created only at pop-time evaluations).
+    fn in_flush(&self) -> bool {
+        false
+    }
     /// Full constraint test (live values) for extending `l` with `f`.
     fn allowed(&self, node: usize, l: &Tup, f: FactId) -> bool;
     /// Index key of the LEFT side (binding-source values), live.
