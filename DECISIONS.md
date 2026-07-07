@@ -4807,3 +4807,20 @@ use `git worktree` (now twice-escalated); (2) after ANY checkout,
 verify `git branch --show-current` is main before committing;
 (3) periodically confirm `git log origin/main..main` counts match
 expectations.
+
+### D-107 addendum (Bryan's note, 2026-07-07): the two pre-existing
+### fuzz finds may be DROOLS incoherence — revisit with that lens
+The two divergences triaged out of the Arc-5 campaign as
+pre-existing non-query finds — **fz_9104_1496** (accumulate x
+update composition) and **fz_9105_5693** (TMS x update composition),
+both in probes_pending/fuzz_finds/ — must be revisited with the
+question inverted: is DROOLS ITSELF being incoherent here? Do not
+assume the oracle side is right. The revisit should check the
+oracle's behavior for internal consistency (e.g., minimize each,
+vary fact/rule order for oracle-side instability, compare against
+Drools' own documented semantics and its issue tracker) BEFORE
+attempting any engine change. If Drools is incoherent, these land
+on faithfulness axis 2 (value-bearing defect: correct + report —
+the D-039/D-090 pattern), not as engine bugs. The same lens applies
+to their earlier sibling fz_9001_6127 (accumulate x update x eager)
+in the same directory.
