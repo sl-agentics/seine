@@ -4193,3 +4193,44 @@ model_check_stream cycle 3 against the audited pin set. The
 recurring signature (seventh instance) is now a standing heuristic:
 when a composition regresses, ask FIRST "what is this operation
 treating as uniform that isn't?"
+
+### D-102 (cycle 3 complete): the survivor PORTED — full 31-rung
+### matrix GREEN, corpus untouched; one bounded fuzz class remains
+### (the k=1 expiration-teardown leak, instrumented)
+**Checker cycle 3** (tools/model_check_stream.py, rewritten run()):
+after two model-bug rounds (the fire linked-gate lost in the
+rewrite; IF-unlink maintenance hoisted above the gate) and one new
+dimension (LINK-RELATIVE right generations — staged rights label
+'pre' or 'post' relative to the path's link state at staging), the
+enumeration produced a 4-member survivor family:
+**{plain rights never flush (stay); held staging hidden at flushes;
+plain fire order = pre-link-LIFO then post-link-ARRIVAL; temporal
+dims degenerate; drain_t}** — the eighth node-kind table row.
+**Port** (main): ph=4 stamps pre-link plain-join rights in event
+sessions; the phreak plain rightIns walk splits pre-LIFO/post-arr
+ONLY when ph=4 entries exist (the first cut's unconditional rev()
+flipped the certified cloud walk — caught by the u2b CLOUD control
+failing, exactly what controls are for); the flush stash hides ALL
+plain-join rights + pre-tail lefts + pre-tail DELS at all node
+kinds (expirations batch to the fire — the u3/v3/v5 trio's staged
+expiration delete was walking at the next insert's flush and
+prematurely unblocking the not; the trigger's OWN del effects, e.g.
+a blocking insert's leftDel, are delta and still flush).
+**State: the full 31-rung matrix GREEN** (a/t/u/v ladders, both
+cloud controls, self-joins, cf-seeds); 8 suites; corpus 834/834
+byte-identical; lint-probes clean.
+**OPEN (bounded): the cf5x17-class shakedown residue** — a k=1
+justifier's expiration teardown still processes EARLY through a
+path the k1-window del-stash does not cover: SEINE_TMS_DEBUG shows
+TWO tms_on_terminal_del(J1) calls, the first during the advance
+(now rerouted to the lazy deferred list via the restored
+expiring-check in tms_on_terminal_del — the direct queue-prune
+callers bypassed the eager-break routing), the second during a
+subsequent insert's flush evaluation with expiring already cleared;
+the k1-stash debug never fires, so the staged delete reaches that
+walk from a source OTHER than nets[ri].s0 window dels — locating
+that source (likely the k=1 queue-prune or a trie-side path for
+k=1 rules) is the next bounded step. Instrumentation in place:
+SEINE_TMS_DEBUG, SEINE_EVAL_DEBUG, SEINE_FLUSH_DEBUG, k1-stash
+prints. After it: shakedown to zero -> 3x1000 campaign ->
+D-101/D-102 close + FEATURES promotion.

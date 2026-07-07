@@ -2739,7 +2739,7 @@ impl Engine {
     /// flushes. Captured BEFORE an insert's on_insert; the insert's
     /// own propagation is the HEAD segment beyond these lengths
     /// (staging prepends).
-    fn stage_snapshot(&self) -> (Vec<(usize, usize, usize)>, Vec<usize>) {
+    fn stage_snapshot(&self) -> (Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>) {
         // Per-node (s0_in, s_left, s_right) ins lengths for TOUCH
         // detection + per-rule k=1 s0 sizes. The STASH is rights-only
         // (D-102: the flush is LEFT-flushing — forceFlushLeftTuple;
@@ -2749,7 +2749,16 @@ impl Engine {
         (
             self.trie
                 .iter()
-                .map(|t| (t.s0_in.ins.len(), t.node.s_left.ins.len(), t.node.s_right.ins.len()))
+                .map(|t| {
+                    (
+                        t.s0_in.ins.len(),
+                        t.node.s_left.ins.len(),
+                        t.node.s_right.ins.len(),
+                        t.s0_in.del.len(),
+                        t.node.s_left.del.len(),
+                        t.node.s_right.del.len(),
+                    )
+                })
                 .collect(),
             self.nets
                 .iter()
@@ -2767,13 +2776,13 @@ impl Engine {
     /// the delta (activation queueing only — each flush is its own
     /// D-047-style window), SELF-DRAIN unlinked temporal deltas to
     /// memory (t6/t14 — this replaced drain-at-link), restore stashes.
-    fn stream_flush(&mut self, pre: &(Vec<(usize, usize, usize)>, Vec<usize>)) {
+    fn stream_flush(&mut self, pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>)) {
         self.stream_flush_ex(pre, true)
     }
 
     fn stream_flush_ex(
         &mut self,
-        pre: &(Vec<(usize, usize, usize)>, Vec<usize>),
+        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>),
         close_windows: bool,
     ) {
         if self.event_specs.is_empty() || !self.lists_built {
@@ -2801,15 +2810,36 @@ impl Engine {
         // not/exists node is a BLOCKER whose absence flips admission;
         // the flush walk must see it (E1 blocks E2 at the fire-1
         // flush), while held JOIN rights stay unpaired (v2's P1).
-        let mut stash: Vec<Vec<(FactId, Origin, u8)>> = Vec::with_capacity(self.trie.len());
+        // D-102 survivor (stay, hidden): PLAIN joins hide ALL staged
+        // rights (delta included — rights never flush-pair) and held
+        // (pre-tail) lefts; DELTA lefts still flush (v2's IF).
+        // TEMPORAL joins and existential nodes stash nothing.
+        let mut stash: Vec<(Vec<(FactId, Origin, u8)>, Vec<(FactId, Origin, u8)>, Vec<(Tup, Origin, u8)>)> =
+            Vec::with_capacity(self.trie.len());
+        let mut dstash: Vec<(Vec<(FactId, Origin, u8)>, Vec<(Tup, Origin, u8)>, Vec<(FactId, Origin, u8)>)> =
+            Vec::with_capacity(self.trie.len());
         for (ni, p) in pre.0.iter().enumerate() {
             let t = &mut self.trie[ni];
-            if !matches!(t.node.kind, phreak::Kind::Join) {
-                stash.push(Vec::new());
+            // pre-tail DELS stash at ALL nodes: staged deletes from
+            // earlier actions (expirations, D-101 a3) batch to the
+            // FIRE; only the trigger's own del effects flush
+            let dd0 = t.s0_in.del.len() - p.3.min(t.s0_in.del.len());
+            let s0_dtail = t.s0_in.del.split_off(dd0);
+            let ddl = t.node.s_left.del.len() - p.4.min(t.node.s_left.del.len());
+            let sl_dtail = t.node.s_left.del.split_off(ddl);
+            let ddr = t.node.s_right.del.len() - p.5.min(t.node.s_right.del.len());
+            let sr_dtail = t.node.s_right.del.split_off(ddr);
+            dstash.push((s0_dtail, sl_dtail, sr_dtail));
+            if !matches!(t.node.kind, phreak::Kind::Join) || t.node.temporal {
+                stash.push((Vec::new(), Vec::new(), Vec::new()));
                 continue;
             }
-            let d = t.node.s_right.ins.len() - p.2.min(t.node.s_right.ins.len());
-            stash.push(t.node.s_right.ins.split_off(d));
+            let sr_all = std::mem::take(&mut t.node.s_right.ins);
+            let d0 = t.s0_in.ins.len() - p.0.min(t.s0_in.ins.len());
+            let s0_tail = t.s0_in.ins.split_off(d0);
+            let dl = t.node.s_left.ins.len() - p.1.min(t.node.s_left.ins.len());
+            let sl_tail = t.node.s_left.ins.split_off(dl);
+            stash.push((sr_all, s0_tail, sl_tail));
         }
         for ri in 0..self.rules.len() {
             let s0_now: usize =
@@ -2847,11 +2877,21 @@ impl Engine {
         }
         // restore the held right tails
         let mut touched: Vec<usize> = Vec::new();
-        for (ni, sr_tail) in stash.into_iter().enumerate() {
-            if !sr_tail.is_empty() {
+        for (ni, (sr_all, s0_tail, sl_tail)) in stash.into_iter().enumerate() {
+            if !sr_all.is_empty() || !s0_tail.is_empty() || !sl_tail.is_empty() {
                 touched.push(ni);
             }
-            self.trie[ni].node.s_right.ins.extend(sr_tail);
+            self.trie[ni].node.s_right.ins.extend(sr_all);
+            self.trie[ni].s0_in.ins.extend(s0_tail);
+            self.trie[ni].node.s_left.ins.extend(sl_tail);
+        }
+        for (ni, (s0_dtail, sl_dtail, sr_dtail)) in dstash.into_iter().enumerate() {
+            if !s0_dtail.is_empty() || !sl_dtail.is_empty() || !sr_dtail.is_empty() {
+                touched.push(ni);
+            }
+            self.trie[ni].s0_in.del.extend(s0_dtail);
+            self.trie[ni].node.s_left.del.extend(sl_dtail);
+            self.trie[ni].node.s_right.del.extend(sr_dtail);
         }
         // a linked rule whose path holds restored staging stays
         // queued+dirty (the flush's empty-queue dequeue must not
@@ -3284,7 +3324,21 @@ impl Engine {
             if self.alpha_passes(ri, pos, f) {
                 self.trie[ni].active.insert(f);
                 self.maybe_pulse(ni);
-                self.trie[ni].node.s_right.add_ins(f, origin);
+                // D-102 (survivor pre_lifo_then_post_arr): in EVENT
+                // sessions, plain-join rights record their LINK-RELATIVE
+                // generation — ph=4 when the path was unlinked at
+                // staging (pre-link, incl. the link trigger itself);
+                // plain ph=0 = post-link. The fire walk orders
+                // pre-LIFO then post-ARRIVAL.
+                if !self.event_specs.is_empty()
+                    && matches!(self.trie[ni].node.kind, phreak::Kind::Join)
+                    && !self.trie[ni].node.temporal
+                    && !self.rule_linked(ri)
+                {
+                    self.trie[ni].node.s_right.add_ins_ph(f, origin, 4);
+                } else {
+                    self.trie[ni].node.s_right.add_ins(f, origin);
+                }
                 self.note_link_effects_ex(&mut was, Some(f));
             }
         }
@@ -4948,6 +5002,9 @@ impl Engine {
             .map(|(a, _)| a.clone())
             .collect();
         for act in broken {
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!("TMS eager-break act r{} {:?} expiring={}", act.0, act.1, act.1.iter().any(|x| self.tms.expiring.contains(x)));
+            }
             // D-101 (a7c/a7d/cf5x0): an EXPIRING justifier's teardown is
             // LAZY — it rides the certified tms.deferred list and drains
             // at the justifier's ITEM POP (salience/decl agenda order),
@@ -4972,6 +5029,20 @@ impl Engine {
     /// stays parked until a left-side event re-propagates it (t15's
     /// revival by property-relevant update; t10/t11 fire once).
     fn tms_on_terminal_del(&mut self, ri: usize, tuple: &Tup) {
+        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            eprintln!("TMS terminal-del r{ri} {tuple:?}");
+        }
+        // D-101/D-102 (cf5x17 second bite): an EXPIRING justifier's
+        // teardown is LAZY — reroute to the certified tms.deferred
+        // item-pop path. This covers the DIRECT prune callers (queue
+        // pruning during advance()'s deletes), which bypass the
+        // eager-break scan's routing.
+        if tuple.iter().any(|f| self.tms.expiring.contains(f)) {
+            if !self.tms.deferred.iter().any(|(r, t, _)| (*r, t) == (ri, tuple)) {
+                self.tms.deferred.push((ri, tuple.clone(), false));
+            }
+            return;
+        }
         if self.tms.by_act.is_empty() {
             return;
         }

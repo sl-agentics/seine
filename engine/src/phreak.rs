@@ -1136,10 +1136,25 @@ fn do_join_node<E: JoinEnv>(
             }
         }
     } else {
-    for (f, o, ph) in sr_ins_iter(&sr.ins) {
-        if *ph == 1 {
-            continue; // update-entry rights: late pass below (D-082)
-        }
+    // D-102 (pre_lifo_then_post_arr): rights staged while the path was
+    // UNLINKED (ph=4, event sessions) process LIFO first; post-link
+    // rights (ph=0) follow in ARRIVAL order (list reversed). Cloud
+    // sessions never stamp ph=4, so this is the certified head-first
+    // walk there.
+    let has_pre = sr.ins.iter().any(|(_, _, ph)| *ph == 4);
+    let ordered: Vec<&(FactId, Origin, u8)> = if has_pre {
+        // event-session mixed generations: pre-link LIFO, then
+        // post-link ARRIVAL (list reversed)
+        sr.ins
+            .iter()
+            .filter(|(_, _, ph)| *ph == 4)
+            .chain(sr.ins.iter().filter(|(_, _, ph)| *ph == 0).rev())
+            .collect()
+    } else {
+        // certified head-first walk (cloud + pure-post batches)
+        sr.ins.iter().filter(|(_, _, ph)| *ph != 1).collect()
+    };
+    for (f, o, _) in ordered {
         let rkey = env.key_of_right(node_idx, *f);
         node.rights.push((*f, rkey.clone()));
         for l in node.lefts_bucket(rkey.as_ref()) {

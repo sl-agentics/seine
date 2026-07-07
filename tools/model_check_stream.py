@@ -61,168 +61,189 @@ class Node:
 
 
 def run(cfg, ce, op, lo, hi, fires):
-    uflush, ldrain_plain, ldrain_temp, lorder = cfg
-    node = Node(temporal=(ce is None))
-    enablers = {}   # ts -> alive (for CE shapes); also A-facts for temporal
-    IF = "IF"
-    if_present = (ce == "not")  # not with no enablers = unblocked
-    if ce == "not" and if_present:
-        pass  # IF materializes lazily via first toggle staging? Start: stage at first fire walk
-    linked_now = False
+    (plain_dr, plain_held, plain_rgen, temp_dr, temp_lorder, uflush) = cfg
+    temporal = ce is None
+    lmem, rmem = [], []   # (ts, seq)
+    sl, sr = [], []       # staged (prepend): (ts, seq, linkgen) 'pre'|'post'
+    enablers = {}
+    seq = [0]
     out = []
-    started = False
 
-    def is_linked():
-        if ce is None:
-            return bool(node.lmem or node.sl) and bool(node.rmem or node.sr)
-        # CE shapes: path linked iff the CE admits the IF (exists: enabler
-        # alive; not: none alive) AND... D-031 not-position linking is
-        # inverted; model the OBSERVABLE: evaluation reaches the join iff
-        # IF is present or staged.
-        return if_now() or bool(node.rmem or node.sr) and if_now()
+    def stamp():
+        seq[0] += 1
+        return seq[0]
 
     def if_now():
         alive = any(enablers.values())
-        return alive if ce == "exists" else (not alive) if ce == "not" else False
+        return alive if ce == "exists" else (not alive) if ce == "not" else None
 
-    def drain_held_rights(exclude_ts=None):
-        keep, drain = [], []
-        for e in node.sr:
-            (drain, keep)[e[0] == exclude_ts].append(e)
-        for ts, s in sorted(drain, key=lambda x: x[1]):
-            node.rmem.append((ts, s))
-        node.sr = keep
+    def linked():
+        if temporal:
+            return bool(lmem or sl) and bool(rmem or sr)
+        return bool(if_now())
 
-    def walk_window(sl, sr, dels):
-        """One evaluation window over the given staged slices + dels.
-        Returns creations."""
-        creations = []
-        # deletes first (expirations): remove rights, kill pairs implicitly
-        for ts in dels:
-            node.rmem = [(t, s) for (t, s) in node.rmem if t != ts]
-            node.sr = [(t, s) for (t, s) in node.sr if t != ts]
-        if node.temporal:
-            pre_r = list(node.rmem)
-            for e in reversed(sl):
-                node.lmem.append(e)
-            for ts, s in sr:  # staged list order = newest first
-                node.rmem.append((ts, s))
-                part = sorted(node.lmem, key=lambda x: x[1])
-                for a, _ in part:
-                    if eligible(op, lo, hi, a, ts):
-                        creations.append((a, ts))
-            lefts_iter = sl if lorder == "head" else list(reversed(sl))
-            for l, _ in lefts_iter:
-                for b, _ in pre_r:
-                    if eligible(op, lo, hi, l, b):
-                        creations.append((l, b))
-        else:
-            pre_l = list(node.lmem)
-            for ts, s in sr:
-                node.rmem.append((ts, s))
-                for a, _ in pre_l:
-                    creations.append((a, ts))
-            lefts_iter = sl if lorder == "head" else list(reversed(sl))
-            for e in lefts_iter:
-                node.lmem.append(e)
-                for b, _ in list(node.rmem):
-                    creations.append((e[0], b))
-        return creations
-
-    for fire in fires:
+    for fno, fire in enumerate(fires):
         windows = []
-        pending_if_del = False
         for step in fire:
             if step[0] == "adv":
-                # expirations stage; CE toggle materializes at the walk
                 for ts in step[1]:
                     if ts in enablers:
                         enablers[ts] = False
-                # link transition from an advance (non-flush): ldrain
-                if ce is not None:
-                    if if_now() and not linked_now:
-                        ld = ldrain_temp if node.temporal else ldrain_plain
-                        if ld in ("all", "nonflush"):
-                            drain_held_rights()
-                        linked_now = True
-                    elif not if_now():
-                        linked_now = False
+                # expiration deletes: staged rights annihilate; memory
+                # rights get a pending del processed at the fire walk
                 continue
             _, role, ts = step
             was_if = if_now()
             if role.startswith("E"):
                 enablers[ts] = True
-            flushed = []
-            if role in ("A", "AB") or (ce is None and role == "A"):
-                node.sl.insert(0, (ts, node.stamp()))
+            was_linked = linked()
+            if role in ("A", "AB"):
+                sl.insert(0, (ts, stamp(), fno))
             if role in ("B", "AB"):
-                node.sr.insert(0, (ts, node.stamp()))
-            # link check after this insert's staging
-            now_linked = is_linked() if ce is None else if_now()
-            if ce is not None and not now_linked:
-                linked_now = False
-            trig_link = now_linked and not linked_now
-            if trig_link:
-                ld = ldrain_temp if node.temporal else ldrain_plain
-                if ld == "all":
-                    drain_held_rights(exclude_ts=ts if role in ("B", "AB") else None)
-                linked_now = True
-            # CE toggle staged by THIS insert
-            sl_trig = []
-            if ce is not None and if_now() and not was_if:
-                sl_trig.append((IF_TS, node.stamp()))
-            # trigger-scoped flush: this insert's own staging (+ IF toggle)
-            sr_trig = [e for e in node.sr[:1] if e[0] == ts and role in ("B", "AB")]
-            if role in ("B", "AB") and sr_trig:
-                node.sr = node.sr[1:]
-            own_sl = [e for e in node.sl[:1] if e[0] == ts and role in ("A", "AB") and ce is None]
-            if own_sl:
-                node.sl = node.sl[1:]
-            if now_linked:
-                w = walk_window(sl_trig + own_sl, sr_trig, [])
-                if w:
-                    windows.append(w)
-            else:
-                # unlinked flush behavior
-                if uflush == "drain" or (uflush == "drain_t" and node.temporal):
-                    for e in sr_trig:
-                        node.rmem.append(e)
-                    for e in own_sl:
-                        node.lmem.append(e)
-                    for e in sl_trig:
-                        node.lmem.append(e)
-                else:
-                    node.sr = sr_trig + node.sr
-                    node.sl = own_sl + sl_trig + node.sl
-        # fire evaluation: the final window (advance dels + IF toggles
-        # from advances + all remaining staging)
-        dels = []
-        sl_fire = list(node.sl)
-        node.sl = []
-        # IF toggle from advances materializes here
-        if ce is not None:
-            present_now = if_now()
-            have_if = any(t == IF_TS for t, _ in node.lmem) or any(t == IF_TS for t, _ in sl_fire)
-            if present_now and not have_if:
-                sl_fire = [(IF_TS, node.stamp())] + sl_fire
-            if not present_now and have_if:
-                node.lmem = [(t, s) for (t, s) in node.lmem if t != IF_TS]
-                sl_fire = [(t, s) for (t, s) in sl_fire if t != IF_TS]
-        # D-091: the fire evaluation runs only for LINKED paths —
-        # unlinked staging is HELD (t6/t14's cross-fire holds).
+                # linkgen relative to the PRE-INSERT link state: a right
+                # staged while unlinked (incl. the link trigger itself)
+                # is 'pre'; staged onto an already-linked path is 'post'
+                sr.insert(0, (ts, stamp(), "pre" if not was_linked else "post"))
+            if_toggled = ce is not None and if_now() and not was_if
+            # ---- the FLUSH for this insert ----
+            if not linked():
+                if uflush == "drain_t" and temporal:
+                    # unlinked temporal insert self-drains to memory
+                    if role in ("B", "AB"):
+                        e = sr.pop(0)
+                        rmem.append((e[0], e[1]))
+                    if role in ("A", "AB"):
+                        e = sl.pop(0)
+                        lmem.append((e[0], e[1]))
+                continue
+            creations = []
+            # left deltas (incl. IF toggles) pair x right MEMORY, consume
+            if if_toggled:
+                lmem.append((IF_TS, stamp()))
+                for b in rmem:
+                    creations.append((IF_TS, b[0]))
+            if role in ("A", "AB") and temporal:
+                # temporal left delta
+                if temp_dr == "walk" or True:
+                    e = sl.pop(0)
+                    lmem.append((e[0], e[1]))
+                    for b in rmem:
+                        if eligible(op, lo, hi, e[0], b[0]):
+                            creations.append((e[0], b[0]))
+            elif role in ("A", "AB") and not temporal and ce is None:
+                e = sl.pop(0)
+                lmem.append((e[0], e[1]))
+                for b in rmem:
+                    creations.append((e[0], b[0]))
+            # right deltas
+            dr = temp_dr if temporal else plain_dr
+            if role in ("B", "AB") and dr == "walk":
+                e = sr.pop(0)
+                rmem.append((e[0], e[1]))
+                for a in sorted(lmem, key=lambda x: x[1]):
+                    if temporal:
+                        if eligible(op, lo, hi, a[0], e[0]):
+                            creations.append((a[0], e[0]))
+                    else:
+                        creations.append((a[0], e[0]))
+            # held staging visibility: plain_held=visible would let the
+            # eval consume held items too (the measured-broken mode);
+            # model only "hidden" faithfully for held (visible = consume
+            # all in staged order, pairing x memory)
+            if not temporal and plain_held == "visible":
+                while sl:
+                    e = sl.pop(0)
+                    lmem.append((e[0], e[1]))
+                    for b in rmem:
+                        creations.append((e[0], b[0]))
+                while sr:
+                    e = sr.pop(0)
+                    rmem.append((e[0], e[1]))
+            if creations:
+                windows.append(creations)
+        # ---- the FIRE evaluation (D-091: linked paths only —
+        # unlinked staging HOLDS across the fire) ----
+        creations = []
+        # IF UNLINK maintenance runs regardless of the gate (a blocked
+        # CE retracts its IF even when the fire evaluates nothing)
+        if ce is not None and not if_now():
+            lmem = [(t, s) for (t, s) in lmem if t != IF_TS]
         fire_linked = (
-            (bool(node.lmem or node.sl or sl_fire) and bool(node.rmem or node.sr))
-            if ce is None
-            else if_now()
+            (bool(lmem or sl) and bool(rmem or sr)) if temporal else bool(if_now())
         )
-        if fire_linked:
-            sr_fire = list(node.sr)
-            node.sr = []
-            w = walk_window(sl_fire, sr_fire, dels)
-            if w:
-                windows.append(w)
+        if not fire_linked:
+            out.append([c for win in windows for c in reversed(win)])
+            continue
+        # advance-sourced IF toggle materializes here
+        if ce is not None:
+            present = if_now()
+            have = any(t == IF_TS for t, _ in lmem)
+            if present and not have:
+                lmem.append((IF_TS, stamp()))
+                # pairs with right MEMORY in memory order
+                for b in rmem:
+                    creations.append((IF_TS, b[0]))
+            if not present and have:
+                lmem = [(t, s) for (t, s) in lmem if t != IF_TS]
+        # expiration dels: remove dead staged rights (annihilate) and
+        # memory rights (they never pair again) — model: enabler deaths
+        # only affect the IF; B-side expirations arrive via adv lists
+        # handled in pins by not reusing dead ts values.
+        if temporal:
+            # temporal fire walk (cycle-1 survivor): fills lefts,
+            # rightIns newest-first x lefts-arrival, leftIns x pre-walk
+            # right memory (temp_lorder)
+            pre_r = list(rmem)
+            fills = list(sl)
+            sl = []
+            for e in reversed(fills):
+                lmem.append((e[0], e[1]))
+            rights = list(sr)
+            sr = []
+            for e in rights:  # staged order = newest first
+                rmem.append((e[0], e[1]))
+                for a in sorted(lmem, key=lambda x: x[1]):
+                    if eligible(op, lo, hi, a[0], e[0]):
+                        creations.append((a[0], e[0]))
+            lefts_iter = fills if temp_lorder == "head" else list(reversed(fills))
+            for e in lefts_iter:
+                for b in pre_r:
+                    if eligible(op, lo, hi, e[0], b[0]):
+                        creations.append((e[0], b[0]))
         else:
-            node.sl = sl_fire + node.sl  # restore holds
+            # plain fire walk: rightIns (generation-ordered) x pre-walk
+            # left MEMORY; then leftIns head-first x full right memory
+            pre_l = list(lmem)
+            rights = list(sr)
+            sr = []
+            pre = [e for e in rights if e[2] == "pre"]
+            post = [e for e in rights if e[2] == "post"]
+            pre_arr = sorted(pre, key=lambda x: x[1])
+            post_arr = sorted(post, key=lambda x: x[1])
+            if plain_rgen == "pre_lifo_then_post_lifo":
+                seqr = pre + post
+            elif plain_rgen == "pre_lifo_then_post_arr":
+                seqr = pre + post_arr
+            elif plain_rgen == "pre_arr_then_post_lifo":
+                seqr = pre_arr + post
+            elif plain_rgen == "pre_arr_then_post_arr":
+                seqr = pre_arr + post_arr
+            elif plain_rgen == "arrival":
+                seqr = sorted(rights, key=lambda x: x[1])
+            else:
+                seqr = rights  # head/LIFO
+            for e in seqr:
+                rmem.append((e[0], e[1]))
+                for a in pre_l:
+                    creations.append((a[0], e[0]))
+            lefts = list(sl)
+            sl = []
+            for e in lefts:
+                lmem.append((e[0], e[1]))
+                for b in rmem:
+                    creations.append((e[0], b[0]))
+        if creations:
+            windows.append(creations)
         out.append([c for win in windows for c in reversed(win)])
     return out
 
