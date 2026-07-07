@@ -3506,3 +3506,45 @@ graduate; full corpus (810) + 5x10k fuzz arbitrate the reorder's
 blast radius. Tooling banked: AccDump now dumps JoinNode memories,
 staged sets, RTN PathMemory masks and item state per WM event and
 firing, and replays epochs — the RunnerDump pattern's generic form.
+
+### D-094 LANDED: two-pass on_update (entries before exits) — the
+### 2256 family closed; D-090b quarantine dissolved
+Implementation: Engine::on_update processes each fact-update in two
+passes over the network — pass A: alpha ENTRIES ((false,true), incl.
+the D-083 re-entry ph tagging and maybe_pulse) and in-place mask-hit
+updates ((true,true), incl. the mask-miss reAdd arm and the D-072
+shared-LIA gate), LIAs then trie nodes in build order; pass B: alpha
+EXITS ((true,false)). note_link_effects runs after every node event
+in both passes, so the WITHIN-UPDATE transient all-linked window now
+exists exactly as in Drools (entries ride the OTN sink walk; exits
+defer to the ModifyPreviousTuples end-drain) — a transiently-linked
+path creates+queues its item (fz_7_2122 refined), and the D-091
+dirty-item pop drains held staging into memories mid-fire. Same-node
+out-and-back signatures (D-081/D-083) are cross-EVENT and untouched;
+per-node staged ins+del from ONE update is impossible (transitions
+are exclusive per node), so no new fold interactions.
+
+**Gate (WITNESSED, Bryan's bar: pair flips + ZERO regressions):**
+`make test` green; fz_min_2256 + fz_999_2256 FLIP GREEN and graduate
+to regressions (4x stability incl. the campaign draw); corpus
+**812/812** (11 baseline + 520 probes + 281 regressions) with zero
+previously-green perturbations; fuzz seeds 42/7/123/777/999 x 10,000
+= **50,000 cases, ZERO divergences**. xfail 80 -> 78 = 68 D-080 TMS
+envelope + D-042 trio (3) + the D-093 expected-divergence set (7:
+8426 pair + alu6a + alu7a/7d/7f/7g). The D-075/D-090 quarantine
+backlog is now FULLY resolved: 455/4816 (D-091 port), 8426 (D-093
+ruling + upstream #2366), 2256 (this port), 6812/3959/5014/9976
+(earlier waves). Every non-TMS, non-D-042 latent found since P1b has
+been mechanism-pinned rather than fenced.
+**HANDOFF @ D-094 close (2026-07-07)** — The quarantine-cracking arc
+is complete: both D-090 families resolved by mechanism (D-092/D-093
+ruling for 8426 with upstream issue #2366; D-094 port for 2256).
+State: corpus 812/812, 50k fuzz clean, xfail 78 (68 TMS envelope +
+D-042 trio + 7 D-093 expected-divergence witnesses). Tooling asset:
+oracle/…/AccDump.java — the generic ground-truth graft (join/acc
+memories, staged sets, RTN masks + item state, per-WM-event and
+per-firing dumps, epoch replay). Open, trigger-gated: D-042 trio
+(value-bearing variant or new mechanism evidence), D-080 TMS
+envelope (fence stands), upstream #2366 (revisit the D-093
+divergence set if Drools fixes it — convergence would let the alu
+witnesses graduate).

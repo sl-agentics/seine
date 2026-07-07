@@ -2679,6 +2679,18 @@ impl Engine {
         self.mark_queries_pending();
         let ftype = self.store.fact_type(f);
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
+        // D-094: within ONE fact-update, alpha ENTRIES and in-place
+        // (mask-hit) updates process BEFORE alpha EXITS — Drools asserts
+        // new entries during the OTN sink walk and defers exits
+        // (unmatched previous tuples) to the end-of-modify drain
+        // (ModifyPreviousTuples). The entry-before-exit window can
+        // TRANSIENTLY all-link a path, creating+queueing its agenda
+        // item (fz_7_2122 refined to within-update), whose D-091 pop
+        // then drains held staging into memories mid-fire
+        // (fz_min_2256's held right reaching memory in fire 1).
+        // Pass A = entries + updates; pass B = exits; link bookkeeping
+        // after every node event in both passes.
+        for pass in 0..2u8 {
         for li in 0..self.lias.len() {
             let (ri, pos) = self.lias[li].env;
             if self.rules[ri].patterns[pos].type_id != ftype {
@@ -2693,8 +2705,8 @@ impl Engine {
                 (true, true) if mask == u64::MAX || listen & mask != 0 => 3,
                 _ => 0,
             };
-            if stage == 0 {
-                continue;
+            if stage == 0 || (pass == 0) == (stage == 2) {
+                continue; // pass A: entries/updates; pass B: exits
             }
             if stage == 1 {
                 self.lias[li].active.insert(f);
@@ -2747,6 +2759,9 @@ impl Engine {
             }
             let was_in = self.trie[ni].active.contains(&f);
             let now = self.alpha_passes(ri, pos, f);
+            if (pass == 0) == (was_in && !now) {
+                continue; // pass A: entries/updates; pass B: exits (D-094)
+            }
             match (was_in, now) {
                 (false, true) => {
                     self.trie[ni].active.insert(f);
@@ -2796,6 +2811,7 @@ impl Engine {
                 (false, false) => {}
             }
             self.note_link_effects(&mut was);
+        }
         }
         self.tms_eager_break(f);
     }
