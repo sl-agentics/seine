@@ -3548,3 +3548,52 @@ per-firing dumps, epoch replay). Open, trigger-gated: D-042 trio
 envelope (fence stands), upstream #2366 (revisit the D-093
 divergence set if Drools fixes it — convergence would let the alu
 witnesses graduate).
+
+## Data-type semantics scoping (2026-07-07)
+
+### D-095: THIRD DOCTRINE AXIS — ecosystem-facing data-type semantics
+### conform to the COLUMNAR DATA ECOSYSTEM (Arrow/DuckDB/pandas), not
+### Drools/Java; oracle-selection principle recorded (Bryan's ruling;
+### ROADMAP scoping only — nothing built now)
+
+The faithfulness doctrine now has three axes:
+1. ENGINE/RULE semantics -> Drools is the spec (reproduce, quirks
+   included — the original charter).
+2. Value-bearing DEFECTS where Drools is self-inconsistent ->
+   correct, document, report upstream (D-093).
+3. ECOSYSTEM-FACING DATA-TYPE semantics (nulls, exact decimals) ->
+   the columnar data ecosystem is authoritative — Arrow / DuckDB /
+   pandas — NOT Drools/Java. Seine's facts originate there (Arrow
+   ingestion, D-044) and its audience expects those semantics; Java
+   accidents (null-as-missing-reference, IEEE-754 floats for money)
+   are not the spec.
+
+**Nulls (ROADMAP-P2, re-scoped from D-063):** implement SQL
+three-valued logic — null = UNKNOWN, propagating through comparisons
+and boolean logic per SQL 3VL: `NULL = NULL -> NULL`,
+`NULL > 5 -> NULL`, `NULL AND false -> false`,
+`NULL AND true -> NULL`. Ingestion normalizes Arrow-null /
+pandas-NA/NaN / DuckDB-NULL to one proper null. This is a DELIBERATE
+DEVIATION from Drools (whose null behavior is Java reference
+semantics per-operator); the D-063 per-operator probe-matrix plan
+stands but its authority target changes.
+
+**Exact decimals (ROADMAP-P2, raised from D-064's P4-hard):** a
+native exact-decimal fact type, Arrow Decimal128/256-compatible,
+with EXACT arithmetic — no IEEE-754 float path for money, ever.
+Load-bearing for the financial-decisioning soundness thesis. The
+D-064 storage note stands (scaled fixed-point over i128, the
+DECIMAL(p,s) approach); the Java BigDecimal coercion-matrix concern
+dissolves — we conform to Arrow/SQL decimal semantics instead.
+Deliberate deviation from Drools/Java.
+
+**Oracle-selection principle (banked):** the right oracle by
+concern — Drools 9.44.0.Final for engine/rule semantics; DuckDB as
+the authoritative implementation of SQL 3VL + DECIMAL for data-type
+semantics (since these features deliberately diverge from Drools,
+differential-testing them against Drools would be testing against
+the wrong spec). The harness grows a second oracle when these land;
+scenario schema will need per-feature oracle routing.
+
+Nothing implemented in this entry — FEATURES rows updated; whoever
+builds P2 nulls/decimals conforms to the ecosystem, not Drools.
