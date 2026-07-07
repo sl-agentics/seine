@@ -5,3 +5,4 @@ oracle/target/
 *.iml
 __pycache__/
 *.pyc
+.venv/

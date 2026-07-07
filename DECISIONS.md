@@ -3597,3 +3597,45 @@ scenario schema will need per-feature oracle routing.
 
 Nothing implemented in this entry — FEATURES rows updated; whoever
 builds P2 nulls/decimals conforms to the ecosystem, not Drools.
+
+## Data-types arc — Phase 0 (2026-07-07)
+
+### D-096: DuckDB oracle STOOD UP + the 3VL/DECIMAL semantics PINNED;
+### design checkpoint OPEN (pre-implementation — Bryan review gate)
+- Oracle pinned: **duckdb 1.5.4 + pyarrow 24.0.0** in the repo venv
+  (.venv — first project venv; PEP-668 blocks system pip). The pin
+  ritual mirrors Drools-9.44: tools/pin_duckdb.py GENERATES the
+  ground-truth tables (docs/duckdb-datatype-pins.md); regenerate +
+  diff on any version bump.
+- Measured pins (headlines; full tables in the doc): comparison ops
+  with any NULL operand → NULL, with IS [NOT] DISTINCT FROM as the
+  definite forms; full 3VL AND/OR/NOT tables (NULL AND FALSE = FALSE
+  — no naive short-circuit); the `not in` null trap reproduces
+  (`1 NOT IN (2, NULL)` → NULL → excluded); WHERE admits only TRUE
+  and excludes UNKNOWN from test AND negation; string ops with null
+  → NULL; **null keys never equi-join**; aggregates SKIP nulls
+  (count(x)=0 / sum=avg=min=max=NULL over all-null AND empty);
+  GROUP BY/DISTINCT collapse nulls into ONE group (the TMS
+  value-equality-key answer); NaN is a VALUE in DuckDB (NaN=NaN
+  TRUE, sorts greatest) — the measured rationale for boundary
+  NaN→NULL normalization on nullable float fields. DECIMAL: literals
+  type by shape (typeof(1.23)=DECIMAL(3,2)); cross-scale equality is
+  value-based; + grows precision by 1 at max-scale, * adds scales;
+  scale-reduction rounds HALF-UP incl. negatives (1.005→1.01,
+  -1.005→-1.01 — NOT banker's); downcast overflow ERRORS loudly;
+  SUM(DECIMAL(p,s))→DECIMAL(38,s) exact; **AVG(decimal)→DOUBLE**
+  (matches the certified average→f64); MIN/MAX preserve type;
+  decimal=double compares value-wise (hazard flagged; proposal:
+  WALL decimal-vs-f64 in Seine). Arrow round-trip verified
+  (decimal128(p,s) ↔ DECIMAL(p,s); validity-null ↔ SQL NULL; float
+  NaN arrives as a value).
+- Design checkpoint: docs/design-datatypes.md — per-field OPT-IN
+  nullability (certified surface untouched), decimal-as-string JSON,
+  i128 scaled fixed-point storage, 3VL evaluation with WHERE-TRUE
+  admission, `field == null` ⇒ IS NULL surface mapping, null-skipping
+  aggregates with the ONE flagged axis conflict (sum(empty): Drools
+  0 vs SQL NULL — ruling requested), DuckDB-oracle scope =
+  match-sets + aggregates over insert-only scenarios (chaining stays
+  Drools-axis), oracle routing via scenario "oracle" key, phased
+  landing plan. Five open questions listed for Bryan. NO ENGINE
+  CHANGES in this commit.
