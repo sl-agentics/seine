@@ -4126,3 +4126,33 @@ SEINE_TRACE) comparing baseline/branch step structure on a3.
 Fresh-context task: instrument, isolate the split, fix, then the
 FULL gate sequence (all ladders + corpus 834 + fuzz_cep shakedown
 60 -> 3x1000) and the D-101/D-102 close.
+
+### D-102 (a3 resolved; u2-class cycle queued): the a3 eval-split was
+### the stash blinding existential BLOCKERS — fixed by kind-scoping;
+### the u2-class (plain binding-joins in stream) is the next checker
+### cycle with four fresh pins
+The trigger-attributed eval trace (SEINE_EVAL_DEBUG, baseline vs
+branch) adjudicated a3 in one pass: the branch's fire-1 FLUSH
+evaluated Rmid with the held E1-ins STASHED — the not node was
+artificially empty, E2 propagated, and Rmid fired at FIRE 1 (not
+fire 2 as previously assumed). The advisor-prior (flush window
+over-scoping at fire 2) was WRONG in location but right in kind:
+another reduction, not new machinery. Fix on d102-flush-wip: the
+flush stash takes rights at Kind::Join nodes ONLY — a held right at
+a not/exists node is a BLOCKER whose visibility the flush walk must
+keep (v2's join rights stay stashed; a3's blocker stays visible).
+a3 + the full prior matrix green (30/31).
+**Open (u2-class, 4 new pins):** the REWRITTEN u2 (the original had
+a getter-syntax bug and never ran engine-side) + u2c (bare join) +
+u2d (split epochs) pin: plain-join rights NEVER flush-pair and
+stream==cloud left-major composition, including held-lefts shapes.
+v2c pins the v2 fresh-right-first pattern surviving a join
+constraint. CONFLICT: stashing delta rights at plain joins fixes
+u2-class but breaks v2-class fire order; the fire-walk's
+held-vs-fresh right generation order at plain nodes must differ
+from the temporal t7 rule. Next sitting: model_check_stream cycle 3
+— add dims {delta-right stash on/off, plain-fire right order
+(head | arrival | held-arrival-first | fresh-head-first), drain
+at all-links vs nonflush} against the full pin set (now ~20).
+Branch state: d102-flush-wip carries everything incl. the
+SEINE_EVAL_DEBUG instrumentation; main stays green at this commit.
