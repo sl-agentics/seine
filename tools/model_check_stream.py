@@ -120,10 +120,12 @@ def run(cfg, ce, op, lo, hi, fires, shared=False):
             if role.startswith("E"):
                 enablers[ts] = True
             was_linked = linked()
+            ab_id = stamp() if role == "AB" else None
             if role in ("A", "AB"):
-                sl.insert(0, (ts, stamp(), fno))
+                sl.insert(0, (ts, stamp() if ab_id is None else ab_id, fno))
             if role in ("B", "AB"):
-                sr.insert(0, (ts, stamp(), "pre" if not was_linked else "post"))
+                sr.insert(0, (ts, stamp() if ab_id is None else ab_id,
+                              "pre" if not was_linked else "post"))
             if_toggled = ce is not None and if_now() and not was_if
             # ---- the FLUSH ----
             if not linked():
@@ -205,11 +207,9 @@ def run(cfg, ce, op, lo, hi, fires, shared=False):
             pre_r = list(rmem)
             fills = list(sl)
             rights = list(sr)
-            staged_l_ts = {e[0] for e in fills}
-            staged_r_ts = {e[0] for e in rights}
             is_ab_batch = (
-                bool(fills) and staged_l_ts == staged_r_ts
-                and len(fills) == len(rights)
+                bool(fills)
+                and {e[1] for e in fills} == {e[1] for e in rights}
             )
             if wstruct == "per_fact_ab" and is_ab_batch:
                 # per-FACT newest-first (853/616/134/min_sj decode):
@@ -266,7 +266,12 @@ def run(cfg, ce, op, lo, hi, fires, shared=False):
             for e in rights:  # staged order = newest first
                 rmem.append((e[0], e[1], fno))
                 # partner scan (THE cycle-4 dim)
-                if pscan == "this_fire_arr_mem_desc":
+                if pscan == "rel_arrival":
+                    post = [a for a in lmem if a[1] > e[1]]
+                    pre_a = [a for a in lmem if a[1] <= e[1]]
+                    part = sorted(post, key=lambda x: x[1]) + \
+                           sorted(pre_a, key=lambda x: x[1])
+                elif pscan == "this_fire_arr_mem_desc":
                     this_f = [a for a in lmem if a[2] == fno]
                     prior = [a for a in lmem if a[2] != fno]
                     part = sorted(this_f, key=lambda x: x[1]) + \
@@ -427,6 +432,13 @@ PINS2 = [
      [[("ins", "AB", 22), ("ins", "AB", 24)]],
      {"sink0": [[(22, 22), (24, 24), (22, 24)]],
       "peer": [[(22, 24), (24, 24), (22, 22)]]}),
+    # 721: shared E0xE1 after[0,150]; fire1 A40,B15 (no pair);
+    # fire2 A47 then B47 -> creations [(40,47),(47,47)]
+    ("cf721", None, "after", 0, 150,
+     [[("ins", "A", 40), ("ins", "B", 15)],
+      [("adv", []), ("ins", "A", 47), ("ins", "B", 47)]],
+     {"sink0": [[], [(47, 47), (40, 47)]],
+      "peer": [[], [(40, 47), (47, 47)]]}),
     # 853 fire1: three-left shared self-join before[0,100];
     # AB1, AB21, AB23 one prologue batch
     ("cf853", None, "before", 0, 100,
@@ -451,7 +463,7 @@ PINS2 = [
 
 def main():
     dims = [
-        ["this_fire_arr_mem_desc", "this_eval_arr_mem_desc", "asc", "desc"],  # pscan
+        ["rel_arrival", "this_fire_arr_mem_desc", "this_eval_arr_mem_desc", "asc", "desc"],  # pscan
         ["push", "reverse"],   # rscan
         ["head", "arrival"],   # liter
         ["fwd", "rev"],        # c_sink0

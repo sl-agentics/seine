@@ -939,6 +939,7 @@ pub struct Engine {
     fire_no: u64,
     flush_trigger_tid: Option<TypeId>,
     ever_linked: Vec<bool>,
+    stage_seq: u64,
     store: FactStore,
     rules: Vec<CompiledRule>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
@@ -1031,6 +1032,7 @@ impl Engine {
             fire_no: 0,
             flush_trigger_tid: None,
             ever_linked: Vec::new(),
+            stage_seq: 0,
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_parents: Vec::new(),
@@ -3531,6 +3533,8 @@ impl Engine {
                 }
                 for i in 0..self.lias[li].children.len() {
                     let c = self.lias[li].children[i];
+                    self.stage_seq += 1;
+                    self.trie[c].node.left_sseq.insert(vec![f], self.stage_seq);
                     self.trie[c].s0_in.add_ins(f, origin);
                 }
                 self.note_link_effects_ex(&mut was, Some(f));
@@ -3550,6 +3554,8 @@ impl Engine {
                 // staging (pre-link, incl. the link trigger itself);
                 // plain ph=0 = post-link. The fire walk orders
                 // pre-LIFO then post-ARRIVAL.
+                self.stage_seq += 1;
+                self.trie[ni].node.right_sseq.insert(f, self.stage_seq);
                 if !self.event_specs.is_empty()
                     && matches!(self.trie[ni].node.kind, phreak::Kind::Join)
                     && !self.trie[ni].node.temporal
@@ -3644,7 +3650,11 @@ impl Engine {
                 let c = self.lias[li].children[i];
                 match child_stage {
                     0 => {}
-                    1 => self.trie[c].s0_in.add_ins(f, origin),
+                    1 => {
+                        self.stage_seq += 1;
+                        self.trie[c].node.left_sseq.insert(vec![f], self.stage_seq);
+                        self.trie[c].s0_in.add_ins(f, origin)
+                    }
                     2 => self.trie[c].s0_in.add_del(f, origin),
                     _ => self.trie[c].s0_in.add_upd(f, origin),
                 }
