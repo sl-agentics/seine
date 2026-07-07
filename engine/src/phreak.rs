@@ -1132,6 +1132,80 @@ fn do_join_node<E: JoinEnv>(
         // (c) leftIns joins the PRE-BATCH right memory (incl. the
         //     link drain) in MEMORY order.
         let pre_rights: Vec<FactId> = node.rights.iter().map(|(f, _)| *f).collect();
+        // D-102 cycle-4 (853/192/510, model_check_stream survivor
+        // ws=per_fact_ab): a same-batch AB SELF-JOIN batch (identical
+        // fact sets staged on both sides) walks PER-FACT newest-first:
+        // (1) own-right x {older-staged + memory} lefts, (2) SELF-pair,
+        // (3) own-left x older-staged rights (arrival) + memory rights.
+        let l_fids: Vec<FactId> = sl.ins.iter().filter_map(|(l, _, _)| {
+            if l.len() == 1 { Some(l[0]) } else { None }
+        }).collect();
+        let r_fids: Vec<FactId> =
+            sr.ins.iter().filter(|(_, _, ph)| *ph != 1).map(|(f, _, _)| *f).collect();
+        let is_ab_batch = !l_fids.is_empty()
+            && l_fids.len() == sl.ins.len()
+            && {
+                let mut a = l_fids.clone();
+                let mut b = r_fids.clone();
+                a.sort_unstable();
+                b.sort_unstable();
+                a == b
+            };
+        if is_ab_batch {
+            let fno = env.fire_no();
+            // facts newest-first = staged order (prepend)
+            let facts: Vec<(Tup, FactId)> = sl
+                .ins
+                .iter()
+                .map(|(l, _, _)| (l.clone(), l[0]))
+                .collect();
+            let mem_lefts: Vec<Tup> =
+                node.lefts.iter().map(|(l, _)| l.clone()).collect();
+            for (l, _, _) in sl.ins.iter().rev() {
+                node.stamp_left_seq(l);
+                node.left_fire.insert(l.clone(), fno);
+            }
+            for (l, f) in facts.iter() {
+                let lkey = env.key_of_left(node_idx, l);
+                node.lefts.push((l.clone(), lkey));
+                let _ = f;
+            }
+            let origin = sl.ins.first().map(|(_, o, _)| *o).unwrap_or(None);
+            for (i, (l_f, fid)) in facts.iter().enumerate() {
+                let rkey = env.key_of_right(node_idx, *fid);
+                node.rights.push((*fid, rkey));
+                // arm 1: older staged lefts (arrival = reverse of the
+                // remaining prepend list) then memory lefts
+                let older_staged: Vec<&Tup> =
+                    facts[i + 1..].iter().rev().map(|(l, _)| l).collect();
+                for a in older_staged.into_iter().chain(mem_lefts.iter()) {
+                    if a.iter().any(|x| env.is_expired(*x)) {
+                        continue;
+                    }
+                    if env.allowed(node_idx, a, *fid) {
+                        let t = node.create_child(a, *fid, None, None);
+                        out.child_ins(t, origin, 1);
+                    }
+                }
+                // arm 2: self
+                if !env.is_expired(*fid) && env.allowed(node_idx, l_f, *fid) {
+                    let t = node.create_child(l_f, *fid, None, None);
+                    out.child_ins(t, origin, 1);
+                }
+                // arm 3: older staged rights (arrival) then memory rights
+                let older_r: Vec<FactId> =
+                    facts[i + 1..].iter().rev().map(|(_, f)| *f).collect();
+                for b in older_r.into_iter().chain(pre_rights.iter().copied()) {
+                    if env.is_expired(b) {
+                        continue;
+                    }
+                    if env.allowed(node_idx, l_f, b) {
+                        let t = node.create_child(l_f, b, None, None);
+                        out.child_ins(t, origin, 0);
+                    }
+                }
+            }
+        } else {
         for (l, _, _) in sl.ins.iter().rev() {
             node.stamp_left_seq(l);
         }
@@ -1195,6 +1269,7 @@ fn do_join_node<E: JoinEnv>(
                 }
             }
         }
+        } // end per-fact-AB / phased temporal insert split
     } else {
     // D-102 (pre_lifo_then_post_arr): rights staged while the path was
     // UNLINKED (ph=4, event sessions) process LIFO first; post-link
