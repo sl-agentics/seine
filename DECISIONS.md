@@ -4377,3 +4377,33 @@ head|arrival, sink0 consume: fwd|rev, peer consume: fwd|rev,
 526-both-rules/616/134 (all orderings recorded above and in the
 probe JSONs; the fuzz keeps under tmp/cepfuzz_*). Then re-gate,
 classify 987/853/810, campaign to zero.
+
+### D-102 (cycle 4, round 1): the twalk micro-checker found ONE
+### survivor but the PIN ENCODINGS were hand-derived pop-states —
+### the port oscillated; cycle-4 round 2 must SIMULATE, not encode
+tools/model_check_twalk.py enumerated {partner scan, pre_rights
+scan, leftIns iter, sink0/peer/single consume} against 8 pins and
+produced exactly one survivor: **partner scan = THIS-FIRE lefts
+arrival-first then prior-fire newest-first; pre_rights push-order;
+leftIns head; sink0+single consume REVERSE-creation, peer FORWARD**
+(the sink0/peer split matches the engine's existing prepend/append
+fan-out — only the partner scan needed porting).
+BUT the port regressed 616/134/min_sj in three different stampings
+(this-eval, fire-entry, fire-end boundaries) — because the model's
+per-pin ENTRY STATES (what is in memory vs staged at the pop; which
+generation a flush-filled left belongs to) were themselves
+hand-derived, reintroducing exactly the hand-model hazard the
+checker exists to remove. The passing-but-different pre_fill_len
+variant treats flush-filled lefts as MEMORY at the pop; the model's
+min_sj encoding treats them as THIS-FIRE; both satisfy their own
+frame and contradict on the engine.
+**Round 2 (next sitting): integrate the twalk dims into
+model_check_stream.py** — it already simulates flushes/self-drains/
+stashes per the landed semantics, so pop-entry states are DERIVED,
+not encoded. Add: two-rule (sink0/peer) firing pins, the partner-
+scan dims, per-consume-role dims; pins 551/526/616/134 both-rule
+orders + min_sj/cf56/t1/t15 + t6/t7/t14 as flush-path regression
+guards. Engine reverted to 317b178's green state (matrix 45,
+corpus 857, campaign residual 4: cf101x987, cf202x526+853,
+cf303x810 — 526 re-opens with the partner-scan revert, plus the
+853/810/987 unclassified).
