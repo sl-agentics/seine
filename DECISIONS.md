@@ -3714,3 +3714,22 @@ ops, not/exists over null keys, aggregates with null skips, all-null
 sum-0/min-no-propagate) — **8/8 PASS on first full contact** after
 two comparator fixes (SQL string quoting; handle mapping). Phase 3
 (null-rich generator + duckdb fuzz gate) and phase 4 (decimals) next.
+
+### D-097 phase 3 LANDED: null-rich DuckDB fuzz — the 3VL surface is
+### differentially witnessed
+tools/fuzz_duckdb.py: python-side generator (gen.rs untouched per the
+design) drawing insert-only, inert-RHS scenarios over the phase-1
+surface — 2-3 types, ~55% nullable fields at 30% null density, cmp
+across all ops, surface null tests, in/not-in with null members,
+composite groups (incl. negation), matches/contains, same-type-only
+eq/relational joins through possibly-null bindings, not/exists,
+accumulate sum/count/average/min/max over nullable args. Engine-axis
+exclusions documented in the header (epochs/actions/TMS/queries/
+or-rules/salience; i64-vs-f64 eq joins per D-020; f64 values are
+multiples of 0.25 so float sums are exact under any addition order;
+bools ==/!= only; translator paren-depth limits).
+**Gate: seeds 11/22/33 x 2000 = 6,000 generated cases, ZERO
+divergences, ZERO generator rejects** (+ the 60-case shakedown,
+seed 1). Every case is a fresh differential of the engine's 3VL
+implementation against DuckDB 1.5.4 match sets. Phases remaining:
+4 decimals, 5 bindings/Arrow boundary, 6 FEATURES promotion.
