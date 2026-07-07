@@ -4709,3 +4709,21 @@ peek, walk-through order, own-item comparison} mechanically
 against ALL 88 witnesses (the fixed 30 + the ladder + h-probes +
 the open 6). State: 83/88; certified gates all green (suites 9,
 corpus 956, bindings 72, lint 959).
+
+### D-106 (halt-class close-out): the pool space is mechanically
+### EXHAUSTED — the engine-as-checker matrix (10 configs x 88
+### witnesses) pins the stable model; 5 witnesses remain, each
+### needing an individual decode
+The adjudication rig: SEINE_HALT_TOP {eval-dirty | live-only} x
+SEINE_HALT_POOL {none | any | stack+MAIN | MAIN | stack | MAIN-dyn}
+run over all 88 agenda witnesses. Results: eval-dirty dominates
+(live-only: 47-50/88); EVERY blocker-pool variant scores 77-81 vs
+the stable none=83 — the executor's transparent-top continue
+consults NO other group's queues, and the 2842-class halt is NOT a
+pool-structured salience comparison. The five open witnesses
+(7397/6467/214/873/2842 + the non-agenda 6127) each need a
+trace-level decode; the halt-check hypothesis space {peek pool,
+dirt visibility, dyn-ness} is EXCLUDED for them wholesale.
+Stable config hard-coded (83/88); certified gates green (suites 9,
+corpus 956x3 tiers, bindings 72, lint). The h1-h3 discriminator
+probes ride probes_pending/agenda_open as oracle pins.

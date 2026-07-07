@@ -3506,12 +3506,13 @@ impl Engine {
                     );
                 }
                 if top_now != l_grp {
-                    // D-106 (fz_9003_879): the peek EVALUATES dirty
-                    // items before comparing (Drools evaluates-if-dirty
-                    // at reach); a top group whose items all evaluate
-                    // empty is transparent. The executor continues on a
-                    // transparent top with a pre-force drain list
-                    // (fz_9005_2842: fire-born activations wait).
+                    // D-106 (fz_9003_879 + the halt matrix, 10 configs
+                    // x 88 witnesses): the peek EVALUATES dirty items
+                    // before comparing; a transparent top with a
+                    // pre-force drain list continues. Every blocker-
+                    // pool variant {any, stack+MAIN, MAIN, stack,
+                    // MAIN-dyn} measured WORSE (77-81 vs 83) — the
+                    // continue consults no other groups' queues.
                     let top_owned = top_now.to_string();
                     let members: Vec<usize> = (0..self.rules.len())
                         .filter(|&rj| {
