@@ -74,8 +74,23 @@ public final class OracleRunner {
                 + "\n"
                 + scenario.path("drl").asText();
 
-        KieBase kbase = new KieHelper().addContent(drl, ResourceType.DRL).build();
-        KieSession session = kbase.newKieSession();
+        boolean hasEvents = false;
+        for (JsonNode t : scenario.path("types")) {
+            if (!t.path("event").isMissingNode()) hasEvents = true;
+        }
+        KieBase kbase;
+        KieSession session;
+        if (hasEvents) {
+            kbase = new KieHelper().addContent(drl, ResourceType.DRL)
+                    .build(org.kie.api.conf.EventProcessingOption.STREAM);
+            org.kie.api.runtime.KieSessionConfiguration ksc =
+                    org.kie.api.KieServices.Factory.get().newKieSessionConfiguration();
+            ksc.setOption(org.kie.api.runtime.conf.ClockTypeOption.get("pseudo"));
+            session = kbase.newKieSession(ksc, null);
+        } else {
+            kbase = new KieHelper().addContent(drl, ResourceType.DRL).build();
+            session = kbase.newKieSession();
+        }
         try {
             ArrayNode firings = M.createArrayNode();
             final KieSession fsession = session;
@@ -137,6 +152,14 @@ public final class OracleRunner {
                     } else if (op.equals("delete")) {
                         FactHandle fh = inserted.get(action.path("target").asInt());
                         session.delete(fh);
+                    } else if (op.equals("advance")) {
+                        // CEP E0: pseudo-clock advance (ms). Expiration
+                        // jobs run inside advanceTime (clock set to each
+                        // trigger's own fire time); their retractions
+                        // propagate at this epoch's fireAllRules.
+                        ((org.drools.core.time.SessionPseudoClock) session.getSessionClock())
+                                .advanceTime(action.path("ms").asLong(),
+                                        java.util.concurrent.TimeUnit.MILLISECONDS);
                     } else {
                         throw new IllegalArgumentException("unknown epoch action op: " + op);
                     }
@@ -204,11 +227,24 @@ public final class OracleRunner {
         }
     }
 
-    /** Generate DRL declare blocks from the ordered type schema. */
+    /** Generate DRL declare blocks from the ordered type schema.
+     *  CEP E0 (D-099): a type-level {"event": {"timestamp": f,
+     *  "expires_ms": N}} object renders @role(event) + @timestamp +
+     *  optional @expires — absent for the whole certified corpus. */
     static String declareBlocks(JsonNode types) {
         StringBuilder sb = new StringBuilder();
         for (JsonNode type : types) {
             sb.append("declare ").append(type.path("name").asText()).append('\n');
+            JsonNode ev = type.path("event");
+            if (!ev.isMissingNode()) {
+                sb.append("    @role( event )\n");
+                if (ev.has("timestamp")) {
+                    sb.append("    @timestamp( ").append(ev.path("timestamp").asText()).append(" )\n");
+                }
+                if (ev.has("expires_ms")) {
+                    sb.append("    @expires( ").append(ev.path("expires_ms").asLong()).append("ms )\n");
+                }
+            }
             for (JsonNode field : type.path("fields")) {
                 // @key on every field (D-076): declared-type equality =
                 // value-equality over all fields, so Drools TMS equality

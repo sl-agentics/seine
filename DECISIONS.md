@@ -3864,3 +3864,43 @@ expiration x TMS cascade, expiration x D-076 defer-drain), then
 E1 point events + @expires + after/before, E2 windows, E3 the rest.
 Fences: no wall clock / fireUntilHalt / entry points / @duration /
 rule timers; distinct expiry instants pending the tie probe.
+
+### D-100: CEP E0 RECON COMPLETE — six-rung probe ladder, zero
+### contradictions with the D-099 model; the two open risks resolve
+### FAVORABLY (Bryan review gate before E1)
+Oracle plumbing landed (OracleRunner): type-level event metadata
+{"event": {"timestamp": f, "expires_ms": N}} -> @role/@timestamp/
+@expires declare annotations; STREAM + pseudo-clock session ONLY
+when a scenario declares events (certified path untouched — full
+`make diff` re-verified green); epoch action {"op":"advance",
+"ms":N}. Probe results (probes_pending/cep/, all first-pass):
+- a1 @expires: WM-wide retract at the advance boundary; not-CE
+  observes; final WM drops the event. The basic machine works
+  end-to-end.
+- a2 TIE ORDER: two same-instant expirations retract in a STABLE
+  order — **10/10 fresh JVMs byte-identical** (insertion-shaped heap
+  order for this class). Posture: PIN the arrival-order behavior,
+  fuzz-gate larger tie batches (the D-083 lesson) rather than fence.
+- a3 MID-ADVANCE: **expirations batch** — two due retractions
+  (t=100, t=200) under one advance(300) propagate as ONE batch at
+  the epoch's fire with NO intermediate agenda evaluation (Rmid
+  never fired). The timer level rolls the clock per job, but the
+  RETE/agenda sees a single composed batch -> our port is
+  D-047-SHAPED (deadline-ordered retraction batch + one evaluate),
+  simpler than the memo's worst case.
+- a4 WINDOW-CLONE SCOPE confirmed: the window's accumulate REFIRED
+  when the clone expired (count 1 -> 0) while the FACT stayed in the
+  WM (@expires far away) — per-subtree unmatch vs WM-wide retract,
+  exactly as read from cloneAndLink.
+- a5/a5b INFERRED EXPIRATION confirmed and DIRECTIONAL: with no
+  @expires anywhere, the after[0,100ms] anchor side (E1) expired at
+  ~its reach and vanished from the final WM; the probing side (E2)
+  persisted. Control (in-window arrival) fires. Exact inference
+  rules = an E1-phase ladder.
+- a6 EXPIRATION x TMS: an expired event's logical dependent
+  auto-retracted through the certified D-076 cascade (J -> RD ->
+  expiry -> ND; final WM has neither E nor D). The memo's "TMS for
+  free at one remove" claim is now witnessed.
+E1 (point events + @expires + after/before + the deadline queue +
+generator/fuzz) awaits Bryan's go. Defer-drain composition (a7) is
+queued as an E1-ladder rung alongside the inference-rule probes.

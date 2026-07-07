@@ -1,0 +1,82 @@
+{
+ "name": "cep_a2_tie_order",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R1 when E1() then end\nrule R2 when E2() then end\nrule N1 when not E1() P() then end\nrule N2 when not E2() P() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

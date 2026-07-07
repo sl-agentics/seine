@@ -1,0 +1,75 @@
+{
+ "name": "cep_a5b_inferred_control",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when $a : E1() $b : E2(this after[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    }
+   ],
+   "facts": [
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 50,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ]
+}
