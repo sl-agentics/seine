@@ -325,11 +325,16 @@ PINS = [
 
 
 def main():
+    # cycle-3 dims (matches run()'s cfg tuple)
     dims = [
-        ["noop", "drain", "drain_t"],       # uflush
-        ["off", "all", "nonflush"],         # ldrain_plain
-        ["off", "all", "nonflush"],         # ldrain_temp
-        ["head", "arrival"],                # lorder
+        ["walk", "stay"],                   # plain_delta_rights
+        ["hidden", "visible"],              # plain_held
+        ["pre_lifo_then_post_lifo", "pre_lifo_then_post_arr",
+         "pre_arr_then_post_lifo", "pre_arr_then_post_arr",
+         "head", "arrival"],                # plain_rgen (link-relative)
+        ["walk", "stay"],                   # temp_delta_rights
+        ["head", "arrival"],                # temp_lorder
+        ["drain_t", "noop"],                # uflush
     ]
     survivors = []
     for cfg in itertools.product(*dims):
@@ -347,7 +352,7 @@ def main():
             survivors.append(cfg)
     print(f"{len(survivors)} survivor(s)")
     for s in survivors[:16]:
-        print("  uflush=%s ldrain_plain=%s ldrain_temp=%s lorder=%s" % s)
+        print("  pdr=%s pheld=%s prgen=%s tdr=%s tlord=%s uflush=%s" % s)
     if not survivors:
         best = {}
         for cfg in itertools.product(*dims):
