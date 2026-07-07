@@ -3450,3 +3450,59 @@ Bryan's ruling, executed after the upstream check came back on the
 - The D-090a "own ladder" work is CLOSED by this entry (mechanism
   D-092, ruling D-093). Remaining from the quarantine backlog:
   fz_999_2256 (D-090b — next).
+
+## D-090b discriminator work (2026-07-06/07)
+
+### D-094: THE 2256 MECHANISM PINNED (pre-implementation — Bryan
+### review gate): within ONE fact-update Drools processes alpha
+### ENTRIES during the OTN sink walk and defers alpha EXITS to the
+### end-of-modify drain (ModifyPreviousTuples) — entry-before-exit
+### creates a TRANSIENT all-linked window; the transient-queued item
+### (fz_7_2122) drains held staging into MEMORIES mid-fire, so
+### cross-boundary arrivals compose FIFO in memory where the engine
+### holds them LIFO in staging. (AccDump/RTN-item ground truth;
+### three eliminations en route.)
+
+**The decode (fz_min_2256, all dump-verified):** R5's fire-1 RHS =
+[insert T1("b"); setF0(true); update(T0#0)]. During the post-firing
+flush: T1("b") links R2's T1 node (the LIA still stale-holds T0#0);
+T0#0's update then ENTERS pattern-1's alpha BEFORE its pattern-0/LIA
+exit processes (entries ride the OTN sink walk; unmatched previous
+tuples retract at the END of modifyObject) — for that instant R2's
+single segment is ALL-LINKED -> doLinkRule creates+queues the item
+and sets the executor dirty (the item is OBSERVABLE at the fire-1
+boundary: item[queued=false dirty=false] where pre-flush it was
+null — items are only created by doLinkRule). The LIA exit then
+unlinks the path, but the queued+dirty item pops later in fire 1
+(D-091 lifecycle), drains T1("b") into the right MEMORY (rtm[b],
+staging empty at the boundary — dump), fires nothing, empties clean.
+Fire 2's fresh T1("zz") appends AFTER b -> the new left pair joins
+memory [b, zz] -> fires zz-first. The ENGINE processes the update's
+EXIT first (its on_update visits LIAs before trie nodes), never sees
+the transient, never creates the item -> T1("b") stays STAGED across
+the boundary and LIFO-merges behind zz -> fires b-first (the swap;
+value-bearing through downstream field reads).
+
+**Eliminated en route (each by a targeted dump/probe):** (1) an
+end-of-fire staged-drain sweep — DISPROVEN by the idle-fire control
+(external insert with nothing firing stays STAGED across the
+boundary); (2) lazy segment-init pulls — createSegmentMemory/
+processBetaNode create memories only, never drain; (3)
+flushLeftTupleIfNecessary — stream/event/data-driven only. The
+D-091-attribution hypothesis (D-090b) was already disproven by the
+port; this mechanism is the true member of the family — note it is
+the SAME machinery as fz_7_2122's pin, refined one level: the
+per-event link bookkeeping the engine already implements must also
+see the WITHIN-UPDATE transient.
+
+**Port shape (post-approval):** reorder Engine::on_update into two
+passes over the network — pass A: alpha ENTRIES and in-place
+(mask-hit) updates, in node build order; pass B: alpha EXITS — with
+note_link_effects after every node event as today. The D-081/D-083
+same-node out-and-back signatures are cross-EVENT and unaffected;
+the mask-miss reAdd is single-node; fz_7_2122's cross-event pin is
+preserved. Validation: fz_min_2256 + fz_999_2256 flip green and
+graduate; full corpus (810) + 5x10k fuzz arbitrate the reorder's
+blast radius. Tooling banked: AccDump now dumps JoinNode memories,
+staged sets, RTN PathMemory masks and item state per WM event and
+firing, and replays epochs — the RunnerDump pattern's generic form.

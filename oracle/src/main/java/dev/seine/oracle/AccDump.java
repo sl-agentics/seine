@@ -40,6 +40,18 @@ public final class AccDump {
         KieBase kbase = new KieHelper().addContent(drl, ResourceType.DRL).build();
         KieSession session = kbase.newKieSession();
         final int[] n = {0};
+        session.addEventListener(new org.kie.api.event.rule.DefaultRuleRuntimeEventListener() {
+            @Override
+            public void objectInserted(org.kie.api.event.rule.ObjectInsertedEvent event) {
+                System.out.println("WM-INSERT " + short_(event.getObject()));
+                dumpAcc(session);
+            }
+            @Override
+            public void objectUpdated(org.kie.api.event.rule.ObjectUpdatedEvent event) {
+                System.out.println("WM-UPDATE " + short_(event.getObject()));
+                dumpAcc(session);
+            }
+        });
         session.addEventListener(new DefaultAgendaEventListener() {
             @Override
             public void afterMatchFired(AfterMatchFiredEvent event) {
@@ -57,6 +69,16 @@ public final class AccDump {
             session.insert(instantiate(kbase, scenario, fact));
         }
         session.fireAllRules(10_000);
+        System.out.println("== FIRE-BOUNDARY ==");
+        dumpAcc(session);
+        for (JsonNode epoch : scenario.path("epochs")) {
+            for (JsonNode fact : epoch.path("facts")) {
+                session.insert(instantiate(kbase, scenario, fact));
+            }
+            session.fireAllRules(10_000);
+            System.out.println("== FIRE-BOUNDARY ==");
+            dumpAcc(session);
+        }
         System.out.println("== QUIESCENT ==");
         dumpAcc(session);
         session.dispose();
@@ -82,8 +104,32 @@ public final class AccDump {
 
     static void walk(Object node, Object reteEval, IdentityHashMap<Object, Boolean> seen) throws Exception {
         if (node == null || seen.put(node, true) != null) return;
+        if (node.getClass().getSimpleName().equals("RuleTerminalNode")) {
+            try {
+                Object pmem = call1(reteEval, "getNodeMemory", node,
+                        Class.forName("org.drools.core.common.MemoryFactory"));
+                Object item = call(pmem, "getRuleAgendaItem");
+                StringBuilder sb = new StringBuilder("  RTN ");
+                sb.append(call(call(node, "getRule"), "getName"));
+                sb.append(" lmask=").append(call(pmem, "getLinkedSegmentMask"));
+                sb.append("/").append(call(pmem, "getAllLinkedMaskTest"));
+                if (item != null) {
+                    sb.append(" item[queued=").append(call(item, "isQueued"));
+                    Object ex = call(item, "getRuleExecutor");
+                    if (ex != null) sb.append(" dirty=").append(call(ex, "isDirty"));
+                    sb.append(']');
+                } else {
+                    sb.append(" item=null");
+                }
+                System.out.println(sb);
+            } catch (Throwable t) {
+                System.out.println("  RTN dump error: " + t);
+            }
+        }
         if (node.getClass().getSimpleName().contains("AccumulateNode")) {
             dumpAccNode(node, reteEval);
+        } else if (node.getClass().getSimpleName().equals("JoinNode")) {
+            dumpJoinNode(node, reteEval);
         }
         // descend object sinks and left sinks
         for (String prop : new String[]{"getObjectSinkPropagator", "getSinkPropagator"}) {
@@ -95,6 +141,35 @@ public final class AccDump {
             } catch (NoSuchMethodException ignore) {
             }
         }
+    }
+
+    static void dumpJoinNode(Object node, Object reteEval) throws Exception {
+        Object bm = call1(reteEval, "getNodeMemory", node,
+                Class.forName("org.drools.core.common.MemoryFactory"));
+        Object ltm = call(bm, "getLeftTupleMemory");
+        Object rtm = call(bm, "getRightTupleMemory");
+        Object srt = call(bm, "getStagedRightTuples");
+        StringBuilder sb = new StringBuilder("  JOIN ").append(call(node, "getId"));
+        sb.append(" rtm[");
+        Object rit = call(rtm, "iterator");
+        for (Object rt = call(rit, "next"); rt != null; rt = call(rit, "next")) {
+            Object fh = call(rt, "getFactHandle");
+            sb.append(short_(fh != null ? call(fh, "getObject") : null)).append("; ");
+        }
+        sb.append("] stagedR-ins[");
+        Object si = call(srt, "getInsertFirst");
+        while (si != null) {
+            Object fh = call(si, "getFactHandle");
+            sb.append(short_(fh != null ? call(fh, "getObject") : null)).append("; ");
+            si = call(si, "getStagedNext");
+        }
+        sb.append("] ltm[");
+        Object lit = call(ltm, "iterator");
+        for (Object lt = call(lit, "next"); lt != null; lt = call(lit, "next")) {
+            sb.append(short_(call(lt, "toString"))).append("; ");
+        }
+        sb.append(']');
+        System.out.println(sb);
     }
 
     static void dumpAccNode(Object accNode, Object reteEval) throws Exception {
