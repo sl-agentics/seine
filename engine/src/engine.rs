@@ -2740,11 +2740,16 @@ impl Engine {
         let tid = self.store.fact_type(id);
         if let Some(&(fi, exp)) = self.event_specs.get(&tid) {
             if let Value::I64(ts) = self.store.value(id, fi) {
-                // D-102 (b1/b2 pins): Drools expiration is STRICTLY
-                // AFTER the window — the event survives through
-                // clock == ts+expires inclusive (ObjectTypeNode
-                // schedules the ExpireJob at offset + 1)
-                self.deadlines.entry(ts + exp + 1).or_default().push(id);
+                // D-102 (b1/b2 + f_only30 pins): Drools expiration is
+                // STRICTLY AFTER the window for RULE-REFERENCED types
+                // (the ObjectTypeNode schedules at offset + 1); an
+                // event type NO rule references has no OTN and expires
+                // at exactly ts + expires.
+                let referenced = self.rules.iter().any(|r| {
+                    r.patterns.iter().any(|p| p.type_id == tid)
+                });
+                let plus = if referenced { 1 } else { 0 };
+                self.deadlines.entry(ts + exp + plus).or_default().push(id);
             }
         }
     }
@@ -2753,7 +2758,9 @@ impl Engine {
     /// flushes. Captured BEFORE an insert's on_insert; the insert's
     /// own propagation is the HEAD segment beyond these lengths
     /// (staging prepends).
-    fn stage_snapshot(&self) -> (Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>) {
+    fn stage_snapshot(
+        &self,
+    ) -> (Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>) {
         // Per-node (s0_in, s_left, s_right) ins lengths for TOUCH
         // detection + per-rule k=1 s0 sizes. The STASH is rights-only
         // (D-102: the flush is LEFT-flushing — forceFlushLeftTuple;
@@ -2778,6 +2785,7 @@ impl Engine {
                 .iter()
                 .map(|n| n.s0.iter().map(|w| w.ins.len() + w.del.len() + w.upd.len()).sum())
                 .collect(),
+            (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect(),
         )
     }
 
@@ -2790,13 +2798,16 @@ impl Engine {
     /// the delta (activation queueing only — each flush is its own
     /// D-047-style window), SELF-DRAIN unlinked temporal deltas to
     /// memory (t6/t14 — this replaced drain-at-link), restore stashes.
-    fn stream_flush(&mut self, pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>)) {
+    fn stream_flush(
+        &mut self,
+        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>),
+    ) {
         self.stream_flush_ex(pre, true)
     }
 
     fn stream_flush_ex(
         &mut self,
-        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>),
+        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>),
         close_windows: bool,
     ) {
         if self.event_specs.is_empty() || !self.lists_built {
@@ -2852,12 +2863,24 @@ impl Engine {
                 continue;
             }
             if t.node.temporal {
-                // D-102 (cf101x616): temporal rights don't flush-pair
-                // either — but ONLY linked paths stash; unlinked
-                // deltas stay staged for the self-drain (t6/t14)
+                // D-102 (cf101x616/cf101x134): temporal deltas don't
+                // flush-pair on LINKED paths — rights stash whenever
+                // the path is linked NOW; lefts stash only when it was
+                // ALREADY linked pre-insert (the LINK-TRANSITION flush
+                // keeps the certified fill+pair against right memory —
+                // t6/t7/t10/t12/t13/t14). Unlinked deltas stay staged
+                // for the self-drain.
                 if node_linked[ni] {
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
-                    stash.push((sr_all, Vec::new(), Vec::new()));
+                    let (s0_all, sl_all) = if pre.2[t.env.0] {
+                        (
+                            std::mem::take(&mut t.s0_in.ins),
+                            std::mem::take(&mut t.node.s_left.ins),
+                        )
+                    } else {
+                        (Vec::new(), Vec::new())
+                    };
+                    stash.push((sr_all, s0_all, sl_all));
                 } else {
                     stash.push((Vec::new(), Vec::new(), Vec::new()));
                 }

@@ -4311,3 +4311,35 @@ topology churn — never committed); corpus now 851; lint 910/910
 incl. fence guards; model_check_stream main() dims fixed to
 cycle-3 (the earlier dims edit was ANOTHER silent no-op replace —
 assert-your-anchors is now doctrine, twice proven).
+
+### D-102 (residual peel, sitting 2): TWO mechanisms landed (9 -> 5
+### remain); the 551-vs-t14 link-flush contradiction is CYCLE 4
+Landed, fully gated (matrix 39 + suites 8 + corpus 851):
+1. **Linked-left temporal stash** (cf101x134): on an ALREADY-linked
+   path (pre-insert linked, per a new snapshot flag), temporal
+   left deltas stay staged at the flush — the pop walk fills and
+   pairs them in one batch (creations [(1257,1257),(1257,1209)] =
+   rightIns-then-leftIns phases). The LINK-TRANSITION flush keeps
+   the certified fill+pair vs right memory (t6/t7/t10/t12/t13/t14
+   — the fill-only measurement's breakage set, all late-anchor
+   rungs, now explained: fill-only DROPPED pairs by splitting fill
+   from pair across evaluations).
+2. **Referenced-type expiration boundary** (cf202x364, probe b8 +
+   b3-b7 ladder): the +1 (strictly-after) boundary belongs to the
+   ObjectTypeNode path — an event type NO rule references has no
+   OTN and expires at EXACTLY ts+expires. Engine: deadline = ts +
+   exp + (referenced ? 1 : 0). The b-ladder (8 probes) promoted.
+**OPEN — the cycle-4 contradiction (5 cases: 551/526/173 + 987 +
+853/810/998 unclassified):** cf101x551 (TWO shared-body rules,
+salience 13/0, same-fire link): the oracle does NOT pair at the
+mid-batch link-transition flush — one pop batch, leftIns
+HEAD-first, LAZY creation-order firings for both rules (TJ0's
+creation order matches engine; TJ1's window split does not). But
+t14 (ONE rule, same-fire link) REQUIRES flush-pairing with
+reverse-creation consume. Discriminator candidates: rule-sharing
+(identical bodies -> shared segment), salience-driven first-eval
+site, prologue-vs-external flush. model_check_stream cycle 4:
+add two-rule shared-node shapes, a flush-pair-at-link dim
+{always, single-rule-only, external-only, never}, lazy-vs-eager
+consume per eval site; pins 551/616/134 + t6/t7/t14/t15 + the
+u/v regression guard set.
