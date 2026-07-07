@@ -1,0 +1,60 @@
+{
+  "drl": "rule \"R0\"\nsalience 7\nwhen\n    (or (and T0(f0 > 6, $b0_0_0 : f1) T1(f0 <= -1000000007, f0 == $b0_0_0) $p0_2 : T0($b0_2_0 : f1)) (and T0(f3 == true, $b0_0_0 : f1, f2 > -3) T1(f0 <= -1000000007, f0 == $b0_0_0) $p0_2 : T0($b0_2_0 : f1)) (and T0(f0 > 6, $b0_0_0 : f1, f0 in (4, 4)) T1(f0 <= -1000000007, f0 == $b0_0_0) $p0_2 : T0($b0_2_0 : f1)))\nthen\n    delete($p0_2);\nend\nrule \"R1\"\nwhen\n    ( T1(f0 == -1000000007) )\n    or\n    ( T1(f0 == -1000000007) )\nthen\nend\nrule \"R2\"\nsalience($b2_0_1)\nwhen\n    T1($b2_0_0 : f0, $b2_0_1 : f0)\nthen\n    drools.setFocus(\"ga\");\nend\nrule \"R3\"\nagenda-group \"ga\"\nwhen\n    $p3_0 : T0(f2 < 100, f0 in (4.0, 3, 8), $b3_0_0 : f0, $b3_0_1 : f2)\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nsalience 6\nwhen\n    T1(f0 <= 6, f0 >= -1000000007 && f0 <= 9)\nthen\nend\nrule \"R5\"\nwhen\n    accumulate( T0($s5_0 : f2); $a5_0 : average($s5_0) )\nthen\n    insert(new T1(10));\n    insert(new T1(5));\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": 2
+          },
+          "type": "T1"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": -5,
+        "f1": 1.5,
+        "f2": 1,
+        "f3": false
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9002_716",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

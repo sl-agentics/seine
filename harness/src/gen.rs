@@ -355,6 +355,23 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     // (types + constraints + bound-field sets), so without deliberate
     // reuse the D-033/D-036 sharing surface would go unfuzzed.
     let mut prev_rules: Vec<Vec<GenPattern>> = Vec::new();
+    // D-106 pre-pass: agenda-group attrs decided up front so setFocus
+    // draws target only DECLARED groups (undeclared = Drools NPE, walled)
+    let rule_groups: Vec<Option<&str>> = (0..nrules)
+        .map(|_| {
+            if rng.chance(12) {
+                Some(*rng.pick(&["ga", "gb"]))
+            } else {
+                None
+            }
+        })
+        .collect();
+    let declared_groups: Vec<&str> = {
+        let mut v: Vec<&str> = rule_groups.iter().flatten().copied().collect();
+        v.sort_unstable();
+        v.dedup();
+        v
+    };
     for ri in 0..nrules {
         let mut pats: Vec<GenPattern> = Vec::new();
         // Prefix reuse (true node sharing): copy 2..all leading patterns
@@ -709,6 +726,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
 
         // RHS actions.
         let mut actions: Vec<String> = Vec::new();
+        // D-106: setFocus at low probability — pushes/relocations
+        // compose against every other mechanism
+        if !declared_groups.is_empty() && rng.chance(10) {
+            let g = *rng.pick(&declared_groups);
+            actions.push(format!("drools.setFocus(\"{g}\");"));
+        }
         let max_ti = pats
             .iter()
             .flat_map(|p| {
@@ -876,6 +899,11 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         }
         if rng.chance(10) {
             drl.push_str("no-loop\n");
+        }
+        // D-106: agenda groups at low probability (two group names so
+        // stacking/relocation paths get exercised)
+        if let Some(g) = rule_groups[ri] {
+            drl.push_str(&format!("agenda-group \"{g}\"\n"));
         }
         drl.push_str("when\n");
         let render_pat = |p: &GenPattern| -> String {

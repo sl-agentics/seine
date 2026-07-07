@@ -1,0 +1,124 @@
+{
+  "drl": "rule \"R0\"\nsalience -5\nwhen\n    T1(f1 != false, f0 contains \"alpha\", $b0_0_0 : f1, $b0_0_1 : f0)\nthen\n    drools.setFocus(\"gb\");\n    insert(new T3(\"a\", $b0_0_0));\nend\nrule \"R1\"\nwhen\n    (or $p1_0 : T3(f1 == true, f1 in (true, true, false), $b1_0_0 : f0, $b1_0_1 : f1) $p1_0 : T3(f1 == true, f1 in (true, true, false), $b1_0_0 : f0, $b1_0_1 : f1) $p1_0 : T3(f1 != true, f1 in (true, true, false), $b1_0_0 : f0, $b1_0_1 : f1))\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nsalience -8\nwhen\n    (or $p2_0 : T2($b2_0_0 : f1, $b2_0_1 : f1, f1 == false) $p2_0 : T2($b2_0_0 : f1, $b2_0_1 : f1, f1 == false) $p2_0 : T2($b2_0_0 : f1, $b2_0_1 : f1, f1 == false))\nthen\n    insert(new T3(\"b\", false));\n    insert(new T3(\"beta\", true));\n    $p2_0.setF1(true);\n    update($p2_0);\nend\nrule \"R3\"\nwhen\n    ( T0(f0 <= 100) )\n    or\n    ( T0(f0 <= 100) )\nthen\n    insert(new T1(\"alpha\", true));\nend\nrule \"R4\"\nwhen\n    T3(f0 < \"zz\", f0 != \"ab\", $b4_0_0 : f0, $b4_0_1 : f1)\nthen\nend\nrule \"R5\"\nagenda-group \"gb\"\nwhen\n    T0(f0 >= 2, f0 > 100)\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": "",
+            "f1": false
+          },
+          "op": "insert",
+          "type": "T3"
+        },
+        {
+          "fields": {
+            "f0": 10
+          },
+          "op": "update",
+          "target": 2
+        }
+      ],
+      "facts": []
+    },
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": false,
+            "f1": true
+          },
+          "type": "T2"
+        },
+        {
+          "fields": {
+            "f0": "b",
+            "f1": false
+          },
+          "type": "T3"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 1
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_9002_7670",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

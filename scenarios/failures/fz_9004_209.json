@@ -1,0 +1,125 @@
+{
+  "drl": "rule \"R0\"\nagenda-group \"ga\"\nwhen\n    $p0_0 : T0(f0 in (-5, 6, 4.0), f0 < -1000000007, $b0_0_0 : f0, $b0_0_1 : f0)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    ( T0(f0 < 4, f0 not in (-2)) and T0(f0 == 5.5, f0 == 2, $b1_1_0 : f0) )\n    or\n    ( T0(f0 < 4, f0 not in (-2), f0 < 6) and T0(f0 == 5.5, f0 == -3, $b1_1_0 : f0) )\n    or\n    ( T0(f0 > 3, f0 not in (-2)) and T0(f0 == 11, f0 == 2, $b1_1_0 : f0) )\nthen\nend\nrule \"R2\"\nwhen\n    ( exists T0() )\n    or\n    ( exists T0() )\nthen\n    insert(new T1(\"ab\", 3.0, true, true));\nend\nrule \"R3\"\nwhen\n    ( T0(f0 < 4, f0 not in (-2)) and $p3_1 : T0(f0 == 5.5, f0 == 2, $b3_1_0 : f0) )\n    or\n    ( T0(f0 < 4, f0 >= 100) and $p3_1 : T0(f0 != 3, f0 == 2, $b3_1_0 : f0) )\nthen\n    delete($p3_1);\nend\nrule \"R4\"\nsalience -8\nagenda-group \"ga\"\nwhen\n    $p4_0 : T2(f0 > 7, $b4_0_0 : f1, $b4_0_1 : f0)\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nwhen\n    (or T2($b5_0_0 : f2, $b5_0_1 : f2) T2($b5_0_0 : f2, $b5_0_1 : f2, f2 != false))\nthen\n    drools.setFocus(\"ga\");\nend\nquery Q0(long $qa0_0)\n    $qp0_0 : T0(f0 == $qa0_0, f0 == $qa0_0, f0 > -1000000007, f0 <= 100, $qb0_0 : f0, $qb0_1 : f0)\n    $qp0_1 : T0(f0 == $qa0_0, f0 < -1, f0 > $qb0_1, $qb0_2 : f0)\nend\n\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1,
+        "f1": true
+      },
+      "type": "T3"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": false
+      },
+      "type": "T3"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": -0.5,
+        "f2": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 3,
+        "f1": -3.0,
+        "f2": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": -1000000007
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0,
+        "f1": false
+      },
+      "type": "T3"
+    }
+  ],
+  "name": "fz_9004_209",
+  "queries": [
+    {
+      "args": [
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        -1000000007
+      ],
+      "call": "Q0"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

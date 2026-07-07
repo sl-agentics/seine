@@ -1,0 +1,81 @@
+{
+  "drl": "rule \"R0\"\nagenda-group \"ga\"\nwhen\n    $a0_0 : ArrayList() from collect( T1(f2 contains \"alpha\") )\nthen\nend\nrule \"R1\"\nsalience -3\nwhen\n    T1($b1_0_0 : f2)\n    T0(f2 == true, $b1_1_0 : f1, $b1_1_1 : f1)\nthen\n    insert(new T2(false));\n    insert(new T2(true));\nend\nrule \"R2\"\nwhen\n    ( $p2_0 : T0(f1 < 7, f2 != true, $b2_0_0 : f2) )\n    or\n    ( $p2_0 : T0(f1 < 7, f2 != true, $b2_0_0 : f2) )\nthen\n    insert(new T1($p2_0.getF1(), $b2_0_0, \"a\"));\nend\nrule \"R3\"\nsalience -9\nwhen\n    T0(f2 == false, $b3_0_0 : f1)\n    $p3_1 : T0(f2 != false, f0 > 2.0, f2 == false)\n    not T2(f0 in (true, true), f0 == false, f0 == true || f0 != false || !(f0 != false))\nthen\n    $p3_1.setF2(true);\n    $p3_1.setF0(-0.5);\n    update($p3_1);\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0($b4_0_0 : f1, $b4_0_1 : f2)\nthen\n    drools.setFocus(\"ga\");\n    insert(new T1($b4_0_0, $p4_0.isF2(), \"a\"));\n    insert(new T2($b4_0_1));\nend\nrule \"R5\"\nsalience -7\nwhen\n    T1(f1 == false, f1 == true, $b5_0_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 0.0,
+        "f1": 6,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": true,
+        "f2": "b"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 4.0,
+        "f1": 5,
+        "f2": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9004_9",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

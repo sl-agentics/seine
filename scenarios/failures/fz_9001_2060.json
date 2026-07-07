@@ -1,0 +1,82 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1()\nthen\nend\nrule \"R1\"\nsalience($b1_1_0)\nwhen\n    not(T1(f1 contains \"\") and T1(f0 <= 11))\n    T0($b1_1_0 : f1)\n    T1(f0 >= -0.5, $b1_2_0 : f2)\nthen\nend\nrule \"R2\"\nsalience 1\nno-loop\nwhen\n    $p2_0 : T0()\nthen\n    insert(new T1(-2.0, \"ab\", $p2_0.isF0()));\n    insert(new T1($p2_0.getF2(), \"alpha\", false));\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0($b3_0_0 : f2)\nthen\n    drools.setFocus(\"ga\");\n    insert(new T1($p3_0.getF2(), \"\", false));\n    insert(new T1($p3_0.getF1(), \"b\", $p3_0.isF0()));\nend\nrule \"R4\"\nwhen\n    (or T1(f0 > 0, f0 not in (2.0), f0 > -0.5 && < 2.5) T1(f0 > 0, f2 == true, f0 > -0.5 && < 2.5))\nthen\nend\nrule \"R5\"\nagenda-group \"ga\"\nwhen\n    exists(T0() and T0(f1 == 3.5))\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": 2.0,
+        "f2": 5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0.0,
+        "f1": "b",
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": 2.5,
+        "f2": -1
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0.0,
+        "f1": "b",
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -3.0,
+        "f1": "ab",
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9001_2060",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

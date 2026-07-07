@@ -1,0 +1,65 @@
+{
+ "name": "pr_ag11_tms_in_group",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule F salience 10 when P($v : v) then drools.setFocus(\"g\"); end\nrule J agenda-group \"g\" when P($v : v) then insertLogical(new D(\"x\")); end\nrule RD when D() then end\nrule ND salience -5 when not D() Q($v : v) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "Q",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ]
+}

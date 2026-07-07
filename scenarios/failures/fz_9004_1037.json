@@ -1,0 +1,82 @@
+{
+  "drl": "rule \"R0\"\nsalience 8\nno-loop\nwhen\n    T0(f1 != true, $b0_0_0 : f1, $b0_0_1 : f1)\n    T0(f1 != true, f0 == 100, f0 < -3 || f0 > 0, $b0_1_0 : f0)\n    T1(f1 < $b0_1_0)\nthen\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f2)\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R2\"\nsalience 2\nagenda-group \"ga\"\nwhen\n    $p2_0 : T0(f1 != true, $b2_0_0 : f1, $b2_0_1 : f1)\n    T0(f1 != true, f0 == 100, f0 < -3 || f0 > 0, $b2_1_0 : f0)\nthen\n    insert(new T1(6, $p2_0.getF0(), \"a\"));\nend\nrule \"R3\"\nagenda-group \"gb\"\nwhen\n    T0($b3_0_0 : f0)\nthen\nend\nrule \"R4\"\nsalience -9\nwhen\n    T1(f1 != -1000000007, $b4_0_0 : f2)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 8,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0,
+        "f1": 100,
+        "f2": ""
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -1,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 8,
+        "f1": 100,
+        "f2": "ab"
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9004_1037",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

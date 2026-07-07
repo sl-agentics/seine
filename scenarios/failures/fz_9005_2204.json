@@ -1,0 +1,144 @@
+{
+  "drl": "rule \"R0\"\nsalience 1\nagenda-group \"ga\"\nwhen\n    accumulate( T2(f1 < 11, f3 in (true), $s0_0 : f1); $a0_0 : min($s0_0) )\nthen\n    drools.setFocus(\"ga\");\nend\nrule \"R1\"\nsalience -1\nwhen\n    $p1_0 : T2(f3 == true)\nthen\n    drools.setFocus(\"ga\");\n    delete($p1_0);\nend\nrule \"R2\"\nsalience -10\nwhen\n    T1($b2_0_0 : f1, $b2_0_1 : f1)\n    T2(f3 != true, f3 != true, $b2_1_0 : f3)\n    T0(f0 in (\"zz\"), f1 != 9, $b2_2_0 : f0, $b2_2_1 : f1)\nthen\nend\nrule \"R3\"\nsalience 1\nwhen\n    T1($b3_0_0 : f1, $b3_0_1 : f1)\n    T2(f3 != true, f3 != true, $b3_1_0 : f3)\n    T0(f0 in (\"zz\"), f1 != 9, $b3_2_0 : f0, $b3_2_1 : f1)\nthen\n    drools.setFocus(\"ga\");\nend\nrule \"R4\"\nsalience -6\nwhen\n    $p4_0 : T0()\nthen\n    insert(new T2($p4_0.getF0(), $p4_0.getF1(), -5, false));\nend\nrule \"R5\"\nwhen\n    $a5_0 : ArrayList() from collect( T1() )\nthen\n    insert(new T2(\"zz\", -5, -1000000007, false));\n    insert(new T2(\"beta\", 9, 11, false));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "op": "delete",
+          "target": 0
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "",
+            "f1": 100,
+            "f2": 1,
+            "f3": true
+          },
+          "type": "T2"
+        },
+        {
+          "fields": {
+            "f0": "ab",
+            "f1": false
+          },
+          "type": "T1"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "op": "delete",
+          "target": 1
+        },
+        {
+          "fields": {
+            "f0": "zz",
+            "f1": 5,
+            "f2": 11,
+            "f3": false
+          },
+          "op": "insert",
+          "type": "T2"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "",
+            "f1": 8,
+            "f2": 8,
+            "f3": false
+          },
+          "type": "T2"
+        },
+        {
+          "fields": {
+            "f0": "ab",
+            "f1": 2,
+            "f2": -5,
+            "f3": true
+          },
+          "type": "T2"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": 1
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "zz",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": -1,
+        "f2": -5,
+        "f3": true
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_9005_2204",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

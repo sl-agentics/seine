@@ -1,0 +1,63 @@
+{
+  "drl": "rule \"R0\"\nsalience 8\nwhen\n    exists(T1(f0 < -3, $g0_0 : f3) and T0(f1 != false, f1 != $g0_0))\nthen\nend\nrule \"R1\"\nsalience 2\nagenda-group \"ga\"\nwhen\n    $p1_0 : T0()\n    T0(f1 != false)\n    not T1(f3 == false)\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nsalience 3\nwhen\n    T0()\n    T0(f1 != false)\nthen\n    drools.setFocus(\"ga\");\n    insertLogical(new T1(-1000000007, \"zz\", \"ab\", true));\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0()\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nsalience 3\nwhen\n    $p4_0 : T0($b4_0_0 : f0, $b4_0_1 : f0)\nthen\n    delete($p4_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9005_2163",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    ( $p0_0 : T0($b0_0_0 : f2) and exists(T0(f1 != true) and T0(f1 != false)) )\n    or\n    ( $p0_0 : T0($b0_0_0 : f2) and exists(T0(f1 != true) and T0(f1 != false)) )\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nsalience($b1_2_0 * -1)\nwhen\n    T0()\n    T1(f0 != \"alpha\" || f0 in (\"\") || !(f0 >= \"zz\"))\n    T0(f2 >= \"ab\", $b1_2_0 : f0, $b1_2_1 : f2)\nthen\n    drools.setFocus(\"ga\");\nend\nrule \"R2\"\nagenda-group \"ga\"\nwhen\n    T1(f0 == \"zz\")\n    exists T1(f0 matches \"aha*al*\", f0 contains \"z\")\n    $p2_2 : T1()\nthen\n    delete($p2_2);\nend\nrule \"R3\"\nwhen\n    $p3_0 : T1(f0 == \"zz\")\n    exists T1(f0 matches \"aha*al*\", f0 contains \"z\")\n    T1()\nthen\n    drools.setFocus(\"ga\");\n    delete($p3_0);\nend\nrule \"R4\"\nwhen\n    T1(f0 contains \"\", f0 contains \"et\", $b4_0_0 : f0)\nthen\nend\nrule \"R5\"\nno-loop\nwhen\n    exists T0(f1 == false, f0 >= 100)\nthen\n    insert(new T1(\"beta\"));\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": "ab"
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": -1000000007,
+            "f1": false,
+            "f2": "b"
+          },
+          "type": "T0"
+        }
+      ]
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": -1,
+            "f1": false,
+            "f2": "alpha"
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": 1,
+            "f1": true,
+            "f2": "zz"
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": 1,
+        "f1": false,
+        "f2": "a"
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": ""
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "b"
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9002_5580",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

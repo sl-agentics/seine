@@ -1,0 +1,110 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0($b0_0_0 : f1)\nthen\n    drools.setFocus(\"gb\");\n    delete($p0_0);\nend\nrule \"R1\"\nno-loop\nagenda-group \"gb\"\nwhen\n    $p1_0 : T0(f1 <= \"alpha\", $b1_0_0 : f0, $b1_0_1 : f3, f3 == false)\nthen\n    insert(new T1(2.5, \"alpha\", $b1_0_1));\n    modify($p1_0) { setF3(true) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 4.5,
+        "f1": "ab",
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": "a",
+        "f2": 0.0,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -0.5,
+        "f1": "",
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "zz",
+        "f2": -3.0,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "ab",
+        "f2": -0.5,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6.0,
+        "f1": "alpha",
+        "f2": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9004_547",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

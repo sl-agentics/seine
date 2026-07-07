@@ -1,0 +1,33 @@
+{
+ "name": "pr_ag6_two_focus_stack",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule F salience 10 when P($v : v) then drools.setFocus(\"a\"); drools.setFocus(\"b\"); end\nrule A agenda-group \"a\" when P($v : v) then end\nrule B agenda-group \"b\" when P($v : v) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": []
+}

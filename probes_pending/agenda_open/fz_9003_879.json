@@ -1,0 +1,74 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nagenda-group \"gb\"\nwhen\n    T1(f0 < 2.5, $b0_0_0 : f2, $b0_0_1 : f1)\n    exists T1(f1 > 11)\n    T1(f2 <= 7, f0 == $b0_0_0, $b0_2_0 : f2, $b0_2_1 : f2)\nthen\nend\nrule \"R1\"\nwhen\n    T1(f1 <= 0, !(f0 == 3 || f2 not in (4, -1000000007, 10)))\nthen\nend\nrule \"R2\"\nsalience -8\nwhen\n    $p2_0 : T0($b2_0_0 : f0)\nthen\n    drools.setFocus(\"gb\");\n    insert(new T1($b2_0_0, $p2_0.getF0(), 100));\n    insert(new T1(100, $p2_0.getF0(), -3));\nend\nrule \"R3\"\nwhen\n    exists T0(f0 >= 100)\nthen\n    insert(new T1(-1000000007, -4, 12));\nend\nrule \"R4\"\nsalience 9\nagenda-group \"gb\"\nwhen\n    T1(f1 < 9, $b4_0_0 : f0, $b4_0_1 : f0)\nthen\nend\nrule \"R5\"\nwhen\n    ( $p5_0 : T1($b5_0_0 : f2) )\n    or\n    ( $p5_0 : T1($b5_0_0 : f2) )\nthen\n    delete($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6,
+        "f1": 100,
+        "f2": 12
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 8
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": -3,
+        "f2": 2
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 9
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 100
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9003_879",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

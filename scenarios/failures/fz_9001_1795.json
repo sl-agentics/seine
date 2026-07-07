@@ -1,0 +1,68 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    ( T1(f1 not in (0), $b0_0_0 : f0) )\n    or\n    ( T1(f1 not in (0), $b0_0_0 : f0) )\n    or\n    ( T1(f1 < 6, $b0_0_0 : f0, f0 < 2.5) )\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0(f0 < 2.5, f0 not in (-1.5))\nthen\n    drools.setFocus(\"ga\");\n    delete($p1_0);\nend\nrule \"R2\"\nwhen\n    T0(f0 >= -2.0)\nthen\n    drools.setFocus(\"ga\");\n    insert(new T1(1.5, 7, false));\nend\nrule \"R3\"\nsalience 5\nwhen\n    accumulate( T1($s3_0 : f1); $a3_0 : average($s3_0) )\nthen\nend\nrule \"R4\"\nwhen\n    $p4_0 : T1($b4_0_0 : f1, f2 == false)\nthen\n    modify($p4_0) { setF2(true), setF0($b4_0_0) }\nend\nrule \"R5\"\nsalience -6\nagenda-group \"ga\"\nwhen\n    $p5_0 : T1(f0 == 0.5, f0 == -3, f2 == false)\n    $a5_1 : ArrayList() from collect( T0(f0 in (-1000000007, 5.5, 1)) )\n    accumulate( T1(f2 != true, !(f2 != false || f2 == true), $s5_2 : f0); $a5_2 : average($s5_2) )\nthen\n    $p5_0.setF2(true);\n    $p5_0.setF1(10);\n    update($p5_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 2.0
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4.5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0.0,
+        "f1": 7,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 4.5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -0.5,
+        "f1": 10,
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9001_1795",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

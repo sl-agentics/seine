@@ -1,0 +1,93 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $a0_0 : ArrayList() from collect( T1(f2 == true) )\nthen\nend\nrule \"R1\"\nagenda-group \"gb\"\nwhen\n    T0(f0 not in (true, false, true), f0 != false, $b1_0_0 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    T0(f0 not in (true, true), $b2_0_0 : f0)\nthen\n    drools.setFocus(\"gb\");\n    insertLogical(new T1(1, -4, true));\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": []
+    },
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": false
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9002_1011",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

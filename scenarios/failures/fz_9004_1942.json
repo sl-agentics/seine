@@ -1,0 +1,200 @@
+{
+  "drl": "rule \"R0\"\nsalience -7\nagenda-group \"ga\"\nwhen\n    $p0_0 : T1($b0_0_0 : f1, $b0_0_1 : f1)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f0)\n    T0(f0 > 4, $b1_1_0 : f2)\nthen\n    drools.setFocus(\"ga\");\nend\nquery Q0(String $qa0_0, double $qa0_1)\n    ( $qp0_0 : T1(f1 == $qa0_0, f2 <= 100, f2 > -1) )\n    or\n    ( $qp0_1 : T1(f0 == $qa0_1, f1 > \"alpha\", f2 != 9, $qb0_0 : f2, $qb0_1 : f2) and $qp0_2 : T1(f1 != \"\", f0 >= -2.5, f2 < $qb0_1, $qb0_2 : f2) )\n    or\n    ( $qp0_3 : T1(f1 == $qa0_0, f2 != 7, f2 != -1) )\nend\n\nquery Q1(String $qa1_0, boolean $qa1_1)\n    $qp1_0 : T0(f1 == $qa1_0, f2 == $qa1_1, f2 != true, $qb1_0 : f0)\n    $qp1_1 : T0(f0 >= -1000000007, f1 < \"beta\", $qb1_1 : f0, $qb1_2 : f2)\nend\n\nquery TCr(String $a, String $b)\n    ( RelR(src == $a, dst == $b) )\n    or\n    ( RelR($m, $b;) and TCr($a, $m;) )\nend\n\nquery TWr(String $w)\n    TCr($w, $f;)\nend\n\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -2.0,
+        "f1": "alpha",
+        "f2": 1
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -5,
+        "f1": "beta",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3.0,
+        "f1": "beta",
+        "f2": 11
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": "b",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "dst": "v1",
+        "src": "v0"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v3",
+        "src": "v2"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v2",
+        "src": "v1"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v2",
+        "src": "v1"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v2",
+        "src": "v1"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "node": "v3"
+      },
+      "type": "MarkR"
+    }
+  ],
+  "name": "fz_9004_1942",
+  "queries": [
+    {
+      "args": [
+        "ab",
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null,
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        null,
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        "v3",
+        null
+      ],
+      "call": "TCr"
+    },
+    {
+      "args": [
+        null,
+        null
+      ],
+      "call": "TCr"
+    },
+    {
+      "args": [
+        "v0",
+        null
+      ],
+      "call": "TCr"
+    },
+    {
+      "args": [
+        null,
+        "v3"
+      ],
+      "call": "TCr"
+    },
+    {
+      "args": [
+        "v2"
+      ],
+      "call": "TWr"
+    },
+    {
+      "args": [
+        "v3"
+      ],
+      "call": "TWr"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "src",
+          "type": "String"
+        },
+        {
+          "name": "dst",
+          "type": "String"
+        }
+      ],
+      "name": "RelR"
+    },
+    {
+      "fields": [
+        {
+          "name": "node",
+          "type": "String"
+        }
+      ],
+      "name": "MarkR"
+    }
+  ]
+}

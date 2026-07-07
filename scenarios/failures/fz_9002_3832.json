@@ -1,0 +1,84 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T1(f1 == false)\nthen\n    $p0_0.setF1(true);\n    $p0_0.setF0($p0_0.getF0());\n    update($p0_0);\nend\nrule \"R1\"\nagenda-group \"gb\"\nwhen\n    (or T0($b1_0_0 : f0, $b1_0_1 : f0) T0($b1_0_0 : f0, $b1_0_1 : f0))\nthen\n    insert(new T1(\"ab\", true));\nend\nrule \"R2\"\nsalience($b2_0_0 - $b2_0_0)\nwhen\n    T0(f0 >= -5, $b2_0_0 : f0)\n    T0(f1 != 2.5, f0 > 0.0 || f1 < 3.5 || !(f0 <= 0), $b2_1_0 : f1, $b2_1_1 : f0)\nthen\n    drools.setFocus(\"gb\");\n    insert(new T1(\"ab\", false));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 6,
+            "f1": 2.5
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": "alpha",
+            "f1": true
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": []
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": -3,
+            "f1": 5.5
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": 1,
+            "f1": -2.0
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": -1000000007,
+            "f1": 1.0
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [],
+  "name": "fz_9002_3832",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

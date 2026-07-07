@@ -324,6 +324,8 @@ enum CompiledAction {
     Set { pos: usize, field_idx: usize, arg: Src },
     Update { pos: usize },
     Delete { pos: usize },
+    /// D-106: push the group on the focus stack (relocate if present).
+    SetFocus { group: String },
 }
 
 struct CompiledRule {
@@ -940,6 +942,12 @@ pub struct Engine {
     flush_trigger_tid: Option<TypeId>,
     ever_linked: Vec<bool>,
     stage_seq: u64,
+    /// D-106: the agenda focus stack. Empty = MAIN focused. Rules
+    /// fire only while their group is on TOP; an emptied top pops.
+    focus_stack: Vec<String>,
+    /// Set by a firing's setFocus; the post-firing executor-continue
+    /// applies only then (the rescan is pool-equivalent otherwise).
+    focus_changed: bool,
     store: FactStore,
     rules: Vec<CompiledRule>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
@@ -1033,6 +1041,8 @@ impl Engine {
             flush_trigger_tid: None,
             ever_linked: Vec::new(),
             stage_seq: 0,
+            focus_stack: Vec::new(),
+            focus_changed: false,
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_parents: Vec::new(),
@@ -1114,6 +1124,28 @@ impl Engine {
             })
             .map(|r| r.def.name.as_str())
             .collect();
+        // D-106: setFocus to a group NO rule declares is a Drools
+        // runtime NPE (murky ConsequenceException) — walled at compile
+        // per the D-076 pattern (fail fast, name the fix).
+        {
+            let declared: HashSet<&str> = self
+                .rules
+                .iter()
+                .filter_map(|r| r.def.agenda_group.as_deref())
+                .collect();
+            for r in &self.rules {
+                for a in &r.actions {
+                    if let CompiledAction::SetFocus { group } = a {
+                        if !declared.contains(group.as_str()) {
+                            return Err(EngineError(format!(
+                                "rule {}: setFocus({group:?}) targets a group no rule declares —                                  Drools NPEs at runtime on this; declare `agenda-group {group:?}`                                  on at least one rule (D-106)",
+                                r.def.name
+                            )));
+                        }
+                    }
+                }
+            }
+        }
         if has_qce && !mutating.is_empty() {
             return Err(EngineError(format!(
                 "?query CEs cannot coexist with update/modify/delete actions (D-057) —                  ?query rules: [{}]; mutating rules: [{}]",
@@ -2514,6 +2546,9 @@ impl Engine {
                         .ok_or_else(|| err(format!("unknown fact binding {var}")))?;
                     actions.push(CompiledAction::Delete { pos });
                 }
+                Action::SetFocus { group } => {
+                    actions.push(CompiledAction::SetFocus { group: group.clone() });
+                }
             }
         }
         // Salience (D-043): static, or a per-activation expression over
@@ -2692,6 +2727,7 @@ impl Engine {
         self.in_stream_flush = false;
         self.flush_trigger_tid = None;
         self.ever_linked.clear();
+        self.focus_stack.clear();
         self.store.reset();
         self.lias.clear();
         self.trie.clear();
@@ -3374,10 +3410,17 @@ impl Engine {
             // t11) — Drools' halt structure is WHY that pin exists; one
             // mechanism, now unified.
             let l_sal = self.item_salience(l);
+            let l_group = self.rules[l].def.agenda_group.as_deref().unwrap_or("MAIN");
+            let top_g: &str = self.focus_stack.last().map(|s| s.as_str()).unwrap_or("MAIN");
             let higher = (0..self.rules.len()).any(|rj| {
-                rj != l && self.nets[rj].queued && self.item_salience(rj) > l_sal
-            }) || (0..self.queries.len())
-                .any(|qi| self.query_pending[qi] && 0 > l_sal);
+                rj != l
+                    && self.nets[rj].queued
+                    && self.rules[rj].def.agenda_group.as_deref().unwrap_or("MAIN") == top_g
+                    && self.item_salience(rj) > l_sal
+            }) || (top_g == "MAIN"
+                && (0..self.queries.len())
+                    .any(|qi| self.query_pending[qi] && 0 > l_sal));
+            let _ = l_group;
             if !higher {
                 dbg_eval("post-fire-force", l);
                 self.evaluate_rule(l, true, false);
@@ -3409,6 +3452,35 @@ impl Engine {
             {
                 // removeRuleAgendaItemWhenEmpty: !dirty && empty (D-091)
                 self.nets[l].queued = false;
+            }
+            // D-106 (fz_9001_1795 vs fz_9001_6127): a non-halted
+            // executor KEEPS CONTROL — observable exactly when THIS
+            // firing ran setFocus (the rescan would let the group-pop
+            // change the candidate pool). All other paths keep the
+            // corpus-certified rescan, which is pool-equivalent.
+            let _ = std::mem::take(&mut self.focus_changed);
+            // D-106 (fz_9001_1795 vs fz_9004_9): the executor keeps
+            // control iff, after EMPTY groups pop through, the focus
+            // is back on ITS OWN group. A setFocus that lands a
+            // non-empty group on top halts it (Drools' executor is
+            // bound to its group).
+            if !higher && !self.focus_stack.is_empty() && !self.nets[l].queue.is_empty() {
+                while let Some(top) = self.focus_stack.last() {
+                    let any_queued = (0..self.rules.len()).any(|rj| {
+                        self.nets[rj].queued
+                            && self.rules[rj].def.agenda_group.as_deref() == Some(top.as_str())
+                    });
+                    if any_queued {
+                        break;
+                    }
+                    self.focus_stack.pop();
+                }
+                let top_now: &str =
+                    self.focus_stack.last().map(|s| s.as_str()).unwrap_or("MAIN");
+                let l_grp = self.rules[l].def.agenda_group.as_deref().unwrap_or("MAIN");
+                if top_now == l_grp {
+                    return Some(l);
+                }
             }
         }
         for i in 0..self.rule_order.len() {
@@ -3485,9 +3557,13 @@ impl Engine {
             // (salience DESC, decl_pos ASC) over rule items AND pending
             // query items (D-058: queries are agenda items at salience 0;
             // PathMemory.queueRuleAgendaItem adds them to the group).
+            let top_group: &str = self.focus_stack.last().map(|s| s.as_str()).unwrap_or("MAIN");
             let mut best: Option<(i32, usize, bool, usize)> = None; // (sal, decl, is_query, idx)
             for i in 0..self.rule_order.len() {
                 let ri = self.rule_order[i];
+                if self.rules[ri].def.agenda_group.as_deref().unwrap_or("MAIN") != top_group {
+                    continue; // D-106: only the focused group competes
+                }
                 // D-076 (certified): any deferred entry makes the item
                 // reachable. Expiration-routed teardowns live in
                 // exp_deferred (D-102 q1/q4) and never resurrect items.
@@ -3506,6 +3582,9 @@ impl Engine {
                 }
             }
             for qi in 0..self.queries.len() {
+                if top_group != "MAIN" {
+                    break; // queries live in MAIN (no agenda-group)
+                }
                 if !self.query_pending[qi] {
                     continue;
                 }
@@ -3519,6 +3598,12 @@ impl Engine {
                 }
             }
             let Some((_, _, is_query, ri)) = best else {
+                // D-106: an emptied focused group pops; the scan
+                // resumes with the next group down (ag2/ag5/ag7)
+                if !self.focus_stack.is_empty() {
+                    self.focus_stack.pop();
+                    continue;
+                }
                 // AGENDA QUIESCENCE (q1/q4): lazy deferred teardowns
                 // drain once the agenda empties; their retractions may
                 // activate rules (not-D observers), so rescan.
@@ -3578,11 +3663,15 @@ impl Engine {
                 return Some(ri);
             }
             let now = self.item_salience(ri);
+            let cur_top: &str = self.focus_stack.last().map(|s| s.as_str()).unwrap_or("MAIN");
             let preempted = (0..self.rules.len()).any(|rj| {
-                rj != ri && self.nets[rj].queued && {
-                    let sj = self.item_salience(rj);
-                    sj > now || (sj == now && rj < ri)
-                }
+                rj != ri
+                    && self.nets[rj].queued
+                    && self.rules[rj].def.agenda_group.as_deref().unwrap_or("MAIN") == cur_top
+                    && {
+                        let sj = self.item_salience(rj);
+                        sj > now || (sj == now && rj < ri)
+                    }
             });
             if !preempted {
                 return Some(ri);
@@ -5045,6 +5134,14 @@ impl Engine {
                     // No setters before update => all-fields mask (D-013/j21).
                     let mask = pending.remove(&f).unwrap_or(u64::MAX);
                     self.on_update(f, mask, Some(ri));
+                }
+                CompiledAction::SetFocus { group } => {
+                    // D-106 (ag9): relocate-or-push — the group moves
+                    // to the TOP of the focus stack
+                    let g = group.clone();
+                    self.focus_stack.retain(|x| x != &g);
+                    self.focus_stack.push(g);
+                    self.focus_changed = true;
                 }
                 CompiledAction::Delete { pos } => {
                     // D-076: delete routes through the TMS quirk model —

@@ -1,0 +1,75 @@
+{
+  "drl": "rule \"R0\"\nagenda-group \"ga\"\nwhen\n    $p0_0 : T2(f1 > 11, f2 == false)\nthen\n    drools.setFocus(\"ga\");\n    $p0_0.setF2(true);\n    update($p0_0);\nend\nrule \"R1\"\nsalience 8\nwhen\n    T2($b1_0_0 : f0)\nthen\nend\nrule \"R2\"\nsalience($b2_0_0)\nagenda-group \"ga\"\nwhen\n    (or (and T2(f1 <= 12, f1 in (6, 0.0), !(f1 in (4, 4.5, 2.0)), $b2_0_0 : f0) exists T2(!(f0 == 3))) (and T2(f2 == false, f1 in (6, 0.0), f2 == false, $b2_0_0 : f0) exists T2(!(f0 == 3))))\nthen\nend\nrule \"R3\"\nsalience 8\nwhen\n    $p3_0 : T1()\nthen\n    drools.setFocus(\"ga\");\n    insert(new T2($p3_0.getF2(), 8, true));\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0(f2 != true, f1 != -2, f2 == false)\nthen\n    insert(new T2(-1000000007, $p4_0.getF1(), true));\n    $p4_0.setF2(true);\n    $p4_0.setF1($p4_0.getF0());\n    update($p4_0);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 0.5,
+        "f1": -4,
+        "f2": -2
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 0.0,
+        "f1": -1,
+        "f2": 6
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9003_4514",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    accumulate( T1(); $a0_0 : count() )\nthen\n    insert(new T2(\"ab\", 0.5, -5));\nend\nrule \"R1\"\nsalience($b1_0_0 * 3)\nwhen\n    ( T2(f1 != -2, f1 != 2.5, $b1_0_0 : f2, $b1_0_1 : f2) )\n    or\n    ( T2(f1 != -2, f1 != 2.5, $b1_0_0 : f2, $b1_0_1 : f2) )\n    or\n    ( T2(f1 != -2, f1 != 2.5, $b1_0_0 : f2, $b1_0_1 : f2) )\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R2\"\nwhen\n    T2(f0 in (\"ab\", \"beta\"), $b2_0_0 : f0)\nthen\nend\nrule \"R3\"\nsalience($b3_0_0)\nagenda-group \"gb\"\nwhen\n    T0(f2 not in (false), f1 < -3.0, $b3_0_0 : f1, $b3_0_1 : f2)\nthen\nend\nrule \"R4\"\nsalience -1\nwhen\n    accumulate( T0(); $a4_0 : count() )\nthen\n    insert(new T2(\"ab\", $a4_0, $a4_0));\nend\nrule \"R5\"\nsalience 7\nwhen\n    not(T0() and T0(f2 != false))\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 4.0
+          },
+          "op": "update",
+          "target": 0
+        },
+        {
+          "op": "delete",
+          "target": 0
+        }
+      ],
+      "facts": []
+    },
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": "a",
+            "f1": -1.5,
+            "f2": 2
+          },
+          "type": "T2"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": 3.0,
+        "f1": 3.0,
+        "f2": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9002_9118",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

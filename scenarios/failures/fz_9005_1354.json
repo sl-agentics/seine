@@ -1,0 +1,111 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T0(f1 in (12), f0 <= \"a\", $b0_0_0 : f1)\nthen\n    insert(new T1(false, true));\nend\nrule \"R1\"\nwhen\n    T1(f0 == false || f1 == false || !(f1 != true), $b1_0_0 : f1)\n    T1(f1 != false, f0 == true)\n    T0(f1 in (-1, -5), f2 != false)\nthen\nend\nrule \"R2\"\nwhen\n    ( T1(f1 == false, f1 == false, $b2_0_0 : f1, $b2_0_1 : f0) )\n    or\n    ( T1(f1 != false, f0 not in (false, true), $b2_0_0 : f1, $b2_0_1 : f0) )\n    or\n    ( T1(f1 == false, f1 == false, $b2_0_0 : f1, $b2_0_1 : f0) )\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R3\"\nsalience -7\nwhen\n    T1(f0 == false || f1 == false || !(f1 != true), $b3_0_0 : f1)\n    T1(f1 != false, f0 == true)\n    T0(f1 in (-1, -5), f2 != false)\nthen\nend\nrule \"R4\"\nno-loop\nwhen\n    $p4_0 : T0($b4_0_0 : f1)\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nsalience -1\nno-loop\nagenda-group \"gb\"\nwhen\n    T1(f0 == false || f1 == false || !(f1 != true), $b5_0_0 : f1)\n    $p5_1 : T1(f1 != false, f0 == true)\nthen\n    delete($p5_1);\nend\nquery Q0(boolean $qa0_0, long $qa0_1)\n    ( $qp0_0 : T1(f1 == $qa0_0, f0 != false, f0 != false, $qb0_0 : f0, $qb0_1 : f1) )\n    or\n    ( $qp0_1 : T0(f1 == $qa0_1, f1 <= 100, f0 > \"alpha\", $qb0_2 : f1, $qb0_3 : f1) )\nend\n\nquery Q1(boolean $qa1_0, boolean $qa1_1)\n    $qp1_0 : T1(f1 == $qa1_0, f1 == $qa1_1, f1 != false, f1 != false, $qb1_0 : f1, $qb1_1 : f0)\nend\n\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": 5,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9005_1354",
+  "queries": [
+    {
+      "args": [
+        true,
+        12
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        true,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        false,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null,
+        true
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        true,
+        null
+      ],
+      "call": "Q1"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

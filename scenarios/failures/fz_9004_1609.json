@@ -1,0 +1,72 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f3 == true, f3 != false, $b0_0_0 : f0, f1 == false)\nthen\n    insert(new T1(12, $p0_0.isF3()));\n    insert(new T1($p0_0.getF0(), false));\n    $p0_0.setF1(true);\n    $p0_0.setF3(true);\n    $p0_0.setF3(true);\n    update($p0_0);\nend\nrule \"R1\"\nwhen\n    accumulate( T0(f0 < 3.0, $s1_0 : f0); $a1_0 : sum($s1_0) )\nthen\nend\nrule \"R2\"\nsalience 9\nwhen\n    $p2_0 : T1(f0 != 5.5, $b2_0_0 : f1, $b2_0_1 : f1, f1 == false)\nthen\n    drools.setFocus(\"gb\");\n    modify($p2_0) { setF1(true) }\nend\nrule \"R3\"\nno-loop\nagenda-group \"gb\"\nwhen\n    $p3_0 : T1($b3_0_0 : f1, $b3_0_1 : f0, f1 == false)\nthen\n    drools.setFocus(\"gb\");\n    modify($p3_0) { setF1(true), setF0($p3_0.getF0()) }\nend\nrule \"R4\"\nwhen\n    T1(f1 == true, f1 == false)\n    not T1()\n    not T1()\nthen\nend\nrule \"R5\"\nwhen\n    ( T0() )\n    or\n    ( T0(f2 != 5.0) )\n    or\n    ( T0() )\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 2,
+        "f1": true,
+        "f2": 3.0,
+        "f3": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7,
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9004_1609",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "f64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

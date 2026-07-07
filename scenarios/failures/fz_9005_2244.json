@@ -1,0 +1,76 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    ( $p0_0 : T1() )\n    or\n    ( $p0_0 : T1() )\nthen\n    drools.setFocus(\"gb\");\n    insert(new T2($p0_0.getF0()));\nend\nrule \"R1\"\nwhen\n    T2(!(f0 == -0.5 || f0 >= 6.0), $b1_0_0 : f0, $b1_0_1 : f0)\nthen\nend\nrule \"R2\"\nsalience -4\nagenda-group \"gb\"\nwhen\n    not T1(f0 <= 5, f1 >= \"\")\nthen\nend\nrule \"R3\"\nsalience 9\nwhen\n    $p3_0 : T2(f0 in (3, 3.5, 1.0), f0 > 100, $b3_0_0 : f0)\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nwhen\n    (or $p4_0 : T0(f0 in (-2.5, 5.5, -3.0), f0 != 0.5) $p4_0 : T0(f0 in (5.5, 1.5), f0 != 0.5) $p4_0 : T0(f0 not in (-1.0, 6.0), f0 != 0.5))\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nsalience -2\nwhen\n    T2(f0 in (3.5, 3.0), f0 != -1.0, $b5_0_0 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1.5
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 5.0,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7,
+        "f1": "",
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": "alpha",
+        "f2": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9005_2244",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

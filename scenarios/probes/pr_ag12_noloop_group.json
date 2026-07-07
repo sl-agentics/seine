@@ -1,0 +1,42 @@
+{
+ "name": "pr_ag12_noloop_group",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule F salience 10 when P($v : v) then drools.setFocus(\"g\"); end\nrule G no-loop agenda-group \"g\" when $p : P(v < 100) then $p.setV(50); update($p); end\nrule M salience -5 when P($v : v) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": []
+}

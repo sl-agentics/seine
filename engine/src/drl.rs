@@ -210,6 +210,9 @@ pub enum Action {
     Update { var: String },
     /// `delete($p);` / `retract($p);`
     Delete { var: String },
+    /// `drools.setFocus("g");` (D-106): push the group on the focus
+    /// stack (relocating it if already stacked — ag9).
+    SetFocus { group: String },
 }
 
 /// One term of a salience expression (D-043).
@@ -232,6 +235,8 @@ pub struct RuleDef {
     pub name: String,
     pub salience: SalienceSpec,
     pub no_loop: bool,
+    /// `agenda-group "name"` (D-106): None = MAIN.
+    pub agenda_group: Option<String>,
     pub patterns: Vec<Pattern>,
     pub actions: Vec<Action>,
     /// Position in the DRL unit's interleaved rule+query sequence,
@@ -391,6 +396,13 @@ fn lex(src: &str) -> Result<(Vec<Tok>, Vec<u32>), DrlError> {
             {
                 word = "no-loop".into();
                 i += 5;
+            }
+            // `agenda-group` likewise (D-106)
+            if word == "agenda" && i + 5 < b.len()
+                && b[i..i + 6].iter().collect::<String>() == "-group"
+            {
+                word = "agenda-group".into();
+                i += 6;
             }
             push!(start, Tok::Ident(word));
         } else if c.is_ascii_digit() {
@@ -600,6 +612,7 @@ impl Parser {
         };
         let mut salience = SalienceSpec::Static(0);
         let mut no_loop = false;
+        let mut agenda_group: Option<String> = None;
         loop {
             if self.at_kw("salience") {
                 self.next()?;
@@ -645,6 +658,16 @@ impl Parser {
                 if self.at_kw("true") || self.at_kw("false") {
                     no_loop = self.at_kw("true");
                     self.next()?;
+                }
+            } else if self.at_kw("agenda-group") {
+                self.next()?;
+                match self.next()? {
+                    Tok::StrLit(s) => agenda_group = Some(s),
+                    other => {
+                        return Err(self.perr_prev(format!(
+                            "agenda-group takes a string name, got {other:?}"
+                        )))
+                    }
                 }
             } else if self.at_kw("when") {
                 self.next()?;
@@ -707,6 +730,7 @@ impl Parser {
                 name: name.clone(),
                 salience: salience.clone(),
                 no_loop,
+                agenda_group: agenda_group.clone(),
                 patterns,
                 actions: actions.clone(),
                 decl_pos: 0,
@@ -1436,6 +1460,28 @@ impl Parser {
                 }
                 out.push(Action::Update { var });
                 Ok(out)
+            }
+            Some(Tok::Ident(w)) if w == "drools" => {
+                self.next()?;
+                self.expect_sym(".")?;
+                let meth = self.ident()?;
+                if meth != "setFocus" {
+                    return Err(self.perr_prev(format!(
+                        "drools.{meth}: only setFocus is in the certified subset (D-106)"
+                    )));
+                }
+                self.expect_sym("(")?;
+                let group = match self.next()? {
+                    Tok::StrLit(s) => s,
+                    other => {
+                        return Err(self.perr_prev(format!(
+                            "setFocus takes a string group name, got {other:?}"
+                        )))
+                    }
+                };
+                self.expect_sym(")")?;
+                self.expect_sym(";")?;
+                Ok(vec![Action::SetFocus { group }])
             }
             Some(Tok::Ident(w)) if w.starts_with('$') => {
                 let var = self.ident()?;

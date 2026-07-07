@@ -4635,3 +4635,47 @@ Gates: bindings 70/70 (test_arc3: goldens + engine round-trips for
 TMS auto-retraction, temporal pairing + advance expiration, null
 firing, group firing); suites 9; corpus 877 (untouched — sugar
 only). Agenda-group sugar deferred to after Arc 4 per the plan.
+
+### D-106: agenda groups — agenda-group + focus stack + setFocus
+### (Arc 4); core CERTIFIED, one fine-structure class OPEN
+Grammar: `agenda-group "name"` rule attribute (lexer keyword-join
+like no-loop); RHS `drools.setFocus("name");` (the only drools.*
+method in the subset — the error names the fence).
+**The recon ladder pinned** (13 probes, pr_ag*): unfocused groups
+never fire (MAIN default); setFocus pushes; groups partition BEFORE
+salience; last-setFocus-on-top; re-focus RELOCATES an already-
+stacked group to the top (ag9's dance); focusing an empty group
+pops through; an emptied group pops and does not resurrect across
+fires (ag10); nested focus; TMS justifiers inside groups; no-loop
+in groups; MAIN cannot preempt a focused group (ag13); dynamic
+salience within groups (ag15 — found a LIVELOCK: the dyn-salience
+preemption re-check had to be group-scoped or an out-of-group
+higher rule loops the pop forever).
+**Engine**: focus_stack on the agenda; the pop scan filters by the
+stack top (queries live in MAIN); empty tops pop through before the
+quiescence blocks; the post-firing strictly-higher halt check is
+scoped to the top group; SetFocus relocates-or-pushes; reset()
+clears the stack.
+**Walls (measured)**: setFocus to a group NO rule declares is a
+Drools runtime NPE (ConsequenceException) — walled at COMPILE
+naming the rule and the fix (the D-076 pattern).
+**Fuzz** (generator draws agenda-group at 12%/rule from {ga,gb} +
+setFocus at 10% from DECLARED groups only; 5x10k campaign):
+exposed the EXECUTOR-BINDING semantics — a non-halted executor
+keeps control through its item WITHOUT a rescan iff, after empty
+groups pop through, the focus is back on ITS OWN group
+(fz_9001_1795: continue across an empty-group push; fz_9004_9:
+halt when the pushed group holds activations). 30 campaign
+witnesses fixed and kept as regression pins (scenarios/failures).
+**OPEN (5 witnesses, probes_pending/agenda_open/)**: the halt
+check's fine structure — fz_9003_879 shows the oracle CONTINUING a
+salience -8 executor past queued salience-0 MAIN items right after
+its setFocus emptied through; the halt comparison's pool (per-group
+queues? item-creation timing at insert-staging?) needs its own
+probe ladder or checker cycle. Also filed: fz_9001_6127
+(probes_pending/fuzz_finds/) — an accumulate x update x eager
+composition divergence with ZERO agenda constructs (a pre-existing
+bug freshly sampled by the shifted generator; strip-test proven).
+Gates: suites 9; corpus 944 (ladder promoted + 30 witness pins);
+bindings 72/72 (Rule(agenda_group=) + then_set_focus sugar + the
+undeclared-target wall test); lint clean.

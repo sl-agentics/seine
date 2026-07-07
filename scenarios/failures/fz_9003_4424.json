@@ -1,0 +1,85 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    $p0_0 : T2(f0 != true, $b0_0_0 : f0)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    ( T1($b1_0_0 : f0) )\n    or\n    ( T1($b1_0_0 : f0) )\nthen\nend\nrule \"R2\"\nwhen\n    T0(f2 == true, f0 >= 1 || f2 not in (true), $b2_0_0 : f0, $b2_0_1 : f1)\nthen\n    insert(new T1($b2_0_0));\nend\nrule \"R3\"\nagenda-group \"gb\"\nwhen\n    $a3_0 : ArrayList() from collect( T0(f1 != true, f0 <= 1.0) )\nthen\n    insert(new T2(false));\n    insert(new T1(5));\nend\nrule \"R4\"\nno-loop\nwhen\n    ( T1($b4_0_0 : f0, $b4_0_1 : f0) )\n    or\n    ( T1($b4_0_0 : f0, $b4_0_1 : f0) )\n    or\n    ( T1($b4_0_0 : f0, $b4_0_1 : f0, f0 < 2.5) )\nthen\n    drools.setFocus(\"gb\");\n    insert(new T2(false));\n    insert(new T2(false));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": true,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": -1,
+        "f1": true,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 8
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9003_4424",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

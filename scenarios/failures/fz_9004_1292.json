@@ -1,0 +1,68 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    accumulate( T1(f0 not in (100, -2.5, -4), $s0_0 : f0); $a0_0 : sum($s0_0) )\nthen\nend\nrule \"R1\"\nwhen\n    accumulate( T0(f0 <= -3, $s1_0 : f0); $a1_0 : sum($s1_0) )\n    T0(f0 >= $a1_0)\n    T1(f0 > -1.5, f0 in (5.5, 3.0, -1000000007), !(f0 < 100), f0 < $a1_0, $b1_2_0 : f0)\nthen\nend\nrule \"R2\"\nno-loop\nwhen\n    $p2_0 : T0(!(f0 >= 100 || f0 <= -2.5))\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nsalience 2\nwhen\n    T1()\n    T1(f0 < 4, $b3_1_0 : f0, $b3_1_1 : f0)\n    T1(f0 != 7, f0 >= $b3_1_0)\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R4\"\nsalience($b4_0_0 - $b4_0_0)\nwhen\n    T1(f0 not in (12, 5), f0 > 7, $b4_0_0 : f0)\nthen\nend\nrule \"R5\"\nagenda-group \"gb\"\nwhen\n    $p5_0 : T0(f1 == false)\nthen\n    insert(new T1(9));\n    insert(new T1($p5_0.getF0()));\n    modify($p5_0) { setF1(true), setF0($p5_0.getF0()) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -2
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -1
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 10,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 7,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -4
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -5
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9004_1292",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

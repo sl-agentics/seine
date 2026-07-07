@@ -137,3 +137,44 @@ def test_group_cross_pattern_rejected():
         r = seine.Rule("bad")
         r.when(Person, (Person.age > 1) | (Other.v > 1))
         r.to_drl()
+
+
+def test_agenda_groups_sugar():
+    """D-106: agenda_group attr + then_set_focus round-trip."""
+
+    @seine.fact
+    class AP:
+        v: int
+
+    f = seine.Rule("F", salience=10)
+    f.when(AP)
+    f.then_set_focus("work")
+    g = seine.Rule("G", agenda_group="work")
+    g.when(AP, AP.v > 0)
+    m = seine.Rule("M", salience=-10)
+    m.when(AP)
+
+    drl = seine.compile_rules([f, g, m])
+    assert 'agenda-group "work"' in drl, drl
+    assert 'drools.setFocus("work");' in drl, drl
+
+    s = seine.Session([f, g, m], facts={AP: {"v": [1]}})
+    res = s.fire()
+    import polars as pl
+    order = pl.DataFrame(res.firings())["rule"].to_list()
+    assert order == ["F", "G", "M"], order
+
+
+def test_set_focus_undeclared_walled():
+    @seine.fact
+    class AQ:
+        v: int
+
+    f = seine.Rule("F")
+    f.when(AQ)
+    f.then_set_focus("nowhere")
+    import pytest as _pt
+    with _pt.raises(Exception) as ei:
+        s = seine.Session([f], facts={AQ: {"v": [1]}})
+        s.fire()
+    assert "nowhere" in str(ei.value) and "agenda-group" in str(ei.value), str(ei.value)

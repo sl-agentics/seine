@@ -1,0 +1,94 @@
+{
+  "drl": "rule \"R0\"\nsalience 1\nagenda-group \"gb\"\nwhen\n    not T1(f2 in (2, -1000000007), f0 == -1000000007)\n    T1($b0_1_0 : f2)\nthen\n    insert(new T2(\"zz\", false));\nend\nrule \"R1\"\nsalience 1\nwhen\n    not T1(f2 in (2, -1000000007), f0 == -1000000007)\n    T1($b1_1_0 : f2)\nthen\nend\nrule \"R2\"\nsalience 10\nwhen\n    (or (and not T1(f2 in (2, -1000000007), f0 == -1000000007) $p2_1 : T1($b2_1_0 : f2) exists(T1(f0 == $b2_1_0) or T0())) (and not T1(f0 in (-3, 4.5, -2), f0 == -1000000007) $p2_1 : T1($b2_1_0 : f2) exists(T1(f0 == $b2_1_0) or T0())) (and not T1(f1 != false, f2 == -1000000007) $p2_1 : T1($b2_1_0 : f2) exists(T1(f0 == $b2_1_0) or T0())))\nthen\n    drools.setFocus(\"gb\");\n    insert(new T2(\"a\", $p2_1.isF1()));\n    insert(new T2(\"zz\", false));\nend\nrule \"R3\"\nsalience 7\nwhen\n    accumulate( T0(f1 != -1.5, f2 != false, $s3_0 : f0); $a3_0 : average($s3_0) )\nthen\n    insert(new T2(\"a\", true));\n    insert(new T2(\"\", true));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 12,
+        "f1": 2.0,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3,
+        "f1": 2.0,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 10,
+        "f1": false,
+        "f2": -2
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -5,
+        "f1": true,
+        "f2": -3
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": true
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "fz_9004_2373",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

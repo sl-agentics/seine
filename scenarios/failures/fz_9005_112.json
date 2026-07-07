@@ -1,0 +1,74 @@
+{
+  "drl": "rule \"R0\"\nagenda-group \"gb\"\nwhen\n    T1(f1 != false, $b0_0_0 : f2, $b0_0_1 : f0)\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0($b1_0_0 : f0, $b1_0_1 : f2)\nthen\n    drools.setFocus(\"gb\");\n    insertLogical(new T1(false, false, 12));\n    insertLogical(new T1($b1_0_1, $b1_0_1, $p1_0.getF0()));\nend\nrule \"R2\"\nsalience($b2_0_0 - $b2_0_0)\nwhen\n    $p2_0 : T0(f0 > -4 && < -4, $b2_0_0 : f0, f2 == false)\nthen\n    $p2_0.setF2(true);\n    $p2_0.setF1(\"alpha\");\n    update($p2_0);\nend\nrule \"R3\"\nsalience 9\nno-loop\nwhen\n    exists T1(f2 <= -1000000007, f0 == true)\n    T1(f2 < 8, $b3_1_0 : f1, $b3_1_1 : f2)\n    T0(f2 != true || f1 in (\"ab\", \"zz\"), $b3_2_0 : f0)\nthen\nend\nrule \"R4\"\nsalience -7\nno-loop\nwhen\n    $p4_0 : T0(f2 == false, f2 == true, f2 == false)\nthen\n    modify($p4_0) { setF2(true) }\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 100,
+        "f1": "a",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": "ab",
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 4,
+        "f1": "",
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -2,
+        "f1": "alpha",
+        "f2": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9005_112",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

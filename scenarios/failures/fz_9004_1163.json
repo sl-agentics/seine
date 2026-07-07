@@ -1,0 +1,207 @@
+{
+  "drl": "rule \"R0\"\nagenda-group \"gb\"\nwhen\n    ( T0(f1 <= 12, f0 contains \"l\", $b0_0_0 : f1) and T1(f2 == false, f1 not in (\"alpha\")) )\n    or\n    ( T0(f1 <= 12, f0 contains \"l\", $b0_0_0 : f1) and T1(f0 != true, f1 not in (\"alpha\")) )\n    or\n    ( T0(f1 <= 12, f0 contains \"l\", $b0_0_0 : f1) and T1(f2 == false, f1 not in (\"alpha\"), f1 contains \"zz\") )\nthen\nend\nrule \"R1\"\nwhen\n    T1(f1 contains \"l\", f2 != true, f2 == false || f1 <= \"ab\")\nthen\nend\nrule \"R2\"\nwhen\n    T1(f0 != false, f0 == true)\nthen\n    drools.setFocus(\"gb\");\nend\nquery Q0(String $qa0_0, String $qa0_1)\n    $qp0_0 : T1(f1 == $qa0_0, f1 == $qa0_1, f2 != true, f2 != false)\n    $qp0_1 : T1(f1 != \"alpha\", $qb0_0 : f2)\nend\n\nquery Q1(long $qa1_0, long $qa1_1, boolean $qa1_2)\n    $qp1_0 : T0(f1 == $qa1_0, f1 == $qa1_1, f2 != false, $qb1_0 : f2, $qb1_1 : f0)\n    $qp1_1 : T1(f0 == $qa1_2, f2 != false, f0 != true, f1 == $qb1_1, f1 == $qb1_1, $qb1_2 : f0, $qb1_3 : f0)\nend\n\nquery TCr(String $a, String $b)\n    ( RelR($a, $b;) )\n    or\n    ( RelR($m, $b;) and TCr($a, $m;) )\nend\n\nquery TWr(String $w)\n    TCr($w, $f;)\n    MarkR(node == $f)\nend\n\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": "alpha",
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": "beta",
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "",
+        "f1": -1000000007,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": "beta",
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": 0,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": 5,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "dst": "v7",
+        "src": "v5"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v7",
+        "src": "v0"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v7",
+        "src": "v5"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "dst": "v7",
+        "src": "v1"
+      },
+      "type": "RelR"
+    },
+    {
+      "fields": {
+        "node": "v0"
+      },
+      "type": "MarkR"
+    },
+    {
+      "fields": {
+        "node": "v2"
+      },
+      "type": "MarkR"
+    },
+    {
+      "fields": {
+        "node": "v3"
+      },
+      "type": "MarkR"
+    },
+    {
+      "fields": {
+        "node": "v6"
+      },
+      "type": "MarkR"
+    },
+    {
+      "fields": {
+        "node": "v7"
+      },
+      "type": "MarkR"
+    }
+  ],
+  "name": "fz_9004_1163",
+  "queries": [
+    {
+      "args": [
+        null,
+        "a"
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        -1000000007,
+        null,
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        "v1",
+        "v0"
+      ],
+      "call": "TCr"
+    },
+    {
+      "args": [
+        "v6",
+        "v3"
+      ],
+      "call": "TCr"
+    },
+    {
+      "args": [
+        null
+      ],
+      "call": "TWr"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "src",
+          "type": "String"
+        },
+        {
+          "name": "dst",
+          "type": "String"
+        }
+      ],
+      "name": "RelR"
+    },
+    {
+      "fields": [
+        {
+          "name": "node",
+          "type": "String"
+        }
+      ],
+      "name": "MarkR"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+ "name": "pr_ag7_lower_group_waits",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule F salience 10 when P($v : v) then drools.setFocus(\"a\"); drools.setFocus(\"b\"); end\nrule A agenda-group \"a\" when P($v : v) then end\nrule B1 agenda-group \"b\" when P($v : v) then insert(new Q(1)); end\nrule A2 agenda-group \"a\" when Q($v : v) then end\nrule B2 agenda-group \"b\" salience -5 when Q($v : v) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": []
+}

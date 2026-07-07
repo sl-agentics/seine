@@ -1,0 +1,87 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    $p0_0 : T2($b0_0_0 : f0)\nthen\n    drools.setFocus(\"ga\");\n    delete($p0_0);\nend\nrule \"R1\"\nsalience 8\nwhen\n    T1(f0 matches \".\", $b1_0_0 : f0)\nthen\n    insert(new T2(5.0));\nend\nrule \"R2\"\nsalience($b2_0_0 * 2)\nwhen\n    T2(f0 <= 100, f0 < 6.0, $b2_0_0 : f0)\nthen\n    drools.setFocus(\"ga\");\nend\nrule \"R3\"\nwhen\n    ( $p3_0 : T1(f1 != true, f1 != false, $b3_0_0 : f0, $b3_0_1 : f0) )\n    or\n    ( $p3_0 : T1(f1 != true, f1 != false, $b3_0_0 : f0, $b3_0_1 : f0) )\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nsalience -3\nagenda-group \"ga\"\nwhen\n    ( T0($b4_0_0 : f0, $b4_0_1 : f1) )\n    or\n    ( T0($b4_0_0 : f0, $b4_0_1 : f1) )\n    or\n    ( T0($b4_0_0 : f0, $b4_0_1 : f1) )\nthen\n    drools.setFocus(\"ga\");\n    insert(new T2(-3.0));\n    insert(new T1(\"beta\", false));\nend\nrule \"R5\"\nsalience($b5_1_0 * 4)\nwhen\n    not T0(f1 != true, f0 in (0, 10, -3))\n    T0(f0 not in (1, 9), f0 >= 11 && < 2, $b5_1_0 : f0, $b5_1_1 : f2)\n    $p5_2 : T0()\nthen\n    delete($p5_2);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1.0
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": 1.0
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": -1.0
+      },
+      "type": "T2"
+    },
+    {
+      "fields": {
+        "f0": -1000000007,
+        "f1": false,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "b",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9005_3967",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

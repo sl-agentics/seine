@@ -1,0 +1,86 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    ( T2(f0 < 5, f0 <= 1.0) )\n    or\n    ( T2(f0 < 5, f0 <= 1.0) )\nthen\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f1, $b1_0_1 : f0)\nthen\n    insert(new T2(1, $b1_0_1, \"beta\"));\nend\nrule \"R2\"\nsalience($b2_0_1)\nagenda-group \"ga\"\nwhen\n    $p2_0 : T1($b2_0_0 : f1, $b2_0_1 : f0)\n    exists T0(f1 not in (true, false, false), f1 == true, f0 >= $b2_0_1)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nsalience -10\nwhen\n    ( $p3_0 : T1($b3_0_0 : f0, $b3_0_1 : f1, f1 == false) )\n    or\n    ( $p3_0 : T1($b3_0_0 : f0, $b3_0_1 : f1, f1 == false) )\nthen\n    drools.setFocus(\"ga\");\n    insert(new T2(11, $p3_0.getF0(), \"a\"));\n    modify($p3_0) { setF1(true), setF0($p3_0.getF0()) }\nend\nrule \"R4\"\nsalience -2\nagenda-group \"gb\"\nwhen\n    accumulate( T0($s4_0 : f0); $a4_0 : sum($s4_0) )\nthen\n    insert(new T2($a4_0, -3.0, \"zz\"));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 7,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 5,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 9,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 0.5,
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 6.0,
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9003_5041",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T3(f1 in (true, true, false), f1 == true)\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R1\"\nwhen\n    T1(f2 == false, f0 <= 6, f0 > -4 && < 2)\n    T1(f1 <= \"b\", f2 == false)\nthen\nend\nrule \"R2\"\nwhen\n    ( $p2_0 : T1(f2 == false, f0 <= 6, f0 > -4 && < 2) and T1(f1 <= \"b\", f2 == false) )\n    or\n    ( $p2_0 : T1(f2 == false, f2 != false, f0 <= 12) and T1(f2 != false, f0 != -3) )\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nsalience -8\nwhen\n    T2($b3_0_0 : f2, $b3_0_1 : f2)\nthen\n    insert(new T3(false, true));\nend\nrule \"R4\"\nsalience 3\nwhen\n    $p4_0 : T0($b4_0_0 : f0, $b4_0_1 : f0)\nthen\n    drools.setFocus(\"gb\");\n    delete($p4_0);\nend\nrule \"R5\"\nsalience -8\nagenda-group \"gb\"\nwhen\n    accumulate( T1($s5_0 : f0); $a5_0 : sum($s5_0) )\n    T3($b5_1_0 : f0, $b5_1_1 : f0)\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": -4,
+        "f1": "beta",
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": false,
+        "f1": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T3"
+    }
+  ],
+  "name": "fz_9005_998",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

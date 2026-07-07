@@ -1,0 +1,69 @@
+{
+  "drl": "rule \"R0\"\nagenda-group \"gb\"\nwhen\n    T0(f2 != true, f0 >= -1000000007, $b0_0_0 : f0)\n    T1(f1 > 3.0, f0 == \"beta\", f1 != $b0_0_0)\n    T0(f2 != true)\nthen\nend\nrule \"R1\"\nsalience -4\nwhen\n    T1(f0 matches \"p(b|b)+zz?\", $b1_0_0 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    ( T0(f1 >= 3.0, f0 != 8) )\n    or\n    ( T0(f0 > 8, f0 != 8) )\nthen\n    insert(new T1(\"ab\", 2.5));\nend\nrule \"R3\"\nno-loop\nwhen\n    $p3_0 : T0(f2 == true, f2 != false, $b3_0_0 : f0, $b3_0_1 : f0)\nthen\n    drools.setFocus(\"ga\");\n    insert(new T1(\"zz\", $p3_0.getF1()));\n    insert(new T1(\"zz\", 5.0));\nend\nrule \"R4\"\nagenda-group \"ga\"\nwhen\n    T1($b4_0_0 : f0, $b4_0_1 : f1)\nthen\n    drools.setFocus(\"ga\");\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 2,
+        "f1": -2.5,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -4,
+        "f1": 1.0,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -5,
+        "f1": -3.0,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": 2.0
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_9004_2165",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

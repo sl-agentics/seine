@@ -1,0 +1,129 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nwhen\n    exists(T2(f0 not in (1, 100, 9)) and T2())\nthen\nend\nrule \"R1\"\nno-loop\nagenda-group \"ga\"\nwhen\n    $p1_0 : T1($b1_0_0 : f0, $b1_0_1 : f1)\nthen\n    drools.setFocus(\"ga\");\n    delete($p1_0);\nend\nrule \"R2\"\nsalience($b2_0_1)\nwhen\n    T2(f0 > 100, $b2_0_0 : f0, $b2_0_1 : f0)\nthen\nend\nrule \"R3\"\nwhen\n    accumulate( T1(f1 == false, f2 > -1, $s3_0 : f2); $a3_0 : sum($s3_0) )\n    T0()\n    T1(f3 == true, f2 <= $a3_0, $b3_2_0 : f1, $b3_2_1 : f3)\nthen\n    drools.setFocus(\"ga\");\nend\nrule \"R4\"\nsalience 4\nwhen\n    $p4_0 : T1(f1 != false, $b4_0_0 : f1, $b4_0_1 : f0)\nthen\n    insertLogical(new T2(4));\n    insertLogical(new T2($p4_0.getF2()));\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": true,
+            "f1": true,
+            "f2": -5,
+            "f3": true
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": false,
+            "f1": true,
+            "f2": 2,
+            "f3": false
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": true,
+            "f1": true,
+            "f2": 6,
+            "f3": true
+          },
+          "type": "T1"
+        }
+      ]
+    },
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": -3.0,
+            "f1": 0
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": true,
+        "f1": true,
+        "f2": -5,
+        "f3": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": -2.0,
+        "f1": 2
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -2.5,
+        "f1": 5
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 5.0,
+        "f1": 5
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_9005_135",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

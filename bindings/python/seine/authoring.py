@@ -619,7 +619,7 @@ class Rule:
     in the RHS. `to_drl()` shows exactly what the engine will run."""
 
     def __init__(self, name: str, salience: Union[int, BoundField, SalExpr, None] = None,
-                 no_loop: bool = False):
+                 no_loop: bool = False, agenda_group: "str | None" = None):
         if not name or any(c in name for c in '"\n'):
             raise CompileError(f"bad rule name {name!r}")
         _reject_callable(salience, "salience")
@@ -634,9 +634,15 @@ class Rule:
                 "`term op term` expression over bindings — Python callables "
                 "cannot run in the match loop"
             )
+        if agenda_group is not None and (
+            not isinstance(agenda_group, str) or not agenda_group
+            or any(c in agenda_group for c in '"\n')
+        ):
+            raise CompileError(f"bad agenda_group {agenda_group!r}")
         self.name = name
         self.salience = salience
         self.no_loop = no_loop
+        self.agenda_group = agenda_group
         self.patterns: list[_Pattern] = []
         self.actions: list[_RhsAction] = []
         self._bind_seq = 0
@@ -760,6 +766,16 @@ class Rule:
         self.actions.append(_RhsAction("insert", cls=cls, values=field_values))
         return self
 
+    def then_set_focus(self, group: str) -> "Rule":
+        """drools.setFocus(group) (D-106): push the agenda group onto
+        the focus stack. The group must be some rule's agenda_group -
+        the engine walls undeclared targets at build (Drools NPEs at
+        runtime on them)."""
+        if not isinstance(group, str) or not group:
+            raise CompileError("then_set_focus takes a group name string")
+        self.actions.append(_RhsAction("set_focus", group=group))
+        return self
+
     def then_insert_logical(self, cls: type, **field_values) -> "Rule":
         """insertLogical(new Cls(...)): the fact is JUSTIFIED by this
         rule's match (D-076 TMS) - it auto-retracts when the match goes
@@ -837,6 +853,8 @@ class Rule:
                     self._rhs_arg(a.kw["values"][f]) for f in cls.__seine_fields__
                 )
                 rhs_lines.append(f"    insert(new {cls.__name__}({args}));")
+            elif a.kind == "set_focus":
+                rhs_lines.append(f"    drools.setFocus(\"{a.kw['group']}\");")
             elif a.kind == "insert_logical":
                 cls = a.kw["cls"]
                 args = ", ".join(
@@ -916,8 +934,9 @@ class Rule:
         if not lhs_lines:
             raise CompileError(f"rule {self.name}: no patterns")
         nl = "no-loop\n" if self.no_loop else ""
+        ag = f'agenda-group "{self.agenda_group}"\n' if self.agenda_group else ""
         return (
-            f'rule "{self.name}"\n{sal_attr}{nl}when\n'
+            f'rule "{self.name}"\n{sal_attr}{nl}{ag}when\n'
             + "\n".join(lhs_lines)
             + "\nthen\n"
             + ("\n".join(rhs_lines) + "\n" if rhs_lines else "")
