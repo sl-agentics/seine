@@ -4439,3 +4439,29 @@ current dim space cannot express (every config fails exactly it):
 the walk needs a STRUCTURE dimension (per-fact interleaving for
 same-batch self-joins) — next cycle's single question, pinned
 with both rule orders in the checker.
+
+### D-102 (blast-radius correction): the stay/partner-scan semantics
+### are SHARED-NODE-scoped — fresh campaign seeds caught an 18%
+### regression the 47-pin matrix could not see
+Fresh campaign seeds (7/13/29) measured 188/173/178 divergences per
+1000 — vs 4-12 for the pre-temporal-stay engine. Commit bisect
+pinned the break at 0dc2a4e (temporal-stay) with round-2's partner
+scan compounding. Root cause: BOTH mechanisms were derived from
+two-rule pins (616/551/526/134/853 — ALL shared-node shapes) and
+ported UNSCOPED to every temporal node; ordinary single-rule
+scenarios regressed en masse. The matrix stayed green throughout —
+its pins are exactly the shapes the mechanisms were built for.
+**Fix: scope both to node.shared** (a phreak-Node flag set from
+path-membership): shared temporal nodes get stay-at-flush + the
+this-fire-first partner scan; unshared nodes keep the certified
+pre-0dc2a4e behavior (delta rights walk at flushes; lseq-ASC
+partners). The pair_unless_held eval gate also narrowed to
+enabler-type-triggered flushes only (flush_trigger_tid).
+Recovery: 534/539 of the fresh kept set; matrix 47/47; corpus 859;
+suites 8; old residuals 11/12 (853 open as before).
+**Method lesson (for the doctrine file): a survivor family measured
+only against its own discriminating pins is UNBOUNDED in blast
+radius — every ported mechanism needs a fresh-seed population
+measure before commit, not just the matrix.** The 101/202/303 keeps
+were all shapes the mechanisms addressed; the fresh seeds were the
+first population draw AFTER the ports.

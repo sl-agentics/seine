@@ -937,6 +937,7 @@ pub struct Engine {
     in_expiration_drain: bool,
     in_stream_flush: bool,
     fire_no: u64,
+    flush_trigger_tid: Option<TypeId>,
     store: FactStore,
     rules: Vec<CompiledRule>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
@@ -1027,6 +1028,7 @@ impl Engine {
             in_expiration_drain: false,
             in_stream_flush: false,
             fire_no: 0,
+            flush_trigger_tid: None,
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_parents: Vec::new(),
@@ -2631,7 +2633,9 @@ impl Engine {
             for net in self.nets.iter_mut() {
                 net.s0_close_window();
             }
+            self.flush_trigger_tid = Some(self.store.fact_type(id));
             self.stream_flush(&pre);
+            self.flush_trigger_tid = None;
         }
         Ok(id)
     }
@@ -2849,14 +2853,29 @@ impl Engine {
         // (if_flush = pair_unless_held, u1c/987)
         let rule_held_pre: Vec<bool> = (0..self.rules.len())
             .map(|ri| {
-                self.nets[ri].path.iter().any(|&ni| {
-                    self.trie[ni]
-                        .node
-                        .s_right
-                        .ins
+                // D-102 (u1c/987, NARROW — the broad per-rule gate
+                // blast-radiused 18% of stream scenarios): defer the
+                // flush eval only when the TRIGGER toggled this rule's
+                // not/exists CE (enabler-type match) AND pre-link
+                // (ph=4) rights are held on the path.
+                let trigger_toggles = self.flush_trigger_tid.is_some_and(|tid| {
+                    self.rules[ri]
+                        .patterns
                         .iter()
-                        .any(|(_, _, ph)| *ph == 4)
-                })
+                        .any(|p| {
+                            matches!(p.ce, CeKind::Not | CeKind::Exists)
+                                && p.type_id == tid
+                        })
+                });
+                trigger_toggles
+                    && self.nets[ri].path.iter().any(|&ni| {
+                        self.trie[ni]
+                            .node
+                            .s_right
+                            .ins
+                            .iter()
+                            .any(|(_, _, ph)| *ph == 4)
+                    })
             })
             .collect();
         // linked-ness per node BEFORE mutation (temporal stash gate)
@@ -2872,6 +2891,9 @@ impl Engine {
                 self.nets.iter().filter(|n| n.path.contains(&ni)).count() > 1
             })
             .collect();
+        for ni in 0..self.trie.len() {
+            self.trie[ni].node.shared = node_shared[ni];
+        }
         for (ni, p) in pre.0.iter().enumerate() {
             let t = &mut self.trie[ni];
             // pre-tail DELS stash at ALL nodes: staged deletes from
@@ -2889,23 +2911,20 @@ impl Engine {
                 continue;
             }
             if t.node.temporal {
-                // D-102 (cf101x616/cf101x134): temporal deltas don't
-                // flush-pair on LINKED paths — rights stash whenever
-                // the path is linked NOW; lefts stash only when it was
-                // ALREADY linked pre-insert (the LINK-TRANSITION flush
-                // keeps the certified fill+pair against right memory —
-                // t6/t7/t10/t12/t13/t14). Unlinked deltas stay staged
-                // for the self-drain.
-                if node_linked[ni] {
+                // D-102 (cf101x616/134/551/853 — ALL shared shapes;
+                // the unscoped version blast-radiused 18% of ordinary
+                // single-rule scenarios, caught by fresh-seed campaign
+                // seeds 7/13/29): the stay-at-flush semantics apply to
+                // SHARED temporal nodes ONLY. Unshared temporal nodes
+                // keep the certified pre-0dc2a4e flush behavior
+                // (delta rights walk; transition fills+pairs).
+                // Unlinked deltas stay staged for the self-drain.
+                if node_linked[ni] && node_shared[ni] {
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
-                    let (s0_all, sl_all) = if pre.2[t.env.0] || node_shared[ni] {
-                        (
-                            std::mem::take(&mut t.s0_in.ins),
-                            std::mem::take(&mut t.node.s_left.ins),
-                        )
-                    } else {
-                        (Vec::new(), Vec::new())
-                    };
+                    let (s0_all, sl_all) = (
+                        std::mem::take(&mut t.s0_in.ins),
+                        std::mem::take(&mut t.node.s_left.ins),
+                    );
                     stash.push((sr_all, s0_all, sl_all));
                 } else {
                     stash.push((Vec::new(), Vec::new(), Vec::new()));
@@ -3135,7 +3154,9 @@ impl Engine {
                 // ONE window (a3's batch pin holds pre- and post-flush).
                 let pre = self.stage_snapshot();
                 self.on_insert(f, None);
+                self.flush_trigger_tid = Some(self.store.fact_type(f));
                 self.stream_flush_ex(&pre, false);
+                self.flush_trigger_tid = None;
             }
         }
         let mut firings = Vec::new();
@@ -4878,7 +4899,9 @@ impl Engine {
                     self.tms_note_stated(fid);
                     let pre = self.stage_snapshot();
                     self.on_insert(fid, Some(ri));
+                    self.flush_trigger_tid = Some(self.store.fact_type(fid));
                     self.stream_flush(&pre);
+                    self.flush_trigger_tid = None;
                 }
                 CompiledAction::InsertLogical { type_id, args } => {
                     let tid = *type_id;

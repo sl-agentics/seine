@@ -82,7 +82,7 @@ def run(cfg, ce, op, lo, hi, fires, shared=False):
 
     Returns {"sink0": [...per-fire firings...], "peer": [...]}.
     """
-    (pscan, rscan, liter, c_sink0, c_peer, if_flush) = cfg
+    (pscan, rscan, liter, c_sink0, c_peer, if_flush, wstruct) = cfg
     temporal = ce is None
     lmem, rmem = [], []   # (ts, seq, fire_no_filled)
     sl, sr = [], []       # staged (prepend): (ts, seq, linkgen)
@@ -204,12 +204,63 @@ def run(cfg, ce, op, lo, hi, fires, shared=False):
         if temporal:
             pre_r = list(rmem)
             fills = list(sl)
+            rights = list(sr)
+            staged_l_ts = {e[0] for e in fills}
+            staged_r_ts = {e[0] for e in rights}
+            is_ab_batch = (
+                bool(fills) and staged_l_ts == staged_r_ts
+                and len(fills) == len(rights)
+            )
+            if wstruct == "per_fact_ab" and is_ab_batch:
+                # per-FACT newest-first (853/616/134/min_sj decode):
+                #   1. cross-RIGHT arm: own-right x {older-staged +
+                #      memory} lefts (pscan order, self excluded)
+                #   2. SELF-pair
+                #   3. cross-LEFT arm: own-left x older-staged rights
+                #      (arrival) + memory rights (rscan)
+                sl = []
+                sr = []
+                facts = sorted(fills, key=lambda x: -x[1])  # newest first
+                pre_mem_lefts = [a for a in lmem]
+                for e in facts:
+                    lmem.append((e[0], e[1], fno))
+                for e in facts:
+                    rmem.append((e[0], e[1], fno))
+                    # arm 1: older staged lefts (arrival) then memory
+                    # lefts (prior newest-first — the pscan shape)
+                    older_l = sorted([a for a in facts if a[1] < e[1]],
+                                     key=lambda x: x[1])
+                    mem_l = sorted(pre_mem_lefts, key=lambda x: -x[1])
+                    for a in older_l + mem_l:
+                        if a[0] in expired or a[0] == IF_TS:
+                            continue
+                        if eligible(op, lo, hi, a[0], e[0]):
+                            creations.append((a[0], e[0]))
+                    # arm 2: self
+                    if e[0] not in expired and eligible(op, lo, hi, e[0], e[0]):
+                        creations.append((e[0], e[0]))
+                    # arm 3: older staged rights (arrival) then memory
+                    older_r = sorted([b for b in facts if b[1] < e[1]],
+                                     key=lambda x: x[1])
+                    pre_r_iter = pre_r if rscan == "push" else list(reversed(pre_r))
+                    for b in older_r + pre_r_iter:
+                        if b[0] in expired:
+                            continue
+                        if eligible(op, lo, hi, e[0], b[0]):
+                            creations.append((e[0], b[0]))
+                if creations:
+                    windows.append(creations)
+                for role, mode in (("sink0", c_sink0), ("peer", c_peer)):
+                    out[role].append([c for w in windows
+                                      for c in (w if mode == "fwd" else list(reversed(w)))])
+                lmem = [e for e in lmem if e[0] not in expired or e[0] == IF_TS]
+                rmem = [e for e in rmem if e[0] not in expired]
+                continue
             sl = []
             fill_seqs = set()
             for e in reversed(fills):
                 lmem.append((e[0], e[1], fno))
                 fill_seqs.add(e[1])
-            rights = list(sr)
             sr = []
             for e in rights:  # staged order = newest first
                 rmem.append((e[0], e[1], fno))
@@ -402,6 +453,7 @@ def main():
         ["fwd", "rev"],        # c_sink0
         ["fwd", "rev"],        # c_peer
         ["pair", "fill", "stage", "pair_unless_held"],  # if_flush
+        ["phased", "per_fact_ab"],  # walk structure for AB batches
     ]
     survivors = []
     for cfg in itertools.product(*dims):
@@ -430,7 +482,7 @@ def main():
             survivors.append(cfg)
     print(f"{len(survivors)} survivor(s)")
     for s in survivors[:16]:
-        print("  pscan=%s rscan=%s liter=%s sink0=%s peer=%s iff=%s" % s)
+        print("  pscan=%s rscan=%s liter=%s sink0=%s peer=%s iff=%s ws=%s" % s)
     if not survivors:
         best = []
         for cfg in itertools.product(*dims):

@@ -296,6 +296,10 @@ pub struct Node {
     lseq: HashMap<Tup, u64>,
     lseq_next: u64,
     left_fire: HashMap<Tup, u64>,
+    /// D-102: >1 rule's path contains this node (set at lists_built).
+    /// Shared temporal nodes use the this-fire-first partner scan and
+    /// the stay-at-flush stash; unshared keep certified behavior.
+    pub shared: bool,
 }
 
 impl Node {
@@ -354,6 +358,7 @@ impl Node {
             lseq: HashMap::new(),
             lseq_next: 1,
             left_fire: HashMap::new(),
+            shared: false,
         }
     }
 
@@ -1145,22 +1150,30 @@ fn do_join_node<E: JoinEnv>(
             // simulated states): partner scan = THIS-FIRE lefts
             // (filled OR self-drained this fire) in ARRIVAL order,
             // then prior-fire lefts NEWEST-first.
-            let fno = env.fire_no();
-            let mut this_fire: Vec<Tup> = node
-                .lefts
-                .iter()
-                .filter(|(l, _)| node.left_fire.get(l) == Some(&fno))
-                .map(|(l, _)| l.clone())
-                .collect();
-            this_fire.sort_by_key(|l| node.left_seq(l));
-            let mut prior: Vec<Tup> = node
-                .lefts
-                .iter()
-                .filter(|(l, _)| node.left_fire.get(l) != Some(&fno))
-                .map(|(l, _)| l.clone())
-                .collect();
-            prior.sort_by_key(|l| std::cmp::Reverse(node.left_seq(l)));
-            let partners: Vec<Tup> = this_fire.into_iter().chain(prior).collect();
+            let partners: Vec<Tup> = if node.shared {
+                let fno = env.fire_no();
+                let mut this_fire: Vec<Tup> = node
+                    .lefts
+                    .iter()
+                    .filter(|(l, _)| node.left_fire.get(l) == Some(&fno))
+                    .map(|(l, _)| l.clone())
+                    .collect();
+                this_fire.sort_by_key(|l| node.left_seq(l));
+                let mut prior: Vec<Tup> = node
+                    .lefts
+                    .iter()
+                    .filter(|(l, _)| node.left_fire.get(l) != Some(&fno))
+                    .map(|(l, _)| l.clone())
+                    .collect();
+                prior.sort_by_key(|l| std::cmp::Reverse(node.left_seq(l)));
+                this_fire.into_iter().chain(prior).collect()
+            } else {
+                // certified unshared scan: lseq arrival
+                let mut ps: Vec<Tup> =
+                    node.lefts.iter().map(|(l, _)| l.clone()).collect();
+                ps.sort_by_key(|l| node.left_seq(l));
+                ps
+            };
             for l in partners {
                 if l.iter().any(|lf| env.is_expired(*lf)) {
                     continue; // D-102: corpse lefts make no NEW pairs
