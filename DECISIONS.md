@@ -4156,3 +4156,40 @@ from the temporal t7 rule. Next sitting: model_check_stream cycle 3
 at all-links vs nonflush} against the full pin set (now ~20).
 Branch state: d102-flush-wip carries everything incl. the
 SEINE_EVAL_DEBUG instrumentation; main stays green at this commit.
+
+### D-102 (audit + state correction): harness liveness lint LANDED
+### (888/888); a stash-cycle engine clobber found and fixed; the TRUE
+### branch state is 30/31 with ONE open pin (u2) — checker cycle 3
+### adjudicates the measured seesaw
+**Harness hardening (the u2 lesson, corrected):** the harness never
+passed u2 silently — differentials fail loudly on one-side errors.
+The REAL latent classes: (1) oracle-recon probes carrying
+engine-invalid DRL unnoticed until drafted into a gate; (2)
+green-because-inert differentials (both sides run, nothing fires).
+tools/lint_probes.py (make lint-probes) guards both: every probe
+must run engine-side AND produce firings or query rows;
+deliberate-empty pins carry expect_inert (20 annotated — zero-firing
+regression pins, blocked-not probes, qx-empty); WALLED recon probes
+carry engine_fenced and the lint verifies they STAY REJECTED (the
+ghosts inverted into standing fence-regression guards). Audit:
+888/888 live/guarded; the CEP checker pin set verified clean.
+**Ops lesson (twice bitten):** stash/checkout cycles during
+baseline-instrumentation dances clobbered the branch engine (a
+git add -A then committed a 202-line regression silently — caught
+because the matrix seesawed impossibly). Standing rule: after any
+stash dance, `git diff HEAD~1 --stat` before trusting a measurement;
+better, take baseline traces via a WORKTREE not stash cycles.
+**True branch state (engine restored, re-measured): 30/31.** a3 ✓
+(kind-scoped stash — existential blockers stay visible), v2/v2c/
+cf5x18 ✓ (delta-left flushes release the IF), u2c/u2d ✓ (bare and
+split-epoch joins left-major). OPEN: u2 alone (same-batch
+binding-join in an event session) — engine pairs held lefts at the
+rights' flush evals; oracle composes left-major at the fire.
+Symmetric join-side stashing (held lefts too) fixes u2 but breaks 7
+others (measured 23/31) — the uniform rule can't serve both; the
+advisor-predicted shape stands: node-kind-scoped (and possibly
+side- and delta-scoped) stash/order tables, adjudicated by
+model_check_stream cycle 3 against the audited pin set. The
+recurring signature (seventh instance) is now a standing heuristic:
+when a composition regresses, ask FIRST "what is this operation
+treating as uniform that isn't?"
