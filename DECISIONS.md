@@ -4234,3 +4234,45 @@ k=1 rules) is the next bounded step. Instrumentation in place:
 SEINE_TMS_DEBUG, SEINE_EVAL_DEBUG, SEINE_FLUSH_DEBUG, k1-stash
 prints. After it: shakedown to zero -> 3x1000 campaign ->
 D-101/D-102 close + FEATURES promotion.
+
+### D-102 (forensics + the expiration composition): FIVE mechanisms
+### landed; three 60-shakedowns CLEAN; campaign launched
+Forensic finding first: the cf5x17 k=1 "leak" was MY EDIT — the
+k1-stash replace had silently no-oped (unconditional success print,
+no assert). Re-applied WITH asserts: cf5x17 green immediately.
+Edit-hygiene rule now standing: every scripted patch asserts its
+anchors.
+Then the fuzz peel (12 -> 9 -> 3 -> 1 -> 0 divergences across two
+seeds) pinned FIVE mechanisms, each oracle-probed before porting:
+1. **Expiration boundary is STRICTLY-AFTER** (b1/b2 pins): an event
+   survives clock == ts+expires inclusive; deadline = ts+expires+1
+   (Drools schedules the ExpireJob at offset+1). One-line fix.
+2. **TMS expiration teardown timing** (q1/q2/q4 pins): an expiring
+   justifier's teardown drains at the J-rule's POST-FIRING block
+   (after the RHS — q2: re-justification keeps D continuous, no
+   RD re-fire) or at agenda QUIESCENCE if the rule never fires
+   (q1/q4: past even salience -5). NEVER at an empty pop, never at
+   a flush. Implemented as tms.exp_deferred, SEPARATE from the
+   certified D-076 deferred list (fz_7_3783 regressed when the
+   quiescence drain touched D-076 entries — the certified cloud
+   machinery restored verbatim).
+3. **Expiration deletes propagate at QUIESCENCE** (cf5x33: a not-CE
+   over an expired event stays BLOCKED through all salience-0 pops
+   of the next fire). advance() only marks + queues
+   pending_expirations; the quiescence step in next_activation
+   processes the batch through the certified delete path, drains
+   the freshly-routed teardowns IN THE SAME ROUND (cf11x24: both
+   effect kinds materialize before the rescan; salience orders the
+   observers), then rescans.
+4. **The expired FLAG is EAGER** (cf11x55/8/19/37): a
+   pending-expired event makes NO NEW join pairs (fresh walks skip
+   flagged partners at plain+temporal joins — store.is_expired via
+   a JoinEnv default) while its EXISTING network effects (not/
+   exists blocking) persist until the lazy delete. Flag-eager,
+   retraction-lazy — Drools' propagation-queue structure exactly.
+5. **The plain-node link drain gates on the quiescence-delete
+   phase** (cf11x11): with expiring's lifetime now spanning the
+   epoch, the old !expiring.is_empty() gate misfired on
+   insert-triggered links; in_expiration_drain flag replaces it.
+State: 31-rung matrix + q/b probes green; suites 8; corpus 834/834;
+lint clean; shakedowns seeds 5/11/23 = 0/0/0 divergences.

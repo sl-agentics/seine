@@ -764,6 +764,12 @@ impl Node {
 /// Callbacks the evaluation needs from the engine (constraint tests and
 /// key computation read the fact store and compiled rule).
 pub trait JoinEnv {
+    /// D-102: expiration-FLAGGED events are skipped as fresh JOIN
+    /// partners (eager flag, lazy retraction — existential blocking
+    /// persists until the quiescence delete).
+    fn is_expired(&self, _f: FactId) -> bool {
+        false
+    }
     /// Full constraint test (live values) for extending `l` with `f`.
     fn allowed(&self, node: usize, l: &Tup, f: FactId) -> bool;
     /// Index key of the LEFT side (binding-source values), live.
@@ -1121,6 +1127,9 @@ fn do_join_node<E: JoinEnv>(
             let mut partners: Vec<Tup> = node.lefts.iter().map(|(l, _)| l.clone()).collect();
             partners.sort_by_key(|l| node.left_seq(l));
             for l in partners {
+                if l.iter().any(|lf| env.is_expired(*lf)) {
+                    continue; // D-102: corpse lefts make no NEW pairs
+                }
                 if env.allowed(node_idx, &l, *f) {
                     let t = node.create_child(&l, *f, None, None);
                     out.child_ins(t, *o, 1);
@@ -1129,6 +1138,9 @@ fn do_join_node<E: JoinEnv>(
         }
         for (l, o, _) in &sl.ins {
             for f in &pre_rights {
+                if env.is_expired(*f) {
+                    continue; // D-102: corpse rights make no NEW pairs
+                }
                 if env.allowed(node_idx, l, *f) {
                     let t = node.create_child(l, *f, None, None);
                     out.child_ins(t, *o, 0);
@@ -1158,6 +1170,9 @@ fn do_join_node<E: JoinEnv>(
         let rkey = env.key_of_right(node_idx, *f);
         node.rights.push((*f, rkey.clone()));
         for l in node.lefts_bucket(rkey.as_ref()) {
+            if l.iter().any(|lf| env.is_expired(*lf)) {
+                continue; // D-102: corpse lefts make no NEW pairs
+            }
             if env.allowed(node_idx, &l, *f) {
                 let t = node.create_child(&l, *f, None, None);
                 out.child_ins(t, *o, 1);
@@ -1174,6 +1189,9 @@ fn do_join_node<E: JoinEnv>(
         node.lefts.push((l.clone(), env.key_of_left(node_idx, l)));
         let lkey = node.lefts.last().and_then(|(_, k)| k.clone());
         for f in node.rights_bucket(lkey.as_ref()) {
+            if env.is_expired(f) {
+                continue; // D-102: corpse rights make no NEW pairs
+            }
             if env.allowed(node_idx, l, f) {
                 let t = node.create_child(l, f, None, None);
                 out.child_ins(t, *o, 0);

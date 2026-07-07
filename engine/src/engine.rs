@@ -464,6 +464,10 @@ struct Tms {
     /// eager (no-loop/dyn) justifier's entry drain at the FLUSH instead
     /// (tms_t20_b_s vs nb_ns event dumps).
     deferred: Vec<(usize, Tup, bool)>,
+    /// D-102 (q1/q4/cf5x33): EXPIRATION-routed lazy teardowns — drain
+    /// at the rule's post-firing block or at agenda QUIESCENCE; never
+    /// make an item reachable, never drain at cloud fire-end
+    exp_deferred: Vec<(usize, Tup)>,
     /// Facts touched by the CURRENT evaluation's left-side staging,
     /// with the staging origin (eager-flush drains are OWN-origin only,
     /// min3783 vs tms_t20_b_s).
@@ -929,6 +933,8 @@ pub struct Engine {
     /// Deadline-ordered expiration queue; Vec preserves insertion
     /// order within a deadline (the a2-pinned stable tie order).
     deadlines: std::collections::BTreeMap<i64, Vec<FactId>>,
+    pending_expirations: Vec<FactId>,
+    in_expiration_drain: bool,
     store: FactStore,
     rules: Vec<CompiledRule>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
@@ -1015,6 +1021,8 @@ impl Engine {
             clock_ms: 0,
             event_specs: std::collections::HashMap::new(),
             deadlines: std::collections::BTreeMap::new(),
+            pending_expirations: Vec::new(),
+            in_expiration_drain: false,
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_parents: Vec::new(),
@@ -2730,7 +2738,11 @@ impl Engine {
         let tid = self.store.fact_type(id);
         if let Some(&(fi, exp)) = self.event_specs.get(&tid) {
             if let Value::I64(ts) = self.store.value(id, fi) {
-                self.deadlines.entry(ts + exp).or_default().push(id);
+                // D-102 (b1/b2 pins): Drools expiration is STRICTLY
+                // AFTER the window — the event survives through
+                // clock == ts+expires inclusive (ObjectTypeNode
+                // schedules the ExpireJob at offset + 1)
+                self.deadlines.entry(ts + exp + 1).or_default().push(id);
             }
         }
     }
@@ -2841,6 +2853,21 @@ impl Engine {
             let sl_tail = t.node.s_left.ins.split_off(dl);
             stash.push((sr_all, s0_tail, sl_tail));
         }
+        // k=1 window DELS/UPDS are never the insert-trigger's own effect
+        // — stash them ALL for the fire (expiration deletes batch to the
+        // fire; cf5x17's k=1 justifier teardown must not run at a flush)
+        let mut k1_stash: Vec<Vec<(usize, Vec<(FactId, Origin, u8)>, Vec<(FactId, Origin, u8)>)>> =
+            Vec::with_capacity(self.nets.len());
+        for net in self.nets.iter_mut() {
+            let mut per: Vec<(usize, Vec<(FactId, Origin, u8)>, Vec<(FactId, Origin, u8)>)> =
+                Vec::new();
+            for (wi, w) in net.s0.iter_mut().enumerate() {
+                if !w.del.is_empty() || !w.upd.is_empty() {
+                    per.push((wi, std::mem::take(&mut w.del), std::mem::take(&mut w.upd)));
+                }
+            }
+            k1_stash.push(per);
+        }
         for ri in 0..self.rules.len() {
             let s0_now: usize =
                 self.nets[ri].s0.iter().map(|w| w.ins.len() + w.del.len() + w.upd.len()).sum();
@@ -2852,6 +2879,17 @@ impl Engine {
             if self.nets[ri].queued && is_touched {
                 dbg_eval("flush", ri);
                 self.evaluate_rule(ri, false, false);
+            }
+        }
+        for (ri, per) in k1_stash.into_iter().enumerate() {
+            for (wi, dels, upds) in per {
+                if wi < self.nets[ri].s0.len() {
+                    self.nets[ri].s0[wi].del.extend(dels);
+                    self.nets[ri].s0[wi].upd.extend(upds);
+                } else if let Some(w) = self.nets[ri].s0.last_mut() {
+                    w.del.extend(dels);
+                    w.upd.extend(upds);
+                }
             }
         }
         // self-drain: deltas left staged at UNLINKED temporal nodes
@@ -2938,14 +2976,37 @@ impl Engine {
             }
             out
         };
+        // D-102 (cf5x33): expiration deletes propagate at agenda
+        // QUIESCENCE, not at advance-time — a not-CE over an expired
+        // event stays BLOCKED through all higher pops of the next fire
+        // (the oracle fires salience-0 items before the unblocked
+        // observers). advance() only marks and queues.
         for id in due {
             if self.store.is_alive(id) {
                 self.tms.expiring.insert(id);
-                self.delete_fact(id)?;
+                self.store.mark_expired(id);
+                self.pending_expirations.push(id);
             }
         }
-        self.tms.expiring.clear();
         Ok(())
+    }
+
+    /// Quiescence step: propagate the pending expiration batch through
+    /// the certified delete path. Returns true if anything processed.
+    fn drain_pending_expirations(&mut self) -> bool {
+        if self.pending_expirations.is_empty() {
+            return false;
+        }
+        let pending = std::mem::take(&mut self.pending_expirations);
+        self.in_expiration_drain = true;
+        for id in pending {
+            if self.store.is_alive(id) {
+                let _ = self.delete_fact(id);
+            }
+        }
+        self.in_expiration_drain = false;
+        self.tms.expiring.clear();
+        true
     }
 
     pub fn delete_fact(&mut self, id: FactId) -> Result<(), EngineError> {
@@ -3126,7 +3187,15 @@ impl Engine {
                 dbg_eval("post-fire-force", l);
                 self.evaluate_rule(l, true, false);
                 self.tms.defer_mode = false;
-                if self.tms.deferred.iter().any(|(ri, _, _)| *ri == l) {
+                if self.tms.deferred.iter().any(|(ri, _, _)| *ri == l)
+                    || self.tms.exp_deferred.iter().any(|(ri, _)| *ri == l)
+                {
+                    while let Some(i) =
+                        self.tms.exp_deferred.iter().position(|(ri, _)| *ri == l)
+                    {
+                        let (_, tuple) = self.tms.exp_deferred.remove(i);
+                        self.tms_on_terminal_del(l, &tuple);
+                    }
                     while let Some(i) =
                         self.tms.deferred.iter().position(|(ri, _, _)| *ri == l)
                     {
@@ -3224,6 +3293,9 @@ impl Engine {
             let mut best: Option<(i32, usize, bool, usize)> = None; // (sal, decl, is_query, idx)
             for i in 0..self.rule_order.len() {
                 let ri = self.rule_order[i];
+                // D-076 (certified): any deferred entry makes the item
+                // reachable. Expiration-routed teardowns live in
+                // exp_deferred (D-102 q1/q4) and never resurrect items.
                 let has_deferred = self.tms.deferred.iter().any(|(dri, _, _)| *dri == ri);
                 if !self.nets[ri].queued && !has_deferred {
                     continue;
@@ -3251,14 +3323,43 @@ impl Engine {
                     best = Some((0, decl, true, qi));
                 }
             }
-            let Some((_, _, is_query, ri)) = best else { return None };
+            let Some((_, _, is_query, ri)) = best else {
+                // AGENDA QUIESCENCE (q1/q4): lazy deferred teardowns
+                // drain once the agenda empties; their retractions may
+                // activate rules (not-D observers), so rescan.
+                if self.drain_pending_expirations() {
+                    // one round: the deletes just routed their TMS
+                    // teardowns onto exp_deferred — run them NOW so
+                    // every quiescence effect (not-unblocks AND
+                    // belief retractions) materializes before the
+                    // rescan; salience then orders the observers
+                    // (cf11x24: ND4@2 before NE5@0).
+                    let pending = std::mem::take(&mut self.tms.exp_deferred);
+                    for (dri, tuple) in pending {
+                        self.tms_on_terminal_del(dri, &tuple);
+                    }
+                    continue;
+                }
+                if !self.tms.exp_deferred.is_empty() {
+                    let pending = std::mem::take(&mut self.tms.exp_deferred);
+                    for (dri, tuple) in pending {
+                        self.tms_on_terminal_del(dri, &tuple);
+                    }
+                    continue;
+                }
+                return None;
+            };
             if is_query {
                 self.drain_query_item(ri);
                 continue;
             }
             // D-076: process deferred terminal-del unmatches when the
             // item is REACHED (Drools evaluateNetworkIfDirty position).
-            while let Some(i) = self.tms.deferred.iter().position(|(dri, _, _)| *dri == ri) {
+            // Expiration-routed entries (exp_deferred) instead wait for
+            // the post-firing drain or quiescence (D-102 q1/q4).
+            while let Some(i) =
+                self.tms.deferred.iter().position(|(dri, _, _)| *dri == ri)
+            {
                 let (_, tuple, _) = self.tms.deferred.remove(i);
                 self.tms_on_terminal_del(ri, &tuple);
             }
@@ -3266,7 +3367,8 @@ impl Engine {
             self.evaluate_rule(ri, false, false);
             if self.nets[ri].queue.is_empty() {
                 if !self.nets[ri].dirty {
-                    // removeRuleAgendaItemWhenEmpty (D-091)
+                    // removeRuleAgendaItemWhenEmpty (D-091) — lazy
+                    // deferred entries LINGER (quiescence will drain)
                     self.nets[ri].queued = false;
                 }
                 continue;
@@ -3542,7 +3644,7 @@ impl Engine {
                 self.nets[ri].queued = true;
                 self.nets[ri].dirty = true;
             }
-            if !was[ri] && now && !self.tms.expiring.is_empty() {
+            if !was[ri] && now && self.in_expiration_drain {
                 // D-102 (model-check survivor, ldrain_plain=nonflush):
                 // an ADVANCE-triggered link (we're inside an expiration
                 // batch — tms.expiring is non-empty exactly then) drains
@@ -5011,8 +5113,8 @@ impl Engine {
             // exactly like k>=2 walk-path teardowns. External deletes
             // keep the certified EAGER path (the a7d delete twin).
             if act.1.iter().any(|x| self.tms.expiring.contains(x)) {
-                if !self.tms.deferred.iter().any(|(r, t, _)| (*r, t) == (act.0, &act.1)) {
-                    self.tms.deferred.push((act.0, act.1, false));
+                if !self.tms.exp_deferred.iter().any(|(r, t)| (*r, t) == (act.0, &act.1)) {
+                    self.tms.exp_deferred.push((act.0, act.1));
                 }
                 continue;
             }
@@ -5038,9 +5140,16 @@ impl Engine {
         // pruning during advance()'s deletes), which bypass the
         // eager-break scan's routing.
         if tuple.iter().any(|f| self.tms.expiring.contains(f)) {
-            if !self.tms.deferred.iter().any(|(r, t, _)| (*r, t) == (ri, tuple)) {
-                self.tms.deferred.push((ri, tuple.clone(), false));
+            if !self.tms.exp_deferred.iter().any(|(r, t)| (*r, t) == (ri, tuple)) {
+                self.tms.exp_deferred.push((ri, tuple.clone()));
             }
+            return;
+        }
+        // an act already PENDING as a lazy entry stays lazy — the fire
+        // walk's window consume re-reports the same terminal-del after
+        // the expiring marks are cleared (q1: the teardown must wait
+        // for a firing pop or quiescence, not run at the re-report)
+        if self.tms.exp_deferred.iter().any(|(r, t)| (*r, t) == (ri, tuple)) {
             return;
         }
         if self.tms.by_act.is_empty() {
@@ -5409,6 +5518,9 @@ struct JoinEnvImpl<'a> {
 }
 
 impl phreak::JoinEnv for JoinEnvImpl<'_> {
+    fn is_expired(&self, f: FactId) -> bool {
+        self.store.is_expired(f)
+    }
     fn allowed(&self, node: usize, l: &Tup, f: FactId) -> bool {
         let pos = node + 1;
         let pat = &self.rule.patterns[pos];

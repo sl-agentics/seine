@@ -302,6 +302,7 @@ struct HandleEntry {
 }
 
 pub struct FactStore {
+    expired: std::collections::HashSet<FactId>,
     schemas: Vec<TypeSchema>,
     data: Vec<TypeData>,
     handles: Vec<HandleEntry>,
@@ -328,7 +329,8 @@ impl FactStore {
                 rows: 0,
             })
             .collect();
-        FactStore { schemas, data, handles: Vec::new() }
+        FactStore {
+            expired: std::collections::HashSet::new(), schemas, data, handles: Vec::new() }
     }
 
     pub fn schemas(&self) -> &[TypeSchema] {
@@ -398,6 +400,16 @@ impl FactStore {
         self.handles[id.0 as usize].alive
     }
 
+    /// D-102: expiration FLAG (eager) vs retraction (quiescence-lazy).
+    /// A flagged event is skipped as a fresh JOIN partner but keeps its
+    /// existing network effects (not/exists blocking) until deletion.
+    pub fn mark_expired(&mut self, id: FactId) {
+        self.expired.insert(id);
+    }
+    pub fn is_expired(&self, id: FactId) -> bool {
+        self.expired.contains(&id)
+    }
+
     /// In-place field mutation (RHS setter). Values of retracted facts stay
     /// readable in the arena, matching Drools where a Java object outlives
     /// its retraction for rendering purposes.
@@ -408,6 +420,7 @@ impl FactStore {
 
     /// Retract: mark dead. Idempotent; the row's values remain readable.
     pub fn kill(&mut self, id: FactId) {
+        self.expired.remove(&id);
         self.handles[id.0 as usize].alive = false;
     }
 
