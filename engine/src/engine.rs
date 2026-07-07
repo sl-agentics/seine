@@ -464,13 +464,8 @@ struct Tms {
     left_touched: Vec<(FactId, Origin)>,
     /// Ambient flag: inside the post-firing force evaluation.
     defer_mode: bool,
-    /// CEP E1 (D-101/a7c): act-invalidations whose dying tuple traces
-    /// to an EXPIRING fact defer here and drain only at AGENDA
-    /// QUIESCENCE — Drools defers expiration-sourced logical
-    /// retraction later than delete-sourced (the delete twin a7d
-    /// matches the normal gate; the expiration probe a7c does not).
-    expire_deferred: Vec<(usize, Tup)>,
-    /// Facts currently dying BY EXPIRATION (marked in advance()).
+    /// Facts currently dying BY EXPIRATION (advance()): steers the
+    /// k=1 eager-break scan onto the LAZY deferred path (D-101).
     expiring: std::collections::HashSet<FactId>,
     /// The activation currently executing its RHS (self-break laziness,
     /// fz_42_2442).
@@ -2765,6 +2760,7 @@ impl Engine {
                 self.delete_fact(id)?;
             }
         }
+        self.tms.expiring.clear();
         Ok(())
     }
 
@@ -2810,6 +2806,7 @@ impl Engine {
         for ni in 0..self.trie.len() {
             self.trie[ni].s0_in.clear_slots();
         }
+
         if !self.lists_built {
             self.lists_built = true;
             let initial: Vec<FactId> = self.store.live_facts().collect();
@@ -2887,6 +2884,7 @@ impl Engine {
         for ni in 0..self.trie.len() {
             self.trie[ni].s0_in.clear_slots();
         }
+
         Ok(firings)
     }
 
@@ -3060,32 +3058,7 @@ impl Engine {
                     best = Some((0, decl, true, qi));
                 }
             }
-            let Some((_, _, is_query, ri)) = best else {
-                // CEP E1 (D-101/a7c): agenda quiescence — drain
-                // expiration-sourced logical retractions, then rescan
-                // (their consequences may activate rules).
-                if !self.tms.expire_deferred.is_empty() {
-                    // Clear the expiring marks FIRST: the drained calls
-                    // route through tms_on_terminal_del, whose entry
-                    // check would otherwise re-defer the same act
-                    // forever (live-lock). The pending entries are
-                    // already collected; fresh marks only come from a
-                    // future advance().
-                    self.tms.expiring.clear();
-                    while let Some((eri, tuple)) = {
-                        let head = if self.tms.expire_deferred.is_empty() {
-                            None
-                        } else {
-                            Some(self.tms.expire_deferred.remove(0))
-                        };
-                        head
-                    } {
-                        self.tms_on_terminal_del(eri, &tuple);
-                    }
-                    continue;
-                }
-                return None;
-            };
+            let Some((_, _, is_query, ri)) = best else { return None };
             if is_query {
                 self.drain_query_item(ri);
                 continue;
@@ -3104,7 +3077,15 @@ impl Engine {
                 }
                 continue;
             }
-            // dynamic salience may have moved this item; re-check.
+            // dynamic salience may have moved this item; re-check —
+            // DYN-SALIENCE ITEMS ONLY (D-101/cf5x17): a static item that
+            // activated OTHER rules during its pop (deferred terminal-del
+            // retracting a belief) still fires its own head first; the
+            // strictly-higher check happens BETWEEN firings (Drools'
+            // executor keeps control through the current fire).
+            if !matches!(self.rules[ri].salience, EngineSalience::Dyn { .. }) {
+                return Some(ri);
+            }
             let now = self.item_salience(ri);
             let preempted = (0..self.rules.len()).any(|rj| {
                 rj != ri && self.nets[rj].queued && {
@@ -3138,7 +3119,7 @@ impl Engine {
                     let c = self.lias[li].children[i];
                     self.trie[c].s0_in.add_ins(f, origin);
                 }
-                self.note_link_effects(&mut was);
+                self.note_link_effects_ex(&mut was, Some(f));
             }
         }
         for ni in 0..self.trie.len() {
@@ -3150,7 +3131,7 @@ impl Engine {
                 self.trie[ni].active.insert(f);
                 self.maybe_pulse(ni);
                 self.trie[ni].node.s_right.add_ins(f, origin);
-                self.note_link_effects(&mut was);
+                self.note_link_effects_ex(&mut was, Some(f));
             }
         }
     }
@@ -3240,7 +3221,7 @@ impl Engine {
                     _ => self.trie[c].s0_in.add_upd(f, origin),
                 }
             }
-            self.note_link_effects(&mut was);
+            self.note_link_effects_ex(&mut was, Some(f));
         }
         for ni in 0..self.trie.len() {
             let (ri, pos) = self.trie[ni].env;
@@ -3301,7 +3282,7 @@ impl Engine {
                 }
                 (false, false) => {}
             }
-            self.note_link_effects(&mut was);
+            self.note_link_effects_ex(&mut was, Some(f));
         }
         }
         self.tms_eager_break(f);
@@ -3320,13 +3301,13 @@ impl Engine {
                     let c = self.lias[li].children[i];
                     self.trie[c].s0_in.add_del(f, origin);
                 }
-                self.note_link_effects(&mut was);
+                self.note_link_effects_ex(&mut was, Some(f));
             }
         }
         for ni in 0..self.trie.len() {
             if self.trie[ni].active.remove(&f) {
                 self.trie[ni].node.s_right.add_del(f, origin);
-                self.note_link_effects(&mut was);
+                self.note_link_effects_ex(&mut was, Some(f));
             }
         }
         self.tms_eager_break(f);
@@ -3342,12 +3323,39 @@ impl Engine {
     /// action queues the item even if a later node unlinks the path
     /// again (D-037/fz_7_2122).
     fn note_link_effects(&mut self, was: &mut [bool]) {
+        self.note_link_effects_ex(was, None);
+    }
+
+    fn note_link_effects_ex(&mut self, was: &mut [bool], cur: Option<FactId>) {
         for ri in 0..self.rules.len() {
             let now = self.rule_linked(ri);
             if was[ri] && !now {
                 // doUnlinkRule: setDirty(true) + enqueue (D-032/D-091)
                 self.nets[ri].queued = true;
                 self.nets[ri].dirty = true;
+            }
+            if !was[ri] && now {
+                // D-101 (t14/model-check): at the LINK moment, temporal
+                // nodes drain PRE-LINK staged rights into memory in
+                // ARRIVAL order (reverse of the prepend-staged list),
+                // no children — the D-094 memory-fill lineage. The
+                // evaluation's leftIns then meets them as pre-batch
+                // MEMORY; post-link rights stage normally.
+                for &ni in &self.nets[ri].path.clone() {
+                    if self.trie[ni].node.temporal {
+                        let nidx = self.trie[ni].env.1 - 1;
+                        let mut node = std::mem::replace(
+                            &mut self.trie[ni].node,
+                            phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
+                        );
+                        node.drain_staged_rights_to_memory(
+                            &JoinEnvImpl { store: &self.store, rule: &self.rules[ri] },
+                            nidx,
+                            cur,
+                        );
+                        self.trie[ni].node = node;
+                    }
+                }
             }
             self.refresh_linked(ri);
             was[ri] = now;
@@ -4782,12 +4790,14 @@ impl Engine {
             .map(|(a, _)| a.clone())
             .collect();
         for act in broken {
-            // D-101/a7c: an EXPIRING justifier's eager teardown defers
-            // to agenda quiescence (the delete twin a7d keeps the
-            // certified immediate path).
+            // D-101 (a7c/a7d/cf5x0): an EXPIRING justifier's teardown is
+            // LAZY — it rides the certified tms.deferred list and drains
+            // at the justifier's ITEM POP (salience/decl agenda order),
+            // exactly like k>=2 walk-path teardowns. External deletes
+            // keep the certified EAGER path (the a7d delete twin).
             if act.1.iter().any(|x| self.tms.expiring.contains(x)) {
-                if !self.tms.expire_deferred.iter().any(|(r, t)| (*r, t) == (act.0, &act.1)) {
-                    self.tms.expire_deferred.push(act);
+                if !self.tms.deferred.iter().any(|(r, t, _)| (*r, t) == (act.0, &act.1)) {
+                    self.tms.deferred.push((act.0, act.1, false));
                 }
                 continue;
             }
@@ -4809,13 +4819,6 @@ impl Engine {
         }
         let act = (ri, tuple.clone());
         if !self.tms.by_act.iter().any(|(a, _)| *a == act) {
-            return;
-        }
-        if act.1.iter().any(|f| self.tms.expiring.contains(f)) {
-            // D-101/a7c: expiration-sourced — quiescence drain
-            if !self.tms.expire_deferred.iter().any(|(r, t)| (*r, t) == (act.0, &act.1)) {
-                self.tms.expire_deferred.push((act.0, act.1));
-            }
             return;
         }
         if self.tms.defer_mode {

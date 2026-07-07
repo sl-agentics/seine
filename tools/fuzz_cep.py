@@ -118,8 +118,8 @@ def main():
     while done < n:
         batch = []
         for i in range(done, min(done + BATCH, n)):
-            scn = Gen(random.Random(seed * 7_654_321 + i)).scenario(f"cf_{seed}_{i}")
-            path = f"{tmp}/cf_{i}.json"
+            scn = Gen(random.Random(seed * 7_654_321 + i)).scenario(f"cf{seed}x{i}")
+            path = f"{tmp}/cf{seed}x{i}.json"
             json.dump(scn, open(path, "w"), indent=1)
             batch.append(path)
         r = subprocess.run(
@@ -134,7 +134,8 @@ def main():
             print(f"  batch@{done}: {line}")
         done += len(batch)
         for p in batch:
-            keep = any(l.startswith("FAIL") and os.path.basename(p).split(".")[0] in l
+            base = os.path.basename(p).split(".")[0]
+            keep = any(l.startswith("FAIL") and l.split()[1] == base
                        for l in r.stdout.splitlines())
             if not keep:
                 os.remove(p)

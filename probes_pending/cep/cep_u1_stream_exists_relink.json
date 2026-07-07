@@ -1,0 +1,161 @@
+{
+ "name": "cf5x18",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 salience 9 when $a : E0(tag == \"z\") $b : E0(this after[0ms,150ms] $a) then end\nrule NE1 when exists E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 17,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 12,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 1,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 600
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 703,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 767,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 752,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ]
+}

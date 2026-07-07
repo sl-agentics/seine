@@ -374,6 +374,27 @@ impl Node {
         self.rights.iter().find(|(x, _)| *x == f).and_then(|(_, k)| k.clone())
     }
 
+    /// D-101: drain staged right INSERTS into memory in ARRIVAL order
+    /// (reverse of the prepend list), creating no children — the
+    /// link-moment memory fill (model-check survivor family).
+    pub fn drain_staged_rights_to_memory<E: JoinEnv>(
+        &mut self,
+        env: &E,
+        node_idx: usize,
+        exclude: Option<FactId>,
+    ) {
+        // the link-TRIGGERING fact's own staging is at-link, not
+        // pre-link: it stays staged and processes via rightIns (t1/t15)
+        let ins = std::mem::take(&mut self.s_right.ins);
+        let (keep, drain): (Vec<_>, Vec<_>) =
+            ins.into_iter().partition(|(f, _, _)| Some(*f) == exclude);
+        for (f, _, _) in drain.iter().rev() {
+            let rkey = env.key_of_right(node_idx, *f);
+            self.rights.push((*f, rkey));
+        }
+        self.s_right.ins = keep;
+    }
+
     pub fn push_left(&mut self, l: Tup, key: Option<Vec<Value>>) {
         self.lefts.push((l, key));
     }
@@ -1047,30 +1068,20 @@ fn do_join_node<E: JoinEnv>(
     // behavior; arrival is tracked separately in lseq for pass B
     // (D-082). ---
     if node.temporal {
-        // CEP E1 (D-101, t-ladder): temporal nodes FILL from staged
-        // lefts first (joining only PRE-BATCH right memory), then
-        // staged rights join the FULL left memory; each staged fact
-        // scans partners DESCENDING by timestamp key (t1/t4/t5/t6).
+        // CEP E1 (D-101, model-check survivor): pre-link staged rights
+        // drained to memory at the LINK moment (engine hook). The walk:
+        // (a) ALL staged lefts FILL first (lseq stamped, no joins);
+        // (b) rightIns staged head-first (newest) joins lefts in
+        //     ARRIVAL (lseq) order;
+        // (c) leftIns joins the PRE-BATCH right memory (incl. the
+        //     link drain) in MEMORY order.
+        let pre_rights: Vec<FactId> = node.rights.iter().map(|(f, _)| *f).collect();
         for (l, _, _) in sl.ins.iter().rev() {
             node.stamp_left_seq(l);
         }
-        for (l, o, _) in &sl.ins {
+        for (l, _, _) in &sl.ins {
             let lkey = env.key_of_left(node_idx, l);
-            let mut partners: Vec<(FactId, i64)> = node
-                .rights
-                .iter()
-                .map(|(f, k)| (*f, key_ts(k)))
-                .collect();
-            // ASCENDING by ts (t-ladder: firing order is the prepend
-            // REVERSE of creation order — creations scan ASC)
-            partners.sort_by_key(|(_, ts)| *ts);
             node.lefts.push((l.clone(), lkey));
-            for (f, _) in partners {
-                if env.allowed(node_idx, l, f) {
-                    let t = node.create_child(l, f, None, None);
-                    out.child_ins(t, *o, 0);
-                }
-            }
         }
         for (f, o, ph) in sr_ins_iter(&sr.ins) {
             if *ph == 1 {
@@ -1078,16 +1089,20 @@ fn do_join_node<E: JoinEnv>(
             }
             let rkey = env.key_of_right(node_idx, *f);
             node.rights.push((*f, rkey));
-            let mut partners: Vec<(Tup, i64)> = node
-                .lefts
-                .iter()
-                .map(|(l, k)| (l.clone(), key_ts(k)))
-                .collect();
-            partners.sort_by_key(|(_, ts)| *ts);
-            for (l, _) in partners {
+            let mut partners: Vec<Tup> = node.lefts.iter().map(|(l, _)| l.clone()).collect();
+            partners.sort_by_key(|l| node.left_seq(l));
+            for l in partners {
                 if env.allowed(node_idx, &l, *f) {
                     let t = node.create_child(&l, *f, None, None);
                     out.child_ins(t, *o, 1);
+                }
+            }
+        }
+        for (l, o, _) in &sl.ins {
+            for f in &pre_rights {
+                if env.allowed(node_idx, l, *f) {
+                    let t = node.create_child(l, *f, None, None);
+                    out.child_ins(t, *o, 0);
                 }
             }
         }

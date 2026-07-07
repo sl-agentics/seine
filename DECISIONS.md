@@ -3952,3 +3952,48 @@ timing) before the CEP fuzz gate can run. t6 stays in
 probes_pending/cep/. Gates at this commit: 8 suites, corpus 826/826,
 zero blast radius (temporal branch is flag-gated; plain joins
 byte-identical).
+
+### D-101 (continued): the t6 sub-ladder CRACKED — three mechanisms
+### pinned and ported, temporal ladder 15/15, corpus 834/834; ONE new
+### class open (u-ladder: STREAM-mode plain-node composition)
+**Method:** hand-models contradicted across shapes (the D-083
+signal), so tools/model_check_temporal.py enumerated the composition
+space against ALL twelve pins — zero survivors twice isolated the
+missing dimensions; the third run produced ONE six-member survivor
+family (degenerate residue only).
+**Mechanism 1 — drain-at-link (the D-094 memory-fill lineage):**
+rights staged while a temporal node's path is UNLINKED drain into
+right MEMORY in ARRIVAL order at the link moment — INCLUDING
+same-batch pre-anchor rights (t14's mid-batch link) but EXCLUDING
+the link-TRIGGERING fact itself (t1/t15: a prober that completes the
+path stays staged). Port: note_link_effects_ex threads the current
+WM event's fact; Node::drain_staged_rights_to_memory.
+**Mechanism 2 — the temporal walk composition:** staged lefts ALL
+fill first (no joins); staged rights process head-first (newest)
+joining lefts in ARRIVAL (lseq) order; then staged lefts join the
+PRE-BATCH right memory (incl. link drains) in memory order. The
+earlier ts-ASC model was a coincidence-fit (every early probe drew
+timestamps increasing with arrival; cf56's inverted draw broke it).
+**Mechanism 3 — expiration teardown is LAZY on the CERTIFIED path:**
+the quiescence-pool model (previous entry) was WRONG mechanism,
+right observables: a7c's "quiescence" was just the justifier's
+salience-0 item popping LAST, and fuzz case cf5x0's salience TIE
+(J2 decl-before-NE5 -> cascade drains first) proved the drain rides
+the EXISTING tms.deferred item-pop machinery — expiring-marked acts
+now push onto tms.deferred (lazy) while external deletes keep the
+certified EAGER k=1 teardown (a7d). The expire_deferred pool is
+DELETED. Corollary pin (cf5x17): after a popped item drains
+deferred dels, it COMMITS to firing its own head activation — the
+post-pop preemption re-check applies ONLY to dyn-salience items
+(Drools' executor keeps control through the current fire; the
+static re-check let a mid-pop-activated higher rule preempt ✗).
+**State:** temporal ladder 15/15 (t1-t15 + min_sj + cf56); a-ladder
+9/9 stays green; corpus 834/834 (8 t-rungs promoted); 8 suites; all
+certified paths byte-identical. **OPEN (u-ladder):** shakedown case
+cf5x18 (saved as probes_pending/cep/cep_u1_stream_exists_relink)
+diverges on a rule with NO temporal constraint — `exists E0() P()`
+re-linking after total expiration orders P-side pairs
+ARRIVAL-first in Drools vs fresh-first certified — STREAM-mode
+staging semantics for event-typed facts differ from CLOUD at PLAIN
+nodes too. The E1 fuzz gate stays blocked pending the u-ladder
+(exists/not/plain-join x event re-link shapes).
