@@ -151,6 +151,15 @@ pub enum AccFunc {
     Min,
     Max,
     Collect,
+    /// D-108: collectList(expr) — ordered value collection (match/
+    /// staging order; duplicates kept, one instance leaves per
+    /// reverse — ga16).
+    CollectList,
+    /// D-108: collectSet(expr) — COUNTED value set (a duplicate
+    /// survives a sibling's delete — ga15). Iteration order in Drools
+    /// is raw HashSet internals (unspecified, D-052-class); both
+    /// sides canonicalize SORTED under the SetCollection type.
+    CollectSet,
 }
 
 /// Inline accumulate / collect spec attached to a pattern whose
@@ -1144,6 +1153,8 @@ impl Parser {
             "average" => AccFunc::Average,
             "min" => AccFunc::Min,
             "max" => AccFunc::Max,
+            "collectList" => AccFunc::CollectList,
+            "collectSet" => AccFunc::CollectSet,
             other => {
                 return Err(self.perr(format!(
                     "accumulate function {other:?} not in subset (built-ins only: sum/count/average/min/max)"

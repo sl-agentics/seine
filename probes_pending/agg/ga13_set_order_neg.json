@@ -1,0 +1,59 @@
+{
+ "name": "ga13_set_order_neg",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when accumulate( T($v : v); $s : collectSet($v) ) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": -5
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 100
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": -1000000007
+   }
+  }
+ ],
+ "epochs": []
+}

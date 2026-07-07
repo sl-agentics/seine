@@ -1,0 +1,63 @@
+{
+ "name": "ga7_list_lifecycle",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when accumulate( T($v : v); $l : collectList($v) ) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "T",
+     "fields": {
+      "k": "a",
+      "v": 9
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,59 @@
+{
+ "name": "ga4_acc_per_key",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when T($k : k) accumulate( T(k == $k, $v : v); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "b",
+    "v": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 2
+   }
+  }
+ ],
+ "epochs": []
+}

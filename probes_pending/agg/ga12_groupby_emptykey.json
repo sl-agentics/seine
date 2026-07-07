@@ -1,0 +1,52 @@
+{
+ "name": "ga12_groupby_emptykey",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when groupby( T($k : k, $v : v); $k; $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": "",
+    "v": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "",
+    "v": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "b",
+    "v": 3
+   }
+  }
+ ],
+ "epochs": []
+}

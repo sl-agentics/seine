@@ -1,0 +1,51 @@
+{
+ "name": "ga10_groupby_downstream",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when groupby( T($k : k); $k; $c : count() ) Out(n == $c) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "a",
+    "v": 2
+   }
+  },
+  {
+   "type": "Out",
+   "fields": {
+    "n": 2
+   }
+  }
+ ],
+ "epochs": []
+}

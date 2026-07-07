@@ -334,6 +334,23 @@ public final class OracleRunner {
             else f.put("value", o.toString());
             return node;
         }
+        if (o instanceof java.util.Set<?> s) {
+            // D-108: set iteration order is raw HashSet internals —
+            // canonicalize SORTED (by rendered JSON) under a distinct
+            // type so list order stays significant.
+            node.put("type", "SetCollection");
+            java.util.List<com.fasterxml.jackson.databind.JsonNode> rendered =
+                    new ArrayList<>();
+            for (Object e : s) {
+                rendered.add(render(kbase, session, e));
+            }
+            rendered.sort(java.util.Comparator.comparing(Object::toString));
+            ArrayNode arr = node.putObject("fields").putArray("value");
+            for (com.fasterxml.jackson.databind.JsonNode e : rendered) {
+                arr.add(e);
+            }
+            return node;
+        }
         if (o instanceof java.util.Collection<?> c) {
             node.put("type", "Collection");
             ArrayNode arr = node.putObject("fields").putArray("value");

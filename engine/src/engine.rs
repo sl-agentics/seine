@@ -33,9 +33,12 @@ pub(crate) const INITIAL_FACT: &str = "InitialFact";
 pub(crate) const ACC_LONG: &str = "Long";
 pub(crate) const ACC_DOUBLE: &str = "Double";
 pub(crate) const ACC_COLLECTION: &str = "Collection";
+/// D-108: collectSet results — canonicalized SORTED on both sides
+/// (Drools iterates raw HashSet internals; order is unspecified).
+pub(crate) const ACC_SETCOLLECTION: &str = "SetCollection";
 const ACC_DECIMAL: &str = "Decimal";
-const RESERVED_TYPES: [&str; 5] =
-    [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_DECIMAL];
+const RESERVED_TYPES: [&str; 6] =
+    [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_SETCOLLECTION, ACC_DECIMAL];
 /// Hidden row types for ?query CEs (D-056): one per query, fields = the
 /// query's params. Rows render as QueryArgs match elements and never
 /// appear in the final fact set.
@@ -129,6 +132,21 @@ enum GExpr {
 /// admit only Some(true). Certified null-free scenarios are
 /// bit-identical: without Null every leaf is Some(_) and the
 /// combinators degenerate to two-valued logic.
+/// D-108: the set-canonicalization key — mirrors the oracle's
+/// sort-by-rendered-JSON ({"type":"Long","fields":{"value":N}} compares
+/// lexicographically by type name then the JSON-rendered value).
+fn scalar_canon_key(v: &Value) -> String {
+    match v {
+        Value::Bool(b) => format!("{{\"type\":\"Boolean\",\"fields\":{{\"value\":{b}}}}}"),
+        Value::F64(x) => {
+            format!("{{\"type\":\"Double\",\"fields\":{{\"value\":{x:?}}}}}")
+        }
+        Value::I64(n) => format!("{{\"type\":\"Long\",\"fields\":{{\"value\":{n}}}}}"),
+        Value::Str(s) => format!("{{\"type\":\"String\",\"fields\":{{\"value\":{s:?}}}}}"),
+        other => format!("{other:?}"),
+    }
+}
+
 fn dbg_eval(ctx: &str, ri: usize) {
     if std::env::var("SEINE_EVAL_DEBUG").is_ok() {
         eprintln!("EVAL[{ctx}] rule {ri}");
@@ -592,6 +610,11 @@ struct AccCtx {
     count: i64,
     minmax: Option<Value>,
     list: Vec<FactId>,
+    /// D-108 collectList: (fact, value) per match — ordered, one
+    /// instance leaves per reverse.
+    vlist: Vec<(FactId, Value)>,
+    /// D-108 collectSet: COUNTED values in first-arrival order.
+    vset: Vec<(Value, usize)>,
 }
 
 impl AccCtx {
@@ -606,6 +629,8 @@ impl AccCtx {
             count: 0,
             minmax: None,
             list: Vec::new(),
+            vlist: Vec::new(),
+            vset: Vec::new(),
         }
     }
 
@@ -618,6 +643,8 @@ impl AccCtx {
         self.count = 0;
         self.minmax = None;
         self.list.clear();
+        self.vlist.clear();
+        self.vset.clear();
     }
 
     /// accumulate(): the exact op sequence (D-038).
@@ -629,6 +656,7 @@ impl AccCtx {
         if v.is_null() && !matches!(func, AccFunc::Count | AccFunc::Collect) {
             return;
         }
+        let _ = ();
         match func {
             AccFunc::Sum => match v {
                 Value::I64(x) => self.sum_i += x,
@@ -685,6 +713,14 @@ impl AccCtx {
                 }
             }
             AccFunc::Collect => self.list.push(f),
+            AccFunc::CollectList => self.vlist.push((f, v.clone())),
+            AccFunc::CollectSet => {
+                if let Some(e) = self.vset.iter_mut().find(|(x, _)| x == v) {
+                    e.1 += 1;
+                } else {
+                    self.vset.push((v.clone(), 1));
+                }
+            }
         }
     }
 
@@ -738,6 +774,21 @@ impl AccCtx {
                 }
                 true
             }
+            AccFunc::CollectList => {
+                if let Some(i) = self.vlist.iter().position(|(x, _)| *x == f) {
+                    self.vlist.remove(i);
+                }
+                true
+            }
+            AccFunc::CollectSet => {
+                if let Some(i) = self.vset.iter().position(|(x, _)| x == v) {
+                    self.vset[i].1 -= 1;
+                    if self.vset[i].1 == 0 {
+                        self.vset.remove(i);
+                    }
+                }
+                true
+            }
         }
     }
 
@@ -769,6 +820,7 @@ impl AccCtx {
             }
             AccFunc::Min | AccFunc::Max => self.minmax.clone(),
             AccFunc::Collect => Some(Value::I64(0)), // list lives in collect_vals
+            AccFunc::CollectList | AccFunc::CollectSet => Some(Value::I64(0)),
         }
     }
 }
@@ -973,6 +1025,9 @@ pub struct Engine {
     /// Collect results: synthetic Collection fact -> current element
     /// list, updated at each result evaluation (D-038).
     collect_vals: HashMap<FactId, Vec<FactId>>,
+    /// D-108: collectList/collectSet result VALUES (scalar elements;
+    /// set results stored pre-sorted by canonical order).
+    collect_scalar_vals: HashMap<FactId, Vec<Value>>,
     /// Global activation sequence (D-043 tie order).
     act_seq: u64,
     /// Compiled DRL queries, evaluated on demand (Phase Q0, D-050).
@@ -1032,6 +1087,11 @@ impl Engine {
             nullable: 0,
         });
         schemas.push(TypeSchema { name: ACC_COLLECTION.into(), fields: Vec::new(), nullable: 0 });
+        schemas.push(TypeSchema {
+            name: ACC_SETCOLLECTION.into(),
+            fields: Vec::new(),
+            nullable: 0,
+        });
         // D-098: decimal accumulate results. The column stores per-row
         // (unscaled, scale) exactly as computed; the declared (p, s)
         // here is nominal (this insert path bypasses coerce).
@@ -1064,6 +1124,7 @@ impl Engine {
             lists_built: false,
             init_fact: None,
             collect_vals: HashMap::new(),
+            collect_scalar_vals: HashMap::new(),
             act_seq: 0,
             queries: Vec::new(),
             qrow_tids: Vec::new(),
@@ -2295,7 +2356,13 @@ impl Engine {
                     };
                     let numeric =
                         matches!(arg_ft, FieldType::I64 | FieldType::F64 | FieldType::Dec { .. });
-                    if spec.arg.is_some() && !numeric && spec.func != AccFunc::Count {
+                    if spec.arg.is_some()
+                        && !numeric
+                        && !matches!(
+                            spec.func,
+                            AccFunc::Count | AccFunc::CollectList | AccFunc::CollectSet
+                        )
+                    {
                         // count ignores its argument; the value-bearing
                         // functions stay numeric-only (subset wall)
                         return Err(err(format!(
@@ -2317,6 +2384,8 @@ impl Engine {
                             _ => (ACC_DOUBLE, FieldType::F64),
                         },
                         AccFunc::Collect => (ACC_COLLECTION, FieldType::I64),
+                        AccFunc::CollectList => (ACC_COLLECTION, FieldType::I64),
+                        AccFunc::CollectSet => (ACC_SETCOLLECTION, FieldType::I64),
                     };
                     let result_tid = self.store.type_id(result_name).unwrap();
                     let t = tpos.ok_or_else(|| err("accumulate cannot be a CE".into()))?;
@@ -2731,6 +2800,7 @@ impl Engine {
         self.lists_built = false;
         self.init_fact = None;
         self.collect_vals.clear();
+        self.collect_scalar_vals.clear();
         self.act_seq = 0;
         self.query_mem = Default::default();
         self.query_pending = vec![false; self.queries.len()];
@@ -2765,7 +2835,8 @@ impl Engine {
     }
 
     pub fn nth_inserted(&self, n: usize) -> Option<FactId> {
-        let hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_DECIMAL]
+        let hidden: Vec<TypeId> =
+            [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_SETCOLLECTION, ACC_DECIMAL]
             .iter()
             .filter_map(|t| self.store.type_id(t))
             .collect();
@@ -3343,6 +3414,11 @@ impl Engine {
                         fv.elems = Some(
                             elems.iter().map(|&e| Some(self.store.render(e))).collect(),
                         );
+                    }
+                    // D-108: scalar collections (collectList/collectSet)
+                    if let Some(vals) = self.collect_scalar_vals.get(&f) {
+                        fv.elems =
+                            Some(vals.iter().map(|v| Some(scalar_view(v.clone()))).collect());
                     }
                     fv
                 })
@@ -4756,14 +4832,23 @@ impl Engine {
                 Some(v) => {
                     let res = match existing {
                         Some(r) => {
-                            if spec.func != AccFunc::Collect {
+                            if !matches!(
+                                spec.func,
+                                AccFunc::Collect | AccFunc::CollectList | AccFunc::CollectSet
+                            ) {
                                 self.store.set_value(r, 0, v).expect("acc result set");
                             }
                             r
                         }
                         None => {
-                            let vals =
-                                if spec.func == AccFunc::Collect { vec![] } else { vec![v] };
+                            let vals = if matches!(
+                                spec.func,
+                                AccFunc::Collect | AccFunc::CollectList | AccFunc::CollectSet
+                            ) {
+                                vec![]
+                            } else {
+                                vec![v]
+                            };
                             let r = self
                                 .store
                                 .insert(spec.result_tid, vals)
@@ -4775,6 +4860,23 @@ impl Engine {
                     if spec.func == AccFunc::Collect {
                         let list = self.trie[ni].acc[&l].list.clone();
                         self.collect_vals.insert(res, list);
+                    }
+                    if spec.func == AccFunc::CollectList {
+                        let vals: Vec<Value> = self.trie[ni].acc[&l]
+                            .vlist
+                            .iter()
+                            .map(|(_, v)| v.clone())
+                            .collect();
+                        self.collect_scalar_vals.insert(res, vals);
+                    }
+                    if spec.func == AccFunc::CollectSet {
+                        let mut vals: Vec<Value> = self.trie[ni].acc[&l]
+                            .vset
+                            .iter()
+                            .map(|(v, _)| v.clone())
+                            .collect();
+                        vals.sort_by_key(|v| scalar_canon_key(v));
+                        self.collect_scalar_vals.insert(res, vals);
                     }
                     let mut child = l.clone();
                     child.push(res);
@@ -5713,7 +5815,7 @@ impl Engine {
     }
 
     pub fn facts(&self) -> Vec<FactView> {
-        let mut hidden: Vec<TypeId> = [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_DECIMAL]
+        let mut hidden: Vec<TypeId> = RESERVED_TYPES
             .iter()
             .filter_map(|n| self.store.type_id(n))
             .collect();

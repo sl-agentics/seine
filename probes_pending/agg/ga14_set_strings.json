@@ -1,0 +1,52 @@
+{
+ "name": "ga14_set_strings",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when accumulate( T($k : k); $s : collectSet($k) ) then end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": "zeta",
+    "v": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "alpha",
+    "v": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": "mm",
+    "v": 3
+   }
+  }
+ ],
+ "epochs": []
+}
