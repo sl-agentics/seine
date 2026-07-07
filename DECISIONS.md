@@ -3733,3 +3733,18 @@ divergences, ZERO generator rejects** (+ the 60-case shakedown,
 seed 1). Every case is a fresh differential of the engine's 3VL
 implementation against DuckDB 1.5.4 match sets. Phases remaining:
 4 decimals, 5 bindings/Arrow boundary, 6 FEATURES promotion.
+
+### D-098: authoring surface RATIFIED (typing module) — designed
+### BEFORE phase 4 so engine and surface stay consistent
+`Optional[X]`/`X | None` -> nullable bitmask;
+`Annotated[Decimal, seine.Decimal(p, s)]` -> decimal(p,s) fields
+(get_type_hints(include_extras=True) introspection). Six points in
+docs/design-datatypes.md §6 — emphatic: bare `Decimal` is a LOUD
+CompileError naming the fix (never defaulted precision), and the
+Optional/NaN distinction is legible API semantics (the type
+declaration IS the NaN-vs-NULL choice, docstringed as designed).
+Marker validation (1<=p<=38, 0<=s<=p) must equal the engine's i128
+limits. PEP-563 latent bug noted: 0.2.0's raw __annotations__ read
+breaks under `from __future__ import annotations` even for int/str
+fields — the get_type_hints move lands in phase 5 as a fix
+regardless. Phase 4 (engine decimals) proceeds toward this target.

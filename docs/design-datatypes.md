@@ -121,7 +121,56 @@ pyarrow 24.0.0, pinned in `.venv`); measured ground truth lives in
    decimal128; boundary tests.
 6. FEATURES/docs promotion to §1 with the D-095 authority noted.
 
-## 6. Checkpoint rulings (Bryan, 2026-07-07 — D-097)
+## 6. Ratified authoring surface (Bryan, 2026-07-07 — D-098)
+
+The Python bindings declare nullability and decimals through the
+typing module — ratified BEFORE phase 4 so the engine builds toward a
+known target and the two layers stay consistent by design:
+
+- **Nullability**: `Optional[X]` / `X | None` on `@seine.fact`
+  fields -> the engine's opt-in nullable bitmask. Introspection via
+  `get_type_hints(include_extras=True)` (normalizes both spellings).
+- **Decimals**: `Annotated[Decimal, seine.Decimal(p, s)]` — the
+  Annotated-carries-library-metadata pattern (pydantic/SQLAlchemy/
+  msgspec lineage). Checkers see the honest runtime type
+  (`decimal.Decimal`); Seine reads the `(p, s)`. Composes:
+  `Optional[Annotated[Decimal, seine.Decimal(10, 2)]]` = nullable
+  money.
+
+Six ratified design points:
+1. **Bare `Decimal` is a loud CompileError** naming the fix
+   (`Annotated[Decimal, seine.Decimal(p, s)]`) — never a defaulted
+   precision. Silent money precision is the exact bug class the
+   thesis walls off (same posture as the decimal-vs-f64 wall).
+   [EMPHATIC]
+2. **Annotation nesting normalizes**: `Optional[Annotated[...]]`,
+   `Annotated[Optional[...], ...]`, and `Annotated[...] | None` all
+   mean the same field — strip Optional at any level, collect
+   Annotated metadata at any level.
+3. **Shadowing footgun documented**: module-qualified
+   `seine.Decimal(p, s)` is canonical (vs `decimal.Decimal` the
+   value type); a from-import alias may be added later.
+4. **Marker validates at construction**: `seine.Decimal(p, s)` raises
+   immediately unless 1 <= p <= 38 and 0 <= s <= p —
+   Decimal128-compatible by construction, matching the engine's i128
+   storage limits and the pins.
+5. **The Optional/NaN distinction is legible API semantics**: the
+   type declaration IS the NaN-vs-NULL choice. `Optional[float]` ->
+   nullable f64 -> pandas/Arrow NaN normalizes to NULL on ingest
+   (D-095); bare `float` keeps NaN as a bit-exact value (certified
+   D-044). Docstring so it reads as designed. [EMPHATIC]
+6. **Two layers, one truth**: typing is the authoring surface;
+   scenario JSON (`"type": "decimal(18,2)"`, `"nullable": true`)
+   stays the harness/corpus interchange; `@fact` compiles both to the
+   same TypeSchema.
+
+**Bugfix note (lands in phase 5 regardless of features)**: the
+shipped 0.2.0 `@seine.fact` reads raw `__annotations__`, which breaks
+under `from __future__ import annotations` (PEP 563 stringizes every
+annotation — even plain int/str/bool classes fail today). The move to
+`get_type_hints(include_extras=True)` fixes that latent fragility.
+
+## 7. Checkpoint rulings (Bryan, 2026-07-07 — D-097)
 
 1. `field == null` ⇒ IS NULL mapping: **APPROVED**.
 2. sum(empty/all-null): **0, fires** (Drools-certified engine axis;
