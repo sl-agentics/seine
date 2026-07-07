@@ -938,6 +938,7 @@ pub struct Engine {
     in_stream_flush: bool,
     fire_no: u64,
     flush_trigger_tid: Option<TypeId>,
+    ever_linked: Vec<bool>,
     store: FactStore,
     rules: Vec<CompiledRule>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
@@ -1029,6 +1030,7 @@ impl Engine {
             in_stream_flush: false,
             fire_no: 0,
             flush_trigger_tid: None,
+            ever_linked: Vec::new(),
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_parents: Vec::new(),
@@ -2766,7 +2768,7 @@ impl Engine {
     /// (staging prepends).
     fn stage_snapshot(
         &self,
-    ) -> (Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>) {
+    ) -> (Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>) {
         // Per-node (s0_in, s_left, s_right) ins lengths for TOUCH
         // detection + per-rule k=1 s0 sizes. The STASH is rights-only
         // (D-102: the flush is LEFT-flushing — forceFlushLeftTuple;
@@ -2792,6 +2794,7 @@ impl Engine {
                 .map(|n| n.s0.iter().map(|w| w.ins.len() + w.del.len() + w.upd.len()).sum())
                 .collect(),
             (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect(),
+            self.ever_linked.clone(),
         )
     }
 
@@ -2806,18 +2809,21 @@ impl Engine {
     /// memory (t6/t14 — this replaced drain-at-link), restore stashes.
     fn stream_flush(
         &mut self,
-        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>),
+        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>),
     ) {
         self.stream_flush_ex(pre, true)
     }
 
     fn stream_flush_ex(
         &mut self,
-        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>),
+        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>),
         close_windows: bool,
     ) {
         if self.event_specs.is_empty() || !self.lists_built {
             return;
+        }
+        if self.ever_linked.len() != self.rules.len() {
+            self.ever_linked = vec![false; self.rules.len()];
         }
         if close_windows {
             for net in self.nets.iter_mut() {
@@ -2858,24 +2864,13 @@ impl Engine {
                 // flush eval only when the TRIGGER toggled this rule's
                 // not/exists CE (enabler-type match) AND pre-link
                 // (ph=4) rights are held on the path.
-                let trigger_toggles = self.flush_trigger_tid.is_some_and(|tid| {
-                    self.rules[ri]
-                        .patterns
-                        .iter()
-                        .any(|p| {
-                            matches!(p.ce, CeKind::Not | CeKind::Exists)
-                                && p.type_id == tid
-                        })
-                });
-                trigger_toggles
-                    && self.nets[ri].path.iter().any(|&ni| {
-                        self.trie[ni]
-                            .node
-                            .s_right
-                            .ins
-                            .iter()
-                            .any(|(_, _, ph)| *ph == 4)
-                    })
+                // D-102 (w1-w5 ladder): NO eval gate — the enabler-
+                // toggle's flush eval runs; faithfulness comes from the
+                // toggle-aware stash exemption below (held ph=4 rights
+                // stay VISIBLE to the toggling rule's eval, composing
+                // rightIns-then-IF in certified phase order).
+                let _ = ri;
+                false
             })
             .collect();
         // linked-ness per node BEFORE mutation (temporal stash gate)
@@ -2929,6 +2924,29 @@ impl Engine {
                 } else {
                     stash.push((Vec::new(), Vec::new(), Vec::new()));
                 }
+                continue;
+            }
+            // D-102 (w5): when the TRIGGER toggles this node's rule's
+            // not/exists CE and the node holds PRE-LINK (ph=4) rights,
+            // the stash is EXEMPT — the toggle eval composes the held
+            // rights with the IF in certified phase order (rightIns
+            // pre-LIFO, then the IF's leftIns x full memory).
+            let toggled = self.flush_trigger_tid.is_some_and(|tid| {
+                self.rules[t.env.0].patterns.iter().any(|pt| {
+                    matches!(pt.ce, CeKind::Not | CeKind::Exists) && pt.type_id == tid
+                })
+            });
+            let has_ph4 = t.node.s_right.ins.iter().any(|(_, _, ph)| *ph == 4);
+            // The IF actually TOGGLES iff the rule LINKS at this insert
+            // (pre-unlinked -> now-linked; 358's second enabler is a
+            // type-match but NOT a toggle). RE-materialization only
+            // (w6-vs-v2): the FIRST-ever link (pmem creation) defers; a
+            // relink of an existing path exempt-evaluates with the held
+            // rights visible.
+            let toggles_now = !pre.2[t.env.0] && node_linked[ni];
+            let relink = pre.3.get(t.env.0).copied().unwrap_or(false);
+            if toggled && toggles_now && has_ph4 && relink {
+                stash.push((Vec::new(), Vec::new(), Vec::new()));
                 continue;
             }
             let sr_all = std::mem::take(&mut t.node.s_right.ins);
@@ -3037,6 +3055,11 @@ impl Engine {
                     self.nets[ri].queued = true;
                     self.nets[ri].dirty = true;
                 }
+            }
+        }
+        for ri in 0..self.rules.len() {
+            if self.rule_linked(ri) {
+                self.ever_linked[ri] = true;
             }
         }
     }
