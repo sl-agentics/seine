@@ -301,18 +301,67 @@ pub struct DrlFile {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct DrlError(pub String);
+pub struct DrlError {
+    pub msg: String,
+    /// Char offset into the source (D-103: positioned errors). Consumed
+    /// by attach_position at the parse entry points.
+    pub span: Option<u32>,
+}
 
 impl fmt::Display for DrlError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "DRL parse error: {}", self.0)
+        write!(f, "DRL parse error: {}", self.msg)
     }
 }
 
-fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
+/// Position-less error (post-parse lowering, semantic walls).
+fn derr(msg: impl Into<String>) -> DrlError {
+    DrlError { msg: msg.into(), span: None }
+}
+
+/// Lexer error at char offset `i`.
+fn lerr(i: usize, msg: impl Into<String>) -> DrlError {
+    DrlError { msg: msg.into(), span: Some(i as u32) }
+}
+
+/// D-103: render "line L, col C" + the source line + a caret into the
+/// message. Called once at the parse entry points; idempotent on
+/// span-less errors.
+fn attach_position(mut e: DrlError, src: &str) -> DrlError {
+    let Some(span) = e.span.take() else { return e };
+    let chars: Vec<char> = src.chars().collect();
+    let at = (span as usize).min(chars.len());
+    let mut line = 1u32;
+    let mut line_start = 0usize;
+    for (idx, c) in chars.iter().enumerate().take(at) {
+        if *c == '\n' {
+            line += 1;
+            line_start = idx + 1;
+        }
+    }
+    let col = (at - line_start) as u32 + 1;
+    let line_end = chars[line_start..]
+        .iter()
+        .position(|c| *c == '\n')
+        .map(|n| line_start + n)
+        .unwrap_or(chars.len());
+    let text: String = chars[line_start..line_end].iter().collect();
+    let caret = format!("{}^", " ".repeat((col - 1) as usize));
+    e.msg = format!("{} at line {line}, col {col}:\n  {text}\n  {caret}", e.msg);
+    e
+}
+
+fn lex(src: &str) -> Result<(Vec<Tok>, Vec<u32>), DrlError> {
     let b: Vec<char> = src.chars().collect();
     let mut i = 0;
     let mut out = Vec::new();
+    let mut spans: Vec<u32> = Vec::new();
+    macro_rules! push {
+        ($start:expr, $t:expr) => {{
+            spans.push($start as u32);
+            out.push($t);
+        }};
+    }
     while i < b.len() {
         let c = b[i];
         if c.is_whitespace() {
@@ -327,7 +376,7 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                 i += 1;
             }
             if i + 1 >= b.len() {
-                return Err(DrlError("unterminated block comment".into()));
+                return Err(lerr(i, "unterminated block comment"));
             }
             i += 2;
         } else if c.is_ascii_alphabetic() || c == '_' || c == '$' {
@@ -343,7 +392,7 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                 word = "no-loop".into();
                 i += 5;
             }
-            out.push(Tok::Ident(word));
+            push!(start, Tok::Ident(word));
         } else if c.is_ascii_digit() {
             let start = i;
             while i < b.len() && b[i].is_ascii_digit() {
@@ -355,21 +404,22 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                     i += 1;
                 }
                 let s: String = b[start..i].iter().collect();
-                out.push(Tok::FloatLit(s.parse().map_err(|e| {
-                    DrlError(format!("bad float literal {s}: {e}"))
+                push!(start, Tok::FloatLit(s.parse().map_err(|e| {
+                    lerr(start, format!("bad float literal {s}: {e}"))
                 })?));
             } else {
                 let s: String = b[start..i].iter().collect();
-                out.push(Tok::IntLit(s.parse().map_err(|e| {
-                    DrlError(format!("bad int literal {s}: {e}"))
+                push!(start, Tok::IntLit(s.parse().map_err(|e| {
+                    lerr(start, format!("bad int literal {s}: {e}"))
                 })?));
             }
         } else if c == '"' {
+            let start = i;
             i += 1;
             let mut s = String::new();
             loop {
                 if i >= b.len() {
-                    return Err(DrlError("unterminated string literal".into()));
+                    return Err(lerr(i, "unterminated string literal"));
                 }
                 match b[i] {
                     '"' => {
@@ -379,7 +429,7 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                     '\\' => {
                         i += 1;
                         if i >= b.len() {
-                            return Err(DrlError("unterminated escape".into()));
+                            return Err(lerr(i, "unterminated escape"));
                         }
                         s.push(match b[i] {
                             'n' => '\n',
@@ -388,7 +438,7 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                             '\\' => '\\',
                             '"' => '"',
                             other => {
-                                return Err(DrlError(format!("unsupported escape \\{other}")))
+                                return Err(lerr(i, format!("unsupported escape \\{other}")))
                             }
                         });
                         i += 1;
@@ -399,7 +449,7 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                     }
                 }
             }
-            out.push(Tok::StrLit(s));
+            push!(start, Tok::StrLit(s));
         } else {
             let two: String = b[i..(i + 2).min(b.len())].iter().collect();
             let sym: &'static str = match two.as_str() {
@@ -427,22 +477,45 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                     '?' => "?",
                     '[' => "[",
                     ']' => "]",
-                    other => return Err(DrlError(format!("unexpected character {other:?}"))),
+                    other => return Err(lerr(i, format!("unexpected character {other:?}"))),
                 },
             };
+            push!(i, Tok::Sym(sym));
             i += sym.len();
-            out.push(Tok::Sym(sym));
         }
     }
-    Ok(out)
+    Ok((out, spans))
 }
 
 struct Parser {
     toks: Vec<Tok>,
+    spans: Vec<u32>,
     pos: usize,
 }
 
 impl Parser {
+    /// D-103: error at the just-CONSUMED token (post-next() sites —
+    /// the "expected X, got {tok}" pattern).
+    fn perr_prev(&self, msg: impl Into<String>) -> DrlError {
+        let span = self
+            .spans
+            .get(self.pos.saturating_sub(1))
+            .or(self.spans.last())
+            .copied();
+        DrlError { msg: msg.into(), span }
+    }
+
+    /// D-103: error at the CURRENT token's source position (or the
+    /// last token's at EOF).
+    fn perr(&self, msg: impl Into<String>) -> DrlError {
+        let span = self
+            .spans
+            .get(self.pos)
+            .or(self.spans.last())
+            .copied();
+        DrlError { msg: msg.into(), span }
+    }
+
     fn peek_at(&self, n: usize) -> Option<&Tok> {
         self.toks.get(self.pos + n)
     }
@@ -456,7 +529,7 @@ impl Parser {
             .toks
             .get(self.pos)
             .cloned()
-            .ok_or_else(|| DrlError("unexpected end of input".into()))?;
+            .ok_or_else(|| self.perr("unexpected end of input"))?;
         self.pos += 1;
         Ok(t)
     }
@@ -464,14 +537,14 @@ impl Parser {
     fn expect_sym(&mut self, s: &str) -> Result<(), DrlError> {
         match self.next()? {
             Tok::Sym(x) if x == s => Ok(()),
-            other => Err(DrlError(format!("expected {s:?}, got {other}"))),
+            other => Err(self.perr_prev(format!("expected {s:?}, got {other}"))),
         }
     }
 
     fn expect_kw(&mut self, kw: &str) -> Result<(), DrlError> {
         match self.next()? {
             Tok::Ident(x) if x == kw => Ok(()),
-            other => Err(DrlError(format!("expected keyword {kw:?}, got {other}"))),
+            other => Err(self.perr_prev(format!("expected keyword {kw:?}, got {other}"))),
         }
     }
 
@@ -482,7 +555,7 @@ impl Parser {
     fn ident(&mut self) -> Result<String, DrlError> {
         match self.next()? {
             Tok::Ident(x) => Ok(x),
-            other => Err(DrlError(format!("expected identifier, got {other}"))),
+            other => Err(self.perr_prev(format!("expected identifier, got {other}"))),
         }
     }
 
@@ -490,12 +563,12 @@ impl Parser {
     fn duration_ms(&mut self) -> Result<i64, DrlError> {
         let n = match self.next()? {
             Tok::IntLit(n) => n,
-            other => return Err(DrlError(format!("expected duration, got {other}"))),
+            other => return Err(self.perr_prev(format!("expected duration, got {other}"))),
         };
         match self.next()? {
             Tok::Ident(u) if u == "ms" => Ok(n),
             Tok::Ident(u) if u == "s" => Ok(n * 1000),
-            other => Err(DrlError(format!("expected ms/s unit, got {other}"))),
+            other => Err(self.perr_prev(format!("expected ms/s unit, got {other}"))),
         }
     }
 
@@ -510,9 +583,9 @@ impl Parser {
             Tok::Sym("-") => match self.next()? {
                 Tok::IntLit(n) => Ok(Literal::I64(-n)),
                 Tok::FloatLit(n) => Ok(Literal::F64(-n)),
-                other => Err(DrlError(format!("expected number after '-', got {other}"))),
+                other => Err(self.perr_prev(format!("expected number after '-', got {other}"))),
             },
-            other => Err(DrlError(format!("expected literal, got {other}"))),
+            other => Err(self.perr_prev(format!("expected literal, got {other}"))),
         }
     }
 
@@ -523,7 +596,7 @@ impl Parser {
         let name = match self.next()? {
             Tok::StrLit(s) => s,
             Tok::Ident(s) => s,
-            other => Err(DrlError(format!("expected rule name, got {other}")))?,
+            other => Err(self.perr_prev(format!("expected rule name, got {other}")))?,
         };
         let mut salience = SalienceSpec::Static(0);
         let mut no_loop = false;
@@ -560,7 +633,7 @@ impl Parser {
                     salience = match self.literal()? {
                         Literal::I64(n) => SalienceSpec::Static(n),
                         other => {
-                            return Err(DrlError(format!(
+                            return Err(self.perr(format!(
                                 "salience must be an int or (expr), got {other:?}"
                             )))
                         }
@@ -577,7 +650,7 @@ impl Parser {
                 self.next()?;
                 break;
             } else {
-                return Err(DrlError(format!(
+                return Err(self.perr(format!(
                     "expected rule attribute or 'when', got {:?}",
                     self.peek().map(|t| t.to_string())
                 )));
@@ -621,7 +694,7 @@ impl Parser {
                             .insert(v.clone(), p.type_name.clone())
                             .is_some_and(|t| t != p.type_name)
                     {
-                        return Err(DrlError(format!(
+                        return Err(self.perr(format!(
                             "duplicate declaration for variable '{v}' in the rule '{name}' (D-070/or_a26)"
                         )));
                     }
@@ -707,7 +780,7 @@ impl Parser {
                 xs.push(self.lhs_unary()?);
             }
             if xs.len() < 2 {
-                return Err(DrlError("prefix (or …) needs >= 2 operands".into()));
+                return Err(self.perr("prefix (or …) needs >= 2 operands"));
             }
             CeNode::Or(xs)
         } else if self.at_kw("and") {
@@ -717,7 +790,7 @@ impl Parser {
                 xs.push(self.lhs_unary()?);
             }
             if xs.len() < 2 {
-                return Err(DrlError("prefix (and …) needs >= 2 operands".into()));
+                return Err(self.perr("prefix (and …) needs >= 2 operands"));
             }
             CeNode::And(xs)
         } else {
@@ -734,7 +807,7 @@ impl Parser {
         let name = match self.next()? {
             Tok::StrLit(s) => s,
             Tok::Ident(s) => s,
-            other => Err(DrlError(format!("expected query name, got {other}")))?,
+            other => Err(self.perr_prev(format!("expected query name, got {other}")))?,
         };
         let mut params = Vec::new();
         if matches!(self.peek(), Some(Tok::Sym("("))) {
@@ -748,7 +821,7 @@ impl Parser {
                         Tok::Sym(",") => continue,
                         Tok::Sym(")") => break,
                         other => {
-                            return Err(DrlError(format!("expected ',' or ')', got {other}")))
+                            return Err(self.perr_prev(format!("expected ',' or ')', got {other}")))
                         }
                     }
                 }
@@ -788,7 +861,7 @@ impl Parser {
             }
         }
         if elems.is_empty() {
-            return Err(DrlError("empty query branch".into()));
+            return Err(self.perr("empty query branch"));
         }
         Ok(elems)
     }
@@ -839,7 +912,7 @@ impl Parser {
                 match self.next()? {
                     Tok::Sym(",") => continue,
                     Tok::Sym(";") => break,
-                    other => return Err(DrlError(format!("expected ',' or ';', got {other}"))),
+                    other => return Err(self.perr_prev(format!("expected ',' or ';', got {other}"))),
                 }
             }
             // mixed positional;named tails are out of subset (D-055)
@@ -855,16 +928,14 @@ impl Parser {
             let slot = self.constraint_slot()?;
             for c in &slot {
                 if matches!(c, Constraint::Group(_)) {
-                    return Err(DrlError(
-                        "inline constraint groups in query bodies are out of subset (D-073)".into(),
-                    ));
+                    return Err(self.perr("inline constraint groups in query bodies are out of subset (D-073)"));
                 }
             }
             constraints.extend(slot);
             match self.next()? {
                 Tok::Sym(",") => continue,
                 Tok::Sym(")") => break,
-                other => return Err(DrlError(format!("expected ',' or ')', got {other}"))),
+                other => return Err(self.perr_prev(format!("expected ',' or ')', got {other}"))),
             }
         }
         Ok(QElem { binding, name, body: QElemBody::Named(constraints) })
@@ -876,12 +947,12 @@ impl Parser {
         match self.peek() {
             Some(Tok::IntLit(_)) | Some(Tok::Sym("-")) => match self.literal()? {
                 Literal::I64(n) => Ok(SalTerm::Lit(n)),
-                other => Err(DrlError(format!(
+                other => Err(self.perr(format!(
                     "salience terms are int literals or bindings, got {other:?}"
                 ))),
             },
             Some(Tok::Ident(w)) if w.starts_with('$') => Ok(SalTerm::Var(self.dollar_ident()?)),
-            other => Err(DrlError(format!(
+            other => Err(self.perr(format!(
                 "salience terms are int literals or bindings, got {:?}",
                 other.map(|t| t.to_string())
             ))),
@@ -899,16 +970,12 @@ impl Parser {
             CeKind::Positive
         };
         if ce != CeKind::Positive && matches!(self.peek(), Some(Tok::Sym("("))) {
-            return Err(DrlError(
-                "CE groups inside not/exists are out of subset (P1c pending; bare `not T(...)` / `exists T(...)` only, D-031)".into(),
-            ));
+            return Err(self.perr("CE groups inside not/exists are out of subset (P1c pending; bare `not T(...)` / `exists T(...)` only, D-031)"));
         }
         if matches!(self.peek(), Some(Tok::Sym("?"))) {
             // `?name(a1, ..., ak;)` pull query CE (D-056/D-057)
             if ce != CeKind::Positive {
-                return Err(DrlError(
-                    "?query CEs inside not/exists are out of subset (D-057)".into(),
-                ));
+                return Err(self.perr("?query CEs inside not/exists are out of subset (D-057)"));
             }
             self.next()?;
             let name = self.ident()?;
@@ -928,7 +995,7 @@ impl Parser {
                         Tok::Sym(",") => continue,
                         Tok::Sym(";") => break,
                         other => {
-                            return Err(DrlError(format!("expected ',' or ';', got {other}")))
+                            return Err(self.perr_prev(format!("expected ',' or ';', got {other}")))
                         }
                     }
                 }
@@ -946,7 +1013,7 @@ impl Parser {
         }
         if self.at_kw("accumulate") {
             if ce != CeKind::Positive {
-                return Err(DrlError("not/exists over accumulate not in subset".into()));
+                return Err(self.perr("not/exists over accumulate not in subset"));
             }
             return self.accumulate_pattern();
         }
@@ -966,7 +1033,7 @@ impl Parser {
                     Tok::Sym(",") => continue,
                     Tok::Sym(")") => break,
                     other => {
-                        return Err(DrlError(format!("expected ',' or ')', got {other}")))
+                        return Err(self.perr_prev(format!("expected ',' or ')', got {other}")))
                     }
                 }
             }
@@ -976,38 +1043,32 @@ impl Parser {
         if self.at_kw("from") {
             self.next()?;
             if !self.at_kw("collect") {
-                return Err(DrlError(
-                    "`from` is only supported as `from collect` (D-038)".into(),
-                ));
+                return Err(self.perr("`from` is only supported as `from collect` (D-038)"));
             }
             self.next()?;
             if ce != CeKind::Positive {
-                return Err(DrlError("not/exists over collect not in subset".into()));
+                return Err(self.perr("not/exists over collect not in subset"));
             }
             if !matches!(type_name.as_str(), "List" | "ArrayList" | "Collection") {
-                return Err(DrlError(format!(
+                return Err(self.perr(format!(
                     "collect result pattern must be List/ArrayList/Collection, got {type_name}"
                 )));
             }
             if !constraints.is_empty() {
-                return Err(DrlError(
-                    "constraints on the collect result pattern are not in subset".into(),
-                ));
+                return Err(self.perr("constraints on the collect result pattern are not in subset"));
             }
             let result_var = binding
-                .ok_or_else(|| DrlError("collect result must be bound (`$l : List()`)".into()))?;
+                .ok_or_else(|| self.perr("collect result must be bound (`$l : List()`)"))?;
             self.expect_sym("(")?;
             let src = self.pattern()?;
             self.expect_sym(")")?;
             if src.ce != CeKind::Positive || src.acc.is_some() {
-                return Err(DrlError("collect source must be a plain pattern".into()));
+                return Err(self.perr("collect source must be a plain pattern"));
             }
             if src.binding.is_some()
                 || src.constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
             {
-                return Err(DrlError(
-                    "bindings inside a collect source are not in subset".into(),
-                ));
+                return Err(self.perr("bindings inside a collect source are not in subset"));
             }
             // A collect source referencing outer bindings builds an RIA
             // SUBNETWORK — unported territory with its own quirks
@@ -1015,9 +1076,7 @@ impl Parser {
             if src.constraints.iter().any(
                 |c| matches!(c, Constraint::Cmp { rhs: CmpRhs::Var(_), .. }),
             ) {
-                return Err(DrlError(
-                    "variable references inside a collect source are not in subset (subnetwork, D-041)".into(),
-                ));
+                return Err(self.perr("variable references inside a collect source are not in subset (subnetwork, D-041)"));
             }
             return Ok(Pattern {
                 binding: None,
@@ -1035,9 +1094,7 @@ impl Parser {
             if binding.is_some()
                 || constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
             {
-                return Err(DrlError(
-                    "bindings are not allowed in not/exists patterns".into(),
-                ));
+                return Err(self.perr("bindings are not allowed in not/exists patterns"));
             }
         }
         Ok(Pattern { binding, type_name, constraints, ce, acc: None, q_args: None, group: None })
@@ -1051,9 +1108,7 @@ impl Parser {
         self.expect_sym("(")?;
         let src = self.pattern()?;
         if src.ce != CeKind::Positive || src.acc.is_some() || src.binding.is_some() {
-            return Err(DrlError(
-                "accumulate source must be a plain unbound pattern".into(),
-            ));
+            return Err(self.perr("accumulate source must be a plain unbound pattern"));
         }
         self.expect_sym(";")?;
         let result_var = self.dollar_ident()?;
@@ -1066,7 +1121,7 @@ impl Parser {
             "min" => AccFunc::Min,
             "max" => AccFunc::Max,
             other => {
-                return Err(DrlError(format!(
+                return Err(self.perr(format!(
                     "accumulate function {other:?} not in subset (built-ins only: sum/count/average/min/max)"
                 )))
             }
@@ -1079,11 +1134,11 @@ impl Parser {
         };
         self.expect_sym(")")?;
         if matches!(self.peek(), Some(Tok::Sym(","))) {
-            return Err(DrlError("multi-function accumulate not in subset".into()));
+            return Err(self.perr("multi-function accumulate not in subset"));
         }
         self.expect_sym(")")?;
         if func != AccFunc::Count && arg.is_none() {
-            return Err(DrlError(format!("{fname} requires a bound argument")));
+            return Err(self.perr(format!("{fname} requires a bound argument")));
         }
         // source bindings are scoped inside the accumulate; the arg must
         // be one of them (unused extras are legal and simply ignored)
@@ -1093,7 +1148,7 @@ impl Parser {
                 .iter()
                 .any(|c| matches!(c, Constraint::Bind { var, .. } if var == a))
             {
-                return Err(DrlError(format!("unknown accumulate argument {a}")));
+                return Err(self.perr(format!("unknown accumulate argument {a}")));
             }
         }
         Ok(Pattern {
@@ -1137,7 +1192,7 @@ impl Parser {
                 "after" => true,
                 "before" => false,
                 other => {
-                    return Err(DrlError(format!(
+                    return Err(self.perr(format!(
                         "expected after/before following 'this', got {other}"
                     )))
                 }
@@ -1230,14 +1285,12 @@ impl Parser {
         let field = match self.peek() {
             Some(Tok::Sym("==" | "!=" | "<" | "<=" | ">" | ">=")) => cur_field
                 .clone()
-                .ok_or_else(|| DrlError("abbreviated restriction with no preceding field".into()))?,
+                .ok_or_else(|| self.perr("abbreviated restriction with no preceding field"))?,
             Some(Tok::Ident(_)) if kw_restr => cur_field
                 .clone()
-                .ok_or_else(|| DrlError("keyword restriction with no preceding field".into()))?,
+                .ok_or_else(|| self.perr("keyword restriction with no preceding field"))?,
             Some(Tok::Ident(w)) if w.starts_with('$') => {
-                return Err(DrlError(
-                    "bindings inside constraint groups are out of subset (D-073)".into(),
-                ))
+                return Err(self.perr("bindings inside constraint groups are out of subset (D-073)"))
             }
             _ => {
                 let f = self.ident()?;
@@ -1250,7 +1303,7 @@ impl Parser {
                 self.next()?;
                 return match self.next()? {
                     Tok::StrLit(s) => Ok(CExpr::Matches { field, regex: s }),
-                    other => Err(DrlError(format!(
+                    other => Err(self.perr(format!(
                         "matches requires a literal string regex, got {other}"
                     ))),
                 };
@@ -1259,7 +1312,7 @@ impl Parser {
                 self.next()?;
                 return match self.next()? {
                     Tok::StrLit(s) => Ok(CExpr::Contains { field, needle: s }),
-                    other => Err(DrlError(format!(
+                    other => Err(self.perr(format!(
                         "contains requires a literal string, got {other}"
                     ))),
                 };
@@ -1284,7 +1337,7 @@ impl Parser {
             Tok::Sym("<=") => CmpOp::Le,
             Tok::Sym(">") => CmpOp::Gt,
             Tok::Sym(">=") => CmpOp::Ge,
-            other => return Err(DrlError(format!("expected comparison operator, got {other}"))),
+            other => return Err(self.perr_prev(format!("expected comparison operator, got {other}"))),
         };
         let rhs = match self.peek() {
             Some(Tok::Ident(w)) if w.starts_with('$') => CmpRhs::Var(self.ident()?),
@@ -1300,7 +1353,7 @@ impl Parser {
             match self.next()? {
                 Tok::Sym(",") => items.push(self.literal()?),
                 Tok::Sym(")") => break,
-                other => return Err(DrlError(format!("expected ',' or ')', got {other}"))),
+                other => return Err(self.perr_prev(format!("expected ',' or ')', got {other}"))),
             }
         }
         Ok(items)
@@ -1324,7 +1377,7 @@ impl Parser {
                             Tok::Sym(",") => continue,
                             Tok::Sym(")") => break,
                             other => {
-                                return Err(DrlError(format!("expected ',' or ')', got {other}")))
+                                return Err(self.perr_prev(format!("expected ',' or ')', got {other}")))
                             }
                         }
                     }
@@ -1374,7 +1427,7 @@ impl Parser {
                             Tok::Sym(",") => continue,
                             Tok::Sym("}") => break,
                             other => {
-                                return Err(DrlError(format!("expected ',' or '}}', got {other}")))
+                                return Err(self.perr_prev(format!("expected ',' or '}}', got {other}")))
                             }
                         }
                     }
@@ -1395,7 +1448,7 @@ impl Parser {
                 self.expect_sym(";")?;
                 Ok(vec![Action::Set { var, field, arg }])
             }
-            other => Err(DrlError(format!(
+            other => Err(self.perr(format!(
                 "expected RHS statement, got {:?}",
                 other.map(|t| t.to_string())
             ))),
@@ -1407,7 +1460,7 @@ impl Parser {
         if id.starts_with('$') {
             Ok(id)
         } else {
-            Err(DrlError(format!("expected $binding, got {id}")))
+            Err(self.perr_prev(format!("expected $binding, got {id}")))
         }
     }
 
@@ -1432,7 +1485,7 @@ impl Parser {
                             format!("{head}{}", cs.as_str())
                         })
                         .ok_or_else(|| {
-                            DrlError(format!("unsupported method call .{getter}() (only getters)"))
+                            self.perr(format!("unsupported method call .{getter}() (only getters)"))
                         })?;
                     return Ok(RhsArg::Getter { var, field });
                 }
@@ -1452,7 +1505,7 @@ fn setter_field(setter: &str) -> Result<String, DrlError> {
             let head = cs.next().unwrap().to_ascii_lowercase();
             format!("{head}{}", cs.as_str())
         })
-        .ok_or_else(|| DrlError(format!("expected setter, got {setter}")))
+        .ok_or_else(|| derr(format!("expected setter, got {setter}")))
 }
 
 /// A split-out slot element (D-073): leaves stay legacy Constraint
@@ -1557,15 +1610,10 @@ fn lower_group(kind: CeKind, child: &CeNode) -> Result<Pattern, DrlError> {
         match elem {
             CeNode::Pat(p) => {
                 if p.acc.is_some() {
-                    return Err(DrlError(
-                        "accumulate/collect inside not/exists groups is out of subset (D-089)"
-                            .into(),
-                    ));
+                    return Err(derr("accumulate/collect inside not/exists groups is out of subset (D-089)"));
                 }
                 if p.q_args.is_some() {
-                    return Err(DrlError(
-                        "?query CEs inside not/exists are out of subset (D-057)".into(),
-                    ));
+                    return Err(derr("?query CEs inside not/exists are out of subset (D-057)"));
                 }
                 Ok(p.clone())
             }
@@ -1581,25 +1629,17 @@ fn lower_group(kind: CeKind, child: &CeNode) -> Result<Pattern, DrlError> {
                         if p.binding.is_some()
                             || p.constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
                         {
-                            return Err(DrlError(
-                                "bindings are not allowed in not/exists patterns".into(),
-                            ));
+                            return Err(derr("bindings are not allowed in not/exists patterns"));
                         }
                         p.ce = inner_kind;
                         Ok(p)
                     }
-                    _ => Err(DrlError(
-                        "composite groups nested inside not/exists are out of subset \
-                         (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)"
-                            .into(),
-                    )),
+                    _ => Err(derr("composite groups nested inside not/exists are out of subset \
+                         (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)")),
                 }
             }
-            _ => Err(DrlError(
-                "composite groups nested inside not/exists are out of subset \
-                 (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)"
-                    .into(),
-            )),
+            _ => Err(derr("composite groups nested inside not/exists are out of subset \
+                 (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)")),
         }
     }
     match child {
@@ -1609,14 +1649,14 @@ fn lower_group(kind: CeKind, child: &CeNode) -> Result<Pattern, DrlError> {
             if p.binding.is_some()
                 || p.constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
             {
-                return Err(DrlError("bindings are not allowed in not/exists patterns".into()));
+                return Err(derr("bindings are not allowed in not/exists patterns"));
             }
             p.ce = kind;
             Ok(p)
         }
         CeNode::And(elems) => {
             if !(2..=3).contains(&elems.len()) {
-                return Err(DrlError(format!(
+                return Err(derr(format!(
                     "not/exists groups are limited to 2-3 inner patterns, got {} (D-089)",
                     elems.len()
                 )));
@@ -1632,11 +1672,8 @@ fn lower_group(kind: CeKind, child: &CeNode) -> Result<Pattern, DrlError> {
                 group: Some(inner),
             })
         }
-        _ => Err(DrlError(
-            "composite groups nested inside not/exists are out of subset \
-             (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)"
-                .into(),
-        )),
+        _ => Err(derr("composite groups nested inside not/exists are out of subset \
+             (RIA-in-RIA — e.g. not(exists(A and B)), not(not(A)); D-089)")),
     }
 }
 
@@ -1677,7 +1714,12 @@ fn expand_ce(n: &CeNode) -> Result<Vec<Vec<Pattern>>, DrlError> {
 }
 
 pub fn parse_file(src: &str) -> Result<DrlFile, DrlError> {
-    let mut p = Parser { toks: lex(src)?, pos: 0 };
+    parse_file_inner(src).map_err(|e| attach_position(e, src))
+}
+
+fn parse_file_inner(src: &str) -> Result<DrlFile, DrlError> {
+    let (toks, spans) = lex(src)?;
+    let mut p = Parser { toks, spans, pos: 0 };
     let mut file = DrlFile::default();
     // decl_pos counts TERMINALS (one per subrule / query, D-070);
     // parent counts source `rule` blocks (no-loop scope).
@@ -1705,7 +1747,7 @@ pub fn parse_file(src: &str) -> Result<DrlFile, DrlError> {
 pub fn parse_rules(src: &str) -> Result<Vec<RuleDef>, DrlError> {
     let file = parse_file(src)?;
     if !file.queries.is_empty() {
-        return Err(DrlError("queries not expected here (use parse_file)".into()));
+        return Err(derr("queries not expected here (use parse_file)"));
     }
     Ok(file.rules)
 }

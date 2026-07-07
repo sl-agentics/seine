@@ -1092,12 +1092,17 @@ impl Engine {
         }
         // D-057: query+mutation stays walled (D-051) — a unit with ?query
         // CEs must be insert-only.
-        let has_qce = self
+        let qce_rules: Vec<&str> = self
             .rules
             .iter()
-            .any(|r| r.patterns.iter().any(|p| p.qce.is_some()));
-        if has_qce
-            && self.rules.iter().any(|r| {
+            .filter(|r| r.patterns.iter().any(|p| p.qce.is_some()))
+            .map(|r| r.def.name.as_str())
+            .collect();
+        let has_qce = !qce_rules.is_empty();
+        let mutating: Vec<&str> = self
+            .rules
+            .iter()
+            .filter(|r| {
                 r.actions.iter().any(|a| {
                     matches!(
                         a,
@@ -1107,10 +1112,14 @@ impl Engine {
                     )
                 })
             })
-        {
-            return Err(EngineError(
-                "?query CEs cannot coexist with update/modify/delete actions (D-057)".into(),
-            ));
+            .map(|r| r.def.name.as_str())
+            .collect();
+        if has_qce && !mutating.is_empty() {
+            return Err(EngineError(format!(
+                "?query CEs cannot coexist with update/modify/delete actions (D-057) —                  ?query rules: [{}]; mutating rules: [{}]",
+                qce_rules.join(", "),
+                mutating.join(", ")
+            )));
         }
         // D-076 walls. Logical types = every type any insertLogical
         // targets (unit-wide).
@@ -1127,9 +1136,21 @@ impl Engine {
             // (1) TMS retracts are WM deletes the query drain windows
             // would see — same reasoning as the D-057 mutation wall.
             if has_qce {
-                return Err(EngineError(
-                    "?query CEs cannot coexist with insertLogical (D-076/D-057)".into(),
-                ));
+                let logical_rules: Vec<&str> = self
+                    .rules
+                    .iter()
+                    .filter(|r| {
+                        r.actions
+                            .iter()
+                            .any(|a| matches!(a, CompiledAction::InsertLogical { .. }))
+                    })
+                    .map(|r| r.def.name.as_str())
+                    .collect();
+                return Err(EngineError(format!(
+                    "?query CEs cannot coexist with insertLogical (D-076/D-057) —                      ?query rules: [{}]; insertLogical rules: [{}]",
+                    qce_rules.join(", "),
+                    logical_rules.join(", ")
+                )));
             }
             // (2) Mutating a fact of a logically-inserted type is a
             // Drools RUNTIME error with murky triggers (tms_u1/tms_u4);

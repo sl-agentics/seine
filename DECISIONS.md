@@ -4534,3 +4534,33 @@ tools/model_check_twalk.py (historical). Doctrine additions this
 arc: assert-your-anchors on scripted edits; population-measure
 every ported mechanism; controls must share the exact network node
 (the u1s constrained-alpha flaw); simulate states, never encode.
+
+### D-103: positioned syntax errors — fail fast and loud (Arc 1)
+Every DRL error now carries its source position. Mechanics:
+- The lexer returns parallel char-offset spans per token; its own
+  errors (unterminated string/comment, bad literals, unexpected
+  chars) carry the offset directly.
+- DrlError became { msg, span: Option<u32> }; all 72 construction
+  sites converted mechanically (assert-anchored scripts): Parser
+  method sites -> self.perr (current token's span) or perr_prev
+  (the just-consumed token — the "expected X, got {tok}" pattern,
+  19 sites; fixes the off-by-one where next() had advanced past the
+  offender); post-parse lowering sites -> derr (span-less; the
+  semantic wall text stands alone).
+- attach_position renders once at the parse_file boundary:
+  "... at line L, col C:\n  <source line>\n  <caret>". Example:
+    DRL parse error: unexpected character '=' at line 4, col 22:
+        not Blocker(name = $n)
+                         ^
+- EngineError: compile errors already carried "rule {name}:" via
+  the D-073 closure; the two UNIT-level walls (D-057 qce x
+  mutation, D-076/D-057 qce x insertLogical) now LIST the offending
+  rule names on both sides.
+- Python surface: messages flow through PySession unchanged
+  (verified: line/col + caret reach CompileError).
+Gates: engine/tests/d103_errors.rs (8 asserts: line/col, caret,
+source echo, later-line, lexer positions, EOF-lands-on-last-token,
+wall rule-naming, rule-scoped naming); suites 9; corpus 867
+byte-identical (zero behavior change — error paths only); bindings
+61/61; lint 926/926 (b8 annotated expect_inert — its rule
+deliberately never references the event type).

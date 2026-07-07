@@ -98,5 +98,6 @@
    ],
    "facts": []
   }
- ]
+ ],
+ "expect_inert": true
 }

@@ -271,3 +271,18 @@ def test_parity_with_native_harness(scenario):
             got = sorted(sorted(json.loads(v).items()) for v in row["values_json"])
             want = sorted(sorted(m["fields"].items()) for m in nat["matches"])
             assert got == want, f"seq {row['seq']}: {got} != {want}"
+
+
+def test_positioned_drl_error_reaches_python():
+    """D-103: raw-DRL parse errors carry line/col + caret through PySession."""
+    import pytest
+    import seine
+
+    with pytest.raises(Exception) as ei:
+        seine.Session(
+            "rule R when BPos(v > ) then end",
+            facts={"BPos": {"v": [1]}},
+        )
+    msg = str(ei.value)
+    assert "line 1" in msg, msg
+    assert "^" in msg, msg
