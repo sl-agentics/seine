@@ -10,6 +10,9 @@ from seine._native import Session as _NativeSession, Result, Table, run as _nati
 from ._rows import is_row_list, rows_to_columns
 from .authoring import (
     CompileError,
+    Event,
+    this_after,
+    this_before,
     Decimal,
     Rule,
     average,
@@ -23,6 +26,9 @@ from .authoring import (
 
 __all__ = [
     "CompileError",
+    "Event",
+    "this_after",
+    "this_before",
     "Result",
     "Rule",
     "Session",
@@ -85,7 +91,8 @@ class Session:
         f, sch = _facts_arg(facts)
         if schemas:
             sch = {**(sch or {}), **schemas}
-        self._native = _NativeSession(_drl_arg(rules), f, sch)
+        events = _collect_events(rules, facts)
+        self._native = _NativeSession(_drl_arg(rules), f, sch, events or None)
 
     def insert(self, type_or_name, data):
         """Insert a batch: Arrow table, dict of column lists, or a list
@@ -109,6 +116,11 @@ class Session:
     def delete(self, handle):
         return self._native.delete(handle)
 
+    def advance(self, ms):
+        """Advance the session pseudo-clock (CEP, D-101): expired events
+        leave working memory at the next fire's quiescence."""
+        return self._native.advance(ms)
+
     def reset(self):
         """In-place reset for paged batches (D-104): clears all facts,
         the agenda, TMS state, the pseudo-clock and handle numbering;
@@ -120,9 +132,33 @@ class Session:
         return self._native.fire(fire_limit, on_fire)
 
 
+def _collect_events(rules, facts):
+    """Event declarations from @fact(event=...) classes reachable via
+    the Rule objects' patterns and the facts mapping's class keys."""
+    out = {}
+    def add(cls):
+        ev = getattr(cls, "__seine_event__", None)
+        if ev is not None:
+            out[cls.__name__] = ev
+    rlist = rules if isinstance(rules, (list, tuple)) else [rules]
+    for r in rlist:
+        for p in getattr(r, "patterns", []):
+            add(p.cls)
+        for a in getattr(r, "actions", []):
+            c = a.kw.get("cls") if hasattr(a, "kw") else None
+            if c is not None:
+                add(c)
+    if isinstance(facts, dict):
+        for k in facts:
+            if isinstance(k, type):
+                add(k)
+    return out
+
+
 def run(rules, facts, fire_limit=100_000, on_fire=None, schemas=None):
     """Build, insert, fire once, return the Result."""
     f, sch = _facts_arg(facts)
     if schemas:
         sch = {**(sch or {}), **schemas}
-    return _native_run(_drl_arg(rules), f, fire_limit, on_fire, sch)
+    events = _collect_events(rules, facts)
+    return _native_run(_drl_arg(rules), f, fire_limit, on_fire, sch, events or None)

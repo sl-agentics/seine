@@ -728,6 +728,9 @@ struct PySession {
     schemas: Vec<TypeSchema>,
     drl: String,
     built: bool,
+    /// D-101/Arc 3: event declarations (type -> (ts_field, expires_ms)),
+    /// applied before rule compilation at build time.
+    events: Vec<(String, String, i64)>,
 }
 
 impl PySession {
@@ -737,6 +740,11 @@ impl PySession {
         }
         let mut engine = Engine::new(self.schemas.clone())
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        for (tname, ts_field, expires_ms) in &self.events {
+            engine
+                .declare_event(tname, ts_field, *expires_ms)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        }
         engine
             .add_rules_drl(&self.drl)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
@@ -777,19 +785,28 @@ impl PySession {
     /// @fact-class keys declare types with zero rows). Constructor
     /// argument order in DRL = field order.
     #[new]
-    #[pyo3(signature = (drl, facts=None, schemas=None))]
+    #[pyo3(signature = (drl, facts=None, schemas=None, events=None))]
     fn new(
         py: Python<'_>,
         drl: String,
         facts: Option<Bound<'_, PyDict>>,
         schemas: Option<Bound<'_, PyDict>>,
+        events: Option<Bound<'_, PyDict>>,
     ) -> PyResult<Self> {
         let mut sess = PySession {
             engine: None,
             schemas: Vec::new(),
             drl,
             built: false,
+            events: Vec::new(),
         };
+        if let Some(ev) = events {
+            for (k, v) in ev.iter() {
+                let tname: String = k.extract()?;
+                let (ts_field, expires_ms): (String, i64) = v.extract()?;
+                sess.events.push((tname, ts_field, expires_ms));
+            }
+        }
         if let Some(sd) = schemas {
             for (k, v) in sd.iter() {
                 let type_name: String = k.extract()?;
@@ -950,6 +967,18 @@ impl PySession {
     }
 
     /// EXTERNAL delete by handle (D-047).
+    /// CEP (D-101): advance the pseudo-clock by ms.
+    fn advance(&mut self, ms: i64) -> PyResult<()> {
+        self.ensure_built()?;
+        let engine = self
+            .engine
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        engine
+            .advance(ms)
+            .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
     /// D-104: in-place session reset for paged batches — clears WM,
     /// agenda, TMS, clock and handle numbering; keeps rules/queries.
     fn reset(&mut self) -> PyResult<()> {
@@ -1133,7 +1162,7 @@ fn ingest_any(
 /// One-call convenience: build a session from tables, fire, return the
 /// result. `seine.run(drl, {"P": df})`.
 #[pyfunction]
-#[pyo3(signature = (drl, facts, fire_limit=100_000, on_fire=None, schemas=None))]
+#[pyo3(signature = (drl, facts, fire_limit=100_000, on_fire=None, schemas=None, events=None))]
 fn run(
     py: Python<'_>,
     drl: String,
@@ -1141,8 +1170,9 @@ fn run(
     fire_limit: usize,
     on_fire: Option<Bound<'_, PyAny>>,
     schemas: Option<Bound<'_, PyDict>>,
+    events: Option<Bound<'_, PyDict>>,
 ) -> PyResult<PyResult_> {
-    let mut sess = PySession::new(py, drl, Some(facts), schemas)?;
+    let mut sess = PySession::new(py, drl, Some(facts), schemas, events)?;
     sess.fire(py, fire_limit, on_fire)
 }
 

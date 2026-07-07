@@ -162,6 +162,13 @@ class FieldRef:
 
     # -- comparisons -> Constraint
     def _cmp(self, op: str, other: Any):
+        if other is None:
+            good = "is_null()" if op == "==" else "is_not_null()"
+            raise CompileError(
+                f"{self.owner.__name__}.{self.name} {op} None: null tests are "
+                f"EXPLICIT three-valued logic - use .{good} (D-095/D-096; the "
+                "field must be declared Optional to be nullable)"
+            )
         _reject_callable(other, f"{self.owner.__name__}.{self.name} {op}")
         if isinstance(other, BoundField):
             return _Constraint(self, op, other)
@@ -205,6 +212,13 @@ class FieldRef:
             raise CompileError(f".contains() requires a str field, {self.name} is {self.subset_type}")
         return _Constraint(self, "contains", needle)
 
+    def is_null(self):
+        """SQL 3VL null test (D-095/D-096): renders `field == null`."""
+        return _Constraint(self, "==", _NULL)
+
+    def is_not_null(self):
+        return _Constraint(self, "!=", _NULL)
+
     def in_(self, *items):
         return _Constraint(self, "in", list(items))
 
@@ -227,7 +241,33 @@ class FieldRef:
         return f"{self.owner.__name__}.{self.name}"
 
 
-def fact(cls: type) -> type:
+class Event:
+    """CEP event declaration for @fact (D-101 E1 subset): the fact type
+    becomes a point event on the session pseudo-clock.
+
+        @seine.fact(event=seine.Event(timestamp="ts", expires_ms=5_000))
+        class Reading:
+            ts: int
+            value: float
+
+    `timestamp` names an int field holding the event time in ms;
+    `expires_ms` is REQUIRED (expiration inference is outside the
+    certified subset — declare the lifetime explicitly, D-101/a8)."""
+
+    def __init__(self, timestamp: str, expires_ms: int):
+        if not isinstance(timestamp, str) or not timestamp:
+            raise CompileError("seine.Event: timestamp must name an int field")
+        if not isinstance(expires_ms, int) or isinstance(expires_ms, bool) or expires_ms < 0:
+            raise CompileError(
+                "seine.Event: expires_ms must be a non-negative int — expiration "
+                "inference from temporal constraints is outside the certified "
+                "subset (D-101); declare the event lifetime explicitly"
+            )
+        self.timestamp = timestamp
+        self.expires_ms = expires_ms
+
+
+def fact(cls: type = None, *, event: "Event | None" = None) -> type:
     """Declare a fact type from an annotated class:
 
         @seine.fact
@@ -243,6 +283,13 @@ def fact(cls: type) -> type:
     # get_type_hints resolves PEP-563 stringized annotations (the raw
     # __annotations__ read broke under `from __future__ import
     # annotations`) and include_extras keeps Annotated metadata (D-098).
+    if cls is None:
+        # parameterized: @fact(event=...)
+        def _wrap(c: type) -> type:
+            return fact(c, event=event)
+        return _wrap
+    if event is not None and not isinstance(event, Event):
+        raise CompileError("@fact(event=...) takes a seine.Event")
     try:
         ann = typing.get_type_hints(cls, include_extras=True)
     except Exception as ex:
@@ -255,6 +302,19 @@ def fact(cls: type) -> type:
         fields[name] = _resolve_field_type(cls.__name__, name, py_t)
     dc = dataclasses.dataclass(cls)
     dc.__seine_fields__ = fields  # ordered: annotation order = constructor order
+    if event is not None:
+        ts_t = fields.get(event.timestamp)
+        if ts_t is None:
+            raise CompileError(
+                f"@fact {cls.__name__}: event timestamp field "
+                f"{event.timestamp!r} is not declared on the class"
+            )
+        if ts_t != "i64":
+            raise CompileError(
+                f"@fact {cls.__name__}: event timestamp field "
+                f"{event.timestamp!r} must be int (ms), it is {ts_t}"
+            )
+        dc.__seine_event__ = (event.timestamp, event.expires_ms)
     for name, st in fields.items():
         setattr(dc, name, FieldRef(dc, name, st))
     return dc
@@ -401,12 +461,31 @@ def max_(field: FieldRef) -> _Agg:
 # Constraint / pattern / rule AST
 # ---------------------------------------------------------------------
 
+class _Null:
+    """Render sentinel for is_null()/is_not_null()."""
+
+
+_NULL = _Null()
+
+
 class _Constraint:
     def __init__(self, field: FieldRef, op: str, rhs: Any):
         self.field, self.op, self.rhs = field, op, rhs
 
+    # -- inline boolean groups (D-073; rendered with explicit parens) --
+    def __or__(self, other):
+        return _Group("||", [self, other])
+
+    def __and__(self, other):
+        return _Group("&&", [self, other])
+
+    def __invert__(self):
+        return _Group("!", [self])
+
     def render(self, rule: "Rule") -> str:
         f = self.field.name
+        if isinstance(self.rhs, _Null):
+            return f"{f} {self.op} null"
         if self.op in ("in", "not in"):
             items = ", ".join(_lit(v) for v in self.rhs)
             return f"{f} {self.op} ({items})"
@@ -416,6 +495,45 @@ class _Constraint:
             var = rule._binding_for(self.rhs, use="a join constraint")
             return f"{f} {self.op} {var}"
         return f"{f} {self.op} {_lit(self.rhs)}"
+
+
+class _Group:
+    """Inline boolean constraint group (D-073): `(a || b)`, `(a && b)`,
+    `!(a)` - same-pattern fields only."""
+
+    def __init__(self, op, children):
+        for c in children:
+            if not isinstance(c, (_Constraint, _Group)):
+                raise CompileError(
+                    "boolean groups combine field constraints of ONE pattern "
+                    f"(got {type(c).__name__})"
+                )
+        self.op = op
+        self.children = list(children)
+
+    def __or__(self, other):
+        return _Group("||", [self, other])
+
+    def __and__(self, other):
+        return _Group("&&", [self, other])
+
+    def __invert__(self):
+        return _Group("!", [self])
+
+    def owners(self):
+        out = set()
+        for c in self.children:
+            if isinstance(c, _Group):
+                out |= c.owners()
+            else:
+                out.add(c.field.owner)
+        return out
+
+    def render(self, rule):
+        if self.op == "!":
+            return f"!({self.children[0].render(rule)})"
+        inner = f" {self.op} ".join(c.render(rule) for c in self.children)
+        return f"({inner})"
 
 
 class _Pattern:
@@ -447,6 +565,46 @@ class _Pattern:
                 )
             return BoundField(self, name, fields[name])
         raise AttributeError(name)
+
+
+class _Temporal:
+    """`this after[lo,hi] $anchor` / before - the D-101 E1 temporal
+    join. The anchor is a MATCHED event pattern from an earlier when()."""
+
+    def __init__(self, op, anchor, lo_ms, hi_ms):
+        if not isinstance(anchor, _Pattern) or anchor.ce != "":
+            raise CompileError(
+                f"this_{op}: the anchor is a positive when() match of an "
+                "event type"
+            )
+        if getattr(anchor.cls, "__seine_event__", None) is None:
+            raise CompileError(
+                f"this_{op}: anchor {anchor.type_name} is not an event type "
+                "(declare @fact(event=seine.Event(...)))"
+            )
+        for v, n in ((lo_ms, "lo_ms"), (hi_ms, "hi_ms")):
+            if not isinstance(v, int) or isinstance(v, bool) or v < 0:
+                raise CompileError(f"this_{op}: {n} must be a non-negative int")
+        if hi_ms < lo_ms:
+            raise CompileError(f"this_{op}: hi_ms < lo_ms")
+        self.op = op
+        self.anchor = anchor
+        self.lo_ms = lo_ms
+        self.hi_ms = hi_ms
+
+    def render(self, rule):
+        var = rule._fact_var_for(self.anchor)
+        return f"this {self.op}[{self.lo_ms}ms,{self.hi_ms}ms] {var}"
+
+
+def this_after(anchor, lo_ms, hi_ms):
+    """Constraint: this event's timestamp is in [lo_ms, hi_ms] AFTER the
+    anchor match's. Use inside when(EventType, ...)."""
+    return _Temporal("after", anchor, lo_ms, hi_ms)
+
+
+def this_before(anchor, lo_ms, hi_ms):
+    return _Temporal("before", anchor, lo_ms, hi_ms)
 
 
 class _RhsAction:
@@ -506,6 +664,23 @@ class Rule:
             raise CompileError(f"{cls!r} is not a @seine.fact class")
         for c in constraints:
             _reject_callable(c, f"{cls.__name__} constraint")
+            if isinstance(c, _Temporal):
+                if getattr(cls, "__seine_event__", None) is None:
+                    raise CompileError(
+                        f"{cls.__name__}: temporal constraints need an event "
+                        "type - declare @fact(event=seine.Event(...))"
+                    )
+                continue
+            if isinstance(c, _Group):
+                owners = c.owners()
+                if owners != {cls}:
+                    other = ", ".join(sorted(o.__name__ for o in owners if o is not cls))
+                    raise CompileError(
+                        f"boolean groups combine constraints of ONE pattern - "
+                        f"this {cls.__name__} group also references {other} "
+                        "(inline groups cannot join across patterns, D-073)"
+                    )
+                continue
             if not isinstance(c, _Constraint):
                 raise CompileError(
                     f"{cls.__name__}: constraints are field expressions "
@@ -585,6 +760,29 @@ class Rule:
         self.actions.append(_RhsAction("insert", cls=cls, values=field_values))
         return self
 
+    def then_insert_logical(self, cls: type, **field_values) -> "Rule":
+        """insertLogical(new Cls(...)): the fact is JUSTIFIED by this
+        rule's match (D-076 TMS) - it auto-retracts when the match goes
+        away. Unit walls apply: insertLogical cannot coexist with ?query
+        CEs, and mutating a logically-inserted type is rejected at
+        build (the engine names the offending rules)."""
+        if not hasattr(cls, "__seine_fields__"):
+            raise CompileError(f"{cls!r} is not a @seine.fact class")
+        fields = cls.__seine_fields__
+        missing = set(fields) - set(field_values)
+        extra = set(field_values) - set(fields)
+        if missing or extra:
+            raise CompileError(
+                f"insertLogical {cls.__name__}: missing={sorted(missing)} "
+                f"extra={sorted(extra)} (all declared fields, no others)"
+            )
+        for k, v in field_values.items():
+            _reject_callable(v, f"insertLogical {cls.__name__}.{k}")
+            if isinstance(v, AccResult):
+                v._guard_opaque("an insertLogical argument")
+        self.actions.append(_RhsAction("insert_logical", cls=cls, values=field_values))
+        return self
+
     def then_modify(self, pattern: _Pattern, **field_values) -> "Rule":
         if not isinstance(pattern, _Pattern) or pattern.ce != "":
             raise CompileError("then_modify targets a positive when() match")
@@ -639,6 +837,12 @@ class Rule:
                     self._rhs_arg(a.kw["values"][f]) for f in cls.__seine_fields__
                 )
                 rhs_lines.append(f"    insert(new {cls.__name__}({args}));")
+            elif a.kind == "insert_logical":
+                cls = a.kw["cls"]
+                args = ", ".join(
+                    self._rhs_arg(a.kw["values"][f]) for f in cls.__seine_fields__
+                )
+                rhs_lines.append(f"    insertLogical(new {cls.__name__}({args}));")
             elif a.kind == "modify":
                 p = a.kw["pattern"]
                 var = self._fact_var_for(p)
@@ -672,10 +876,16 @@ class Rule:
         # patterns that own them
         for p in self.patterns:
             for c in p.constraints:
-                if isinstance(c.rhs, BoundField):
+                if isinstance(c, _Constraint) and isinstance(c.rhs, BoundField):
                     self._binding_for(c.rhs, "a join constraint")
 
         lhs_lines: list[str] = []
+        # temporal anchors demand their fact vars BEFORE any LHS line
+        # renders (the anchor pattern precedes the temporal one)
+        for p in self.patterns:
+            for c in p.constraints:
+                if isinstance(c, _Temporal):
+                    self._fact_var_for(c.anchor)
         for p in self.patterns:
             body = [c.render(self) for c in p.constraints]
             # field bindings demanded by later constraints / RHS / salience

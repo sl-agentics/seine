@@ -4602,3 +4602,36 @@ bindings 62/62 (Session.reset() + paged-batch equivalence test);
 lint 936; fuzz_cep now DRAWS {"op":"reset"} at 0.15/epoch (clock
 tracking resets with it) — campaign seeds 73/79/83 = 0/0/0 across
 3000 scenarios of reset x CEP x TMS x flush composition.
+
+### D-105: python sugar catch-up (Arc 3) — insertLogical, CEP,
+### nulls, inline groups
+All four compile-to-DRL only: the rendered text rides the certified
+grammar and differential; no new evaluation machinery.
+1. **TMS**: Rule.then_insert_logical(cls, **fields) renders
+   insertLogical(new Cls(...)). The D-076 unit walls surface at
+   build with rule names (test: modify-on-logical-type names the
+   offender); delete of a logical type stays legal (stated
+   retraction — the wall covers setters/update/modify only).
+2. **CEP (E1)**: seine.Event(timestamp=, expires_ms=) +
+   @fact(event=...) (parameterized decorator; explicit expires_ms
+   REQUIRED, D-101/a8 — the error names the fence);
+   seine.this_after/this_before(anchor, lo_ms, hi_ms) render
+   `this after[lo,hi] $pN` with the anchor's fact var demanded in
+   a pre-pass (anchors precede their temporal patterns);
+   Session.advance(ms). Events flow class -> __seine_event__ ->
+   _collect_events (rules' patterns + RHS classes + facts keys) ->
+   the native events dict -> Engine::declare_event BEFORE rule
+   compilation (Test::Temporal needs the spec at compile).
+3. **Nulls (D-095/D-096)**: field.is_null()/is_not_null() render
+   `f == null`/`f != null`; `field == None` is a CompileError
+   naming is_null() and the Optional declaration — the 3VL choice
+   stays explicit and legible.
+4. **Inline boolean groups (D-073)**: |, &, ~ on constraints build
+   groups rendering `(a || b)`, `(a && b)`, `!(a)` (pr_ib31's
+   certified negation shape); leaves must share ONE pattern class
+   (owners()-set check; the error names the foreign class and the
+   D-073 no-cross-pattern rule).
+Gates: bindings 70/70 (test_arc3: goldens + engine round-trips for
+TMS auto-retraction, temporal pairing + advance expiration, null
+firing, group firing); suites 9; corpus 877 (untouched — sugar
+only). Agenda-group sugar deferred to after Arc 4 per the plan.
