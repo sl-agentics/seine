@@ -4055,3 +4055,38 @@ machinery. Extend tools/model_check_temporal.py with the flush
 dimension + not/exists node semantics BEFORE porting (the u3
 hand-model of our own engine came out wrong — the checker is the
 arbiter). Gate: v-probes + full u/t/a ladders + corpus + fuzz_cep.
+
+### D-102 addendum: naive-flush variant results = PIN DATA for the
+### checker; the port needs TRIGGER-SCOPED flush propagation
+A first-cut stream_flush (whole-network evaluation after EVERY
+insert in event sessions — external, RHS, insertLogical) was built
+and differentially measured, then REVERTED (working tree back to
+0778e80's engine). Results (all valuable pins for the model-check
+cycle):
+- FIXED: cf5x18/u1 (the seed), u4 (per-RHS windows) — the flush
+  family is the right mechanism.
+- KEPT GREEN: u3, v3, v4, min_sj, t1, t6, t7, t14, a1, a6.
+- STILL WRONG: v2 (the flush drained the HELD P1 into the relink
+  window — Drools' forceFlushLeftTuple propagates ONLY the
+  triggering insert's own staging, leaving the held backlog for the
+  epoch fire; source: flushLeftTupleIfNecessary passes
+  createLeftTupleTupleSets(leftTuple=null) = EMPTY sets), and v5
+  (mixed locations — order needs the trigger-scoped model plus
+  possibly plain-node drain-at-link; hand-models contradicted
+  between v4 and v5 — the D-083 stop).
+- REGRESSED: a7c — the mid-RHS flush perturbed the lazy TMS
+  deferred-drain composition (Rhi fired before Rcons again),
+  meaning RHS-insert flushes must NOT re-evaluate the justifier's
+  network ahead of its item pop — trigger-scoping likely fixes this
+  too (the whole-network flush drained J's deferred state early).
+**Next (the checker cycle, fresh context):** extend
+tools/model_check_temporal.py with: not/exists relink semantics (IF
+left re-entry/retract events at the downstream join), flush variants
+{none, whole-network, TRIGGER-SCOPED (head-segment split of the
+prepend-staged lists — the trigger's additions are the list heads)},
+plain-node drain-at-link on/off, and the window/queue composition.
+Enumerate against ALL pins: a-ladder (esp. a7c), t1–t15, u1/u3/u4,
+v2–v5, cf5x0/17/18. Implement the survivor with the head-segment
+staging split (snapshot staged lengths before on_insert; flush only
+the delta; restore the withheld tail). Then: full ladders + corpus +
+fuzz_cep shakedown → 3×1000 gate → D-101/D-102 close + FEATURES.
