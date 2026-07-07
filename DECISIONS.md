@@ -3904,3 +3904,51 @@ when a scenario declares events (certified path untouched — full
 E1 (point events + @expires + after/before + the deadline queue +
 generator/fuzz) awaits Bryan's go. Defer-drain composition (a7) is
 queued as an E1-ladder rung alongside the inference-rule probes.
+
+## CEP E1 (2026-07-08)
+
+### D-101: E1 IN PROGRESS — defer-drain pinned and PORTED (a7 trio +
+### quiescence pool); clock/deadline-queue/advance + after/before
+### landed; temporal scan order pinned same-batch; ONE OPEN FORK
+### (t6: held-staging x temporal composition) — Bryan checkpoint
+**Defer-drain (front-loaded per Bryan):** a7 (cascade depth), a7b
+(strictly-higher interleave), a7c (cascade vs same-epoch chain), and
+the DECISIVE a7d delete-twin: Drools drains EXPIRATION-sourced TMS
+cascades at AGENDA QUIESCENCE, but delete-sourced ones through the
+certified gate (a7d matches both engines untouched — the certified
+TMS machinery is correct; the behavior is expiration-specific).
+Port: `tms.expiring` marks (set in advance()) route act
+invalidations from BOTH trigger paths (lazy terminal hook + k=1
+eager-break scan) into `tms.expire_deferred`, drained at the agenda
+quiescence point in next_activation (clear-marks-BEFORE-drain: the
+first cut live-locked by re-deferring through its own entry check).
+Chained cascades (D->D2) complete at the drain (a7's full-depth
+observation). a1/a2/a3/a4/a6/a7/a7b/a7c/a7d = 9 rungs; 8 promoted
+(a4 windows = E2); ties stable 10/10 (pinned, arrival order).
+**Engine machinery:** clock_ms + BTreeMap deadline queue +
+declare_event (explicit expires_ms REQUIRED — a8 pinned explicit
+@expires OVERRIDING inferred reach, no max-merge; inference = E2);
+advance() = deadline-ordered batch of external deletes (a3
+composition); scheduling on external AND RHS inserts; harness event
+metadata + advance ops; `[`/`]` lexed (the temporal syntax was
+unexercised until fuzz); `this after/before[lo,hi] $a` ->
+Test::Temporal (beta; positive-CE only; queries walled).
+**Temporal join order (t-ladder):** same-batch semantics PINNED:
+temporal nodes flip the insert composition (leftIns FILLS joining
+only pre-batch right memory, THEN rightIns joins full left memory)
+and scans iterate partners ASCENDING BY TIMESTAMP (creation order;
+firing order is the certified prepend-reverse). Implemented via
+Node::temporal + ts keys through key_of_left/right (anchor ts /
+own ts). min_sj + t1-t5 differentially GREEN (promoted, corpus
+826/826).
+**THE OPEN FORK (t6):** held probers (never-linked fire-1 staging)
+joined by a fresh anchor in fire 2 — engine fires (50,100),(50,150),
+oracle (50,150),(50,100). Held-staging x temporal-scan composition
+(the D-084/D-091/D-094 lineage recombining with the new scan order);
+hand-models contradict across the same-batch and held cases — the
+D-083 stop signal. Needs its own focused sub-ladder (held anchors vs
+held probers, ties, multi-fire interleaves, STREAM-mode propagation
+timing) before the CEP fuzz gate can run. t6 stays in
+probes_pending/cep/. Gates at this commit: 8 suites, corpus 826/826,
+zero blast radius (temporal branch is flag-gated; plain joins
+byte-identical).

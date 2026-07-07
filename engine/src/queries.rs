@@ -507,6 +507,12 @@ fn compile_query(
             let mut field_binds = Vec::new();
             for c in &constraints {
                 match c {
+                    Constraint::Temporal { .. } => {
+                        return err(
+                            "temporal constraints in query bodies are out of subset (D-101)"
+                                .into(),
+                        )
+                    }
                     Constraint::Group(_) => {
                         return err(
                             "inline constraint groups in query bodies are out of subset (D-073)"

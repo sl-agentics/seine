@@ -22,6 +22,21 @@ pub fn run_scenario_file(path: &str) -> Result<(String, J), (String, String)> {
 fn run_scenario(sc: &J) -> Result<J, String> {
     let schemas = parse_types(sc.get("types").ok_or("scenario missing 'types'")?)?;
     let mut engine = Engine::new(schemas).map_err(|e| e.to_string())?;
+    // CEP E1 (D-101): type-level event metadata — explicit expiry only.
+    for t in sc.get("types").and_then(J::as_array).into_iter().flatten() {
+        if let Some(ev) = t.get("event") {
+            let tname = t.get("name").and_then(J::as_str).unwrap_or_default();
+            let ts = ev
+                .get("timestamp")
+                .and_then(J::as_str)
+                .ok_or_else(|| format!("{tname}: event needs a 'timestamp' field name"))?;
+            let exp = ev
+                .get("expires_ms")
+                .and_then(J::as_i64)
+                .ok_or_else(|| format!("{tname}: E1 events need explicit expires_ms (inference is E2, D-101)"))?;
+            engine.declare_event(tname, ts, exp).map_err(|e| e.to_string())?;
+        }
+    }
     let drl = sc
         .get("drl")
         .and_then(J::as_str)
@@ -81,6 +96,13 @@ fn run_scenario(sc: &J) -> Result<J, String> {
                             .nth_inserted(target as usize)
                             .ok_or(format!("update target {target} out of range"))?;
                         engine.update_fact(id, fields).map_err(|e| e.to_string())?;
+                    }
+                    "advance" => {
+                        let ms = action
+                            .get("ms")
+                            .and_then(J::as_i64)
+                            .ok_or("advance action missing 'ms'")?;
+                        engine.advance(ms).map_err(|e| e.to_string())?;
                     }
                     "delete" => {
                         let target = action

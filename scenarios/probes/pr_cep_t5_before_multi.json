@@ -1,0 +1,65 @@
+{
+ "name": "cep_t5_before_multi",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R when $a : E0() $b : E1(this before[0ms,200ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 60
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 120
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 250
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 20
+   }
+  }
+ ],
+ "epochs": []
+}

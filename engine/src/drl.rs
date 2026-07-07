@@ -109,6 +109,10 @@ pub enum Constraint {
     Contains { field: String, needle: String },
     /// `n in (1, 2)` / `n not in (1, 2)` — literal membership (D-030)
     InList { field: String, items: Vec<Literal>, negated: bool },
+    /// CEP E1 (D-101): `this after[0ms,100ms] $a` / `this before[...] $a`
+    /// on point events. after: self.ts - a.ts in [lo, hi];
+    /// before: a.ts - self.ts in [lo, hi]. Bounds in ms.
+    Temporal { after: bool, lo_ms: i64, hi_ms: i64, var: String },
     /// Inline boolean constraint group (D-073): `a == 1 || a == 2`,
     /// `!(x > 5)`, nested parens. Top-level `&&` never appears here —
     /// it splits into separate comma-equivalent constraints at parse
@@ -421,6 +425,8 @@ fn lex(src: &str) -> Result<Vec<Tok>, DrlError> {
                     '+' => "+",
                     '*' => "*",
                     '?' => "?",
+                    '[' => "[",
+                    ']' => "]",
                     other => return Err(DrlError(format!("unexpected character {other:?}"))),
                 },
             };
@@ -477,6 +483,19 @@ impl Parser {
         match self.next()? {
             Tok::Ident(x) => Ok(x),
             other => Err(DrlError(format!("expected identifier, got {other}"))),
+        }
+    }
+
+    /// `100ms` / `2s` — lexed as IntLit + unit Ident (CEP E1).
+    fn duration_ms(&mut self) -> Result<i64, DrlError> {
+        let n = match self.next()? {
+            Tok::IntLit(n) => n,
+            other => return Err(DrlError(format!("expected duration, got {other}"))),
+        };
+        match self.next()? {
+            Tok::Ident(u) if u == "ms" => Ok(n),
+            Tok::Ident(u) if u == "s" => Ok(n * 1000),
+            other => Err(DrlError(format!("expected ms/s unit, got {other}"))),
         }
     }
 
@@ -1108,6 +1127,29 @@ impl Parser {
                 return Ok(out);
             }
             cur_field = Some(field);
+        }
+        // CEP E1: `this after[...] $x` / `this before[...] $x` — a
+        // whole-slot form (no composition with groups in E1).
+        if matches!(self.peek(), Some(Tok::Ident(w)) if w == "this") {
+            self.next()?;
+            let opw = self.ident()?;
+            let after = match opw.as_str() {
+                "after" => true,
+                "before" => false,
+                other => {
+                    return Err(DrlError(format!(
+                        "expected after/before following 'this', got {other}"
+                    )))
+                }
+            };
+            self.expect_sym("[")?;
+            let lo_ms = self.duration_ms()?;
+            self.expect_sym(",")?;
+            let hi_ms = self.duration_ms()?;
+            self.expect_sym("]")?;
+            let var = self.dollar_ident()?;
+            out.push(Constraint::Temporal { after, lo_ms, hi_ms, var });
+            return Ok(out);
         }
         let e = self.cexpr_or(&mut cur_field)?;
         match e {

@@ -85,6 +85,10 @@ enum Test {
     /// `not in` lowerings — never admits, and stays UNKNOWN under
     /// negation inside groups.
     Unknown,
+    /// CEP E1 (D-101) point-event temporal join: DELTA in
+    /// [lo_ms, hi_ms] where delta = own.ts - anchor.ts (after) or
+    /// anchor.ts - own.ts (before). anchor = (tuple pos, ts field).
+    Temporal { after: bool, lo_ms: i64, hi_ms: i64, anchor: (usize, usize) },
     /// `matches` — full-string regex acceptance (D-030).
     Matches(crate::rx::Regex),
     /// `contains` — String substring (D-030).
@@ -460,6 +464,14 @@ struct Tms {
     left_touched: Vec<(FactId, Origin)>,
     /// Ambient flag: inside the post-firing force evaluation.
     defer_mode: bool,
+    /// CEP E1 (D-101/a7c): act-invalidations whose dying tuple traces
+    /// to an EXPIRING fact defer here and drain only at AGENDA
+    /// QUIESCENCE — Drools defers expiration-sourced logical
+    /// retraction later than delete-sourced (the delete twin a7d
+    /// matches the normal gate; the expiration probe a7c does not).
+    expire_deferred: Vec<(usize, Tup)>,
+    /// Facts currently dying BY EXPIRATION (marked in advance()).
+    expiring: std::collections::HashSet<FactId>,
     /// The activation currently executing its RHS (self-break laziness,
     /// fz_42_2442).
     current_act: Option<(usize, Tup)>,
@@ -907,6 +919,15 @@ impl RuleNet {
 }
 
 pub struct Engine {
+    /// CEP E1 (D-100/D-101): pseudo-clock in ms. Advances only via
+    /// advance(); starts at 0 like the oracle's PseudoClockScheduler.
+    clock_ms: i64,
+    /// Event metadata per type: (timestamp field index, expires_ms).
+    /// E1 requires explicit expiry (inferred expiration is E2 — a8).
+    event_specs: std::collections::HashMap<TypeId, (usize, i64)>,
+    /// Deadline-ordered expiration queue; Vec preserves insertion
+    /// order within a deadline (the a2-pinned stable tie order).
+    deadlines: std::collections::BTreeMap<i64, Vec<FactId>>,
     store: FactStore,
     rules: Vec<CompiledRule>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
@@ -990,6 +1011,9 @@ impl Engine {
             nullable: 0,
         });
         Ok(Engine {
+            clock_ms: 0,
+            event_specs: std::collections::HashMap::new(),
+            deadlines: std::collections::BTreeMap::new(),
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_parents: Vec::new(),
@@ -1229,7 +1253,11 @@ impl Engine {
                             let mut s0_in: Staged<FactId> = Staged::default();
                             s0_in.slot_memory = true; // D-047/fz_7_5801
                             self.trie.push(TrieNode {
-                                node: phreak::Node::new(pat.pindex, kind),
+                                node: phreak::Node::new_ex(
+                                    pat.pindex,
+                                    kind,
+                                    pat.cmps.iter().any(|c| matches!(c.test, Test::Temporal { .. })),
+                                ),
                                 env: (ri, j),
                                 active: HashSet::new(),
                                 pulse: false,
@@ -1501,6 +1529,9 @@ impl Engine {
         for c in &p.cmps {
             let _ = write!(s, ";{}", c.field_idx);
             match &c.test {
+                Test::Temporal { after, lo_ms, hi_ms, anchor } => {
+                    let _ = write!(s, "tmp{after}{lo_ms}:{hi_ms}@{}.{}", anchor.0, anchor.1);
+                }
                 Test::Cmp { op, rhs: Src::Lit(v) } => {
                     let ft = self.store.field_type(p.type_id, c.field_idx);
                     let vv = if *op == CmpOp::Eq {
@@ -1578,6 +1609,9 @@ impl Engine {
                     // node-chain prefix that scopes downstream eq groups
                     // (op_i7); only Eq-vs-literal constraints are members.
                     match &c.test {
+                        Test::Temporal { .. } => {
+                            // beta-only; never an alpha chain member
+                        }
                         Test::IsNull { negated } => {
                             let _ = (negated,);
                             // chain member only (like InList, op_i7)
@@ -1905,6 +1939,38 @@ impl Engine {
             let mut bind_fields = 0u64;
             for c in &p.constraints {
                 match c {
+                    Constraint::Temporal { after, lo_ms, hi_ms, var } => {
+                        if p.ce != CeKind::Positive {
+                            return Err(err(
+                                "temporal constraints on not/exists CEs are out of E1 (D-101)".into(),
+                            ));
+                        }
+                        // CEP E1 (D-101): both sides must be DECLARED
+                        // point events; the test reads each side's ts.
+                        let (own_fi, _) = *self.event_specs.get(&type_id).ok_or_else(|| {
+                            err(format!(
+                                "{}: temporal constraints need a declared event type",
+                                p.type_name
+                            ))
+                        })?;
+                        let (apos, atid) = *fact_binds.get(var).ok_or_else(|| {
+                            err(format!("unknown fact binding {var} (temporal anchor)"))
+                        })?;
+                        let (anchor_fi, _) = *self.event_specs.get(&atid).ok_or_else(|| {
+                            err(format!("temporal anchor {var} is not a declared event type"))
+                        })?;
+                        listen_mask |= 1 << own_fi;
+                        cmps.push(CompiledCmp {
+                            field_idx: own_fi,
+                            test: Test::Temporal {
+                                after: *after,
+                                lo_ms: *lo_ms,
+                                hi_ms: *hi_ms,
+                                anchor: (apos, anchor_fi),
+                            },
+                            rhs_var: Some(var.clone()),
+                        });
+                    }
                     Constraint::Bind { var, field } => {
                         let fi = self
                             .store
@@ -2211,6 +2277,7 @@ impl Engine {
             let beta = cmps.iter().any(|c| {
                 matches!(c.test, Test::Cmp { rhs: Src::Field(..), .. })
                     || matches!(c.test, Test::Group { cross_var: true, .. })
+                    || matches!(c.test, Test::Temporal { .. })
             });
             let (pindex, index_ci) = {
                 let var_cmps: Vec<(usize, CmpOp, usize, usize)> = cmps
@@ -2537,6 +2604,7 @@ impl Engine {
             return Err(EngineError(format!("{type_name}: unknown field {extra}")));
         }
         let id = self.store.insert(tid, ordered).map_err(EngineError)?;
+        self.schedule_expiration(id);
         self.tms_note_stated(id);
         // Multi-fire (D-046): before the first fire_all the initial
         // batch propagates in its prologue; afterwards each insert
@@ -2621,6 +2689,85 @@ impl Engine {
     /// the TMS quirk model (D-076): on a justified key the JUSTIFIED
     /// handle dies whichever handle was named; a stated sibling of a
     /// once-justified key no-ops (dump3).
+    /// CEP E1 (D-101): declare a type as a point event — timestamps
+    /// read from `ts_field` (i64, epoch-ms) at insert; the fact
+    /// auto-retracts when the clock passes ts + expires_ms. Explicit
+    /// expiry is REQUIRED in E1 (a8: explicit @expires overrides the
+    /// inferred reach in Drools; inference itself is E2).
+    pub fn declare_event(
+        &mut self,
+        type_name: &str,
+        ts_field: &str,
+        expires_ms: i64,
+    ) -> Result<(), EngineError> {
+        let tid = self
+            .store
+            .type_id(type_name)
+            .ok_or_else(|| EngineError(format!("unknown type {type_name}")))?;
+        let fi = self
+            .store
+            .field_index(tid, ts_field)
+            .ok_or_else(|| EngineError(format!("{type_name} has no field {ts_field}")))?;
+        if self.store.field_type(tid, fi) != FieldType::I64 {
+            return Err(EngineError(format!(
+                "{type_name}.{ts_field}: event timestamps are i64 epoch-ms (E1 point events)"
+            )));
+        }
+        if expires_ms < 0 {
+            return Err(EngineError("expires_ms must be >= 0".into()));
+        }
+        self.event_specs.insert(tid, (fi, expires_ms));
+        Ok(())
+    }
+
+    /// Schedule expiration for a freshly inserted fact of an event
+    /// type. Timestamps are FIXED at insert (DefaultEventHandle
+    /// semantics); deadline = ts + expires_ms.
+    fn schedule_expiration(&mut self, id: FactId) {
+        let tid = self.store.fact_type(id);
+        if let Some(&(fi, exp)) = self.event_specs.get(&tid) {
+            if let Value::I64(ts) = self.store.value(id, fi) {
+                self.deadlines.entry(ts + exp).or_default().push(id);
+            }
+        }
+    }
+
+    /// CEP E1: advance the pseudo-clock. Due expirations apply as a
+    /// deadline-ordered batch of EXTERNAL deletes at this action's
+    /// position (a3: Drools batches all due retractions into the next
+    /// evaluation with no intermediate agenda pass; a7 trio: the TMS
+    /// cascade composition then follows the certified defer machinery).
+    /// Already-dead facts (user-deleted, or retracted by an earlier
+    /// expiration's TMS cascade) skip silently.
+    pub fn advance(&mut self, ms: i64) -> Result<(), EngineError> {
+        if ms < 0 {
+            return Err(EngineError("advance must be >= 0".into()));
+        }
+        self.clock_ms += ms;
+        let due: Vec<FactId> = {
+            let mut keys: Vec<i64> = self
+                .deadlines
+                .range(..=self.clock_ms)
+                .map(|(k, _)| *k)
+                .collect();
+            keys.sort_unstable();
+            let mut out = Vec::new();
+            for k in keys {
+                if let Some(v) = self.deadlines.remove(&k) {
+                    out.extend(v);
+                }
+            }
+            out
+        };
+        for id in due {
+            if self.store.is_alive(id) {
+                self.tms.expiring.insert(id);
+                self.delete_fact(id)?;
+            }
+        }
+        Ok(())
+    }
+
     pub fn delete_fact(&mut self, id: FactId) -> Result<(), EngineError> {
         self.reject_mutation_with_qce("delete")?;
         if !self.store.is_alive(id) {
@@ -2913,7 +3060,32 @@ impl Engine {
                     best = Some((0, decl, true, qi));
                 }
             }
-            let Some((_, _, is_query, ri)) = best else { return None };
+            let Some((_, _, is_query, ri)) = best else {
+                // CEP E1 (D-101/a7c): agenda quiescence — drain
+                // expiration-sourced logical retractions, then rescan
+                // (their consequences may activate rules).
+                if !self.tms.expire_deferred.is_empty() {
+                    // Clear the expiring marks FIRST: the drained calls
+                    // route through tms_on_terminal_del, whose entry
+                    // check would otherwise re-defer the same act
+                    // forever (live-lock). The pending entries are
+                    // already collected; fresh marks only come from a
+                    // future advance().
+                    self.tms.expiring.clear();
+                    while let Some((eri, tuple)) = {
+                        let head = if self.tms.expire_deferred.is_empty() {
+                            None
+                        } else {
+                            Some(self.tms.expire_deferred.remove(0))
+                        };
+                        head
+                    } {
+                        self.tms_on_terminal_del(eri, &tuple);
+                    }
+                    continue;
+                }
+                return None;
+            };
             if is_query {
                 self.drain_query_item(ri);
                 continue;
@@ -4256,6 +4428,7 @@ impl Engine {
                 // join constraint, checked with prefix; SnapField never
                 // occurs in LHS constraints
                 Test::Cmp { .. } => true,
+                Test::Temporal { .. } => true, // beta-only (D-101)
                 other => eval_alpha_test(&lhs, other),
             }
         })
@@ -4307,6 +4480,7 @@ impl Engine {
                             .collect::<Result<_, _>>()?
                     };
                     let fid = self.store.insert(tid, values).map_err(EngineError)?;
+                    self.schedule_expiration(fid);
                     self.tms_note_stated(fid);
                     self.on_insert(fid, Some(ri));
                 }
@@ -4608,6 +4782,15 @@ impl Engine {
             .map(|(a, _)| a.clone())
             .collect();
         for act in broken {
+            // D-101/a7c: an EXPIRING justifier's eager teardown defers
+            // to agenda quiescence (the delete twin a7d keeps the
+            // certified immediate path).
+            if act.1.iter().any(|x| self.tms.expiring.contains(x)) {
+                if !self.tms.expire_deferred.iter().any(|(r, t)| (*r, t) == (act.0, &act.1)) {
+                    self.tms.expire_deferred.push(act);
+                }
+                continue;
+            }
             self.tms_drop_act_deps(&act);
         }
     }
@@ -4626,6 +4809,13 @@ impl Engine {
         }
         let act = (ri, tuple.clone());
         if !self.tms.by_act.iter().any(|(a, _)| *a == act) {
+            return;
+        }
+        if act.1.iter().any(|f| self.tms.expiring.contains(f)) {
+            // D-101/a7c: expiration-sourced — quiescence drain
+            if !self.tms.expire_deferred.iter().any(|(r, t)| (*r, t) == (act.0, &act.1)) {
+                self.tms.expire_deferred.push((act.0, act.1));
+            }
             return;
         }
         if self.tms.defer_mode {
@@ -4661,6 +4851,7 @@ impl Engine {
                             Test::Unknown => false,
                             Test::Cmp { op, rhs: Src::Lit(v) } => !lhs.is_null() && eval_cmp(&lhs, *op, v),
                             Test::Cmp { .. } => true,
+                            Test::Temporal { .. } => true, // beta: JoinEnv::allowed re-checks
                             other => eval_alpha_test(&lhs, other),
                         }
                     }) && phreak::JoinEnv::allowed(&env, pos - 1, tuple, f)
@@ -5002,6 +5193,15 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                     let other = if Some(*ti) == pat.tpos { f } else { l[*ti] };
                     eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
                 }
+                Test::Temporal { after, lo_ms, hi_ms, anchor } => {
+                    // CEP E1 point-event join: delta in [lo, hi]
+                    let Value::I64(own) = lhs else { return false };
+                    let Value::I64(a) = self.store.value(l[anchor.0], anchor.1) else {
+                        return false;
+                    };
+                    let d = if *after { own - a } else { a - own };
+                    d >= *lo_ms && d <= *hi_ms
+                }
                 Test::Cmp { .. } => true,
                 other => eval_alpha_test(&lhs, other),
             }
@@ -5011,6 +5211,12 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
     fn key_of_left(&self, node: usize, l: &Tup) -> Option<Vec<Value>> {
         let pos = node + 1;
         let pat = &self.rule.patterns[pos];
+        // D-101: temporal nodes key the LEFT by the ANCHOR fact's ts
+        if let Some(Test::Temporal { anchor, .. }) =
+            pat.cmps.iter().find_map(|c| matches!(&c.test, Test::Temporal { .. }).then(|| &c.test))
+        {
+            return Some(vec![self.store.value(l[anchor.0], anchor.1)]);
+        }
         if let Some(ci) = pat.index_ci {
             // range index: the single relational constraint's binding value
             if let Test::Cmp { rhs: Src::Field(ti, fi), .. } = &pat.cmps[ci].test {
@@ -5037,6 +5243,12 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
     fn key_of_right(&self, node: usize, f: FactId) -> Option<Vec<Value>> {
         let pos = node + 1;
         let pat = &self.rule.patterns[pos];
+        // D-101: temporal nodes key the RIGHT by its own ts field
+        if let Some(fi) = pat.cmps.iter().find_map(|c| {
+            matches!(&c.test, Test::Temporal { .. }).then(|| c.field_idx)
+        }) {
+            return Some(vec![self.store.value(f, fi)]);
+        }
         if let Some(ci) = pat.index_ci {
             // range index: the constraint's own field value
             return Some(vec![self.store.value(f, pat.cmps[ci].field_idx)]);
@@ -5077,6 +5289,15 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                     let other = if Some(*ti) == pat.tpos { f } else { l[*ti] };
                     eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
                 }
+                Test::Temporal { after, lo_ms, hi_ms, anchor } => {
+                    // CEP E1 point-event join: delta in [lo, hi]
+                    let Value::I64(own) = lhs else { return false };
+                    let Value::I64(a) = self.store.value(l[anchor.0], anchor.1) else {
+                        return false;
+                    };
+                    let d = if *after { own - a } else { a - own };
+                    d >= *lo_ms && d <= *hi_ms
+                }
                 Test::Cmp { .. } => true,
                 other => eval_alpha_test(&lhs, other),
             }
@@ -5113,6 +5334,7 @@ fn eval_alpha_test(lhs: &Value, test: &Test) -> bool {
         Test::Unknown => false,
         Test::Cmp { .. } => unreachable!("Cmp handled by callers"),
         Test::Group { .. } => unreachable!("Group handled by callers"),
+        Test::Temporal { .. } => unreachable!("Temporal is beta-only (D-101)"),
     }
 }
 

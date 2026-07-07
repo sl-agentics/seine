@@ -285,6 +285,10 @@ pub struct Node {
     temp_next: HashMap<FactId, Option<FactId>>,
     /// Beta-memory index kind (equality hash / comparison range / none).
     pub index: Index,
+    /// CEP E1 (D-101): temporal-join node. Flips the insert-phase
+    /// composition (leftIns fills BEFORE rightIns joins — t1/t6 pins)
+    /// and both scans iterate partners DESCENDING by stored ts key.
+    pub temporal: bool,
     /// D-082: left ARRIVAL sequence (stamped oldest-first per staged
     /// batch). Memory (`lefts`) order is certified staged-iteration
     /// order — NOT arrival — so the update-entry right pass sorts its
@@ -326,6 +330,10 @@ impl Node {
     }
 
     pub fn new(index: Index, kind: Kind) -> Node {
+        Self::new_ex(index, kind, false)
+    }
+
+    pub fn new_ex(index: Index, kind: Kind, temporal: bool) -> Node {
         Node {
             kind,
             lefts: Vec::new(),
@@ -341,6 +349,7 @@ impl Node {
             temp_blocked: HashMap::new(),
             temp_next: HashMap::new(),
             index,
+            temporal,
             lseq: HashMap::new(),
             lseq_next: 1,
         }
@@ -555,6 +564,11 @@ impl Node {
     /// -1 != -1.5; u14: a double probing a long-keyed memory truncates,
     /// so -1.5 == -1).
     fn keys_match(stored: &[Value], probe: &[Value]) -> bool {
+        // (helper below is free-standing; see key_ts)
+        Self::keys_match_inner(stored, probe)
+    }
+
+    fn keys_match_inner(stored: &[Value], probe: &[Value]) -> bool {
         stored.len() == probe.len()
             && stored.iter().zip(probe).all(|(s, p)| match (s, p) {
                 // D-097/pin F: a null key component never equi-joins —
@@ -767,6 +781,14 @@ impl<'a> Out<'a> {
         }
         self.pending.remove_upd(&t);
         self.trg.add_del(t, o);
+    }
+}
+
+/// D-101: timestamp from a temporal node's stored key (i64 ms).
+fn key_ts(k: &Option<Vec<Value>>) -> i64 {
+    match k.as_ref().and_then(|v| v.first()) {
+        Some(Value::I64(n)) => *n,
+        _ => i64::MIN,
     }
 }
 
@@ -1024,6 +1046,52 @@ fn do_join_node<E: JoinEnv>(
     // against pre-batch lefts. Memory push order is UNCHANGED certified
     // behavior; arrival is tracked separately in lseq for pass B
     // (D-082). ---
+    if node.temporal {
+        // CEP E1 (D-101, t-ladder): temporal nodes FILL from staged
+        // lefts first (joining only PRE-BATCH right memory), then
+        // staged rights join the FULL left memory; each staged fact
+        // scans partners DESCENDING by timestamp key (t1/t4/t5/t6).
+        for (l, _, _) in sl.ins.iter().rev() {
+            node.stamp_left_seq(l);
+        }
+        for (l, o, _) in &sl.ins {
+            let lkey = env.key_of_left(node_idx, l);
+            let mut partners: Vec<(FactId, i64)> = node
+                .rights
+                .iter()
+                .map(|(f, k)| (*f, key_ts(k)))
+                .collect();
+            // ASCENDING by ts (t-ladder: firing order is the prepend
+            // REVERSE of creation order — creations scan ASC)
+            partners.sort_by_key(|(_, ts)| *ts);
+            node.lefts.push((l.clone(), lkey));
+            for (f, _) in partners {
+                if env.allowed(node_idx, l, f) {
+                    let t = node.create_child(l, f, None, None);
+                    out.child_ins(t, *o, 0);
+                }
+            }
+        }
+        for (f, o, ph) in sr_ins_iter(&sr.ins) {
+            if *ph == 1 {
+                continue;
+            }
+            let rkey = env.key_of_right(node_idx, *f);
+            node.rights.push((*f, rkey));
+            let mut partners: Vec<(Tup, i64)> = node
+                .lefts
+                .iter()
+                .map(|(l, k)| (l.clone(), key_ts(k)))
+                .collect();
+            partners.sort_by_key(|(_, ts)| *ts);
+            for (l, _) in partners {
+                if env.allowed(node_idx, &l, *f) {
+                    let t = node.create_child(&l, *f, None, None);
+                    out.child_ins(t, *o, 1);
+                }
+            }
+        }
+    } else {
     for (f, o, ph) in sr_ins_iter(&sr.ins) {
         if *ph == 1 {
             continue; // update-entry rights: late pass below (D-082)
@@ -1053,6 +1121,7 @@ fn do_join_node<E: JoinEnv>(
             }
         }
     }
+    } // end plain-join insert phases (temporal flip above, D-101)
     // --- UPDATE-ENTRY right inserts (ph=1, D-082 model-check survivor):
     // processed AFTER left inserts (they see same-batch lefts in
     // memory), walking the left bucket NEWEST-first. Pinned by the
