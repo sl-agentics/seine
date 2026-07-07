@@ -4679,3 +4679,33 @@ bug freshly sampled by the shifted generator; strip-test proven).
 Gates: suites 9; corpus 944 (ladder promoted + 30 witness pins);
 bindings 72/72 (Rule(agenda_group=) + then_set_focus sugar + the
 undeclared-target wall test); lint clean.
+
+### D-106 (halt-class drive, sitting 2): 879 CLOSED via two new
+### mechanisms; the class narrowed to 5+1 witnesses and a mapped
+### dimension space — checker-shaped for the next cycle
+Two mechanisms landed (both measured, both gated):
+1. **The peek evaluates-if-dirty** (fz_9003_879): the executor's
+   halt-check peeks the focus-stack top; a queued-empty-DIRTY item
+   evaluates first (the certified pop-path evaluation) — staging
+   the constraints reject must not read as group-nonempty. 879's
+   [R2, R2] continue-at-salience(-8) reproduced exactly.
+2. **The pre-force drain list** (fz_9005_2842, fz_42_5243's rule
+   applied): the executor's continue pool is the PRE-re-evaluation
+   queue — activations born of the current firing's own RHS wait
+   for the next reachable pop. Implemented as pre_force_qlen
+   captured before the post-fire-force.
+Plus three oracle discriminator probes (ag_h1/h2/h3, kept as
+pending pins): fire-born HIGHER items — static AND dynamic — do
+NOT halt a continuing executor ([L, L, X] all three), killing the
+static-vs-dyn hypothesis.
+**The remaining structure (5 witnesses: 7397/6467/214/873/2842)**:
+2842 halts for a live (eager-evaluated, queue-nonempty) dyn item
+while 1795/879 continue past dirt-only items — the "live queues
+only" visibility model — but its blocker POOL oscillated through
+{anywhere: 47/88, stack+MAIN: 47/88, stack-only: untested} vs the
+stable peek-eval model's 83/88. SIX hand-flips = the D-083 signal:
+the next cycle enumerates {peek pool, dirt visibility, eval-at-
+peek, walk-through order, own-item comparison} mechanically
+against ALL 88 witnesses (the fixed 30 + the ladder + h-probes +
+the open 6). State: 83/88; certified gates all green (suites 9,
+corpus 956, bindings 72, lint 959).

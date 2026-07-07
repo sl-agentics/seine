@@ -1,0 +1,39 @@
+{
+ "name": "ag_h3_prior_firing_born",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule L salience 4 when P($v : v) then drools.setFocus(\"g\"); insert(new Q($v)); end\nrule X salience 6 when Q(v == 1) then end\nrule G agenda-group \"g\" when Q(v > 100) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": []
+}

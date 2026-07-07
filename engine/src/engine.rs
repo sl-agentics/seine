@@ -829,6 +829,9 @@ struct RuleNet {
     /// without draining (the faithful hold). Item removal requires
     /// !dirty && queue-empty (removeRuleAgendaItemWhenEmpty).
     dirty: bool,
+    /// D-106: stage_seq at the most recent dirty-marking — the
+    /// executor's halt-peek ignores dirt born of the CURRENT firing.
+    dirty_stamp: u64,
 }
 
 impl RuleNet {
@@ -948,6 +951,9 @@ pub struct Engine {
     /// Set by a firing's setFocus; the post-firing executor-continue
     /// applies only then (the rescan is pool-equivalent otherwise).
     focus_changed: bool,
+    /// stage_seq at the start of the CURRENT firing — the halt-peek
+    /// ignores dirt born after it (fz_9003_879 vs fz_9005_2842).
+    firing_stage_floor: u64,
     store: FactStore,
     rules: Vec<CompiledRule>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
@@ -1043,6 +1049,7 @@ impl Engine {
             stage_seq: 0,
             focus_stack: Vec::new(),
             focus_changed: false,
+            firing_stage_floor: 0,
             store: FactStore::new(schemas),
             rules: Vec::new(),
             rule_parents: Vec::new(),
@@ -1386,6 +1393,7 @@ impl Engine {
                 queued: false,
                 ever_linked: false,
                 dirty: false,
+                dirty_stamp: 0,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -3167,6 +3175,9 @@ impl Engine {
                     }
                     self.nets[ri].queued = true;
                     self.nets[ri].dirty = true;
+            self.nets[ri].dirty_stamp = self.stage_seq;
+                self.nets[ri].dirty_stamp = self.stage_seq;
+                    self.nets[ri].dirty_stamp = self.stage_seq;
                 }
             }
         }
@@ -3302,6 +3313,7 @@ impl Engine {
                 return Err(EngineError(e));
             }
             last_fired = Some(ri);
+            self.firing_stage_floor = self.stage_seq;
             if firings.len() >= limit {
                 return Err(EngineError(format!(
                     "fire limit {limit} reached (non-terminating?)"
@@ -3421,6 +3433,7 @@ impl Engine {
                 && (0..self.queries.len())
                     .any(|qi| self.query_pending[qi] && 0 > l_sal));
             let _ = l_group;
+            let pre_force_qlen = self.nets[l].queue.len();
             if !higher {
                 dbg_eval("post-fire-force", l);
                 self.evaluate_rule(l, true, false);
@@ -3459,26 +3472,71 @@ impl Engine {
             // change the candidate pool). All other paths keep the
             // corpus-certified rescan, which is pool-equivalent.
             let _ = std::mem::take(&mut self.focus_changed);
-            // D-106 (fz_9001_1795 vs fz_9004_9): the executor keeps
-            // control iff, after EMPTY groups pop through, the focus
-            // is back on ITS OWN group. A setFocus that lands a
-            // non-empty group on top halts it (Drools' executor is
-            // bound to its group).
-            if !higher && !self.focus_stack.is_empty() && !self.nets[l].queue.is_empty() {
-                while let Some(top) = self.focus_stack.last() {
-                    let any_queued = (0..self.rules.len()).any(|rj| {
-                        self.nets[rj].queued
-                            && self.rules[rj].def.agenda_group.as_deref() == Some(top.as_str())
-                    });
-                    if any_queued {
-                        break;
-                    }
-                    self.focus_stack.pop();
-                }
+            // D-106 halt fine structure (fz_9003_879 closing the
+            // 1795/9004_9 family): the executor's halt-check PEEKS the
+            // focus-stack top WITHOUT popping. An EMPTY top peeks null
+            // -> the executor keeps control regardless of what waits
+            // in groups below (879: continue at salience -8 past
+            // queued 0s in MAIN). A non-empty foreign top halts. When
+            // the top IS the executor's own group, the certified
+            // strictly-higher rule already decided (`higher` above,
+            // scoped to top_g) — the cloud path is byte-identical.
+            if !self.nets[l].queue.is_empty() {
+                let l_grp = self.rules[l].def.agenda_group.as_deref().unwrap_or("MAIN");
                 let top_now: &str =
                     self.focus_stack.last().map(|s| s.as_str()).unwrap_or("MAIN");
-                let l_grp = self.rules[l].def.agenda_group.as_deref().unwrap_or("MAIN");
-                if top_now == l_grp {
+                if std::env::var("SEINE_AG_DEBUG").is_ok() {
+                    let members: Vec<String> = (0..self.rules.len())
+                        .filter(|&rj| {
+                            self.rules[rj].def.agenda_group.as_deref().unwrap_or("MAIN")
+                                == top_now
+                        })
+                        .map(|rj| {
+                            format!(
+                                "r{rj}(q={},len={},d={})",
+                                self.nets[rj].queued,
+                                self.nets[rj].queue.len(),
+                                self.nets[rj].dirty
+                            )
+                        })
+                        .collect();
+                    eprintln!(
+                        "halt-check: l=r{l} grp={l_grp} top={top_now} {:?} higher={higher} preq={pre_force_qlen}",
+                        members
+                    );
+                }
+                if top_now != l_grp {
+                    // D-106 (fz_9003_879): the peek EVALUATES dirty
+                    // items before comparing (Drools evaluates-if-dirty
+                    // at reach); a top group whose items all evaluate
+                    // empty is transparent. The executor continues on a
+                    // transparent top with a pre-force drain list
+                    // (fz_9005_2842: fire-born activations wait).
+                    let top_owned = top_now.to_string();
+                    let members: Vec<usize> = (0..self.rules.len())
+                        .filter(|&rj| {
+                            self.rules[rj].def.agenda_group.as_deref().unwrap_or("MAIN")
+                                == top_owned
+                        })
+                        .collect();
+                    for &rj in &members {
+                        if self.nets[rj].queued
+                            && self.nets[rj].queue.is_empty()
+                            && self.nets[rj].dirty
+                        {
+                            self.evaluate_rule(rj, false, false);
+                            if self.nets[rj].queue.is_empty() && !self.nets[rj].dirty {
+                                self.nets[rj].queued = false;
+                            }
+                        }
+                    }
+                    let top_empty = !members
+                        .iter()
+                        .any(|&rj| self.nets[rj].queued && !self.nets[rj].queue.is_empty());
+                    if top_empty && pre_force_qlen > 0 {
+                        return Some(l);
+                    }
+                } else if !higher && !self.focus_stack.is_empty() {
                     return Some(l);
                 }
             }
@@ -3935,6 +3993,8 @@ impl Engine {
                 // doUnlinkRule: setDirty(true) + enqueue (D-032/D-091)
                 self.nets[ri].queued = true;
                 self.nets[ri].dirty = true;
+            self.nets[ri].dirty_stamp = self.stage_seq;
+                self.nets[ri].dirty_stamp = self.stage_seq;
             }
             if !was[ri] && now && self.in_expiration_drain {
                 // D-102 (model-check survivor, ldrain_plain=nonflush):
@@ -4033,6 +4093,7 @@ impl Engine {
             // setDirty(true) on EVERY staging notify while linked, enqueue
             // if not queued (D-091).
             self.nets[ri].dirty = true;
+            self.nets[ri].dirty_stamp = self.stage_seq;
             if !self.nets[ri].queued {
                 self.nets[ri].queued = true;
             }

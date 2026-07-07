@@ -1,0 +1,39 @@
+{
+ "name": "ag_h1_static_higher",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule L salience 4 when P($v : v) then drools.setFocus(\"g\"); insert(new Q(6)); end\nrule X salience 6 when Q($q : v) then end\nrule G agenda-group \"g\" when Q(v > 100) then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": []
+}
