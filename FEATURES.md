@@ -91,7 +91,7 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 
 | Feature | Priority | Drools-test references | Rationale / notes |
 |---|---|---|---|
-| INVESTIGATION: deterministic CEP subset as a TMS special case | **P2 (arc proposed)** — D-099 memo complete | (probe-first; PseudoClockEventsTest as reference behavior only) | Bryan's post-TMS note: with D-076 landed, `@expires`-style event lifetimes may reduce to justified facts whose support is a logical-clock window — auto-retraction IS the TMS cascade. If the reduction holds, a non-wallclock CEP subset stops being a second WM lifecycle (the D-060 objection) and becomes derived machinery. Investigation deliverable: a D-0xx memo mapping event expiration/window semantics onto justification structures, BEFORE any implementation. D-060's WONT stands unless the reduction is clean. |
+| **Deterministic CEP E1**: `@role(event)` point events (explicit `@expires` required), pseudo-clock `advance()`, `this after/before[lo,hi] $x` temporal joins, expiration x TMS composition, STREAM per-insert flush semantics | **IMPLEMENTED** — D-099 (reduction memo), D-100..D-102 (E0/E1 ladders, three model-check cycles, ~15k-scenario campaign, final 3x1000 = 0 divergences) | c.i `CepEspressoTest`/`PseudoClockEventsTest` (behavioral reference; wall-clock and window tests remain fenced) | The D-060 objection dissolved exactly as Bryan's note predicted: expiration rides the certified TMS/quiescence machinery — no second WM lifecycle. E2 fences: sliding windows, `@expires` inference, `@duration`, entry points, event updates. |
 | `forall` | P2 | c.i operators `ForAllTest` (29) | Reducibility assessed at D-089: the MULTI-pattern form (`forall(base rem)`) is a pure parse rewrite onto the D-089 substrate — `not(base and not(rem))`, correlation shape probe-backed (sn_a10). NOT free: the flagship SINGLE-pattern form injects a `this == base` identity join (no such operator in subset — needs its own design), and multi-remaining forms need RIA-in-RIA (fenced). Keep as its own phase. |
 
 | Push (reactive) query CEs + open/live queries | P2 | m.i `QueryTest` (open query methods) | qx2_late_push pinned the basic refire; row lifecycle unprobed (D-057). |
@@ -141,7 +141,7 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 |---|---|
 | Multithreaded evaluation (`drools.parallelExecution`, partitioned networks), `fireUntilHalt` active mode, session pools, thread-safety machinery | **Single-threaded determinism is the product.** Same inputs → same firing log, byte-for-byte, across runs and platforms; the differential guarantee depends on it. Upstream needs test suites for race conditions; Seine cannot race. |
 | Timers, calendars (`timer(int/cron/expr)`, Quartz), `duration`, `date-effective`/`date-expires` (incl. virtual/fixed evaluation date, D-068) | Wall-clock scheduling makes rule firing a function of *when you ran it*. A ruleset whose behavior depends on the calendar is that same nondeterminism even with a fixed evaluation date. Dates as **fact data compared against** = ROADMAP (D-064); dates as **engine-evaluated effective/expiry** = WONT. |
-| CEP runtime: `@role(event)`, entry points/streams, sliding windows, temporal operators, `@expires`, session clocks — **including the deterministic pseudo-clock** (D-060) | Bound to the clock/stream runtime — and even the pseudo-clock introduces a second working-memory lifecycle (expiration) beside the certified one. Clean "no temporal" boundary; revisitable only as its own phase on real demand. |
+| CEP E2 remainder: entry points/streams, sliding windows, `@expires` inference, `@duration`, wall clocks (E1 point-event subset is IMPLEMENTED, D-101/D-102) | Bound to the clock/stream runtime — and even the pseudo-clock introduces a second working-memory lifecycle (expiration) beside the certified one. Clean "no temporal" boundary; revisitable only as its own phase on real demand. |
 | MVEL dialect (`dialect "mvel"`) | One dialect, one semantics: every certified behavior is pinned against java-dialect Drools; a second dialect doubles the oracle surface without adding engine capability. |
 | KIE platform: KieContainer/KieBase/kmodule.xml, KieBuilder, classloaders, KJARs, KieScanner/maven, kie-server, commands/BatchExecutor, stateless-vs-stateful session API | Seine's surface is DRL text + typed facts in, results out (plus Arrow/Python bindings). No build-system, packaging, or container lifecycle to misconfigure; the harness IS the integration story. |
 | BPM/ruleflow: `ruleflow-group`, jBPM/process integration, declarative agenda over process state | Out-of-domain platform (the brief's no-BPM wall). Agenda-group-style partitioning is ROADMAP §2 without the process engine. |
@@ -163,7 +163,7 @@ rows moved into §1–§4:
 
 | # | Item | Ruling | Now in |
 |---|---|---|---|
-| 1 | CEP pseudo-clock | WONT (second WM lifecycle) — D-060 | §4 |
+| 1 | CEP pseudo-clock | WONT (D-060) -> superseded: E1 IMPLEMENTED via the TMS reduction (D-099..D-102) | §1 |
 | 2 | Bounded expression grammar | Constraint arithmetic ROADMAP-P3, closed grammar; general `eval` CANT — D-061 | §2 / §3 |
 | 3 | Globals | Sinks stripped (done); scalar read-only ROADMAP-P4; Java-object WONT — D-062 | §2 / §4 |
 | 4 | Null field values | ROADMAP-P2 (raised), own phase; `!.` CANT — D-063 | §2 / §3 |

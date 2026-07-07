@@ -4489,3 +4489,48 @@ which builds a DIFFERENT alpha node — it never tested sharing.
 Next sitting: a true shared-alpha probe pair (unconstrained
 second rule), then the pair_unless_held gate learns the real
 condition, checker-first.
+
+### D-101/D-102 CLOSE: deterministic CEP E1 is CERTIFIED — final
+### campaign 3x1000 = 0/0/0 divergences
+The gate: fresh seeds 59/61/67 (never used before) at 1000 scenarios
+each — ZERO divergences. Cumulative campaign evidence this arc:
+~15,000 scenarios across 12 seeds, every divergence peeled to a
+pinned mechanism (matrix now 55 CEP rungs in scenarios/probes),
+suites 8, corpus 863 byte-identical, lint clean.
+**The certified E1 semantics inventory** (each entry oracle-pinned,
+model-checked where composition was at stake, population-measured):
+- Pseudo-clock; BTreeMap deadlines at ts+expires+1 for
+  rule-referenced event types (exactly ts+expires for unreferenced
+  — no OTN); advance() marks eagerly (corpse flag: no NEW join
+  pairs; existing not/exists blocking persists) and deletes at
+  agenda QUIESCENCE in one round with the TMS teardowns; salience
+  orders the observers after the round.
+- TMS x expiration: expiring justifiers' teardowns ride the
+  post-firing drain of their J-rule or the quiescence round
+  (exp_deferred, separate from certified D-076 deferred).
+- STREAM flush: trigger-scoped, touch-scoped, LEFT-flushing;
+  plain-join rights NEVER flush-pair (all staged rights stash,
+  pre-tail lefts + all dels stash; delta lefts and the trigger's
+  own del effects flush); k=1 window dels/upds stash (never the
+  insert's own); pre-link (ph=4) rights fire pre-LIFO then
+  post-link arrival; IF-toggle at a link TRANSITION with held
+  pre-link rights and prior link history exempt-evaluates (held
+  rights visible, certified phase order); FIRST-ever link defers
+  (pmem creation).
+- SHARED temporal nodes (>1 rule path): stay-at-flush (both
+  sides); sink0 consumes reverse-creation, peers forward (the
+  fan-out prepend/append asymmetry).
+- Temporal walk: rel_arrival partner scan (post-right lefts
+  arrival-first, then pre-right arrival — subsumes lseq-ASC);
+  same-batch AB self-joins walk PER-FACT newest-first (cross-right
+  arm, self-pair, cross-left arm; memory arms in lseq-arrival);
+  unlinked temporal deltas self-drain; per-fact fills enter memory
+  in arrival order.
+E2 fences unchanged: windows, @expires inference, @duration, entry
+points, event updates/external deletes.
+Checkers: tools/model_check_stream.py (7 dims, 30+ pins, two-rule
+roles, simulated states), tools/model_check_temporal.py,
+tools/model_check_twalk.py (historical). Doctrine additions this
+arc: assert-your-anchors on scripted edits; population-measure
+every ported mechanism; controls must share the exact network node
+(the u1s constrained-alpha flaw); simulate states, never encode.
