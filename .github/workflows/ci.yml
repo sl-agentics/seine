@@ -58,7 +58,11 @@ jobs:
         include:
           - { os: ubuntu-latest,  platform: linux-x86_64 }
           - { os: macos-14,       platform: macos-arm64 }
-          - { os: macos-13,       platform: macos-x86_64 }
+          # GitHub retired Intel Mac runners (macos-13 queues forever);
+          # the x86_64 wheel cross-compiles from the ARM runner instead —
+          # abi3 + no host-python dependency makes this a pure rustc
+          # target switch (maturin-action installs the rust target).
+          - { os: macos-14,       platform: macos-x86_64, target: x86_64-apple-darwin }
           - { os: windows-latest, platform: windows-x86_64 }
     runs-on: ${{ matrix.os }}
     steps:
@@ -70,6 +74,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: build
+          target: ${{ matrix.target }}
           args: --release -m bindings/Cargo.toml -o dist
       - uses: actions/upload-artifact@v4
         with:
