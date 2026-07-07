@@ -76,6 +76,13 @@ enum Src {
 /// One compiled LHS constraint test on a single field.
 enum Test {
     Cmp { op: CmpOp, rhs: Src },
+    /// `field == null` / `field != null` — the D-097 surface mapping to
+    /// IS [NOT] NULL: a DEFINITE two-valued test.
+    IsNull { negated: bool },
+    /// Constant UNKNOWN (D-097): synthesized for null members of
+    /// `not in` lowerings — never admits, and stays UNKNOWN under
+    /// negation inside groups.
+    Unknown,
     /// `matches` — full-string regex acceptance (D-030).
     Matches(crate::rx::Regex),
     /// `contains` — String substring (D-030).
@@ -93,6 +100,9 @@ enum Test {
 /// Compiled inline-group expression tree (D-073).
 enum GExpr {
     Cmp { field_idx: usize, op: CmpOp, rhs: Src },
+    IsNull { field_idx: usize, negated: bool },
+    /// Constant UNKNOWN (null in-list member inside a composite).
+    Unknown,
     Matches { field_idx: usize, rx: crate::rx::Regex },
     Contains { field_idx: usize, needle: String },
     InList { field_idx: usize, items: Vec<Value>, negated: bool },
@@ -105,44 +115,95 @@ enum GExpr {
 /// for cross-pattern references (None in alpha contexts, where
 /// cross_var groups are skipped by the caller); `tpos` resolves
 /// same-pattern references to `f`.
+/// Inline-group evaluation is TRI-STATE (D-097/SQL 3VL): None =
+/// UNKNOWN. A null operand makes cmp/matches/contains/in UNKNOWN;
+/// AND/OR/NOT compose per the pinned 3VL tables
+/// (docs/duckdb-datatype-pins.md B) — the load-bearing case is
+/// `!(…)` over UNKNOWN staying UNKNOWN (never admitting). Callers
+/// admit only Some(true). Certified null-free scenarios are
+/// bit-identical: without Null every leaf is Some(_) and the
+/// combinators degenerate to two-valued logic.
 fn eval_gexpr(
     g: &GExpr,
     store: &FactStore,
     f: FactId,
     l: Option<&Tup>,
     tpos: Option<usize>,
-) -> bool {
+) -> Option<bool> {
     match g {
         GExpr::Cmp { field_idx, op, rhs } => {
             let lhs = store.value(f, *field_idx);
+            if lhs.is_null() {
+                return None;
+            }
             match rhs {
-                Src::Lit(v) => eval_cmp(&lhs, *op, v),
+                Src::Lit(Value::Null) => unreachable!("surface == null compiles to IsNull; list nulls to Unknown"),
+                Src::Lit(v) => Some(eval_cmp(&lhs, *op, v)),
                 Src::Field(ti, fi) => {
                     let other = if Some(*ti) == tpos {
                         f
                     } else {
                         l.expect("cross_var group evaluated without a left tuple")[*ti]
                     };
-                    eval_cmp_join(&lhs, *op, &store.value(other, *fi))
+                    let rv = store.value(other, *fi);
+                    if rv.is_null() {
+                        return None;
+                    }
+                    Some(eval_cmp_join(&lhs, *op, &rv))
                 }
                 Src::SnapField(..) => unreachable!("SnapField in LHS group"),
             }
         }
-        GExpr::Matches { field_idx, rx } => {
-            matches!(store.value(f, *field_idx), Value::Str(s) if rx.accepts(&s))
+        GExpr::IsNull { field_idx, negated } => {
+            Some(store.value(f, *field_idx).is_null() != *negated)
         }
+        GExpr::Unknown => None,
+        GExpr::Matches { field_idx, rx } => match store.value(f, *field_idx) {
+            Value::Null => None,
+            Value::Str(s) => Some(rx.accepts(&s)),
+            _ => Some(false),
+        },
         GExpr::Contains { field_idx, needle } => match store.value(f, *field_idx) {
-            Value::Str(s) => s.contains(needle.as_str()),
-            _ => false,
+            Value::Null => None,
+            Value::Str(s) => Some(s.contains(needle.as_str())),
+            _ => Some(false),
         },
         GExpr::InList { field_idx, items, negated } => {
             let lhs = store.value(f, *field_idx);
-            let hit = items.iter().any(|v| eval_cmp(&lhs, CmpOp::Eq, v));
-            hit != *negated
+            if lhs.is_null() {
+                return None;
+            }
+            let has_null_item = items.iter().any(|v| v.is_null());
+            let hit = items.iter().any(|v| !v.is_null() && eval_cmp(&lhs, CmpOp::Eq, v));
+            match (hit, has_null_item) {
+                (true, _) => Some(!*negated),
+                (false, true) => None, // pin C: the not-in null trap
+                (false, false) => Some(*negated),
+            }
         }
-        GExpr::And(xs) => xs.iter().all(|x| eval_gexpr(x, store, f, l, tpos)),
-        GExpr::Or(xs) => xs.iter().any(|x| eval_gexpr(x, store, f, l, tpos)),
-        GExpr::Not(x) => !eval_gexpr(x, store, f, l, tpos),
+        GExpr::And(xs) => {
+            let mut unknown = false;
+            for x in xs {
+                match eval_gexpr(x, store, f, l, tpos) {
+                    Some(false) => return Some(false),
+                    None => unknown = true,
+                    Some(true) => {}
+                }
+            }
+            if unknown { None } else { Some(true) }
+        }
+        GExpr::Or(xs) => {
+            let mut unknown = false;
+            for x in xs {
+                match eval_gexpr(x, store, f, l, tpos) {
+                    Some(true) => return Some(true),
+                    None => unknown = true,
+                    Some(false) => {}
+                }
+            }
+            if unknown { None } else { Some(false) }
+        }
+        GExpr::Not(x) => eval_gexpr(x, store, f, l, tpos).map(|b| !b),
     }
 }
 
@@ -302,6 +363,9 @@ enum KeyVal {
     F(u64),
     S(String),
     B(bool),
+    /// D-097: nulls COLLAPSE in TMS value-equality keys (pin H:
+    /// GROUP BY/DISTINCT treat NULLs as one group).
+    Null,
 }
 
 fn key_vals(vals: &[Value]) -> Vec<KeyVal> {
@@ -311,6 +375,7 @@ fn key_vals(vals: &[Value]) -> Vec<KeyVal> {
             Value::F64(x) => KeyVal::F(x.to_bits()),
             Value::Str(s) => KeyVal::S(s.clone()),
             Value::Bool(b) => KeyVal::B(*b),
+            Value::Null => KeyVal::Null,
         })
         .collect()
 }
@@ -523,6 +588,13 @@ impl AccCtx {
 
     /// accumulate(): the exact op sequence (D-038).
     fn apply(&mut self, func: AccFunc, f: FactId, v: &Value) {
+        // D-097/pin G: null CONTRIBUTIONS are skipped by the value
+        // aggregates (sum/average/min/max — average skips BOTH the sum
+        // and the count). count() is count(*)-like (counts matches) and
+        // collect gathers facts — neither looks at v.
+        if v.is_null() && !matches!(func, AccFunc::Count | AccFunc::Collect) {
+            return;
+        }
         match func {
             AccFunc::Sum => match v {
                 Value::I64(x) => self.sum_i += x,
@@ -568,6 +640,11 @@ impl AccCtx {
     /// tryReverse(): true when reversed in place; min/max cannot reverse
     /// and require a reinit + refold over the remaining matches (D-038).
     fn try_reverse(&mut self, func: AccFunc, f: FactId, v: &Value) -> bool {
+        // D-097: a skipped-null contribution has nothing to undo — and
+        // must NOT trigger the min/max refold path.
+        if v.is_null() && !matches!(func, AccFunc::Count | AccFunc::Collect) {
+            return true;
+        }
         match func {
             AccFunc::Sum => {
                 match v {
@@ -838,16 +915,18 @@ impl Engine {
         }
         // Hidden types: first-position CEs (D-031) + accumulate results
         // (D-038).
-        schemas.push(TypeSchema { name: INITIAL_FACT.into(), fields: Vec::new() });
+        schemas.push(TypeSchema { name: INITIAL_FACT.into(), fields: Vec::new(), nullable: 0 });
         schemas.push(TypeSchema {
             name: ACC_LONG.into(),
             fields: vec![("value".into(), FieldType::I64)],
+            nullable: 0,
         });
         schemas.push(TypeSchema {
             name: ACC_DOUBLE.into(),
             fields: vec![("value".into(), FieldType::F64)],
+            nullable: 0,
         });
-        schemas.push(TypeSchema { name: ACC_COLLECTION.into(), fields: Vec::new() });
+        schemas.push(TypeSchema { name: ACC_COLLECTION.into(), fields: Vec::new(), nullable: 0 });
         Ok(Engine {
             store: FactStore::new(schemas),
             rules: Vec::new(),
@@ -892,6 +971,7 @@ impl Engine {
                 let tid = self.store.add_schema(TypeSchema {
                     name: format!("{QROW_PREFIX}{}", q.name),
                     fields: q.params_view().to_vec(),
+                    nullable: 0,
                 });
                 self.qrow_tids.push(tid);
             }
@@ -1212,6 +1292,24 @@ impl Engine {
                 *listen_mask |= 1 << fi;
                 let lhs_ft = self.store.field_type(type_id, fi);
                 match rhs {
+                    CmpRhs::Lit(Literal::Null) => {
+                        let negated = match op {
+                            CmpOp::Eq => false,
+                            CmpOp::Ne => true,
+                            other => {
+                                return Err(err(format!(
+                                    "only ==/!= accept null (IS [NOT] NULL semantics, D-097); got {other:?}"
+                                )))
+                            }
+                        };
+                        if self.store.schema(type_id).nullable >> fi & 1 != 1 {
+                            return Err(err(format!(
+                                "{tname} field is not nullable — null tests need a nullable field (D-097)"
+                            )));
+                        }
+                        let _ = write!(key, "g{fi}isnull{negated}");
+                        Ok(GExpr::IsNull { field_idx: fi, negated })
+                    }
                     CmpRhs::Lit(l) => {
                         check_cmp_types(rname, lhs_ft, *op, lit_type(l))?;
                         let v = lit_value(l);
@@ -1354,6 +1452,12 @@ impl Engine {
                     let _ = write!(s, "{op:?}{name}@{ti}.{fi}");
                 }
                 Test::Cmp { .. } => {}
+                Test::IsNull { negated } => {
+                    let _ = write!(s, "isnull{negated}");
+                }
+                Test::Unknown => {
+                    let _ = write!(s, "unk3");
+                }
                 Test::Matches(r) => {
                     let _ = write!(s, "m{}", r.source());
                 }
@@ -1405,8 +1509,13 @@ impl Engine {
                     // node-chain prefix that scopes downstream eq groups
                     // (op_i7); only Eq-vs-literal constraints are members.
                     match &c.test {
+                        Test::IsNull { negated } => {
+                            let _ = (negated,);
+                            // chain member only (like InList, op_i7)
+                        }
+                        Test::Unknown => {}
                         Test::Cmp { op, rhs: Src::Lit(v) } => {
-                            if *op == CmpOp::Eq {
+                            if *op == CmpOp::Eq && !v.is_null() {
                                 let ft = self.store.field_type(pat.type_id, c.field_idx);
                                 let coerced = match (v, ft) {
                                     (Value::F64(x), FieldType::I64) => Value::I64(*x as i64),
@@ -1752,6 +1861,32 @@ impl Engine {
                             .ok_or_else(|| err(format!("{} has no field {field}", p.type_name)))?;
                         listen_mask |= 1 << fi;
                         let lhs_ft = self.store.field_type(type_id, fi);
+                        // D-097 surface mapping: `field == null` /
+                        // `field != null` are IS [NOT] NULL — definite
+                        // tests; any other op with null is an error.
+                        if matches!(rhs, CmpRhs::Lit(Literal::Null)) {
+                            let negated = match op {
+                                CmpOp::Eq => false,
+                                CmpOp::Ne => true,
+                                other => {
+                                    return Err(err(format!(
+                                        "only ==/!= accept null (IS [NOT] NULL semantics, D-097); got {other:?}"
+                                    )))
+                                }
+                            };
+                            if self.store.schema(type_id).nullable >> fi & 1 != 1 {
+                                return Err(err(format!(
+                                    "{}.{field} is not nullable — null tests need a nullable field (D-097)",
+                                    p.type_name
+                                )));
+                            }
+                            cmps.push(CompiledCmp {
+                                field_idx: fi,
+                                test: Test::IsNull { negated },
+                                rhs_var: None,
+                            });
+                            continue;
+                        }
                         let (src, rhs_ft, rhs_var) = match rhs {
                             CmpRhs::Lit(l) => (Src::Lit(lit_value(l)), lit_type(l), None),
                             CmpRhs::Var(v) => {
@@ -1825,11 +1960,25 @@ impl Engine {
                         let lhs_ft = self.store.field_type(type_id, fi);
                         let mut vals = Vec::new();
                         for l in items {
+                            if matches!(l, Literal::Null) {
+                                vals.push(Value::Null); // 3VL member (pin C)
+                                continue;
+                            }
                             check_cmp_types(&rname, lhs_ft, CmpOp::Eq, lit_type(l))?;
                             vals.push(lit_value(l));
                         }
                         if *negated {
                             for v in vals {
+                                if v.is_null() {
+                                    // `x != <null member>` is UNKNOWN for
+                                    // every x — the not-in trap (D-097)
+                                    cmps.push(CompiledCmp {
+                                        field_idx: fi,
+                                        test: Test::Unknown,
+                                        rhs_var: None,
+                                    });
+                                    continue;
+                                }
                                 cmps.push(CompiledCmp {
                                     field_idx: fi,
                                     test: Test::Cmp { op: CmpOp::Ne, rhs: Src::Lit(v) },
@@ -1843,6 +1992,9 @@ impl Engine {
                                 .iter()
                                 .map(|v| {
                                     let _ = write!(key, "g{fi}Eq{v:?}");
+                                    if v.is_null() {
+                                        return GExpr::Unknown;
+                                    }
                                     GExpr::Cmp {
                                         field_idx: fi,
                                         op: CmpOp::Eq,
@@ -2036,8 +2188,24 @@ impl Engine {
                             args.len()
                         )));
                     }
+                    let nullable_mask = schema.nullable;
                     let mut srcs = Vec::new();
-                    for (arg, (fname, ftype)) in args.iter().zip(schema.fields.clone()) {
+                    for (i, (arg, (fname, ftype))) in
+                        args.iter().zip(schema.fields.clone()).enumerate()
+                    {
+                        // D-097: a null literal arg needs a nullable
+                        // target field (checked here); a null VALUE
+                        // flowing through a binding into a non-nullable
+                        // field errors loudly at runtime (store push).
+                        if matches!(arg, RhsArg::Lit(Literal::Null)) {
+                            if nullable_mask >> i & 1 != 1 {
+                                return Err(err(format!(
+                                    "insert new {type_name}: null arg for non-nullable field {fname} (D-097)"
+                                )));
+                            }
+                            srcs.push(Src::Lit(Value::Null));
+                            continue;
+                        }
                         let (src, src_ft) = self.compile_arg(
                             &rname,
                             arg,
@@ -2085,6 +2253,19 @@ impl Engine {
                         .field_index(tid, field)
                         .ok_or_else(|| err(format!("no field {field} for setter on {var}")))?;
                     let ftype = self.store.field_type(tid, fi);
+                    if matches!(arg, RhsArg::Lit(Literal::Null)) {
+                        if self.store.schema(tid).nullable >> fi & 1 != 1 {
+                            return Err(err(format!(
+                                "setter {var}.{field}: null for a non-nullable field (D-097)"
+                            )));
+                        }
+                        actions.push(CompiledAction::Set {
+                            pos,
+                            field_idx: fi,
+                            arg: Src::Lit(Value::Null),
+                        });
+                        continue;
+                    }
                     let (src, src_ft) =
                         self.compile_arg(&rname, arg, &fact_binds, &field_binds, &acc_opaque, &def, &patterns)?;
                     if !assignable(src_ft, ftype) {
@@ -2124,6 +2305,14 @@ impl Engine {
                                 .get(v)
                                 .copied()
                                 .ok_or_else(|| err(format!("salience: unknown binding {v}")))?;
+                            let src_pat = patterns.iter().find(|p| p.tpos == Some(ti));
+                            if let Some(sp) = src_pat {
+                                if self.store.schema(sp.type_id).nullable >> fi & 1 == 1 {
+                                    return Err(err(format!(
+                                        "salience: {v} reads a nullable field — no agenda semantics for UNKNOWN (walled, D-097)"
+                                    )));
+                                }
+                            }
                             match ft {
                                 FieldType::I64 => Ok(SalSrc::Field(ti, fi, false)),
                                 FieldType::F64 => Ok(SalSrc::Field(ti, fi, true)),
@@ -3923,11 +4112,14 @@ impl Engine {
             if let Test::Group { g, cross_var, .. } = &c.test {
                 // cross-pattern groups evaluate at join time (D-073);
                 // same-pattern/literal groups are alpha tests.
-                return *cross_var || eval_gexpr(g, &self.store, f, None, pat.tpos);
+                return *cross_var
+                    || eval_gexpr(g, &self.store, f, None, pat.tpos) == Some(true);
             }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
-                Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
+                Test::IsNull { negated } => lhs.is_null() != *negated,
+                Test::Unknown => false,
+                Test::Cmp { op, rhs: Src::Lit(v) } => !lhs.is_null() && eval_cmp(&lhs, *op, v),
                 Test::Cmp { op, rhs: Src::Field(ti, fi) } if Some(*ti) == pat.tpos => {
                     eval_cmp_join(&lhs, *op, &self.store.value(f, *fi))
                 }
@@ -4330,11 +4522,14 @@ impl Engine {
                     pat.cmps.iter().all(|c| {
                         if let Test::Group { g, cross_var, .. } = &c.test {
                             return *cross_var
-                                || eval_gexpr(g, &self.store, f, None, pat.tpos);
+                                || eval_gexpr(g, &self.store, f, None, pat.tpos)
+                                    == Some(true);
                         }
                         let lhs = self.store.value(f, c.field_idx);
                         match &c.test {
-                            Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
+                            Test::IsNull { negated } => lhs.is_null() != *negated,
+                            Test::Unknown => false,
+                            Test::Cmp { op, rhs: Src::Lit(v) } => !lhs.is_null() && eval_cmp(&lhs, *op, v),
                             Test::Cmp { .. } => true,
                             other => eval_alpha_test(&lhs, other),
                         }
@@ -4508,6 +4703,7 @@ fn scalar_view(v: Value) -> FactView {
         Value::F64(_) => "Double",
         Value::Str(_) => "String",
         Value::Bool(_) => "Boolean",
+        Value::Null => "Null",
     };
     FactView {
         type_name: type_name.into(),
@@ -4523,9 +4719,11 @@ fn scalar_view(v: Value) -> FactView {
 fn first_group_field(g: &GExpr) -> usize {
     match g {
         GExpr::Cmp { field_idx, .. }
+        | GExpr::IsNull { field_idx, .. }
         | GExpr::Matches { field_idx, .. }
         | GExpr::Contains { field_idx, .. }
         | GExpr::InList { field_idx, .. } => *field_idx,
+        GExpr::Unknown => 0,
         GExpr::And(xs) | GExpr::Or(xs) => first_group_field(&xs[0]),
         GExpr::Not(x) => first_group_field(x),
     }
@@ -4537,6 +4735,7 @@ fn lit_value(l: &Literal) -> Value {
         Literal::F64(n) => Value::F64(*n),
         Literal::Str(s) => Value::Str(s.clone()),
         Literal::Bool(b) => Value::Bool(*b),
+        Literal::Null => Value::Null,
     }
 }
 
@@ -4546,6 +4745,8 @@ fn lit_type(l: &Literal) -> FieldType {
         Literal::F64(_) => FieldType::F64,
         Literal::Str(_) => FieldType::Str,
         Literal::Bool(_) => FieldType::Bool,
+        // callers gate null literals before type-directed dispatch
+        Literal::Null => FieldType::I64,
     }
 }
 
@@ -4557,6 +4758,9 @@ fn assignable(src: FieldType, dst: FieldType) -> bool {
 /// Java-style widening: i64 -> f64 is allowed, nothing else converts.
 fn coerce(v: Value, target: FieldType) -> Option<Value> {
     match (v, target) {
+        // Null passes typing; the STORE's validity gate is the single
+        // nullability authority (loud error for non-nullable, D-097).
+        (Value::Null, _) => Some(Value::Null),
         (Value::I64(n), FieldType::F64) => Some(Value::F64(n as f64)),
         (v, t) if v.type_of() == t => Some(v),
         _ => None,
@@ -4599,11 +4803,13 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pat = &self.rule.patterns[pos];
         pat.cmps.iter().all(|c| {
             if let Test::Group { g, .. } = &c.test {
-                return eval_gexpr(g, self.store, f, Some(l), pat.tpos);
+                return eval_gexpr(g, self.store, f, Some(l), pat.tpos) == Some(true);
             }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
-                Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
+                Test::IsNull { negated } => lhs.is_null() != *negated,
+                Test::Unknown => false,
+                Test::Cmp { op, rhs: Src::Lit(v) } => !lhs.is_null() && eval_cmp(&lhs, *op, v),
                 Test::Cmp { op, rhs: Src::Field(ti, fi) } => {
                     let other = if Some(*ti) == pat.tpos { f } else { l[*ti] };
                     eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
@@ -4672,11 +4878,13 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                 return true;
             }
             if let Test::Group { g, .. } = &c.test {
-                return eval_gexpr(g, self.store, f, Some(l), pat.tpos);
+                return eval_gexpr(g, self.store, f, Some(l), pat.tpos) == Some(true);
             }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
-                Test::Cmp { op, rhs: Src::Lit(v) } => eval_cmp(&lhs, *op, v),
+                Test::IsNull { negated } => lhs.is_null() != *negated,
+                Test::Unknown => false,
+                Test::Cmp { op, rhs: Src::Lit(v) } => !lhs.is_null() && eval_cmp(&lhs, *op, v),
                 Test::Cmp { op, rhs: Src::Field(ti, fi) } => {
                     let other = if Some(*ti) == pat.tpos { f } else { l[*ti] };
                     eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
@@ -4713,6 +4921,8 @@ fn eval_alpha_test(lhs: &Value, test: &Test) -> bool {
     match test {
         Test::Matches(r) => matches!(lhs, Value::Str(s) if r.accepts(s)),
         Test::Contains(needle) => matches!(lhs, Value::Str(s) if s.contains(needle.as_str())),
+        Test::IsNull { negated } => lhs.is_null() != *negated,
+        Test::Unknown => false,
         Test::Cmp { .. } => unreachable!("Cmp handled by callers"),
         Test::Group { .. } => unreachable!("Group handled by callers"),
     }

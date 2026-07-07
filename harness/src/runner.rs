@@ -179,6 +179,8 @@ fn query_val_to_json(v: &QueryVal) -> J {
         QueryVal::Scalar(Value::F64(n)) => json!({"type": "Double", "fields": {"value": n}}),
         QueryVal::Scalar(Value::Str(s)) => json!({"type": "String", "fields": {"value": s}}),
         QueryVal::Scalar(Value::Bool(b)) => json!({"type": "Boolean", "fields": {"value": b}}),
+        // unreachable: nullable types are walled from queries (D-097)
+        QueryVal::Scalar(Value::Null) => J::Null,
     }
 }
 
@@ -191,6 +193,7 @@ fn parse_types(types: &J) -> Result<Vec<TypeSchema>, String> {
             .ok_or("type missing 'name'")?
             .to_string();
         let mut fields = Vec::new();
+        let mut nmask = 0u64;
         for f in t
             .get("fields")
             .and_then(J::as_array)
@@ -208,9 +211,13 @@ fn parse_types(types: &J) -> Result<Vec<TypeSchema>, String> {
                 Some("bool") => FieldType::Bool,
                 other => return Err(format!("unknown field type {other:?}")),
             };
+            let nullable = f.get("nullable").and_then(J::as_bool).unwrap_or(false);
+            if nullable {
+                nmask |= 1u64 << fields.len();
+            }
             fields.push((fname, ftype));
         }
-        out.push(TypeSchema { name, fields });
+        out.push(TypeSchema { name, fields, nullable: nmask });
     }
     Ok(out)
 }
@@ -231,6 +238,7 @@ fn json_fields_to_values(obj: &Map<String, J>) -> Result<Vec<(String, Value)>, S
                     )
                 }
             }
+            J::Null => Value::Null, // nullable fields only — the store rejects otherwise (D-097)
             other => return Err(format!("field {k}: unsupported JSON value {other}")),
         };
         out.push((k.clone(), val));
@@ -251,6 +259,7 @@ fn fact_view_to_json(fv: &FactView) -> J {
             Value::F64(n) => json!(n),
             Value::Str(s) => json!(s),
             Value::Bool(b) => json!(b),
+            Value::Null => J::Null,
         };
         fields.insert(name.clone(), jv);
     }

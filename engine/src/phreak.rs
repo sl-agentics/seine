@@ -557,6 +557,9 @@ impl Node {
     fn keys_match(stored: &[Value], probe: &[Value]) -> bool {
         stored.len() == probe.len()
             && stored.iter().zip(probe).all(|(s, p)| match (s, p) {
+                // D-097/pin F: a null key component never equi-joins —
+                // not even against another null (UNKNOWN, not equal).
+                (Value::Null, _) | (_, Value::Null) => false,
                 (Value::I64(a), Value::F64(b)) => *a == *b as i64,
                 (Value::F64(a), Value::I64(b)) => *a == *b as f64,
                 (a, b) => a == b,

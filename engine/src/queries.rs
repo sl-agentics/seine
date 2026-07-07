@@ -140,6 +140,7 @@ struct Env {
 
 fn java_hash(v: &Value) -> u32 {
     match v {
+        Value::Null => 0, // unreachable: nullable types are walled from queries (D-097)
         Value::I64(n) => {
             let u = *n as u64;
             (u ^ (u >> 32)) as u32
@@ -216,6 +217,9 @@ fn lit_value(l: &Literal) -> Value {
         Literal::F64(f) => Value::F64(*f),
         Literal::Str(s) => Value::Str(s.clone()),
         Literal::Bool(b) => Value::Bool(*b),
+        // queries are walled from nullable types (D-097); a null literal
+        // in a query body is rejected at compile before this point
+        Literal::Null => Value::Null,
     }
 }
 
@@ -296,6 +300,21 @@ fn compile_query(
     let err = |m: String| Err(EngineError(format!("query {}: {m}", def.name)));
     if def.branches.is_empty() || def.branches.iter().any(|b| b.is_empty()) {
         return err("empty query body not in subset".into());
+    }
+    // D-097 wall: queries over types with nullable fields are out of
+    // subset for the data-types arc (3VL x query-stack-machine
+    // unprobed; liftable with its own ladder).
+    for b in &def.branches {
+        for pat in b {
+            if let Some(tid) = store.type_id(&pat.name) {
+                if store.schema(tid).nullable != 0 {
+                    return err(format!(
+                        "{} has nullable fields — queries over nullable types are walled (D-097)",
+                        pat.name
+                    ));
+                }
+            }
+        }
     }
     let mut params = Vec::new();
     for (ty, name) in &def.params {
@@ -1368,6 +1387,7 @@ mod tests {
                 ("name".into(), FieldType::Str),
                 ("age".into(), FieldType::I64),
             ],
+            nullable: 0,
         }])
     }
 
@@ -1398,6 +1418,7 @@ mod tests {
                 ("married".into(), FieldType::Bool),
                 ("score".into(), FieldType::F64),
             ],
+            nullable: 0,
         }]);
         let tid = store.type_id("Person4").unwrap();
         assert_eq!(extractor_index(&store, tid, 1), 1); // city
@@ -1453,6 +1474,7 @@ mod tests {
                 ("thing".into(), FieldType::Str),
                 ("location".into(), FieldType::Str),
             ],
+            nullable: 0,
         }]);
         let tid = store.type_id("Location").unwrap();
         for (t, l) in [
@@ -1493,6 +1515,7 @@ mod tests {
         let store = FactStore::new(vec![TypeSchema {
             name: "L".into(),
             fields: vec![("a".into(), FieldType::Str), ("b".into(), FieldType::Str)],
+            nullable: 0,
         }]);
         // left recursion
         let f = drl::parse_file(

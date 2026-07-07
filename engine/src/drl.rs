@@ -83,6 +83,11 @@ pub enum Literal {
     F64(f64),
     Str(String),
     Bool(bool),
+    /// SQL NULL (D-097). Legal in cmp rhs (only with ==/!= — the
+    /// IS [NOT] NULL surface mapping), in in-list members (3VL
+    /// membership semantics), and in RHS insert/setter args targeting
+    /// nullable fields. Everything else = compile error.
+    Null,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -482,6 +487,7 @@ impl Parser {
             Tok::StrLit(s) => Ok(Literal::Str(s)),
             Tok::Ident(w) if w == "true" => Ok(Literal::Bool(true)),
             Tok::Ident(w) if w == "false" => Ok(Literal::Bool(false)),
+            Tok::Ident(w) if w == "null" => Ok(Literal::Null),
             Tok::Sym("-") => match self.next()? {
                 Tok::IntLit(n) => Ok(Literal::I64(-n)),
                 Tok::FloatLit(n) => Ok(Literal::F64(-n)),

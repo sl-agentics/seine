@@ -8,9 +8,9 @@ use seine_engine::{Engine, FieldType, TypeSchema, Value};
 
 fn engine() -> Engine {
     let mut e = Engine::new(vec![
-        TypeSchema { name: "A".into(), fields: vec![("a".into(), FieldType::I64)] },
-        TypeSchema { name: "B".into(), fields: vec![("b".into(), FieldType::I64)] },
-        TypeSchema { name: "LK".into(), fields: vec![("v".into(), FieldType::I64)] },
+        TypeSchema { name: "A".into(), fields: vec![("a".into(), FieldType::I64)], nullable: 0 },
+        TypeSchema { name: "B".into(), fields: vec![("b".into(), FieldType::I64)], nullable: 0 },
+        TypeSchema { name: "LK".into(), fields: vec![("v".into(), FieldType::I64)], nullable: 0 },
     ])
     .unwrap();
     e.add_rules_drl(
@@ -82,11 +82,13 @@ fn cascade_depth_is_rule_bounded_and_stack_safe() {
     let mut schemas = vec![TypeSchema {
         name: "A".into(),
         fields: vec![("a".into(), FieldType::I64)],
+        nullable: 0,
     }];
     for i in 1..=12 {
         schemas.push(TypeSchema {
             name: format!("L{i}"),
             fields: vec![("v".into(), FieldType::I64)],
+            nullable: 0,
         });
     }
     let mut e = Engine::new(schemas).unwrap();

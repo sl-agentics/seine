@@ -121,16 +121,15 @@ pyarrow 24.0.0, pinned in `.venv`); measured ground truth lives in
    decimal128; boundary tests.
 6. FEATURES/docs promotion to §1 with the D-095 authority noted.
 
-## 6. Open questions for Bryan (the checkpoint)
+## 6. Checkpoint rulings (Bryan, 2026-07-07 — D-097)
 
-1. `field == null` ⇒ IS NULL surface mapping — approve?
-2. sum(empty/all-null) = 0 (keep Drools-certified) vs NULL (SQL) —
-   ruling requested; everything else follows the pins cleanly.
-3. Nullable opt-in per field (vs all-nullable-by-default) — approve?
-4. Decimal-vs-f64 comparison allowed (cast-to-double, pin J) vs
-   walled (compile error, keep money away from floats)? My
-   recommendation: WALL it (stricter than DuckDB; the ecosystem pin
-   documents what we'd do if ever un-walled) — money/float mixing is
-   the exact bug class the thesis says we prevent.
-5. Scope check: DuckDB oracle validates match-sets/aggregates only
-   (chaining stays Drools-axis) — approve?
+1. `field == null` ⇒ IS NULL mapping: **APPROVED**.
+2. sum(empty/all-null): **0, fires** (Drools-certified engine axis;
+   the arc's one deliberate deviation from the DuckDB oracle — the
+   comparator maps engine-0 ≡ SQL-NULL for empty/all-null sum
+   groups). Null contributions still skip per the pins.
+3. Per-field opt-in nullability: **APPROVED**.
+4. Decimal-vs-f64: **WALLED — compile error** (stricter than DuckDB;
+   money never meets floats). decimal-vs-i64 stays exact.
+5. DuckDB-oracle scope (match sets + aggregates, insert-only):
+   **APPROVED**.

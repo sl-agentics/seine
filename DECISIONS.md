@@ -3639,3 +3639,56 @@ builds P2 nulls/decimals conforms to the ecosystem, not Drools.
   Drools-axis), oracle routing via scenario "oracle" key, phased
   landing plan. Five open questions listed for Bryan. NO ENGINE
   CHANGES in this commit.
+
+### D-097: design-checkpoint rulings (Bryan) — the data-types arc is GO
+1. `field == null` / `field != null` parse as IS NULL / IS NOT NULL
+   (definite two-valued tests; Drools' surface, SQL's semantics) —
+   APPROVED.
+2. **sum(empty/all-null) = 0, and it FIRES** — the Drools-certified
+   engine-axis behavior WINS over SQL's NULL for the accumulate
+   RESULT; null CONTRIBUTIONS are still skipped per the pins. This is
+   the arc's ONE deliberate deviation from the DuckDB oracle, and the
+   duckdb comparator must special-case it (sum over an empty/all-null
+   group: engine 0 vs SQL NULL — mapped as equivalent). avg/min/max
+   need no special case: SQL NULL result == Drools no-propagate ==
+   engine no-fire. DOCUMENTED here per Bryan's instruction.
+3. Per-field OPT-IN nullability (`"nullable": true`; default
+   non-nullable keeps D-044 loud rejection) — APPROVED.
+4. **Decimal-vs-f64 comparison: WALLED — compile error** (stricter
+   than DuckDB's cast-to-double, pin J documents the un-walled
+   semantics). Money never meets floats in Seine; the wall IS the
+   thesis. decimal-vs-i64 stays (exact).
+5. DuckDB-oracle scope = match sets + aggregate results over
+   insert-only scenarios; chaining/agenda/mutation stay
+   Drools-certified — APPROVED.
+
+### D-097 phase 1 LANDED: nulls in the engine (SQL 3VL, pin-conformant)
+Store: Value::Null + per-nullable-column validity bitmaps (Arrow
+model); TypeSchema.nullable bitmask (opt-in); store push/set is the
+single nullability gate (loud error for non-nullable — the D-044
+posture). Parser: `null` literal (cmp rhs ==/!= only, in-list
+members, RHS args). Compile: surface `== null`/`!= null` ->
+Test::IsNull/GExpr::IsNull (definite); null in-list members ->
+constant-UNKNOWN leaves (Test::Unknown/GExpr::Unknown — `not in`
+trap exact); null insert/setter literals need nullable targets;
+null-through-binding into non-nullable = loud runtime error.
+Evaluation: eval_gexpr is TRI-STATE (Option<bool>, admission =
+Some(true)) — the load-bearing case is !(...) over UNKNOWN staying
+UNKNOWN; top-level conjunctions keep bool leaves (UNKNOWN==reject
+coincide); eval_cmp's None-ord arm makes Null-vs-anything false at
+every leaf incl. range scans (null probe/stored never match);
+keys_match: null key components never equi-join, INCLUDING
+null-null (pin F). KeyVal::Null: TMS value-equality keys collapse
+nulls (pin H). Accumulate folds skip null contributions (sum/avg/
+min/max — avg skips BOTH sum and count; a null can't become the
+first extremum; try_reverse of a skipped null does NOT trigger the
+min/max refold); count()/collect unaffected; all-null sum = 0 and
+fires (ruling 2). Walls: queries over nullable types; salience over
+nullable fields; non-eq ops vs null.
+**Gate:** engine/tests/d097_nulls.rs — 8 conformance tests generated
+from pins A–G (WHERE-TRUE + negation exclusion, IS NULL surface vs
+3VL join, connective tables incl. NULL-AND-FALSE=FALSE via negated
+groups, in/not-in traps, null string ops, eq-hash null-key join,
+aggregate skips + ruling-2 sum) — 8/8. make test 7 suites green.
+**make diff 812/812 byte-identical** — the certified Drools corpus
+is untouched by the core 3VL changes (the opt-in design holds).

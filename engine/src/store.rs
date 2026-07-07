@@ -29,6 +29,12 @@ pub enum Value {
     F64(f64),
     Str(String),
     Bool(bool),
+    /// SQL NULL (D-095/D-097): unknown value. Only representable in
+    /// fields declared nullable; comparisons involving it are UNKNOWN
+    /// (3VL) except the IS [NOT] NULL surface tests. PartialEq derives
+    /// Null == Null (identity/staging semantics); JOIN-KEY matching
+    /// must NOT use that — bucket lookups skip null keys (pin F).
+    Null,
 }
 
 impl Value {
@@ -38,7 +44,16 @@ impl Value {
             Value::F64(_) => FieldType::F64,
             Value::Str(_) => FieldType::Str,
             Value::Bool(_) => FieldType::Bool,
+            // Null is typeless; callers gate on is_null() first. Any
+            // type-directed dispatch reaching a Null is a bug upstream
+            // (nullable-walled surface) — I64 is a harmless sentinel
+            // for the walled paths (queries reject nullable types).
+            Value::Null => FieldType::I64,
         }
+    }
+
+    pub fn is_null(&self) -> bool {
+        matches!(self, Value::Null)
     }
 }
 
@@ -46,10 +61,22 @@ impl Value {
 pub struct TypeSchema {
     pub name: String,
     pub fields: Vec<(String, FieldType)>,
+    /// Bit i set = field i is NULLABLE (opt-in, D-097): its column
+    /// carries a validity bitmap and accepts Value::Null. Default 0
+    /// keeps every certified scenario byte-identical.
+    pub nullable: u64,
 }
 
 /// One column of packed values for a single field of a single type.
-enum Column {
+/// `valid` exists only for NULLABLE fields (Arrow validity model,
+/// D-097): false rows hold a default in the packed vec and read back
+/// as Value::Null.
+struct Column {
+    data: ColData,
+    valid: Option<Vec<bool>>,
+}
+
+enum ColData {
     I64(Vec<i64>),
     F64(Vec<f64>),
     Str(Vec<String>),
@@ -57,43 +84,75 @@ enum Column {
 }
 
 impl Column {
-    fn new(ft: FieldType) -> Column {
-        match ft {
-            FieldType::I64 => Column::I64(Vec::new()),
-            FieldType::F64 => Column::F64(Vec::new()),
-            FieldType::Str => Column::Str(Vec::new()),
-            FieldType::Bool => Column::Bool(Vec::new()),
-        }
+    fn new(ft: FieldType, nullable: bool) -> Column {
+        let data = match ft {
+            FieldType::I64 => ColData::I64(Vec::new()),
+            FieldType::F64 => ColData::F64(Vec::new()),
+            FieldType::Str => ColData::Str(Vec::new()),
+            FieldType::Bool => ColData::Bool(Vec::new()),
+        };
+        Column { data, valid: if nullable { Some(Vec::new()) } else { None } }
     }
 
     fn push(&mut self, v: Value) -> Result<(), String> {
-        match (self, v) {
-            (Column::I64(c), Value::I64(x)) => c.push(x),
-            (Column::F64(c), Value::F64(x)) => c.push(x),
-            (Column::Str(c), Value::Str(x)) => c.push(x),
-            (Column::Bool(c), Value::Bool(x)) => c.push(x),
+        if let Value::Null = v {
+            let Some(valid) = &mut self.valid else {
+                return Err("null value for a non-nullable field".into());
+            };
+            valid.push(false);
+            match &mut self.data {
+                ColData::I64(c) => c.push(0),
+                ColData::F64(c) => c.push(0.0),
+                ColData::Str(c) => c.push(String::new()),
+                ColData::Bool(c) => c.push(false),
+            }
+            return Ok(());
+        }
+        match (&mut self.data, v) {
+            (ColData::I64(c), Value::I64(x)) => c.push(x),
+            (ColData::F64(c), Value::F64(x)) => c.push(x),
+            (ColData::Str(c), Value::Str(x)) => c.push(x),
+            (ColData::Bool(c), Value::Bool(x)) => c.push(x),
             (_, v) => return Err(format!("column type mismatch for value {v:?}")),
+        }
+        if let Some(valid) = &mut self.valid {
+            valid.push(true);
         }
         Ok(())
     }
 
     fn set(&mut self, row: usize, v: Value) -> Result<(), String> {
-        match (self, v) {
-            (Column::I64(c), Value::I64(x)) => c[row] = x,
-            (Column::F64(c), Value::F64(x)) => c[row] = x,
-            (Column::Str(c), Value::Str(x)) => c[row] = x,
-            (Column::Bool(c), Value::Bool(x)) => c[row] = x,
+        if let Value::Null = v {
+            let Some(valid) = &mut self.valid else {
+                return Err("null value for a non-nullable field".into());
+            };
+            valid[row] = false;
+            return Ok(());
+        }
+        match (&mut self.data, v) {
+            (ColData::I64(c), Value::I64(x)) => c[row] = x,
+            (ColData::F64(c), Value::F64(x)) => c[row] = x,
+            (ColData::Str(c), Value::Str(x)) => c[row] = x,
+            (ColData::Bool(c), Value::Bool(x)) => c[row] = x,
             (_, v) => return Err(format!("column type mismatch for value {v:?}")),
+        }
+        if let Some(valid) = &mut self.valid {
+            valid[row] = true;
         }
         Ok(())
     }
 
     fn get(&self, row: usize) -> Value {
-        match self {
-            Column::I64(c) => Value::I64(c[row]),
-            Column::F64(c) => Value::F64(c[row]),
-            Column::Str(c) => Value::Str(c[row].clone()),
-            Column::Bool(c) => Value::Bool(c[row]),
+        if let Some(valid) = &self.valid {
+            if !valid[row] {
+                return Value::Null;
+            }
+        }
+        match &self.data {
+            ColData::I64(c) => Value::I64(c[row]),
+            ColData::F64(c) => Value::F64(c[row]),
+            ColData::Str(c) => Value::Str(c[row].clone()),
+            ColData::Bool(c) => Value::Bool(c[row]),
         }
     }
 }
@@ -133,7 +192,7 @@ impl FactStore {
         let data = schemas
             .iter()
             .map(|s| TypeData {
-                columns: s.fields.iter().map(|(_, ft)| Column::new(*ft)).collect(),
+                columns: s.fields.iter().enumerate().map(|(i, (_, ft))| Column::new(*ft, s.nullable >> i & 1 == 1)).collect(),
                 rows: 0,
             })
             .collect();
@@ -148,7 +207,7 @@ impl FactStore {
     /// D-056). Existing TypeIds are unaffected.
     pub fn add_schema(&mut self, schema: TypeSchema) -> TypeId {
         self.data.push(TypeData {
-            columns: schema.fields.iter().map(|(_, ft)| Column::new(*ft)).collect(),
+            columns: schema.fields.iter().enumerate().map(|(i, (_, ft))| Column::new(*ft, schema.nullable >> i & 1 == 1)).collect(),
             rows: 0,
         });
         self.schemas.push(schema);

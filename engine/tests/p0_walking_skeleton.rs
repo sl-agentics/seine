@@ -10,8 +10,9 @@ fn trivial_adult_matches_oracle_golden() {
         TypeSchema {
             name: "Person".into(),
             fields: vec![("name".into(), FieldType::Str), ("age".into(), FieldType::I64)],
+            nullable: 0,
         },
-        TypeSchema { name: "Adult".into(), fields: vec![("name".into(), FieldType::Str)] },
+        TypeSchema { name: "Adult".into(), fields: vec![("name".into(), FieldType::Str)], nullable: 0 },
     ])
     .unwrap();
     e.add_rules_drl(

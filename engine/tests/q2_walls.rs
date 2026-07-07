@@ -6,9 +6,9 @@ use seine_engine::{Engine, FieldType, TypeSchema, Value};
 
 fn engine() -> Engine {
     Engine::new(vec![
-        TypeSchema { name: "A".into(), fields: vec![("id".into(), FieldType::I64)] },
-        TypeSchema { name: "B".into(), fields: vec![("k".into(), FieldType::I64)] },
-        TypeSchema { name: "Out".into(), fields: vec![("v".into(), FieldType::I64)] },
+        TypeSchema { name: "A".into(), fields: vec![("id".into(), FieldType::I64)], nullable: 0 },
+        TypeSchema { name: "B".into(), fields: vec![("k".into(), FieldType::I64)], nullable: 0 },
+        TypeSchema { name: "Out".into(), fields: vec![("v".into(), FieldType::I64)], nullable: 0 },
     ])
     .unwrap()
 }
