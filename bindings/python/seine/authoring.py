@@ -13,11 +13,94 @@ functions and MVEL salience bodies on the DRL side.
 from __future__ import annotations
 
 import dataclasses
+import decimal as _pydecimal
+import typing
 from typing import Any, Optional, Union
 
 
 class CompileError(Exception):
     """The construct falls outside the certified rule grammar."""
+
+
+class Decimal:
+    """Field metadata marker: exact decimal with declared precision/scale
+    (D-098). Use inside Annotated on a `decimal.Decimal` field:
+
+        @seine.fact
+        class Loan:
+            balance: Annotated[Decimal, seine.Decimal(18, 2)]
+            rate: Optional[Annotated[Decimal, seine.Decimal(9, 6)]]
+
+    Arrow Decimal128-compatible: 1 <= p <= 38, 0 <= s <= p (validated
+    here, matching the engine's i128 storage limits). Prefer the
+    module-qualified spelling `seine.Decimal` — a bare `from seine
+    import Decimal` shadows `decimal.Decimal`.
+    """
+
+    def __init__(self, p: int, s: int):
+        if not (isinstance(p, int) and isinstance(s, int)):
+            raise CompileError("seine.Decimal(p, s): p and s must be ints")
+        if not (1 <= p <= 38 and 0 <= s <= p):
+            raise CompileError(
+                f"seine.Decimal({p}, {s}): needs 1 <= p <= 38 and 0 <= s <= p "
+                "(Arrow Decimal128 / engine i128 limits, D-098)"
+            )
+        self.p, self.s = p, s
+
+
+def _resolve_field_type(cls_name: str, fname: str, hint: Any) -> str:
+    """Normalize a type hint into a subset type string (D-098 §6):
+    Optional and Annotated unwrap AT ANY NESTING; Annotated metadata is
+    collected wherever it appears; the result is one of i64/f64/String/
+    bool/decimal(p,s), with a trailing '?' when nullable.
+
+    Nullability semantics are LEGIBLE API semantics: the type
+    declaration IS the NaN-vs-NULL choice. `Optional[float]` ingests
+    pandas/Arrow NaN as NULL (SQL 3VL, D-095); bare `float` keeps NaN
+    as a bit-exact IEEE value (certified D-044 behavior).
+    """
+    nullable = False
+    metas: list = []
+    t = hint
+    while True:
+        origin = typing.get_origin(t)
+        if origin is typing.Annotated:
+            args = typing.get_args(t)
+            metas.extend(args[1:])
+            t = args[0]
+            continue
+        if origin in (Union, getattr(__import__("types"), "UnionType", ())):
+            args = [a for a in typing.get_args(t) if a is not type(None)]
+            if len(args) != len(typing.get_args(t)):
+                nullable = True
+            if len(args) != 1:
+                raise CompileError(
+                    f"@fact {cls_name}.{fname}: only Optional[X] unions are in the subset"
+                )
+            t = args[0]
+            continue
+        break
+    dec_meta = [m for m in metas if isinstance(m, Decimal)]
+    if t is _pydecimal.Decimal:
+        if not dec_meta:
+            raise CompileError(
+                f"@fact {cls_name}.{fname}: bare Decimal has no precision — declare it "
+                f"Annotated[Decimal, seine.Decimal(p, s)] (e.g. seine.Decimal(18, 2)). "
+                "Silent money precision is walled (D-098)."
+            )
+        m = dec_meta[0]
+        return f"decimal({m.p},{m.s})" + ("?" if nullable else "")
+    if dec_meta:
+        raise CompileError(
+            f"@fact {cls_name}.{fname}: seine.Decimal(p, s) metadata belongs on a "
+            "decimal.Decimal field"
+        )
+    if t not in _PY_TO_SUBSET:
+        raise CompileError(
+            f"@fact {cls_name}.{fname}: type {getattr(t, '__name__', t)!r} is outside "
+            "the certified subset (int, float, str, bool, Decimal)"
+        )
+    return _PY_TO_SUBSET[t] + ("?" if nullable else "")
 
 
 _PY_TO_SUBSET = {int: "i64", float: "f64", str: "String", bool: "bool"}
@@ -29,6 +112,11 @@ def _lit(v: Any) -> str:
     """Render a Python literal into DRL constraint syntax."""
     if isinstance(v, bool):
         return "true" if v else "false"
+    if isinstance(v, _pydecimal.Decimal):
+        s = str(v)
+        if "E" in s or "e" in s:
+            s = format(v, "f")
+        return s
     if isinstance(v, int):
         return str(v)
     if isinstance(v, float):
@@ -152,17 +240,19 @@ def fact(cls: type) -> type:
     for row construction) and its class attributes become FieldRefs for
     rule expressions.
     """
-    ann = getattr(cls, "__annotations__", {})
+    # get_type_hints resolves PEP-563 stringized annotations (the raw
+    # __annotations__ read broke under `from __future__ import
+    # annotations`) and include_extras keeps Annotated metadata (D-098).
+    try:
+        ann = typing.get_type_hints(cls, include_extras=True)
+    except Exception as ex:
+        raise CompileError(f"@fact {cls.__name__}: cannot resolve annotations: {ex}")
+    ann = {k: v for k, v in ann.items() if typing.get_origin(v) is not typing.ClassVar}
     if not ann:
         raise CompileError(f"@fact {cls.__name__}: no annotated fields")
     fields = {}
     for name, py_t in ann.items():
-        if py_t not in _PY_TO_SUBSET:
-            raise CompileError(
-                f"@fact {cls.__name__}.{name}: type {getattr(py_t, '__name__', py_t)!r} "
-                "is outside the certified subset (int, float, str, bool)"
-            )
-        fields[name] = _PY_TO_SUBSET[py_t]
+        fields[name] = _resolve_field_type(cls.__name__, name, py_t)
     dc = dataclasses.dataclass(cls)
     dc.__seine_fields__ = fields  # ordered: annotation order = constructor order
     for name, st in fields.items():

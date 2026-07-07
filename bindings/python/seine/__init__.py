@@ -10,6 +10,7 @@ from seine._native import Session as _NativeSession, Result, Table, run as _nati
 from ._rows import is_row_list, rows_to_columns
 from .authoring import (
     CompileError,
+    Decimal,
     Rule,
     average,
     compile_rules,
@@ -80,8 +81,10 @@ class Session:
     delegating wrapper over the native session — the row sugar reshapes
     into the certified column path, nothing more."""
 
-    def __init__(self, rules, facts=None):
+    def __init__(self, rules, facts=None, schemas=None):
         f, sch = _facts_arg(facts)
+        if schemas:
+            sch = {**(sch or {}), **schemas}
         self._native = _NativeSession(_drl_arg(rules), f, sch)
 
     def insert(self, type_or_name, data):
@@ -110,7 +113,9 @@ class Session:
         return self._native.fire(fire_limit, on_fire)
 
 
-def run(rules, facts, fire_limit=100_000, on_fire=None):
+def run(rules, facts, fire_limit=100_000, on_fire=None, schemas=None):
     """Build, insert, fire once, return the Result."""
     f, sch = _facts_arg(facts)
+    if schemas:
+        sch = {**(sch or {}), **schemas}
     return _native_run(_drl_arg(rules), f, fire_limit, on_fire, sch)

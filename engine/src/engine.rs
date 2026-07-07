@@ -2553,6 +2553,14 @@ impl Engine {
         Ok(id)
     }
 
+    /// Type name of a live fact (bindings support, D-098 boundary).
+    pub fn fact_type_name(&self, id: FactId) -> Option<String> {
+        if !self.store.is_alive(id) {
+            return None;
+        }
+        Some(self.store.schema(self.store.fact_type(id)).name.clone())
+    }
+
     /// Nth VISIBLE inserted fact (D-047): the global insertion sequence
     /// excluding synthetics (InitialFact, accumulate results) — the same
     /// sequence Drools' objectInserted listener observes, so scenario

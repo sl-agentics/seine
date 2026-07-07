@@ -80,6 +80,9 @@ into §1–§4.
 | fireAllRules with fire-limit parity | D-013 (j21) | (harness-level) | Both runners cap at 100k and error on runaway. |
 | Working-memory introspection (final facts, firing audit, handles) | D-003, D-044, D-047 | (API shape differs; behavior via result schema) | Canonical multiset facts + ordered firing log with post-RHS renderings. |
 
+| Null field values — SQL three-valued logic | **IMPLEMENTED** (D-095–D-097) | Authority: **DuckDB 1.5.4/SQL 3VL** (docs/duckdb-datatype-pins.md), NOT Drools — a deliberate deviation. Opt-in `"nullable": true` / `Optional[X]`; UNKNOWN never admits (incl. under `!()`); `== null` ⇒ IS NULL; the `not in` null trap; null keys never equi-join; TMS keys collapse nulls; aggregates skip null contributions (sum(all-null)=0 fires, ruling 2). Oracle: tools/diff_duckdb.py + fuzz (12k+ cases clean). Queries/salience over nullable walled (liftable). |
+| Exact decimal field type — Arrow Decimal128 | **IMPLEMENTED** (D-095/D-098) | Authority: **DuckDB/Arrow DECIMAL**, NOT Java BigDecimal. `decimal(p,s)` / `Annotated[Decimal, seine.Decimal(p,s)]`; i128 scaled storage; exact cross-scale compare; half-up ingest, loud overflow; floats NEVER meet decimals (compile wall, ruling 4); sum exact →DECIMAL(38,s), avg→f64, min/max preserve. 6k-case decimal fuzz clean. Queries over decimal walled (liftable). |
+
 ## §2 ROADMAP
 
 Priorities: **P1** next probe phase candidates, **P2** high-value later,
@@ -90,7 +93,7 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 |---|---|---|---|
 | INVESTIGATION: deterministic CEP subset as a TMS special case | P3 (investigate first) | (probe-first; PseudoClockEventsTest as reference behavior only) | Bryan's post-TMS note: with D-076 landed, `@expires`-style event lifetimes may reduce to justified facts whose support is a logical-clock window — auto-retraction IS the TMS cascade. If the reduction holds, a non-wallclock CEP subset stops being a second WM lifecycle (the D-060 objection) and becomes derived machinery. Investigation deliverable: a D-0xx memo mapping event expiration/window semantics onto justification structures, BEFORE any implementation. D-060's WONT stands unless the reduction is clean. |
 | `forall` | P2 | c.i operators `ForAllTest` (29) | Reducibility assessed at D-089: the MULTI-pattern form (`forall(base rem)`) is a pure parse rewrite onto the D-089 substrate — `not(base and not(rem))`, correlation shape probe-backed (sn_a10). NOT free: the flagship SINGLE-pattern form injects a `this == base` identity join (no such operator in subset — needs its own design), and multi-remaining forms need RIA-in-RIA (fenced). Keep as its own phase. |
-| Null field values (SQL three-valued logic) | P2 | (authority: **DuckDB/SQL 3VL**, not Drools — D-095; m.i `NullTest` becomes non-authoritative reference) | D-063 raised it; D-095 re-scoped the AUTHORITY: null = unknown per SQL 3VL (`NULL = NULL -> NULL`, `NULL AND false -> false`), Arrow-null/pandas-NA/DuckDB-NULL normalized on ingest. Deliberate Drools deviation; differential oracle = DuckDB. Arrow validity bitmaps; own phase, per-operator matrix. `!.` stays CANT (§3). |
+
 | Push (reactive) query CEs + open/live queries | P2 | m.i `QueryTest` (open query methods) | qx2_late_push pinned the basic refire; row lifecycle unprobed (D-057). |
 | Query + mutation epochs | P2 | m.i `QueryTest` (update-after-query methods) | D-051 wall; PhreakQueryNode leftUpdates/Deletes unprobed. |
 | Negation-as-failure inside query bodies | P2 | m.i `QueryTest#testQueryWithNot`-style | Q-phase follow-on per Q2 handoff. |
@@ -112,7 +115,7 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 | `enabled` attribute (boolean literal) | P4 | c.i operators `EnabledTest` | Static skip flag; expression form, if ever, follows the D-061 closed grammar. |
 | `halt()` from RHS | P4 | m.i `DroolsFromRHSTest` | Deterministic agenda stop; trivial in the fire loop. |
 | Read-only scalar globals in constraints | P4 | c.i drl `GlobalTest` (scalar-read methods) | D-062(b): per-session constant environment. RHS sink globals already stripped at extraction (D-059); Java-object globals WONT (§4). |
-| Exact decimal field type (Arrow Decimal128/256-compatible) | **P2** | (authority: **DuckDB/Arrow DECIMAL**, not Java BigDecimal — D-095) | D-064 framed it P4-hard via the Java coercion matrix; D-095 raised it to P2 and dissolved that cost: conform to Arrow/SQL decimal semantics with EXACT arithmetic (no IEEE-754 for money). Storage = scaled fixed-point over i128 (DECIMAL(p,s)). Load-bearing for the financial-decisioning soundness thesis. Deliberate Drools/Java deviation; differential oracle = DuckDB. |
+
 | Non-ASCII string VALUES | P4 | m.i `I18nTest` (value subset) | Needs UTF-16-order comparison shim above BMP; identifiers stay walled (accessor-sort rule, D-050). |
 
 ## §3 CANT

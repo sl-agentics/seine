@@ -3794,3 +3794,37 @@ echo prepped— **seeds 44/55/66 x 2000 = 6,000 decimal+null cases, ZERO
 divergences, zero rejects** (+ 60-case shakedown). Phase 5 (Arrow/
 typing boundary incl. the ratified D-098 surface + the PEP-563 fix)
 and phase 6 (FEATURES promotion) remain.
+
+### D-098 phases 5+6 LANDED: the ratified typing surface + the
+### Arrow/row boundary; FEATURES promoted — THE DATA-TYPES ARC IS
+### COMPLETE
+Phase 5 (bindings): @seine.fact now introspects via
+get_type_hints(include_extras=True) — fixing the shipped 0.2.0
+PEP-563 latent bug (stringized annotations broke even int/str
+fields) — and implements the six ratified §6 points: Optional[X]/
+X|None -> "t?" nullable; Annotated[Decimal, seine.Decimal(p,s)] ->
+"decimal(p,s)" with construction-time validation matching the
+engine's i128 limits; bare Decimal = loud CompileError naming the
+fix; nesting normalizes (Optional/Annotated at any level); the
+NaN-vs-NULL choice IS the type declaration (Optional[float] ingests
+NaN as NULL; bare float keeps bit-exact NaN — D-044 preserved),
+docstringed as designed. Rust boundary: schema strings carry
+nullable/decimal; ingestion is DECLARED-SCHEMA-AWARE (validity ->
+Null only for nullable fields, NaN -> Null only for nullable floats,
+decimal128 columns rescale to the declared (p,s) with loud
+overflow); py rows: None/decimal.Decimal/int accepted per target,
+floats walled from decimals; results export nullable Arrow columns
+and Decimal128 arrays (polars round-trip: Decimal dtype, exact
+strings, null_count). Session/run gain schemas= passthrough;
+Engine::fact_type_name added for typed updates.
+**Gates:** bindings 60/60 (48 pre-existing untouched + 12 new
+boundary tests incl. the PEP-563 regression under `from __future__
+import annotations`); engine 8 suites; corpus 812/812; duckdb 11/11.
+Phase 6: FEATURES rows promoted to §1 with the D-095 authority
+noted. Remaining liftable walls recorded (queries/salience over
+nullable+decimal types). Interleaved finding, same session: Bryan's
+insertLogical parse error was the PUBLISHED 0.2.0 wheel predating
+TMS (b94f11b not an ancestor of v0.2.0; 35 commits behind) — his
+exact rule (Person / not Blocker / insertLogical) runs correctly on
+main incl. TMS auto-retraction; local maturin builds now carry
+everything; v0.3.0 is Bryan's release call.

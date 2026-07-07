@@ -70,6 +70,15 @@ fn map_dtype(type_name: &str, field: &Field) -> PyResult<FieldType> {
         Float32 | Float64 => FieldType::F64,
         Boolean => FieldType::Bool,
         Utf8 | LargeUtf8 | Utf8View => FieldType::Str,
+        Decimal128(p, s) => {
+            if *p == 0 || *p > 38 || *s < 0 || *s > *p as i8 {
+                return Err(PyTypeError::new_err(format!(
+                    "{type_name}.{}: decimal128({p},{s}) is outside Decimal128 limits",
+                    field.name()
+                )));
+            }
+            FieldType::Dec { p: *p, s: *s as u8 }
+        }
         other => {
             return Err(PyTypeError::new_err(format!(
                 "{type_name}.{}: Arrow type {other} is outside the certified subset \
@@ -80,6 +89,49 @@ fn map_dtype(type_name: &str, field: &Field) -> PyResult<FieldType> {
         }
     };
     Ok(ft)
+}
+
+/// Subset type strings from the authoring layer (D-098): base types,
+/// `decimal(p,s)`, and a trailing `?` for nullable (Optional[X]).
+fn parse_subset_type(
+    type_name: &str,
+    fname: &str,
+    spec: &str,
+) -> PyResult<(FieldType, bool)> {
+    let (base, nullable) = match spec.strip_suffix('?') {
+        Some(b) => (b, true),
+        None => (spec, false),
+    };
+    let ft = match base {
+        "i64" => FieldType::I64,
+        "f64" => FieldType::F64,
+        "bool" => FieldType::Bool,
+        "String" => FieldType::Str,
+        d if d.starts_with("decimal(") && d.ends_with(')') => {
+            let inner = &d["decimal(".len()..d.len() - 1];
+            let (p, s) = inner.split_once(',').ok_or_else(|| {
+                PyValueError::new_err(format!("{type_name}.{fname}: bad decimal spec {spec:?}"))
+            })?;
+            let p: u8 = p.trim().parse().map_err(|_| {
+                PyValueError::new_err(format!("{type_name}.{fname}: bad decimal spec {spec:?}"))
+            })?;
+            let s: u8 = s.trim().parse().map_err(|_| {
+                PyValueError::new_err(format!("{type_name}.{fname}: bad decimal spec {spec:?}"))
+            })?;
+            if p == 0 || p > 38 || s > p {
+                return Err(PyValueError::new_err(format!(
+                    "{type_name}.{fname}: decimal(p,s) needs 1<=p<=38, 0<=s<=p"
+                )));
+            }
+            FieldType::Dec { p, s }
+        }
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "{type_name}.{fname}: unknown subset type {other:?}"
+            )))
+        }
+    };
+    Ok((ft, nullable))
 }
 
 /// Reject nulls loudly: the certified subset has no null semantics, and
@@ -97,13 +149,97 @@ fn reject_nulls(type_name: &str, field: &Field, arr: &dyn Array) -> PyResult<()>
     Ok(())
 }
 
-/// Pull one column as engine Values (exact widening only).
-fn column_values(type_name: &str, field: &Field, arr: &ArrayRef) -> PyResult<Vec<Value>> {
+/// Pull one column as engine Values (exact widening only). `target` =
+/// the DECLARED (type, nullable) when a schema was declared: nullable
+/// columns turn validity-nulls into Value::Null and normalize float
+/// NaN -> NULL (D-095/D-098 §6 point 5 — the type declaration IS the
+/// NaN-vs-NULL choice); non-nullable keeps the loud D-044 rejection
+/// and bit-exact NaN.
+fn column_values(
+    type_name: &str,
+    field: &Field,
+    arr: &ArrayRef,
+    target: Option<(FieldType, bool)>,
+) -> PyResult<Vec<Value>> {
     use arrow_array::cast::AsArray;
     use arrow_array::types::*;
-    reject_nulls(type_name, field, arr.as_ref())?;
+    let nullable = target.map(|(_, n)| n).unwrap_or(false);
+    if !nullable {
+        reject_nulls(type_name, field, arr.as_ref())?;
+    }
     let n = arr.len();
     let mut out = Vec::with_capacity(n);
+    // decimal128 columns (exact) — rescaled to the declared (p,s)
+    if let DataType::Decimal128(_, arr_s) = arr.data_type() {
+        let a = arr.as_primitive::<Decimal128Type>();
+        let (tp, ts) = match target {
+            Some((FieldType::Dec { p, s }, _)) => (p, s),
+            None => match map_dtype(type_name, field)? {
+                FieldType::Dec { p, s } => (p, s),
+                _ => unreachable!(),
+            },
+            Some((other, _)) => {
+                return Err(PyTypeError::new_err(format!(
+                    "{type_name}.{}: decimal column for a {other:?} field",
+                    field.name()
+                )))
+            }
+        };
+        for i in 0..n {
+            if a.is_null(i) {
+                out.push(Value::Null);
+                continue;
+            }
+            let (u, s) = seine_engine::dec_rescale_pub(a.value(i), *arr_s as u8, ts)
+                .filter(|(u2, _)| seine_engine::dec_fits_pub(*u2, tp))
+                .ok_or_else(|| {
+                    PyValueError::new_err(format!(
+                        "{type_name}.{}: decimal value overflows decimal({tp},{ts})",
+                        field.name()
+                    ))
+                })?;
+            out.push(Value::Dec { u, s });
+        }
+        return Ok(out);
+    }
+    if nullable && arr.null_count() > 0 || nullable && matches!(arr.data_type(), DataType::Float64 | DataType::Float32) {
+        // per-element path: validity -> Null; NaN -> Null for floats
+        for i in 0..n {
+            if arr.is_null(i) {
+                out.push(Value::Null);
+                continue;
+            }
+            let v = match arr.data_type() {
+                DataType::Int64 => Value::I64(arr.as_primitive::<Int64Type>().value(i)),
+                DataType::Int32 => Value::I64(arr.as_primitive::<Int32Type>().value(i) as i64),
+                DataType::Int16 => Value::I64(arr.as_primitive::<Int16Type>().value(i) as i64),
+                DataType::Int8 => Value::I64(arr.as_primitive::<Int8Type>().value(i) as i64),
+                DataType::UInt8 => Value::I64(arr.as_primitive::<UInt8Type>().value(i) as i64),
+                DataType::UInt16 => Value::I64(arr.as_primitive::<UInt16Type>().value(i) as i64),
+                DataType::UInt32 => Value::I64(arr.as_primitive::<UInt32Type>().value(i) as i64),
+                DataType::Float64 => {
+                    let x = arr.as_primitive::<Float64Type>().value(i);
+                    if x.is_nan() { Value::Null } else { Value::F64(x) }
+                }
+                DataType::Float32 => {
+                    let x = arr.as_primitive::<Float32Type>().value(i) as f64;
+                    if x.is_nan() { Value::Null } else { Value::F64(x) }
+                }
+                DataType::Boolean => Value::Bool(arr.as_boolean().value(i)),
+                DataType::Utf8 => Value::Str(arr.as_string::<i32>().value(i).to_string()),
+                DataType::LargeUtf8 => Value::Str(arr.as_string::<i64>().value(i).to_string()),
+                DataType::Utf8View => Value::Str(arr.as_string_view().value(i).to_string()),
+                other => {
+                    return Err(PyTypeError::new_err(format!(
+                        "{type_name}.{}: Arrow type {other} is outside the certified subset",
+                        field.name()
+                    )))
+                }
+            };
+            out.push(v);
+        }
+        return Ok(out);
+    }
     match arr.data_type() {
         DataType::Int64 => {
             let a = arr.as_primitive::<Int64Type>();
@@ -180,6 +316,7 @@ fn column_values(type_name: &str, field: &Field, arr: &ArrayRef) -> PyResult<Vec
 fn columns_from_dict(
     type_name: &str,
     d: &Bound<'_, PyDict>,
+    target_of: &dyn Fn(&str) -> Option<(FieldType, bool)>,
 ) -> PyResult<(Vec<(String, FieldType)>, Vec<Vec<Value>>)> {
     let mut names: Vec<String> = Vec::new();
     let mut cols: Vec<Vec<Value>> = Vec::new();
@@ -191,9 +328,14 @@ fn columns_from_dict(
             PyTypeError::new_err(format!("{type_name}.{name}: expected a list of values"))
         })?;
         let mut col = Vec::with_capacity(list.len());
-        let mut ft: Option<FieldType> = None;
+        let target = target_of(&name);
+        let mut ft: Option<FieldType> = target.map(|(t, _)| t);
         for item in list.iter() {
-            let v = py_scalar(type_name, &name, &item)?;
+            let v = py_scalar(type_name, &name, &item, target)?;
+            if matches!(v, Value::Null | Value::Dec { .. }) {
+                col.push(v);
+                continue; // typed by the declared target; skip inference
+            }
             let t = v.type_of();
             match ft {
                 None => ft = Some(t),
@@ -242,29 +384,107 @@ fn columns_from_dict(
     Ok((fields, cols))
 }
 
-fn py_scalar(type_name: &str, field: &str, v: &Bound<'_, PyAny>) -> PyResult<Value> {
+fn py_scalar(
+    type_name: &str,
+    field: &str,
+    v: &Bound<'_, PyAny>,
+    target: Option<(FieldType, bool)>,
+) -> PyResult<Value> {
+    let nullable = target.map(|(_, n)| n).unwrap_or(false);
     if v.is_none() {
+        if nullable {
+            return Ok(Value::Null);
+        }
         return Err(PyValueError::new_err(format!(
-            "{type_name}.{field}: None is outside the certified subset (no null semantics)"
+            "{type_name}.{field}: None is outside the certified subset for a \
+             non-nullable field — declare it Optional[...] to opt in (D-097)"
         )));
+    }
+    // python decimal.Decimal -> exact engine decimal (D-098): via str,
+    // never through a float
+    let py = v.py();
+    let dec_cls = py.import("decimal")?.getattr("Decimal")?;
+    if v.is_instance(&dec_cls)? {
+        let Some((FieldType::Dec { p, s }, _)) = target else {
+            return Err(PyTypeError::new_err(format!(
+                "{type_name}.{field}: decimal.Decimal for a non-decimal field — declare \
+                 Annotated[Decimal, seine.Decimal(p, s)] (D-098)"
+            )));
+        };
+        let txt: String = v.call_method0("__str__")?.extract()?;
+        let plain = if txt.contains(['e', 'E']) {
+            v.call_method1("__format__", ("f",))?.extract::<String>()?
+        } else {
+            txt
+        };
+        let parsed = seine_engine::dec_parse(&plain)
+            .and_then(|(u0, s0)| seine_engine::dec_rescale_pub(u0, s0, s))
+            .filter(|(u, _)| seine_engine::dec_fits_pub(*u, p));
+        return match parsed {
+            Some((u, s)) => Ok(Value::Dec { u, s }),
+            None => Err(PyValueError::new_err(format!(
+                "{type_name}.{field}: {plain} does not fit decimal({p},{s})"
+            ))),
+        };
     }
     // bool before int: Python bool is an int subclass
     if let Ok(b) = v.downcast::<pyo3::types::PyBool>() {
         return Ok(Value::Bool(b.is_true()));
     }
     if let Ok(n) = v.extract::<i64>() {
+        if let Some((FieldType::Dec { p, s }, _)) = target {
+            let parsed = seine_engine::dec_rescale_pub(n as i128, 0, s)
+                .filter(|(u, _)| seine_engine::dec_fits_pub(*u, p));
+            return match parsed {
+                Some((u, s)) => Ok(Value::Dec { u, s }),
+                None => Err(PyValueError::new_err(format!(
+                    "{type_name}.{field}: {n} does not fit decimal({p},{s})"
+                ))),
+            };
+        }
         return Ok(Value::I64(n));
     }
     if let Ok(f) = v.extract::<f64>() {
+        if matches!(target, Some((FieldType::Dec { .. }, _))) {
+            return Err(PyTypeError::new_err(format!(
+                "{type_name}.{field}: floats never ingest into decimals — pass \
+                 decimal.Decimal or str (D-098)"
+            )));
+        }
+        if f.is_nan() && nullable {
+            // D-098 §6 point 5: Optional[float] normalizes NaN -> NULL
+            return Ok(Value::Null);
+        }
         return Ok(Value::F64(f));
     }
     if let Ok(s) = v.extract::<String>() {
+        if let Some((ft @ FieldType::Dec { .. }, _)) = target {
+            return py_dec_from_str(type_name, field, &s, ft);
+        }
         return Ok(Value::Str(s));
     }
     Err(PyTypeError::new_err(format!(
         "{type_name}.{field}: unsupported scalar {}",
         v.get_type().name()?
     )))
+}
+
+fn py_dec_from_str(
+    type_name: &str,
+    field: &str,
+    txt: &str,
+    ft: FieldType,
+) -> PyResult<Value> {
+    let FieldType::Dec { p, s } = ft else { unreachable!() };
+    seine_engine::dec_parse(txt)
+        .and_then(|(u0, s0)| seine_engine::dec_rescale_pub(u0, s0, s))
+        .filter(|(u, _)| seine_engine::dec_fits_pub(*u, p))
+        .map(|(u, s)| Value::Dec { u, s })
+        .ok_or_else(|| {
+            PyValueError::new_err(format!(
+                "{type_name}.{field}: {txt:?} does not fit decimal({p},{s})"
+            ))
+        })
 }
 
 // ---------------------------------------------------------------------
@@ -274,14 +494,15 @@ fn py_scalar(type_name: &str, field: &str, v: &Bound<'_, PyAny>) -> PyResult<Val
 /// Build an Arrow batch for one fact type: `_handle` + schema columns.
 fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBatch> {
     let mut fields: Vec<Field> = vec![Field::new("_handle", DataType::Int64, false)];
-    for (name, ft) in &schema.fields {
+    for (fi, (name, ft)) in schema.fields.iter().enumerate() {
         let dt = match ft {
             FieldType::I64 => DataType::Int64,
             FieldType::F64 => DataType::Float64,
             FieldType::Bool => DataType::Boolean,
             FieldType::Str => DataType::Utf8,
+            FieldType::Dec { p, s } => DataType::Decimal128(*p, *s as i8),
         };
-        fields.push(Field::new(name, dt, false));
+        fields.push(Field::new(name, dt, schema.nullable >> fi & 1 == 1));
     }
     let arrow_schema = Arc::new(Schema::new(fields));
     let mut arrays: Vec<ArrayRef> = Vec::with_capacity(schema.fields.len() + 1);
@@ -297,6 +518,7 @@ fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBat
                 for r in rows {
                     match &r.fields[ci].1 {
                         Value::I64(n) => b.append_value(*n),
+                        Value::Null => b.append_null(),
                         _ => return Err(PyRuntimeError::new_err(format!("{fname}: column type drift"))),
                     }
                 }
@@ -307,6 +529,7 @@ fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBat
                 for r in rows {
                     match &r.fields[ci].1 {
                         Value::F64(x) => b.append_value(*x),
+                        Value::Null => b.append_null(),
                         _ => return Err(PyRuntimeError::new_err(format!("{fname}: column type drift"))),
                     }
                 }
@@ -317,6 +540,7 @@ fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBat
                 for r in rows {
                     match &r.fields[ci].1 {
                         Value::Bool(x) => b.append_value(*x),
+                        Value::Null => b.append_null(),
                         _ => return Err(PyRuntimeError::new_err(format!("{fname}: column type drift"))),
                     }
                 }
@@ -327,6 +551,26 @@ fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBat
                 for r in rows {
                     match &r.fields[ci].1 {
                         Value::Str(s) => b.append_value(s),
+                        Value::Null => b.append_null(),
+                        _ => return Err(PyRuntimeError::new_err(format!("{fname}: column type drift"))),
+                    }
+                }
+                Ok(Arc::new(b.finish()))
+            }
+            FieldType::Dec { p, s } => {
+                let mut b = arrow_array::builder::Decimal128Builder::with_capacity(rows.len())
+                    .with_precision_and_scale(*p, *s as i8)
+                    .map_err(|e| PyRuntimeError::new_err(format!("{fname}: {e}")))?;
+                for r in rows {
+                    match &r.fields[ci].1 {
+                        Value::Dec { u, s: vs } => {
+                            let (ru, _) = seine_engine::dec_rescale_pub(*u, *vs, *s)
+                                .ok_or_else(|| {
+                                    PyRuntimeError::new_err(format!("{fname}: decimal rescale overflow"))
+                                })?;
+                            b.append_value(ru);
+                        }
+                        Value::Null => b.append_null(),
                         _ => return Err(PyRuntimeError::new_err(format!("{fname}: column type drift"))),
                     }
                 }
@@ -398,6 +642,8 @@ fn fact_json(fv: &FactView) -> String {
             Value::F64(x) => serde_json::json!(x),
             Value::Bool(b) => serde_json::json!(b),
             Value::Str(s) => serde_json::json!(s),
+            Value::Null => serde_json::Value::Null,
+            Value::Dec { u, s } => serde_json::json!(seine_engine::dec_render(*u, *s)),
         };
         m.insert(k.clone(), jv);
     }
@@ -549,22 +795,17 @@ impl PySession {
                 let type_name: String = k.extract()?;
                 let fd: &Bound<'_, PyDict> = v.downcast()?;
                 let mut fields = Vec::new();
+                let mut nullable = 0u64;
                 for (fk, fv) in fd.iter() {
                     let fname: String = fk.extract()?;
-                    let ft = match fv.extract::<String>()?.as_str() {
-                        "i64" => FieldType::I64,
-                        "f64" => FieldType::F64,
-                        "bool" => FieldType::Bool,
-                        "String" => FieldType::Str,
-                        other => {
-                            return Err(PyValueError::new_err(format!(
-                                "{type_name}.{fname}: unknown subset type {other:?}"
-                            )))
-                        }
-                    };
+                    let spec = fv.extract::<String>()?;
+                    let (ft, is_nullable) = parse_subset_type(&type_name, &fname, &spec)?;
+                    if is_nullable {
+                        nullable |= 1u64 << fields.len();
+                    }
                     fields.push((fname, ft));
                 }
-                sess.schemas.push(TypeSchema { name: type_name, fields });
+                sess.schemas.push(TypeSchema { name: type_name, fields, nullable });
             }
         }
         if let Some(f) = facts {
@@ -573,17 +814,24 @@ impl PySession {
             let mut pending: Vec<(String, Vec<(String, FieldType)>, Vec<Vec<Value>>)> = Vec::new();
             for (k, v) in f.iter() {
                 let type_name: String = k.extract()?;
-                let (fields, cols) = ingest_any(py, &type_name, &v)?;
+                let declared = sess.schemas.iter().find(|s| s.name == type_name).cloned();
+                let (fields, cols) = ingest_any(py, &type_name, &v, declared.as_ref())?;
                 match sess.schemas.iter().find(|s| s.name == type_name) {
                     Some(declared) if declared.fields != fields => {
                         return Err(PyValueError::new_err(format!(
-                            "{type_name}: table schema differs from the declared schema"
+                            "{type_name}: table schema differs from the declared schema \
+                             (declared {:?}, table {:?})",
+                            declared.fields, fields
                         )))
                     }
                     Some(_) => {}
                     None => sess.schemas.push(TypeSchema {
                         name: type_name.clone(),
                         fields: fields.clone(),
+                        // inferred schemas stay non-nullable (D-044
+                        // loud rejection); nullable/decimal need a
+                        // declared schema (@seine.fact / schemas=)
+                        nullable: 0,
                     }),
                 }
                 pending.push((type_name, fields, cols));
@@ -614,8 +862,9 @@ impl PySession {
                 "unknown fact type {type_name} (types are declared by the constructor's tables)"
             )));
         }
-        let (fields, cols) = ingest_any(py, &type_name, &data)?;
-        let declared = &self.schemas.iter().find(|s| s.name == type_name).unwrap().fields;
+        let declared_schema = self.schemas.iter().find(|s| s.name == type_name).unwrap().clone();
+        let (fields, cols) = ingest_any(py, &type_name, &data, Some(&declared_schema))?;
+        let declared = &declared_schema.fields;
         if &fields != declared {
             return Err(PyValueError::new_err(format!(
                 "{type_name}: schema mismatch with the declaring table"
@@ -637,14 +886,16 @@ impl PySession {
             .iter()
             .find(|s| s.name == type_name)
             .ok_or_else(|| PyValueError::new_err(format!("unknown fact type {type_name}")))?
-            .fields
             .clone();
+        let nullable_mask = declared.nullable;
+        let declared = declared.fields;
         let mut vals: Vec<(String, Value)> = Vec::new();
-        for (fname, ft) in &declared {
+        for (fi, (fname, ft)) in declared.iter().enumerate() {
             let item = row
                 .get_item(fname)?
                 .ok_or_else(|| PyValueError::new_err(format!("{type_name}: missing field {fname}")))?;
-            let mut v = py_scalar(&type_name, fname, &item)?;
+            let mut v =
+                py_scalar(&type_name, fname, &item, Some((*ft, nullable_mask >> fi & 1 == 1)))?;
             if *ft == FieldType::F64 {
                 if let Value::I64(n) = v {
                     v = Value::F64(n as f64);
@@ -671,16 +922,28 @@ impl PySession {
     ) -> PyResult<()> {
         let engine = self
             .engine
-            .as_mut()
+            .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
         let fields = fields
             .filter(|d| !d.is_empty())
             .ok_or_else(|| PyValueError::new_err("update: no fields given"))?;
+        let tname = engine.fact_type_name(seine_engine::FactId(handle as u32));
+        let schema = self.schemas.iter().find(|s| Some(s.name.as_str()) == tname.as_deref()).cloned();
         let mut vals: Vec<(String, Value)> = Vec::new();
         for (k, v) in fields.iter() {
             let name: String = k.extract()?;
-            vals.push((name.clone(), py_scalar("update", &name, &v)?));
+            let target = schema.as_ref().and_then(|sch| {
+                sch.fields
+                    .iter()
+                    .position(|(n, _)| n == &name)
+                    .map(|i| (sch.fields[i].1, sch.nullable >> i & 1 == 1))
+            });
+            vals.push((name.clone(), py_scalar("update", &name, &v, target)?));
         }
+        let engine = self
+            .engine
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
         engine
             .update_fact(seine_engine::FactId(handle as u32), vals)
             .map_err(|e| PyValueError::new_err(e.to_string()))
@@ -822,21 +1085,35 @@ fn ingest_any(
     _py: Python<'_>,
     type_name: &str,
     obj: &Bound<'_, PyAny>,
+    declared: Option<&TypeSchema>,
 ) -> PyResult<(Vec<(String, FieldType)>, Vec<Vec<Value>>)> {
+    let target_of = |fname: &str| -> Option<(FieldType, bool)> {
+        declared.and_then(|d| {
+            d.fields
+                .iter()
+                .position(|(n, _)| n == fname)
+                .map(|i| (d.fields[i].1, d.nullable >> i & 1 == 1))
+        })
+    };
     if let Ok(d) = obj.downcast::<PyDict>() {
-        return columns_from_dict(type_name, d);
+        return columns_from_dict(type_name, d, &target_of);
     }
     let mut reader = import_stream(obj)?;
     let schema = reader.schema();
     let mut fields: Vec<(String, FieldType)> = Vec::new();
     for f in schema.fields() {
-        fields.push((f.name().clone(), map_dtype(type_name, f)?));
+        // the DECLARED type wins (nullable/decimal round-trip through
+        // the schema-equality check); inference covers the rest
+        match target_of(f.name()) {
+            Some((ft, _)) => fields.push((f.name().clone(), ft)),
+            None => fields.push((f.name().clone(), map_dtype(type_name, f)?)),
+        }
     }
     let mut cols: Vec<Vec<Value>> = vec![Vec::new(); fields.len()];
     while let Some(batch) = reader.next() {
         let batch = batch.map_err(|e| PyValueError::new_err(format!("arrow read: {e}")))?;
         for (ci, f) in schema.fields().iter().enumerate() {
-            let vals = column_values(type_name, f, batch.column(ci))?;
+            let vals = column_values(type_name, f, batch.column(ci), target_of(f.name()))?;
             cols[ci].extend(vals);
         }
     }
