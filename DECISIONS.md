@@ -3828,3 +3828,39 @@ TMS (b94f11b not an ancestor of v0.2.0; 35 commits behind) — his
 exact rule (Person / not Blocker / insertLogical) runs correctly on
 main incl. TMS auto-retraction; local maturin builds now carry
 everything; v0.3.0 is Bryan's release call.
+
+## CEP investigation (2026-07-08)
+
+### D-099: CEP-as-TMS INVESTIGATION COMPLETE (memo-first per D-079;
+### no implementation) — the framing holds semantically, fails
+### mechanically, and BOTH halves shape the port
+Full memo: docs/memo-cep-as-tms.md. Source-pinned findings
+(drools-core 9.44): (1) expiration NEVER touches Drools' TMS — both
+@expires (ObjectTypeNode.ExpireJob) and sliding windows
+(SlidingTimeWindow.expireFacts) call doRetractObject, i.e. the
+ordinary retraction path — so the faithful port is a DEADLINE-ORDERED
+RETRACTION SCHEDULER over our certified delete cascade, with the TMS
+connection arriving free when events justify insertLogical chains;
+(2) WindowNode CLONES the event handle (cloneAndLink) and expires
+the CLONE — window expiry is per-window-subtree unmatch while
+@expires is WM-wide retract (the fact-survives-other-rules
+observable separates them differentially); (3) pseudo-clock
+advanceTime pops due jobs in fire-time order and SETS THE CLOCK TO
+EACH TRIGGER'S OWN TIME before executing — mid-advance states are
+spec; (4) **equal fire-time ties are UNSPECIFIED** (compareTo is
+fire-Date-only into a java PriorityQueue heap) — a D-035-class
+surface, probe-then-pin-or-fence; (5) temporal operators are a
+closed interval-test family that COLLAPSES to delta-range checks for
+point events — specialized Test variants, NO general constraint
+arithmetic needed, D-032-indexable; (6) @timestamp-from-field kills
+all wall-clock dependence — the deterministic subset requires it.
+Oracle: STREAM + PSEUDO clock + advance_ms epoch actions — fully
+scriptable, deterministic modulo (4). Thesis fit is strong
+(delinquency buckets ARE window:time; payment sequencing IS
+point-event temporal joins). RECOMMENDATION: promote to a P2 arc,
+E0 = supervised probe-ladder recon (tie order, mid-advance agenda
+composition, window-clone scope, inferred-expiration rules,
+expiration x TMS cascade, expiration x D-076 defer-drain), then
+E1 point events + @expires + after/before, E2 windows, E3 the rest.
+Fences: no wall clock / fireUntilHalt / entry points / @duration /
+rule timers; distinct expiry instants pending the tie probe.
