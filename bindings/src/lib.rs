@@ -744,8 +744,11 @@ impl PySession {
             // D-109: declare_event takes Option (None ⇒ infer). The
             // Python surface still requires explicit expiry for now;
             // exposing inference is a follow-up with item B's windows.
+            // CEP E2 item E (D-118): `@duration` intervals are likewise not
+            // yet exposed on the Python surface (None ⇒ point event); the
+            // scenario-JSON runner carries them.
             engine
-                .declare_event(tname, ts_field, Some(*expires_ms))
+                .declare_event(tname, ts_field, Some(*expires_ms), None)
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
         }
         engine

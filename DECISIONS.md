@@ -21,74 +21,54 @@ Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **many commits UNPUSHED** (don't push without Bryan).
 Recent: `e65ab0c` **D-116 item D** (entry points), `df18834` **D-117**
-E1-hardening non-termination spin-guard. **UNCOMMITTED (this checkpoint):
-D-118 item E RECON** — probe-first recon of `@duration` interval events
-complete, awaiting Bryan's port gate (oracle `@duration` rendering added,
-corpus-inert; NO engine change). Gates green: baseline 11 / probes 822 /
-regressions 281 byte-identical (probes re-verified with the rebuilt oracle);
-lint 1195 live/0 ghost/0 inert; 9 Rust suites. Verify with `make diff` /
-`make lint-probes` / `cargo test`; oracle prebuilt
-(`oracle/target/classpath.txt`). If any gate is red on resume, something
-drifted — investigate before building on it.
+E1-hardening non-termination spin-guard, then D-118/D-119 item E RECON.
+**UNCOMMITTED (this checkpoint): D-120 item E PORT** — `@duration` intervals +
+the full Allen PREDICATE algebra, landed and certified byte-identical (the LAST
+E2 fence, CLOSED). Gates green: baseline 11 / probes **944** / regressions 281
+byte-identical; lint **1325 live/0 ghost/0 inert**; 9 Rust suites + a new
+`eval_allen` unit module. Verify with `make diff` / `make lint-probes` /
+`cargo test`; oracle prebuilt (`oracle/target/classpath.txt`). If any gate is
+red on resume, something drifted — investigate before building on it.
 
 **Landed:** v0.4.0 (`5b23e7c`) = CEP E1 + Engine::reset + agenda groups +
 queries×mutation + structured aggregation. Data-types arc (nulls/decimals,
 D-096–098). TMS, P1c group CEs, hardening waves — see the log.
-CEP **E2 A** @expires inference (D-109); **B** windows (D-110–114);
-**C** event update/delete (D-115); **D** entry points (D-116, this checkpoint).
+**CEP E2 FENCE CLOSED (A–E all resolved):** **A** @expires inference (D-109);
+**B** windows (D-110–114); **C** event update/delete (D-115); **D** entry points
+(D-116); **E** @duration intervals + Allen predicates (D-120, this checkpoint).
 
-**ACTIVE FRONTIER — CEP E2 item E (`@duration` interval events): RECON PINNED,
-awaiting Bryan's port GATE (D-118).** THE LAST E2 fence item. Probe-first recon
-complete (57 oracle probes, `probes_pending/cep/e_recon/`; oracle `@duration`
-rendering added, corpus-inert; NO engine change yet). **THE UNIFYING MODEL:**
-`@duration(f)` makes an event occupy `[ts, ts+f]`; the WHOLE feature is
-**`endTS = ts + dur`** — every existing consumer of an event's "end" already
-uses `ts`, making it `ts+dur` IS the feature. Pinned: temporal `after`/`before`
-measure later.START − earlier.END (only the earlier event's dur matters;
-inclusive bounds; exact, no ±1); expiration (explicit + inferred) removes at
-`ts+dur+offset+1` (uses END + the D-102/109 +1); the D-109 inferred offset is
-UNCHANGED by dur, only its application shifts by +dur (so `infer_event_expiry`
-untouched); `@duration(0) ≡ point` BYTE-IDENTICAL; not/exists compose;
-mutation×dur is fixed-at-insert (item-C fence). Full Allen algebra
-(`during`/`overlaps`/…) works in Drools but the parser has only after/before.
-**GATE RULED (Bryan, 2026-07-08): Q1 = ADD THE FULL ALLEN ALGEBRA** (not
-after/before-only); **Q2 accepted** (inferred offset unchanged, apply from
-ts+dur); **Q3 gated** (dur=0≡point). Surgical after/before port surface in D-118
-(`event_specs` +dur_fi; `Test::Temporal` eval 6892/6988 subtract earlier's dur;
-`schedule_expiration` +dur); Allen ops layer on top.
+**JUST LANDED — CEP E2 item E PORT (D-120).** Every event occupies `[ts, ts+dur]`
+(`endTS = ts+dur`; dur=0 for points ⇒ BYTE-IDENTICAL). `EventSpec {ts_fi, expires,
+dur_fi}` struct; `drl::AllenOp` (13 variants) on `Constraint`/`Test::Temporal`
+with `params: Vec<i64>` (≤4) + both events' (ts_fi,dur_fi); a pure
+`eval_allen(op,params,Bs,Be,As,Ae)` applies the D-119 predicate table (both join
+sites); parser generalized to 13 keywords + optional `[p..]` with per-op arity;
+`pattern_key` keeps after/before EXACT (node-sharing) and folds op+params for
+Allen; `schedule_expiration` deadline → `ts+dur+exp+plus` (`infer_event_expiry`
+UNCHANGED). **FENCE (D-119 ruling):** the 11 Allen ops emit NO inference edge ⇒
+an Allen-only event type infers NEVER — verified = EXACTLY the 17 finite-
+classified op×position divergences (matches the D-119 classification), witnessed
+in `scenarios/xfail/xf_cep_e_*`; after/before keep full D-109 inference.
+Promotion: 145 recon probes → **120+2 `pr_cep_e_*`** (byte-identical) + **17
+`xf_cep_e_*`** + **8 `engine_fenced`**. Fuzz extended (`@duration` + Allen dims,
+fenced to explicit-`@expires` types); 3×1000 fresh-seed found only PRE-EXISTING
+E1-hardening latents (all bisect-to-HEAD; HEAD's own fuzz matches the rate).
 
-**D-119 Allen recon: PREDICATES + PARAMS pinned** (62 probes
-`probes_pending/cep/e_allen/`). Full bare matrix (coincides/meets/metby/
-overlaps/overlappedby/during/includes/starts/startedby/finishes/finishedby, all
-strict) + param forms (`during[lo1,hi1,lo2,hi2]`=start/end dist windows,
-`overlaps[min,max]`=overlap `Be−As`, `coincides[sDev,eDev]`, `[dev]` tolerances).
-Direction: `this`=subject, `$a`=object. Port representation designed
-(`AllenOp` enum + ≤4 param + both events' ts/dur fi; eval = endpoint match).
+**Kept WALLED / deferred within item E (follow-on slabs):** (1) **not/exists ×
+temporal** — recon showed `exists`+temporal composes but `not`+temporal has a
+window-CLOSE deferral + an anchor-inference gap; the E1 Positive-only wall STAYS
+(6 `engine_fenced` probes). (2) **window×interval count-during-window** needs the
+`accumulate($e:E();count($e))` bound-source form (a separate pre-existing parser
+wall; interval EXPIRATION already byte-identical). (3) **beyond-Drools full-Allen
+inference** (`docs/allen-beyond-drools.md`) — spec-driven, post-faithfulness.
 
-**⚠ NEXT — the SLAB-1 PORT (recon fully done; all gates RULED).** Execution
-handoff: **`~/.claude/plans/cep-e2-item-e-port.md`** (site-by-site spec + the
-pinned Allen predicate/param table + fence + gate-to-green). Bryan ruled
-FENCE Allen-op `@expires` inference in slab 1 (D-119): land the Allen PREDICATE
-port certified byte-identical to Drools FIRST; inference stays D-109
-(after/before only); Allen-referenced un-annotated event types require explicit
-`@expires` (else fenced + expected-divergence witnesses + a generator gate).
-**Port surface** (D-118 core + D-119 Allen): schema `"duration"`; oracle DONE;
-`event_specs` +dur_fi; `declare_event`/`runner.rs`/`bindings` pass duration;
-`Constraint`/`Test::Temporal` → `AllenOp` enum + ≤4 params + both events'
-(ts_fi,dur_fi), eval (6892/6988) = endpoint match (`endTS=ts+dur`);
-`schedule_expiration` +dur; parser (drl.rs:1385-1404) generalize to 13 keywords
-+ optional `[p..]`; `pattern_key` folds op+params. Gate: probe ladder → promote
-to `scenarios/probes/`, `make diff` byte-identical, extend `tools/fuzz_cep.py`
-(`@duration` dim + Allen ops + advances straddling `ts+dur+offset`), 3×1000
-fresh-seed 0-divergence, `make lint-probes`. **Envisioned ENHANCEMENT (post-
-certification, off-oracle, spec-driven):** fully implement Allen beyond Drools —
-`docs/allen-beyond-drools.md`. NOT current work.
+**⚠ NEXT — Bryan's call.** The CEP E2 arc is COMPLETE. Candidate frontiers, all
+deferred: the not/exists×temporal follow-on (needs its own recon ladder — the
+`not` window-close deferral + anchor inference); the item-C re-propagation port;
+the E1-hardening backlog (below); the beyond-Drools Allen enhancement. No active
+build in flight — surface options and let Bryan pick.
 
-**Open/deferred:** E2 remaining: **E** @duration PORT (slab 1 = predicates +
-`endTS=ts+dur`, Allen inference FENCED; recon D-118+D-119 DONE, ready to build).
-Folded into the port: window:time start-vs-end membership (B×E), mutation×dur
-(item-C fence). Beyond-Drools full-Allen = post-faithfulness roadmap
-(`docs/allen-beyond-drools.md`).
+**Open/deferred:**
 DEFERRED item-C re-propagation port (classes 1/2/3 — temporal Behavior modify
 re-fire, on_update evicted/expired guard, exists external-delete round-trip;
 battery = `xf_cep_c_*` + `pr_cep_c_*` boundary pins + the mutation fuzz).
@@ -5793,3 +5773,87 @@ NO oracle for behavior Drools lacks, so it is SPEC-DRIVEN (Allen's interval
 algebra as the spec), tracked in `docs/allen-beyond-drools.md`. NOT current
 work — a post-faithfulness roadmap item. ⇒ **NEXT = the slab-1 port (predicates
 + params + `endTS=ts+dur`, Allen inference fenced) per the D-118/D-119 surface.**
+
+### D-120: @duration INTERVAL events + full Allen PREDICATE algebra (CEP E2 item E) — PORTED, byte-identical; Allen @expires INFERENCE fenced. THE LAST E2 FENCE, CLOSED.
+**The slab-1 port of D-118 (core) + D-119 (Allen) landed** per the handoff
+(`~/.claude/plans/cep-e2-item-e-port.md`). Every event now occupies an interval
+`[ts, ts+dur]` (`endTS = ts+dur`, dur=0 for points ⇒ BYTE-IDENTICAL, the Q3
+gate). Certified: baseline 11 / probes **944** / regressions 281 byte-identical;
+lint **1325 live/0 ghost/0 inert**; 9 Rust suites + a new `eval_allen` unit
+module (bare matrix + params + directionality + point reduction).
+
+**PORT SURFACE (as built):**
+- `event_specs` value → an `EventSpec { ts_fi, expires, dur_fi }` struct (was a
+  2-tuple); `declare_event` gains `duration: Option<&str>` → resolves an i64
+  field-idx; `runner.rs` reads `event.duration`, `bindings` passes None (Python
+  surface unchanged, like inference).
+- `drl::AllenOp` (13 variants) + `AllenOp::from_keyword`/`arity_ok`.
+  `Constraint::Temporal`/`Test::Temporal` carry `op` + `params: Vec<i64>` (0-4)
+  + both events' `(ts_fi, dur_fi)`; parser generalizes `this <op>[p..]` to the 13
+  keywords with per-op arity validation (after/before still mandate `[lo,hi]`).
+- EVAL = a pure `eval_allen(op, params, Bs,Be,As,Ae)` (both join sites) applying
+  the D-119 predicate table; helpers `overlap_bounds`/`during_bounds` fold the
+  Drools default minDev=1 (bare during/overlaps = STRICT inside). after/before
+  reduce to the E1 point delta when dur=0 ⇒ byte-identical.
+- `pattern_key`: after/before keep the EXACT E1 string (node-sharing identity
+  preserved); Allen ops fold `op+params+both dur-fi` (D-113 anti-mis-share).
+- `schedule_expiration` deadline → `ts + dur + exp + plus`; `infer_event_expiry`
+  UNCHANGED (D-118 Q2: the inferred offset is duration-independent, only its
+  application shifts by +dur). The i2_* interval-inference seam is byte-identical.
+
+**THE FENCE (Allen-op @expires inference — D-119 ruling):** the 11 NEW Allen ops
+emit NO STP edge and do NOT register in `temporal_pos_type`, so an event type
+referenced ONLY via an Allen op reads as a bare pattern and infers NEVER. This is
+FAITHFUL for the never-classified ops (during, and each op's never-position) and
+a DOCUMENTED divergence for the finite-classified ones. VERIFIED against the
+oracle: exactly **17** ic_*/inf_* probes diverge (Seine keeps the event / Drools
+expires it), and the set matches the D-119 per-op×position classification
+EXACTLY — coincides/starts/startedby (both positions), meets/overlappedby/
+finishes (keepB), metby/overlaps/includes/finishedby (keepA). after/before keep
+full D-109 inference (not fenced). Mixed after/before+Allen types stay faithful
+(the after/before edge already registers the type). Witnesses:
+`scenarios/xfail/xf_cep_e_*` (open_divergence). Lift = the beyond-Drools /
+full-inference follow-on (`docs/allen-beyond-drools.md`), NOT this slab.
+
+**not/exists × temporal — kept WALLED (follow-on slab).** Recon (cp_*/cp2_*)
+showed `exists`+temporal COMPOSES cleanly over intervals (END used, matching
+byte-identical), but `not`+temporal has two unresolved gaps needing their own
+recon ladder: (1) a window-CLOSE deferral (`not B(this after $a)` fires
+immediately in Seine but Drools defers until the clock passes the window —
+cp_not_pt_fire), and (2) the anchor A gets an inferred `@expires` THROUGH the
+not-temporal in Drools but not in Seine's positive-only inference (cp2_not_*_adv).
+A silent wrong firing is worse than a clean wall, so the E1 Positive-only wall
+STAYS; the 6 cp_*/cp2_* recon probes are `engine_fenced`. Item E ports
+POSITIVE-pattern intervals + the full Allen predicate set.
+
+**window × interval — RESOLVED.** Windowed-interval EXPIRATION is byte-identical
+(the endTS+window-offset folds in for free; `pr_cep_e_win_int_d50_at120/160`
+fire/expire correctly). The recon's `cp_win_*` probes only failed on an UNRELATED
+pre-existing parser wall (`accumulate($e:E() ...; count($e))` — a bound accumulate
+source); marked `engine_fenced`. The B×E membership-during-window (count
+observation mid-window) needs that accumulate form, a separate follow-on.
+
+**Gate / promotion:** 145 recon probes resolved → **120 → `scenarios/probes/
+pr_cep_e_*`** (byte-identical; near-miss + interval-inference probes carry
+`expect_inert`) + **2** supported-form window probes; **17 → `scenarios/xfail/
+xf_cep_e_*`** (the fenced inference witnesses); **8 `engine_fenced`** in place (6
+not/exists + 2 accumulate-bound-source). `tools/fuzz_cep.py` extended: a per-type
+`@duration` dimension (~45% intervals, dur=0 drawn) + the 11 Allen ops with valid
+param arities, FENCED to explicit-`@expires` types only (an un-annotated type
+under an Allen op would re-flag the known xfail divergence). 3×1000 fresh-seed
+(101/202/303) surfaced **6 divergences, ALL bisect-to-HEAD PRE-EXISTING** — the
+diverging rules are after/before-chain (temporal-join-order), not-CE+mutation
+ordering, and accumulate-count (the E1-hardening backlog); each is BYTE-IDENTICAL
+HEAD-vs-branch once made HEAD-parseable (strip @duration / convert Allen→after),
+so **0 are attributable to the port**. RATE CONFIRMED PRE-EXISTING: HEAD's
+UNMODIFIED `fuzz_cep.py` at the same seed 101 finds the SAME 2 divergences/1000
+(the port neither introduces nor inflates the latent rate; it only reshapes which
+instances the RNG stream lands on).
+
+**⇒ CEP E2 FENCE CLOSED (A–E all resolved):** A @expires inference (D-109), B
+windows (D-110–114), C event update/delete (D-115), D entry points (D-116), E
+@duration intervals + Allen predicates (this entry). **Remaining deferrals:**
+not/exists×temporal (follow-on), the beyond-Drools full-Allen enhancement
+(`docs/allen-beyond-drools.md`), item-C re-propagation port, and the E1-hardening
+backlog (temporal-join-order / accumulate-match latents + the D-117-guarded
+non-termination).

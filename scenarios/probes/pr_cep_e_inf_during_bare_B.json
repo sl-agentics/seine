@@ -1,0 +1,61 @@
+{
+ "name": "pr_cep_e_inf_during_bare_B",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this during $a) then end\n",
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "ts": 0,
+    "dur": 30
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "expect_inert": true
+}

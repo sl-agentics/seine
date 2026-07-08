@@ -33,7 +33,10 @@ fn run_scenario(sc: &J) -> Result<J, String> {
                 .and_then(J::as_str)
                 .ok_or_else(|| format!("{tname}: event needs a 'timestamp' field name"))?;
             let exp = ev.get("expires_ms").and_then(J::as_i64);
-            engine.declare_event(tname, ts, exp).map_err(|e| e.to_string())?;
+            // CEP E2 item E (D-118): optional `@duration(field)` — the event
+            // occupies `[ts, ts+field]`; absent ⇒ point event.
+            let dur = ev.get("duration").and_then(J::as_str);
+            engine.declare_event(tname, ts, exp, dur).map_err(|e| e.to_string())?;
         }
     }
     let drl = sc

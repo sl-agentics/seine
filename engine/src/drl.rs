@@ -77,6 +77,71 @@ pub enum CmpOp {
     Ge,
 }
 
+/// CEP E2 item E (D-118/D-119): the 13 Allen interval-algebra operators
+/// over `@duration` events. Convention `$a:A() $b:B(this <op> $a)` reads
+/// "B `op` A" — `this`=B is the SUBJECT, `$a`=A the OBJECT/anchor (the ops
+/// are DIRECTIONAL, xdir_* pins). Endpoints: `Xs=X.ts`, `Xe=X.ts+X.dur`.
+/// `After`/`Before` are the D-101 temporal-distance ops (mandatory
+/// `[lo,hi]`); the other 11 are endpoint relations with optional tolerance
+/// params. See `eval_allen` for the full predicate table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AllenOp {
+    After,
+    Before,
+    Coincides,
+    Meets,
+    MetBy,
+    Overlaps,
+    OverlappedBy,
+    During,
+    Includes,
+    Starts,
+    StartedBy,
+    Finishes,
+    FinishedBy,
+}
+
+impl AllenOp {
+    /// Parse the operator keyword (following `this`). `None` = not a
+    /// temporal operator (the slot is a normal constraint group).
+    pub fn from_keyword(w: &str) -> Option<AllenOp> {
+        Some(match w {
+            "after" => AllenOp::After,
+            "before" => AllenOp::Before,
+            "coincides" => AllenOp::Coincides,
+            "meets" => AllenOp::Meets,
+            "metby" => AllenOp::MetBy,
+            "overlaps" => AllenOp::Overlaps,
+            "overlappedby" => AllenOp::OverlappedBy,
+            "during" => AllenOp::During,
+            "includes" => AllenOp::Includes,
+            "starts" => AllenOp::Starts,
+            "startedby" => AllenOp::StartedBy,
+            "finishes" => AllenOp::Finishes,
+            "finishedby" => AllenOp::FinishedBy,
+            _ => return None,
+        })
+    }
+
+    /// Whether `n` parameters is a valid arity for this op (oracle-pinned,
+    /// D-119). `after`/`before` REQUIRE exactly 2 (`[lo,hi]`, byte-identical
+    /// to E1); the endpoint ops accept a tolerance/bounds list.
+    pub fn arity_ok(self, n: usize) -> bool {
+        use AllenOp::*;
+        match self {
+            After | Before => n == 2,
+            // |Bs−As| (start), |Be−Ae| (end): 0 bare, 1 shared dev, 2 split.
+            Coincides => n <= 2,
+            // single tolerance on the touching endpoint.
+            Meets | MetBy | Starts | StartedBy | Finishes | FinishedBy => n <= 1,
+            // overlap distance: bare / [max] / [min,max].
+            Overlaps | OverlappedBy => n <= 2,
+            // start & end distances: bare / [max] / [min,max] / [lo1,hi1,lo2,hi2].
+            During | Includes => n == 0 || n == 1 || n == 2 || n == 4,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Literal {
     I64(i64),
@@ -109,10 +174,12 @@ pub enum Constraint {
     Contains { field: String, needle: String },
     /// `n in (1, 2)` / `n not in (1, 2)` — literal membership (D-030)
     InList { field: String, items: Vec<Literal>, negated: bool },
-    /// CEP E1 (D-101): `this after[0ms,100ms] $a` / `this before[...] $a`
-    /// on point events. after: self.ts - a.ts in [lo, hi];
-    /// before: a.ts - self.ts in [lo, hi]. Bounds in ms.
-    Temporal { after: bool, lo_ms: i64, hi_ms: i64, var: String },
+    /// CEP E1/E2 (D-101/D-118/D-119): `this <op>[params] $a` — an Allen
+    /// interval-algebra temporal constraint. `op` = one of the 13 relations;
+    /// `params` = 0-4 `duration_ms` values (after/before carry `[lo,hi]`);
+    /// `var` = the anchor binding ($a). Reads "B op A" (this=B subject,
+    /// $a=A anchor). See `AllenOp` / `eval_allen`.
+    Temporal { op: AllenOp, params: Vec<i64>, var: String },
     /// Inline boolean constraint group (D-073): `a == 1 || a == 2`,
     /// `!(x > 5)`, nested parens. Top-level `&&` never appears here —
     /// it splits into separate comma-equivalent constraints at parse
@@ -1380,27 +1447,38 @@ impl Parser {
             }
             cur_field = Some(field);
         }
-        // CEP E1: `this after[...] $x` / `this before[...] $x` — a
-        // whole-slot form (no composition with groups in E1).
+        // CEP E1/E2: `this <op>[params] $x` — a whole-slot temporal
+        // constraint (no composition with groups). `op` is one of the 13
+        // Allen relations (D-119); `after`/`before` (D-101) mandate `[lo,hi]`,
+        // the endpoint ops take an optional 0-4 tolerance list.
         if matches!(self.peek(), Some(Tok::Ident(w)) if w == "this") {
             self.next()?;
             let opw = self.ident()?;
-            let after = match opw.as_str() {
-                "after" => true,
-                "before" => false,
-                other => {
-                    return Err(self.perr(format!(
-                        "expected after/before following 'this', got {other}"
-                    )))
+            let op = AllenOp::from_keyword(&opw).ok_or_else(|| {
+                self.perr(format!("expected a temporal operator following 'this', got {opw}"))
+            })?;
+            let mut params = Vec::new();
+            if matches!(self.peek(), Some(Tok::Sym("["))) {
+                self.expect_sym("[")?;
+                // non-empty bracket: comma-separated `duration_ms` values.
+                loop {
+                    params.push(self.duration_ms()?);
+                    if matches!(self.peek(), Some(Tok::Sym(","))) {
+                        self.next()?;
+                        continue;
+                    }
+                    break;
                 }
-            };
-            self.expect_sym("[")?;
-            let lo_ms = self.duration_ms()?;
-            self.expect_sym(",")?;
-            let hi_ms = self.duration_ms()?;
-            self.expect_sym("]")?;
+                self.expect_sym("]")?;
+            }
+            if !op.arity_ok(params.len()) {
+                return Err(self.perr(format!(
+                    "operator {opw} does not accept {} parameter(s)",
+                    params.len()
+                )));
+            }
             let var = self.dollar_ident()?;
-            out.push(Constraint::Temporal { after, lo_ms, hi_ms, var });
+            out.push(Constraint::Temporal { op, params, var });
             return Ok(out);
         }
         let e = self.cexpr_or(&mut cur_field)?;

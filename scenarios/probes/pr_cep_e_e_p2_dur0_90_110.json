@@ -1,0 +1,56 @@
+{
+ "name": "pr_cep_e_e_p2_dur0_90_110",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this after[90ms,110ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 100,
+    "dur": 0
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 200,
+    "dur": 0
+   }
+  }
+ ],
+ "epochs": []
+}

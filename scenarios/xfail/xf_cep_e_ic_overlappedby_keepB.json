@@ -1,0 +1,62 @@
+{
+ "name": "xf_cep_e_ic_overlappedby_keepB",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this overlappedby $a) then end\n",
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "ts": 0,
+    "dur": 50
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "CEP E2 item E FENCE (D-120): the Allen op `overlappedby` @expires INFERENCE is fenced this slab. Seine emits NO STP edge for the new Allen ops, so an un-annotated event type referenced only via `overlappedby` infers NEVER; Drools infers a FINITE reach for this op/position and expires the event. engine: event PERSISTS after the far advance ; oracle: event EXPIRED. The matching PREDICATE is certified byte-identical (pr_cep_e_overlappedby* fire probes); only the inference reach is fenced. Lift = the beyond-Drools / full-inference follow-on (docs/allen-beyond-drools.md)."
+}

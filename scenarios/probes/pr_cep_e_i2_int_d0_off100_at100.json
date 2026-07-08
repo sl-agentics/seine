@@ -1,0 +1,56 @@
+{
+ "name": "pr_cep_e_i2_int_d0_off100_at100",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule TJ when $a : E() $b : F(this after[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "dur": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "expect_inert": true
+}

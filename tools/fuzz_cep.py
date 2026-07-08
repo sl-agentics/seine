@@ -79,11 +79,43 @@ class Gen:
         when a rule actually references that EP (else it's an insert into an
         unreferenced entry point, which both engines correctly reject as out
         of subset)."""
+        # CEP E2 item E: interval events carry a @duration value, fixed at
+        # insert (dur mutation is the item-C fence — updates never set it).
+        # dur=0 is drawn too (the point-equivalence path).
+        if t in self.dur_types and "dur" not in fields:
+            fields["dur"] = self.r.choice([0, 10, 20, 30, 50, 80])
         fd = {"type": t, "fields": fields}
         ep = self.type_ep.get(t) if self.use_ep else None
         if ep and ep in self.ep_referenced:
             fd["entry_point"] = ep
         return fd
+
+    # CEP E2 item E (D-119): the 11 Allen ops → their valid param arities.
+    ALLEN = {
+        "coincides": (0, 1, 2), "meets": (0, 1), "metby": (0, 1),
+        "overlaps": (0, 1, 2), "overlappedby": (0, 1, 2),
+        "during": (0, 1, 2, 4), "includes": (0, 1, 2, 4),
+        "starts": (0, 1), "startedby": (0, 1),
+        "finishes": (0, 1), "finishedby": (0, 1),
+    }
+
+    def allen_pred(self):
+        """A random Allen op + a valid param list (D-119). Pairs are ordered
+        lo<=hi (min/max, the two during/includes windows); coincides' two
+        tolerances are order-independent. Returns the `this <op>[..]` text."""
+        r = self.r
+        op = r.choice(list(self.ALLEN))
+        k = r.choice(self.ALLEN[op])
+        pool = [0, 5, 10, 20, 30, 50, 80]
+        if k == 0:
+            return f"this {op}"
+        if k == 1:
+            ps = [r.choice(pool)]
+        elif k == 2:
+            ps = sorted(r.choice(pool) for _ in range(2))
+        else:  # k == 4: two ordered [lo,hi] pairs
+            ps = sorted(r.choice(pool) for _ in range(2)) + sorted(r.choice(pool) for _ in range(2))
+        return f"this {op}[" + ",".join(f"{p}ms" for p in ps) + "]"
 
     def scenario(self, name):
         r = self.r
@@ -103,16 +135,22 @@ class Gen:
         self.has_window = False
         self.etypes = []
         self.type_expiry = {}  # type name -> explicit expires_ms, or None
+        self.dur_types = set()  # CEP E2 item E: types declared @duration(dur)
         types = []
         for i in range(n_ev):
             ev = {"timestamp": "ts"}
             if not infer or r.random() < 0.3:
                 ev["expires_ms"] = r.choice([50, 100, 100, 200, 400])
-            types.append({
-                "name": f"E{i}",
-                "fields": [{"name": "ts", "type": "i64"}, {"name": "tag", "type": "String"}],
-                "event": ev,
-            })
+            fields = [{"name": "ts", "type": "i64"}, {"name": "tag", "type": "String"}]
+            # CEP E2 item E (D-118): ~45% of event types are INTERVALS
+            # occupying [ts, ts+dur] (the endTS drives after/before distance,
+            # Allen predicates, and the +dur expiration shift); the rest are
+            # points (no @duration ⇒ dur 0 ⇒ byte-identical to pre-item-E).
+            if r.random() < 0.45:
+                ev["duration"] = "dur"
+                fields.insert(1, {"name": "dur", "type": "i64"})
+                self.dur_types.add(f"E{i}")
+            types.append({"name": f"E{i}", "fields": fields, "event": ev})
             self.etypes.append(f"E{i}")
             self.type_expiry[f"E{i}"] = ev.get("expires_ms")
         types.append({"name": "P", "fields": [{"name": "v", "type": "i64"}]})
@@ -125,6 +163,7 @@ class Gen:
         self.temporal_types = set()      # class 1: after/before join re-fire
         self.windowed_acc_types = set()  # class 2: evicted/expired revival
         self.exists_types = set()        # class 3: exists witness churn
+        self.allen_types = set()         # item E: types under a NEW Allen op
         # CEP E2 item D: partition SOME scenarios' event types across named
         # entry points (DEFAULT + S1/S2) — a routing dimension that composes
         # with every rule + mutation. A pattern of type T and a fact of type T
@@ -142,18 +181,31 @@ class Gen:
         # ANY node other than temporal Behavior nodes (item-C triage). Not
         # for normal runs — temporal joins are core coverage.
         no_temporal = bool(os.environ.get("CEP_NO_TEMPORAL"))
-        # temporal-join rule(s)
+        # temporal-join rule(s): after/before (D-101) OR a NEW Allen op
+        # (item E). FENCE (D-120): Allen ops are drawn ONLY on types with an
+        # EXPLICIT @expires — an un-annotated type under a new Allen op infers
+        # NEVER in Seine vs FINITE in Drools (the xf_cep_e_* witnesses), so
+        # fuzzing it would re-flag a known, filed divergence. after/before
+        # keep full D-109 inference and run on any type.
+        explicit_types = [t for t in self.etypes if self.type_expiry.get(t) is not None]
         for _ in range(0 if no_temporal else r.randint(1, 2)):
-            a, b = r.choice(self.etypes), r.choice(self.etypes)
-            self.temporal_types.update((a, b))
-            op = r.choice(["after", "before"])
-            lo = r.choice([0, 0, 50])
-            hi = lo + r.choice([50, 100, 150])
+            if explicit_types and r.random() < 0.35:
+                a, b = r.choice(explicit_types), r.choice(explicit_types)
+                self.temporal_types.update((a, b))
+                self.allen_types.update((a, b))
+                pred = self.allen_pred()
+            else:
+                a, b = r.choice(self.etypes), r.choice(self.etypes)
+                self.temporal_types.update((a, b))
+                op = r.choice(["after", "before"])
+                lo = r.choice([0, 0, 50])
+                hi = lo + r.choice([50, 100, 150])
+                pred = f"this {op}[{lo}ms,{hi}ms]"
             cons = f'tag == "{r.choice("xyz")}"' if r.random() < 0.3 else ""
             sal = f" salience {r.randint(-5, 15)}" if r.random() < 0.4 else ""
             rules.append(
                 f'rule TJ{ri}{sal} when $a : {a}({cons}){self.ep_suf(a)} '
-                f'$b : {b}(this {op}[{lo}ms,{hi}ms] $a){self.ep_suf(b)} then end'
+                f'$b : {b}({pred} $a){self.ep_suf(b)} then end'
             )
             ri += 1
         # D-109: transitive CHAIN E0 -> E1 -> E2 (distinct bindings) —

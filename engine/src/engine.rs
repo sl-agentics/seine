@@ -18,7 +18,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::drl::{self, AccFunc, Action, CeKind, CmpOp, CmpRhs, Constraint, Literal, RhsArg, RuleDef};
+use crate::drl::{
+    self, AccFunc, Action, AllenOp, CeKind, CmpOp, CmpRhs, Constraint, Literal, RhsArg, RuleDef,
+};
 use crate::store::{FactId, FactStore, FactView, FieldType, TypeId, TypeSchema, Value};
 
 /// Reserved type name backing first-position not/exists CEs (D-031):
@@ -88,10 +90,20 @@ enum Test {
     /// `not in` lowerings — never admits, and stays UNKNOWN under
     /// negation inside groups.
     Unknown,
-    /// CEP E1 (D-101) point-event temporal join: DELTA in
-    /// [lo_ms, hi_ms] where delta = own.ts - anchor.ts (after) or
-    /// anchor.ts - own.ts (before). anchor = (tuple pos, ts field).
-    Temporal { after: bool, lo_ms: i64, hi_ms: i64, anchor: (usize, usize) },
+    /// CEP E1/E2 (D-101/D-118/D-119) interval temporal join: the Allen
+    /// relation `op` holds between the SELF event `[Bs,Be]` (Bs=own.ts read
+    /// at `field_idx`, Be=Bs+self_dur) and the ANCHOR event `[As,Ae]`
+    /// (As=anchor ts, Ae=As+anchor_dur). `params` = 0-4 bounds (after/before
+    /// carry `[lo,hi]`). `anchor` = (anchor tuple pos, anchor ts field-idx);
+    /// `self_dur_fi`/`anchor_dur_fi` = the `@duration` field indices (None ⇒
+    /// point ⇒ dur 0). Beta-only (D-101). Evaluated by `eval_allen`.
+    Temporal {
+        op: AllenOp,
+        params: Vec<i64>,
+        anchor: (usize, usize),
+        self_dur_fi: Option<usize>,
+        anchor_dur_fi: Option<usize>,
+    },
     /// `matches` — full-string regex acceptance (D-030).
     Matches(crate::rx::Regex),
     /// `contains` — String substring (D-030).
@@ -998,18 +1010,34 @@ impl RuleNet {
     }
 }
 
+/// Per-event-type metadata (CEP E1/E2). `ts_fi` = timestamp field index
+/// (i64 epoch-ms, read at insert). `expires` = `Some(ms)` → auto-retract at
+/// `ts+dur+ms(+1, D-102)`; `None` = NEVER (explicit `@expires` kept verbatim,
+/// else D-109-inferred). `dur_fi` = OPTIONAL `@duration` field index (CEP E2
+/// item E, D-118): the event occupies the interval `[ts, ts+dur]`; `None` ⇒
+/// point event ⇒ dur=0 everywhere ⇒ BYTE-IDENTICAL to pre-item-E (the Q3
+/// corpus-preservation gate). `Copy` so the ~8 read sites stay a one-line
+/// `let EventSpec { .. } = *self.event_specs.get(..)`.
+#[derive(Clone, Copy)]
+struct EventSpec {
+    ts_fi: usize,
+    expires: Option<i64>,
+    dur_fi: Option<usize>,
+}
+
 pub struct Engine {
     /// CEP E1 (D-100/D-101): pseudo-clock in ms. Advances only via
     /// advance(); starts at 0 like the oracle's PseudoClockScheduler.
     clock_ms: i64,
-    /// Event metadata per type: (timestamp field index, expiry).
-    /// expiry = `Some(ms)` → auto-retract at ts+ms(+1, D-102); `None`
-    /// → NEVER expires. Explicit `@expires` is kept verbatim (Some);
-    /// un-annotated event types are filled by `infer_event_expiry`
-    /// after rule compile (CEP E2 item A, D-109) — offset = MAX over
-    /// temporal constraints of {+hi if earlier, -lo if later}; a
-    /// MAX < 0 (the lo>0 later-event leak) or no constraint → None.
-    event_specs: std::collections::HashMap<TypeId, (usize, Option<i64>)>,
+    /// Event metadata per type (see `EventSpec`): timestamp field index,
+    /// expiry, and the optional `@duration` field index (item E). Explicit
+    /// `@expires` is kept verbatim (Some); un-annotated event types are
+    /// filled by `infer_event_expiry` after rule compile (CEP E2 item A,
+    /// D-109) — offset = MAX over temporal constraints of {+hi if earlier,
+    /// -lo if later}; a MAX < 0 (the lo>0 later-event leak) or no
+    /// constraint → None. Allen-op constraints (item E) contribute NO
+    /// inference edge (D-120 fence): an Allen-only event type infers NEVER.
+    event_specs: std::collections::HashMap<TypeId, EventSpec>,
     /// Event types with an EXPLICIT `@expires` — inference skips these
     /// (a8: explicit hard expiry overrides the inferred reach; Drools
     /// `PatternBuilder` `if(hard) use it`, no max-merge).
@@ -1782,8 +1810,30 @@ impl Engine {
         for c in &p.cmps {
             let _ = write!(s, ";{}", c.field_idx);
             match &c.test {
-                Test::Temporal { after, lo_ms, hi_ms, anchor } => {
-                    let _ = write!(s, "tmp{after}{lo_ms}:{hi_ms}@{}.{}", anchor.0, anchor.1);
+                Test::Temporal { op, params, anchor, self_dur_fi, anchor_dur_fi } => {
+                    match op {
+                        // after/before keep the EXACT E1 key string so
+                        // node-sharing identity is byte-identical
+                        // (params[0]=lo, params[1]=hi).
+                        AllenOp::After | AllenOp::Before => {
+                            let after = *op == AllenOp::After;
+                            let _ = write!(
+                                s, "tmp{after}{}:{}@{}.{}",
+                                params[0], params[1], anchor.0, anchor.1
+                            );
+                        }
+                        // Allen ops fold op + params + BOTH @duration field
+                        // indices into the node identity — two different
+                        // relations/tolerances (or interval shapes) over the
+                        // same binding must NOT share a node (D-113 lesson: a
+                        // missing key field silently mis-shares).
+                        _ => {
+                            let _ = write!(
+                                s, "aln{op:?}{params:?}@{}.{}d{self_dur_fi:?}/{anchor_dur_fi:?}",
+                                anchor.0, anchor.1
+                            );
+                        }
+                    }
                 }
                 Test::Cmp { op, rhs: Src::Lit(v) } => {
                     let ft = self.store.field_type(p.type_id, c.field_idx);
@@ -2211,56 +2261,82 @@ impl Engine {
             let mut bind_fields = 0u64;
             for c in &p.constraints {
                 match c {
-                    Constraint::Temporal { after, lo_ms, hi_ms, var } => {
+                    Constraint::Temporal { op, params, var } => {
+                        // FENCE (D-120): temporal predicates on not/exists CEs
+                        // stay walled this slab. The recon (cp_*/cp2_* e_recon)
+                        // showed `exists`+temporal composes cleanly over
+                        // intervals (END used, matching correct), but `not`+
+                        // temporal has TWO unresolved gaps needing their own
+                        // recon ladder: (1) a window-CLOSE deferral —
+                        // `not B(this after $a)` fires immediately in Seine but
+                        // Drools defers until the clock passes the window
+                        // (cp_not_pt_fire: Seine 1 vs Drools 0, no advance);
+                        // (2) the anchor A gets an inferred @expires THROUGH the
+                        // not-temporal in Drools but not in Seine's positive-only
+                        // inference (cp2_not_*_adv: Seine keeps A, Drools expires
+                        // it). Item E ports POSITIVE-pattern intervals + the full
+                        // Allen predicate set; not/exists+temporal is a follow-on.
                         if p.ce != CeKind::Positive {
                             return Err(err(
-                                "temporal constraints on not/exists CEs are out of E1 (D-101)".into(),
+                                "temporal constraints on not/exists CEs are a follow-on slab (D-101/D-120)".into(),
                             ));
                         }
-                        // CEP E1 (D-101): both sides must be DECLARED
-                        // point events; the test reads each side's ts.
-                        let (own_fi, _) = *self.event_specs.get(&type_id).ok_or_else(|| {
+                        // CEP E1/E2 (D-101/D-118): both sides must be DECLARED
+                        // events; the test reads each side's ts and, for
+                        // intervals, its @duration end (item E).
+                        let own_spec = *self.event_specs.get(&type_id).ok_or_else(|| {
                             err(format!(
                                 "{}: temporal constraints need a declared event type",
                                 p.type_name
                             ))
                         })?;
+                        let own_fi = own_spec.ts_fi;
                         let (apos, atid) = *fact_binds.get(var).ok_or_else(|| {
                             err(format!("unknown fact binding {var} (temporal anchor)"))
                         })?;
-                        let (anchor_fi, _) = *self.event_specs.get(&atid).ok_or_else(|| {
+                        let anchor_spec = *self.event_specs.get(&atid).ok_or_else(|| {
                             err(format!("temporal anchor {var} is not a declared event type"))
                         })?;
-                        // D-109 inference: record this constraint as directed
-                        // STP edges for the per-rule TemporalDependencyMatrix
-                        // (closed by Floyd-Warshall at compile end so multi-hop
-                        // chains compose — trans_e1 pin: E1→E2→E3 gives E1 the
-                        // SUMMED reach 150, not the pairwise 100). Eval (6337):
-                        // `after` ⇒ own-anchor ∈ [lo,hi] (self LATER); `before`
-                        // ⇒ anchor-own ∈ [lo,hi] (self EARLIER). Edge (u,v,l,h)
-                        // means (time_v − time_u) ∈ [l,h]; both directions are
-                        // recorded (STP), so backward hops can compose.
-                        let self_pos = tpos.ok_or_else(|| {
-                            err("temporal constraint on a positionless pattern".into())
-                        })?;
-                        // forward edge = upperBound; reverse edge carries the
-                        // lower bound (−lo) so the closure can compose backward
-                        // hops (STP). `after`: t_self−t_anchor ∈ [lo,hi] ⇒
-                        // ub(anchor→self)=hi, ub(self→anchor)=−lo. `before`
-                        // swaps self/anchor.
-                        let (earlier, later) = if *after { (apos, self_pos) } else { (self_pos, apos) };
-                        temporal_edges.push((earlier, later, *hi_ms));
-                        temporal_edges.push((later, earlier, -*lo_ms));
-                        temporal_pos_type.insert(self_pos, type_id);
-                        temporal_pos_type.insert(apos, atid);
+                        let anchor_fi = anchor_spec.ts_fi;
+                        // D-109 @expires INFERENCE — after/before ONLY (D-120
+                        // FENCE). Record directed STP edges for the per-rule
+                        // TemporalDependencyMatrix (closed by Floyd-Warshall at
+                        // compile end so multi-hop chains compose — trans_e1:
+                        // E1→E2→E3 gives E1 the SUMMED reach 150, not the
+                        // pairwise 100). Edge (u,v,ub) means ub(time_v − time_u).
+                        // `after`: t_self−t_anchor ∈ [lo,hi] ⇒ ub(anchor→self)
+                        // =hi, ub(self→anchor)=−lo; `before` swaps self/anchor.
+                        // The 11 NEW Allen ops emit NO edge and do NOT register
+                        // in temporal_pos_type ⇒ an Allen-only event type reads
+                        // as a bare pattern and infers NEVER — the slab-1 fence
+                        // (DIVERGES from Drools for finite-classified ops;
+                        // documented expected-divergence witnesses). after/before
+                        // keep full D-109 inference. (self_pos is a tuple
+                        // position — only after/before inference needs it.)
+                        if matches!(op, AllenOp::After | AllenOp::Before) {
+                            let self_pos = tpos.ok_or_else(|| {
+                                err("temporal constraint on a positionless pattern".into())
+                            })?;
+                            let (lo_ms, hi_ms) = (params[0], params[1]);
+                            let (earlier, later) = if *op == AllenOp::After {
+                                (apos, self_pos)
+                            } else {
+                                (self_pos, apos)
+                            };
+                            temporal_edges.push((earlier, later, hi_ms));
+                            temporal_edges.push((later, earlier, -lo_ms));
+                            temporal_pos_type.insert(self_pos, type_id);
+                            temporal_pos_type.insert(apos, atid);
+                        }
                         listen_mask |= 1 << own_fi;
                         cmps.push(CompiledCmp {
                             field_idx: own_fi,
                             test: Test::Temporal {
-                                after: *after,
-                                lo_ms: *lo_ms,
-                                hi_ms: *hi_ms,
+                                op: *op,
+                                params: params.clone(),
                                 anchor: (apos, anchor_fi),
+                                self_dur_fi: own_spec.dur_fi,
+                                anchor_dur_fi: anchor_spec.dur_fi,
                             },
                             rhs_var: Some(var.clone()),
                         });
@@ -3236,6 +3312,7 @@ impl Engine {
         type_name: &str,
         ts_field: &str,
         expires_ms: Option<i64>,
+        duration: Option<&str>,
     ) -> Result<(), EngineError> {
         let tid = self
             .store
@@ -3250,19 +3327,38 @@ impl Engine {
                 "{type_name}.{ts_field}: event timestamps are i64 epoch-ms (E1 point events)"
             )));
         }
+        // CEP E2 item E (D-118): `@duration(f)` makes T an INTERVAL event
+        // occupying `[ts, ts+f]`. `f` is an i64 field (ms), read at insert
+        // like the timestamp. Absent ⇒ point event (dur=0, byte-identical).
+        let dur_fi = match duration {
+            Some(df) => {
+                let dfi = self.store.field_index(tid, df).ok_or_else(|| {
+                    EngineError(format!("{type_name} has no field {df}"))
+                })?;
+                if self.store.field_type(tid, dfi) != FieldType::I64 {
+                    return Err(EngineError(format!(
+                        "{type_name}.{df}: @duration fields are i64 ms (E2 item E)"
+                    )));
+                }
+                Some(dfi)
+            }
+            None => None,
+        };
         match expires_ms {
             Some(n) if n < 0 => {
                 return Err(EngineError("expires_ms must be >= 0".into()));
             }
             Some(n) => {
-                self.event_specs.insert(tid, (fi, Some(n)));
+                self.event_specs
+                    .insert(tid, EventSpec { ts_fi: fi, expires: Some(n), dur_fi });
                 self.explicit_expiry.insert(tid);
             }
             None => {
                 // un-annotated: register as an event (ts field known);
                 // expiry is filled by infer_event_expiry after all
                 // rules compile (its temporal reach is not yet known).
-                self.event_specs.insert(tid, (fi, None));
+                self.event_specs
+                    .insert(tid, EventSpec { ts_fi: fi, expires: None, dur_fi });
             }
         }
         Ok(())
@@ -3382,7 +3478,7 @@ impl Engine {
                 self.temporal_ub.get(&tid).copied()
             };
             if let Some(spec) = self.event_specs.get_mut(&tid) {
-                spec.1 = inferred;
+                spec.expires = inferred;
             }
         }
     }
@@ -3392,22 +3488,31 @@ impl Engine {
     /// semantics); deadline = ts + expires_ms.
     fn schedule_expiration(&mut self, id: FactId) {
         let tid = self.store.fact_type(id);
-        if let Some(&(fi, exp)) = self.event_specs.get(&tid) {
-            // exp == None → NEVER expires (D-109): the lo>0 later-event
-            // leak, or an event type in no temporal constraint. No
-            // deadline is scheduled; the fact lives until retracted.
-            if let Some(exp) = exp {
+        if let Some(&EventSpec { ts_fi: fi, expires, dur_fi }) = self.event_specs.get(&tid) {
+            // expires == None → NEVER expires (D-109): the lo>0 later-event
+            // leak, an Allen-only type (D-120 fence), or a type in no
+            // temporal constraint. No deadline is scheduled; the fact lives
+            // until retracted.
+            if let Some(exp) = expires {
                 if let Value::I64(ts) = self.store.value(id, fi) {
+                    // CEP E2 item E (D-118): an interval event expires from
+                    // its END `ts+dur`, not its start — explicit and
+                    // inferred offsets both apply from the end (i2_int seam;
+                    // dur=0 for point events ⇒ byte-identical).
+                    let dur = dur_fi.map_or(0, |dfi| match self.store.value(id, dfi) {
+                        Value::I64(d) => d,
+                        _ => 0,
+                    });
                     // D-102 (b1/b2 + f_only30 pins): Drools expiration is
                     // STRICTLY AFTER the window for RULE-REFERENCED types
                     // (the ObjectTypeNode schedules at offset + 1); an
                     // event type NO rule references has no OTN and expires
-                    // at exactly ts + expires.
+                    // at exactly ts + dur + expires.
                     let referenced = self.rules.iter().any(|r| {
                         r.patterns.iter().any(|p| p.type_id == tid)
                     });
                     let plus = if referenced { 1 } else { 0 };
-                    self.deadlines.entry(ts + exp + plus).or_default().push(id);
+                    self.deadlines.entry(ts + dur + exp + plus).or_default().push(id);
                 }
             }
         }
@@ -3426,7 +3531,7 @@ impl Engine {
             return;
         }
         let tid = self.store.fact_type(id);
-        let Some(&(fi, _)) = self.event_specs.get(&tid) else {
+        let Some(&EventSpec { ts_fi: fi, .. }) = self.event_specs.get(&tid) else {
             return; // windowed sources are events; non-events have no ts
         };
         let Value::I64(ts) = self.store.value(id, fi) else {
@@ -6889,14 +6994,17 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                     let other = if Some(*ti) == pat.tpos { f } else { l[*ti] };
                     eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
                 }
-                Test::Temporal { after, lo_ms, hi_ms, anchor } => {
-                    // CEP E1 point-event join: delta in [lo, hi]
-                    let Value::I64(own) = lhs else { return false };
-                    let Value::I64(a) = self.store.value(l[anchor.0], anchor.1) else {
+                Test::Temporal { op, params, anchor, self_dur_fi, anchor_dur_fi } => {
+                    // CEP E1/E2 interval join: [Bs,Be] (self) vs [As,Ae]
+                    // (anchor); each end = start + @duration (0 if point, so
+                    // after/before reduce to the E1 point delta).
+                    let Value::I64(bs) = lhs else { return false };
+                    let Value::I64(as_) = self.store.value(l[anchor.0], anchor.1) else {
                         return false;
                     };
-                    let d = if *after { own - a } else { a - own };
-                    d >= *lo_ms && d <= *hi_ms
+                    let be = bs + dur_of(self.store, f, *self_dur_fi);
+                    let ae = as_ + dur_of(self.store, l[anchor.0], *anchor_dur_fi);
+                    eval_allen(*op, params, bs, be, as_, ae)
                 }
                 Test::Cmp { .. } => true,
                 other => eval_alpha_test(&lhs, other),
@@ -6985,14 +7093,17 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                     let other = if Some(*ti) == pat.tpos { f } else { l[*ti] };
                     eval_cmp_join(&lhs, *op, &self.store.value(other, *fi))
                 }
-                Test::Temporal { after, lo_ms, hi_ms, anchor } => {
-                    // CEP E1 point-event join: delta in [lo, hi]
-                    let Value::I64(own) = lhs else { return false };
-                    let Value::I64(a) = self.store.value(l[anchor.0], anchor.1) else {
+                Test::Temporal { op, params, anchor, self_dur_fi, anchor_dur_fi } => {
+                    // CEP E1/E2 interval join: [Bs,Be] (self) vs [As,Ae]
+                    // (anchor); each end = start + @duration (0 if point, so
+                    // after/before reduce to the E1 point delta).
+                    let Value::I64(bs) = lhs else { return false };
+                    let Value::I64(as_) = self.store.value(l[anchor.0], anchor.1) else {
                         return false;
                     };
-                    let d = if *after { own - a } else { a - own };
-                    d >= *lo_ms && d <= *hi_ms
+                    let be = bs + dur_of(self.store, f, *self_dur_fi);
+                    let ae = as_ + dur_of(self.store, l[anchor.0], *anchor_dur_fi);
+                    eval_allen(*op, params, bs, be, as_, ae)
                 }
                 Test::Cmp { .. } => true,
                 other => eval_alpha_test(&lhs, other),
@@ -7022,6 +7133,112 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
 /// Non-Cmp alpha tests (D-030): matches = full-string regex on Strings;
 /// contains = substring; in = OR of ==-with-promotion branches (a double
 /// literal never truncates against a long field here — op_i3).
+/// Read an `@duration` field (ms) from fact `f`; 0 when the type has no
+/// `@duration` (point event) or the value is null/non-i64 (CEP E2 item E).
+fn dur_of(store: &FactStore, f: FactId, dur_fi: Option<usize>) -> i64 {
+    match dur_fi {
+        Some(fi) => match store.value(f, fi) {
+            Value::I64(d) => d,
+            _ => 0,
+        },
+        None => 0,
+    }
+}
+
+/// Overlap-distance bounds `[min,max]` for `overlaps`/`overlappedby`
+/// (D-119). The structural predicate already forces the overlap ≥ 1, so
+/// bare/`[max]` default the lower bound to 1; `[min,max]` sets both.
+fn overlap_bounds(params: &[i64]) -> (i64, i64) {
+    match params {
+        [max] => (1, *max),
+        [min, max] => (*min, *max),
+        _ => (1, i64::MAX),
+    }
+}
+
+/// `during`/`includes` endpoint windows — (start-min, start-max, end-min,
+/// end-max) applied to (dS, dE). Bare = strict inside (min 1, the pinned
+/// `dist>0` default); `[v]` = `[1,v]` on both; `[lo,hi]` = `[lo,hi]` on
+/// both; `[lo1,hi1,lo2,hi2]` = split (D-119; Drools default minDev=1).
+fn during_bounds(params: &[i64]) -> (i64, i64, i64, i64) {
+    match params {
+        [v] => (1, *v, 1, *v),
+        [lo, hi] => (*lo, *hi, *lo, *hi),
+        [lo1, hi1, lo2, hi2] => (*lo1, *hi1, *lo2, *hi2),
+        _ => (1, i64::MAX, 1, i64::MAX),
+    }
+}
+
+/// CEP E2 item E (D-118/D-119): evaluate the Allen relation `op` (with
+/// optional tolerance `params`) between the SELF interval `[bs, be]` and
+/// the ANCHOR interval `[as_, ae]`. "B op A" convention — bs/be = subject
+/// (`this`=B), as_/ae = object (anchor `$a`=A). Bounds are the oracle-
+/// pinned endpoint comparisons; parameterized forms bound a specific
+/// endpoint distance (inclusive). Point events feed `be==bs` / `ae==as_`,
+/// so a dur=0 anchor/self reduces each op to its point behavior.
+fn eval_allen(op: AllenOp, params: &[i64], bs: i64, be: i64, as_: i64, ae: i64) -> bool {
+    use AllenOp::*;
+    match op {
+        // after: d = Bs − Ae ∈ [lo,hi] (B later; only the anchor's dur
+        // enters via Ae). before: d = As − Be ∈ [lo,hi] (B earlier; only
+        // self's dur enters via Be). Bounds inclusive, exact (no ±1).
+        After => {
+            let d = bs - ae;
+            d >= params[0] && d <= params[1]
+        }
+        Before => {
+            let d = as_ - be;
+            d >= params[0] && d <= params[1]
+        }
+        // bare: Bs==As ∧ Be==Ae. [dev]: |Bs−As|≤dev ∧ |Be−Ae|≤dev.
+        // [sDev,eDev]: split start/end tolerances.
+        Coincides => {
+            let (sdev, edev) = match params {
+                [dev] => (*dev, *dev),
+                [sd, ed] => (*sd, *ed),
+                _ => (0, 0),
+            };
+            (bs - as_).abs() <= sdev && (be - ae).abs() <= edev
+        }
+        // bare: Be==As. [dev]: |Be−As|≤dev.
+        Meets => (be - as_).abs() <= params.first().copied().unwrap_or(0),
+        // bare: Bs==Ae. [dev]: |Bs−Ae|≤dev.
+        MetBy => (bs - ae).abs() <= params.first().copied().unwrap_or(0),
+        // structural Bs<As<Be<Ae; overlap = Be−As within [min,max].
+        Overlaps => {
+            let (min, max) = overlap_bounds(params);
+            let ov = be - as_;
+            bs < as_ && as_ < be && be < ae && ov >= min && ov <= max
+        }
+        // structural As<Bs<Ae<Be; overlap = Ae−Bs within [min,max].
+        OverlappedBy => {
+            let (min, max) = overlap_bounds(params);
+            let ov = ae - bs;
+            as_ < bs && bs < ae && ae < be && ov >= min && ov <= max
+        }
+        // B strictly inside A: dS=Bs−As, dE=Ae−Be, each in its window.
+        During => {
+            let (smin, smax, emin, emax) = during_bounds(params);
+            let (ds, de) = (bs - as_, ae - be);
+            ds >= smin && ds <= smax && de >= emin && de <= emax
+        }
+        // A strictly inside B (during with A,B swapped): dS=As−Bs, dE=Be−Ae.
+        Includes => {
+            let (smin, smax, emin, emax) = during_bounds(params);
+            let (ds, de) = (as_ - bs, be - ae);
+            ds >= smin && ds <= smax && de >= emin && de <= emax
+        }
+        // Bs==As (±dev) ∧ Be<Ae (the end side stays strict).
+        Starts => (bs - as_).abs() <= params.first().copied().unwrap_or(0) && be < ae,
+        // Bs==As (±dev) ∧ Be>Ae.
+        StartedBy => (bs - as_).abs() <= params.first().copied().unwrap_or(0) && be > ae,
+        // Be==Ae (±dev) ∧ Bs>As (the start side stays strict).
+        Finishes => (be - ae).abs() <= params.first().copied().unwrap_or(0) && bs > as_,
+        // Be==Ae (±dev) ∧ Bs<As.
+        FinishedBy => (be - ae).abs() <= params.first().copied().unwrap_or(0) && bs < as_,
+    }
+}
+
 fn eval_alpha_test(lhs: &Value, test: &Test) -> bool {
     match test {
         Test::Matches(r) => matches!(lhs, Value::Str(s) if r.accepts(s)),
@@ -7090,5 +7307,88 @@ fn eval_cmp(lhs: &Value, op: CmpOp, rhs: &Value) -> bool {
             CmpOp::Gt => o == Ordering::Greater,
             CmpOp::Ge => o != Ordering::Less,
         },
+    }
+}
+
+#[cfg(test)]
+mod allen_eval_tests {
+    //! CEP E2 item E (D-118/D-119): certify the `eval_allen` predicate table
+    //! independently of the oracle differential — the pinned bare matrix,
+    //! parameterized forms, directionality, and the dur=0 point reduction.
+    //! Configs mirror the oracle-verified probes (B op A; Bs=B.ts,
+    //! Be=B.ts+B.dur, As=A.ts, Ae=A.ts+A.dur).
+    use super::AllenOp::*;
+    use super::{eval_allen, AllenOp};
+
+    /// `eval_allen(op, params, Bs, Be, As, Ae)`.
+    fn f(op: AllenOp, p: &[i64], bs: i64, be: i64, as_: i64, ae: i64) -> bool {
+        eval_allen(op, p, bs, be, as_, ae)
+    }
+
+    #[test]
+    fn bare_matrix_fires_on_the_relation() {
+        assert!(f(Meets, &[], 0, 50, 50, 90)); // Be==As
+        assert!(f(MetBy, &[], 50, 90, 0, 50)); // Bs==Ae
+        assert!(f(Coincides, &[], 10, 60, 10, 60)); // Bs==As & Be==Ae
+        assert!(f(Overlaps, &[], 0, 50, 30, 100)); // Bs<As<Be<Ae
+        assert!(f(OverlappedBy, &[], 30, 100, 0, 50)); // As<Bs<Ae<Be
+        assert!(f(During, &[], 20, 80, 0, 100)); // As<Bs & Be<Ae
+        assert!(f(Includes, &[], 0, 100, 20, 80)); // Bs<As & Ae<Be
+        assert!(f(Starts, &[], 10, 50, 10, 90)); // Bs==As & Be<Ae
+        assert!(f(StartedBy, &[], 10, 90, 10, 50)); // Bs==As & Be>Ae
+        assert!(f(Finishes, &[], 50, 90, 10, 90)); // Be==Ae & Bs>As
+        assert!(f(FinishedBy, &[], 10, 90, 50, 90)); // Be==Ae & Bs<As
+    }
+
+    #[test]
+    fn bare_matrix_inert_on_near_miss() {
+        assert!(!f(Meets, &[], 0, 49, 50, 90)); // Be=49 != As=50
+        assert!(!f(Meets, &[], 0, 51, 50, 90)); // Be=51 != As=50
+        assert!(!f(During, &[], 0, 80, 0, 100)); // eqstart: dS=0 not strict
+        assert!(!f(During, &[], 0, 100, 0, 100)); // equal bounds: not inside
+        assert!(!f(Starts, &[], 10, 90, 10, 50)); // endgt: Be>Ae is startedby
+        assert!(!f(Starts, &[], 11, 50, 10, 90)); // Bs!=As
+        assert!(!f(Coincides, &[], 11, 60, 10, 60)); // Bs off by 1, no dev
+    }
+
+    #[test]
+    fn directional_not_symmetric() {
+        // a during-config (A big, B small inside) under `includes` is inert
+        // and vice-versa (xdir_* pins).
+        assert!(!f(Includes, &[], 20, 80, 0, 100));
+        assert!(!f(During, &[], 0, 100, 20, 80));
+    }
+
+    #[test]
+    fn parameterized_forms() {
+        // during[min,max]: dS,dE both in [lo,hi], inclusive.
+        assert!(f(During, &[20, 25], 20, 80, 0, 100)); // dS=dE=20
+        assert!(!f(During, &[21, 25], 20, 80, 0, 100)); // 20 < min 21
+        // during[lo1,hi1,lo2,hi2]: split start/end windows.
+        assert!(f(During, &[15, 25, 25, 35], 20, 70, 0, 100)); // dS=20, dE=30
+        // overlaps[max]/[min,max] bound the overlap Be-As (structural still holds).
+        assert!(!f(Overlaps, &[15], 0, 50, 30, 100)); // overlap 20 > 15
+        assert!(f(Overlaps, &[10, 25], 0, 50, 30, 100)); // 10<=20<=25
+        assert!(!f(Overlaps, &[21, 25], 0, 50, 30, 100)); // 20 < min 21
+        // meets[dev]/coincides[sDev,eDev] tolerances, inclusive.
+        assert!(f(Meets, &[1], 0, 49, 50, 90)); // |49-50|=1<=1
+        assert!(!f(Coincides, &[0, 1], 11, 60, 10, 60)); // |Bs-As|=1 > sDev 0
+        assert!(f(Coincides, &[1, 1], 11, 61, 10, 60)); // both diffs 1 <= 1
+    }
+
+    #[test]
+    fn after_before_distance_and_point_reduction() {
+        // after: d = Bs - Ae in [lo,hi]. Interval anchor A(ts=100,dur=30)
+        // ⇒ Ae=130; B(ts=200) ⇒ d=70 ∈ [60,80] fires.
+        assert!(f(After, &[60, 80], 200, 230, 100, 130));
+        // point anchor (dur=0 ⇒ Ae=As=100) ⇒ d=100 ∉ [60,80] inert — the
+        // endTS=ts+dur feature: only the earlier event's dur enters.
+        assert!(!f(After, &[60, 80], 200, 200, 100, 100));
+        // before: d = As - Be in [lo,hi].
+        assert!(f(Before, &[60, 80], 100, 130, 200, 230)); // 200-130=70
+        // dur=0 both sides: every op reduces to its point behavior —
+        // coincides on identical points fires, during is inert.
+        assert!(f(Coincides, &[], 10, 10, 10, 10));
+        assert!(!f(During, &[], 10, 10, 10, 10));
     }
 }
