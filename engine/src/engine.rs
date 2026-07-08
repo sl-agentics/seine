@@ -1795,12 +1795,21 @@ impl Engine {
             }
         }
         if let Some(acc) = &p.acc {
+            // D-112: the WINDOW spec and the groupby key are part of the
+            // accumulate's node identity — two accumulates over the same
+            // source binding but a different `over window:time(N)` (or a
+            // different groupby) must NOT share the node (share_same:
+            // a windowed W2 and a plain W3 over `E1($t:ts)` shared and both
+            // reported the windowed value). Absent before, since D-111
+            // added `window_time` to the spec but not to this key.
             let _ = write!(
                 s,
-                "|acc{:?}:{}:{:?}",
+                "|acc{:?}:{}:{:?}:w{:?}:g{:?}",
                 acc.func,
                 acc.arg_name.as_deref().unwrap_or(""),
-                acc.arg_field
+                acc.arg_field,
+                acc.window_time,
+                acc.key_field,
             );
         }
         s

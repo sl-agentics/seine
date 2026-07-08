@@ -1,0 +1,66 @@
+{
+ "name": "win_share_nn",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 200
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W2 when accumulate( E1($t : ts) over window:time(100ms); $c : sum($t) ) then end\nrule W3 when accumulate( E1($t : ts) over window:time(300ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 9,
+    "g": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 200
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 217,
+      "g": 1
+     }
+    }
+   ]
+  }
+ ]
+}

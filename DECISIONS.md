@@ -21,11 +21,12 @@ Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **several commits UNPUSHED** (don't push without Bryan).
 Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
-`9efd827` item B RUNTIME (D-111, window eviction + A→B seam), **`f0a70d5`
-D-112** — accumulate removals EAGER (fixes the pre-existing
-accumulate+expiration deferral bug), model-checked + blast-radius fuzzed
-clean. Gates green: baseline 11 / probes 785 / regressions 281
-byte-identical; lint 1153; 8 Rust suites.
+`9efd827` item B RUNTIME (D-111, window eviction + A→B seam), `f0a70d5`
+D-112 (accumulate removals EAGER). **UNCOMMITTED working tree: D-113** —
+window accumulate NODE-SHARING fix (window_time was missing from the
+node-identity key; cleared the bulk of the windowed fuzz divergences),
+corpus byte-identical. Gates green: baseline 11 / probes 788 / regressions
+281 byte-identical; lint 1159; 8 Rust suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
@@ -47,17 +48,20 @@ accumulate removals are EAGER (advance-time, by salience) for PLAIN
 accumulates + window eviction; not-CE/temporal/windowed-expiration stay
 LAZY. Model-checked (`model_check_accdefer`, unique survivor) + blast-radius
 clean (main-axis 3900 cases 0 div; CEP plain-acc 0 div). 18 pins promoted.
-**RESUME HERE — the WINDOWED-accumulate removal-TIMING sub-recon (D-112
-deferred):** the eager/lazy of a window eviction vs a coincident windowed
-expiration under later-insert+salience FLIP-FLOPS (cf1x65 vs cf1x233 vs
-cf1x249; ≈0.5–5% of windowed fuzz draws, 0 plain/non-acc). Extend
-`model_check_stream` with a WindowNode+AccumulateNode and enumerate the
-flush micro-order — do NOT hand-tune (D-083). Anchors
-`scenarios/xfail/xf_win_acc_defer_{1,2}`.
+**D-113 fixed the BULK of the "windowed composition"** — it was a concrete
+NODE-SHARING bug (window_time missing from `pattern_key`), not a flush
+micro-order (CEP fuzz seed7 19→2, seed1 8→3). **RESUME HERE — the genuine
+windowed removal-TIMING residual (~0.5% of windowed draws):** the
+multi-epoch eviction/expiration TRANSIENT (a windowed accumulate keeps an
+evicted event transiently when a later insert arrives — cf1x233/249/320;
+anchor `xf_win_acc_defer_2`). Minimal 1–2-event repros all PASS, so extend
+`model_check_stream` with a WindowNode+AccumulateNode for the MULTI-EVENT
+flush micro-order — do NOT hand-tune (D-083).
 
-**Open/deferred:** **D-112: windowed-accumulate removal-timing composition**
-(eviction-vs-windowed-expiration flush micro-order — the WindowNode model-
-check sub-recon; 2 xfail anchors). E1-hardening — 2 temporal-join-order
+**Open/deferred:** **windowed-accumulate removal-TIMING residual**
+(D-112/D-113: the multi-epoch eviction/expiration transient — the WindowNode
+flush-order model-check; ~0.5% of windowed draws; 1 xfail anchor
+`xf_win_acc_defer_2`. The node-sharing bulk was fixed in D-113). E1-hardening — 2 temporal-join-order
 xfails (bisect-confirmed pre-existing); D-080 TMS envelope; window × TMS /
 node-sharing; `window:length` + standalone-pattern window (walled, follow-
 on); E2 remaining: C event update/delete, D entry-points, E @duration.
@@ -5284,3 +5288,43 @@ model-check sub-recon.
 **Artifacts:** `tools/model_check_accdefer.py`; 18 promoted pins
 `scenarios/probes/pr_cep_df_*` + `pr_cep_win_defer_*`; 2 xfail anchors;
 `fuzz_cep.py` accumulate-over-event-stream draws.
+
+### D-113: window accumulate NODE-SHARING identity fix — the bulk of the "windowed removal-timing composition" was a concrete node-sharing bug, not a flush micro-order
+
+Starting the WindowNode model-check sub-recon (task#6) PROBE-FIRST, the
+first anchor `xf_win_acc_defer_1` bisected to a MINIMAL repro (`share_same`,
+now `pr_cep_win_share_wvp`): a WINDOWED accumulate `accumulate(E1($t:ts)
+over window:time(100ms); sum($t))` and a PLAIN `accumulate(E1($t:ts);
+sum($t))` with the SAME source binding both reported the WINDOWED value
+(`W2[217], W3[217]`; oracle `W2[217], W3[226]`). Root cause: `pattern_key`
+(the D-037 node-sharing identity) folded the accumulate as
+`func:arg_name:arg_field` but OMITTED `window_time` (and `key_field`) — so
+D-111's `over window:time(N)` was invisible to sharing and a windowed acc
+collided with a plain one over the same binding, sharing the node and
+propagating the windowed result to both. (Latent since D-111: `window_time`
+was added to the spec but not to this key.) FIX: fold `:w{window_time}:g
+{key_field}` into the accumulate key. Uniform string change ⇒ existing
+sharing preserved (corpus byte-identical); only window/groupby-differing
+accumulates now split. Pins `pr_cep_win_share_{wvp,nn,id}` (windowed≠plain,
+diff-N≠, identical=share).
+
+**Impact:** this was the MAJORITY of the "windowed composition" fuzz
+divergences — CEP fuzz seed 7 **19→2**, seed 1 **8→3** after the fix; corpus
+byte-identical (788/281/11), lint 1159, 8 suites. `xf_win_acc_defer_1` now
+PASSES (retired from xfail). So the earlier "flip-flopping" (D-112) was
+largely this concrete bug masquerading as a timing composition — a good
+reminder to bisect fuzz cases to minimal repros before declaring a flush
+micro-order.
+
+**STILL DEFERRED — the genuine windowed removal-TIMING residual (~0.5% of
+windowed draws).** After the sharing fix the remaining failures are the
+multi-epoch eviction/expiration TRANSIENT (a windowed accumulate keeps an
+evicted/expired event transiently when a later insert arrives — cf1x233/
+cf1x249/cf1x320; anchor `xf_win_acc_defer_2`). Minimal 1–2-event repros all
+PASS (evt1/evt2_a/evt2_b, df_win_evict_ctl), so it genuinely lives in the
+MULTI-EVENT flush micro-order — the WindowNode model-check target (extend
+`model_check_stream` with a WindowNode + AccumulateNode; do NOT hand-tune,
+D-083). (`cf7x121`-class residuals are pre-existing temporal-join-order,
+unrelated.) **NEXT:** the WindowNode flush-order model-check.
+**Artifacts:** `pr_cep_win_share_{wvp,nn,id}`; `engine.rs pattern_key` acc
+key; anchor `xf_win_acc_defer_2`.
