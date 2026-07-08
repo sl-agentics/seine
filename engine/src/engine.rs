@@ -3778,7 +3778,12 @@ impl Engine {
     pub fn delete_fact(&mut self, id: FactId) -> Result<(), EngineError> {
         self.reject_mutation_with_qce("delete")?;
         if !self.store.is_alive(id) {
-            return Err(EngineError(format!("delete of dead handle {}", id.0)));
+            // CEP E2 item C (D-115): Drools' session.delete is LENIENT on an
+            // already-retracted handle — a double-delete (c_double_del) or a
+            // delete of a fully-drained event is a graceful no-op, not an
+            // error. (delete-of-EXPIRED already no-ops because expired events
+            // stay is_alive until the deferred drain — c_del_after_exp.)
+            return Ok(());
         }
         let Some(victim) = self.tms_route_delete(id) else {
             return Ok(()); // pinned no-op quirk

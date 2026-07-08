@@ -1,5 +1,5 @@
 {
- "name": "c_del_not",
+ "name": "c_del_after_exp",
  "types": [
   {
    "name": "E",
@@ -15,7 +15,7 @@
    ],
    "event": {
     "timestamp": "ts",
-    "expires_ms": 100000
+    "expires_ms": 50
    }
   },
   {
@@ -28,7 +28,7 @@
    ]
   }
  ],
- "drl": "rule N salience 5 when not E() P() then end\nrule Rp salience 0 when P(v==2) then end\n",
+ "drl": "rule W when accumulate( E(); $c : count() ) then end\n",
  "facts": [
   {
    "type": "E",
@@ -36,30 +36,22 @@
     "ts": 10,
     "tag": "x"
    }
-  },
-  {
-   "type": "P",
-   "fields": {
-    "v": 1
-   }
   }
  ],
  "epochs": [
   {
    "actions": [
     {
-     "op": "delete",
-     "target": 0
+     "op": "advance",
+     "ms": 100
     },
     {
-     "op": "insert",
-     "type": "P",
-     "fields": {
-      "v": 2
-     }
+     "op": "delete",
+     "target": 0
     }
    ],
    "facts": []
   }
- ]
+ ],
+ "_finding": "item C (WORKS): delete of an EXPIRED event is a clean no-op (expired events stay is_alive until drain)."
 }

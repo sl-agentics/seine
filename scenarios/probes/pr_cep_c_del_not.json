@@ -1,0 +1,66 @@
+{
+ "name": "c_del_not",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule N salience 5 when not E() P() then end\nrule Rp salience 0 when P(v==2) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    },
+    {
+     "op": "insert",
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "item C (WORKS): external delete of a not-CE blocker unblocks; composes by salience."
+}

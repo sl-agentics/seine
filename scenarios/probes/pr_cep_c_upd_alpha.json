@@ -1,5 +1,5 @@
 {
- "name": "c1_ts_update",
+ "name": "c_upd_alpha",
  "types": [
   {
    "name": "E",
@@ -15,7 +15,7 @@
    ],
    "event": {
     "timestamp": "ts",
-    "expires_ms": 50
+    "expires_ms": 100000
    }
   },
   {
@@ -28,7 +28,7 @@
    ]
   }
  ],
- "drl": "rule R when $e : E() then end\n",
+ "drl": "rule W when accumulate( E(tag==\"x\", $t : ts); $c : sum($t) ) then end\n",
  "facts": [
   {
    "type": "E",
@@ -45,16 +45,13 @@
      "op": "update",
      "target": 0,
      "fields": {
-      "ts": 200,
-      "tag": "x"
+      "ts": 10,
+      "tag": "y"
      }
-    },
-    {
-     "op": "advance",
-     "ms": 100
     }
    ],
    "facts": []
   }
- ]
+ ],
+ "_finding": "item C (WORKS): alpha-field update LEAVES an accumulate (alpha exit)."
 }

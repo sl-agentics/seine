@@ -1,0 +1,68 @@
+{
+ "name": "xf_cep_c_del_churn_exists",
+ "_finding": "CLASS 3 (item C): external DELETE of the sole exists-witness + insert of a fresh witness in the SAME epoch. External delete is IMMEDIATE (on_delete), so it un-fires exists; the same-epoch insert re-fires it -> Drools fires NE twice. The engine keeps exists linked across the churn -> fires once. engine: NE ; oracle: NE NE. C-SPECIFIC: the EXPIRATION analog (expire the witness + insert) PASSES on both (exp_churn_exists \u2014 expiration retraction defers/nets out, D-102). Controls: delete-only (no reinsert) PASSES (d2); not-CE variant PASSES (d4).",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when exists E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 21,
+      "tag": "y"
+     }
+    }
+   ]
+  }
+ ],
+ "open_divergence": true
+}

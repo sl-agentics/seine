@@ -1,0 +1,58 @@
+{
+ "name": "c_plainjoin_upd",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when $a : A($k : k) $b : B(k == $k) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "k": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "item C (WORKS): boundary: no-op update of a PLAIN beta join does NOT re-fire on either engine; contrast class-1 xf_cep_c_upd_temporal."
+}

@@ -1,0 +1,65 @@
+{
+ "name": "c_win_ts_upd",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E($t : ts) over window:time(100ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "ts": 200
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "item C (WORKS): ts-field update of a windowed event re-folds the sum; window membership uses the FIXED insert event-time."
+}

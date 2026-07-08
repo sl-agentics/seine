@@ -1,0 +1,61 @@
+{
+ "name": "xf_cep_c_upd_evict_revive",
+ "_finding": "CLASS 2 (item C): external UPDATE of a window-EVICTED event re-adds it to the windowed accumulate. advance 60 evicts E0@ts0 from window:time(50) (count 1->0); the update re-propagates the still-is_alive event -> engine re-adds (count 0->1); Drools keeps it evicted. engine: W[1] W[1] ; oracle: W[1] W[0]. Same root as c_upd_after_exp (expiration variant): a clock-driven STAGED removal is undone by a later update. Controls: evict-only PASSES (w4); update-BEFORE-evict PASSES (w2); delete-after-evict PASSES (w3).",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0() over window:time(50ms); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 60
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "open_divergence": true
+}

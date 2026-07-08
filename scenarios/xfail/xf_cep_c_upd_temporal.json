@@ -1,0 +1,57 @@
+{
+ "name": "xf_cep_c_upd_temporal",
+ "_finding": "CLASS 1 (item C): external UPDATE of an event in a temporal (after/before) join. Drools re-fires the temporal match on ANY update of a participating event (even a no-op value, even an irrelevant field \u2014 temporal Behavior nodes are NOT property-reactive). The engine treats it as property-reactive (like a plain beta join) and does NOT re-fire -> UNDER-fires. Deterministic. engine: TJ0 ; oracle: TJ0 TJ0. Controls: no-update PASSES; plain-beta-join no-op update PASSES on both (v_plainjoin_upd); delete PASSES.",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 when $a : E0() $b : E0(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 3,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "w"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "open_divergence": true
+}

@@ -1,0 +1,61 @@
+{
+ "name": "c_upd_after_del",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E(); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "engine_fenced": true,
+ "_finding": "item C (OUT OF SUBSET): update of an already-deleted handle \u2014 engine rejects loudly ('dead handle'); Drools NPEs. Both error."
+}

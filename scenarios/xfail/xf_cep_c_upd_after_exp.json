@@ -1,5 +1,5 @@
 {
- "name": "c_del_acc",
+ "name": "xf_cep_c_upd_after_exp",
  "types": [
   {
    "name": "E",
@@ -42,11 +42,19 @@
   {
    "actions": [
     {
-     "op": "delete",
-     "target": 0
+     "op": "advance",
+     "ms": 100
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z"
+     }
     }
    ],
    "facts": []
   }
- ]
+ ],
+ "open_divergence": true
 }

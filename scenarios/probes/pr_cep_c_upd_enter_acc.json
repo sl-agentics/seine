@@ -1,0 +1,56 @@
+{
+ "name": "c_upd_enter_acc",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\"); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "tag": "y"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "x"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "item C (WORKS): alpha-field update ENTERS an accumulate (alpha entry, D-094 entry-before-exit)."
+}

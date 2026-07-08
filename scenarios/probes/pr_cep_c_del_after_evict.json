@@ -1,8 +1,8 @@
 {
- "name": "c3_delete",
+ "name": "c_del_after_evict",
  "types": [
   {
-   "name": "E",
+   "name": "E0",
    "fields": [
     {
      "name": "ts",
@@ -15,7 +15,7 @@
    ],
    "event": {
     "timestamp": "ts",
-    "expires_ms": 50
+    "expires_ms": 100000
    }
   },
   {
@@ -28,13 +28,13 @@
    ]
   }
  ],
- "drl": "rule R when $e : E() then end\n",
+ "drl": "rule W when accumulate( E0() over window:time(50ms); $c : count() ) then end\n",
  "facts": [
   {
-   "type": "E",
+   "type": "E0",
    "fields": {
-    "ts": 10,
-    "tag": "x"
+    "ts": 0,
+    "tag": "z"
    }
   }
  ],
@@ -42,15 +42,16 @@
   {
    "actions": [
     {
-     "op": "delete",
-     "target": 0
+     "op": "advance",
+     "ms": 60
     },
     {
-     "op": "advance",
-     "ms": 100
+     "op": "delete",
+     "target": 0
     }
    ],
    "facts": []
   }
- ]
+ ],
+ "_finding": "item C (WORKS): boundary: delete of a window-EVICTED event is clean (contrast class-2 xf_cep_c_upd_evict_revive)."
 }

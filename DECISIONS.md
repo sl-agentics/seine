@@ -11,7 +11,7 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-07 (run `git log --oneline -8` for the live HEAD —
+_Last updated: 2026-07-08 (run `git log --oneline -8` for the live HEAD —
 this line lags by its own commit)._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools
@@ -19,15 +19,11 @@ this line lags by its own commit)._
 every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
-**Git:** on `main`, **several commits UNPUSHED** (don't push without Bryan).
-Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
-`9efd827` item B RUNTIME (D-111, window eviction + A→B seam), `f0a70d5`
-D-112 (accumulate removals EAGER), `f0893e3` D-113 (window accumulate
-NODE-SHARING fix), **`1d270be` D-114** — reset×window residual triaged to a
-Drools-incoherence and FENCED (fuzz skips reset+window; anchor
-`xf_win_reset_incoherence`). CEP E2 item B (windows) COMPLETE. Gates green:
-baseline 11 / probes 788 / regressions 281 byte-identical; lint 1159; 8 Rust
-suites.
+**Git:** on `main`, **many commits UNPUSHED** (don't push without Bryan).
+Recent: `8018ea2` item A inference, item B `9efd827`/`f0a70d5`/`f0893e3`/
+`1d270be` (D-111..114, windows), **D-115 item C** (event update/delete —
+this checkpoint). Gates green: baseline 11 / probes 804 / regressions 281
+byte-identical; lint 1176 live/0 ghost/0 inert; 9 Rust suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
@@ -35,45 +31,39 @@ drifted — investigate before building on it.
 **Landed:** v0.4.0 (`5b23e7c`) = CEP E1 + Engine::reset + agenda groups +
 queries×mutation + structured aggregation. Data-types arc (nulls/decimals,
 D-096–098). TMS, P1c group CEs, hardening waves — see the log.
-CEP **E2 item A** @expires inference (D-109, `8018ea2`): reach + transitive
-STP closure + the never-overwrite (bare/backward → NEVER).
+CEP **E2 A** @expires inference (D-109); **B** windows (D-110–114);
+**C** event update/delete (D-115, this checkpoint).
 
-**ACTIVE FRONTIER — CEP E2 item B (windows): CORE LANDED, campaign BLOCKED.**
-`window:time` runtime + A→B seam ported and **pin-green** (D-111, `9efd827`):
-per-subtree eviction at `ts+N` (scoped right-delete, fact survives) + the
-pattern-level seam (fold `N−1` into `temporal_ub`, windowed pattern skips
-`never_inferred` but a bare/backward ref still forces NEVER). 38 window
-probes promoted to `scenarios/probes/pr_cep_win*`; corpus byte-identical.
-**D-112 FIXED the accumulate+expiration deferral bug** (was D-111's blocker):
-accumulate removals are EAGER (advance-time, by salience) for PLAIN
-accumulates + window eviction; not-CE/temporal/windowed-expiration stay
-LAZY. Model-checked (`model_check_accdefer`, unique survivor) + blast-radius
-clean (main-axis 3900 cases 0 div; CEP plain-acc 0 div). 18 pins promoted.
-**D-113 fixed the BULK of the "windowed composition"** — a concrete
-NODE-SHARING bug (window_time missing from `pattern_key`), not a flush
-micro-order (CEP fuzz seed7 19→2). **D-114 CLOSED the rest:** the remaining
-~0.5% was a Drools reset×WindowNode INCOHERENCE (a windowed accumulate reset
-with a prior value fires a spurious extra `[0]`; plain doesn't) — Seine is
-more correct, so FENCED (anchor `xf_win_reset_incoherence`; fuzz skips
-reset+window). **CEP E2 item B (windows) is DONE — no WindowNode model-check
-needed** (the "composition" was a bug + an incoherence, not a flush order).
+**ACTIVE FRONTIER — CEP E2 item C (event UPDATE / external DELETE): DONE
+(D-115, HYBRID resolution).** The seed recon showed the basics work; the
+extended `fuzz_cep.py` mutation axis (SOUND live-only targeting) then flushed
+**four mutation×CEP composition gaps** in the shared D-047 path (all
+bisect-confirmed mutation-driven, not pre-existing): (1) update×temporal-join
+= engine UNDER-fires (Drools re-fires the match on any update; temporal nodes
+aren't property-reactive); (2) update REVIVES a clock-removed (window-evicted
+/ expired) event into an accumulate = engine OVER-fires; (3) external
+delete+insert witness churn × exists = engine UNDER-fires; (4) dead-handle
+edges. **Bryan ruled HYBRID:** cheap-PORT delete-of-dead (`delete_fact`
+no-ops on a dead handle, Drools-lenient — corpus byte-identical); FENCE
+classes 1/2/3 + update-of-deleted (`fuzz_cep.py` hazard-set skips; fenced CEP
+fuzz 3×1000 CLEAN). 16 `pr_cep_c_*` working+boundary pins promoted, 4
+`xf_cep_c_*` divergence witnesses quarantined (`open_divergence`) — the
+pre-built battery for the DEFERRED re-propagation port. Blast-radius `make
+fuzz` (42/123/7): only delete-free pre-existing main-axis latents → zero
+delete-related regressions.
 
-**NEXT — CEP E2 item C (event UPDATE / external DELETE). Handoff plan:
-`~/.claude/plans/cep-e2-item-c.md`.** Seed recon done (6 probes
-`probes_pending/cep/c1_ts_update`, `c3_delete`, `c_del_{acc,win,not}`,
-`c_upd_alpha` — all PASS): the D-047 update/delete plumbing + deadline
-machinery + D-112 eager-accumulate ALREADY handle events correctly on the
-basics (event @timestamp FIXED at insert; delete cancels cleanly; delete/
-alpha-update drop an accumulate eagerly). **So C is likely SMALL: extend
-`fuzz_cep.py` with update/delete draws, triage divergences (eager/lazy,
-node-sharing, Drools-incoherence lenses — bisect to minimal FIRST), port/
-fence.** Full detail + surface map + recon ladder in the plan.
+**NEXT — CEP E2 item D (entry points, `from entry-point`).** Then **E**
+@duration (walled — the E2 fence, DECISIONS:4529). No handoff plan yet;
+start with probe-first recon per doctrine.
 
-**Open/deferred:** E2 remaining after C: **D** entry-points, **E** @duration
-(walled — the E2 fence, DECISIONS:4529). E1-hardening — 2 temporal-join-order
-xfails (bisect-confirmed pre-existing); D-080 TMS envelope; window × TMS /
-node-sharing; `window:length` + standalone-pattern window (walled, follow-
-on); E2 remaining: C event update/delete, D entry-points, E @duration.
+**Open/deferred:** E2 remaining: **D** entry-points, **E** @duration.
+DEFERRED item-C re-propagation port (classes 1/2/3 — temporal Behavior modify
+re-fire, on_update evicted/expired guard, exists external-delete round-trip;
+battery = `xf_cep_c_*` + `pr_cep_c_*` boundary pins + the mutation fuzz).
+E1-hardening — main-axis (gen.rs) temporal-join/accumulate-match latents
+(seeds 42/123/7 flush them; delete-free, out of item-C scope), 2
+temporal-join-order xfails, D-080 TMS envelope; window × TMS / node-sharing;
+`window:length` + standalone-pattern window (walled, follow-on).
 Upstream: #2366 filed (min/max), `docs/drools-inferred-expiry-never.md`.
 
 ---
@@ -5370,3 +5360,95 @@ No genuine flush-order composition remained — the WindowNode model-check
 simulator is NOT needed.
 **Artifacts:** `fuzz_cep.py` reset-vs-window fence; anchor
 `xf_win_reset_incoherence`.
+
+### D-115: CEP E2 item C (event UPDATE / external DELETE) — the D-047 mutation path has FOUR composition gaps with the CEP machinery; HYBRID resolution (cheap-port delete-of-dead + FENCE classes 1/2/3), Bryan-ruled
+
+**Recon (probe-first + fuzz-driven).** The seed recon (6 probes, prior
+handoff) showed the D-047 external update/delete plumbing + deadline + D-112
+eager-accumulate already handle the BASICS (event @timestamp fixed at insert;
+delete cancels; delete/alpha-update drop an accumulate). The plan guessed C
+might be "trivially clean." It is NOT. Extending `tools/fuzz_cep.py` with a
+SOUND live-only mutation axis (targets only the initial-facts prefix `[0,k)`
+— indices are firing-INDEPENDENT since those handles precede any fire and the
+runner+oracle both key the SAME visible-insertion index incl. rule-inserted
+D/P3; targets only PROVABLY-LIVE facts — P forever, explicit-expiry events
+while `clock < ts+expires`; inferred-expiry not targeted; deletes leave the
+pool; reset clears it) flushed **four distinct, bisect-confirmed mutation-
+driven composition gaps** (every find's no-mutation variant PASSES — no
+pre-existing latent). Common theme = the re-fire / UNIFORM-FOLD signature:
+the external mutation path does not reproduce Drools' re-propagation when an
+event is entangled with temporal / clock-removal / existential state.
+
+- **CLASS 1 — update × temporal join** (`xf_cep_c_upd_temporal`): Drools
+  re-fires an after/before match on ANY external update of a participating
+  event (even a no-op value, even an irrelevant field — temporal Behavior
+  nodes are NOT property-reactive). Engine treats them as property-reactive
+  (like a plain join) → does NOT re-fire → UNDER-fires. `TJ0` vs `TJ0 TJ0`.
+  Deterministic (oracle 3×); both after/before; plain beta joins AGREE
+  (`pr_cep_c_plainjoin_upd`).
+- **CLASS 2 — update revives a clock-removed event into an accumulate**
+  (`xf_cep_c_upd_evict_revive` window; `xf_cep_c_upd_after_exp` expiration —
+  ONE root): a clock job (window eviction at `ts+N`, or expiration) STAGES
+  the removal (count drops); a later external update re-propagates the still-
+  `is_alive` event → engine RE-ADDS it; Drools kept it removed. `W[1]W[1]`
+  vs `W[1]W[0]`. Mechanism: `advance` marks expiry + stages the eager
+  acc-removal but leaves the handle `is_alive` (kill deferred to
+  `drain_pending_expirations`, engine.rs:3680); window eviction is a staged
+  right-delete; `on_update` re-propagates on `is_alive`+alpha-pass, ignorant
+  of the evicted/expired state. Controls PASS: evict/expire-only; update-
+  BEFORE-removal (`pr_cep_c_upd_before_evict`); delete-after-removal
+  (`pr_cep_c_del_after_evict` — delete kills the handle, doesn't re-propagate).
+- **CLASS 3 — external delete+insert witness churn × exists**
+  (`xf_cep_c_del_churn_exists`): external delete is IMMEDIATE (`on_delete`) →
+  un-fires exists; a same-epoch insert re-fires it in Drools; engine keeps
+  exists linked across the churn → UNDER-fires. `NE` vs `NE NE`. C-SPECIFIC:
+  the EXPIRATION analog PASSES (`pr_cep_c_exists_churn_expire` — expiration
+  retraction to exists defers to quiescence, D-102, and nets out). Controls
+  PASS: delete-only-no-reinsert (`pr_cep_c_del_exists_noreins`); not-CE.
+- **CLASS 4 — dead-handle edges.** delete-of-already-deleted
+  (`pr_cep_c_double_del`): Drools' `session.delete` is LENIENT (no-op); the
+  engine hard-errored "delete of dead handle". update-of-deleted
+  (`c_upd_after_del`, `engine_fenced` in probes_pending): both error
+  (engine "dead handle"; oracle NPE) — OUT OF SUBSET.
+
+**What WORKS (pinned `pr_cep_c_*`):** delete broadly; update × alpha
+entry/exit / live (non-windowed) accumulate re-fold / windowed ts-update
+before eviction / not / exists (no-op) / TMS-justifier; plain beta-join
+update; delete-of-EXPIRED (expired events stay `is_alive` until drain).
+
+**BRYAN'S RULING — HYBRID (cheap-port + fence rest).** This matches the
+stop-rule (fuzz keeps finding cells across the shared, corpus-critical D-047
+path → fence + plan a port, D-025/D-084 precedent; E2 already walls
+@duration).
+1. **PORT (D-115):** `delete_fact` NO-OPS on a dead handle (engine.rs:3780,
+   `Err`→`Ok`) — Drools-faithful, low risk. `pr_cep_c_double_del` flips green;
+   corpus byte-identical (no corpus scenario can rely on delete-of-dead
+   erroring — Drools no-ops, so it would already FAIL). update_fact UNCHANGED
+   (update-of-deleted stays out-of-subset).
+2. **FENCE classes 1/2/3 + update-of-deleted:** `fuzz_cep.py` tracks per-
+   event-type hazard sets during rule-gen (`temporal_types`,
+   `windowed_acc_types`, `exists_types`) and skips the divergent combos —
+   UPDATE excludes temporal + windowed event types; DELETE excludes an
+   exists-witness churn (delete an exists_type while a same-type event
+   arrives that epoch). class-2-EXPIRATION / update-of-deleted / double-
+   delete are already unreachable (liveness gate never targets a past-
+   deadline or deleted handle). Fenced CEP fuzz CLEAN: 3×1000 fresh
+   (seeds 11/12/13) = 0 divergences. The 4 minimal class repros are
+   quarantined to `scenarios/xfail/xf_cep_c_*` (`open_divergence`) and,
+   with the working `pr_cep_c_*` boundary pins + the mutation fuzz, form the
+   PRE-BUILT validation battery for the deferred re-propagation port (temporal
+   Behavior modify re-fire; on_update evicted/expired guard; exists external-
+   delete round-trip).
+
+**Gates:** baseline 11 / probes 804 / regressions 281 byte-identical; lint
+1176 live/0 ghost/0 inert (incl. `c_upd_after_del` engine_fenced wall). 16
+`pr_cep_c_*` promoted, 4 `xf_cep_c_*` quarantined. **Blast-radius** (Bryan's
+D-112 mandate — the port touches the shared D-047 path): `make fuzz` main-axis
+(gen.rs) seeds 42/123/7 — the only divergences found are DELETE-FREE
+pre-existing latents (fz_42/fz_123 temporal-join/accumulate-match family,
+the E1-hardening envelope), which the delete-only change provably cannot
+touch → ZERO delete-related regressions.
+**Artifacts:** `engine.rs` delete_fact no-op; `fuzz_cep.py` mutation axis +
+class-1/2/3 fences + `CEP_NO_TEMPORAL` diagnostic flag; `pr_cep_c_*` (16),
+`xf_cep_c_*` (4), `probes_pending/cep/c_upd_after_del` (engine_fenced);
+findings handoff `~/.claude/plans/cep-e2-item-c-findings.md`.

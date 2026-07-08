@@ -1,5 +1,5 @@
 {
- "name": "c_upd_alpha",
+ "name": "c_del_win",
  "types": [
   {
    "name": "E",
@@ -28,7 +28,7 @@
    ]
   }
  ],
- "drl": "rule W when accumulate( E(tag==\"x\", $t : ts); $c : sum($t) ) then end\n",
+ "drl": "rule W when accumulate( E($t : ts) over window:time(100ms); $c : sum($t) ) then end\n",
  "facts": [
   {
    "type": "E",
@@ -42,15 +42,12 @@
   {
    "actions": [
     {
-     "op": "update",
-     "target": 0,
-     "fields": {
-      "ts": 10,
-      "tag": "y"
-     }
+     "op": "delete",
+     "target": 0
     }
    ],
    "facts": []
   }
- ]
+ ],
+ "_finding": "item C (WORKS): external delete of a windowed-accumulate source drops the sum."
 }

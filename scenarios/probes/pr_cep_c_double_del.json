@@ -1,5 +1,5 @@
 {
- "name": "c_del_win",
+ "name": "c_double_del",
  "types": [
   {
    "name": "E",
@@ -28,7 +28,7 @@
    ]
   }
  ],
- "drl": "rule W when accumulate( E($t : ts) over window:time(100ms); $c : sum($t) ) then end\n",
+ "drl": "rule W when accumulate( E(); $c : count() ) then end\n",
  "facts": [
   {
    "type": "E",
@@ -44,9 +44,14 @@
     {
      "op": "delete",
      "target": 0
+    },
+    {
+     "op": "delete",
+     "target": 0
     }
    ],
    "facts": []
   }
- ]
+ ],
+ "_finding": "item C (WORKS): D-115 port: delete of an already-deleted handle NO-OPS (Drools-lenient); was an engine error."
 }

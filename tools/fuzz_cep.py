@@ -19,11 +19,31 @@ advance-time, before the epoch's inserts and firing by salience, not
 deferred to quiescence). count()/sum(), optional source constraint
 (filter-first) and salience (cross-rule ordering).
 
+Covers (CEP E2 item C, this slab): external event UPDATE / DELETE — an
+epoch action mutates ({"op":"update","target":k,"fields":{...}}) or
+retracts ({"op":"delete","target":k}) an already-inserted fact, composing
+with expiration deadlines, windows, accumulate-eager removal, not-CE,
+temporal joins and the TMS cascade. Targeting is SOUND-BY-CONSTRUCTION:
+  * only the INITIAL-FACTS PREFIX [0,k) is targeted — those handles are
+    inserted before any fire, so their visible-insertion index (which the
+    runner + oracle both key on, INCLUDING later rule-inserted D/P3 facts)
+    is stable and firing-INDEPENDENT; epoch/RHS facts are never targeted.
+  * only PROVABLY-LIVE facts are targeted — P never expires; an explicit-
+    expiry event is targeted only while clock < ts+expires (strictly
+    before its earliest possible deadline); inferred-expiry events are not
+    targeted (their reach is not modeled here); a deleted target leaves
+    the pool. So neither engine ever mutates a dead/expired handle — that
+    edge (delete-of-dead: Drools no-ops, engine errors; update-of-expired:
+    engine revives the event into the accumulate; update-of-deleted: both
+    error) is pinned by the c_* recon probes + a D-entry, NOT fuzzed.
+  * a reset clears the pool (post-reset WM is empty; the index restarts).
+
 Fences honored: window:length + standalone-pattern windows (follow-on
-slab); events never updated/deleted externally; event timestamps drawn
-at-or-after the current scenario clock (the past-deadline insert edge is
-unprobed); distinct-or-tied deadlines both drawn (a2: ties are pinned
-stable).
+slab); event timestamps drawn at-or-after the current scenario clock (the
+past-deadline insert edge is unprobed); distinct-or-tied deadlines both
+drawn (a2: ties are pinned stable); reset+window not co-drawn (D-114
+reset×WindowNode incoherence); reset+mutate not co-hazardous (pool
+cleared on reset).
 
 Usage: .venv/bin/python tools/fuzz_cep.py <n> <seed>
 """
@@ -34,6 +54,7 @@ import subprocess
 import sys
 
 BATCH = 150
+INF = 1 << 60
 
 
 class Gen:
@@ -42,6 +63,10 @@ class Gen:
 
     def scenario(self, name):
         r = self.r
+        # CEP E2 item C: half the scenarios draw external update/delete
+        # actions over the initial-facts prefix (see module docstring for
+        # the soundness invariant).
+        self.mutate = r.random() < 0.5
         # types: 2-3 event types + 1 plain + logical target. D-109: in an
         # inference scenario, most event types OMIT expires_ms (engine
         # infers the reach); a minority stay explicit (mixed path).
@@ -53,6 +78,7 @@ class Gen:
         # xf_win_reset_incoherence). Don't draw both in one scenario.
         self.has_window = False
         self.etypes = []
+        self.type_expiry = {}  # type name -> explicit expires_ms, or None
         types = []
         for i in range(n_ev):
             ev = {"timestamp": "ts"}
@@ -64,15 +90,28 @@ class Gen:
                 "event": ev,
             })
             self.etypes.append(f"E{i}")
+            self.type_expiry[f"E{i}"] = ev.get("expires_ms")
         types.append({"name": "P", "fields": [{"name": "v", "type": "i64"}]})
         types.append({"name": "D", "fields": [{"name": "tag", "type": "String"}]})
         types.append({"name": "P3", "fields": [{"name": "v", "type": "i64"}]})
 
+        # CEP E2 item C (D-115) FENCE sets: event types whose external
+        # UPDATE/DELETE composition is xfail'd (classes 1/2/3) and must NOT be
+        # fuzzed. Populated during rule generation below.
+        self.temporal_types = set()      # class 1: after/before join re-fire
+        self.windowed_acc_types = set()  # class 2: evicted/expired revival
+        self.exists_types = set()        # class 3: exists witness churn
         rules = []
         ri = 0
+        # DIAGNOSTIC (CEP_NO_TEMPORAL=1): suppress after/before temporal-join
+        # + chain rules, to isolate whether the update axis diverges through
+        # ANY node other than temporal Behavior nodes (item-C triage). Not
+        # for normal runs — temporal joins are core coverage.
+        no_temporal = bool(os.environ.get("CEP_NO_TEMPORAL"))
         # temporal-join rule(s)
-        for _ in range(r.randint(1, 2)):
+        for _ in range(0 if no_temporal else r.randint(1, 2)):
             a, b = r.choice(self.etypes), r.choice(self.etypes)
+            self.temporal_types.update((a, b))
             op = r.choice(["after", "before"])
             lo = r.choice([0, 0, 50])
             hi = lo + r.choice([50, 100, 150])
@@ -86,7 +125,8 @@ class Gen:
         # D-109: transitive CHAIN E0 -> E1 -> E2 (distinct bindings) —
         # exercises the STP closure (earliest event inherits the SUMMED
         # reach). Per-hop op so after/before/mixed chains all appear.
-        if n_ev >= 3 and r.random() < 0.5:
+        if n_ev >= 3 and not no_temporal and r.random() < 0.5:
+            self.temporal_types.update(("E0", "E1", "E2"))
             op1, op2 = r.choice(["after", "before"]), r.choice(["after", "before"])
             lo1, lo2 = r.choice([0, 50]), r.choice([0, 50])
             hi1, hi2 = lo1 + r.choice([50, 100]), lo2 + r.choice([50, 100])
@@ -113,6 +153,7 @@ class Gen:
                        if r.random() < 0.6 else "")
                 if win:
                     self.has_window = True
+                    self.windowed_acc_types.add(e)
                 if r.random() < 0.6:
                     src, fn = f"{e}({cons})", "$c : count()"
                 else:
@@ -141,15 +182,33 @@ class Gen:
         if r.random() < 0.6:
             e = r.choice(self.etypes)
             neg = r.choice(["not", "exists"])
+            if neg == "exists":
+                self.exists_types.add(e)
             sal = f" salience {r.randint(-8, 8)}" if r.random() < 0.5 else ""
             rules.append(f'rule NE{ri}{sal} when {neg} {e}() P() then end')
             ri += 1
 
-        # facts at clock 0
+        # facts at clock 0. The mutation axis (item C) targets ONLY these
+        # initial facts — their visible-insertion index is stable and
+        # firing-independent (module docstring). Record each target's
+        # earliest deadline for the liveness gate.
+        self.targets = []  # {idx, type, deadline, targetable, deleted}
         facts = [{"type": "P", "fields": {"v": 1}}]
+        self.targets.append({"idx": 0, "type": "P", "deadline": INF,
+                             "targetable": True, "deleted": False})
         for _ in range(r.randint(1, 4)):
             t = r.choice(self.etypes)
-            facts.append({"type": t, "fields": {"ts": r.randint(0, 40), "tag": r.choice("xyz")}})
+            ts = r.randint(0, 40)
+            facts.append({"type": t, "fields": {"ts": ts, "tag": r.choice("xyz")}})
+            ex = self.type_expiry.get(t)
+            self.targets.append({
+                "idx": len(facts) - 1, "type": t,
+                # earliest possible deadline = ts+ex (a rule-referenced
+                # event's real deadline is ts+ex+1, so this is conservative)
+                "deadline": (ts + ex) if ex is not None else 0,
+                "targetable": ex is not None,  # inferred reach not modeled
+                "deleted": False,
+            })
 
         # epochs: advances + fresh events at/after the running clock. The
         # advance pool straddles common inferred boundaries (hi/sum ±1).
@@ -163,17 +222,76 @@ class Gen:
                 # reset×WindowNode Drools-incoherence is fenced, not tested).
                 actions.append({"op": "reset"})
                 clock = 0
+                # reset clears WM — every prior handle is gone, so the
+                # target pool is emptied (post-reset facts are untargeted).
+                for tg in self.targets:
+                    tg["deleted"] = True
             if r.random() < 0.9:
                 ms = r.choice([30, 49, 50, 51, 99, 100, 101, 149, 150, 151,
                                199, 200, 201, 250, 300, 600])
                 actions.append({"op": "advance", "ms": ms})
                 clock += ms
+            # this epoch's fresh arrivals — drawn BEFORE the mutation so the
+            # class-3 exists-churn fence can see which types arrive here.
             efacts = []
             for _ in range(r.randint(0, 2)):
                 t = r.choice(self.etypes)
                 efacts.append({"type": t, "fields": {"ts": clock + r.randint(0, 30), "tag": r.choice("xyz")}})
             if r.random() < 0.3:
                 efacts.append({"type": "P", "fields": {"v": 2}})
+            epoch_ins = {f["type"] for f in efacts}
+            # CEP E2 item C (D-115): external update/delete over a provably-
+            # live initial-fact target (liveness reflects the post-advance
+            # clock), with the class 1/2/3 FENCES — those compositions are
+            # xfail'd, not fuzzed:
+            #   UPDATE excludes temporal-join + windowed-accumulate event
+            #     types (class 1 temporal re-fire; class 2 evicted/expired
+            #     revival).
+            #   DELETE excludes an exists-witness churn (deleting an
+            #     exists_type event while a same-type event arrives here).
+            # (class-2 EXPIRATION, update-of-deleted and double-delete are
+            # already unreachable — the liveness gate never targets a past-
+            # deadline or deleted handle; delete-of-dead now no-ops anyway.)
+            if self.mutate and r.random() < 0.6:
+                live = [tg for tg in self.targets
+                        if tg["targetable"] and not tg["deleted"]
+                        and clock < tg["deadline"]]
+                upd_ok = [tg for tg in live
+                          if tg["type"] not in self.temporal_types
+                          and tg["type"] not in self.windowed_acc_types]
+                del_ok = [tg for tg in live if not (
+                    tg["type"] in self.exists_types and tg["type"] in epoch_ins)]
+
+                def pick(pool):  # bias toward EVENT targets (the item-C heart)
+                    ev = [t for t in pool if t["type"] != "P"]
+                    return r.choice(ev) if ev and r.random() < 0.75 else r.choice(pool)
+
+                if upd_ok and del_ok:
+                    op = "delete" if r.random() < 0.4 else "update"
+                elif del_ok:
+                    op = "delete"
+                elif upd_ok:
+                    op = "update"
+                else:
+                    op = None
+                if op == "delete":
+                    tg = pick(del_ok)
+                    actions.append({"op": "delete", "target": tg["idx"]})
+                    tg["deleted"] = True
+                elif op == "update":
+                    tg = pick(upd_ok)
+                    if tg["type"] == "P":
+                        fields = {"v": r.choice([1, 2, 3])}
+                    else:
+                        fields = {}
+                        if r.random() < 0.7:
+                            fields["tag"] = r.choice("xyz")
+                        if r.random() < 0.5:
+                            # ts-field update: deadline FIXED at insert (c1)
+                            fields["ts"] = clock + r.randint(0, 30)
+                        if not fields:
+                            fields["tag"] = r.choice("xyz")
+                    actions.append({"op": "update", "target": tg["idx"], "fields": fields})
             epochs.append({"actions": actions, "facts": efacts})
 
         return {"name": name, "types": types, "drl": "\n".join(rules) + "\n",
