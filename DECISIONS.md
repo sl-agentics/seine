@@ -20,11 +20,14 @@ every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **many commits UNPUSHED** (don't push without Bryan).
-Recent: `d2c126b` **D-115 item C** (event update/delete, HYBRID), `e65ab0c`
-**D-116 item D** (entry points), **D-117** E1-hardening non-termination
-spin-guard (this checkpoint). Gates green: baseline 11 / probes 822 /
-regressions 281 byte-identical; lint 1195 live/0 ghost/0 inert; 9 Rust suites.
-Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
+Recent: `e65ab0c` **D-116 item D** (entry points), `df18834` **D-117**
+E1-hardening non-termination spin-guard. **UNCOMMITTED (this checkpoint):
+D-118 item E RECON** — probe-first recon of `@duration` interval events
+complete, awaiting Bryan's port gate (oracle `@duration` rendering added,
+corpus-inert; NO engine change). Gates green: baseline 11 / probes 822 /
+regressions 281 byte-identical (probes re-verified with the rebuilt oracle);
+lint 1195 live/0 ghost/0 inert; 9 Rust suites. Verify with `make diff` /
+`make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
 
@@ -34,29 +37,38 @@ D-096–098). TMS, P1c group CEs, hardening waves — see the log.
 CEP **E2 A** @expires inference (D-109); **B** windows (D-110–114);
 **C** event update/delete (D-115); **D** entry points (D-116, this checkpoint).
 
-**ACTIVE FRONTIER — CEP E2 item D (entry points `from entry-point`): DONE
-(D-116).** Named entry points = an orthogonal ROUTING DIMENSION on the alpha
-network — a fact carries an EP tag, a pattern carries an EP tag, the fact
-enters the pattern iff they match. Ported: parser (un-wall + `entry-point`
-keyword + `Pattern.entry_point` in `pattern()`/`accumulate_pattern()`) +
-routing (the SINGLE choke point is one added clause in `alpha_passes`:
-`fact_ep(f) == pat.entry_point`, so ALL routing + node-sharing partition by EP;
-interned `CompiledPattern.entry_point`, sparse `fact_eps`, `pattern_key` folds
-`|e{ep}`) + registration (reject insert into an unreferenced EP, faithful) +
-`facts()` DEFAULT-only WM dump (mirrors `session.getObjects()`) + oracle
-`insertFact`/`epMap` (route inserts + mutations through the EP). **FULL scope
-incl. mutation×EP** (Bryan ruling): update/delete of an EP fact composes
-(`nth_inserted` spans EP, `on_update`/`on_delete` EP-filtered; item-C fences
-apply per-EP). 18 `pr_cep_ep_*` (partition + compositions + mutation×EP; 4
-isolation `expect_inert`) + `ep_unref` engine_fenced. EP fuzz (per-type EP
-dimension) = **0 EP-caused issues** (all finds bisect-to-HEAD pre-existing
-temporal-join-order / non-termination latents). Corpus byte-identical
-throughout (all-DEFAULT paths = `e0`/fact_ep=0, unchanged).
+**ACTIVE FRONTIER — CEP E2 item E (`@duration` interval events): RECON PINNED,
+awaiting Bryan's port GATE (D-118).** THE LAST E2 fence item. Probe-first recon
+complete (57 oracle probes, `probes_pending/cep/e_recon/`; oracle `@duration`
+rendering added, corpus-inert; NO engine change yet). **THE UNIFYING MODEL:**
+`@duration(f)` makes an event occupy `[ts, ts+f]`; the WHOLE feature is
+**`endTS = ts + dur`** — every existing consumer of an event's "end" already
+uses `ts`, making it `ts+dur` IS the feature. Pinned: temporal `after`/`before`
+measure later.START − earlier.END (only the earlier event's dur matters;
+inclusive bounds; exact, no ±1); expiration (explicit + inferred) removes at
+`ts+dur+offset+1` (uses END + the D-102/109 +1); the D-109 inferred offset is
+UNCHANGED by dur, only its application shifts by +dur (so `infer_event_expiry`
+untouched); `@duration(0) ≡ point` BYTE-IDENTICAL; not/exists compose;
+mutation×dur is fixed-at-insert (item-C fence). Full Allen algebra
+(`during`/`overlaps`/…) works in Drools but the parser has only after/before.
+**GATE RULED (Bryan, 2026-07-08): Q1 = ADD THE FULL ALLEN ALGEBRA** (not
+after/before-only); **Q2 accepted** (inferred offset unchanged, apply from
+ts+dur); **Q3 gated** (dur=0≡point). Surgical after/before port surface in D-118
+(`event_specs` +dur_fi; `Test::Temporal` eval 6892/6988 subtract earlier's dur;
+`schedule_expiration` +dur); Allen ops layer on top.
 
-**NEXT — CEP E2 item E (`@duration` interval events) — the LAST E2 fence item
-(walled, DECISIONS:4529).** No handoff plan yet; probe-first recon per doctrine.
+**NEXT — Allen-operator recon ladder (D-119), THEN the port.** The D-118 recon
+SAMPLED only 4 Allen ops (existence + duration-sensitivity); the Allen port
+needs the FULL per-operator recon first — direction (`this` vs anchor), optional
+params (`overlaps[maxDist]` / `meets[dist]` / `coincides[sDev,eDev]` / `during`
+forms), boundary inclusivity, endpoints compared. No further SCOPE gate (Bryan
+ruled scope); Allen recon is pure probe-first detail. Then port
+after/before-to-intervals + all Allen ops in one slab, gate `make diff`
+byte-identical + fuzz + lint.
 
-**Open/deferred:** E2 remaining: **E** @duration (the last fence item).
+**Open/deferred:** E2 remaining: **E** @duration PORT (recon D-118 done +
+D-119 Allen recon pending, then port). Open E sub-questions folded into the
+port: window:time start-vs-end membership (B×E), mutation×dur (item-C fence).
 DEFERRED item-C re-propagation port (classes 1/2/3 — temporal Behavior modify
 re-fire, on_update evicted/expired guard, exists external-delete round-trip;
 battery = `xf_cep_c_*` + `pr_cep_c_*` boundary pins + the mutation fuzz).
@@ -5557,3 +5569,115 @@ multi-fire session never accumulates toward the limit. Corpus byte-identical
 **Artifacts:** `engine.rs` (`spin_guard` field, `spin_tick`, per-call reset +
 3 loop guards); `scenarios/hang-backlog/README` updated. **NEXT: E2 item E
 (`@duration` interval events) — the last E2 fence item (walled, DECISIONS:4529).**
+
+### D-118: @duration INTERVAL events (CEP E2 item E, the LAST E2 fence) — recon PINNED, PRE-implementation (awaiting Bryan's port gate)
+**Probe-first recon complete; NO engine change yet** (engine still walls
+`@duration`; oracle plumbing added is corpus-inert). 57 oracle probes
+(`probes_pending/cep/e_recon/`, 6 generators), 3× key-discriminator stable,
+probes tier 822/822 byte-identical with the rebuilt oracle.
+
+**THE UNIFYING MODEL (one conceptual change).** `declare T @role(event)
+@duration(f)` makes T an INTERVAL event occupying `[ts, ts+f]` instead of a
+point `[ts, ts]`. The ENTIRE feature is: **`endTS = ts + dur`** (was `ts`).
+Every existing consumer of an event's "end" already exists and already uses
+`ts` — making it `ts+dur` IS the feature. Point events / any type with no
+`@duration` ⇒ dur=0 ⇒ `endTS==ts` ⇒ byte-identical (corpus-preservation anchor,
+proven: `@duration(0)` result is byte-identical to the point control).
+
+**SOLID PINS (oracle ground truth):**
+- **Temporal `after`/`before` measure later.START − earlier.END** where END =
+  ts+dur. `$b:B(this after[lo,hi] $a)`: self=B later, anchor=A earlier ⇒
+  distance = `B.ts − (A.ts + A.dur)`. Only the EARLIER event's duration enters;
+  the later event's duration is IRRELEVANT (2×2: `e_p1_ip` FIRE / `e_p1_pi`
+  inert / `e_p1_ii`==`ip`). `before` mirrors: self=B earlier ⇒ `A.ts −
+  (B.ts + B.dur)` (`al_before_int_fire`). Bounds INCLUSIVE both ends
+  (`[100,100]` fires, `[101,200]`/`[0,99]` inert). Endpoint EXACT, no ±1
+  (dur=30 ⇒ `[70,70]` fires, `[69,69]`/`[71,71]` inert).
+- **Expiration uses END + the same +1 quirk.** Explicit `@expires(X)`: event
+  removed when clock > ts+dur+X, i.e. at `ts+dur+X+1`. Point (dur=0) ⇒
+  `ts+X+1` (`ex_pt_exp100`: alive@100, gone@101 — the D-102/D-109 +1). Interval
+  dur=50 exp=100 ⇒ alive@150, gone@151 (`ex_int_d50_exp100_at150/151`).
+- **A→E SEAM: the D-109 inferred offset is UNCHANGED by duration; only its
+  APPLICATION shifts to the end.** Interval dur=50, no `@expires`, earlier in
+  `after[0,100]` ⇒ inferred offset 100 (NOT 150) applied from ts+dur ⇒ gone@151
+  (`i2_int_d50_off100_at151`); point control gone@101 — difference is EXACTLY
+  dur. So `infer_event_expiry` needs NO change; only the scheduler's deadline
+  gains `+dur`. (Probe method note: observe expiry via the FACTS multiset, NOT
+  a `not E()`/bare `E()` rule — a non-temporal reference LEAKS the inference to
+  NEVER and hid the result on the first pass; explicit `@expires` is immune, a8.)
+- **`not`/`exists` over an interval anchor use END and compose** (`cp_exists_*`,
+  `cp2_not_*_adv`: interval A end=130 ⇒ B@200∈[190,210] matches; point A end=100
+  ⇒ B∉[160,180]). (`not`+temporal needs a clock advance to CLOSE the window —
+  pre-existing deferral, not an E signal.)
+- **`window:time` COMPOSES** with interval events (no error); the precise
+  start-vs-end MEMBERSHIP/eviction boundary is an OPEN B×E sub-question deferred
+  to the port (needs a count-observation probe; the initial-fire log can't see
+  eviction).
+- **Mutation × duration:** updating the `@duration` field does NOT change the
+  interval — Drools reads it once at insert, like `@timestamp`
+  (`cp_mut_dur_0to30` stays inert after dur 0→30). Falls in the item-C
+  mutation-re-propagation FENCE; symmetric with `@timestamp` (which the engine
+  re-reads from the store today, byte-identical because the corpus never mutates
+  timestamps).
+- **FULL ALLEN ALGEBRA is available in Drools over `@duration` intervals** and
+  all ops are duration-sensitive: `during`/`overlaps`/`coincides`/`meets` each
+  FIRE on the relation and inert on a near-miss; `during` is interval-ONLY
+  (points ⇒ inert). The Seine parser currently accepts ONLY `after`/`before`
+  (drl.rs:1389-90, both mandate `[lo,hi]`). ⇒ **Q1 SCOPE QUESTION.**
+
+**THE THREE GATE QUESTIONS (for Bryan):**
+- **Q1 (operator scope):** port only `after`/`before` extended to intervals
+  (the subset's current ops — minimal, natural, covers the pinned semantics), OR
+  also add the Allen ops (`during`/`overlaps`/`coincides`/`includes`/`meets`/
+  `starts`/`finishes` + inverses)? Allen ops are net-new parser + a new
+  `Constraint`/`Test` representation (several take no `[lo,hi]`). **Recommend:
+  after/before-to-intervals now; Allen ops as an explicit follow-on if wanted.**
+- **Q2 (A→E inference seam):** confirmed — inferred offset UNCHANGED, applied
+  from `ts+dur`. Port = `schedule_expiration` deadline gains `+dur`;
+  `infer_event_expiry` untouched. (Informational; recommend accept.)
+- **Q3 (corpus preservation):** `@duration(0) ≡ point` byte-identical — GATE on
+  it (no `@duration` ⇒ dur_fi None ⇒ dur=0 everywhere). Non-negotiable.
+
+**⟶ GATE RULING (Bryan, 2026-07-08):** **Q1 = ADD THE FULL ALLEN ALGEBRA**
+(not after/before-only) — the port covers `during`/`overlaps`/`coincides`/
+`meets`/`includes`/`starts`/`finishes` + inverses. **Q2 accepted** (inferred
+offset unchanged, apply from `ts+dur`). **Q3 gated** (dur=0≡point,
+non-negotiable). **CONSEQUENCE:** the recon above SAMPLED only 4 Allen ops
+(existence + duration-sensitivity); a faithful port needs the FULL per-operator
+recon FIRST — exact direction (which side is `this` vs anchor), optional
+parameters (`overlaps[maxDist]`, `meets[dist]`, `coincides[sDev,eDev]`,
+`during`/`finishes`/`starts` param forms), boundary inclusivity, and which
+endpoints each compares (Allen's 13 relations over `[start,end]`). ⇒ **NEXT =
+Allen-operator recon ladder (D-119), THEN the port.** No further SCOPE gate
+needed (Bryan ruled scope); the Allen recon is pure probe-first detail.
+
+**PROPOSED SEINE PORT (after/before core — surgical; Allen ops layer on top
+post-D-119):**
+- **Schema:** event object gains optional `"duration": fieldName`.
+- **Oracle:** DONE (`declareBlocks` renders `@duration(f)`; corpus-inert).
+- **`event_specs`** (`HashMap<TypeId,(usize,Option<i64>)>`, engine.rs:1012):
+  add the duration field-idx ⇒ `(ts_fi, Option<expires>, Option<dur_fi>)` (or a
+  small `EventSpec` struct). `declare_event` (3234) gains `duration:
+  Option<&str>`.
+- **`Test::Temporal`** (enum 94; compile 2214-2266; EVAL at **6892-6900 and
+  6988**): carry `self_dur_fi`/`anchor_dur_fi` (resolved from `event_specs` at
+  compile; None⇒0). Eval subtracts the EARLIER event's duration — `after`:
+  `d = own − (a + anchor_dur)`; `before`: `d = a − (own + self_dur)`. Two eval
+  sites, same change.
+- **`schedule_expiration`** (3393; deadline `ts + exp + plus` at 3410): ⇒
+  `ts + dur + exp + plus`. `infer_event_expiry` (3371) UNCHANGED.
+- **`runner.rs`** (event-object read) + **`bindings`** (`declare_event`): pass
+  the duration field (item D touched both).
+- **FENCE:** Allen ops (pending Q1); window:time membership start-vs-end
+  (pending B×E sub-probe); mutation×duration (item-C fence).
+
+**Artifacts:** 57 recon probes + 6 generators `probes_pending/cep/e_recon/`
+(oracle-only, engine-walled). Oracle `OracleRunner.declareBlocks` +
+`@duration` branch (rebuilt, corpus-inert; probes 822/822). **Gate to green
+(post-Bryan):** port per above, promote a boundary ladder to
+`scenarios/probes/` (2×2 + boundary + expiry ±1 + A→E seam + dur=0 anchor +
+not/exists compose), `make diff` byte-identical, extend `tools/fuzz_cep.py`
+(a per-type `@duration` dimension + advances straddling `ts+dur+offset`), 3×1000
+fresh-seed at 0 divergences, `make lint-probes` clean. **This closes the CEP E2
+fence** (A–E all resolved); remaining deferrals = item-C re-propagation port +
+E1-hardening backlog.

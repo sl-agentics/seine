@@ -1,0 +1,56 @@
+{
+ "name": "e_p1c_int_71_71",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this after[71ms,71ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 100,
+    "dur": 30
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 200,
+    "dur": 0
+   }
+  }
+ ],
+ "epochs": []
+}

@@ -239,6 +239,13 @@ public final class OracleRunner {
                 if (ev.has("timestamp")) {
                     sb.append("    @timestamp( ").append(ev.path("timestamp").asText()).append(" )\n");
                 }
+                if (ev.has("duration")) {
+                    // CEP E2 item E (recon): @duration(field) makes T an
+                    // INTERVAL event occupying [ts, ts+field]. Field-name
+                    // reference like @timestamp. Corpus-inert (absent for the
+                    // whole certified corpus).
+                    sb.append("    @duration( ").append(ev.path("duration").asText()).append(" )\n");
+                }
                 if (ev.has("expires_ms")) {
                     sb.append("    @expires( ").append(ev.path("expires_ms").asLong()).append("ms )\n");
                 }
