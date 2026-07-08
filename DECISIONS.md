@@ -20,10 +20,10 @@ every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **several commits UNPUSHED** (don't push without Bryan).
-Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser.
-**UNCOMMITTED working tree: item B RUNTIME (D-111)** — window eviction +
-A→B seam, pin-green, awaiting Bryan's commit gate. Gates green: baseline 11
-/ probes 767 / regressions 281 byte-identical; lint 1117; 8 Rust suites.
+Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
+**`9efd827` item B RUNTIME (D-111)** — window eviction + A→B seam, pin-green
+(Bryan gated the core in; deferral fix deferred). Gates green: baseline 11 /
+probes 767 / regressions 281 byte-identical; lint 1117; 8 Rust suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
@@ -35,7 +35,7 @@ CEP **E2 item A** @expires inference (D-109, `8018ea2`): reach + transitive
 STP closure + the never-overwrite (bare/backward → NEVER).
 
 **ACTIVE FRONTIER — CEP E2 item B (windows): CORE LANDED, campaign BLOCKED.**
-`window:time` runtime + A→B seam ported and **pin-green** (D-111, uncommitted):
+`window:time` runtime + A→B seam ported and **pin-green** (D-111, `9efd827`):
 per-subtree eviction at `ts+N` (scoped right-delete, fact survives) + the
 pattern-level seam (fold `N−1` into `temporal_ub`, windowed pattern skips
 `never_inferred` but a bare/backward ref still forces NEVER). 38 window
@@ -46,10 +46,12 @@ confirmed on pristine HEAD): the D-102 expiration-at-quiescence deferral
 doesn't compose with `accumulate` — count transient + firing-order (both in
 `scenarios/xfail/xf_acc_expire_*`); the window-evict inherits it. 300@seed1 =
 47 divergences, ALL correct-WM (39 pure-reorder, 8 transient), 0 window-count
-errors. **RESUME HERE — Bryan gate:** (A) commit the core, defer the deferral
-fix + campaign to a model-check sub-recon (extend `model_check_stream` for
-accumulate-removal ordering; xfail repros are the anchors) — recommended; or
-(B) fix the deferral first. Detail: `~/.claude/plans/graceful-waddling-stallman.md`.
+errors. **Bryan gated the core IN (`9efd827`); the deferral fix is deferred.
+RESUME HERE — the accumulate-removal-ordering model-check sub-recon:** extend
+`model_check_stream` with the accumulate expiration/eviction removal-vs-insert
++ removal-vs-agenda ordering dimension (don't hand-reason — D-083); the two
+`xf_acc_expire_*` repros are the anchors; then unblock the window fuzz
+campaign. Detail: `~/.claude/plans/graceful-waddling-stallman.md`.
 
 **Open/deferred:** **NEW (D-111): accumulate+expiration deferral gap**
 (count transient + firing order, pre-existing, 2 xfail repros) — gates the
