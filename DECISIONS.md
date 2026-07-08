@@ -24,9 +24,10 @@ TEMPORAL-JOIN-ORDER latent is actually FIXED** (Bryan, 2026-07-08 — the
 discriminator is CHARACTERIZED per D-121, but the block HOLDS until the
 sources-port lands, not merely until it's understood). Recent:
 `59b0e68` **D-120 item E PORT** (`@duration` + Allen, byte-identical; LAST E2
-fence CLOSED), then `30399b3`/`2b5f739` **D-121** discriminator hunt, then
-**D-122** temporal-join step-1 (faithful graft + v1 model disproven; this
-checkpoint — engine still at HEAD). Gates
+fence CLOSED), then `30399b3`/`2b5f739` **D-121** discriminator hunt, `62565a6`
+**D-122** step-1 (faithful graft + v1 disproven), then **D-123** step-2 (v2 flush
+model VALIDATED 0-div; this checkpoint — engine still at HEAD, port is step 3).
+Gates
 green: baseline 11 / probes **944** / regressions 281 byte-identical; lint **1325
 live/0 ghost/0 inert**; 9 Rust suites + a new `eval_allen` unit module. Verify
 with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
@@ -40,12 +41,14 @@ D-096–098). TMS, P1c group CEs, hardening waves — see the log.
 **B** windows (D-110–114); **C** event update/delete (D-115); **D** entry points
 (D-116); **E** @duration intervals + Allen predicates (D-120, this checkpoint).
 
-**JUST LANDED — temporal-join sources-port STEP 1 (D-122).** Faithful AccDump
-graft (was CLOUD-mode/unfaithful) + mechanism pinned (firing = reverse(node2
-ltm); provenance is above `do_node`) + v1 uniform model DISPROVEN (33/33 curated
-but 27 % population). NEXT = v2 staged-tuple flush model → validate 0 % → port.
-Detail in the NEXT paragraph + D-122. **(prior)** CEP E2 item E PORT (D-120):
-every event occupies `[ts, ts+dur]`
+**JUST LANDED — temporal-join sources-port STEPS 1–2 (D-122/D-123).** Faithful
+AccDump graft + the **VALIDATED v2 flush model** (`tools/model_join_flush.py`:
+0 divergences on 33 curated + ~4300 shuffled cases incl. multi-anchor). The
+faithful rule: per-propagation flush, FIFO memory, forward opposite-scan, staged
+`addInsert`-prepend + `getInsertFirst` ⇒ a batch drain reverses once, an eager
+emit is identity. NEXT = step 3, the ENGINE PORT (translate the cascade into
+`engine.rs`; push HELD until it re-certs). Detail in the NEXT paragraph + D-123.
+**(prior)** CEP E2 item E PORT (D-120): every event occupies `[ts, ts+dur]`
 (`endTS = ts+dur`; dur=0 for points ⇒ BYTE-IDENTICAL). `EventSpec {ts_fi, expires,
 dur_fi}` struct; `drl::AllenOp` (13 variants) on `Constraint`/`Test::Temporal`
 with `params: Vec<i64>` (≤4) + both events' (ts_fi,dur_fi); a pure
@@ -70,32 +73,32 @@ window-CLOSE deferral + an anchor-inference gap; the E1 Positive-only wall STAYS
 wall; interval EXPIRATION already byte-identical). (3) **beyond-Drools full-Allen
 inference** (`docs/allen-beyond-drools.md`) — spec-driven, post-faithfulness.
 
-**⚠ NEXT — the CEP TEMPORAL-JOIN-ORDER SOURCES-PORT (D-121/D-122; Bryan GATE =
-commit to it; push HELD until FIXED).** Step 1 is DONE (D-122): the AccDump graft
-is now FAITHFUL (it was silently CLOUD-mode + missing event annotations →
-reproduced the buggy engine order, not the STREAM gate; fixed to mirror
-`OracleRunner`) and the mechanism is PINNED from decoded ground truth:
-**firing = reverse(node2 left-memory); node1's right-memory is IDENTICAL for
-e0first/e0last, so the distinction is emission provenance (recency + held-vs-eager),
-ABOVE `do_node`.** A uniform "scan-opposite-in-reverse" model (v1) was BUILT and
-**DISPROVEN**: 33/33 on the curated battery but **~27 % divergence on the random
-shuffled-insertion population** (every failure = a deeper partner HELD — facet-3).
-The curated 33-case battery is a TRAP; `fuzz_chain`-style shuffled insertion is the
-honest bar. **⇒ NEXT (step 2, still PRE-engine):** build v2 in
-`tools/model_join_flush.py` (`simulate()`), modelling the Drools staged-tuple
-flush from the extracted 9.44 sources — `addInsert` PREPENDS (staged LIFO),
-`TupleList.add` APPENDS (memory FIFO), `doLeft/doRightInserts` iterate the opposite
-memory via `getFirst…Tuple`+`it.next`, keyed by OTN/LIA staging + segment `doNode`
-order + fact-handle RECENCY (NOT a scan flag). **Validate v2 to 0 divergences on
-`model_join_flush.py fuzz` BEFORE touching `engine.rs`.** Only then port the flush
-driver (`engine.rs`, not just `phreak.rs do_node`).
+**⚠ NEXT — the CEP TEMPORAL-JOIN-ORDER SOURCES-PORT (D-121→D-123; Bryan GATE =
+commit to it; push HELD until FIXED).** Steps 1–2 DONE: faithful AccDump graft
+(D-122) + the **VALIDATED v2 flush model** (D-123) — `tools/model_join_flush.py
+simulate()` matches the gate oracle with **0 divergences on 33 curated + ~4300
+random shuffled cases (single- AND multi-anchor)**. The faithful mechanism:
+per-propagation phreak flush; FIFO memory (append); scan the OPPOSITE memory
+FORWARD; emit via staged `addInsert` PREPEND; child processes staged in
+`getInsertFirst` order → a lone eager emit is identity, a batch drain of N held
+partners reverses **exactly once**. firing = reverse(node2 ltm) is the E-last
+special case; the held-right family fires as the batch is processed (what v1
+missed). **⇒ NEXT (step 3 — THE ENGINE PORT, under the push-hold):** translate
+this cascade into the Seine flush driver (`engine.rs`, the `do_node` caller /
+staging — NOT a `phreak.rs` scan tweak): staged `addInsert`-prepend +
+`getInsertFirst` processing + FIFO memory + forward opposite-scan, preserving
+held-vs-eager provenance. Re-cert: `make diff` (944) byte-identical AND
+`fuzz_chain.py` vs a HEAD worktree = 0 regressions AND CEP-fuzz latents
+(cf50003x263/x894) resolve. `model_join_flush.py` is the executable spec — port
+until the engine matches it.
 **Proven dead ends (do NOT re-attempt):** ENGINE edits — naive scan→memory swap
 (regressed t1/t4/t5/t8/t15); node2-only forward-stamp (+172/−121 chain-fuzz);
 node1 arrival-split (regressed facet-3, 542/1500). MODEL — the v1 uniform
-reverse-scan rule (27 % population). Engine at HEAD; nothing landed.
-**Harness (in `tools/`):** `model_join_flush.py` (v2 workbench + model↔oracle
-`battery`/`fuzz` differ), `fuzz_chain.py` (shuffled-insertion chain differ; vs a
-HEAD worktree = engine REGRESSION gate), `cep_join_battery.py` (33-case A–F
+reverse-scan rule (27 % population; the reversal is a STAGING artifact, not a
+scan flag). Engine at HEAD; nothing landed.
+**Harness (in `tools/`):** `model_join_flush.py` (VALIDATED v2 spec + model↔oracle
+`battery`/`fuzz`/`fuzzm` differ), `fuzz_chain.py` (shuffled-insertion chain differ;
+vs a HEAD worktree = engine REGRESSION gate), `cep_join_battery.py` (33-case A–F
 matrix; `gen` writes `C_e0first`/`C_e0last`), faithful `AccDump.java` (per-fire
 JoinNode ltm/rtm/staged dump, STREAM+pseudo-clock). Faithfulness bar: ZERO new
 Drools-divergences; `make diff` (944) byte-identical.
@@ -6031,3 +6034,54 @@ engine (still under the D-121 push-hold).
 regen via `tools/cep_join_battery.py gen` + `cargo run -p seine-harness --
 oracle`. Prime directive held throughout: every claim here is oracle-probed, the
 one hand-derived model was killed by the population differ.
+
+### D-123: temporal-join firing-order — the FAITHFUL flush model (v2) CRACKED and VALIDATED (0 divergences on ~4300 shuffled cases incl. multi-anchor); the exact spec for the engine port
+
+Step 2 done: built v2 in `tools/model_join_flush.py simulate()` from the source
+disciplines (D-122) and validated it to **ZERO divergences vs the gate oracle**
+on 33 curated + ~4300 random shuffled-insertion cases (single- AND multi-anchor).
+This is the faithful algorithm — the port spec. **Still nothing in the engine;
+push HELD.**
+
+**The model (per-propagation phreak flush).** Each external fact propagates
+depth-first the instant it arrives (Drools defers to `fireAllRules`, but replaying
+the insertion queue one-at-a-time is behaviourally identical for firing order —
+proven by the population differ). At a beta node:
+- memory (`ltm`/`rtm`) is FIFO **append**; a match scans the OPPOSITE memory
+  **FORWARD** (`getFirst`+`it.next`);
+- each emitted child left-tuple is **PREPENDED** (`addInsert`) into the child's
+  staged-left set; the child's `doLeftInserts` then reads that set in
+  `getInsertFirst` order (= prepend order) and **appends** to its own memory;
+- the terminal "fires" its staged set in `getInsertFirst` order.
+**The crux:** a SINGLE emit (an eager individual insert — partner arrives while
+its anchor is already in memory) is identity; a BATCH of N emits (an anchor
+`doLeftInserts` draining N held partners) is reversed **exactly once** by the
+prepend-then-getInsertFirst round-trip. e0first = all-eager (no reversal, node2
+ltm `[26,23,25]`, fires `25,23,26`); e0last = one batch drain (reversed once,
+ltm `[25,23,26]`, fires `26,23,25`); the held-right family (E2 before its E0/E1)
+fires as the batch is processed, NOT as a later memory scan — which is exactly
+what v1 got wrong.
+
+**Why v1 died and v2 lives.** v1 baked the reversal into the SCAN DIRECTION
+(scan opposite in reverse, append) — correct for a lone batch but wrong whenever
+the count of emits per propagation isn't one-batch-at-the-end (held-right, mixed
+eager/batch): 27 % population divergence. v2 puts the reversal where Drools does
+— the staged `addInsert` prepend + `getInsertFirst` read — so it's automatically
+identity for singletons and one-shot for batches, at every depth. Same 33 curated
+cases, but 0 % vs 27 % on the population. LESSON (banked): a rule that fits the
+curated battery proves nothing; the shuffled-insertion population differ is the
+only honest bar — and the reversal is a STAGING artifact, not a scan flag.
+
+**Validation:** `model_join_flush.py battery` (33/33) + `fuzz <n> <seed>`
+(single-anchor: seeds 7001/7002/7003/8001/9999 @400 + 12345@1500, all 0) +
+`fuzzm <n> <seed>` (multi-anchor facet-4: 5001/5002/5003@400, all 0). The
+multi-anchor `fuzzm` matters: facet-4 is where the prior ENGINE node1-arrival-
+split blew up 542/1500 (D-121) — v2 is clean there.
+
+**NEXT (step 3 — the engine port, under the push-hold).** Translate the cascade
+into the Seine flush driver (`engine.rs`, the `do_node` caller / staging — NOT a
+`phreak.rs` scan tweak): reproduce staged `addInsert`-prepend + `getInsertFirst`
+processing + FIFO memory + forward opposite-scan, so held-vs-eager provenance is
+preserved. Re-cert bar: `make diff` (944) byte-identical AND `fuzz_chain.py` vs a
+HEAD worktree = 0 regressions AND the CEP-fuzz latents (cf50003x263/x894) resolve.
+`model_join_flush.py` is the executable spec; port until the engine matches it.

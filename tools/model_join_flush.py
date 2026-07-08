@@ -1,39 +1,34 @@
 #!/usr/bin/env python3
 """CEP temporal-join firing-ORDER reference model + population validator
-(D-122). The MODEL here is a DISPROVEN v1 kept as a documented dead-end;
-the reusable asset is the `validate` / `fuzz` harness that differs any model
-against the gate oracle over the curated battery and a random chain
-population. Build v2 by editing `simulate()`, then re-run `fuzz` — the bar is
-ZERO divergences (the faithfulness bar).
+(D-122/D-123). `simulate()` is the VALIDATED v2 model — the exact spec for the
+engine port. The harness differs it against the gate oracle over the curated
+battery and random shuffled-insertion populations.
 
-  model_join_flush.py battery  <dir> <gate_oracle.txt>   # curated 33-case check
-  model_join_flush.py fuzz     <n> <seed>                # population differ vs oracle
+  model_join_flush.py battery <dir> <gate_oracle.txt>  # curated 33-case check
+  model_join_flush.py fuzz    <n> <seed>               # single-anchor population
+  model_join_flush.py fuzzm   <n> <seed>               # MULTI-anchor population (facet-4)
 
---- WHAT GROUND TRUTH SAYS (faithful AccDump, STREAM+pseudo-clock) ---
-Invariant across all 33 curated cases: firing = reverse(node2 left-memory).
-node1's right-memory is IDENTICAL for e0first vs e0last ([26,23,25]); what
-differs is node2's left-memory order — set by node1's EMISSION provenance,
-i.e. fact-handle recency + whether a partner was held (arrived before its
-anchor, drained as a reversed batch) or eager (arrived after, appended).
+--- v2 (VALIDATED: 0 divergences on 33 curated + ~4300 random cases) ---
+The faithful phreak per-propagation flush. Disciplines (drools-core 9.44
+sources; ARBITER = oracle):
+* node memory (TupleList.add) APPENDS; scan the OPPOSITE memory FORWARD
+  (getFirst + it.next).
+* emissions -> child's staged-left set via addInsert = PREPEND; the child's
+  doLeftInserts reads it in getInsertFirst order (= prepend order) and APPENDS
+  to its own memory.
+* NET: one emit (eager individual insert) is identity; a BATCH of N emits
+  (anchor draining N held partners) is reversed EXACTLY ONCE. That single-vs-
+  batch reversal is the whole game — and is what v1 (below) got wrong.
 
---- WHY v1 IS DISPROVEN ---
-v1 rule "every beta insert scans the opposite memory in REVERSE, appends
-emissions" reproduces all 33 curated cases (all partner-last) but DIVERGES on
-~27% of the random shuffled-insertion population — every failure has a DEEPER
-partner HELD (E2 arriving before its E0/E1 context). The curated battery is a
-trap: 33/33 masks a 27% population gap. This is the D-121 "family of
-interdependent facets" made concrete.
+--- v1 DEAD-END (do not reintroduce) ---
+v1 "every beta insert scans the opposite memory in REVERSE, appends emissions"
+fit all 33 curated cases but diverged ~27% on the population (every failure = a
+deeper partner HELD). The curated battery is a TRAP; shuffled insertion is the
+honest bar. Kept only as this cautionary note.
 
---- SOURCE DISCIPLINES for v2 (drools-core 9.44 sources, ARBITER = oracle) ---
-* TupleSetsImpl.addInsert  -> PREPENDS (insertFirst = new; LIFO staged list).
-* TupleList.add (node mem) -> APPENDS (this.last = new; FIFO memory).
-* PhreakJoinNode.doLeftInserts:  ltm.add(lt); iterate rtm via getFirstRightTuple
-  + it.next; each match -> insertChildLeftTuple -> trgLeftTuples.addInsert.
-* PhreakJoinNode.doRightInserts: rtm.add(rt); iterate ltm via getFirstLeftTuple
-  + it.next; each match -> addInsert.
-v2 must model the OTN/LIA staging into node1's src sets + the segment flush
-order (doNode) + the memory iterator direction (recency), NOT a scan-direction
-knob. Validate to 0 divergences on `fuzz` BEFORE porting to engine.rs.
+--- PORT (engine.rs): reproduce the cascade, THEN re-cert ---
+`make diff` (944) byte-identical + `fuzz_chain.py` vs a HEAD worktree = 0
+regressions. Faithfulness bar: ZERO new Drools-divergences.
 """
 import json, os, sys, re
 
@@ -51,25 +46,50 @@ def win_match(op, lo, hi, anchor_ts, partner_ts):
 class Node:
     def __init__(self, op, lo, hi):
         self.op, self.lo, self.hi = op, lo, hi
-        self.left, self.right, self.child, self.firings = [], [], None, []
+        self.ltm, self.rtm, self.child, self.firings = [], [], None, []
 
-    def left_insert(self, t):
-        self.left.append(t)
-        for p in reversed(self.right):
-            if win_match(self.op, self.lo, self.hi, t[-1], p):
-                self._emit(t + [p])
+    # --- v2 (D-122): faithful phreak per-propagation flush ---------------
+    # Disciplines from drools-core 9.44 source (arbiter = oracle):
+    #  * node memory (TupleList.add) APPENDS; scan the opposite memory
+    #    FORWARD (getFirst + it.next).
+    #  * emissions go to the child's staged-left set via addInsert = PREPEND.
+    #  * the child's doLeftInserts reads that staged set in getInsertFirst
+    #    order (= prepend order) and APPENDS to its own memory.
+    #  Net: a SINGLE emit (eager individual insert) is identity; a BATCH of
+    #  N emits (anchor draining N held partners) is reversed exactly ONCE.
+    #  doNode order is doRightInserts before doLeftInserts, but per external
+    #  fact only one side is staged, so the entry side alone matters.
 
-    def right_insert(self, p):
-        self.right.append(p)
-        for t in reversed(self.left):
-            if win_match(self.op, self.lo, self.hi, t[-1], p):
-                self._emit(t + [p])
+    def _emit_set(self, staged_left):
+        """doLeftInserts at THIS node over `staged_left` (getInsertFirst
+        order): append each to ltm, scan rtm forward, prepend matches into
+        this node's trg set, then propagate trg to the child (or fire)."""
+        trg = []
+        for lt in staged_left:
+            self.ltm.append(lt)
+            for rt in self.rtm:                     # forward scan
+                if win_match(self.op, self.lo, self.hi, lt[-1], rt):
+                    trg.insert(0, lt + [rt])        # addInsert PREPEND
+        self._propagate(trg)
 
-    def _emit(self, t):
-        if self.child:
-            self.child.left_insert(t)
+    def _propagate(self, trg):
+        if self.child is None:
+            self.firings.extend(trg)                # fire in getInsertFirst order
         else:
-            self.firings.append(t)
+            self.child._emit_set(trg)
+
+    def right_insert(self, rt):
+        """doRightInserts: append to rtm, scan ltm forward, prepend matches
+        into trg, propagate."""
+        self.rtm.append(rt)
+        trg = []
+        for lt in self.ltm:                         # forward scan
+            if win_match(self.op, self.lo, self.hi, lt[-1], rt):
+                trg.insert(0, lt + [rt])            # addInsert PREPEND
+        self._propagate(trg)
+
+    def left_insert(self, lt):
+        self._emit_set([lt])
 
 
 def simulate(scenario):
@@ -114,54 +134,104 @@ def battery(dir_, oracle_txt):
     print(f"MODEL vs GATE ORACLE: {ok} ok / {bad} MISMATCH")
 
 
-def fuzz(n, seed):
-    import random, subprocess
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import fuzz_chain
-    REPO = "/home/bryan/rust-rules"
+EXP = 100000
+
+
+def _etype(n):
+    return {"name": n, "fields": [{"name": "ts", "type": "i64"}],
+            "event": {"timestamp": "ts", "expires_ms": EXP}}
+
+
+def _gen_multi(rng, name):
+    """MULTI-ANCHOR generator (facet-4 stress): 2-3 node chain, 1-3 E0
+    anchors, 1-4 partners/level, random after/before windows, shuffled."""
+    nnodes = rng.choice([2, 2, 3])
+    ops = [(rng.choice(["after", "before"]), rng.choice([50, 100, 150, 200]))
+           for _ in range(nnodes)]
+    conj = ["$a0 : E0()"]
+    for i in range(1, nnodes + 1):
+        op, hi = ops[i - 1]
+        conj.append(f"$a{i} : E{i}(this {op}[0ms,{hi}ms] $a{i-1})")
+    facts = []
+    e0_ts = rng.sample(range(0, 6), rng.choice([1, 2, 2, 3]))
+    facts += [("E0", t) for t in e0_ts]
+    base = min(e0_ts)
+    for i in range(1, nnodes + 1):
+        op, hi = ops[i - 1]
+        used, tss = set(), []
+        for _ in range(rng.randint(1, 4)):
+            for _try in range(20):
+                ts = base + rng.randint(0, hi) if op == "after" else base - rng.randint(0, hi)
+                if ts not in used:
+                    used.add(ts); tss.append(ts); break
+        facts += [(f"E{i}", t) for t in tss]
+        base = tss[0]
+    rng.shuffle(facts)
+    return {"name": name, "types": [_etype(f"E{i}") for i in range(nnodes + 1)],
+            "drl": f"rule CH when {' '.join(conj)} then end\n",
+            "facts": [{"type": t, "fields": {"ts": ts}} for t, ts in facts], "epochs": []}
+
+
+def _gate_oracle(paths):
+    import subprocess
+    env = dict(os.environ)
+    env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + env.get("PATH", "")
+    r = subprocess.run(["cargo", "run", "-q", "-p", "seine-harness", "--", "oracle"] + paths,
+                       cwd="/home/bryan/rust-rules", capture_output=True, text=True, env=env)
+    out = {}
+    for line in r.stdout.splitlines():
+        try:
+            o = json.loads(line)
+        except Exception:
+            continue
+        res = o.get("result")
+        if not res:
+            out[o["scenario"]] = None
+            continue
+        seq = []
+        for fr in res["firings"]:
+            d = {m["type"]: m["fields"]["ts"] for m in fr["matches"]}
+            seq.append("-".join(str(d[f"E{i}"]) for i in sorted(int(k[1:]) for k in d)))
+        out[o["scenario"]] = seq
+    return out
+
+
+def _fuzz(n, seed, gen_fn, tag):
+    import random
+    rng = random.Random(seed)
     OUT = "/tmp/model_join_fuzz"
     os.makedirs(OUT, exist_ok=True)
-
-    def gate(paths):
-        env = dict(os.environ)
-        env["PATH"] = os.path.expanduser("~/.cargo/bin") + ":" + env.get("PATH", "")
-        r = subprocess.run(["cargo", "run", "-q", "-p", "seine-harness", "--", "oracle"] + paths,
-                           cwd=REPO, capture_output=True, text=True, env=env)
-        out = {}
-        for line in r.stdout.splitlines():
-            try:
-                o = json.loads(line)
-            except Exception:
-                continue
-            res = o.get("result")
-            if not res:
-                out[o["scenario"]] = None
-                continue
-            seq = []
-            for fr in res["firings"]:
-                d = {m["type"]: m["fields"]["ts"] for m in fr["matches"]}
-                seq.append("-".join(str(d[f"E{i}"]) for i in sorted(int(k[1:]) for k in d)))
-            out[o["scenario"]] = seq
-        return out
-
-    rng = random.Random(seed)
     done = ndiff = 0
+    diffs = []
     while done < n:
         paths, scns = [], {}
         for i in range(done, min(done + 200, n)):
-            scn, _, _ = fuzz_chain.gen(rng, f"mjf{seed}x{i}", rng.choice([2, 2, 3]))
-            p = os.path.join(OUT, f"mjf{seed}x{i}.json")
+            scn = gen_fn(rng, f"{tag}{seed}x{i}")
+            p = os.path.join(OUT, f"{tag}{seed}x{i}.json")
             json.dump(scn, open(p, "w"))
             paths.append(p)
             scns[scn["name"]] = scn
-        ora = gate(paths)
+        ora = _gate_oracle(paths)
         for p in paths:
             nm = os.path.basename(p)[:-5]
             if simulate(scns[nm]) != ora.get(nm):
                 ndiff += 1
+                diffs.append(nm)
         done += len(paths)
-    print(f"model-vs-oracle: {n} cases seed {seed}: {ndiff} divergences "
+    print(f"{tag} model-vs-oracle: {n} cases seed {seed}: {ndiff} divergences "
           f"({100*ndiff//max(1,n)}%)")
+    if diffs:
+        print("  kept:", " ".join(diffs[:30]))
+
+
+def fuzz(n, seed):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import fuzz_chain
+    _fuzz(n, seed, lambda rng, nm: fuzz_chain.gen(rng, nm, rng.choice([2, 2, 3]))[0], "mjf")
+
+
+def fuzzm(n, seed):
+    _fuzz(n, seed, _gen_multi, "mjm")
 
 
 if __name__ == "__main__":
@@ -169,3 +239,5 @@ if __name__ == "__main__":
         battery(sys.argv[2], sys.argv[3])
     elif sys.argv[1] == "fuzz":
         fuzz(int(sys.argv[2]), int(sys.argv[3]))
+    elif sys.argv[1] == "fuzzm":
+        fuzzm(int(sys.argv[2]), int(sys.argv[3]))
