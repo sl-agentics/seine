@@ -11,10 +11,18 @@ expires_ms get their reach inferred from the temporal constraints
 (earlier=hi, later=-lo→leak, MAX-merge, transitive CHAINS via the STP
 closure), mixed explicit+inferred within a scenario.
 
-Fences honored: no windows (E2 item B); events never updated/deleted
-externally; event timestamps drawn at-or-after the current scenario
-clock (the past-deadline insert edge is unprobed); distinct-or-tied
-deadlines both drawn (a2: ties are pinned stable).
+Covers (D-110): window:time WINDOWS — accumulate(E over window:time(N))
+count()/sum() with per-subtree eviction at ts+N, and the A→B seam (a
+windowed source without explicit expires infers max(temporal reach,
+N-1); a bare/backward ref on the same type still forces NEVER). Optional
+source constraint (filter-first) and salience (cross-rule ordering vs
+expiration/eviction).
+
+Fences honored: window:length + standalone-pattern windows (follow-on
+slab); events never updated/deleted externally; event timestamps drawn
+at-or-after the current scenario clock (the past-deadline insert edge is
+unprobed); distinct-or-tied deadlines both drawn (a2: ties are pinned
+stable).
 
 Usage: .venv/bin/python tools/fuzz_cep.py <n> <seed>
 """
@@ -82,6 +90,51 @@ class Gen:
                 f'$c : E2(this {op2}[{lo2}ms,{hi2}ms] $b) then end'
             )
             ri += 1
+        # D-110: windowed accumulate over a DEDICATED event stream EW whose
+        # instances are ALL inserted at clock 0 (see facts below), never in
+        # epochs. That restriction keeps the window slab's fuzz on the CORE
+        # — per-subtree eviction at ts+N (fact survives WM-wide) and the A→B
+        # seam (a windowed source without explicit expires infers
+        # max(temporal reach, N-1)) — and OUT of the window × STREAM-flush
+        # composition: a clock-deferred evict/expire of an accumulated event
+        # transiently coexists with a LATER insert into the SAME accumulate
+        # (fz cf1x38 / the pre-existing acc_expire_reinsert deferral gap),
+        # deferred to its own model-check sub-recon.
+        self.windowed = None
+        if r.random() < 0.7:
+            nwin = r.choice([50, 100, 100, 150, 200])
+            ew = {"timestamp": "ts"}
+            if r.random() < 0.4:  # explicit → eviction independent of expiry
+                ew["expires_ms"] = r.choice([30, 50, 100, 300, 100000])
+            types.append({
+                "name": "EW",
+                "fields": [{"name": "ts", "type": "i64"}, {"name": "tag", "type": "String"}],
+                "event": ew,
+            })
+            self.windowed = nwin
+            wsal = f" salience {r.randint(-5, 12)}" if r.random() < 0.4 else ""
+            cons = f'tag == "{r.choice("xyz")}"' if r.random() < 0.35 else ""
+            if r.random() < 0.6:
+                src, fn = f"EW({cons})", "$c : count()"
+            else:
+                inner = (cons + ", " if cons else "") + "$t : ts"
+                src, fn = f"EW({inner})", "$c : sum($t)"
+            rules.append(
+                f'rule W{ri}{wsal} when '
+                f'accumulate( {src} over window:time({nwin}ms); {fn} ) then end'
+            )
+            ri += 1
+            # seam max-merge: EW as a temporal anchor (inferred expiry =
+            # max(window N-1, reach)); probe side E0 may arrive in an epoch.
+            if r.random() < 0.4:
+                op = r.choice(["after", "before"])
+                lo = r.choice([0, 50])
+                hi = lo + r.choice([50, 100, 200])
+                rules.append(
+                    f'rule WT{ri} when $a : EW() '
+                    f'$b : E0(this {op}[{lo}ms,{hi}ms] $a) then end'
+                )
+                ri += 1
         # TMS justification off an event + observers (a6/a7 shape)
         if r.random() < 0.75:
             e = r.choice(self.etypes)
@@ -110,6 +163,12 @@ class Gen:
         for _ in range(r.randint(1, 4)):
             t = r.choice(self.etypes)
             facts.append({"type": t, "fields": {"ts": r.randint(0, 40), "tag": r.choice("xyz")}})
+        # D-110: windowed events — INITIAL BATCH ONLY (never re-inserted in
+        # epochs), distinct ts straddling the window boundary so advances
+        # slide the window across them.
+        if self.windowed is not None:
+            for _ in range(r.randint(1, 4)):
+                facts.append({"type": "EW", "fields": {"ts": r.randint(0, 120), "tag": r.choice("xyz")}})
 
         # epochs: advances + fresh events at/after the running clock. The
         # advance pool straddles common inferred boundaries (hi/sum ±1).

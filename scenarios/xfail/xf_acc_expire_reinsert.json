@@ -1,5 +1,5 @@
 {
- "name": "win2_seam_time_expl_101",
+ "name": "xf_acc_expire_reinsert",
  "types": [
   {
    "name": "E",
@@ -7,15 +7,11 @@
     {
      "name": "ts",
      "type": "i64"
-    },
-    {
-     "name": "tag",
-     "type": "String"
     }
    ],
    "event": {
     "timestamp": "ts",
-    "expires_ms": 300
+    "expires_ms": 50
    }
   },
   {
@@ -28,13 +24,12 @@
    ]
   }
  ],
- "drl": "rule Rw when accumulate( E() over window:time(100ms); $c : count() ) then end\n",
+ "drl": "rule W when accumulate( E($t : ts); $c : sum($t) ) then end\n",
  "facts": [
   {
    "type": "E",
    "fields": {
-    "ts": 0,
-    "tag": "x"
+    "ts": 10
    }
   }
  ],
@@ -43,10 +38,17 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 101
+     "ms": 100
     }
    ],
-   "facts": []
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 100
+     }
+    }
+   ]
   }
  ]
 }

@@ -1,5 +1,5 @@
 {
- "name": "win2_seam_time_expl_101",
+ "name": "win_x_back_100",
  "types": [
   {
    "name": "E",
@@ -14,8 +14,7 @@
     }
    ],
    "event": {
-    "timestamp": "ts",
-    "expires_ms": 300
+    "timestamp": "ts"
    }
   },
   {
@@ -26,9 +25,21 @@
      "type": "i64"
     }
    ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
   }
  ],
- "drl": "rule Rw when accumulate( E() over window:time(100ms); $c : count() ) then end\n",
+ "drl": "rule Rw when accumulate( E() over window:time(100ms); $c : count() ) then end\nrule Rc when $a : D() $b : E(this after[10ms,100ms] $a) then end\n",
  "facts": [
   {
    "type": "E",
@@ -43,7 +54,7 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 101
+     "ms": 100
     }
    ],
    "facts": []

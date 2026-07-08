@@ -20,12 +20,13 @@ every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **several commits UNPUSHED** (don't push without Bryan).
-Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
-plus this CURRENT-STATE block. Build clean. Gates green: baseline 11 /
-probes 729 / regressions 281 byte-identical; lint 1069; 8 Rust suites;
-72 pytest. Verify with `make diff` / `make lint-probes` / `cargo test`;
-oracle prebuilt (`oracle/target/classpath.txt`). If any gate is red on
-resume, something drifted — investigate before building on it.
+Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser.
+**UNCOMMITTED working tree: item B RUNTIME (D-111)** — window eviction +
+A→B seam, pin-green, awaiting Bryan's commit gate. Gates green: baseline 11
+/ probes 767 / regressions 281 byte-identical; lint 1117; 8 Rust suites.
+Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
+(`oracle/target/classpath.txt`). If any gate is red on resume, something
+drifted — investigate before building on it.
 
 **Landed:** v0.4.0 (`5b23e7c`) = CEP E1 + Engine::reset + agenda groups +
 queries×mutation + structured aggregation. Data-types arc (nulls/decimals,
@@ -33,23 +34,31 @@ D-096–098). TMS, P1c group CEs, hardening waves — see the log.
 CEP **E2 item A** @expires inference (D-109, `8018ea2`): reach + transitive
 STP closure + the never-overwrite (bare/backward → NEVER).
 
-**ACTIVE FRONTIER — CEP E2 item B (windows).** Recon + parser plumbing
-committed (D-110, `79c6b95`); `window:time` WALLED at engine-compile.
-**RESUME HERE — build the window runtime:** (1) per-subtree EVICTION = a
-scoped right-delete at the windowed accumulate node (Phase-B @
-`engine.rs:5162` → Phase G), scheduled at `ts+N` via a new window-deadline
-BTreeMap drained in `advance()`, WITHOUT killing the fact; (2) the A→B SEAM
-(fold `window:time` size−1 into `temporal_ub` + exempt windowed patterns
-from `never_inferred`). Then un-fence `probes_pending/cep/win*`, `make diff`,
-extend `fuzz_cep.py`. Full detail: `~/.claude/plans/graceful-waddling-stallman.md`.
-Deferred to a model-check sub-recon (own gate): window × STREAM-flush / TMS /
-node-sharing / length-under-mutation.
+**ACTIVE FRONTIER — CEP E2 item B (windows): CORE LANDED, campaign BLOCKED.**
+`window:time` runtime + A→B seam ported and **pin-green** (D-111, uncommitted):
+per-subtree eviction at `ts+N` (scoped right-delete, fact survives) + the
+pattern-level seam (fold `N−1` into `temporal_ub`, windowed pattern skips
+`never_inferred` but a bare/backward ref still forces NEVER). 38 window
+probes promoted to `scenarios/probes/pr_cep_win*`; corpus byte-identical.
+**BLOCKER — the fuzz campaign is stuck on a PRE-EXISTING accumulate+expiration
+DEFERRAL gap (D-111), NOT a window bug** (reproduced on a plain accumulate,
+confirmed on pristine HEAD): the D-102 expiration-at-quiescence deferral
+doesn't compose with `accumulate` — count transient + firing-order (both in
+`scenarios/xfail/xf_acc_expire_*`); the window-evict inherits it. 300@seed1 =
+47 divergences, ALL correct-WM (39 pure-reorder, 8 transient), 0 window-count
+errors. **RESUME HERE — Bryan gate:** (A) commit the core, defer the deferral
+fix + campaign to a model-check sub-recon (extend `model_check_stream` for
+accumulate-removal ordering; xfail repros are the anchors) — recommended; or
+(B) fix the deferral first. Detail: `~/.claude/plans/graceful-waddling-stallman.md`.
 
-**Open/deferred:** E1-hardening — 2 temporal-join-order xfails
-(`scenarios/xfail/xf_cep_tjorder_*`, bisect-confirmed pre-existing); D-080
-TMS envelope; E2 remaining after B: C event update/delete, D entry-points,
-E @duration. Upstream: #2366 filed (min/max), `docs/drools-inferred-expiry-never.md`
-drafted (window/inference never-leak). Window:length is walled (follow-on).
+**Open/deferred:** **NEW (D-111): accumulate+expiration deferral gap**
+(count transient + firing order, pre-existing, 2 xfail repros) — gates the
+window fuzz campaign + is a standalone correctness bug. E1-hardening — 2
+temporal-join-order xfails (bisect-confirmed pre-existing); D-080 TMS
+envelope; window × STREAM-flush/TMS/node-sharing (model-check sub-recon);
+`window:length` + standalone-pattern window (walled, follow-on); E2 remaining:
+C event update/delete, D entry-points, E @duration. Upstream: #2366 filed
+(min/max), `docs/drools-inferred-expiry-never.md` drafted.
 
 ---
 
@@ -5111,3 +5120,96 @@ deep compositions get their own D-entry + Bryan gate after the
 model-check.
 **Artifacts:** 36 recon probes `probes_pending/cep/win{,2,3,4}_*`
 (engine_fenced).
+
+## 2026-07-07 — Session (cont.), CEP E2 item B RUNTIME
+
+### D-111: window:time runtime (eviction + A→B seam) — CORE landed pin-green; the accumulate+expiration DEFERRAL gap surfaced (pre-existing) blocks the fuzz campaign
+
+**Ported the surgical core (all oracle-pinned this session, PROBE-FIRST —
+ran the 36 fenced recon probes + 10 fresh edge probes live before touching
+the engine).** Un-walled `window:time` at compile (`engine.rs` CompiledAcc
+now carries `window_time`), built the runtime, closed the seam:
+
+- **Per-subtree eviction** — at insert, `schedule_window_evictions` queues
+  `(windowed acc node idx, event)` at EXACTLY `ts+N` (no +1) in a new
+  `window_deadlines` BTreeMap (precomputed `window_nodes` maps event type →
+  its windowed Acc trie nodes). `advance()` drains due entries into
+  `pending_window_evictions`; at agenda quiescence `evict_from_window` does
+  a SCOPED right-delete at that ONE node (`active.remove` guard +
+  `s_right.add_del` + `note_link_effects_ex` → eval_acc_node Phase B→G
+  re-fires the count) WITHOUT killing the fact. The `active` guard gives the
+  double-removal NO-OP for free (win4_expl50: an explicit expiry < N removes
+  the event first; the later eviction finds it gone). The fact survives
+  WM-wide (win_t_b/win_x_bare/win_x_back: E persists while count→0).
+- **A→B seam (pattern-level, not type-level — the probe corrected the
+  hand-intuition).** In `compile_rule` the windowed accumulate source folds
+  `N−1` into `temporal_ub` (max-merged) AND is skipped from the bare-pattern
+  `never_inferred` insert — but a SEPARATE bare/backward pattern on the same
+  type STILL adds it, and that NEVER overwrite DOMINATES the window
+  (win_x_bare/win_x_back pinned live: E persists, only the subtree count
+  drops — a type-level exemption would have wrongly expired E at ts+N). A
+  larger temporal reach wins via the max (win3_seam_tmax=200 → deadline
+  201); a smaller one loses to the window (win_x_fwd50: fold 99 beats reach
+  50 → deadline 100). Explicit `@expires` suppresses inference (skips the
+  fold) but NOT eviction (win2_seam_time_expl / win_t_b: count still drops
+  at ts+N).
+- Certified-corpus guard holds: `window_nodes`/`event_specs` empty ⇒ every
+  new path is inert. Reset recomputes `window_nodes` in `build_network`
+  (trie reindexes).
+
+**Gate (core): GREEN.** 38 window probes promoted to `scenarios/probes/pr_cep_win*`
++ `pr_cep_a4_window_scope` (un-fenced), all byte-identical vs the live
+oracle. `make diff` baseline 11 / probes 767 / regressions 281
+byte-identical; `make lint-probes` 1117 live 0 ghost; 8 Rust suites. The
+length/standalone recon probes stay `engine_fenced` in `probes_pending`
+(follow-on slab).
+
+**FUZZ CAMPAIGN BLOCKED — a PRE-EXISTING accumulate+expiration DEFERRAL gap
+(NOT a window bug).** Extending `fuzz_cep.py` with window draws surfaced
+that Seine's D-102 expiration deferral (expiration propagates at agenda
+QUIESCENCE, pinned for the not-CE-blocking case) does NOT compose with
+`accumulate` — two facets, BOTH reproduced on a PLAIN accumulate with NO
+window and CONFIRMED on pristine HEAD (823e97a) via `git worktree`:
+- **count transient** (`scenarios/xfail/xf_acc_expire_reinsert`):
+  `sum(ts)` over `E(@expires 50)`, E@10, advance 100 (E@10 expires), insert
+  E@100 → oracle `[10],[100]`; Seine `[10],[110],[100]` — the deferred
+  removal of E@10 transiently coexists with the later insert.
+- **firing order** (`scenarios/xfail/xf_acc_expire_order`): `accumulate
+  count` salience 5 + a salience-0 rule, E expires + a concurrent insert →
+  oracle fires the count-drop `W[0]` by salience (BEFORE the s0 rule); Seine
+  defers it to a late quiescence round (fires it AFTER). Drools fires all
+  clock jobs at advanceTime, THEN the agenda orders by salience; Seine's
+  deferral does not salience-interleave the accumulate count-drop.
+
+The window-evict INHERITS this deferral (it drains at the same quiescence),
+so window scenarios with a later insert into the accumulate or a concurrent
+agenda diverge identically. Campaign 300@seed1: 47 divergences, **ALL with
+the CORRECT final WM** — 39 pure firing-REORDER (identical firing multiset),
+8 a missing/extra INTERMEDIATE count-drop re-eval (transient coalescing);
+**ZERO wrong window counts, ZERO wrong WM**. The eviction/seam VALUES are
+sound; every divergence is the deferral composition. The CEP fuzz never
+drew `accumulate` before, so the gap was latent (no promoted probe exercises
+concurrent-agenda accumulate+expiration either).
+
+**This is the `window × STREAM-flush` model-check sub-recon the plan already
+defers — now with a concrete pre-existing root cause.** NOT hand-reasoned
+further (D-083: deferral compositions flip-flop; extend `model_check_stream`
+with the accumulate-removal-ordering dimension, don't encode). A speculative
+"stage evicts in the expiration round to salience-interleave" was tried and
+REVERTED — it made the evict-vs-expire order worse and does not touch the
+underlying deferral.
+
+**HANDOFF — Bryan gate (checkpoint).** Window runtime + seam are landed and
+pin-green; the certified corpus is untouched. The fuzz campaign is blocked
+by the pre-existing accumulate+expiration deferral gap. Decision needed:
+(A) land the core now, defer the deferral fix + the window campaign to a
+follow-on (model-check `model_check_stream` for the accumulate-removal
+ordering; the two xfail repros are the anchors) — matches the plan's
+window×flush deferral; or (B) take the deferral fix first (own recon,
+touches certified D-102 machinery). Recommend A. Uncommitted; commit awaits
+Bryan.
+**Artifacts:** 38 promoted `scenarios/probes/pr_cep_win*` +
+`pr_cep_a4_window_scope`; 10 un-fenced recon probes in `probes_pending/cep`
+(win_x_bare/back/fwd50, win2_seam_time_99); 2 xfail repros; `fuzz_cep.py`
+window draws (dedicated initial-only `EW` stream, still surfaces the
+deferral gap via any accumulate+removal+concurrency).
