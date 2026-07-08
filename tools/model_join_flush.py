@@ -4,7 +4,7 @@
 engine port. The harness differs it against the gate oracle over the curated
 battery and random shuffled-insertion populations.
 
-  model_join_flush.py battery <dir> <gate_oracle.txt>  # curated 33-case check
+  model_join_flush.py battery                          # curated 33-case check (self-contained)
   model_join_flush.py fuzz    <n> <seed>               # single-anchor population
   model_join_flush.py fuzzm   <n> <seed>               # MULTI-anchor population (facet-4)
 
@@ -106,31 +106,25 @@ def simulate(scenario):
     return ["-".join(map(str, t)) for t in nodes[-1].firings]
 
 
-def load_oracle_tbl(path):
-    tbl = {}
-    for line in open(path):
-        line = line.rstrip()
-        if not line:
-            continue
-        name = line.split()[0]
-        rest = line[len(name):].strip()
-        tbl[name] = eval(rest) if rest != "ERR" else "ERR"
-    return tbl
-
-
-def battery(dir_, oracle_txt):
-    tbl = load_oracle_tbl(oracle_txt)
+def battery():
+    """Self-contained: generate the 33-case A-F battery via cep_join_battery,
+    run the gate oracle LIVE, compare to the model. No external fixture."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import cep_join_battery
+    OUT = "/tmp/model_join_battery"
+    cep_join_battery.gen(OUT)
+    paths = [os.path.join(OUT, fn) for fn in sorted(os.listdir(OUT))
+             if fn.endswith(".json") and fn != "_manifest.json"]
+    ora = _gate_oracle(paths)
     ok = bad = 0
-    for fn in sorted(os.listdir(dir_)):
-        if not fn.endswith(".json") or fn == "_manifest.json":
-            continue
-        name = fn[:-5]
-        pred = simulate(json.load(open(os.path.join(dir_, fn))))
-        if pred == tbl.get(name):
+    for p in paths:
+        name = os.path.basename(p)[:-5]
+        pred = simulate(json.load(open(p)))
+        if pred == ora.get(name):
             ok += 1
         else:
             bad += 1
-            print(f"  MISMATCH {name}\n    model : {pred}\n    oracle: {tbl.get(name)}")
+            print(f"  MISMATCH {name}\n    model : {pred}\n    oracle: {ora.get(name)}")
     print(f"MODEL vs GATE ORACLE: {ok} ok / {bad} MISMATCH")
 
 
@@ -236,7 +230,7 @@ def fuzzm(n, seed):
 
 if __name__ == "__main__":
     if sys.argv[1] == "battery":
-        battery(sys.argv[2], sys.argv[3])
+        battery()
     elif sys.argv[1] == "fuzz":
         fuzz(int(sys.argv[2]), int(sys.argv[3]))
     elif sys.argv[1] == "fuzzm":
