@@ -11,17 +11,21 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-07, HEAD `79c6b95`._
+_Last updated: 2026-07-07 (run `git log --oneline -8` for the live HEAD —
+this line lags by its own commit)._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools
 9.44.0.Final subset. **Prime directive: PROBE-FIRST** — the oracle settles
 every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
-**HEAD:** `main` @ `79c6b95`, **2 ahead of origin (UNPUSHED)**. Build clean.
-Gates green: baseline 11 / probes 729 / regressions 281 byte-identical;
-lint 1069; 8 Rust suites; 72 pytest. `make diff` / `make lint-probes` /
-`cargo test`; oracle prebuilt (`oracle/target/classpath.txt`).
+**Git:** on `main`, **several commits UNPUSHED** (don't push without Bryan).
+Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
+plus this CURRENT-STATE block. Build clean. Gates green: baseline 11 /
+probes 729 / regressions 281 byte-identical; lint 1069; 8 Rust suites;
+72 pytest. Verify with `make diff` / `make lint-probes` / `cargo test`;
+oracle prebuilt (`oracle/target/classpath.txt`). If any gate is red on
+resume, something drifted — investigate before building on it.
 
 **Landed:** v0.4.0 (`5b23e7c`) = CEP E1 + Engine::reset + agenda groups +
 queries×mutation + structured aggregation. Data-types arc (nulls/decimals,
