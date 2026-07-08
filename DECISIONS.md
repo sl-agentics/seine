@@ -1,7 +1,51 @@
 # DECISIONS.md — running log
 
-Append-only log of semantics probes, tie-break discoveries, design decisions,
-and known limitations. Each checkpoint ends with a handoff note.
+The body below is an **append-only** log of semantics probes, tie-break
+discoveries, design decisions, and known limitations (each checkpoint ends
+with a handoff note). The block just below — **CURRENT STATE** — is the ONE
+mutable part: a living summary, **overwrite it each checkpoint** so a fresh
+session orients here instead of reading 4900 lines. Keep it short; put the
+detail in a D-entry below and the active-slab detail in the plan file.
+
+---
+
+## CURRENT STATE  (living summary — overwrite each checkpoint)
+
+_Last updated: 2026-07-07, HEAD `79c6b95`._
+
+**Repo:** Seine — differential-tested Rust port of a bounded Drools
+9.44.0.Final subset. **Prime directive: PROBE-FIRST** — the oracle settles
+every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
+Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
+
+**HEAD:** `main` @ `79c6b95`, **2 ahead of origin (UNPUSHED)**. Build clean.
+Gates green: baseline 11 / probes 729 / regressions 281 byte-identical;
+lint 1069; 8 Rust suites; 72 pytest. `make diff` / `make lint-probes` /
+`cargo test`; oracle prebuilt (`oracle/target/classpath.txt`).
+
+**Landed:** v0.4.0 (`5b23e7c`) = CEP E1 + Engine::reset + agenda groups +
+queries×mutation + structured aggregation. Data-types arc (nulls/decimals,
+D-096–098). TMS, P1c group CEs, hardening waves — see the log.
+CEP **E2 item A** @expires inference (D-109, `8018ea2`): reach + transitive
+STP closure + the never-overwrite (bare/backward → NEVER).
+
+**ACTIVE FRONTIER — CEP E2 item B (windows).** Recon + parser plumbing
+committed (D-110, `79c6b95`); `window:time` WALLED at engine-compile.
+**RESUME HERE — build the window runtime:** (1) per-subtree EVICTION = a
+scoped right-delete at the windowed accumulate node (Phase-B @
+`engine.rs:5162` → Phase G), scheduled at `ts+N` via a new window-deadline
+BTreeMap drained in `advance()`, WITHOUT killing the fact; (2) the A→B SEAM
+(fold `window:time` size−1 into `temporal_ub` + exempt windowed patterns
+from `never_inferred`). Then un-fence `probes_pending/cep/win*`, `make diff`,
+extend `fuzz_cep.py`. Full detail: `~/.claude/plans/graceful-waddling-stallman.md`.
+Deferred to a model-check sub-recon (own gate): window × STREAM-flush / TMS /
+node-sharing / length-under-mutation.
+
+**Open/deferred:** E1-hardening — 2 temporal-join-order xfails
+(`scenarios/xfail/xf_cep_tjorder_*`, bisect-confirmed pre-existing); D-080
+TMS envelope; E2 remaining after B: C event update/delete, D entry-points,
+E @duration. Upstream: #2366 filed (min/max), `docs/drools-inferred-expiry-never.md`
+drafted (window/inference never-leak). Window:length is walled (follow-on).
 
 ---
 
