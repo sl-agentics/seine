@@ -209,6 +209,12 @@ pub struct Pattern {
     /// `not(A or B)` = `not(A) and not(B)`; `exists(A or B)` =
     /// `not( not(A) and not(B) )`.
     pub group: Option<Vec<Pattern>>,
+    /// CEP E2 item D: `Type(...) from entry-point "S1"` draws from a NAMED
+    /// entry point (partitioned stream) instead of the DEFAULT working
+    /// memory. None = DEFAULT. A pattern only matches facts inserted into
+    /// its entry point; the name must be referenced by some rule to be
+    /// insertable (Drools: getEntryPoint(unref) is null).
+    pub entry_point: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -425,6 +431,13 @@ fn lex(src: &str) -> Result<(Vec<Tok>, Vec<u32>), DrlError> {
                 && b[i..i + 6].iter().collect::<String>() == "-group"
             {
                 word = "agenda-group".into();
+                i += 6;
+            }
+            // `entry-point` likewise (CEP E2 item D)
+            if word == "entry" && i + 5 < b.len()
+                && b[i..i + 6].iter().collect::<String>() == "-point"
+            {
+                word = "entry-point".into();
                 i += 6;
             }
             push!(start, Tok::Ident(word));
@@ -1084,6 +1097,7 @@ impl Parser {
                 acc: None,
                 q_args: Some(args),
                 group: None,
+                entry_point: None,
             });
         }
         if self.at_kw("accumulate") {
@@ -1121,53 +1135,70 @@ impl Parser {
         } else {
             self.next()?;
         }
+        let mut entry_point: Option<String> = None;
         if self.at_kw("from") {
             self.next()?;
-            if !self.at_kw("collect") {
-                return Err(self.perr("`from` is only supported as `from collect` (D-038)"));
+            if self.at_kw("entry-point") {
+                // CEP E2 item D: `Type(...) from entry-point "S1"` — a NAMED
+                // stream source. Falls through to the normal pattern return
+                // carrying entry_point; source membership is EP-filtered at
+                // routing time (alpha_passes).
+                self.next()?;
+                entry_point = Some(match self.next()? {
+                    Tok::StrLit(s) => s,
+                    other => {
+                        return Err(self.perr_prev(format!(
+                            "entry-point name must be a string literal, got {other}"
+                        )))
+                    }
+                });
+            } else if self.at_kw("collect") {
+                self.next()?;
+                if ce != CeKind::Positive {
+                    return Err(self.perr("not/exists over collect not in subset"));
+                }
+                if !matches!(type_name.as_str(), "List" | "ArrayList" | "Collection") {
+                    return Err(self.perr(format!(
+                        "collect result pattern must be List/ArrayList/Collection, got {type_name}"
+                    )));
+                }
+                if !constraints.is_empty() {
+                    return Err(self.perr("constraints on the collect result pattern are not in subset"));
+                }
+                let result_var = binding
+                    .ok_or_else(|| self.perr("collect result must be bound (`$l : List()`)"))?;
+                self.expect_sym("(")?;
+                let src = self.pattern()?;
+                self.expect_sym(")")?;
+                if src.ce != CeKind::Positive || src.acc.is_some() {
+                    return Err(self.perr("collect source must be a plain pattern"));
+                }
+                if src.binding.is_some()
+                    || src.constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
+                {
+                    return Err(self.perr("bindings inside a collect source are not in subset"));
+                }
+                // A collect source referencing outer bindings builds an RIA
+                // SUBNETWORK — unported territory with its own quirks
+                // (D-041/fz_999_4371): alpha-only sources stay in subset.
+                if src.constraints.iter().any(
+                    |c| matches!(c, Constraint::Cmp { rhs: CmpRhs::Var(_), .. }),
+                ) {
+                    return Err(self.perr("variable references inside a collect source are not in subset (subnetwork, D-041)"));
+                }
+                return Ok(Pattern {
+                    binding: None,
+                    type_name: src.type_name,
+                    constraints: src.constraints,
+                    ce: CeKind::Positive,
+                    acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var , group_key: None, window: None }),
+                    q_args: None,
+                    group: None,
+                    entry_point: None,
+                });
+            } else {
+                return Err(self.perr("`from` is only supported as `from collect` or `from entry-point \"…\"` (D-038, item D)"));
             }
-            self.next()?;
-            if ce != CeKind::Positive {
-                return Err(self.perr("not/exists over collect not in subset"));
-            }
-            if !matches!(type_name.as_str(), "List" | "ArrayList" | "Collection") {
-                return Err(self.perr(format!(
-                    "collect result pattern must be List/ArrayList/Collection, got {type_name}"
-                )));
-            }
-            if !constraints.is_empty() {
-                return Err(self.perr("constraints on the collect result pattern are not in subset"));
-            }
-            let result_var = binding
-                .ok_or_else(|| self.perr("collect result must be bound (`$l : List()`)"))?;
-            self.expect_sym("(")?;
-            let src = self.pattern()?;
-            self.expect_sym(")")?;
-            if src.ce != CeKind::Positive || src.acc.is_some() {
-                return Err(self.perr("collect source must be a plain pattern"));
-            }
-            if src.binding.is_some()
-                || src.constraints.iter().any(|c| matches!(c, Constraint::Bind { .. }))
-            {
-                return Err(self.perr("bindings inside a collect source are not in subset"));
-            }
-            // A collect source referencing outer bindings builds an RIA
-            // SUBNETWORK — unported territory with its own quirks
-            // (D-041/fz_999_4371): alpha-only sources stay in subset.
-            if src.constraints.iter().any(
-                |c| matches!(c, Constraint::Cmp { rhs: CmpRhs::Var(_), .. }),
-            ) {
-                return Err(self.perr("variable references inside a collect source are not in subset (subnetwork, D-041)"));
-            }
-            return Ok(Pattern {
-                binding: None,
-                type_name: src.type_name,
-                constraints: src.constraints,
-                ce: CeKind::Positive,
-                acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var , group_key: None, window: None }),
-                q_args: None,
-                group: None,
-            });
         }
         if ce != CeKind::Positive {
             // Bindings inside not/exists are scoped out in Drools; the
@@ -1178,7 +1209,7 @@ impl Parser {
                 return Err(self.perr("bindings are not allowed in not/exists patterns"));
             }
         }
-        Ok(Pattern { binding, type_name, constraints, ce, acc: None, q_args: None, group: None })
+        Ok(Pattern { binding, type_name, constraints, ce, acc: None, q_args: None, group: None, entry_point })
     }
 
     /// `accumulate( <source pattern> ; $r : func([$arg]) )` — built-in
@@ -1253,11 +1284,26 @@ impl Parser {
     fn accumulate_pattern(&mut self) -> Result<Pattern, DrlError> {
         self.expect_kw("accumulate")?;
         self.expect_sym("(")?;
-        let src = self.pattern()?;
+        let mut src = self.pattern()?;
         if src.ce != CeKind::Positive || src.acc.is_some() || src.binding.is_some() {
             return Err(self.perr("accumulate source must be a plain unbound pattern"));
         }
         let window = self.parse_window_opt()?;
+        // CEP E2 item D: a WINDOWED source's entry-point trails the window
+        // (`E() over window:time(N) from entry-point "S1"`); the no-window
+        // case parsed it in pattern() already.
+        if self.at_kw("from") {
+            self.next()?;
+            self.expect_kw("entry-point")?;
+            src.entry_point = Some(match self.next()? {
+                Tok::StrLit(s) => s,
+                other => {
+                    return Err(self.perr_prev(format!(
+                        "entry-point name must be a string literal, got {other}"
+                    )))
+                }
+            });
+        }
         self.expect_sym(";")?;
         let result_var = self.dollar_ident()?;
         self.expect_sym(":")?;
@@ -1309,6 +1355,7 @@ impl Parser {
             acc: Some(AccSpec { func, arg, result_var, group_key: None, window }),
             q_args: None,
             group: None,
+            entry_point: src.entry_point,
         })
     }
 
@@ -1842,6 +1889,7 @@ fn lower_group(kind: CeKind, child: &CeNode) -> Result<Pattern, DrlError> {
                 acc: None,
                 q_args: None,
                 group: Some(inner),
+                entry_point: None,
             })
         }
         _ => Err(derr("composite groups nested inside not/exists are out of subset \

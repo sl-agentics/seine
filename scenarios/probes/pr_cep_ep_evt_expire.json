@@ -1,0 +1,54 @@
+{
+ "name": "ep_evt_expire",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when accumulate( E() from entry-point \"S1\"; $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "v": 1
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP E2 item D recon (oracle-pinned; engine WALLS from-entry-point at drl.rs:1127): EP event expires on the SHARED pseudo-clock (count 1->0 after advance) -> R[1] R[0]."
+}

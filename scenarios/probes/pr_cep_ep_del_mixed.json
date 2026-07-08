@@ -1,0 +1,65 @@
+{
+ "name": "ep_del_mixed",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when accumulate( E() from entry-point \"S1\"; $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "v": 9,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "v": 1,
+    "tag": "x"
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E",
+   "fields": {
+    "v": 2,
+    "tag": "x"
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP E2 item D (WORKS): item D\u00d7C: delete an EP fact while a DEFAULT fact of the same type sits lower \u2014 target indexing spans entry points."
+}

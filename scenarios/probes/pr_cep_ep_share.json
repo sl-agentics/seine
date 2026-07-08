@@ -1,0 +1,43 @@
+{
+ "name": "ep_share",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R1 when $e : E() from entry-point \"S1\" then end\nrule R2 when $e : E() from entry-point \"S1\" then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "v": 1
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "_finding": "CEP E2 item D recon (oracle-pinned; engine WALLS from-entry-point at drl.rs:1127): two same-EP rules both match -> R1 R2. Node-sharing across same EP."
+}

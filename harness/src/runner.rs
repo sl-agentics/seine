@@ -56,7 +56,8 @@ fn run_scenario(sc: &J) -> Result<J, String> {
             .and_then(J::as_object)
             .ok_or("fact missing 'fields'")?;
         let fields = json_fields_to_values(fields_obj)?;
-        engine.insert(type_name, fields).map_err(|e| e.to_string())?;
+        let ep = fact.get("entry_point").and_then(J::as_str);
+        engine.insert_into(type_name, fields, ep).map_err(|e| e.to_string())?;
     }
 
     let mut firings = engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?;
@@ -80,7 +81,8 @@ fn run_scenario(sc: &J) -> Result<J, String> {
                             .and_then(J::as_object)
                             .ok_or("insert action missing 'fields'")?;
                         let fields = json_fields_to_values(fields_obj)?;
-                        engine.insert(type_name, fields).map_err(|e| e.to_string())?;
+                        let ep = action.get("entry_point").and_then(J::as_str);
+                        engine.insert_into(type_name, fields, ep).map_err(|e| e.to_string())?;
                     }
                     "update" => {
                         let target = action
@@ -130,7 +132,8 @@ fn run_scenario(sc: &J) -> Result<J, String> {
                     .and_then(J::as_object)
                     .ok_or("epoch fact missing 'fields'")?;
                 let fields = json_fields_to_values(fields_obj)?;
-                engine.insert(type_name, fields).map_err(|e| e.to_string())?;
+                let ep = fact.get("entry_point").and_then(J::as_str);
+                engine.insert_into(type_name, fields, ep).map_err(|e| e.to_string())?;
             }
             firings.extend(engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?);
             // Arc 5 (D-107): per-epoch query invocation — queries run

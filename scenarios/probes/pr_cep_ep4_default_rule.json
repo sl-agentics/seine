@@ -1,0 +1,44 @@
+{
+ "name": "ep4_default_rule",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when $e : E() then end\nrule Reg_S1 when $x : F() from entry-point \"S1\" then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "v": 1
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "_finding": "CEP E2 item D recon (oracle-pinned; engine WALLS from-entry-point at drl.rs:1127): E in S1, default rule E() -> 0. An EP fact doesn't match a DEFAULT pattern.",
+ "expect_inert": true
+}

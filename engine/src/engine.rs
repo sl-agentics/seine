@@ -281,6 +281,9 @@ struct CompiledPattern {
     /// the Outer pseudo-pattern is the counting CE node fed by the
     /// branch tip through the RIA hop.
     sub: SubRole,
+    /// CEP E2 item D: interned entry-point id (0 = DEFAULT). A fact only
+    /// enters this pattern when its entry-point matches (alpha_passes).
+    entry_point: u32,
 }
 
 /// Subnetwork role of a compiled pattern (P1c/D-089).
@@ -1064,6 +1067,17 @@ pub struct Engine {
     firing_stage_floor: u64,
     store: FactStore,
     rules: Vec<CompiledRule>,
+    /// CEP E2 item D: entry-point interning. `entry_points[0]` = "DEFAULT";
+    /// a pattern/fact's entry-point is a u32 index. `ep_ids` maps name→index,
+    /// built at COMPILE from rule `from entry-point` references — an insert
+    /// into an unreferenced name errors (Drools' getEntryPoint = null).
+    /// Survives reset (compile-time, like `rules`).
+    entry_points: Vec<String>,
+    ep_ids: HashMap<String, u32>,
+    /// Per-fact entry-point id (sparse; anything not tagged — DEFAULT
+    /// inserts, RHS inserts, synthetics — reads 0). Indexed by FactId.0;
+    /// cleared on reset with the store.
+    fact_eps: Vec<u32>,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
     /// checks (D-070): subrules of one `or` rule share a parent.
     rule_parents: Vec<usize>,
@@ -1182,6 +1196,9 @@ impl Engine {
             firing_stage_floor: 0,
             store: FactStore::new(schemas),
             rules: Vec::new(),
+            entry_points: vec!["DEFAULT".to_string()],
+            ep_ids: HashMap::new(),
+            fact_eps: Vec::new(),
             rule_parents: Vec::new(),
             rule_order: Vec::new(),
             lias: Vec::new(),
@@ -1750,7 +1767,10 @@ impl Engine {
             // the outer key adds the CE kind + shape (D-089)
             return format!("SN|{:?}|{len}|{plen}", p.ce);
         }
-        let mut s = format!("{}|{:?}|b{}", p.type_id.0, p.ce, p.bind_fields);
+        // CEP E2 item D: entry_point is identity-significant — two patterns
+        // share a node only if same type AND same entry point (all-DEFAULT
+        // corpus gets a uniform `e0`, so the grouping is unchanged).
+        let mut s = format!("{}|{:?}|b{}|e{}", p.type_id.0, p.ce, p.bind_fields, p.entry_point);
         for c in &p.cmps {
             let _ = write!(s, ";{}", c.field_idx);
             match &c.test {
@@ -1967,6 +1987,7 @@ impl Engine {
                 acc: None,
                 qce: None,
                 sub: SubRole::None,
+                entry_point: 0,
             });
             tuple_len = 1;
         }
@@ -2021,6 +2042,7 @@ impl Engine {
                     acc: None,
                     qce: None,
                     sub: SubRole::Outer { len, plen: tuple_len },
+                    entry_point: 0,
                 });
                 continue;
             }
@@ -2137,6 +2159,7 @@ impl Engine {
                     acc: None,
                     qce: Some(CompiledQce { qi, args, row_tid, bound_mask }),
                     sub: SubRole::None,
+                    entry_point: 0,
             });
                 continue;
             }
@@ -2655,6 +2678,7 @@ impl Engine {
                 acc,
                 qce: None,
                 sub: role,
+                entry_point: self.intern_ep(&p.entry_point),
             });
         }
 
@@ -2939,10 +2963,73 @@ impl Engine {
         }
     }
 
+    /// CEP E2 item D: intern an entry-point name at COMPILE (registers it as
+    /// rule-referenced). None / "DEFAULT" → 0.
+    fn intern_ep(&mut self, name: &Option<String>) -> u32 {
+        match name {
+            None => 0,
+            Some(n) if n == "DEFAULT" => 0,
+            Some(n) => {
+                if let Some(&id) = self.ep_ids.get(n) {
+                    return id;
+                }
+                let id = self.entry_points.len() as u32;
+                self.entry_points.push(n.clone());
+                self.ep_ids.insert(n.clone(), id);
+                id
+            }
+        }
+    }
+
+    /// A fact's interned entry-point id (DEFAULT = 0 for anything untagged —
+    /// DEFAULT/RHS/synthetic inserts).
+    fn fact_ep(&self, f: FactId) -> u32 {
+        self.fact_eps.get(f.0 as usize).copied().unwrap_or(0)
+    }
+
     pub fn insert(
         &mut self,
         type_name: &str,
         mut fields: Vec<(String, Value)>,
+    ) -> Result<FactId, EngineError> {
+        self.insert_into(type_name, fields, None)
+    }
+
+    /// CEP E2 item D: external insert into a NAMED entry point (`from
+    /// entry-point`). `entry_point = None`/"DEFAULT" → the default WM. A name
+    /// no rule references is rejected (Drools' getEntryPoint(unref) = null).
+    pub fn insert_into(
+        &mut self,
+        type_name: &str,
+        mut fields: Vec<(String, Value)>,
+        entry_point: Option<&str>,
+    ) -> Result<FactId, EngineError> {
+        let ep_id = match entry_point {
+            None => 0,
+            Some(n) if n.is_empty() || n == "DEFAULT" => 0,
+            Some(n) => *self.ep_ids.get(n).ok_or_else(|| {
+                EngineError(format!(
+                    "no rule references entry-point {n:?} (Drools: getEntryPoint returns null)"
+                ))
+            })?,
+        };
+        let id = self.insert_default(type_name, &mut fields)?;
+        if ep_id != 0 {
+            if self.fact_eps.len() <= id.0 as usize {
+                self.fact_eps.resize(id.0 as usize + 1, 0);
+            }
+            self.fact_eps[id.0 as usize] = ep_id;
+        }
+        self.after_insert(id);
+        Ok(id)
+    }
+
+    /// Store-level insert (field coercion/order) shared by insert_into; does
+    /// NOT propagate — callers set fact_ep then call after_insert.
+    fn insert_default(
+        &mut self,
+        type_name: &str,
+        fields: &mut Vec<(String, Value)>,
     ) -> Result<FactId, EngineError> {
         if type_name == INITIAL_FACT {
             return Err(EngineError(format!("type name {INITIAL_FACT} is reserved")));
@@ -2967,6 +3054,14 @@ impl Engine {
             return Err(EngineError(format!("{type_name}: unknown field {extra}")));
         }
         let id = self.store.insert(tid, ordered).map_err(EngineError)?;
+        Ok(id)
+    }
+
+    /// Post-insert propagation (D-046/D-047): schedule clock jobs, then once
+    /// the network is live, route + STREAM-flush. Runs AFTER the fact's
+    /// entry-point tag is set (CEP E2 item D) so routing (alpha_passes) sees
+    /// the right partition.
+    fn after_insert(&mut self, id: FactId) {
         self.schedule_expiration(id);
         self.schedule_window_evictions(id);
         self.tms_note_stated(id);
@@ -2986,7 +3081,6 @@ impl Engine {
             self.stream_flush(&pre);
             self.flush_trigger_tid = None;
         }
-        Ok(id)
     }
 
     /// Type name of a live fact (bindings support, D-098 boundary).
@@ -3021,6 +3115,9 @@ impl Engine {
         self.ever_linked.clear();
         self.focus_stack.clear();
         self.store.reset();
+        // CEP E2 item D: per-fact EP tags die with the store; the compiled
+        // entry_points/ep_ids table survives (compile-time, like rules).
+        self.fact_eps.clear();
         self.lias.clear();
         self.trie.clear();
         self.nets.clear();
@@ -5908,7 +6005,15 @@ impl Engine {
 
     fn alpha_passes(&self, ri: usize, pos: usize, f: FactId) -> bool {
         let pat = &self.rules[ri].patterns[pos];
-        if !self.store.is_alive(f) || self.store.fact_type(f) != pat.type_id {
+        // CEP E2 item D: a fact only feeds a pattern in the SAME entry point
+        // (DEFAULT=0 for both untagged facts and plain patterns → no change
+        // to the certified corpus). The single choke point for alpha/source
+        // membership, so all routing (insert/update/delete/accumulate) and
+        // node-sharing partition by entry point.
+        if !self.store.is_alive(f)
+            || self.store.fact_type(f) != pat.type_id
+            || self.fact_ep(f) != pat.entry_point
+        {
             return false;
         }
         pat.cmps.iter().all(|c| {
@@ -6528,6 +6633,10 @@ impl Engine {
         self.store
             .live_facts()
             .filter(|f| !hidden.contains(&self.store.fact_type(*f)))
+            // CEP E2 item D: `session.getObjects()` returns only DEFAULT-EP
+            // objects; named-EP facts live in separate partitions and are
+            // not part of the default WM dump.
+            .filter(|f| self.fact_ep(*f) == 0)
             .map(|f| self.store.render(f))
             .collect()
     }

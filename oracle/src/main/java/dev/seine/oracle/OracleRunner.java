@@ -113,6 +113,12 @@ public final class OracleRunner {
             // inserts, InitialFact filtered) — external actions target
             // facts by index into this list, matching the engine's.
             final java.util.List<FactHandle> inserted = new ArrayList<>();
+            // CEP E2 item D: the entry point each NAMED-EP fact was inserted
+            // into — update/delete must route through it (session.update/delete
+            // on a named-EP handle throws "Invalid Entry Point"). Default/RHS
+            // facts are absent → routed through the default EP.
+            final java.util.Map<FactHandle, org.kie.api.runtime.rule.EntryPoint> epMap =
+                    new java.util.HashMap<>();
             final org.kie.api.event.rule.RuleRuntimeEventListener insertListener =
                     new DefaultRuleRuntimeEventListener() {
                 @Override
@@ -125,7 +131,7 @@ public final class OracleRunner {
             session.addEventListener(insertListener);
 
             for (JsonNode fact : scenario.path("facts")) {
-                session.insert(instantiate(kbase, scenario, fact));
+                insertFact(session, kbase, scenario, fact, epMap);
             }
             int fired = session.fireAllRules(FIRE_LIMIT);
             if (fired >= FIRE_LIMIT) {
@@ -138,10 +144,13 @@ public final class OracleRunner {
                 for (JsonNode action : epoch.path("actions")) {
                     String op = action.path("op").asText();
                     if (op.equals("insert")) {
-                        session.insert(instantiate(kbase, scenario, action));
+                        insertFact(session, kbase, scenario, action, epMap);
                     } else if (op.equals("update")) {
-                        FactHandle fh = inserted.get(action.path("target").asInt());
-                        Object bean = session.getObject(fh);
+                        int target = action.path("target").asInt();
+                        FactHandle fh = inserted.get(target);
+                        org.kie.api.runtime.rule.EntryPoint ep =
+                                epMap.getOrDefault(fh, session.getEntryPoint("DEFAULT"));
+                        Object bean = ep.getObject(fh);
                         FactType ft = kbase.getFactType(PKG, bean.getClass().getSimpleName());
                         java.util.List<String> props = new ArrayList<>();
                         java.util.Iterator<String> it = action.path("fields").fieldNames();
@@ -151,12 +160,13 @@ public final class OracleRunner {
                             setTyped(ft, bean, fname, v, scenario);
                             props.add(fname);
                         }
-                        // property-masked external update: the engine
-                        // mirrors with the changed-fields mask
-                        session.update(fh, bean, props.toArray(new String[0]));
+                        // property-masked external update, routed through the
+                        // fact's entry point (CEP E2 item D)
+                        ep.update(fh, bean, props.toArray(new String[0]));
                     } else if (op.equals("delete")) {
-                        FactHandle fh = inserted.get(action.path("target").asInt());
-                        session.delete(fh);
+                        int target = action.path("target").asInt();
+                        FactHandle fh = inserted.get(target);
+                        epMap.getOrDefault(fh, session.getEntryPoint("DEFAULT")).delete(fh);
                     } else if (op.equals("advance")) {
                         // CEP E0: pseudo-clock advance (ms). Expiration
                         // jobs run inside advanceTime (clock set to each
@@ -173,6 +183,7 @@ public final class OracleRunner {
                         // insertion index restarts with it.
                         ((org.drools.kiesession.session.StatefulKnowledgeSessionImpl) session).reset();
                         inserted.clear();
+                        epMap.clear();
                         // reset() drops event listeners (measured, rs_r1/r2)
                         // — re-register the runner's observability
                         session.addEventListener(firingListener);
@@ -182,7 +193,7 @@ public final class OracleRunner {
                     }
                 }
                 for (JsonNode fact : epoch.path("facts")) {
-                    session.insert(instantiate(kbase, scenario, fact));
+                    insertFact(session, kbase, scenario, fact, epMap);
                 }
                 fired = session.fireAllRules(FIRE_LIMIT);
                 // Arc 5 (D-107): per-epoch query invocation
@@ -300,6 +311,22 @@ public final class OracleRunner {
             }
         }
         return bean;
+    }
+
+    /** CEP E2 item D: insert a fact into its named entry point (`from
+     *  entry-point "X"`) when the fact/action carries "entry_point", else the
+     *  DEFAULT entry point. objectInserted still fires (D-047 target list). */
+    static void insertFact(KieSession session, KieBase kbase, JsonNode scenario, JsonNode factNode,
+                           java.util.Map<FactHandle, org.kie.api.runtime.rule.EntryPoint> epMap)
+            throws Exception {
+        Object obj = instantiate(kbase, scenario, factNode);
+        String ep = factNode.path("entry_point").asText("");
+        if (ep.isEmpty()) {
+            session.insert(obj);
+        } else {
+            org.kie.api.runtime.rule.EntryPoint entryPoint = session.getEntryPoint(ep);
+            epMap.put(entryPoint.insert(obj), entryPoint);
+        }
     }
 
     /** Canonical rendering: {"type": T, "fields": {sorted by FactType field order is fine;

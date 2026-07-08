@@ -55,11 +55,35 @@ import sys
 
 BATCH = 150
 INF = 1 << 60
+# A batch that exceeds this is presumed to contain a NON-TERMINATING scenario
+# (an engine spin the fire limit can't catch — a rare pre-existing latent). We
+# bisect it out (per-scenario engine `run`) so the campaign completes rather
+# than wedging (the memory HANG protocol).
+BATCH_TIMEOUT = 200
+SCN_TIMEOUT = 8
 
 
 class Gen:
     def __init__(self, rng):
         self.r = rng
+
+    def ep_suf(self, t):
+        """CEP E2 item D: ` from entry-point "Sk"` suffix for an event pattern
+        of type t (empty for DEFAULT / non-EP scenarios). Goes at the END of a
+        pattern (after constraints / temporal / window)."""
+        ep = self.type_ep.get(t) if self.use_ep else None
+        return f' from entry-point "{ep}"' if ep else ''
+
+    def efact(self, t, fields):
+        """An event fact routed into its type's entry point (item D) — ONLY
+        when a rule actually references that EP (else it's an insert into an
+        unreferenced entry point, which both engines correctly reject as out
+        of subset)."""
+        fd = {"type": t, "fields": fields}
+        ep = self.type_ep.get(t) if self.use_ep else None
+        if ep and ep in self.ep_referenced:
+            fd["entry_point"] = ep
+        return fd
 
     def scenario(self, name):
         r = self.r
@@ -101,6 +125,16 @@ class Gen:
         self.temporal_types = set()      # class 1: after/before join re-fire
         self.windowed_acc_types = set()  # class 2: evicted/expired revival
         self.exists_types = set()        # class 3: exists witness churn
+        # CEP E2 item D: partition SOME scenarios' event types across named
+        # entry points (DEFAULT + S1/S2) — a routing dimension that composes
+        # with every rule + mutation. A pattern of type T and a fact of type T
+        # both carry T's entry point (self.ep_suf / the fact `entry_point`).
+        self.use_ep = r.random() < 0.5
+        self.type_ep = {t: (r.choice([None, None, "S1", "S2"]) if self.use_ep else None)
+                        for t in self.etypes}
+        if self.use_ep and not any(self.type_ep.values()):
+            self.type_ep[self.etypes[0]] = "S1"
+        self.ep_referenced = set()  # EP names a rule actually uses (filled below)
         rules = []
         ri = 0
         # DIAGNOSTIC (CEP_NO_TEMPORAL=1): suppress after/before temporal-join
@@ -118,8 +152,8 @@ class Gen:
             cons = f'tag == "{r.choice("xyz")}"' if r.random() < 0.3 else ""
             sal = f" salience {r.randint(-5, 15)}" if r.random() < 0.4 else ""
             rules.append(
-                f'rule TJ{ri}{sal} when $a : {a}({cons}) '
-                f'$b : {b}(this {op}[{lo}ms,{hi}ms] $a) then end'
+                f'rule TJ{ri}{sal} when $a : {a}({cons}){self.ep_suf(a)} '
+                f'$b : {b}(this {op}[{lo}ms,{hi}ms] $a){self.ep_suf(b)} then end'
             )
             ri += 1
         # D-109: transitive CHAIN E0 -> E1 -> E2 (distinct bindings) —
@@ -131,9 +165,9 @@ class Gen:
             lo1, lo2 = r.choice([0, 50]), r.choice([0, 50])
             hi1, hi2 = lo1 + r.choice([50, 100]), lo2 + r.choice([50, 100])
             rules.append(
-                f'rule CH{ri} when $a : E0() '
-                f'$b : E1(this {op1}[{lo1}ms,{hi1}ms] $a) '
-                f'$c : E2(this {op2}[{lo2}ms,{hi2}ms] $b) then end'
+                f'rule CH{ri} when $a : E0(){self.ep_suf("E0")} '
+                f'$b : E1(this {op1}[{lo1}ms,{hi1}ms] $a){self.ep_suf("E1")} '
+                f'$c : E2(this {op2}[{lo2}ms,{hi2}ms] $b){self.ep_suf("E2")} then end'
             )
             ri += 1
         # D-110/D-112: accumulate over an EVENT stream — windowed (over
@@ -160,13 +194,13 @@ class Gen:
                     inner = (cons + ", " if cons else "") + "$t : ts"
                     src, fn = f"{e}({inner})", "$c : sum($t)"
                 rules.append(
-                    f'rule W{ri}{wsal} when accumulate( {src}{win}; {fn} ) then end'
+                    f'rule W{ri}{wsal} when accumulate( {src}{win}{self.ep_suf(e)}; {fn} ) then end'
                 )
                 ri += 1
         # TMS justification off an event + observers (a6/a7 shape)
         if r.random() < 0.75:
             e = r.choice(self.etypes)
-            rules.append(f'rule J{ri} when $e : {e}($t : tag) then insertLogical(new D($t)); end')
+            rules.append(f'rule J{ri} when $e : {e}($t : tag){self.ep_suf(e)} then insertLogical(new D($t)); end')
             ri += 1
             rules.append(f'rule RD{ri} salience {r.randint(0, 12)} when D() then end')
             ri += 1
@@ -185,13 +219,19 @@ class Gen:
             if neg == "exists":
                 self.exists_types.add(e)
             sal = f" salience {r.randint(-8, 8)}" if r.random() < 0.5 else ""
-            rules.append(f'rule NE{ri}{sal} when {neg} {e}() P() then end')
+            rules.append(f'rule NE{ri}{sal} when {neg} {e}(){self.ep_suf(e)} P() then end')
             ri += 1
 
         # facts at clock 0. The mutation axis (item C) targets ONLY these
         # initial facts — their visible-insertion index is stable and
         # firing-independent (module docstring). Record each target's
         # earliest deadline for the liveness gate.
+        # CEP E2 item D: only route facts to entry points a rule actually
+        # references (an unreferenced-EP insert is out of subset — both
+        # engines reject it).
+        drl_str = "\n".join(rules)
+        self.ep_referenced = {ep for ep in ("S1", "S2")
+                              if f'entry-point "{ep}"' in drl_str}
         self.targets = []  # {idx, type, deadline, targetable, deleted}
         facts = [{"type": "P", "fields": {"v": 1}}]
         self.targets.append({"idx": 0, "type": "P", "deadline": INF,
@@ -199,7 +239,7 @@ class Gen:
         for _ in range(r.randint(1, 4)):
             t = r.choice(self.etypes)
             ts = r.randint(0, 40)
-            facts.append({"type": t, "fields": {"ts": ts, "tag": r.choice("xyz")}})
+            facts.append(self.efact(t, {"ts": ts, "tag": r.choice("xyz")}))
             ex = self.type_expiry.get(t)
             self.targets.append({
                 "idx": len(facts) - 1, "type": t,
@@ -236,7 +276,7 @@ class Gen:
             efacts = []
             for _ in range(r.randint(0, 2)):
                 t = r.choice(self.etypes)
-                efacts.append({"type": t, "fields": {"ts": clock + r.randint(0, 30), "tag": r.choice("xyz")}})
+                efacts.append(self.efact(t, {"ts": clock + r.randint(0, 30), "tag": r.choice("xyz")}))
             if r.random() < 0.3:
                 efacts.append({"type": "P", "fields": {"v": 2}})
             epoch_ins = {f["type"] for f in efacts}
@@ -303,6 +343,7 @@ def main():
     tmp = os.environ.get("FUZZ_TMP", "/tmp") + f"/cepfuzz_{seed}"
     os.makedirs(tmp, exist_ok=True)
     fails = 0
+    hangs = 0
     done = 0
     while done < n:
         batch = []
@@ -311,10 +352,29 @@ def main():
             path = f"{tmp}/cf{seed}x{i}.json"
             json.dump(scn, open(path, "w"), indent=1)
             batch.append(path)
-        r = subprocess.run(
-            ["cargo", "run", "-q", "-p", "seine-harness", "--", "diff", *batch],
-            capture_output=True, text=True,
-        )
+        try:
+            r = subprocess.run(
+                ["cargo", "run", "-q", "-p", "seine-harness", "--", "diff", *batch],
+                capture_output=True, text=True, timeout=BATCH_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired:
+            # a scenario in this batch NON-TERMINATES — bisect (engine-only
+            # `run`, fast) to record + keep it, drop the rest, and continue.
+            hung = []
+            for p in batch:
+                try:
+                    subprocess.run(["cargo", "run", "-q", "-p", "seine-harness",
+                                    "--", "run", p], capture_output=True,
+                                   text=True, timeout=SCN_TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    hung.append(os.path.basename(p).split(".")[0])
+            hangs += len(hung)
+            print(f"  HANG batch@{done}: {hung}")
+            done += len(batch)
+            for p in batch:
+                if os.path.basename(p).split(".")[0] not in hung:
+                    os.remove(p)
+            continue
         for line in r.stdout.splitlines():
             if line.startswith("FAIL"):
                 fails += 1
@@ -328,8 +388,9 @@ def main():
                        for l in r.stdout.splitlines())
             if not keep:
                 os.remove(p)
-    print(f"--- cep-fuzz complete: {n} cases, seed {seed}, {fails} divergences")
-    sys.exit(1 if fails else 0)
+    tail = f", {hangs} hangs" if hangs else ""
+    print(f"--- cep-fuzz complete: {n} cases, seed {seed}, {fails} divergences{tail}")
+    sys.exit(1 if (fails or hangs) else 0)
 
 
 if __name__ == "__main__":

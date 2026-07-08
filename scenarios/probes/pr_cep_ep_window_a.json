@@ -1,0 +1,54 @@
+{
+ "name": "ep_window_a",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when accumulate( E($t:ts) over window:time(100ms) from entry-point \"S1\"; $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "v": 1
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP E2 item D recon (oracle-pinned; engine WALLS from-entry-point at drl.rs:1127): 'over window:time(N) from entry-point X' parses + evicts -> R[10] R[0]."
+}

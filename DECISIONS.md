@@ -20,10 +20,10 @@ every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **many commits UNPUSHED** (don't push without Bryan).
-Recent: `8018ea2` item A inference, item B `9efd827`/`f0a70d5`/`f0893e3`/
-`1d270be` (D-111..114, windows), **D-115 item C** (event update/delete —
-this checkpoint). Gates green: baseline 11 / probes 804 / regressions 281
-byte-identical; lint 1176 live/0 ghost/0 inert; 9 Rust suites.
+Recent: item B `1d270be` (D-111..114, windows), `d2c126b` **D-115 item C**
+(event update/delete, HYBRID), **D-116 item D** (entry points — this
+checkpoint). Gates green: baseline 11 / probes 822 / regressions 281
+byte-identical; lint 1195 live/0 ghost/0 inert; 9 Rust suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
@@ -32,38 +32,40 @@ drifted — investigate before building on it.
 queries×mutation + structured aggregation. Data-types arc (nulls/decimals,
 D-096–098). TMS, P1c group CEs, hardening waves — see the log.
 CEP **E2 A** @expires inference (D-109); **B** windows (D-110–114);
-**C** event update/delete (D-115, this checkpoint).
+**C** event update/delete (D-115); **D** entry points (D-116, this checkpoint).
 
-**ACTIVE FRONTIER — CEP E2 item C (event UPDATE / external DELETE): DONE
-(D-115, HYBRID resolution).** The seed recon showed the basics work; the
-extended `fuzz_cep.py` mutation axis (SOUND live-only targeting) then flushed
-**four mutation×CEP composition gaps** in the shared D-047 path (all
-bisect-confirmed mutation-driven, not pre-existing): (1) update×temporal-join
-= engine UNDER-fires (Drools re-fires the match on any update; temporal nodes
-aren't property-reactive); (2) update REVIVES a clock-removed (window-evicted
-/ expired) event into an accumulate = engine OVER-fires; (3) external
-delete+insert witness churn × exists = engine UNDER-fires; (4) dead-handle
-edges. **Bryan ruled HYBRID:** cheap-PORT delete-of-dead (`delete_fact`
-no-ops on a dead handle, Drools-lenient — corpus byte-identical); FENCE
-classes 1/2/3 + update-of-deleted (`fuzz_cep.py` hazard-set skips; fenced CEP
-fuzz 3×1000 CLEAN). 16 `pr_cep_c_*` working+boundary pins promoted, 4
-`xf_cep_c_*` divergence witnesses quarantined (`open_divergence`) — the
-pre-built battery for the DEFERRED re-propagation port. Blast-radius `make
-fuzz` (42/123/7): only delete-free pre-existing main-axis latents → zero
-delete-related regressions.
+**ACTIVE FRONTIER — CEP E2 item D (entry points `from entry-point`): DONE
+(D-116).** Named entry points = an orthogonal ROUTING DIMENSION on the alpha
+network — a fact carries an EP tag, a pattern carries an EP tag, the fact
+enters the pattern iff they match. Ported: parser (un-wall + `entry-point`
+keyword + `Pattern.entry_point` in `pattern()`/`accumulate_pattern()`) +
+routing (the SINGLE choke point is one added clause in `alpha_passes`:
+`fact_ep(f) == pat.entry_point`, so ALL routing + node-sharing partition by EP;
+interned `CompiledPattern.entry_point`, sparse `fact_eps`, `pattern_key` folds
+`|e{ep}`) + registration (reject insert into an unreferenced EP, faithful) +
+`facts()` DEFAULT-only WM dump (mirrors `session.getObjects()`) + oracle
+`insertFact`/`epMap` (route inserts + mutations through the EP). **FULL scope
+incl. mutation×EP** (Bryan ruling): update/delete of an EP fact composes
+(`nth_inserted` spans EP, `on_update`/`on_delete` EP-filtered; item-C fences
+apply per-EP). 18 `pr_cep_ep_*` (partition + compositions + mutation×EP; 4
+isolation `expect_inert`) + `ep_unref` engine_fenced. EP fuzz (per-type EP
+dimension) = **0 EP-caused issues** (all finds bisect-to-HEAD pre-existing
+temporal-join-order / non-termination latents). Corpus byte-identical
+throughout (all-DEFAULT paths = `e0`/fact_ep=0, unchanged).
 
-**NEXT — CEP E2 item D (entry points, `from entry-point`).** Then **E**
-@duration (walled — the E2 fence, DECISIONS:4529). No handoff plan yet;
-start with probe-first recon per doctrine.
+**NEXT — CEP E2 item E (`@duration` interval events) — the LAST E2 fence item
+(walled, DECISIONS:4529).** No handoff plan yet; probe-first recon per doctrine.
 
-**Open/deferred:** E2 remaining: **D** entry-points, **E** @duration.
+**Open/deferred:** E2 remaining: **E** @duration (the last fence item).
 DEFERRED item-C re-propagation port (classes 1/2/3 — temporal Behavior modify
 re-fire, on_update evicted/expired guard, exists external-delete round-trip;
 battery = `xf_cep_c_*` + `pr_cep_c_*` boundary pins + the mutation fuzz).
-E1-hardening — main-axis (gen.rs) temporal-join/accumulate-match latents
-(seeds 42/123/7 flush them; delete-free, out of item-C scope), 2
-temporal-join-order xfails, D-080 TMS envelope; window × TMS / node-sharing;
-`window:length` + standalone-pattern window (walled, follow-on).
+E1-hardening backlog: temporal-join-order / accumulate-match latents (CEP +
+main-axis fuzz flush them; all bisect-to-HEAD pre-existing, non-EP) INCLUDING a
+temporal+delete engine NON-TERMINATION (`scenarios/hang-backlog/
+pre_existing_temporal_delete_hang`, un-gated; the fire limit can't catch it);
+2 temporal-join-order xfails; D-080 TMS envelope; window × TMS / node-sharing;
+`window:length` + standalone-pattern window (walled).
 Upstream: #2366 filed (min/max), `docs/drools-inferred-expiry-never.md`.
 
 ---
@@ -5452,3 +5454,78 @@ touch → ZERO delete-related regressions.
 class-1/2/3 fences + `CEP_NO_TEMPORAL` diagnostic flag; `pr_cep_c_*` (16),
 `xf_cep_c_*` (4), `probes_pending/cep/c_upd_after_del` (engine_fenced);
 findings handoff `~/.claude/plans/cep-e2-item-c-findings.md`.
+
+### D-116: CEP E2 item D (entry points, `from entry-point`) — UNWALLED. Named entry points = an orthogonal ROUTING DIMENSION on the alpha network; full port incl. mutation×EP (Bryan scope ruling)
+
+**Recon (probe-first, oracle-pinned — 14 `probes_pending/entrypoint/`).**
+`Type(...) from entry-point "S1"` draws a pattern from a NAMED partitioned
+stream instead of the DEFAULT WM. Pinned semantics: (1) **PARTITION** — a
+pattern matches ONLY facts inserted into its EP; DEFAULT patterns don't see
+EP facts and vice-versa (bidirectional isolation, ep2/ep3/ep4/ep10). (2)
+**REGISTRATION** — an EP must be referenced by ≥1 rule to be insertable
+(`session.getEntryPoint(unref)` = null → NPE; ep_unref). (3) **COMPOSITION** —
+the partition is respected per-EP by accumulate/not/exists/cross-EP join/
+expiration(shared clock)/window (ep6–9, ep_evt_expire, ep_window_a); node-
+sharing partitions by EP (ep_share). (4) **SYNTAX** — `Pattern(...) [over
+window:time(N)] from entry-point "X"` (from LAST). DEFAULT is implicit.
+
+**Port — entry-point = a routing DIMENSION (a fact carries an EP tag, a
+pattern carries an EP tag, the fact enters the pattern iff they match).**
+- **Parser** (`drl.rs`): `entry-point` hyphenated keyword (lexer, like
+  `no-loop`); `from entry-point "name"` accepted in `pattern()` (falls through
+  carrying `Pattern.entry_point`) AND after a window in `accumulate_pattern()`
+  (the windowed source's EP trails the window).
+- **Routing** (`engine.rs`): `CompiledPattern.entry_point: u32` (interned;
+  0=DEFAULT); per-fact `fact_eps: Vec<u32>` (sparse, DEFAULT/RHS/synthetic=0);
+  the single choke point is `alpha_passes` — one added clause `fact_ep(f) ==
+  pat.entry_point`, so ALL routing (insert/update/delete/accumulate/not/join)
+  and node-sharing partition by EP for free. `pattern_key` folds `|e{ep}` (a
+  uniform `e0` on the all-DEFAULT corpus → grouping unchanged). `insert` split
+  into `insert_default` (store) + `after_insert` (schedule+route) so
+  `insert_into(type,fields,ep)` sets the fact's EP tag BEFORE routing.
+  Registration: `ep_ids` interned at compile from rule references; an insert
+  into an unreferenced name errors (faithful — both engines reject). The final
+  WM `facts()` dump EXCLUDES named-EP facts (mirrors `session.getObjects()` =
+  DEFAULT only). Reset clears `fact_eps` (the compiled EP table survives).
+- **Runner**: reads the fact/action `entry_point` field → `insert_into`.
+- **Oracle** (`OracleRunner.java`): `insertFact` routes to
+  `getEntryPoint(ep).insert`; an `epMap` (handle→EntryPoint) routes
+  update/delete through the fact's EP (session.update/delete on a named-EP
+  handle throws "Invalid Entry Point"). Corpus-inert (default inserts →
+  default EP).
+
+**Mutation×EP (Bryan's scope):** update/delete of an EP-inserted fact composes
+— `nth_inserted` spans EP inserts (oracle `objectInserted` fires per-EP, same
+index), and `on_update`/`on_delete` route EP-filtered via `alpha_passes`
+(ep_del/ep_upd_leave/ep_upd_enter/ep_del_mixed). The item-C class-1/2/3 fences
+apply per-EP unchanged (an EP event in a temporal join / evicted / exists-churn
+recurs identically; the same fuzz fences cover it).
+
+**Gates:** baseline 11 / probes 822 / regressions 281 byte-identical; lint
+1195; 9 suites. 18 `pr_cep_ep_*` promoted (basic partition + compositions +
+mutation×EP; 4 isolation pins `expect_inert`), `ep_unref` engine_fenced
+(out-of-subset). **Fuzz:** `fuzz_cep.py` extended with a per-type EP dimension
+(each scenario partitions its event types across DEFAULT/S1/S2 — EP × every
+existing composition + mutation, reusing the class-1/2/3 fences); a fact only
+routes to a RULE-REFERENCED EP (else out-of-subset — both engines correctly
+reject, validating registration). 3×1000 (seeds 21/22/23): **ZERO EP-caused
+issues** — every find (5 value divergences + 1 non-termination) bisected to
+HEAD (fails/hangs on the pre-item-D engine; strip-EP still fails), i.e. the
+known temporal-join-order / accumulate-match latent family the CEP fuzz
+occasionally hits (cf7x121 precedent), NOT item D. The 1 non-termination is a
+PRE-EXISTING temporal+delete engine spin in `next_activation`/`fire_all` (the
+fire limit can't catch it); repro
+`scenarios/hang-backlog/pre_existing_temporal_delete_hang` (un-gated) for the
+E1-hardening backlog. `fuzz_cep.py` gained a BATCH_TIMEOUT hang-guard (bisect +
+record, don't wedge — the memory HANG protocol).
+Blast-radius `make fuzz` (insert-path refactor: seeds 42/7 — only delete-free
+pre-existing main-axis latents, zero regressions). Certified corpus byte-
+identical throughout (EP gated — all-DEFAULT scenarios take the `e0`/fact_ep=0
+paths unchanged). **Artifacts:** `drl.rs` (lexer + Pattern.entry_point +
+from-entry-point parse), `engine.rs` (CompiledPattern.entry_point, entry_points/
+ep_ids/fact_eps, intern_ep/fact_ep, insert_into/insert_default/after_insert,
+alpha_passes EP clause, pattern_key fold, facts() filter, reset), `runner.rs`,
+`OracleRunner.java` (insertFact + epMap), `fuzz_cep.py` EP dimension,
+`pr_cep_ep_*` (18), `probes_pending/entrypoint/ep_unref`. Plan/recon:
+`~/.claude/plans/cep-e2-item-d.md`. **NEXT: E2 item E (`@duration` interval
+events) — the last E2 fence item (walled, DECISIONS:4529).**

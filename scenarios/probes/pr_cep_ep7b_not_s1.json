@@ -1,0 +1,44 @@
+{
+ "name": "ep7b_not_s1",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when not E() from entry-point \"S1\" then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "v": 1
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "_finding": "CEP E2 item D recon (oracle-pinned; engine WALLS from-entry-point at drl.rs:1127): not E from S1 BLOCKED by E in S1 -> 0.",
+ "expect_inert": true
+}

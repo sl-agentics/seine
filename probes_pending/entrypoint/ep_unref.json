@@ -1,0 +1,44 @@
+{
+ "name": "ep_unref",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when $e : E() then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "v": 1
+   },
+   "entry_point": "Snope"
+  }
+ ],
+ "engine_fenced": true,
+ "_finding": "CEP E2 item D (OUT OF SUBSET): insert into an UNREFERENCED entry point \u2014 engine errors ('no rule references'); oracle NPEs (getEntryPoint null). Both reject."
+}

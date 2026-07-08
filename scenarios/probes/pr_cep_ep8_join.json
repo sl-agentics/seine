@@ -1,0 +1,50 @@
+{
+ "name": "ep8_join",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when $a : E() from entry-point \"S1\" $b : F() from entry-point \"S2\" then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "v": 1
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "F",
+   "fields": {
+    "w": 2
+   },
+   "entry_point": "S2"
+  }
+ ],
+ "_finding": "CEP E2 item D recon (oracle-pinned; engine WALLS from-entry-point at drl.rs:1127): E from S1 join F from S2 -> R. Cross-EP join."
+}
