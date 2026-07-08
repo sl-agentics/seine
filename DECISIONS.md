@@ -20,7 +20,9 @@ every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **many commits UNPUSHED**. ⚠ **DO NOT PUSH until the CEP
-TEMPORAL-JOIN-ORDER discriminator is figured out** (Bryan, 2026-07-08). Recent:
+TEMPORAL-JOIN-ORDER latent is actually FIXED** (Bryan, 2026-07-08 — the
+discriminator is CHARACTERIZED per D-121, but the block HOLDS until the
+sources-port lands, not merely until it's understood). Recent:
 `e65ab0c` D-116 item D, `df18834` D-117 spin-guard, D-118/D-119 item E RECON,
 then `59b0e68` **D-120 item E PORT — COMMITTED** (`@duration` intervals + the
 full Allen PREDICATE algebra, byte-identical; the LAST E2 fence, CLOSED). Gates
@@ -62,36 +64,33 @@ window-CLOSE deferral + an anchor-inference gap; the E1 Positive-only wall STAYS
 wall; interval EXPIRATION already byte-identical). (3) **beyond-Drools full-Allen
 inference** (`docs/allen-beyond-drools.md`) — spec-driven, post-faithfulness.
 
-**⚠ NEXT — the CEP TEMPORAL-JOIN-ORDER DISCRIMINATOR HUNT (start FRESH; the E2
-arc is COMPLETE, this is the gate to PUSH).** Recon'd + PAUSED this run — full
-detail in memory `cep-temporal-join-order.md`; restart from the findings, NOT
-from scratch.
-**LESSON LEARNED (2026-07-08 — do NOT repeat the dead end):** the E1-hardening
-"temporal-join-order latent" (CEP fuzz ~2/1000, all bisect-to-HEAD pre-existing)
-is NOT a fresh bug — it is the **D-082/D-083 join-order discriminator, still open
-for temporal nodes**. The FIRING ORDER of a temporal join over multiple partners
-diverges from Drools. Golden PURE repro `e0last` (5 facts, no epochs/dur/mut/TMS):
-`$a:E0() $b:E1(this after[0ms,50ms] $a) $c:E2(this after[0ms,100ms] $b)` with the
-E1s inserted BEFORE E0 ⇒ engine fires 25,23,26 vs oracle 26,23,25 (E0 batch-joins
-the staged E1s). Drools mechanism (sources, CONFIRMED): `PhreakJoinNode.
-doRightInserts`/`doLeftInserts` iterate the partner memory FORWARD + `TupleSets
-Impl.addInsert` PREPENDS ⇒ a BATCH join REVERSES, cascading node-to-node
-("memory-append, staging-prepend" model). That model matched the oracle **264/264
-on multiple-RIGHTS** — BUT the empirical swap (`phreak.rs` ~1137 temporal rightIns
-scan → raw `node.lefts` memory order) FIXED `e0last` and **REGRESSED 5 D-101 pins**
-(`pr_cep_t1_left_scan`/`t4_straddle`/`t5_before_multi`/`t8_held_anchors`/
-`t15_anchor_arrival` — the mirror MULTIPLE-LEFTS shape, e.g. E0@0/50/100 then
-E1@100 ⇒ oracle 100,50,0). ⇒ the two batch directions need OPPOSITE order and the
-264/264 matrix was BLIND to multiple-lefts. **DO NOT re-attempt the pure
-memory-order swap — proven to regress the multiple-lefts pins.**
-**RESTART PLAN:** rebuild the Python replica (trivial — the 3-rule model above; cf
-`tools/model_check_join.py`/`join_model.py` style) and add BOTH the `e0last`
-upstream-batch shape AND the `pr_cep_t*` / D-102 rel_arrival timelines as
-counterexamples; eliminate candidate order-machines to the UNIFIED discriminator
-(the D-083 method that closed the prior round — 1536 candidates). Then port ONLY
-that refinement to the `phreak.rs` temporal scan + re-cert (`make diff` = the
-944-probe guard, includes every D-101/D-013/D-027 pin). Prime directive holds:
-PROBE/MODEL-CHECK-first — hand-derived staging FLIP-FLOPS (this run re-proved it).
+**⚠ NEXT — the CEP TEMPORAL-JOIN-ORDER SOURCES-PORT (D-121; Bryan GATE = commit
+to it).** The DISCRIMINATOR HUNT is DONE: it is NOT one rule — a FAMILY of
+interdependent batch-reversal facets, and **NO local engine edit is
+faithfulness-clean** (proven, D-121). Full detail in D-121 + memory
+`cep-temporal-join-order.md`. The four facets: (1) upstream left-batch stamp
+(`e0last`, golden), (2) anchor-first eager-vs-batch (`e0first` — identical node2
+input, opposite firing, so no node2 fix separates them), (3) right-held arrival
+(`ch7001x0`), (4) multi-anchor per-right grouping. Root cause (sources-confirmed):
+Drools orders temporal-join output by ARRIVAL PROVENANCE (`addInsert` PREPENDS +
+doRightInserts-then-doLeftInserts + forward memory scan ⇒ parity encodes
+provenance); the Seine `do_node` BATCHES and COLLAPSES that provenance.
+**Proven dead ends (do NOT re-attempt):** naive scan→memory swap (regressed
+t1/t4/t5/t8/t15); node2-only forward-stamp (make-diff byte-identical + fixed
+facet-1 but chain-fuzz-vs-HEAD +172/−121 NEW facet-2 regressions ⇒ unfaithful);
+node1 arrival-split (fixed 1+2, regressed facet-3, chain-fuzz 542/1500). Engine
+reverted to HEAD.
+**PORT PLAN (source-grounded — hand-derivation flip-flopped repeatedly this run):**
+step 1 = extend the MemDump graft (D-086) to dump the join node's staged
+left/right lists + memory order BEFORE fire for `e0first` vs `e0last`, pinning the
+segment-linking/staged-accumulation provenance (drools RuleNetworkEvaluator /
+SegmentMemory / LIA; Seine flush driver in `engine.rs`, NOT just `phreak.rs`
+do_node). Then reproduce Drools' per-flush staged ORDERING faithfully.
+**Harness (built this run, in `tools/`):** `fuzz_chain.py` (shuffled-insertion
+temporal-chain differ — vs a HEAD `git worktree` = the population REGRESSION gate;
+the existing `fuzz_cep.py` under-shuffles), `cep_join_battery.py` (33-case A–F
+matrix), `model_check_chain.py`. Faithfulness bar: ZERO new Drools-divergences;
+`make diff` (944) byte-identical. Prime directive holds: PROBE-first.
 The other deferred frontiers stay parked: not/exists×temporal, item-C
 re-propagation, beyond-Drools Allen (all in Open/deferred).
 
@@ -5884,3 +5883,76 @@ not/exists×temporal (follow-on), the beyond-Drools full-Allen enhancement
 (`docs/allen-beyond-drools.md`), item-C re-propagation port, and the E1-hardening
 backlog (temporal-join-order / accumulate-match latents + the D-117-guarded
 non-termination).
+
+---
+
+## 2026-07-08 — CEP temporal-join-order discriminator HUNT (D-121)
+
+### D-121: the temporal-join firing-ORDER latent is a FAMILY of interdependent batch-reversal facets — NO local fix is faithfulness-clean; Bryan GATE = commit to the drools-core temporal-staging SOURCES-PORT (push held until fixed)
+
+**Ask (Bryan):** "start the hunt for the discriminator" — the D-082/D-083
+join-order-provenance lineage, still open for CEP temporal nodes (the ~2/1000
+CEP-fuzz flush, the standing push-block). Prior restart plan: model-check to a
+UNIFIED discriminator. **Result: there is no single discriminator — it is a
+family, and no LOCAL engine edit is faithfulness-clean.**
+
+**Method (probe/model-check-first, per doctrine):** reproduced the golden
+`e0last` repro; built an oracle BATTERY (`tools/cep_join_battery.py`, 33 cases:
+E1-perm × anchor-position × multiplicity), a shuffled-insertion temporal-chain
+FUZZ (`tools/fuzz_chain.py` — the probe that surfaced the finer facets; the
+existing `fuzz_cep.py` under-shuffles), and a 2-node model-check
+(`tools/model_check_chain.py`). Traced the engine end-to-end (SEINE_TRACE) and
+read drools-core sources (PhreakJoinNode, TupleSetsImpl, RuleNetworkEvaluator).
+
+**Root cause (sources-confirmed):** Drools orders temporal-join output by the
+ARRIVAL PROVENANCE of each staged tuple (how it arrived — individually vs as a
+reversed upstream batch; before vs after its anchor). `TupleSetsImpl.addInsert`
+PREPENDS (LIFO staging); `PhreakJoinNode.doNode` runs doRightInserts THEN
+doLeftInserts, each appending to memory in LIFO order and scanning the opposite
+memory FORWARD; the reversal cascades node-to-node and its PARITY encodes
+provenance. The Seine engine BATCHES inserts in `do_node` and COLLAPSES that
+provenance — `e0first` and `e0last` reach node2 with IDENTICAL `sl.ins` yet must
+fire OPPOSITELY.
+
+**The four facets (each a real oracle divergence, golden repros in the battery):**
+1. **Upstream left-batch stamp** (`e0last`): node2 reverses an upstream multi-fact
+   left batch that is already in arrival order. (Battery Group A/B/D, 3-node
+   chains, `before` mirror.)
+2. **Anchor-first eager-vs-batch** (`e0first`, C_e0mid): anchor before some
+   partners ⇒ opposite order from `e0last` despite identical node2 input ⇒ NO
+   node2-level fix can separate them.
+3. **Right-held arrival** (`ch7001x0`): held-right vs fresh-right ordering (the
+   D-102 rel_arrival facet).
+4. **Multi-anchor per-right grouping** (E_2e0_first, ≥2 anchors): oracle groups
+   output per-RIGHT, engine per-anchor.
+
+**NO-LOCAL-FIX proof (empirical; shuffled chain-fuzz vs a pristine HEAD worktree):**
+- naive scan→memory swap (prior): regressed t1/t4/t5/t8/t15.
+- **node2-only** (forward-stamp upstream multi-fact left batch): `make diff`
+  BYTE-IDENTICAL (944) + fixed facet-1 (e0last, Group A/B/D, real CEP-fuzz latents
+  cf50003x263/x894) BUT chain-fuzz vs HEAD = **+172 resolved / −121 NEW
+  regressions** per 1500 (facet-2). Net fewer, but ~120 NEW Drools-divergences ⇒
+  UNFAITHFUL.
+- **node1 arrival-split** (emit [after-anchor DESC]++[before ASC] by right_sseq vs
+  anchor left_sseq): fixed facets 1+2 (battery 32/33) BUT regressed facet-3;
+  chain-fuzz EXPLODED to 542/1500. Reverted.
+- Every knob fixes one batch-reversal direction and regresses its opposite. The
+  corpus stays green only because it does not pin these shapes.
+- **Engine REVERTED to HEAD (byte-identical); nothing landed.**
+
+**Bryan GATE (2026-07-08):** (1) COMMIT to the drools-core temporal-staging
+sources-port — reproduce Drools' per-flush staged-tuple ORDERING with arrival
+provenance so the engine can distinguish e0first/e0last (the only
+faithfulness-clean path); SCOPE + mechanism-report before touching the engine.
+(2) HOLD the push (E2 arc D-109..D-120) until the latent is actually FIXED, not
+merely characterized.
+
+**Port scope (next, pre-engine):** the mechanism lives ABOVE `do_node` — in the
+segment-linking + staged-tuple accumulation order (drools RuleNetworkEvaluator /
+SegmentMemory / LeftInputAdapterNode; Seine's flush driver in `engine.rs`). Step
+1 = pin the e0first/e0last staged-order provenance (extend the MemDump graft to
+dump the join node's staged left/right lists + memory order BEFORE fire for both,
+the D-086 reusable method) so the port is source-grounded not hand-derived
+(hand-derivation flip-flopped repeatedly this run). Harness = `tools/fuzz_chain.py`
+vs a HEAD worktree (regression gate) + `tools/cep_join_battery.py` + `make diff`
+(944). Faithfulness bar: ZERO new Drools-divergences.
