@@ -21,11 +21,11 @@ Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **several commits UNPUSHED** (don't push without Bryan).
 Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
-`9efd827` item B RUNTIME (D-111, window eviction + A→B seam).
-**UNCOMMITTED working tree: D-112** — accumulate removals EAGER (fixes the
-pre-existing accumulate+expiration deferral bug), model-checked + blast-
-radius fuzzed clean; awaiting Bryan's commit. Gates green: baseline 11 /
-probes 785 / regressions 281 byte-identical; lint 1153; 8 Rust suites.
+`9efd827` item B RUNTIME (D-111, window eviction + A→B seam), **`f0a70d5`
+D-112** — accumulate removals EAGER (fixes the pre-existing
+accumulate+expiration deferral bug), model-checked + blast-radius fuzzed
+clean. Gates green: baseline 11 / probes 785 / regressions 281
+byte-identical; lint 1153; 8 Rust suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
