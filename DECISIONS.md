@@ -57,17 +57,27 @@ ts+dur); **Q3 gated** (dur=0≡point). Surgical after/before port surface in D-1
 (`event_specs` +dur_fi; `Test::Temporal` eval 6892/6988 subtract earlier's dur;
 `schedule_expiration` +dur); Allen ops layer on top.
 
-**NEXT — Allen-operator recon ladder (D-119), THEN the port.** The D-118 recon
-SAMPLED only 4 Allen ops (existence + duration-sensitivity); the Allen port
-needs the FULL per-operator recon first — direction (`this` vs anchor), optional
-params (`overlaps[maxDist]` / `meets[dist]` / `coincides[sDev,eDev]` / `during`
-forms), boundary inclusivity, endpoints compared. No further SCOPE gate (Bryan
-ruled scope); Allen recon is pure probe-first detail. Then port
-after/before-to-intervals + all Allen ops in one slab, gate `make diff`
-byte-identical + fuzz + lint.
+**D-119 Allen recon: PREDICATES + PARAMS pinned** (62 probes
+`probes_pending/cep/e_allen/`). Full bare matrix (coincides/meets/metby/
+overlaps/overlappedby/during/includes/starts/startedby/finishes/finishedby, all
+strict) + param forms (`during[lo1,hi1,lo2,hi2]`=start/end dist windows,
+`overlaps[min,max]`=overlap `Be−As`, `coincides[sDev,eDev]`, `[dev]` tolerances).
+Direction: `this`=subject, `$a`=object. Port representation designed
+(`AllenOp` enum + ≤4 param + both events' ts/dur fi; eval = endpoint match).
 
-**Open/deferred:** E2 remaining: **E** @duration PORT (recon D-118 done +
-D-119 Allen recon pending, then port). Open E sub-questions folded into the
+**⚠ NEXT — Bryan SCOPE CALL, then the port.** ONE open surface: the D-109
+`@expires` INFERENCE reach through Allen ops is OP-SPECIFIC + COUNTERINTUITIVE
+(smoke: coincides/overlaps→FINITE even bare; during→NEVER even parameterized;
+meets/finishes→NEVER). Pinning each op's STP contribution (× param × position)
+is a dedicated ladder (like D-109's after/before reach). **Scope Q: pin-all
+(full faithfulness) vs FENCE Allen-op inference** (e.g. require explicit
+`@expires` for Allen-referenced un-annotated types + expected-divergence
+witnesses). After that call: the combined after/before-intervals + Allen port in
+one slab (gate `make diff` byte-identical + fuzz + lint).
+
+**Open/deferred:** E2 remaining: **E** @duration PORT — recon D-118 (core) +
+D-119 (Allen predicates/params) DONE; blocked on the Bryan inference-reach scope
+call + the (conditional) inference-reach ladder, then port. Folded into the
 port: window:time start-vs-end membership (B×E), mutation×dur (item-C fence).
 DEFERRED item-C re-propagation port (classes 1/2/3 — temporal Behavior modify
 re-fire, on_update evicted/expired guard, exists external-delete round-trip;
@@ -5681,3 +5691,70 @@ not/exists compose), `make diff` byte-identical, extend `tools/fuzz_cep.py`
 fresh-seed at 0 divergences, `make lint-probes` clean. **This closes the CEP E2
 fence** (A–E all resolved); remaining deferrals = item-C re-propagation port +
 E1-hardening backlog.
+
+### D-119: Allen-algebra operators (item E, Bryan Q1 = full Allen) — PREDICATES + PARAMS pinned; the @expires-INFERENCE reach per op is a counterintuitive OPEN surface (scope question)
+**Probe-first recon of the 11 Allen ops beyond after/before** (Bryan ruled Q1 =
+add the full algebra, D-118). 62 oracle probes `probes_pending/cep/e_allen/`
+(3 generators). Convention: `$a:A() $b:B(this <op> $a)` reads **"B `op` A"** —
+**`this`=B is the SUBJECT, `$a`=A the OBJECT** (cross-checks `xdir_*`: a
+during-config under `includes` and an includes-config under `during` are BOTH
+inert ⇒ the ops are directional, not symmetric). Endpoints: `Xs=X.ts`,
+`Xe=X.ts+X.dur` (the D-118 `endTS=ts+dur`).
+
+**BARE PREDICATES (all strict `<`/`==`, no tolerance) — full matrix pinned:**
+| op (B op A)   | predicate                | op (B op A)   | predicate                |
+|---------------|--------------------------|---------------|--------------------------|
+| coincides     | Bs==As ∧ Be==Ae          | during        | As<Bs ∧ Be<Ae            |
+| meets         | Be==As                   | includes      | Bs<As ∧ Ae<Be            |
+| metby         | Bs==Ae                   | starts        | Bs==As ∧ Be<Ae           |
+| overlaps      | Bs<As<Be<Ae              | startedby     | Bs==As ∧ Be>Ae           |
+| overlappedby  | As<Bs<Ae<Be              | finishes      | Be==Ae ∧ Bs>As           |
+| after[l,h]    | l ≤ Bs−Ae ≤ h            | finishedby    | Be==Ae ∧ Bs<As           |
+| before[l,h]   | l ≤ As−Be ≤ h            |               |                          |
+
+**PARAMETERIZED forms (each bounds a specific distance; boundary INCLUSIVE):**
+- `coincides[dev]` ⇒ |Bs−As|≤dev ∧ |Be−Ae|≤dev; `coincides[sDev,eDev]` ⇒
+  |Bs−As|≤sDev ∧ |Be−Ae|≤eDev (`coincides_2dev_*`).
+- `meets[dev]` ⇒ |Be−As|≤dev; `metby[dev]` ⇒ |Bs−Ae|≤dev.
+- `starts[dev]`/`startedby[dev]` ⇒ |Bs−As|≤dev (+ the Be side); `finishes[dev]`/
+  `finishedby[dev]` ⇒ |Be−Ae|≤dev (+ the Bs side).
+- `overlaps[max]` ⇒ overlap `Be−As` ≤ max; `overlaps[min,max]` ⇒
+  min ≤ Be−As ≤ max (`overlaps_min_*`). (overlappedby symmetric on `Ae−Bs`.)
+- `during[max]` ⇒ dS≤max ∧ dE≤max; `during[min,max]` ⇒ both in [min,max];
+  `during[lo1,hi1,lo2,hi2]` ⇒ **dS∈[lo1,hi1] ∧ dE∈[lo2,hi2]** where
+  **dS=Bs−As (start-dist), dE=Ae−Be (end-dist)** — the asym probe
+  (`during_4p_asym_ok` fires, `_swap` inert) fixes which pair is start vs end.
+  (includes symmetric with A,B swapped: dS=As−Bs, dE=Be−Ae.)
+
+**⚠ OPEN SURFACE — the @expires INFERENCE reach through Allen ops is
+OP-SPECIFIC and COUNTERINTUITIVE** (smoke test `inf_*`, insert-one-event +
+advance 100000, observe presence): **coincides → FINITE; overlaps → FINITE
+(even BARE); during → NEVER (even PARAMETERIZED); meets → NEVER; finishes →
+NEVER.** This does NOT follow "bare⇒never / param⇒finite" (param `during` still
+leaks; bare `overlaps` bounds). Each op's STP-edge contribution to the D-109
+`TemporalDependencyMatrix` must be pinned from the oracle per-op × param × the
+subject/anchor position — a dedicated ladder (mirrors D-109's after/before
+`earlier=hi` / lo>0-leak work). NOT hand-derivable (flip-flops). **⇒ SCOPE
+QUESTION for Bryan** (see below).
+
+**PORT REPRESENTATION (design, for the after/before + Allen port):**
+- Generalize `Constraint::Temporal`/`Test::Temporal` (engine.rs:94, 2214, eval
+  6892/6988): replace `after: bool` with an `AllenOp` enum (13 variants) + a
+  small param array (≤4 i64, op-specific defaults) + BOTH events' `(ts_fi,
+  dur_fi)` (self already has own_fi; add self_dur_fi, anchor_ts_fi already =
+  anchor.1, add anchor_dur_fi). Eval computes `As,Ae,Bs,Be` and applies the
+  op's predicate — a single match over `AllenOp`. after/before stay the D-118
+  `endTS` distance; all others are pure endpoint comparisons ⇒ the eval is
+  branchy but shallow, no new machinery.
+- Parser (drl.rs:1385-1404): generalize the `this <op>` match from {after,
+  before} to the 13 keywords; parse the optional `[p1,..,pk]` (0-4 durations).
+- Inference (temporal_edges, 2234-2255): **per-op STP edges — BLOCKED on the
+  open inference-reach recon.** For after/before it stays as D-109.
+- Node identity (`pattern_key` 1785): fold the op + params (two different Allen
+  ops over the same binding must NOT share).
+
+**Artifacts:** 62 probes `probes_pending/cep/e_allen/` (bare matrix
+`*_fire`/near-misses, `*_param`/`during_4p_*`, `inf_*` smoke; 3 generators).
+Predicates + params oracle-pinned; inference-reach is the one open recon item.
+**NEXT: Bryan scope call on the inference reach (pin-all vs fence), then the
+combined after/before+Allen port.**

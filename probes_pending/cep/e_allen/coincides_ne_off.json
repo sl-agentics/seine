@@ -1,0 +1,57 @@
+{
+ "name": "coincides_ne_off",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this coincides $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 10,
+    "dur": 50
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 10,
+    "dur": 51
+   }
+  }
+ ],
+ "epochs": []
+}
