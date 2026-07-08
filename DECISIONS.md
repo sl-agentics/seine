@@ -11,116 +11,90 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08 (run `git log --oneline -8` for the live HEAD —
-this line lags by its own commit)._
+_Last updated: 2026-07-08, D-124 + tooling (run `git log --oneline -10` for live
+HEAD — this line lags by its own commit)._
 
-**Repo:** Seine — differential-tested Rust port of a bounded Drools
-9.44.0.Final subset. **Prime directive: PROBE-FIRST** — the oracle settles
-every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
-Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
+**Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
+subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
+NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven this run).
+Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
 **Git:** on `main`, **many commits UNPUSHED**. ⚠ **DO NOT PUSH until the CEP
-TEMPORAL-JOIN-ORDER latent is actually FIXED** (Bryan, 2026-07-08 — the
-discriminator is CHARACTERIZED per D-121, but the block HOLDS until the
-sources-port lands, not merely until it's understood). Recent:
-`59b0e68` **D-120 item E PORT** (`@duration` + Allen, byte-identical; LAST E2
-fence CLOSED), then `30399b3`/`2b5f739` **D-121** discriminator hunt, `62565a6`
-**D-122** step-1 (faithful graft + v1 disproven), then **D-123** step-2 (v2 flush
-model VALIDATED 0-div; this checkpoint — engine still at HEAD, port is step 3).
-Gates
-green: baseline 11 / probes **944** / regressions 281 byte-identical; lint **1325
-live/0 ghost/0 inert**; 9 Rust suites + a new `eval_allen` unit module. Verify
-with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
-(`oracle/target/classpath.txt`). If any gate is red on resume, something
-drifted — investigate before building on it.
+temporal-join-order latent is actually FIXED** (Bryan, 2026-07-08 — characterized
+≠ fixed; the hold releases when the port LANDS, not when it's understood). Recent:
+`59b0e68` D-120 (CEP E2 item E) → D-121 discriminator hunt → **D-122** (`62565a6`
+faithful graft + v1 disproven) → **D-123** (`803eca2` v2 model VALIDATED) →
+**D-124** (`1e6bf28` engine recon) + tooling. **Engine at HEAD; nothing landed
+there — the port is the ACTIVE work below.**
 
-**Landed:** v0.4.0 (`5b23e7c`) = CEP E1 + Engine::reset + agenda groups +
-queries×mutation + structured aggregation. Data-types arc (nulls/decimals,
-D-096–098). TMS, P1c group CEs, hardening waves — see the log.
-**CEP E2 FENCE CLOSED (A–E all resolved):** **A** @expires inference (D-109);
-**B** windows (D-110–114); **C** event update/delete (D-115); **D** entry points
-(D-116); **E** @duration intervals + Allen predicates (D-120, this checkpoint).
+**Gates (last certified green @ D-120; engine unchanged since ⇒ still green):**
+baseline 11 / probes **944** byte-identical / regressions 281 / lint **1325
+live·0 ghost·0 inert** / 9 Rust suites. Verify: `make diff` · `make lint-probes` ·
+`cargo test` (oracle prebuilt, `oracle/target/classpath.txt`). **If any gate is
+red on resume, something drifted — investigate before building on it.**
 
-**JUST LANDED — temporal-join sources-port STEPS 1–2 (D-122/D-123).** Faithful
-AccDump graft + the **VALIDATED v2 flush model** (`tools/model_join_flush.py`:
-0 divergences on 33 curated + ~4300 shuffled cases incl. multi-anchor). The
-faithful rule: per-propagation flush, FIFO memory, forward opposite-scan, staged
-`addInsert`-prepend + `getInsertFirst` ⇒ a batch drain reverses once, an eager
-emit is identity. NEXT = step 3, the ENGINE PORT (translate the cascade into
-`engine.rs`; push HELD until it re-certs). Detail in the NEXT paragraph + D-123.
-**(prior)** CEP E2 item E PORT (D-120): every event occupies `[ts, ts+dur]`
-(`endTS = ts+dur`; dur=0 for points ⇒ BYTE-IDENTICAL). `EventSpec {ts_fi, expires,
-dur_fi}` struct; `drl::AllenOp` (13 variants) on `Constraint`/`Test::Temporal`
-with `params: Vec<i64>` (≤4) + both events' (ts_fi,dur_fi); a pure
-`eval_allen(op,params,Bs,Be,As,Ae)` applies the D-119 predicate table (both join
-sites); parser generalized to 13 keywords + optional `[p..]` with per-op arity;
-`pattern_key` keeps after/before EXACT (node-sharing) and folds op+params for
-Allen; `schedule_expiration` deadline → `ts+dur+exp+plus` (`infer_event_expiry`
-UNCHANGED). **FENCE (D-119 ruling):** the 11 Allen ops emit NO inference edge ⇒
-an Allen-only event type infers NEVER — verified = EXACTLY the 17 finite-
-classified op×position divergences (matches the D-119 classification), witnessed
-in `scenarios/xfail/xf_cep_e_*`; after/before keep full D-109 inference.
-Promotion: 145 recon probes → **120+2 `pr_cep_e_*`** (byte-identical) + **17
-`xf_cep_e_*`** + **8 `engine_fenced`**. Fuzz extended (`@duration` + Allen dims,
-fenced to explicit-`@expires` types); 3×1000 fresh-seed found only PRE-EXISTING
-E1-hardening latents (all bisect-to-HEAD; HEAD's own fuzz matches the rate).
+**Landed (background — detail in the log):** v0.4.0 (`5b23e7c`) CEP E1 + reset +
+agenda groups + queries×mutation + aggregation; data-types (nulls/decimals,
+D-096–098); TMS; P1c group CEs. **CEP E2 A–E ALL CLOSED:** @expires inference
+(D-109), windows (D-110–114), event upd/del (D-115), entry points (D-116),
+@duration intervals + Allen predicate algebra (D-120).
 
-**Kept WALLED / deferred within item E (follow-on slabs):** (1) **not/exists ×
-temporal** — recon showed `exists`+temporal composes but `not`+temporal has a
-window-CLOSE deferral + an anchor-inference gap; the E1 Positive-only wall STAYS
-(6 `engine_fenced` probes). (2) **window×interval count-during-window** needs the
-`accumulate($e:E();count($e))` bound-source form (a separate pre-existing parser
-wall; interval EXPIRATION already byte-identical). (3) **beyond-Drools full-Allen
-inference** (`docs/allen-beyond-drools.md`) — spec-driven, post-faithfulness.
+**⚠ ACTIVE WORK — the CEP TEMPORAL-JOIN-ORDER SOURCES-PORT** (Bryan-GATE'd; the
+ONE thing blocking the push). **Full playbook + exact code pointers: memory
+`cep-temporal-join-order.md`.** The temporal-join firing ORDER diverges from
+Drools (~2/1000 CEP-fuzz; canonical repro `C_e0last` — engine fires `25,23,26`,
+oracle wants `26,23,25`). It is a FAMILY of batch-reversal facets; NO node-local
+fix is clean (3 engine attempts regressed — see dead-ends).
 
-**⚠ NEXT — the CEP TEMPORAL-JOIN-ORDER SOURCES-PORT (D-121→D-123; Bryan GATE =
-commit to it; push HELD until FIXED).** Steps 1–2 DONE: faithful AccDump graft
-(D-122) + the **VALIDATED v2 flush model** (D-123) — `tools/model_join_flush.py
-simulate()` matches the gate oracle with **0 divergences on 33 curated + ~4300
-random shuffled cases (single- AND multi-anchor)**. The faithful mechanism:
-per-propagation phreak flush; FIFO memory (append); scan the OPPOSITE memory
-FORWARD; emit via staged `addInsert` PREPEND; child processes staged in
-`getInsertFirst` order → a lone eager emit is identity, a batch drain of N held
-partners reverses **exactly once**. firing = reverse(node2 ltm) is the E-last
-special case; the held-right family fires as the batch is processed (what v1
-missed). **⇒ NEXT (step 3 — THE ENGINE PORT, under the push-hold).** RECON DONE (D-124,
-`SEINE_TRACE`): the divergence is **flush GRANULARITY**, not node order — the
-engine drains held E1s to memory then does ONE deferred flush, so e0first and
-e0last reach node1 with BYTE-IDENTICAL `sl.ins=[25,23,26]` (no node-local edit
-can separate them, as the memory warned). The port must make TEMPORAL-node
-propagation per-arrival (eager partner joins a present anchor INDIVIDUALLY, not
-drain-then-batch; later same-node right-insert reverses via staged prepend) —
-i.e. reproduce v2's cascade in the `engine.rs` drain / self-drain / segment-flush
-path (D-101/D-102), NOT `phreak.rs do_join_node` alone. HIGH-RISK (the 542/1500
-facet-3 area); focused pass, `model_join_flush.py` as spec, `make diff` (944) +
-`fuzz_chain` vs a HEAD worktree as twin gates. CEP-fuzz latents cf50003x263/x894
-must resolve.
-**Proven dead ends (do NOT re-attempt):** ENGINE edits — naive scan→memory swap
-(regressed t1/t4/t5/t8/t15); node2-only forward-stamp (+172/−121 chain-fuzz);
-node1 arrival-split (regressed facet-3, 542/1500). MODEL — the v1 uniform
-reverse-scan rule (27 % population; the reversal is a STAGING artifact, not a
-scan flag). Engine at HEAD; nothing landed.
-**Harness (in `tools/`):** `model_join_flush.py` (VALIDATED v2 spec + model↔oracle
-`battery`/`fuzz`/`fuzzm` differ), `fuzz_chain.py` (shuffled-insertion chain differ;
-vs a HEAD worktree = engine REGRESSION gate), `cep_join_battery.py` (33-case A–F
-matrix; `gen` writes `C_e0first`/`C_e0last`), faithful `AccDump.java` (per-fire
-JoinNode ltm/rtm/staged dump, STREAM+pseudo-clock). Faithfulness bar: ZERO new
-Drools-divergences; `make diff` (944) byte-identical.
-The other deferred frontiers stay parked: not/exists×temporal, item-C
-re-propagation, beyond-Drools Allen (all in Open/deferred).
+_Steps 1–2 DONE — the SPEC exists (D-122/D-123)._ `tools/model_join_flush.py` is
+a VALIDATED reference model: **0 divergences vs the gate oracle on 33 curated +
+~4300 random shuffled cases** (single- AND multi-anchor). Run (all self-contained):
+`python3 tools/model_join_flush.py battery` · `… fuzz <n> <seed>` · `… fuzzm <n>
+<seed>`. The faithful rule (drools-core 9.44 sources, oracle-arbitrated): a
+PER-PROPAGATION phreak flush — FIFO memory (append), scan the OPPOSITE memory
+FORWARD, emit via staged `addInsert`-PREPEND, child processes staged in
+`getInsertFirst` order ⇒ **a lone eager emit is identity; a batch drain of N held
+partners reverses EXACTLY ONCE.** (`firing = reverse(node2 ltm)` is only the
+partner-last special case; the disproven v1 baked the reversal into SCAN DIRECTION
+and missed the held-right family — 27 % population.)
 
-**Open/deferred:**
-DEFERRED item-C re-propagation port (classes 1/2/3 — temporal Behavior modify
-re-fire, on_update evicted/expired guard, exists external-delete round-trip;
-battery = `xf_cep_c_*` + `pr_cep_c_*` boundary pins + the mutation fuzz).
-E1-hardening backlog: temporal-join-order / accumulate-match latents (CEP +
-main-axis fuzz flush them; all bisect-to-HEAD pre-existing, non-EP) INCLUDING a
-temporal+delete+TMS engine NON-TERMINATION now CONTAINED by the D-117 spin-guard
-(engine errors ~18s instead of hanging; root-cause fix still pending —
-`scenarios/hang-backlog/pre_existing_temporal_delete_hang`, un-gated); 2
-temporal-join-order xfails; D-080 TMS envelope; window × TMS / node-sharing;
-`window:length` + standalone-pattern window (walled).
-Upstream: #2366 filed (min/max), `docs/drools-inferred-expiry-never.md`.
+_Step 3 NEXT — port the cascade into the engine (HIGH-RISK)._ Recon (D-124,
+`SEINE_TRACE=1`): the divergence is **FLUSH GRANULARITY** — the engine drains held
+partners to memory then does ONE deferred flush, so e0first/e0last reach node1
+BYTE-IDENTICAL (`sl.ins=[25,23,26]`); that is why no node-local edit separates
+them. **Fix site:** `Engine::stream_flush_ex` (`engine.rs` ~3602) UNCONDITIONALLY
+self-drains temporal nodes (loop ~3790 → `phreak::Node::self_drain_delta`,
+`phreak.rs`:427). **Hypothesis to test:** self-drain a partner ONLY when its
+anchor side is empty; else eager-join it individually (per v2). Collides with the
+cycle-4 / `rule_held_pre` gating (`engine.rs` ~3767) that fuzz survivors depend on
+⇒ **gate HARD and REVERT on any regression** (all 3 prior engine edits regressed).
+
+_Twin gates (ALL must hold before landing):_ `make diff` (944) byte-identical +
+`tools/fuzz_chain.py <n> <seed> <outdir> <HEAD-worktree>` = 0 NEW regressions +
+`model_join_flush.py fuzz`/`fuzzm` still 0 + the CEP-fuzz latents cf50003x263 /
+cf50003x894 resolve. Trace with `SEINE_TRACE=1` / `SEINE_FLUSH_DEBUG=1`.
+
+_Dead ends — do NOT re-attempt:_ ENGINE — naive scan→memory swap (regressed
+t1/t4/t5/t8/t15); node2-only forward-stamp (+172/−121 chain-fuzz); node1
+arrival-split (regressed facet-3, 542/1500). MODEL — v1 uniform reverse-scan
+(27 % pop; the reversal is a STAGING artifact, not a scan flag).
+
+**Open/deferred (parked; revisit AFTER the port):**
+• **item-C re-propagation** (classes 1/2/3: temporal Behavior modify re-fire,
+on_update evicted/expired guard, exists external-delete round-trip; battery
+`xf_cep_c_*` + `pr_cep_c_*` + mutation fuzz). • **not/exists × temporal** (E1
+positive-only wall stays; `exists` composes but `not` has a window-close deferral
++ anchor-inference gap; 6 `engine_fenced`). • **window×interval count-during-
+window** (needs the `accumulate($e:E();count($e))` bound-source form — a
+pre-existing parser wall; interval EXPIRATION already byte-identical). •
+**beyond-Drools full-Allen inference** (`docs/allen-beyond-drools.md`;
+post-faithfulness). • **E1-hardening backlog**: temporal-join-order / accumulate-
+match latents (all bisect-to-HEAD, non-EP) incl. a temporal+delete+TMS
+NON-TERMINATION now CONTAINED by the D-117 spin-guard (errors ~18s vs hang;
+root-cause pending — `scenarios/hang-backlog/pre_existing_temporal_delete_hang`,
+un-gated); 2 tjo xfails; D-080 TMS envelope; window×TMS / node-sharing;
+`window:length` + standalone window (walled). • **Upstream:** #2366 (min/max),
+`docs/drools-inferred-expiry-never.md`.
 
 ---
 
