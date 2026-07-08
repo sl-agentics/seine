@@ -1,0 +1,60 @@
+{
+ "name": "df_win_evict_ctl",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rx when accumulate( E($t : ts) over window:time(60ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 100
+     }
+    }
+   ]
+  }
+ ]
+}

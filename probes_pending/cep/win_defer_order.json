@@ -1,0 +1,60 @@
+{
+ "name": "win_defer_order",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Wacc salience 5 when accumulate( E() over window:time(150ms); $c : count() ) then end\nrule Rp salience 0 when P(v==2) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ]
+}

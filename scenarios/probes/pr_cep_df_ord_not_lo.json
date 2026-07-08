@@ -1,0 +1,74 @@
+{
+ "name": "df_ord_not_lo",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rx salience 0 when not E() P() then end\nrule Rp salience 5 when Q(v==2) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "Q",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ]
+}

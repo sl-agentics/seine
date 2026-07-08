@@ -1,5 +1,5 @@
 {
- "name": "xf_acc_expire_order",
+ "name": "win_defer_infer_reins",
  "types": [
   {
    "name": "E",
@@ -10,8 +10,7 @@
     }
    ],
    "event": {
-    "timestamp": "ts",
-    "expires_ms": 50
+    "timestamp": "ts"
    }
   },
   {
@@ -24,12 +23,18 @@
    ]
   }
  ],
- "drl": "rule W salience 5 when accumulate( E(); $c : count() ) then end\nrule NP salience 0 when P(v==2) then end\n",
+ "drl": "rule Wacc when accumulate( E($t : ts) over window:time(100ms); $c : sum($t) ) then end\n",
  "facts": [
   {
    "type": "E",
    "fields": {
-    "ts": 0
+    "ts": 10
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
    }
   }
  ],
@@ -38,14 +43,14 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 100
+     "ms": 150
     }
    ],
    "facts": [
     {
-     "type": "P",
+     "type": "E",
      "fields": {
-      "v": 2
+      "ts": 160
      }
     }
    ]

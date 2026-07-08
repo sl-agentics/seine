@@ -21,9 +21,11 @@ Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **several commits UNPUSHED** (don't push without Bryan).
 Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
-**`9efd827` item B RUNTIME (D-111)** — window eviction + A→B seam, pin-green
-(Bryan gated the core in; deferral fix deferred). Gates green: baseline 11 /
-probes 767 / regressions 281 byte-identical; lint 1117; 8 Rust suites.
+`9efd827` item B RUNTIME (D-111, window eviction + A→B seam).
+**UNCOMMITTED working tree: D-112** — accumulate removals EAGER (fixes the
+pre-existing accumulate+expiration deferral bug), model-checked + blast-
+radius fuzzed clean; awaiting Bryan's commit. Gates green: baseline 11 /
+probes 785 / regressions 281 byte-identical; lint 1153; 8 Rust suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
@@ -40,27 +42,26 @@ per-subtree eviction at `ts+N` (scoped right-delete, fact survives) + the
 pattern-level seam (fold `N−1` into `temporal_ub`, windowed pattern skips
 `never_inferred` but a bare/backward ref still forces NEVER). 38 window
 probes promoted to `scenarios/probes/pr_cep_win*`; corpus byte-identical.
-**BLOCKER — the fuzz campaign is stuck on a PRE-EXISTING accumulate+expiration
-DEFERRAL gap (D-111), NOT a window bug** (reproduced on a plain accumulate,
-confirmed on pristine HEAD): the D-102 expiration-at-quiescence deferral
-doesn't compose with `accumulate` — count transient + firing-order (both in
-`scenarios/xfail/xf_acc_expire_*`); the window-evict inherits it. 300@seed1 =
-47 divergences, ALL correct-WM (39 pure-reorder, 8 transient), 0 window-count
-errors. **Bryan gated the core IN (`9efd827`); the deferral fix is deferred.
-RESUME HERE — the accumulate-removal-ordering model-check sub-recon:** extend
-`model_check_stream` with the accumulate expiration/eviction removal-vs-insert
-+ removal-vs-agenda ordering dimension (don't hand-reason — D-083); the two
-`xf_acc_expire_*` repros are the anchors; then unblock the window fuzz
-campaign. Detail: `~/.claude/plans/graceful-waddling-stallman.md`.
+**D-112 FIXED the accumulate+expiration deferral bug** (was D-111's blocker):
+accumulate removals are EAGER (advance-time, by salience) for PLAIN
+accumulates + window eviction; not-CE/temporal/windowed-expiration stay
+LAZY. Model-checked (`model_check_accdefer`, unique survivor) + blast-radius
+clean (main-axis 3900 cases 0 div; CEP plain-acc 0 div). 18 pins promoted.
+**RESUME HERE — the WINDOWED-accumulate removal-TIMING sub-recon (D-112
+deferred):** the eager/lazy of a window eviction vs a coincident windowed
+expiration under later-insert+salience FLIP-FLOPS (cf1x65 vs cf1x233 vs
+cf1x249; ≈0.5–5% of windowed fuzz draws, 0 plain/non-acc). Extend
+`model_check_stream` with a WindowNode+AccumulateNode and enumerate the
+flush micro-order — do NOT hand-tune (D-083). Anchors
+`scenarios/xfail/xf_win_acc_defer_{1,2}`.
 
-**Open/deferred:** **NEW (D-111): accumulate+expiration deferral gap**
-(count transient + firing order, pre-existing, 2 xfail repros) — gates the
-window fuzz campaign + is a standalone correctness bug. E1-hardening — 2
-temporal-join-order xfails (bisect-confirmed pre-existing); D-080 TMS
-envelope; window × STREAM-flush/TMS/node-sharing (model-check sub-recon);
-`window:length` + standalone-pattern window (walled, follow-on); E2 remaining:
-C event update/delete, D entry-points, E @duration. Upstream: #2366 filed
-(min/max), `docs/drools-inferred-expiry-never.md` drafted.
+**Open/deferred:** **D-112: windowed-accumulate removal-timing composition**
+(eviction-vs-windowed-expiration flush micro-order — the WindowNode model-
+check sub-recon; 2 xfail anchors). E1-hardening — 2 temporal-join-order
+xfails (bisect-confirmed pre-existing); D-080 TMS envelope; window × TMS /
+node-sharing; `window:length` + standalone-pattern window (walled, follow-
+on); E2 remaining: C event update/delete, D entry-points, E @duration.
+Upstream: #2366 filed (min/max), `docs/drools-inferred-expiry-never.md`.
 
 ---
 
@@ -5215,3 +5216,71 @@ Bryan.
 (win_x_bare/back/fwd50, win2_seam_time_99); 2 xfail repros; `fuzz_cep.py`
 window draws (dedicated initial-only `EW` stream, still surfaces the
 deferral gap via any accumulate+removal+concurrency).
+
+## 2026-07-07 — Session (cont.), accumulate-eager deferral fix
+
+### D-112: accumulate removals are EAGER (advance-time, by salience) — the pre-existing accumulate+expiration deferral gap FIXED; the windowed removal-TIMING composition deferred to a WindowNode model-check
+
+**Recon (PROBE-FIRST, `probes_pending/cep/df_*`):** a uniform ladder (E
+expires, a concurrent insert) pinned the eager/lazy split PER NODE KIND —
+- `df_ord_acc` `[1],[0],Rp`: a PLAIN accumulate count-drop (sal 5) fires
+  BEFORE Rp (sal 0) → EAGER; `df_ord_acc_lo` `[1],Rp,[0]`: by its OWN
+  salience. `df_reins_{sum,count,max}` `[10],[100]`: the removal lands
+  BEFORE a later insert into the accumulate (no transient).
+- `df_ord_not` `[Rp,not]`: a not-CE (sal 5) fires AFTER Rp (sal 0) → LAZY
+  (the D-102 cf5x33 pin). `df_ord_inter` `[acc1,acc0,Rp,not]`: the SAME
+  expiring event drives an EAGER accumulate drop AND a LAZY not-CE unblock
+  in one scenario — the split is per-node-type, not per-delete.
+- Window EVICTION (fact survives): EAGER (`df_win_evict_ctl`,
+  `df_evict_reins` `[10],[100]`).
+
+**Model-check (`tools/model_check_accdefer.py`):** enumerated the removal
+timing {eager,lazy} per node kind against the df pins → UNIQUE survivor
+**accumulate EAGER, not-CE LAZY** (`acc=lazy` fails df_ord_acc; `not=eager`
+fails df_ord_not). model_check_stream models the beta-JOIN flush micro-
+order only (no accumulate node, no agenda) so it can't decide this — a
+focused checker per doctrine ("compose a novel harness").
+
+**Port:** in `advance()`, expiring events take an EAGER scoped right-delete
+(`stage_acc_removal`, was `evict_from_window`) at every PLAIN accumulate
+node they feed (`eager_acc_removals`), and window evictions apply their
+scoped delete eagerly too — both stage the count-drop BEFORE the fire's
+inserts and fire by salience. The fact WM-removal + not-CE/temporal/join
+effects stay DEFERRED (pending_expirations → quiescence). `acc_nodes`
+(all accumulate nodes, `window_time` optional) replaces `window_nodes`;
+`pending_window_evictions` + `drain_pending_window_evictions` removed.
+
+**Gate GREEN + blast radius CLEAN:** 18 accumulate-deferral pins promoted;
+`make diff` baseline 11 / probes 785 / regressions 281 byte-identical;
+lint 1153; 8 Rust suites. **Blast radius:** main Drools-axis fuzz
+(gen.rs, non-CEP) 3×seed = 3900 cases, 0 divergences (non-CEP never
+advances the clock ⇒ the new path is inert). CEP fuzz (now drawing
+accumulates over event streams with epoch inserts): **PLAIN accumulate 0
+divergences and no-accumulate 0 divergences across seeds 1/2/7** — the fix
+is clean and the certified E1/temporal/TMS is untouched. The 2 committed
+`xf_acc_expire_*` repros now PASS (promoted to pins
+`df_plain_expire_{reins,order}`).
+
+**DEFERRED — the WINDOWED-accumulate removal TIMING composition.** The
+residual CEP-fuzz divergences are ALL windowed accumulate (≈0.5–5% of
+windowed draws; 0 plain, 0 non-acc). The exact eager/lazy of a window
+EVICTION vs a coincident/earlier windowed EXPIRATION, under a later insert
+into the accumulate + concurrent salience, FLIP-FLOPS: `df_win_expire_reins`
+`[10],[110],[100]` (windowed expiration is LAZY — the transient IS the
+oracle) vs `df_win_evict_ctl` `[10],[100]` (eviction EAGER); and fuzz
+cf1x65 (count-drop should fire by salience) vs cf1x233 (inferred expiry=N
+→ lazy) vs cf1x249 (eviction transient) cannot be reconciled by a simple
+rule — minimal 1-event repros all PASS, so it needs the multi-event flush
+micro-order. Per D-083 this is NOT hand-tuned. **NEXT (own sub-recon):
+extend `model_check_stream` with a WindowNode + AccumulateNode and
+enumerate the window-eviction/expiration-vs-insert flush micro-order;
+anchors `scenarios/xfail/xf_win_acc_defer_{1,2}`.** Current code keeps the
+pin-correct eager eviction + lazy windowed-expiration (an improvement over
+D-111's fully-lazy eviction; 38 window pins + corpus hold).
+
+**HANDOFF:** plain accumulate+expiration deferral bug is FIXED and clean;
+uncommitted; commit awaits Bryan. Windowed removal-timing = the WindowNode
+model-check sub-recon.
+**Artifacts:** `tools/model_check_accdefer.py`; 18 promoted pins
+`scenarios/probes/pr_cep_df_*` + `pr_cep_win_defer_*`; 2 xfail anchors;
+`fuzz_cep.py` accumulate-over-event-stream draws.

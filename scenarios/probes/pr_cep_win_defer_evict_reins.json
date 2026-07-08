@@ -1,0 +1,60 @@
+{
+ "name": "win_defer_evict_reins",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Wacc when accumulate( E($t : ts) over window:time(50ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 100
+     }
+    }
+   ]
+  }
+ ]
+}

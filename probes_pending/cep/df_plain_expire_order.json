@@ -1,0 +1,54 @@
+{
+ "name": "df_plain_expire_order",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W salience 5 when accumulate( E(); $c : count() ) then end\nrule NP salience 0 when P(v==2) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ]
+}

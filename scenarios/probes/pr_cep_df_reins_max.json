@@ -1,0 +1,66 @@
+{
+ "name": "df_reins_max",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rx when accumulate( E($t : ts); $c : max($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 100,
+      "tag": "y"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1033,19 +1033,20 @@ pub struct Engine {
     /// keyed by the wall-clock deadline `ts+N` (NO +1 — win_t_b pins the
     /// boundary at exactly ts+N, distinct from expiration's ts+off+1).
     /// Each entry is (windowed accumulate trie-node idx, event id).
-    /// Drained in `advance()` into `pending_window_evictions`; at
-    /// quiescence a SCOPED right-delete at the node drops the count
-    /// (Phase B→G re-fire) WITHOUT retracting the fact (the fact
-    /// survives WM-wide: win_t_b/win_x_bare/win_x_back keep E while
+    /// D-112: drained EAGERLY in `advance()` — a SCOPED right-delete at
+    /// the node drops the count (Phase B→G re-fire) WITHOUT retracting the
+    /// fact (the fact survives WM-wide: win_t_b/win_x_bare keep E while
     /// count→0). Independent of expiration — fires even under a huge or
     /// explicit @expires.
     window_deadlines: std::collections::BTreeMap<i64, Vec<(usize, FactId)>>,
-    pending_window_evictions: Vec<(usize, FactId)>,
-    /// CEP E2 item B (D-110): recomputed by each `build_network` (trie
-    /// reindexes on reset) — (windowed accumulate trie-node idx, source
-    /// event type, window size N). Consulted at insert to schedule the
-    /// event's eviction at `ts+N`.
-    window_nodes: Vec<(usize, TypeId, i64)>,
+    /// D-112 (accumulate-eager deferral): recomputed by each
+    /// `build_network` — (accumulate trie-node idx, source event type,
+    /// window size N or None for a plain accumulate). Windowed nodes
+    /// schedule an eviction at `ts+N`; ALL accumulate nodes take an EAGER
+    /// right-delete at advance-time when a feeding event expires, so the
+    /// count-drop lands before the fire's inserts and fires by salience
+    /// (df_* pins; model_check_accdefer survivor: acc EAGER, not-CE LAZY).
+    acc_nodes: Vec<(usize, TypeId, Option<i64>)>,
     in_expiration_drain: bool,
     in_stream_flush: bool,
     fire_no: u64,
@@ -1169,8 +1170,7 @@ impl Engine {
             deadlines: std::collections::BTreeMap::new(),
             pending_expirations: Vec::new(),
             window_deadlines: std::collections::BTreeMap::new(),
-            pending_window_evictions: Vec::new(),
-            window_nodes: Vec::new(),
+            acc_nodes: Vec::new(),
             in_expiration_drain: false,
             in_stream_flush: false,
             fire_no: 0,
@@ -1545,27 +1545,28 @@ impl Engine {
             }
             *self.trie[first].collect_left_gate.get_or_insert(0) |= gate;
         }
-        // CEP E2 item B (D-110): index the windowed accumulate nodes so
-        // inserts can schedule per-subtree evictions (trie node indices
-        // are only valid after this build, and change on reset).
-        self.precompute_window_nodes();
+        // D-110/D-112: index EVERY accumulate node (trie indices are only
+        // valid after this build, and change on reset) — windowed ones
+        // schedule evictions, all of them take eager expiration removals.
+        self.precompute_acc_nodes();
     }
 
-    /// CEP E2 item B (D-110): collect `(trie-node idx, source event type,
-    /// window size N)` for every `over window:time(N)` accumulate node.
-    /// The node's rights are the source events; eviction is scheduled at
-    /// each event's `ts+N` and scoped to this one node.
-    fn precompute_window_nodes(&mut self) {
-        self.window_nodes.clear();
+    /// D-110/D-112: collect `(trie-node idx, source event type, window
+    /// size N | None)` for every accumulate node. The node's rights are
+    /// the source events. Windowed nodes schedule an eviction at each
+    /// event's `ts+N`; every node takes a scoped EAGER right-delete when a
+    /// feeding event expires (so the count-drop precedes the fire's
+    /// inserts and fires by salience — the accumulate-eager mechanism).
+    fn precompute_acc_nodes(&mut self) {
+        self.acc_nodes.clear();
         for ni in 0..self.trie.len() {
             if self.trie[ni].node.kind != phreak::Kind::Acc {
                 continue;
             }
             let (ri, pos) = self.trie[ni].env;
-            if let Some(n) = self.rules[ri].patterns[pos].acc.as_ref().and_then(|a| a.window_time)
-            {
+            if let Some(acc) = self.rules[ri].patterns[pos].acc.as_ref() {
                 let tid = self.rules[ri].patterns[pos].type_id;
-                self.window_nodes.push((ni, tid, n));
+                self.acc_nodes.push((ni, tid, acc.window_time));
             }
         }
     }
@@ -3002,10 +3003,9 @@ impl Engine {
         self.clock_ms = 0;
         self.deadlines.clear();
         self.pending_expirations.clear();
-        // D-110: window queues clear too; window_nodes is recomputed by
-        // the build_network below (trie node indices change on rebuild).
+        // D-110/D-112: window deadline queue clears; acc_nodes is
+        // recomputed by build_network below (trie reindexes on rebuild).
         self.window_deadlines.clear();
-        self.pending_window_evictions.clear();
         self.in_expiration_drain = false;
         self.in_stream_flush = false;
         self.flush_trigger_tid = None;
@@ -3308,7 +3308,7 @@ impl Engine {
     /// constraint (win4_constr) or already gone is a no-op at drain
     /// (the node's `active` set gates it).
     fn schedule_window_evictions(&mut self, id: FactId) {
-        if self.window_nodes.is_empty() {
+        if self.acc_nodes.is_empty() {
             return;
         }
         let tid = self.store.fact_type(id);
@@ -3318,10 +3318,12 @@ impl Engine {
         let Value::I64(ts) = self.store.value(id, fi) else {
             return;
         };
-        for i in 0..self.window_nodes.len() {
-            let (ni, wtid, n) = self.window_nodes[i];
+        for i in 0..self.acc_nodes.len() {
+            let (ni, wtid, win) = self.acc_nodes[i];
             if wtid == tid {
-                self.window_deadlines.entry(ts + n).or_default().push((ni, id));
+                if let Some(n) = win {
+                    self.window_deadlines.entry(ts + n).or_default().push((ni, id));
+                }
             }
         }
     }
@@ -3658,22 +3660,30 @@ impl Engine {
             }
             out
         };
-        // D-102 (cf5x33): expiration deletes propagate at agenda
-        // QUIESCENCE, not at advance-time — a not-CE over an expired
-        // event stays BLOCKED through all higher pops of the next fire
-        // (the oracle fires salience-0 items before the unblocked
-        // observers). advance() only marks and queues.
+        // D-102 (cf5x33): expiration deletes to NOT-CE / temporal / join
+        // propagate at agenda QUIESCENCE — a not-CE over an expired event
+        // stays BLOCKED through all higher pops of the next fire. Those
+        // still queue (pending_expirations, drained lazily). D-112: the
+        // ACCUMULATE effect is the EXCEPTION — Drools retracts the event
+        // from the accumulate at advance-time, so the count-drop precedes
+        // the fire's inserts and fires by SALIENCE (df_* pins;
+        // model_check_accdefer survivor: acc EAGER, not-CE LAZY).
         for id in due {
             if self.store.is_alive(id) {
                 self.tms.expiring.insert(id);
                 self.store.mark_expired(id);
                 self.pending_expirations.push(id);
+                self.eager_acc_removals(id); // eager accumulate right-delete
             }
         }
-        // CEP E2 item B (D-110): collect due window evictions (deadline
-        // order) into the pending queue, drained at the same quiescence
-        // as expirations. These do NOT mark or kill the fact — the drain
-        // does a scoped subtree right-delete (count drops, fact survives).
+        // CEP E2 item B (D-110/D-112): a window eviction is EAGER — a due
+        // scoped right-delete now (count drops, fact survives WM-wide;
+        // df_win_evict_ctl / df_evict_reins). The EXACT eager/lazy timing
+        // of eviction vs a coincident/earlier windowed EXPIRATION under a
+        // later insert + salience is a deeper composition that flip-flops
+        // (cf1x65 vs cf1x233; df_win_evict_ctl vs cf1x249) — DEFERRED to a
+        // model_check_stream + WindowNode sub-recon (D-112 handoff); do not
+        // hand-tune it (D-083). This keeps the pin-correct eager eviction.
         if !self.window_deadlines.is_empty() {
             let wkeys: Vec<i64> = self
                 .window_deadlines
@@ -3682,11 +3692,37 @@ impl Engine {
                 .collect();
             for k in wkeys {
                 if let Some(v) = self.window_deadlines.remove(&k) {
-                    self.pending_window_evictions.extend(v);
+                    for (ni, id) in v {
+                        self.stage_acc_removal(ni, id);
+                    }
                 }
             }
         }
         Ok(())
+    }
+
+    /// D-112: stage the EAGER scoped right-delete of an expiring event at
+    /// every PLAIN accumulate node its type feeds — the count/sum drops now
+    /// (before the fire's inserts, and firing by salience), while the fact
+    /// is retracted later by the deferred `pending_expirations` delete.
+    /// WINDOWED accumulates are SKIPPED: an expiration reaching the
+    /// accumulate THROUGH a window node defers like other expiration
+    /// propagation (df_win_expire_reins: with expiry < N the removal fires
+    /// AFTER a later insert — the transient IS the oracle), so it rides the
+    /// lazy `delete_fact` at quiescence. Window EVICTION is separately eager
+    /// (window_deadlines). No-op per node if the event never entered it
+    /// (alpha-filtered) or already left — the `active` guard.
+    fn eager_acc_removals(&mut self, id: FactId) {
+        if self.acc_nodes.is_empty() {
+            return;
+        }
+        let tid = self.store.fact_type(id);
+        for i in 0..self.acc_nodes.len() {
+            let (ni, atid, win) = self.acc_nodes[i];
+            if atid == tid && win.is_none() {
+                self.stage_acc_removal(ni, id);
+            }
+        }
     }
 
     /// Quiescence step: propagate the pending expiration batch through
@@ -3707,36 +3743,18 @@ impl Engine {
         true
     }
 
-    /// CEP E2 item B (D-110): quiescence step for window evictions — drain
-    /// the pending batch through scoped subtree right-deletes. Runs AFTER
-    /// expirations, which may already have removed a coincident event from
-    /// the node (making its eviction a no-op): at `ts+N` the inferred
-    /// expiry and the window coincide (win2_seam), and an explicit expiry
-    /// < N removes the event first (win4_expl50). Batched — all deletes
-    /// stage before the re-eval, so simultaneous evictions collapse the
-    /// count in one step (win_t_slide_150 → [2,0], not [2,1,0]).
-    fn drain_pending_window_evictions(&mut self) -> bool {
-        if self.pending_window_evictions.is_empty() {
-            return false;
-        }
-        let pending = std::mem::take(&mut self.pending_window_evictions);
-        let mut staged = false;
-        for (ni, id) in pending {
-            staged |= self.evict_from_window(ni, id);
-        }
-        staged
-    }
-
-    /// CEP E2 item B (D-110): remove event `id` from ONE windowed
-    /// accumulate node's right memory — a scoped right-delete (eval_acc_node
-    /// Phase B→G re-fires: the count drops) that leaves the fact in WM and
-    /// every OTHER node untouched (win3_seam_tmax: E stays a live temporal
-    /// anchor for the sibling rule while its window count drops). No-op if
-    /// the event is no longer active at the node (already expired, or
-    /// filtered out by the source constraint) — the `active` guard mirrors
+    /// D-110/D-112: remove event `id` from ONE accumulate node's right
+    /// memory — a scoped right-delete (eval_acc_node Phase B→G re-fires: the
+    /// count/sum drops) that leaves the fact in WM and every OTHER node
+    /// untouched (win3_seam_tmax: E stays a live temporal anchor for the
+    /// sibling rule while its window count drops). Staged EAGERLY at
+    /// advance-time for both window eviction and expiration, so the drop
+    /// precedes the fire's inserts (no transient) and fires by salience.
+    /// No-op if the event is no longer active at the node (already expired,
+    /// window-evicted, or alpha-filtered) — the `active` guard mirrors
     /// on_delete and gives win4_expl50 its double-removal NO-OP. Returns
     /// whether a delete was staged (⇒ the rule needs a re-eval).
-    fn evict_from_window(&mut self, ni: usize, id: FactId) -> bool {
+    fn stage_acc_removal(&mut self, ni: usize, id: FactId) -> bool {
         if !self.trie[ni].active.remove(&id) {
             return false;
         }
@@ -4192,17 +4210,10 @@ impl Engine {
                     }
                     continue;
                 }
-                // CEP E2 item B (D-110): after expirations settle, drain
-                // window evictions (a scoped count-drop, no WM touch).
-                // Ordered after expirations so a coincident/earlier expiry
-                // removes the event first and the eviction no-ops there.
-                // NOTE: window×later-insert timing (the transient where a
-                // deferred evict coexists with an insert into the same
-                // accumulate) is the window × STREAM-flush composition —
-                // deferred to a model-check sub-recon (fz cf1x38 class).
-                if self.drain_pending_window_evictions() {
-                    continue;
-                }
+                // D-112: window evictions + accumulate expiration removals
+                // are applied EAGERLY in advance() now, not here (no
+                // pending_window_evictions queue) — the count-drop precedes
+                // the fire's inserts and fires by salience.
                 if !self.tms.exp_deferred.is_empty() {
                     let pending = std::mem::take(&mut self.tms.exp_deferred);
                     for (dri, tuple) in pending {

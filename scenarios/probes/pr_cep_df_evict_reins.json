@@ -1,0 +1,66 @@
+{
+ "name": "df_evict_reins",
+ "types": [
+  {
+   "name": "EW",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rx when accumulate( EW($t : ts) over window:time(50ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "EW",
+   "fields": {
+    "ts": 10,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "EW",
+     "fields": {
+      "ts": 100,
+      "tag": "y"
+     }
+    }
+   ]
+  }
+ ]
+}
