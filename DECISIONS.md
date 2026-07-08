@@ -65,20 +65,28 @@ strict) + param forms (`during[lo1,hi1,lo2,hi2]`=start/end dist windows,
 Direction: `this`=subject, `$a`=object. Port representation designed
 (`AllenOp` enum + ≤4 param + both events' ts/dur fi; eval = endpoint match).
 
-**⚠ NEXT — Bryan SCOPE CALL, then the port.** ONE open surface: the D-109
-`@expires` INFERENCE reach through Allen ops is OP-SPECIFIC + COUNTERINTUITIVE
-(smoke: coincides/overlaps→FINITE even bare; during→NEVER even parameterized;
-meets/finishes→NEVER). Pinning each op's STP contribution (× param × position)
-is a dedicated ladder (like D-109's after/before reach). **Scope Q: pin-all
-(full faithfulness) vs FENCE Allen-op inference** (e.g. require explicit
-`@expires` for Allen-referenced un-annotated types + expected-divergence
-witnesses). After that call: the combined after/before-intervals + Allen port in
-one slab (gate `make diff` byte-identical + fuzz + lint).
+**⚠ NEXT — the SLAB-1 PORT (recon fully done; all gates RULED).** Bryan ruled
+FENCE Allen-op `@expires` inference in slab 1 (D-119): land the Allen PREDICATE
+port certified byte-identical to Drools FIRST; inference stays D-109
+(after/before only); Allen-referenced un-annotated event types require explicit
+`@expires` (else fenced + expected-divergence witnesses + a generator gate).
+**Port surface** (D-118 core + D-119 Allen): schema `"duration"`; oracle DONE;
+`event_specs` +dur_fi; `declare_event`/`runner.rs`/`bindings` pass duration;
+`Constraint`/`Test::Temporal` → `AllenOp` enum + ≤4 params + both events'
+(ts_fi,dur_fi), eval (6892/6988) = endpoint match (`endTS=ts+dur`);
+`schedule_expiration` +dur; parser (drl.rs:1385-1404) generalize to 13 keywords
++ optional `[p..]`; `pattern_key` folds op+params. Gate: probe ladder → promote
+to `scenarios/probes/`, `make diff` byte-identical, extend `tools/fuzz_cep.py`
+(`@duration` dim + Allen ops + advances straddling `ts+dur+offset`), 3×1000
+fresh-seed 0-divergence, `make lint-probes`. **Envisioned ENHANCEMENT (post-
+certification, off-oracle, spec-driven):** fully implement Allen beyond Drools —
+`docs/allen-beyond-drools.md`. NOT current work.
 
-**Open/deferred:** E2 remaining: **E** @duration PORT — recon D-118 (core) +
-D-119 (Allen predicates/params) DONE; blocked on the Bryan inference-reach scope
-call + the (conditional) inference-reach ladder, then port. Folded into the
-port: window:time start-vs-end membership (B×E), mutation×dur (item-C fence).
+**Open/deferred:** E2 remaining: **E** @duration PORT (slab 1 = predicates +
+`endTS=ts+dur`, Allen inference FENCED; recon D-118+D-119 DONE, ready to build).
+Folded into the port: window:time start-vs-end membership (B×E), mutation×dur
+(item-C fence). Beyond-Drools full-Allen = post-faithfulness roadmap
+(`docs/allen-beyond-drools.md`).
 DEFERRED item-C re-propagation port (classes 1/2/3 — temporal Behavior modify
 re-fire, on_update evicted/expired guard, exists external-delete round-trip;
 battery = `xf_cep_c_*` + `pr_cep_c_*` boundary pins + the mutation fuzz).
@@ -5767,3 +5775,19 @@ QUESTION for Bryan** (see below).
 Predicates + params oracle-pinned; inference-reach is the one open recon item.
 **NEXT: Bryan scope call on the inference reach (pin-all vs fence), then the
 combined after/before+Allen port.**
+
+**⟶ GATE RULING (Bryan, 2026-07-08): FENCE Allen-op @expires inference in
+slab 1.** Land the Allen PREDICATE port (matching semantics) certified
+byte-identical to Drools FIRST; inference stays D-109 (after/before only), and
+Allen-op-referenced un-annotated event types are FENCED — require explicit
+`@expires` (else `engine_fenced`/expected-divergence witnesses + a generator
+gate excluding un-annotated types under Allen ops). The reach VALUES over Allen
+ops are NOT pinned this slab. **PLUS an envisioned ENHANCEMENT (Bryan, noted for
+AFTER certification):** once the product is certifiably faithful to Drools,
+FULLY implement the Allen algebra *beyond* Drools — coherent interval semantics
+where Drools is incomplete/incoherent (e.g. the `during`/`meets` inference leak,
+any op×window/acc gaps). This is a DELIBERATE break from probe-first: there is
+NO oracle for behavior Drools lacks, so it is SPEC-DRIVEN (Allen's interval
+algebra as the spec), tracked in `docs/allen-beyond-drools.md`. NOT current
+work — a post-faithfulness roadmap item. ⇒ **NEXT = the slab-1 port (predicates
++ params + `endTS=ts+dur`, Allen inference fenced) per the D-118/D-119 surface.**
