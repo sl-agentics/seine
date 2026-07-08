@@ -23,9 +23,10 @@ Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 TEMPORAL-JOIN-ORDER latent is actually FIXED** (Bryan, 2026-07-08 — the
 discriminator is CHARACTERIZED per D-121, but the block HOLDS until the
 sources-port lands, not merely until it's understood). Recent:
-`e65ab0c` D-116 item D, `df18834` D-117 spin-guard, D-118/D-119 item E RECON,
-then `59b0e68` **D-120 item E PORT — COMMITTED** (`@duration` intervals + the
-full Allen PREDICATE algebra, byte-identical; the LAST E2 fence, CLOSED). Gates
+`59b0e68` **D-120 item E PORT** (`@duration` + Allen, byte-identical; LAST E2
+fence CLOSED), then `30399b3`/`2b5f739` **D-121** discriminator hunt, then
+**D-122** temporal-join step-1 (faithful graft + v1 model disproven; this
+checkpoint — engine still at HEAD). Gates
 green: baseline 11 / probes **944** / regressions 281 byte-identical; lint **1325
 live/0 ghost/0 inert**; 9 Rust suites + a new `eval_allen` unit module. Verify
 with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
@@ -39,7 +40,12 @@ D-096–098). TMS, P1c group CEs, hardening waves — see the log.
 **B** windows (D-110–114); **C** event update/delete (D-115); **D** entry points
 (D-116); **E** @duration intervals + Allen predicates (D-120, this checkpoint).
 
-**JUST LANDED — CEP E2 item E PORT (D-120).** Every event occupies `[ts, ts+dur]`
+**JUST LANDED — temporal-join sources-port STEP 1 (D-122).** Faithful AccDump
+graft (was CLOUD-mode/unfaithful) + mechanism pinned (firing = reverse(node2
+ltm); provenance is above `do_node`) + v1 uniform model DISPROVEN (33/33 curated
+but 27 % population). NEXT = v2 staged-tuple flush model → validate 0 % → port.
+Detail in the NEXT paragraph + D-122. **(prior)** CEP E2 item E PORT (D-120):
+every event occupies `[ts, ts+dur]`
 (`endTS = ts+dur`; dur=0 for points ⇒ BYTE-IDENTICAL). `EventSpec {ts_fi, expires,
 dur_fi}` struct; `drl::AllenOp` (13 variants) on `Constraint`/`Test::Temporal`
 with `params: Vec<i64>` (≤4) + both events' (ts_fi,dur_fi); a pure
@@ -64,35 +70,35 @@ window-CLOSE deferral + an anchor-inference gap; the E1 Positive-only wall STAYS
 wall; interval EXPIRATION already byte-identical). (3) **beyond-Drools full-Allen
 inference** (`docs/allen-beyond-drools.md`) — spec-driven, post-faithfulness.
 
-**⚠ NEXT — the CEP TEMPORAL-JOIN-ORDER SOURCES-PORT (D-121; Bryan GATE = commit
-to it).** The DISCRIMINATOR HUNT is DONE: it is NOT one rule — a FAMILY of
-interdependent batch-reversal facets, and **NO local engine edit is
-faithfulness-clean** (proven, D-121). Full detail in D-121 + memory
-`cep-temporal-join-order.md`. The four facets: (1) upstream left-batch stamp
-(`e0last`, golden), (2) anchor-first eager-vs-batch (`e0first` — identical node2
-input, opposite firing, so no node2 fix separates them), (3) right-held arrival
-(`ch7001x0`), (4) multi-anchor per-right grouping. Root cause (sources-confirmed):
-Drools orders temporal-join output by ARRIVAL PROVENANCE (`addInsert` PREPENDS +
-doRightInserts-then-doLeftInserts + forward memory scan ⇒ parity encodes
-provenance); the Seine `do_node` BATCHES and COLLAPSES that provenance.
-**Proven dead ends (do NOT re-attempt):** naive scan→memory swap (regressed
-t1/t4/t5/t8/t15); node2-only forward-stamp (make-diff byte-identical + fixed
-facet-1 but chain-fuzz-vs-HEAD +172/−121 NEW facet-2 regressions ⇒ unfaithful);
-node1 arrival-split (fixed 1+2, regressed facet-3, chain-fuzz 542/1500). Engine
-reverted to HEAD.
-**PORT PLAN (source-grounded — hand-derivation flip-flopped repeatedly this run):**
-step 1 = extend the AccDump graft (`oracle/.../AccDump.java` — `dumpJoinNode`
-already dumps ltm/rtm/staged via reflection; add a pre-`fireAllRules` dump + make
-`walk` descend JoinNodes) to capture the staged left/right + memory order BEFORE
-fire for `e0first` vs `e0last` (regen via `tools/cep_join_battery.py gen`), pinning
-the segment-linking/staged-accumulation provenance (drools RuleNetworkEvaluator /
-SegmentMemory / LIA; Seine flush driver in `engine.rs`, NOT just `phreak.rs`
-do_node). Then reproduce Drools' per-flush staged ORDERING faithfully.
-**Harness (built this run, in `tools/`):** `fuzz_chain.py` (shuffled-insertion
-temporal-chain differ — vs a HEAD `git worktree` = the population REGRESSION gate;
-the existing `fuzz_cep.py` under-shuffles), `cep_join_battery.py` (33-case A–F
-matrix), `model_check_chain.py`. Faithfulness bar: ZERO new Drools-divergences;
-`make diff` (944) byte-identical. Prime directive holds: PROBE-first.
+**⚠ NEXT — the CEP TEMPORAL-JOIN-ORDER SOURCES-PORT (D-121/D-122; Bryan GATE =
+commit to it; push HELD until FIXED).** Step 1 is DONE (D-122): the AccDump graft
+is now FAITHFUL (it was silently CLOUD-mode + missing event annotations →
+reproduced the buggy engine order, not the STREAM gate; fixed to mirror
+`OracleRunner`) and the mechanism is PINNED from decoded ground truth:
+**firing = reverse(node2 left-memory); node1's right-memory is IDENTICAL for
+e0first/e0last, so the distinction is emission provenance (recency + held-vs-eager),
+ABOVE `do_node`.** A uniform "scan-opposite-in-reverse" model (v1) was BUILT and
+**DISPROVEN**: 33/33 on the curated battery but **~27 % divergence on the random
+shuffled-insertion population** (every failure = a deeper partner HELD — facet-3).
+The curated 33-case battery is a TRAP; `fuzz_chain`-style shuffled insertion is the
+honest bar. **⇒ NEXT (step 2, still PRE-engine):** build v2 in
+`tools/model_join_flush.py` (`simulate()`), modelling the Drools staged-tuple
+flush from the extracted 9.44 sources — `addInsert` PREPENDS (staged LIFO),
+`TupleList.add` APPENDS (memory FIFO), `doLeft/doRightInserts` iterate the opposite
+memory via `getFirst…Tuple`+`it.next`, keyed by OTN/LIA staging + segment `doNode`
+order + fact-handle RECENCY (NOT a scan flag). **Validate v2 to 0 divergences on
+`model_join_flush.py fuzz` BEFORE touching `engine.rs`.** Only then port the flush
+driver (`engine.rs`, not just `phreak.rs do_node`).
+**Proven dead ends (do NOT re-attempt):** ENGINE edits — naive scan→memory swap
+(regressed t1/t4/t5/t8/t15); node2-only forward-stamp (+172/−121 chain-fuzz);
+node1 arrival-split (regressed facet-3, 542/1500). MODEL — the v1 uniform
+reverse-scan rule (27 % population). Engine at HEAD; nothing landed.
+**Harness (in `tools/`):** `model_join_flush.py` (v2 workbench + model↔oracle
+`battery`/`fuzz` differ), `fuzz_chain.py` (shuffled-insertion chain differ; vs a
+HEAD worktree = engine REGRESSION gate), `cep_join_battery.py` (33-case A–F
+matrix; `gen` writes `C_e0first`/`C_e0last`), faithful `AccDump.java` (per-fire
+JoinNode ltm/rtm/staged dump, STREAM+pseudo-clock). Faithfulness bar: ZERO new
+Drools-divergences; `make diff` (944) byte-identical.
 The other deferred frontiers stay parked: not/exists×temporal, item-C
 re-propagation, beyond-Drools Allen (all in Open/deferred).
 
@@ -5960,3 +5966,68 @@ is source-grounded not hand-derived (hand-derivation flip-flopped repeatedly thi
 run). Harness = `tools/fuzz_chain.py`
 vs a HEAD worktree (regression gate) + `tools/cep_join_battery.py` + `make diff`
 (944). Faithfulness bar: ZERO new Drools-divergences.
+
+### D-122: temporal-join SOURCES-PORT step 1 — the AccDump graft was BROKEN for temporal (CLOUD mode); FIXED to faithful; mechanism PINNED from ground truth; uniform v1 model DISPROVEN (27% population); Drools staged-tuple disciplines extracted for v2
+
+Executed D-121 step 1 (pin e0first/e0last provenance from oracle ground truth,
+not hand-derivation). Result: a faithful introspection graft, a sharp mechanism,
+and a **disproven-but-instructive** first model. **Nothing landed in the engine;
+push still HELD; gate untouched** (only diagnostic `AccDump.java` changed —
+`make diff`/`cargo test` run through `OracleRunner`, not the graft).
+
+**(1) The graft was silently UNFAITHFUL — fixed.** `oracle/.../AccDump.java`
+(built for the non-temporal accumulate probes D-090a/092/094) declared event
+types as PLAIN facts (no `@role(event)/@timestamp/@duration/@expires`) and built
+the KieBase in **CLOUD** mode with a realtime clock. On the temporal battery it
+(a) threw `DefaultFactHandle cannot be cast to EventHandle` at `fireAllRules`,
+and (b) when forced past that, produced e0last = `25,23,26` — the CLOUD order,
+which MATCHES the buggy engine, NOT the STREAM gate. Fix = mirror
+`OracleRunner` EXACTLY: event annotations in `declareBlocks`, and `hasEvents ⇒
+build(EventProcessingOption.STREAM) + pseudo-clock`. Also render left tuples as
+their fact chain `(E0,E1..)` (the opaque `LeftTuple.toString` hid the joined
+facts). Now byte-faithful to the gate: **e0first `25,23,26`, e0last `26,23,25`**.
+LESSON: a diagnostic graft is only trustworthy once cross-checked against the
+gate runner on the SAME input — CLOUD-vs-STREAM silently flips join order.
+
+**(2) Mechanism PINNED (decoded ground truth, all 33 battery cases).**
+Invariant: **firing order = reverse(node2 left-tuple-memory order)** — holds for
+every case incl. multi-anchor (Group E, facet-4) and multi-right (Group D).
+node1's RIGHT memory is **IDENTICAL** for e0first vs e0last (`[26,23,25]`) — so
+the distinction is NOT in node1's memory; it is the **emission provenance** into
+node2 (fact-handle recency + held-vs-eager). Held partners (arrived before their
+anchor) drain as a reversed batch when the anchor left-inserts; eager partners
+(after) append in arrival order. node2 ltm across the E0-position sweep:
+e0first `[26,23,25]`, e0mid1 `[26,23,25]`, e0mid2 `[23,26,25]`, e0last
+`[25,23,26]` — all = `reverse(held)++eager`. This is the D-082/D-083 "arrival
+provenance" made exact and machine-checkable.
+
+**(3) v1 model DISPROVEN — the curated-battery TRAP.** Encoded the above as a
+uniform rule ("every beta insert scans the opposite memory in REVERSE, appends
+emissions") in `tools/model_join_flush.py` (`battery` + `fuzz` modes, model
+differed vs the gate oracle). It fits **33/33 curated** cases — but **diverges
+on ~27 % of the random shuffled-insertion population** (400 cases seed 7001:
+107 divergences; 200@7002 ≈ 26 %). EVERY failure has a DEEPER partner **HELD**
+(e.g. E2 arriving before its E0/E1 context — facet-3, "right-held arrival") and
+its interaction with the drain. So the 33-case battery MASKS the real surface;
+`fuzz_chain`-style shuffled insertion is the honest bar. A memory-scan-direction
+knob is provably NOT the faithful algorithm — confirming D-121's "family of
+interdependent facets," now with a concrete failure class and % rate.
+
+**(4) Drools staged-tuple disciplines extracted (drools-core 9.44 sources; the
+ORACLE remains the arbiter).** `TupleSetsImpl.addInsert` **PREPENDS**
+(`insertFirst = new`; staged output is LIFO). `TupleList.add` (node memory)
+**APPENDS** (`this.last = new`; FIFO). `PhreakJoinNode.doLeftInserts`:
+`ltm.add(lt)`, iterate `rtm` via `getFirstRightTuple`+`it.next`, each match →
+`insertChildLeftTuple` → `trgLeftTuples.addInsert`. `doRightInserts`: symmetric
+over `ltm`. So node2's memory order is the double-reversal of prepend-staged /
+FIFO-memory across a segment flush, keyed by recency — NOT a scan flag. **v2
+plan:** model the OTN/LIA staging into node1's src sets + the segment `doNode`
+flush order + recency-ordered memory iteration, validate to **0 divergences** on
+`model_join_flush.py fuzz` BEFORE porting to `engine.rs`. Only then touch the
+engine (still under the D-121 push-hold).
+
+**Artifacts:** `AccDump.java` faithful (committed); `tools/model_join_flush.py`
+(v1 dead-end + reusable model↔oracle validator); battery/gate-oracle tables
+regen via `tools/cep_join_battery.py gen` + `cargo run -p seine-harness --
+oracle`. Prime directive held throughout: every claim here is oracle-probed, the
+one hand-derived model was killed by the population differ.

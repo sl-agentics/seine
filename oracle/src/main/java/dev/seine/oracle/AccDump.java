@@ -37,8 +37,27 @@ public final class AccDump {
         String drl = "package " + PKG + ";\n"
                 + "import java.util.List;\nimport java.util.ArrayList;\nimport java.util.Collection;\n"
                 + declareBlocks(scenario.path("types")) + "\n" + scenario.path("drl").asText();
-        KieBase kbase = new KieHelper().addContent(drl, ResourceType.DRL).build();
-        KieSession session = kbase.newKieSession();
+        // Must mirror OracleRunner's session construction EXACTLY: event
+        // scenarios need STREAM mode + a pseudo clock, else Drools runs in
+        // CLOUD mode and the temporal-join firing ORDER differs from the gate
+        // (CLOUD gave e0last 25,23,26; the STREAM gate gives 26,23,25).
+        boolean hasEvents = false;
+        for (JsonNode t : scenario.path("types")) {
+            if (!t.path("event").isMissingNode()) hasEvents = true;
+        }
+        KieBase kbase;
+        KieSession session;
+        if (hasEvents) {
+            kbase = new KieHelper().addContent(drl, ResourceType.DRL)
+                    .build(org.kie.api.conf.EventProcessingOption.STREAM);
+            org.kie.api.runtime.KieSessionConfiguration ksc =
+                    org.kie.api.KieServices.Factory.get().newKieSessionConfiguration();
+            ksc.setOption(org.kie.api.runtime.conf.ClockTypeOption.get("pseudo"));
+            session = kbase.newKieSession(ksc, null);
+        } else {
+            kbase = new KieHelper().addContent(drl, ResourceType.DRL).build();
+            session = kbase.newKieSession();
+        }
         final int[] n = {0};
         session.addEventListener(new org.kie.api.event.rule.DefaultRuleRuntimeEventListener() {
             @Override
@@ -166,10 +185,28 @@ public final class AccDump {
         sb.append("] ltm[");
         Object lit = call(ltm, "iterator");
         for (Object lt = call(lit, "next"); lt != null; lt = call(lit, "next")) {
-            sb.append(short_(call(lt, "toString"))).append("; ");
+            sb.append(tupleFacts(lt)).append("; ");
         }
         sb.append(']');
         System.out.println(sb);
+    }
+
+    /** Render a left tuple as its fact chain, root->leaf, each fact's ts.
+     *  The opaque LeftTuple.toString hides the joined facts; for the join-
+     *  order port we need the ACTUAL (E0,E1..) sequence node memory holds. */
+    static String tupleFacts(Object tuple) throws Exception {
+        java.util.ArrayList<String> facts = new java.util.ArrayList<>();
+        Object t = tuple;
+        while (t != null) {
+            Object fh = null;
+            try { fh = call(t, "getFactHandle"); } catch (Exception ignore) { }
+            if (fh != null) facts.add(short_(call(fh, "getObject")));
+            Object parent = null;
+            try { parent = call(t, "getParent"); } catch (Exception ignore) { }
+            t = parent;
+        }
+        java.util.Collections.reverse(facts);
+        return "(" + String.join(",", facts) + ")";
     }
 
     static void dumpAccNode(Object accNode, Object reteEval) throws Exception {
@@ -293,10 +330,27 @@ public final class AccDump {
     }
 
     // -- minimal copies of the runner's declare/instantiate helpers --
+    // Must mirror OracleRunner.declareBlocks EXACTLY, incl. the CEP event
+    // annotations (@role/@timestamp/@duration/@expires) — otherwise temporal
+    // scenarios declare their types as plain facts and the temporal evaluator
+    // throws DefaultFactHandle-cannot-be-cast-to-EventHandle at fire time.
     static String declareBlocks(JsonNode types) {
         StringBuilder sb = new StringBuilder();
         for (JsonNode t : types) {
             sb.append("declare ").append(t.path("name").asText()).append('\n');
+            JsonNode ev = t.path("event");
+            if (!ev.isMissingNode()) {
+                sb.append("    @role( event )\n");
+                if (ev.has("timestamp")) {
+                    sb.append("    @timestamp( ").append(ev.path("timestamp").asText()).append(" )\n");
+                }
+                if (ev.has("duration")) {
+                    sb.append("    @duration( ").append(ev.path("duration").asText()).append(" )\n");
+                }
+                if (ev.has("expires_ms")) {
+                    sb.append("    @expires( ").append(ev.path("expires_ms").asLong()).append("ms )\n");
+                }
+            }
             for (JsonNode f : t.path("fields")) {
                 sb.append("    ").append(f.path("name").asText()).append(" : ")
                   .append(javaType(f.path("type").asText())).append(" @key\n");
