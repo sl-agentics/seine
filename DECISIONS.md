@@ -81,9 +81,11 @@ facet-1 but chain-fuzz-vs-HEAD +172/−121 NEW facet-2 regressions ⇒ unfaithfu
 node1 arrival-split (fixed 1+2, regressed facet-3, chain-fuzz 542/1500). Engine
 reverted to HEAD.
 **PORT PLAN (source-grounded — hand-derivation flip-flopped repeatedly this run):**
-step 1 = extend the MemDump graft (D-086) to dump the join node's staged
-left/right lists + memory order BEFORE fire for `e0first` vs `e0last`, pinning the
-segment-linking/staged-accumulation provenance (drools RuleNetworkEvaluator /
+step 1 = extend the AccDump graft (`oracle/.../AccDump.java` — `dumpJoinNode`
+already dumps ltm/rtm/staged via reflection; add a pre-`fireAllRules` dump + make
+`walk` descend JoinNodes) to capture the staged left/right + memory order BEFORE
+fire for `e0first` vs `e0last` (regen via `tools/cep_join_battery.py gen`), pinning
+the segment-linking/staged-accumulation provenance (drools RuleNetworkEvaluator /
 SegmentMemory / LIA; Seine flush driver in `engine.rs`, NOT just `phreak.rs`
 do_node). Then reproduce Drools' per-flush staged ORDERING faithfully.
 **Harness (built this run, in `tools/`):** `fuzz_chain.py` (shuffled-insertion
@@ -5950,9 +5952,11 @@ merely characterized.
 **Port scope (next, pre-engine):** the mechanism lives ABOVE `do_node` — in the
 segment-linking + staged-tuple accumulation order (drools RuleNetworkEvaluator /
 SegmentMemory / LeftInputAdapterNode; Seine's flush driver in `engine.rs`). Step
-1 = pin the e0first/e0last staged-order provenance (extend the MemDump graft to
-dump the join node's staged left/right lists + memory order BEFORE fire for both,
-the D-086 reusable method) so the port is source-grounded not hand-derived
-(hand-derivation flip-flopped repeatedly this run). Harness = `tools/fuzz_chain.py`
+1 = pin the e0first/e0last staged-order provenance (extend the AccDump graft —
+`oracle/.../AccDump.java` `dumpJoinNode` already dumps ltm/rtm/staged; add a
+pre-`fireAllRules` dump + descend JoinNodes in `walk` — to capture staged
+left/right + memory order BEFORE fire for both; D-086 reusable method) so the port
+is source-grounded not hand-derived (hand-derivation flip-flopped repeatedly this
+run). Harness = `tools/fuzz_chain.py`
 vs a HEAD worktree (regression gate) + `tools/cep_join_battery.py` + `make diff`
 (944). Faithfulness bar: ZERO new Drools-divergences.
