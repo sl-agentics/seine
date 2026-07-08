@@ -19,16 +19,16 @@ this line lags by its own commit)._
 every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
-**Git:** on `main`, **many commits UNPUSHED** (don't push without Bryan).
-Recent: `e65ab0c` **D-116 item D** (entry points), `df18834` **D-117**
-E1-hardening non-termination spin-guard, then D-118/D-119 item E RECON.
-**UNCOMMITTED (this checkpoint): D-120 item E PORT** — `@duration` intervals +
-the full Allen PREDICATE algebra, landed and certified byte-identical (the LAST
-E2 fence, CLOSED). Gates green: baseline 11 / probes **944** / regressions 281
-byte-identical; lint **1325 live/0 ghost/0 inert**; 9 Rust suites + a new
-`eval_allen` unit module. Verify with `make diff` / `make lint-probes` /
-`cargo test`; oracle prebuilt (`oracle/target/classpath.txt`). If any gate is
-red on resume, something drifted — investigate before building on it.
+**Git:** on `main`, **many commits UNPUSHED**. ⚠ **DO NOT PUSH until the CEP
+TEMPORAL-JOIN-ORDER discriminator is figured out** (Bryan, 2026-07-08). Recent:
+`e65ab0c` D-116 item D, `df18834` D-117 spin-guard, D-118/D-119 item E RECON,
+then `59b0e68` **D-120 item E PORT — COMMITTED** (`@duration` intervals + the
+full Allen PREDICATE algebra, byte-identical; the LAST E2 fence, CLOSED). Gates
+green: baseline 11 / probes **944** / regressions 281 byte-identical; lint **1325
+live/0 ghost/0 inert**; 9 Rust suites + a new `eval_allen` unit module. Verify
+with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
+(`oracle/target/classpath.txt`). If any gate is red on resume, something
+drifted — investigate before building on it.
 
 **Landed:** v0.4.0 (`5b23e7c`) = CEP E1 + Engine::reset + agenda groups +
 queries×mutation + structured aggregation. Data-types arc (nulls/decimals,
@@ -62,11 +62,38 @@ window-CLOSE deferral + an anchor-inference gap; the E1 Positive-only wall STAYS
 wall; interval EXPIRATION already byte-identical). (3) **beyond-Drools full-Allen
 inference** (`docs/allen-beyond-drools.md`) — spec-driven, post-faithfulness.
 
-**⚠ NEXT — Bryan's call.** The CEP E2 arc is COMPLETE. Candidate frontiers, all
-deferred: the not/exists×temporal follow-on (needs its own recon ladder — the
-`not` window-close deferral + anchor inference); the item-C re-propagation port;
-the E1-hardening backlog (below); the beyond-Drools Allen enhancement. No active
-build in flight — surface options and let Bryan pick.
+**⚠ NEXT — the CEP TEMPORAL-JOIN-ORDER DISCRIMINATOR HUNT (start FRESH; the E2
+arc is COMPLETE, this is the gate to PUSH).** Recon'd + PAUSED this run — full
+detail in memory `cep-temporal-join-order.md`; restart from the findings, NOT
+from scratch.
+**LESSON LEARNED (2026-07-08 — do NOT repeat the dead end):** the E1-hardening
+"temporal-join-order latent" (CEP fuzz ~2/1000, all bisect-to-HEAD pre-existing)
+is NOT a fresh bug — it is the **D-082/D-083 join-order discriminator, still open
+for temporal nodes**. The FIRING ORDER of a temporal join over multiple partners
+diverges from Drools. Golden PURE repro `e0last` (5 facts, no epochs/dur/mut/TMS):
+`$a:E0() $b:E1(this after[0ms,50ms] $a) $c:E2(this after[0ms,100ms] $b)` with the
+E1s inserted BEFORE E0 ⇒ engine fires 25,23,26 vs oracle 26,23,25 (E0 batch-joins
+the staged E1s). Drools mechanism (sources, CONFIRMED): `PhreakJoinNode.
+doRightInserts`/`doLeftInserts` iterate the partner memory FORWARD + `TupleSets
+Impl.addInsert` PREPENDS ⇒ a BATCH join REVERSES, cascading node-to-node
+("memory-append, staging-prepend" model). That model matched the oracle **264/264
+on multiple-RIGHTS** — BUT the empirical swap (`phreak.rs` ~1137 temporal rightIns
+scan → raw `node.lefts` memory order) FIXED `e0last` and **REGRESSED 5 D-101 pins**
+(`pr_cep_t1_left_scan`/`t4_straddle`/`t5_before_multi`/`t8_held_anchors`/
+`t15_anchor_arrival` — the mirror MULTIPLE-LEFTS shape, e.g. E0@0/50/100 then
+E1@100 ⇒ oracle 100,50,0). ⇒ the two batch directions need OPPOSITE order and the
+264/264 matrix was BLIND to multiple-lefts. **DO NOT re-attempt the pure
+memory-order swap — proven to regress the multiple-lefts pins.**
+**RESTART PLAN:** rebuild the Python replica (trivial — the 3-rule model above; cf
+`tools/model_check_join.py`/`join_model.py` style) and add BOTH the `e0last`
+upstream-batch shape AND the `pr_cep_t*` / D-102 rel_arrival timelines as
+counterexamples; eliminate candidate order-machines to the UNIFIED discriminator
+(the D-083 method that closed the prior round — 1536 candidates). Then port ONLY
+that refinement to the `phreak.rs` temporal scan + re-cert (`make diff` = the
+944-probe guard, includes every D-101/D-013/D-027 pin). Prime directive holds:
+PROBE/MODEL-CHECK-first — hand-derived staging FLIP-FLOPS (this run re-proved it).
+The other deferred frontiers stay parked: not/exists×temporal, item-C
+re-propagation, beyond-Drools Allen (all in Open/deferred).
 
 **Open/deferred:**
 DEFERRED item-C re-propagation port (classes 1/2/3 — temporal Behavior modify
