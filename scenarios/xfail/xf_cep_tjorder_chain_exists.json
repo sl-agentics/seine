@@ -1,0 +1,114 @@
+{
+ "name": "xf_cep_tjorder_chain_exists",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 when $a : E0() $b : E1(this after[0ms,150ms] $a) then end\nrule CH1 when $a : E0() $b : E1(this after[0ms,50ms] $a) $c : E2(this before[0ms,50ms] $b) then end\nrule NE2 when exists E2() P() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 13,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 40,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 9,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 2,
+    "tag": "x"
+   }
+  }
+ ]
+}

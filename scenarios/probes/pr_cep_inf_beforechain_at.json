@@ -1,5 +1,5 @@
 {
- "name": "cep_a9_probe_side_offset",
+ "name": "pr_cep_inf_beforechain_at",
  "types": [
   {
    "name": "E1",
@@ -34,6 +34,38 @@
    }
   },
   {
+   "name": "E3",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E4",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
    "name": "P",
    "fields": [
     {
@@ -43,10 +75,10 @@
    ]
   }
  ],
- "drl": "rule R when $a : E1() $b : E2(this after[0ms,100ms] $a) then end\n",
+ "drl": "rule R when $a:E1() $b:E2(this before[0ms,100ms] $a) $c:E3(this before[0ms,50ms] $b) then end\n",
  "facts": [
   {
-   "type": "E2",
+   "type": "E3",
    "fields": {
     "ts": 0,
     "tag": "x"
@@ -58,11 +90,11 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 100000
+     "ms": 151
     }
    ],
    "facts": []
   }
  ],
- "engine_fenced": true
+ "expect_inert": true
 }

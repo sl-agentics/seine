@@ -22,7 +22,9 @@ pub fn run_scenario_file(path: &str) -> Result<(String, J), (String, String)> {
 fn run_scenario(sc: &J) -> Result<J, String> {
     let schemas = parse_types(sc.get("types").ok_or("scenario missing 'types'")?)?;
     let mut engine = Engine::new(schemas).map_err(|e| e.to_string())?;
-    // CEP E1 (D-101): type-level event metadata — explicit expiry only.
+    // CEP E1/E2: type-level event metadata. `expires_ms` is OPTIONAL
+    // (D-109) — absent ⇒ infer the expiration reach from the temporal
+    // constraints after rule compile (CEP E2 item A).
     for t in sc.get("types").and_then(J::as_array).into_iter().flatten() {
         if let Some(ev) = t.get("event") {
             let tname = t.get("name").and_then(J::as_str).unwrap_or_default();
@@ -30,10 +32,7 @@ fn run_scenario(sc: &J) -> Result<J, String> {
                 .get("timestamp")
                 .and_then(J::as_str)
                 .ok_or_else(|| format!("{tname}: event needs a 'timestamp' field name"))?;
-            let exp = ev
-                .get("expires_ms")
-                .and_then(J::as_i64)
-                .ok_or_else(|| format!("{tname}: E1 events need explicit expires_ms (inference is E2, D-101)"))?;
+            let exp = ev.get("expires_ms").and_then(J::as_i64);
             engine.declare_event(tname, ts, exp).map_err(|e| e.to_string())?;
         }
     }

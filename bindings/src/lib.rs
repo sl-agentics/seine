@@ -741,8 +741,11 @@ impl PySession {
         let mut engine = Engine::new(self.schemas.clone())
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
         for (tname, ts_field, expires_ms) in &self.events {
+            // D-109: declare_event takes Option (None ⇒ infer). The
+            // Python surface still requires explicit expiry for now;
+            // exposing inference is a follow-up with item B's windows.
             engine
-                .declare_event(tname, ts_field, *expires_ms)
+                .declare_event(tname, ts_field, Some(*expires_ms))
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
         }
         engine

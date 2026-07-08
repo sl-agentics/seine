@@ -995,9 +995,32 @@ pub struct Engine {
     /// CEP E1 (D-100/D-101): pseudo-clock in ms. Advances only via
     /// advance(); starts at 0 like the oracle's PseudoClockScheduler.
     clock_ms: i64,
-    /// Event metadata per type: (timestamp field index, expires_ms).
-    /// E1 requires explicit expiry (inferred expiration is E2 — a8).
-    event_specs: std::collections::HashMap<TypeId, (usize, i64)>,
+    /// Event metadata per type: (timestamp field index, expiry).
+    /// expiry = `Some(ms)` → auto-retract at ts+ms(+1, D-102); `None`
+    /// → NEVER expires. Explicit `@expires` is kept verbatim (Some);
+    /// un-annotated event types are filled by `infer_event_expiry`
+    /// after rule compile (CEP E2 item A, D-109) — offset = MAX over
+    /// temporal constraints of {+hi if earlier, -lo if later}; a
+    /// MAX < 0 (the lo>0 later-event leak) or no constraint → None.
+    event_specs: std::collections::HashMap<TypeId, (usize, Option<i64>)>,
+    /// Event types with an EXPLICIT `@expires` — inference skips these
+    /// (a8: explicit hard expiry overrides the inferred reach; Drools
+    /// `PatternBuilder` `if(hard) use it`, no max-merge).
+    explicit_expiry: std::collections::HashSet<TypeId>,
+    /// D-109 inference accumulator: per event type, the running MAX of
+    /// its temporal-constraint upperBound contributions (row-max of the
+    /// TemporalDependencyMatrix). Collected during `compile_rule`;
+    /// consumed by `infer_event_expiry`. A→B SEAM: window:time(N) folds
+    /// its size in here (max) when item B lands.
+    temporal_ub: std::collections::HashMap<TypeId, i64>,
+    /// D-109: event types whose inferred expiry is forced to NEVER. Two
+    /// sources, both = Drools `getExpirationOffset` returning NEVER and
+    /// OVERWRITING the OTN offset (order-independent; nb/char/iso probes):
+    /// (1) a BARE pattern — positive/not/exists where the type has no
+    /// temporal constraint; (2) a purely-BACKWARD pattern — its per-rule
+    /// row-max upperBound is < 0 (the LATER event of `after[lo>0]`, or a
+    /// self-join's probe side). Explicit `@expires` (hard) is immune.
+    never_inferred: std::collections::HashSet<TypeId>,
     /// Deadline-ordered expiration queue; Vec preserves insertion
     /// order within a deadline (the a2-pinned stable tie order).
     deadlines: std::collections::BTreeMap<i64, Vec<FactId>>,
@@ -1119,6 +1142,9 @@ impl Engine {
         Ok(Engine {
             clock_ms: 0,
             event_specs: std::collections::HashMap::new(),
+            explicit_expiry: std::collections::HashSet::new(),
+            temporal_ub: std::collections::HashMap::new(),
+            never_inferred: std::collections::HashSet::new(),
             deadlines: std::collections::BTreeMap::new(),
             pending_expirations: Vec::new(),
             in_expiration_drain: false,
@@ -1333,6 +1359,9 @@ impl Engine {
         {
             self.init_fact = Some(self.store.insert(init_tid, Vec::new()).map_err(EngineError)?);
         }
+        // CEP E2 item A (D-109): now that every rule's temporal reach is
+        // known, fill inferred @expires for un-annotated event types.
+        self.infer_event_expiry();
         Ok(())
     }
 
@@ -1848,6 +1877,13 @@ impl Engine {
         let mut qce_binds: HashSet<String> = HashSet::new();
         let mut patterns = Vec::new();
         let mut tuple_len = 0usize;
+        // D-109: per-rule temporal STP edges (u,v,ub) = upperBound of
+        // time_v−time_u, plus a position→type map; Floyd-Warshall-closed
+        // at compile end to fold each event type's inferred @expires reach
+        // into `temporal_ub` (consumed by infer_event_expiry). Lower bounds
+        // travel as reverse edges, so one bound per edge suffices (STP).
+        let mut temporal_edges: Vec<(usize, usize, i64)> = Vec::new();
+        let mut temporal_pos_type: HashMap<usize, TypeId> = HashMap::new();
 
         // A rule whose first pattern is a CE (or an accumulate, which is
         // a beta node needing a left input, or a ?query CE) matches on
@@ -2107,6 +2143,28 @@ impl Engine {
                         let (anchor_fi, _) = *self.event_specs.get(&atid).ok_or_else(|| {
                             err(format!("temporal anchor {var} is not a declared event type"))
                         })?;
+                        // D-109 inference: record this constraint as directed
+                        // STP edges for the per-rule TemporalDependencyMatrix
+                        // (closed by Floyd-Warshall at compile end so multi-hop
+                        // chains compose — trans_e1 pin: E1→E2→E3 gives E1 the
+                        // SUMMED reach 150, not the pairwise 100). Eval (6337):
+                        // `after` ⇒ own-anchor ∈ [lo,hi] (self LATER); `before`
+                        // ⇒ anchor-own ∈ [lo,hi] (self EARLIER). Edge (u,v,l,h)
+                        // means (time_v − time_u) ∈ [l,h]; both directions are
+                        // recorded (STP), so backward hops can compose.
+                        let self_pos = tpos.ok_or_else(|| {
+                            err("temporal constraint on a positionless pattern".into())
+                        })?;
+                        // forward edge = upperBound; reverse edge carries the
+                        // lower bound (−lo) so the closure can compose backward
+                        // hops (STP). `after`: t_self−t_anchor ∈ [lo,hi] ⇒
+                        // ub(anchor→self)=hi, ub(self→anchor)=−lo. `before`
+                        // swaps self/anchor.
+                        let (earlier, later) = if *after { (apos, self_pos) } else { (self_pos, apos) };
+                        temporal_edges.push((earlier, later, *hi_ms));
+                        temporal_edges.push((later, earlier, -*lo_ms));
+                        temporal_pos_type.insert(self_pos, type_id);
+                        temporal_pos_type.insert(apos, atid);
                         listen_mask |= 1 << own_fi;
                         cmps.push(CompiledCmp {
                             field_idx: own_fi,
@@ -2742,6 +2800,22 @@ impl Engine {
         } else {
             crate::queries::dependencies(&self.queries, &roots)
         };
+        // D-109: any event pattern in this rule that does NOT participate
+        // in a temporal constraint (a bare positive ref, or a not/exists —
+        // temporal on not/exists is walled, so those are always bare)
+        // forces its type to NEVER expire (Drools overwrites the OTN
+        // offset to NEVER; order-independent — nb/char probes). Explicit
+        // @expires is immune (infer_event_expiry skips explicit types).
+        for cp in &patterns {
+            if self.event_specs.contains_key(&cp.type_id)
+                && !cp.tpos.is_some_and(|tp| temporal_pos_type.contains_key(&tp))
+            {
+                self.never_inferred.insert(cp.type_id);
+            }
+        }
+        // D-109: close this rule's temporal graph and fold the per-type
+        // inferred reach into `temporal_ub` (MAX across rules).
+        self.accumulate_temporal_closure(&temporal_edges, &temporal_pos_type);
         Ok(CompiledRule { def, patterns, actions, salience, dep_queries })
     }
 
@@ -2958,16 +3032,17 @@ impl Engine {
     /// the TMS quirk model (D-076): on a justified key the JUSTIFIED
     /// handle dies whichever handle was named; a stated sibling of a
     /// once-justified key no-ops (dump3).
-    /// CEP E1 (D-101): declare a type as a point event — timestamps
-    /// read from `ts_field` (i64, epoch-ms) at insert; the fact
-    /// auto-retracts when the clock passes ts + expires_ms. Explicit
-    /// expiry is REQUIRED in E1 (a8: explicit @expires overrides the
-    /// inferred reach in Drools; inference itself is E2).
+    /// CEP E1/E2: declare a type as a point event — timestamps read
+    /// from `ts_field` (i64, epoch-ms) at insert. `expires_ms`:
+    /// `Some(n)` = explicit `@expires(n ms)`, auto-retract at
+    /// ts+n(+1, D-102); `None` = INFER the reach from the temporal
+    /// constraints after rule compile (CEP E2 item A, D-109). Explicit
+    /// expiry is authoritative and suppresses inference (a8).
     pub fn declare_event(
         &mut self,
         type_name: &str,
         ts_field: &str,
-        expires_ms: i64,
+        expires_ms: Option<i64>,
     ) -> Result<(), EngineError> {
         let tid = self
             .store
@@ -2982,11 +3057,141 @@ impl Engine {
                 "{type_name}.{ts_field}: event timestamps are i64 epoch-ms (E1 point events)"
             )));
         }
-        if expires_ms < 0 {
-            return Err(EngineError("expires_ms must be >= 0".into()));
+        match expires_ms {
+            Some(n) if n < 0 => {
+                return Err(EngineError("expires_ms must be >= 0".into()));
+            }
+            Some(n) => {
+                self.event_specs.insert(tid, (fi, Some(n)));
+                self.explicit_expiry.insert(tid);
+            }
+            None => {
+                // un-annotated: register as an event (ts field known);
+                // expiry is filled by infer_event_expiry after all
+                // rules compile (its temporal reach is not yet known).
+                self.event_specs.insert(tid, (fi, None));
+            }
         }
-        self.event_specs.insert(tid, (fi, expires_ms));
         Ok(())
+    }
+
+    /// D-109: Floyd-Warshall closure of ONE rule's temporal STP, folding
+    /// each event position's inferred forward reach into `temporal_ub`
+    /// (MAX across rules). Mirrors Drools `BuildUtils`/`TimeUtils.
+    /// calculateTemporalDistance` + `TemporalDependencyMatrix.
+    /// getExpirationOffset` (per-subrule). `edges` are directed upper
+    /// bounds `(u,v,ub)` = max(time_v − time_u); the closure lets a
+    /// chain's earliest event inherit the SUMMED reach (trans_e1: E1 →
+    /// E2 → E3 gives E1 = 150, not the pairwise 100). A type's reach =
+    /// MAX over other positions of the closed upperBound; no finite
+    /// forward reach ⇒ no contribution (never expires — the lo>0 leak).
+    fn accumulate_temporal_closure(
+        &mut self,
+        edges: &[(usize, usize, i64)],
+        pos_type: &HashMap<usize, TypeId>,
+    ) {
+        if edges.is_empty() {
+            return;
+        }
+        const INF: i64 = 1 << 60;
+        let mut positions: Vec<usize> = pos_type.keys().copied().collect();
+        positions.sort_unstable();
+        let n = positions.len();
+        let idx: HashMap<usize, usize> =
+            positions.iter().enumerate().map(|(i, &p)| (p, i)).collect();
+        // d[i][j] = upperBound(time_j − time_i); diagonal 0, else INF.
+        let mut d = vec![vec![INF; n]; n];
+        for (i, row) in d.iter_mut().enumerate() {
+            row[i] = 0;
+        }
+        for &(u, v, ub) in edges {
+            let (i, j) = (idx[&u], idx[&v]);
+            if ub < d[i][j] {
+                d[i][j] = ub; // tightest bound wins
+            }
+        }
+        // Floyd-Warshall STP tightening (finite compositions only).
+        for k in 0..n {
+            for i in 0..n {
+                if d[i][k] >= INF {
+                    continue;
+                }
+                for j in 0..n {
+                    if d[k][j] < INF {
+                        let via = d[i][k] + d[k][j];
+                        if via < d[i][j] {
+                            d[i][j] = via;
+                        }
+                    }
+                }
+            }
+        }
+        // reach(pos i) = MAX finite upperBound to any other position.
+        for (i, p) in positions.iter().enumerate() {
+            let tid = pos_type[p];
+            let mut best: Option<i64> = None;
+            for j in 0..n {
+                if i != j && d[i][j] < INF {
+                    best = Some(best.map_or(d[i][j], |b| b.max(d[i][j])));
+                }
+            }
+            match best {
+                // forward reach ≥ 0 → a finite inferred expiry (MAX-merged)
+                Some(b) if b >= 0 => {
+                    self.temporal_ub
+                        .entry(tid)
+                        .and_modify(|m| *m = (*m).max(b))
+                        .or_insert(b);
+                }
+                // purely-backward (row-max < 0) or isolated → Drools'
+                // matrix returns NEVER for this pattern, OVERWRITING the
+                // type's OTN offset to NEVER: the LATER event of
+                // after[lo>0] (the leak), and a self-join's probe side.
+                _ => {
+                    self.never_inferred.insert(tid);
+                }
+            }
+        }
+    }
+
+    /// CEP E2 item A (D-109): infer `@expires` for event types with no
+    /// explicit annotation. `temporal_ub` already holds each type's
+    /// reach — the row-max of the transitively closed, per-rule Temporal
+    /// DependencyMatrix (see `accumulate_temporal_closure`; `+hi` when a
+    /// type is the EARLIER event, plus multi-hop sums). NEVER (`None`) if
+    /// the type is in `never_inferred` (a bare or purely-backward pattern
+    /// — see that field / `accumulate_temporal_closure`) or in no temporal
+    /// constraint at all. Explicit `@expires` is
+    /// authoritative (a8) and skipped. Feeds the existing D-102
+    /// ts+offset+1 scheduler: Seine stores the raw upperBound and the
+    /// +1 is applied at schedule time for rule-referenced types (so the
+    /// inferred boundary is byte-identical to an explicit @expires of
+    /// the same value — the infctl differential proof).
+    ///
+    /// A→B SEAM: the real Drools offset is `max(matrix_ub, window_ub)`
+    /// (PatternBuilder:356-376; `SlidingTimeWindow.getExpirationOffset`
+    /// = size, `SlidingLengthWindow` = -1). Windows (item B) are not in
+    /// the subset yet; when they land, fold each `window:time(N)` size
+    /// into `temporal_ub` (max) at compile so this stays the single
+    /// inference point, and re-pin the a4-style inference-with-window
+    /// probes. `window:length` contributes nothing (count-based).
+    fn infer_event_expiry(&mut self) {
+        let tids: Vec<TypeId> = self.event_specs.keys().copied().collect();
+        for tid in tids {
+            if self.explicit_expiry.contains(&tid) {
+                continue; // explicit @expires wins, no max-merge (a8)
+            }
+            let inferred = if self.never_inferred.contains(&tid) {
+                None // bare or purely-backward pattern forces NEVER (D-109)
+            } else {
+                // temporal_ub holds only finite forward reaches (≥ 0);
+                // absent → type in no temporal constraint → NEVER.
+                self.temporal_ub.get(&tid).copied()
+            };
+            if let Some(spec) = self.event_specs.get_mut(&tid) {
+                spec.1 = inferred;
+            }
+        }
     }
 
     /// Schedule expiration for a freshly inserted fact of an event
@@ -2995,17 +3200,22 @@ impl Engine {
     fn schedule_expiration(&mut self, id: FactId) {
         let tid = self.store.fact_type(id);
         if let Some(&(fi, exp)) = self.event_specs.get(&tid) {
-            if let Value::I64(ts) = self.store.value(id, fi) {
-                // D-102 (b1/b2 + f_only30 pins): Drools expiration is
-                // STRICTLY AFTER the window for RULE-REFERENCED types
-                // (the ObjectTypeNode schedules at offset + 1); an
-                // event type NO rule references has no OTN and expires
-                // at exactly ts + expires.
-                let referenced = self.rules.iter().any(|r| {
-                    r.patterns.iter().any(|p| p.type_id == tid)
-                });
-                let plus = if referenced { 1 } else { 0 };
-                self.deadlines.entry(ts + exp + plus).or_default().push(id);
+            // exp == None → NEVER expires (D-109): the lo>0 later-event
+            // leak, or an event type in no temporal constraint. No
+            // deadline is scheduled; the fact lives until retracted.
+            if let Some(exp) = exp {
+                if let Value::I64(ts) = self.store.value(id, fi) {
+                    // D-102 (b1/b2 + f_only30 pins): Drools expiration is
+                    // STRICTLY AFTER the window for RULE-REFERENCED types
+                    // (the ObjectTypeNode schedules at offset + 1); an
+                    // event type NO rule references has no OTN and expires
+                    // at exactly ts + expires.
+                    let referenced = self.rules.iter().any(|r| {
+                        r.patterns.iter().any(|p| p.type_id == tid)
+                    });
+                    let plus = if referenced { 1 } else { 0 };
+                    self.deadlines.entry(ts + exp + plus).or_default().push(id);
+                }
             }
         }
     }

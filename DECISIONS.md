@@ -4865,3 +4865,135 @@ neither ghosts nor fences). Gates: suites clean, corpus
 1003-scenario probes tier + all tiers green, lint 998.
 Python sugar for the new functions: deferred with the joined-
 groupby slice (one authoring pass for both).
+
+### D-109: @expires INFERENCE (CEP E2 arc, item A) — recon PINNED,
+### PRE-implementation (awaiting Bryan's port gate)
+**Ordering confirmed** (Bryan, 2026-07-07): CEP E2 = A→B→C→D→E,
+**inference-first** — land the temporal-reach offset now, seam the
+window term for B (plan `~/.claude/plans/graceful-waddling-stallman.md`).
+
+**Mechanism — fully pinned** (62-probe boundary ladder, 3× fresh-JVM
+stable; source-corroborated). In STREAM mode Drools infers a per-event-
+type expiration offset from the temporal constraints:
+`TemporalDependencyMatrix.getExpirationOffset` (the row-max) assembled in
+`PatternBuilder.attachObjectTypeNode` / `getExpirationForType`, matrix built
+by `BuildUtils.calculateTemporalDistance` (drools-core 9.44).
+
+- **Per constraint `$b rel[lo,hi] $a`** (after ⇒ $b later; before ⇒ $b
+  earlier), each participating type contributes an upperBound to a MAX:
+  - **EARLIER event** (forward reach) → `+hi`.
+  - **LATER event** (backward reach) → `-lo` (BuildUtils reverse =
+    `Interval(-hi,-lo)`; the row-max takes upperBound = `-lo`).
+- **offset = MAX of contributions** (matrix row-max, incl. Floyd-Warshall
+  transitive closure over multi-event chains). If `max_ub < 0` →
+  **NEVER_EXPIRES** (the type LEAKS forever). If ≥0 → offset = `max_ub`
+  (Drools adds +1 for same-ts matching; Seine feeds expires_ms = `max_ub`
+  to the existing D-102 `ts+expires+1` rule-referenced scheduler).
+
+**THE LOAD-BEARING QUIRK (hand-reasoning gets it WRONG):** the LATER event
+in `after[lo,hi]` expires at **0 iff lo==0, else NEVER**. Semantically the
+later event's partner is always in the past ⇒ "always 0", but Drools leaks
+it whenever lo>0 (backward upperBound = `-lo` < 0 → NEVER). Pinned:
+`after[0,100]` probe gone@1; `after[1,100]/[20,80]/[50,100]` probe
+present@100000. `before` mirrors exactly (earlier=$b, later=$a):
+`before[0,100]` anchor gone@1, `before[50,100]` anchor present@100000.
+
+**Solid pins:**
+- **earlier = hi** (lo ignored, it is `hi` not the span): `after[0,100]/
+  [50,100]/[20,80]` anchor present@hi, gone@(hi+1).
+- **MAX-merge**: E1 anchoring `after[0,100]`+`after[0,300]` → present@300/
+  gone@301 (= MAX 300, not min/first/sum).
+- **boundary == explicit** (the differential proof): `infctl` @expires=100
+  (certified D-102 path) and inferred-earlier=100 are BYTE-IDENTICAL
+  (present@100/gone@101) — inferred maps onto the existing explicit scheduler
+  with expires_ms = max_ub.
+- **explicit wins, NO max-merge** (a8): @expires=50 in `after[0,100]` →
+  gone@80 (offset 50; matrix's 100 IGNORED). `PatternBuilder`:
+  `if(hard) use explicit; else max(matrix, behaviors/windows, soft)` — an
+  explicit TIME_HARD @expires SUPPRESSES inference for that type.
+
+**A→B seam (honest, documented):** real OTN offset =
+`max(matrix_term, window_term)` (PatternBuilder:356-376).
+`SlidingTimeWindow.getExpirationOffset()=size` (window:time(N) ⇒ N; the +1
+convention is B's boundary-probe job), `SlidingLengthWindow=-1` (count-based,
+no clock ⇒ no offset). Item A implements matrix_term; window_term stays None
+behind an assert/TODO — B closes it (re-pin a4-style inference-with-window).
+
+**Proposed Seine port (surgical, awaiting gate):**
+- `harness/src/runner.rs:36` — allow absent expires_ms (→ declare_event None).
+- engine: compile-time inference pass AFTER rule-compile — walk all
+  `Constraint::Temporal`, per un-annotated event type compute
+  `max_ub = max{ +hi if earlier, -lo if later }`; `<0` ⇒ leave NO deadline
+  (never), else fill `event_specs` offset = `max_ub`. Explicit expires_ms
+  skips inference. Scheduler unchanged.
+- FENCE: TIME_SOFT `@expires(policy=TIME_SOFT)` out of subset (harness renders
+  hard only); transitive multi-hop temporal chains = a fuzz-watch surface.
+
+**Artifacts:** 62 recon probes `probes_pending/cep/inf{a,ctl,x,y}_*`
+(engine_fenced). **Gate to green:** promote the boundary ladder to
+`scenarios/probes/`, `make diff` byte-identical, extend `tools/fuzz_cep.py`
+(un-annotated event types + advances straddling inferred boundaries), 3×1000
+fresh-seed campaign at 0 divergences, `make lint-probes` clean.
+
+### D-109 PORT LANDED (CEP E2 item A, @expires inference) — with
+### TWO fuzz-flushed mechanisms the recon ladder could not reach
+**Implemented + green.** Reach inference as reconned (compile-time
+`infer_event_expiry` at the end of `add_rules_drl`; per un-annotated
+event type, expiry = the closed row-max forward reach, fed to the D-102
+`ts+expires+1` scheduler; explicit `@expires` skips inference, a8).
+`event_specs` value → `Option<i64>` (None = never); `declare_event` takes
+`Option`; `runner.rs:36` wall relaxed; `bindings` Some-wrap. The widened
+CEP fuzz then flushed TWO mechanisms the boundary ladder never hit —
+both pinned checker-first and ported:
+
+- **(1) TRANSITIVE CLOSURE** (trans_e1 pin). Drools Floyd-Warshalls the
+  temporal matrix (`TimeUtils.calculateTemporalDistance`), so a chain's
+  EARLIEST event inherits the SUMMED reach (E1→E2→E3 = 100+50 = 150, not
+  the pairwise 100). Ported as a per-rule STP closure
+  (`accumulate_temporal_closure`): directed upperBound edges (reverse
+  edges carry lower bounds → one matrix suffices), Floyd-Warshall, row-max
+  per position. Verified engine≡oracle on after/before/mixed chains +
+  diamond (pr_cep_inf_chain/beforechain/mixed/diamond).
+
+- **(2) THE NEVER-OVERWRITE** (fuzz 42→10→0 over two rounds; the big one).
+  `TemporalDependencyMatrix.getExpirationOffset` returns NEVER when a
+  pattern's row-max upperBound is < 0, and `PatternBuilder.
+  attachObjectTypeNode` uses that to OVERWRITE the type's OTN offset to
+  NEVER (order-INDEPENDENT — bare/nb/char/iso probes; NOT max). So an
+  inferred event type NEVER expires (leaks) if ANY of its patterns is
+  non-forward: (a) BARE — a positive/`not`/`exists` pattern with no
+  temporal constraint; (b) purely-BACKWARD — the LATER event of
+  `after[lo>0]` (row-max −lo), a self-join's probe side, or a cross-rule
+  later reference. This UNIFIES the lo>0 leak (a single backward pattern)
+  with the bare rule and the self-join; the lo=0/lo>0 discontinuity is
+  EXACTLY the reach ≥0 / <0 boundary. Explicit hard `@expires` is immune
+  (set in the `if(hard)` branch, never overwritten). Ported as a
+  `never_inferred` set (bare-pattern scan in `compile_rule` + negative-
+  reach positions from the closure); `infer_event_expiry` returns None
+  for it. Pins: pr_cep_inf_bare_positive/bare_not/selfjoin_never/
+  selfjoin_lo0_finite/crossrule_never/bare_explicit_immune.
+
+**Fuzz** (`tools/fuzz_cep.py` extended: inference-mode scenarios —
+un-annotated types, mixed explicit/inferred, transitive chains,
+boundary-straddling advances). 3×1000 fresh seeds (5001-3): **0
+inference-related divergences**. TWO finds total, BOTH bisect-confirmed
+PRE-EXISTING E1 temporal-join FIRING-ORDER shapes (worktree at 5b23e7c:
+OLD engine == NEW engine, ≠ oracle; explicit-expiry, my inference code
+never touches that path) — the D-070 "widened grammar flushes latent
+bugs" lesson. Quarantined minimized to `scenarios/xfail/
+xf_cep_tjorder_{dual_tms,chain_exists}.json`; both are multi-rule
+temporal-join order × TMS-agenda/exists micro-timing (the D-080/D-101
+envelope), DEFERRED to an E1-hardening pass. A bonus: the CEP fuzz now
+also exercises latent E1 order shapes.
+
+**Gates:** baseline 11 / probes 729 (26 boundary + 8 closure + 6
+never-rule inference pins) / regressions 281 — all BYTE-IDENTICAL; lint
+1033; 8 suites clean. **Files:** `engine.rs` (event_specs Option,
+temporal_ub / never_inferred, accumulate_temporal_closure,
+infer_event_expiry, schedule Option), `runner.rs`, `bindings/src/lib.rs`,
+`tools/fuzz_cep.py`. **A→B SEAM kept**: window:time(N) size folds into
+`temporal_ub` (max) when item B lands — re-pin a4-style inference-with-
+window then. **Upstream:** `docs/drools-inferred-expiry-never.md` drafted
+(the never-overwrite = a silent event-leak footgun; framed as
+intended-or-not for upstream, unlike the #2366 defect). Certified corpus
+byte-identical throughout (CEP gated on `!event_specs.is_empty()`).

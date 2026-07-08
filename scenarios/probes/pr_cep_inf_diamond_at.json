@@ -1,5 +1,5 @@
 {
- "name": "cep_a8_expires_vs_inferred",
+ "name": "pr_cep_inf_diamond_at",
  "types": [
   {
    "name": "E1",
@@ -14,12 +14,43 @@
     }
    ],
    "event": {
-    "timestamp": "ts",
-    "expires_ms": 50
+    "timestamp": "ts"
    }
   },
   {
    "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E3",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E4",
    "fields": [
     {
      "name": "ts",
@@ -44,7 +75,7 @@
    ]
   }
  ],
- "drl": "rule R when $a : E1() $b : E2(this after[0ms,100ms] $a) then end\n",
+ "drl": "rule R when $a:E1() $b:E2(this after[0ms,100ms] $a) $c:E3(this after[0ms,40ms] $a) $d:E4(this after[0ms,30ms] $b) then end\n",
  "facts": [
   {
    "type": "E1",
@@ -59,19 +90,11 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 80
+     "ms": 131
     }
    ],
-   "facts": [
-    {
-     "type": "E2",
-     "fields": {
-      "ts": 80,
-      "tag": "x"
-     }
-    }
-   ]
+   "facts": []
   }
  ],
- "engine_fenced": true
+ "expect_inert": true
 }
