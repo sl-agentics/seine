@@ -57,10 +57,20 @@ with a prior value fires a spurious extra `[0]`; plain doesn't) — Seine is
 more correct, so FENCED (anchor `xf_win_reset_incoherence`; fuzz skips
 reset+window). **CEP E2 item B (windows) is DONE — no WindowNode model-check
 needed** (the "composition" was a bug + an incoherence, not a flush order).
-Item B closes the arc's core; NEXT E2 items are C/D/E (below).
 
-**Open/deferred:** E2 remaining: **C** event update/delete, **D** entry-points,
-**E** @duration (all still walled — the E2 fence, DECISIONS:4529). E1-hardening — 2 temporal-join-order
+**NEXT — CEP E2 item C (event UPDATE / external DELETE). Handoff plan:
+`~/.claude/plans/cep-e2-item-c.md`.** Seed recon done (6 probes
+`probes_pending/cep/c1_ts_update`, `c3_delete`, `c_del_{acc,win,not}`,
+`c_upd_alpha` — all PASS): the D-047 update/delete plumbing + deadline
+machinery + D-112 eager-accumulate ALREADY handle events correctly on the
+basics (event @timestamp FIXED at insert; delete cancels cleanly; delete/
+alpha-update drop an accumulate eagerly). **So C is likely SMALL: extend
+`fuzz_cep.py` with update/delete draws, triage divergences (eager/lazy,
+node-sharing, Drools-incoherence lenses — bisect to minimal FIRST), port/
+fence.** Full detail + surface map + recon ladder in the plan.
+
+**Open/deferred:** E2 remaining after C: **D** entry-points, **E** @duration
+(walled — the E2 fence, DECISIONS:4529). E1-hardening — 2 temporal-join-order
 xfails (bisect-confirmed pre-existing); D-080 TMS envelope; window × TMS /
 node-sharing; `window:length` + standalone-pattern window (walled, follow-
 on); E2 remaining: C event update/delete, D entry-points, E @duration.
