@@ -23,11 +23,11 @@ Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
 `9efd827` item B RUNTIME (D-111, window eviction + A→B seam), `f0a70d5`
 D-112 (accumulate removals EAGER), `f0893e3` D-113 (window accumulate
-NODE-SHARING fix). **UNCOMMITTED working tree: D-114** — the reset×window
-residual triaged to a Drools-incoherence and FENCED (fuzz skips
-reset+window; anchor `xf_win_reset_incoherence`); CEP fuzz clean on the
-window axis. Gates green: baseline 11 / probes 788 / regressions 281
-byte-identical; lint 1159; 8 Rust suites.
+NODE-SHARING fix), **`1d270be` D-114** — reset×window residual triaged to a
+Drools-incoherence and FENCED (fuzz skips reset+window; anchor
+`xf_win_reset_incoherence`). CEP E2 item B (windows) COMPLETE. Gates green:
+baseline 11 / probes 788 / regressions 281 byte-identical; lint 1159; 8 Rust
+suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
