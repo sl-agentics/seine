@@ -20,10 +20,10 @@ every semantic; never hand-derive PHREAK/temporal staging (it flip-flops).
 Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 
 **Git:** on `main`, **many commits UNPUSHED** (don't push without Bryan).
-Recent: item B `1d270be` (D-111..114, windows), `d2c126b` **D-115 item C**
-(event update/delete, HYBRID), **D-116 item D** (entry points — this
-checkpoint). Gates green: baseline 11 / probes 822 / regressions 281
-byte-identical; lint 1195 live/0 ghost/0 inert; 9 Rust suites.
+Recent: `d2c126b` **D-115 item C** (event update/delete, HYBRID), `e65ab0c`
+**D-116 item D** (entry points), **D-117** E1-hardening non-termination
+spin-guard (this checkpoint). Gates green: baseline 11 / probes 822 /
+regressions 281 byte-identical; lint 1195 live/0 ghost/0 inert; 9 Rust suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
@@ -62,9 +62,10 @@ re-fire, on_update evicted/expired guard, exists external-delete round-trip;
 battery = `xf_cep_c_*` + `pr_cep_c_*` boundary pins + the mutation fuzz).
 E1-hardening backlog: temporal-join-order / accumulate-match latents (CEP +
 main-axis fuzz flush them; all bisect-to-HEAD pre-existing, non-EP) INCLUDING a
-temporal+delete engine NON-TERMINATION (`scenarios/hang-backlog/
-pre_existing_temporal_delete_hang`, un-gated; the fire limit can't catch it);
-2 temporal-join-order xfails; D-080 TMS envelope; window × TMS / node-sharing;
+temporal+delete+TMS engine NON-TERMINATION now CONTAINED by the D-117 spin-guard
+(engine errors ~18s instead of hanging; root-cause fix still pending —
+`scenarios/hang-backlog/pre_existing_temporal_delete_hang`, un-gated); 2
+temporal-join-order xfails; D-080 TMS envelope; window × TMS / node-sharing;
 `window:length` + standalone-pattern window (walled).
 Upstream: #2366 filed (min/max), `docs/drools-inferred-expiry-never.md`.
 
@@ -5527,5 +5528,32 @@ ep_ids/fact_eps, intern_ep/fact_ep, insert_into/insert_default/after_insert,
 alpha_passes EP clause, pattern_key fold, facts() filter, reset), `runner.rs`,
 `OracleRunner.java` (insertFact + epMap), `fuzz_cep.py` EP dimension,
 `pr_cep_ep_*` (18), `probes_pending/entrypoint/ep_unref`. Plan/recon:
-`~/.claude/plans/cep-e2-item-d.md`. **NEXT: E2 item E (`@duration` interval
-events) — the last E2 fence item (walled, DECISIONS:4529).**
+`~/.claude/plans/cep-e2-item-d.md`.
+
+### D-117: E1-hardening — NON-TERMINATION spin-guard (backstop, not a root-cause fix); Bryan-ruled before item E
+
+The item-D EP fuzz flushed a PRE-EXISTING engine non-termination (bisected to
+HEAD; `scenarios/hang-backlog/pre_existing_temporal_delete_hang`): a
+temporal-join + external-delete + advance + TMS(`insertLogical`) shape spins
+forever in `next_activation` — the fire limit can't catch it because no *fire*
+completes; the cycle is the TMS `exp_deferred`/`deferred` re-add drain (a rule's
+`tms_on_terminal_del` re-adds a deferred entry for itself, so the drain
+`while let` never empties). D-080/D-106 envelope — the memory bars patching the
+halt-model semantics locally. **Bryan ruled: backstop the hang before item E**
+(a hang is a robustness bug qualitatively worse than a value divergence; the
+deep temporal-join-order value class stays deferred).
+
+**Backstop:** a per-`next_activation`-CALL step counter `spin_guard` +
+`spin_tick()` guarding the two TMS deferred-drain `while let`s and the main
+agenda `loop`. Past `AGENDA_SPIN_LIMIT` (50M — a huge margin: one legit call's
+work is bounded by agenda size + deferred size, at most a few million) it sets
+`pending_err` and returns `None`, which `fire_all` already surfaces as an error.
+So the engine now ALWAYS TERMINATES — a genuine re-add cycle ERRORS (~18s)
+instead of hanging. NOT a semantic fix: the underlying cycle is unchanged (the
+repro stays a divergence, un-gated in `scenarios/hang-backlog/`); the root-cause
+fix is E1-hardening. Per-CALL (not per-fire_all) budget so a large legit
+multi-fire session never accumulates toward the limit. Corpus byte-identical
+(11/822/281 — the guard never trips a legitimate scenario); lint 1195; 9 suites.
+**Artifacts:** `engine.rs` (`spin_guard` field, `spin_tick`, per-call reset +
+3 loop guards); `scenarios/hang-backlog/README` updated. **NEXT: E2 item E
+(`@duration` interval events) — the last E2 fence item (walled, DECISIONS:4529).**

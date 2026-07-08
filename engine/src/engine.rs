@@ -1078,6 +1078,13 @@ pub struct Engine {
     /// inserts, RHS inserts, synthetics — reads 0). Indexed by FactId.0;
     /// cleared on reset with the store.
     fact_eps: Vec<u32>,
+    /// E1-hardening NON-TERMINATION backstop: a per-`fire_all` agenda-step
+    /// counter. `next_activation`'s re-evaluation loops (TMS deferred drains,
+    /// agenda scan) can cycle forever on a rare pre-existing temporal/TMS
+    /// re-add shape the fire limit can't catch (`scenarios/hang-backlog/`);
+    /// `spin_tick` trips past `AGENDA_SPIN_LIMIT` so the engine ERRORS instead
+    /// of hanging. Never approached by legitimate sessions.
+    spin_guard: u64,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
     /// checks (D-070): subrules of one `or` rule share a parent.
     rule_parents: Vec<usize>,
@@ -1199,6 +1206,7 @@ impl Engine {
             entry_points: vec!["DEFAULT".to_string()],
             ep_ids: HashMap::new(),
             fact_eps: Vec::new(),
+            spin_guard: 0,
             rule_parents: Vec::new(),
             rule_order: Vec::new(),
             lias: Vec::new(),
@@ -4050,7 +4058,32 @@ impl Engine {
     /// reverse-creation terminal appends; the just-fired rule re-evaluates
     /// even if self-unlinked (fz_42_5243); lazy rules evaluate on reach
     /// with creation-order terminal appends.
+    /// E1-hardening backstop: count one agenda step; return true once the
+    /// per-`fire_all` budget is blown (a re-add cycle the fire limit can't
+    /// catch). The caller must then bail out of `next_activation` with `None`
+    /// — `fire_all` surfaces `pending_err` as an error, so the engine
+    /// terminates instead of spinning. Never reached by legitimate sessions.
+    fn spin_tick(&mut self) -> bool {
+        // Per-`next_activation` CALL budget: one call's real work is bounded by
+        // the agenda size (rules × queued tuples) + deferred size — at most a
+        // few million even for large scenarios — so this is a huge margin that
+        // only a genuine re-add cycle blows.
+        const AGENDA_SPIN_LIMIT: u64 = 50_000_000;
+        self.spin_guard += 1;
+        if self.spin_guard > AGENDA_SPIN_LIMIT {
+            if self.pending_err.is_none() {
+                self.pending_err = Some(format!(
+                    "agenda non-termination guard tripped at {AGENDA_SPIN_LIMIT} steps \
+                     (E1-hardening backstop — a pre-existing temporal/TMS re-add cycle)"
+                ));
+            }
+            return true;
+        }
+        false
+    }
+
     fn next_activation(&mut self, last: Option<usize>) -> Option<usize> {
+        self.spin_guard = 0; // E1-hardening: per-call non-termination budget
         if let Some(l) = last {
             // D-091 (RuleExecutor.fire / haltRuleFiring): the just-fired
             // rule re-evaluates its network ONLY on the fire-loop's
@@ -4088,12 +4121,18 @@ impl Engine {
                     {
                         let (_, tuple) = self.tms.exp_deferred.remove(i);
                         self.tms_on_terminal_del(l, &tuple);
+                        if self.spin_tick() {
+                            return None;
+                        }
                     }
                     while let Some(i) =
                         self.tms.deferred.iter().position(|(ri, _, _)| *ri == l)
                     {
                         let (_, tuple, _) = self.tms.deferred.remove(i);
                         self.tms_on_terminal_del(l, &tuple);
+                        if self.spin_tick() {
+                            return None;
+                        }
                     }
                     dbg_eval("post-fire-deferred", l);
                     self.evaluate_rule(l, false, false);
@@ -4255,6 +4294,9 @@ impl Engine {
         // stays lazy: only the popped item's network runs, so window
         // claiming keeps its pinned order.
         loop {
+            if self.spin_tick() {
+                return None; // E1-hardening non-termination backstop
+            }
             // (salience DESC, decl_pos ASC) over rule items AND pending
             // query items (D-058: queries are agenda items at salience 0;
             // PathMemory.queueRuleAgendaItem adds them to the group).
