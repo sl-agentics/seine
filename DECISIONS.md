@@ -83,14 +83,18 @@ FORWARD; emit via staged `addInsert` PREPEND; child processes staged in
 `getInsertFirst` order → a lone eager emit is identity, a batch drain of N held
 partners reverses **exactly once**. firing = reverse(node2 ltm) is the E-last
 special case; the held-right family fires as the batch is processed (what v1
-missed). **⇒ NEXT (step 3 — THE ENGINE PORT, under the push-hold):** translate
-this cascade into the Seine flush driver (`engine.rs`, the `do_node` caller /
-staging — NOT a `phreak.rs` scan tweak): staged `addInsert`-prepend +
-`getInsertFirst` processing + FIFO memory + forward opposite-scan, preserving
-held-vs-eager provenance. Re-cert: `make diff` (944) byte-identical AND
-`fuzz_chain.py` vs a HEAD worktree = 0 regressions AND CEP-fuzz latents
-(cf50003x263/x894) resolve. `model_join_flush.py` is the executable spec — port
-until the engine matches it.
+missed). **⇒ NEXT (step 3 — THE ENGINE PORT, under the push-hold).** RECON DONE (D-124,
+`SEINE_TRACE`): the divergence is **flush GRANULARITY**, not node order — the
+engine drains held E1s to memory then does ONE deferred flush, so e0first and
+e0last reach node1 with BYTE-IDENTICAL `sl.ins=[25,23,26]` (no node-local edit
+can separate them, as the memory warned). The port must make TEMPORAL-node
+propagation per-arrival (eager partner joins a present anchor INDIVIDUALLY, not
+drain-then-batch; later same-node right-insert reverses via staged prepend) —
+i.e. reproduce v2's cascade in the `engine.rs` drain / self-drain / segment-flush
+path (D-101/D-102), NOT `phreak.rs do_join_node` alone. HIGH-RISK (the 542/1500
+facet-3 area); focused pass, `model_join_flush.py` as spec, `make diff` (944) +
+`fuzz_chain` vs a HEAD worktree as twin gates. CEP-fuzz latents cf50003x263/x894
+must resolve.
 **Proven dead ends (do NOT re-attempt):** ENGINE edits — naive scan→memory swap
 (regressed t1/t4/t5/t8/t15); node2-only forward-stamp (+172/−121 chain-fuzz);
 node1 arrival-split (regressed facet-3, 542/1500). MODEL — the v1 uniform
@@ -6085,3 +6089,41 @@ processing + FIFO memory + forward opposite-scan, so held-vs-eager provenance is
 preserved. Re-cert bar: `make diff` (944) byte-identical AND `fuzz_chain.py` vs a
 HEAD worktree = 0 regressions AND the CEP-fuzz latents (cf50003x263/x894) resolve.
 `model_join_flush.py` is the executable spec; port until the engine matches it.
+
+### D-124: engine-port RECON — the divergence is FLUSH GRANULARITY (drain + batched single-flush), not a node-local order; the port is an architectural change to temporal-node flush, matching v2's per-propagation cascade
+
+Traced the engine (`SEINE_TRACE=1`) on `C_e0first`/`C_e0last` to pin WHERE it
+departs from the validated v2 model, BEFORE editing (3 prior local fixes failed —
+D-121). Finding: **the engine collapses e0first and e0last to identical node
+inputs, so no node-local edit can separate them — confirmed at the trace level.**
+
+- **node0** (`E0⋈E1`): for BOTH cases `do_node[0]` sees `sl.ins=[E0], sr.ins=[]`
+  — the three E1s were already drained to right MEMORY in arrival order
+  `[26,23,25]` (D-101/D-102 self-drain), and node0's single deferred flush does
+  `doLeftInserts(E0)` over that memory, emitting `[25,23,26]` IDENTICALLY in both.
+- **node1** (`(E0,E1)⋈E2`): consequently `sl.ins=[25,23,26]` + `sr.ins=[E2]`,
+  BYTE-IDENTICAL for e0first and e0last. doNode runs doRightInserts(E2) vs an
+  empty ltm (nothing), then doLeftInserts emits in sl.ins order ⇒ engine fires
+  `25,23,26` for BOTH. Oracle: e0first `25,23,26` (matches by structure), e0last
+  `26,23,25` (diverges).
+
+**Root cause (matches v2's contrast):** v2 processes each insert as its OWN full
+propagation. In e0first the E1s arrive while E0 is present ⇒ EAGER right-inserts
+that append to node1.ltm as `[26,23,25]`; the later E2 right-insert then
+prepend-reverses ⇒ `25,23,26`. In e0last the E1s are held, drained as ONE batch ⇒
+node1.ltm `[25,23,26]` ⇒ E2 prepend-reverse ⇒ `26,23,25`. The engine's DRAIN +
+deferred SINGLE flush erases the eager-vs-held provenance at node0, so both look
+like e0last's batch — but it emits the batch WITHOUT the E2-right-insert
+prepend-reversal (E2 is batched into the same do_node, processed before ltm
+fills), so it lands on `25,23,26` (e0first's answer) for both.
+
+**⇒ The port is NOT a scan/stamp tweak; it is flush GRANULARITY.** The engine
+must process temporal-node propagations so that (a) an eager partner joins a
+present anchor INDIVIDUALLY (not drained to memory then batch-joined), and (b) a
+later same-node right-insert reverses via the staged prepend — i.e. reproduce
+v2's per-propagation cascade for temporal nodes. This is the drain/self-drain +
+segment-flush path in `engine.rs` (D-101/D-102 machinery), NOT `phreak.rs`
+`do_join_node` alone. High-risk (the exact area of the 542/1500 facet-3 blowup);
+do it in a focused pass with `model_join_flush.py` as the spec and `make diff`
+(944) + `fuzz_chain` vs a HEAD worktree as the twin gates. RECON only this
+checkpoint — engine still at HEAD.
