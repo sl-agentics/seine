@@ -22,10 +22,12 @@ Workflow, env quirks, and doctrine live in memory `seine-workflow.md`.
 **Git:** on `main`, **several commits UNPUSHED** (don't push without Bryan).
 Key commits: `8018ea2` item A inference, `79c6b95` item B recon+parser,
 `9efd827` item B RUNTIME (D-111, window eviction + A→B seam), `f0a70d5`
-D-112 (accumulate removals EAGER), **`f0893e3` D-113** — window accumulate
-NODE-SHARING fix (window_time was missing from the node-identity key;
-cleared the bulk of the windowed fuzz divergences). Gates green: baseline
-11 / probes 788 / regressions 281 byte-identical; lint 1159; 8 Rust suites.
+D-112 (accumulate removals EAGER), `f0893e3` D-113 (window accumulate
+NODE-SHARING fix). **UNCOMMITTED working tree: D-114** — the reset×window
+residual triaged to a Drools-incoherence and FENCED (fuzz skips
+reset+window; anchor `xf_win_reset_incoherence`); CEP fuzz clean on the
+window axis. Gates green: baseline 11 / probes 788 / regressions 281
+byte-identical; lint 1159; 8 Rust suites.
 Verify with `make diff` / `make lint-probes` / `cargo test`; oracle prebuilt
 (`oracle/target/classpath.txt`). If any gate is red on resume, something
 drifted — investigate before building on it.
@@ -47,20 +49,18 @@ accumulate removals are EAGER (advance-time, by salience) for PLAIN
 accumulates + window eviction; not-CE/temporal/windowed-expiration stay
 LAZY. Model-checked (`model_check_accdefer`, unique survivor) + blast-radius
 clean (main-axis 3900 cases 0 div; CEP plain-acc 0 div). 18 pins promoted.
-**D-113 fixed the BULK of the "windowed composition"** — it was a concrete
+**D-113 fixed the BULK of the "windowed composition"** — a concrete
 NODE-SHARING bug (window_time missing from `pattern_key`), not a flush
-micro-order (CEP fuzz seed7 19→2, seed1 8→3). **RESUME HERE — the genuine
-windowed removal-TIMING residual (~0.5% of windowed draws):** the
-multi-epoch eviction/expiration TRANSIENT (a windowed accumulate keeps an
-evicted event transiently when a later insert arrives — cf1x233/249/320;
-anchor `xf_win_acc_defer_2`). Minimal 1–2-event repros all PASS, so extend
-`model_check_stream` with a WindowNode+AccumulateNode for the MULTI-EVENT
-flush micro-order — do NOT hand-tune (D-083).
+micro-order (CEP fuzz seed7 19→2). **D-114 CLOSED the rest:** the remaining
+~0.5% was a Drools reset×WindowNode INCOHERENCE (a windowed accumulate reset
+with a prior value fires a spurious extra `[0]`; plain doesn't) — Seine is
+more correct, so FENCED (anchor `xf_win_reset_incoherence`; fuzz skips
+reset+window). **CEP E2 item B (windows) is DONE — no WindowNode model-check
+needed** (the "composition" was a bug + an incoherence, not a flush order).
+Item B closes the arc's core; NEXT E2 items are C/D/E (below).
 
-**Open/deferred:** **windowed-accumulate removal-TIMING residual**
-(D-112/D-113: the multi-epoch eviction/expiration transient — the WindowNode
-flush-order model-check; ~0.5% of windowed draws; 1 xfail anchor
-`xf_win_acc_defer_2`. The node-sharing bulk was fixed in D-113). E1-hardening — 2 temporal-join-order
+**Open/deferred:** E2 remaining: **C** event update/delete, **D** entry-points,
+**E** @duration (all still walled — the E2 fence, DECISIONS:4529). E1-hardening — 2 temporal-join-order
 xfails (bisect-confirmed pre-existing); D-080 TMS envelope; window × TMS /
 node-sharing; `window:length` + standalone-pattern window (walled, follow-
 on); E2 remaining: C event update/delete, D entry-points, E @duration.
@@ -5327,3 +5327,36 @@ D-083). (`cf7x121`-class residuals are pre-existing temporal-join-order,
 unrelated.) **NEXT:** the WindowNode flush-order model-check.
 **Artifacts:** `pr_cep_win_share_{wvp,nn,id}`; `engine.rs pattern_key` acc
 key; anchor `xf_win_acc_defer_2`.
+
+### D-114: the reset×WindowNode residual is a Drools INCOHERENCE — FENCED (closes the WindowNode sub-recon, task#6)
+
+After D-113 cleared the bulk, the windowed residual was ~0.5% and ALL
+reset-related (seed3 0/300). "Probe deeper first" (Bryan) instead of jumping
+to the WindowNode model-check paid off: bisected to a minimal repro
+(`scenarios/xfail/xf_win_reset_incoherence`) and a CLEAN discriminator —
+- **plain** accumulate + reset (prior value) → `[23],[275],[0]` (both match);
+- **windowed** accumulate, identical shape → oracle `[23],[275],[0],[0]`,
+  Seine `[23],[275],[0]` — Drools fires ONE EXTRA spurious `[0]` (the second
+  is `0→0`, no change), only for the WINDOWED accumulate.
+The extra count is always exactly 1 regardless of pre-reset event count
+(n1/n2/n3 all +1; n0 +0), and it fires AT the post-reset eviction, not at a
+later clock — so it's not a phantom-per-event nor a leftover job. It's a
+Drools reset×WindowNode inconsistency: resetting a windowed accumulate that
+held a value emits a redundant firing that a plain accumulate does not.
+**Seine is arguably MORE correct (consistent batching, no spurious fire); it
+is NOT a Seine bug and NOT the flush-order composition it looked like** — so
+neither a code fix nor the WindowNode model-check simulator is warranted.
+
+**FENCED** (D-107 Drools-incoherence lens): anchor
+`xf_win_reset_incoherence` in `scenarios/xfail/` (excluded from the gate);
+`fuzz_cep.py` skips the `reset` draw when a windowed accumulate is present
+(`self.has_window`) so the CEP fuzz doesn't re-flag the fenced incoherence.
+CEP fuzz now clean on the window axis (seeds 1/3/7 = 0/0/1, the one being
+`cf7x121` = pre-existing temporal-join-order, unrelated). Corpus
+byte-identical. **Task#6 CLOSED:** the windowed-removal "composition" was, in
+order of impact, (1) D-113 node-sharing bug [fixed], (2) D-114 reset×window
+Drools-incoherence [fenced], (3) pre-existing temporal-join-order [separate].
+No genuine flush-order composition remained — the WindowNode model-check
+simulator is NOT needed.
+**Artifacts:** `fuzz_cep.py` reset-vs-window fence; anchor
+`xf_win_reset_incoherence`.

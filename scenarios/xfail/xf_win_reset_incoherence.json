@@ -1,0 +1,79 @@
+{
+ "name": "xf_win_reset_incoherence",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W1 when accumulate( E1($t : ts) over window:time(50ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 23
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "reset"
+    },
+    {
+     "op": "advance",
+     "ms": 250
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 275
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 199
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 457
+     }
+    }
+   ]
+  }
+ ]
+}

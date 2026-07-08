@@ -47,6 +47,11 @@ class Gen:
         # infers the reach); a minority stay explicit (mixed path).
         infer = r.random() < 0.5
         n_ev = r.randint(2, 3)
+        # D-114: a RESET of a windowed accumulate that held a value fires a
+        # spurious extra [0] in Drools (plain accumulates don't) — a fenced
+        # Drools reset×WindowNode INCOHERENCE (scenarios/xfail/
+        # xf_win_reset_incoherence). Don't draw both in one scenario.
+        self.has_window = False
         self.etypes = []
         types = []
         for i in range(n_ev):
@@ -106,6 +111,8 @@ class Gen:
                 cons = f'tag == "{r.choice("xyz")}"' if r.random() < 0.35 else ""
                 win = (f" over window:time({r.choice([50, 100, 100, 150, 200])}ms)"
                        if r.random() < 0.6 else "")
+                if win:
+                    self.has_window = True
                 if r.random() < 0.6:
                     src, fn = f"{e}({cons})", "$c : count()"
                 else:
@@ -150,8 +157,10 @@ class Gen:
         epochs = []
         for _ in range(r.randint(1, 3)):
             actions = []
-            if r.random() < 0.15:
-                # D-104: in-place session reset — the paged-batch axis
+            if r.random() < 0.15 and not self.has_window:
+                # D-104: in-place session reset — the paged-batch axis.
+                # D-114: skipped when a windowed accumulate is present (the
+                # reset×WindowNode Drools-incoherence is fenced, not tested).
                 actions.append({"op": "reset"})
                 clock = 0
             if r.random() < 0.9:
