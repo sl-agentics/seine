@@ -65,7 +65,9 @@ strict) + param forms (`during[lo1,hi1,lo2,hi2]`=start/end dist windows,
 Direction: `this`=subject, `$a`=object. Port representation designed
 (`AllenOp` enum + ≤4 param + both events' ts/dur fi; eval = endpoint match).
 
-**⚠ NEXT — the SLAB-1 PORT (recon fully done; all gates RULED).** Bryan ruled
+**⚠ NEXT — the SLAB-1 PORT (recon fully done; all gates RULED).** Execution
+handoff: **`~/.claude/plans/cep-e2-item-e-port.md`** (site-by-site spec + the
+pinned Allen predicate/param table + fence + gate-to-green). Bryan ruled
 FENCE Allen-op `@expires` inference in slab 1 (D-119): land the Allen PREDICATE
 port certified byte-identical to Drools FIRST; inference stays D-109
 (after/before only); Allen-referenced un-annotated event types require explicit
