@@ -1,0 +1,68 @@
+{
+ "name": "win3_seam_tmax_101",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "F",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rw when accumulate( E() over window:time(100ms); $c : count() ) then end\nrule Rt when $a : E() $b : F(this after[0ms,200ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "engine_fenced": true
+}

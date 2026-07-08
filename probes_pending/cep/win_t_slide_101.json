@@ -1,0 +1,60 @@
+{
+ "name": "win_t_slide_101",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 1000000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rw when accumulate( E() over window:time(100ms); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 50,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "engine_fenced": true
+}

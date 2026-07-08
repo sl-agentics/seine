@@ -336,6 +336,10 @@ struct CompiledAcc {
     arg_name: Option<String>,
     /// D-108 groupby: the source field the group key reads.
     key_field: Option<usize>,
+    /// CEP E2 item B (D-110): `over window:time(N)` — a source event
+    /// contributes while `clock − ts < N`, evicted at `ts+N` (per-subtree
+    /// unmatch: the fact survives WM). None = no window.
+    window_time: Option<i64>,
 }
 
 enum CompiledAction {
@@ -2524,6 +2528,17 @@ impl Engine {
                     } else {
                         (result_tid, None)
                     };
+                    // D-110: parser recognizes `over window:time(N)` and
+                    // the plumbing carries it, but the runtime (per-subtree
+                    // eviction + the A→B seam) is the NEXT slab — wall it at
+                    // compile for now so window scenarios error LOUDLY
+                    // (honest fence) rather than silently ignoring the window.
+                    if spec.window.is_some() {
+                        return Err(err(
+                            "window:time runtime pending (D-110 recon landed; eviction + seam next slab)"
+                                .into(),
+                        ));
+                    }
                     Some(CompiledAcc {
                         func: spec.func,
                         arg_field,
@@ -2531,6 +2546,7 @@ impl Engine {
                         result_tid,
                         arg_name: spec.arg.clone(),
                         key_field,
+                        window_time: spec.window.map(|drl::Window::Time(n)| n),
                     })
                 }
             };

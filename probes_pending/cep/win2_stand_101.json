@@ -1,0 +1,59 @@
+{
+ "name": "win2_stand_101",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 1000000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rstand when E() over window:time(100ms) P() then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "engine_fenced": true
+}

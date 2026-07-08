@@ -162,6 +162,15 @@ pub enum AccFunc {
     CollectSet,
 }
 
+/// CEP E2 item B (D-110): a sliding window on an accumulate source.
+/// `Time(N)` = `over window:time(N ms)` — an event contributes while
+/// `clock − ts < N`, evicted at `ts+N`. (`window:length` is walled to a
+/// follow-on slab.)
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Window {
+    Time(i64),
+}
+
 /// Inline accumulate / collect spec attached to a pattern whose
 /// type/constraints describe the SOURCE (D-038). The source's field
 /// bindings are scoped inside; only `arg` may be bound there.
@@ -175,6 +184,8 @@ pub struct AccSpec {
     /// D-108 groupby: the KEY binding (a source binding) — Some makes
     /// this a per-group accumulation with one activation per live key.
     pub group_key: Option<String>,
+    /// CEP E2 item B (D-110): a sliding window over the source events.
+    pub window: Option<Window>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -594,6 +605,34 @@ impl Parser {
             Tok::Ident(u) if u == "s" => Ok(n * 1000),
             other => Err(self.perr_prev(format!("expected ms/s unit, got {other}"))),
         }
+    }
+
+    /// CEP E2 item B (D-110): optional `over window:time(N ms)` after an
+    /// accumulate source pattern. `window:length` is walled to a
+    /// follow-on slab; the standalone-pattern window form is unsupported
+    /// (natural parse wall at `over`).
+    fn parse_window_opt(&mut self) -> Result<Option<Window>, DrlError> {
+        if !self.at_kw("over") {
+            return Ok(None);
+        }
+        self.expect_kw("over")?;
+        self.expect_kw("window")?;
+        self.expect_sym(":")?;
+        let kind = self.ident()?;
+        self.expect_sym("(")?;
+        let w = match kind.as_str() {
+            "time" => Window::Time(self.duration_ms()?),
+            "length" => {
+                return Err(self.perr(
+                    "window:length is a follow-on slab (D-110); only window:time is in this slab",
+                ))
+            }
+            other => {
+                return Err(self.perr(format!("unknown window kind {other:?} (window:time only)")))
+            }
+        };
+        self.expect_sym(")")?;
+        Ok(Some(w))
     }
 
     fn literal(&mut self) -> Result<Literal, DrlError> {
@@ -1125,7 +1164,7 @@ impl Parser {
                 type_name: src.type_name,
                 constraints: src.constraints,
                 ce: CeKind::Positive,
-                acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var , group_key: None }),
+                acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var , group_key: None, window: None }),
                 q_args: None,
                 group: None,
             });
@@ -1206,7 +1245,7 @@ impl Parser {
             }
         }
         Ok(Pattern {
-            acc: Some(AccSpec { func, arg, result_var, group_key: Some(key_var) }),
+            acc: Some(AccSpec { func, arg, result_var, group_key: Some(key_var), window: None }),
             ..src
         })
     }
@@ -1218,6 +1257,7 @@ impl Parser {
         if src.ce != CeKind::Positive || src.acc.is_some() || src.binding.is_some() {
             return Err(self.perr("accumulate source must be a plain unbound pattern"));
         }
+        let window = self.parse_window_opt()?;
         self.expect_sym(";")?;
         let result_var = self.dollar_ident()?;
         self.expect_sym(":")?;
@@ -1266,7 +1306,7 @@ impl Parser {
             type_name: src.type_name,
             constraints: src.constraints,
             ce: CeKind::Positive,
-            acc: Some(AccSpec { func, arg, result_var, group_key: None }),
+            acc: Some(AccSpec { func, arg, result_var, group_key: None, window }),
             q_args: None,
             group: None,
         })

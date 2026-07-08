@@ -1,0 +1,52 @@
+{
+ "name": "win2_seam_time_101",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rw when accumulate( E() over window:time(100ms); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "engine_fenced": true
+}

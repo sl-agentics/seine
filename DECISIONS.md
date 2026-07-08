@@ -4997,3 +4997,69 @@ window then. **Upstream:** `docs/drools-inferred-expiry-never.md` drafted
 (the never-overwrite = a silent event-leak footgun; framed as
 intended-or-not for upstream, unlike the #2366 defect). Certified corpus
 byte-identical throughout (CEP gated on `!event_specs.is_empty()`).
+
+### D-110: WINDOWS (CEP E2 item B) — recon PINNED (core + the A→B
+### seam), PRE-implementation (awaiting Bryan's port gate)
+**Mechanism pinned** (36-probe ladder, oracle passes `over window:` DRL
+to Drools verbatim; engine walls it at `drl.rs` accumulate `;`-expect).
+Readout = accumulate `count()`/`sum()` (window membership) + WM presence.
+
+- **`window:time(N)`** — CLOCK-RELATIVE sliding: an event is in the
+  window iff `clock − ts < N`; evicted at exactly `ts+N` (win_t_b: count
+  1 at adv 99, 0 at adv 100 — note NO +1, unlike expiration's ts+N+1).
+  Per-EVENT (win_t_slide: E@0 out at 100, E@50 out at 150). PER-SUBTREE:
+  window eviction unmatches the accumulate (count→0) but the FACT stays
+  in WM if something else retains it (a4; win_t_b E_in_WM w/ big
+  @expires) — the fact-survives observable is the differential separator
+  vs @expires.
+- **`window:length(N)`** — keeps the N MOST-RECENTLY-INSERTED events
+  (FIFO by insertion, NOT by ts): win2_len_1 sum=20 (E@20 only),
+  len_2 sum=30 (E@10+E@20), len_3 sum=30 (all). Per-subtree (facts stay
+  in WM, count capped at N). NO clock.
+- **THE A→B SEAM — CLOSED** (item A left `max(matrix_ub, window_ub)` with
+  window_ub=None). `window:time(N)` FEEDS the inferred `@expires`:
+  accumulate-only, no explicit expiry → E EXPIRES from WM at `ts+N`
+  (win3_seam_b: present 99, gone 100 — boundary `ts+N`, NO +1; per-event
+  win3_seam_multi). MAX with the temporal reach: E in window:time(100) +
+  earlier in after[0,200] → gone at 201 = `ts+200+1` (win3_seam_tmax) —
+  i.e. OTN offset = `max(window_size N, matrix_ub+1)`; window contributes
+  N RAW, the matrix term keeps its +1. **Seine mapping:** fold `(N−1)`
+  into `temporal_ub` so the existing D-109 `ts+expires+1` scheduler
+  yields `max(ub+1, N)` — window-only → ts+N, temporal-wins → ts+ub+1.
+  Also: a windowed pattern is NOT "bare" (the window offset overrides the
+  D-109 never-overwrite — it takes the non-NEVER `distance` path in
+  attachObjectTypeNode). **`window:length` does NOT feed inference**
+  (`SlidingLengthWindow.getExpirationOffset=-1`): win2_seam_len events
+  never expire (E_in_WM n=3 at adv 100000, count capped 2) — another
+  leak footgun.
+- **explicit `@expires` SUPPRESSES the window term** (hard wins, NOT max):
+  explicit=50 + window:time(100) → E gone at 51 = ts+50+1
+  (win4_expl50), window ignored — PatternBuilder `if(hard) use it`.
+- **constraint-in-window**: `E(tag=="x") over window:time(N)` windows the
+  ALPHA-FILTERED events (win4_constr: count 1, the y-event excluded).
+- **standalone `E() over window:time(N)`** PARSES + fires (win2_stand);
+  the sliding-membership effect on a plain (non-accumulate) pattern needs
+  a re-evaluating readout — DEFERRED with the deep compositions.
+
+**DEFERRED to a model-check sub-recon** (the E1 close ran on
+`model_check_stream` — these compositions flip-flop; extend the checker,
+don't hand-reason): window × STREAM per-insert flush; window × TMS
+(a windowed justifier's eviction vs the justified fact); window-node
+SHARING identity; `window:length` eviction under external update/delete.
+Use the AccDump/RunnerDump graft for WindowNode memory ground truth
+(memo §4).
+
+**Proposed port (surgical core, awaiting gate):** parser — `drl.rs`
+accumulate source accepts `over window:time(N)|window:length(N)` before
+`;` (+ the standalone pattern form); a per-node window membership
+structure (time = deadline-queue eviction reusing the D-101 BTreeMap;
+length = count-based FIFO ring); per-subtree unmatch through the
+certified delete/unmatch path (count re-fires on evict, fact untouched);
+close the A→B seam (window:time size−1 into `temporal_ub`; window:length
+contributes nothing; a windowed pattern is not `never_inferred`).
+**Gate:** as D-109 — promote the ladder, `make diff` byte-identical,
+extend `tools/fuzz_cep.py` (window draws), 3×1000 campaign, lint. The
+deep compositions get their own D-entry + Bryan gate after the
+model-check.
+**Artifacts:** 36 recon probes `probes_pending/cep/win{,2,3,4}_*`
+(engine_fenced).
