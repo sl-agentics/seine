@@ -5731,10 +5731,19 @@ OP-SPECIFIC and COUNTERINTUITIVE** (smoke test `inf_*`, insert-one-event +
 advance 100000, observe presence): **coincides → FINITE; overlaps → FINITE
 (even BARE); during → NEVER (even PARAMETERIZED); meets → NEVER; finishes →
 NEVER.** This does NOT follow "bare⇒never / param⇒finite" (param `during` still
-leaks; bare `overlaps` bounds). Each op's STP-edge contribution to the D-109
-`TemporalDependencyMatrix` must be pinned from the oracle per-op × param × the
-subject/anchor position — a dedicated ladder (mirrors D-109's after/before
-`earlier=hi` / lo>0-leak work). NOT hand-derivable (flip-flops). **⇒ SCOPE
+leaks; bare `overlaps` bounds). FULL never/finite classification (`ic_*`,
+insert-one + advance-100000, per POSITION — anchor `$a`=A vs subject `this`=B):
+after/before/coincides/starts/startedby = FINITE both; during = never both;
+meets/overlappedby/finishes = never(A)/FINITE(B); metby/overlaps/includes/
+finishedby = FINITE(A)/never(B). Only `during` fully leaks; finite/never depends
+on PARAMS too (the D-109 lo>0 leak: `after[0,100]` both finite because lo=0).
+This IS the D-109 STP machinery GENERALIZED — each op's endpoint predicate ⇒
+directed upperBound edges ⇒ Floyd-Warshall row-max ⇒ finite iff max_ub≥0; the
+edges likely FALL OUT of the endpoint representation the port already needs
+(derive-from-predicate), but the reach VALUES still need an oracle ladder to
+verify. Each op's contribution pinned from the oracle per-op × param × position
+— a dedicated ladder (mirrors D-109's after/before `earlier=hi`/lo>0-leak work).
+NOT hand-derivable (flip-flops). **⇒ SCOPE
 QUESTION for Bryan** (see below).
 
 **PORT REPRESENTATION (design, for the after/before + Allen port):**
