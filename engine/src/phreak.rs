@@ -313,6 +313,16 @@ pub struct Node {
     /// Both empty for non-temporal / non-not nodes (byte-identical path).
     pub new_deferrals: Vec<(Tup, Origin, i64)>,
     pub pending_release: Vec<(Tup, Origin)>,
+    /// D-136 (shared temporal-join ORDER): the epoch's per-arrival D-125
+    /// emissions, accumulated in FORWARD (D-125) order. A shared temporal
+    /// join can't route to its peer sinks per-arrival — the peer copy
+    /// reverses each single-tuple batch (a no-op) and term_pending drains
+    /// between arrivals, so the WHOLE-epoch reversal the oracle wants never
+    /// forms. Instead the flush accumulates here and the fire boundary
+    /// drains the whole batch ONCE (first sink forward, peers reversed —
+    /// `model_shared_tjo.py`, 0-div). Empty on every non-shared / non-
+    /// temporal node (byte-identical path).
+    pub tj_epoch: Vec<(Tup, Origin, u8)>,
 }
 
 impl Node {
@@ -376,6 +386,7 @@ impl Node {
             shared: false,
             new_deferrals: Vec::new(),
             pending_release: Vec::new(),
+            tj_epoch: Vec::new(),
         }
     }
 

@@ -3732,6 +3732,19 @@ impl Engine {
         for ni in 0..self.trie.len() {
             self.trie[ni].node.shared = node_shared[ni];
         }
+        // D-136: shared temporal-join nodes whose shape is the VALIDATED one
+        // (clean insert-only delta, all-Term sinks) route their per-arrival
+        // D-125 flush to EACH sharing sink instead of the legacy pop-time
+        // bail. Populated in the stash loop below (kept OUT of the eval walk
+        // so `do_node` never re-orders them), consumed in the D-125 flush
+        // loop. `None` = keep the certified pop-time path.
+        let mut shared_tj_stash: Vec<
+            Option<(
+                Vec<(FactId, Origin, u8)>,
+                Vec<(FactId, Origin, u8)>,
+                Vec<(Tup, Origin, u8)>,
+            )>,
+        > = (0..self.trie.len()).map(|_| None).collect();
         for (ni, p) in pre.0.iter().enumerate() {
             let t = &mut self.trie[ni];
             // pre-tail DELS stash at ALL nodes: staged deletes from
@@ -3757,14 +3770,45 @@ impl Engine {
                 // keep the certified pre-0dc2a4e flush behavior
                 // (delta rights walk; transition fills+pairs).
                 // Unlinked deltas stay staged for the self-drain.
-                // D-136: this stay-at-flush pop-time path orders shared
-                // firings wrong (14%, order-only); the fix is NOT a naive
-                // un-bail (flushing gives per-arrival peer reversals — 61%,
-                // WORSE + 2 corpus regressions). The oracle (model_shared_
-                // tjo.py, 0-div) needs TJ0's per-arrival D-125 order but
-                // peers reversed over the WHOLE epoch batch — a distinct
-                // compose, staged for the port.
-                if node_linked[ni] && node_shared[ni] {
+                // D-136: the stay-at-flush pop-time path orders shared
+                // firings wrong (14%, order-only). The fix routes the
+                // per-arrival D-125 flush to EACH sharing sink (below in the
+                // flush loop) — but ONLY for the validated shape: a clean
+                // insert-only delta feeding all-Term sinks. A naive un-bail
+                // (letting the eval walk's `do_node` flush per-arrival) was
+                // 61% WORSE + 2 corpus regressions, because `do_node` emits
+                // the REVERSED base order; `flush_ins_delta` (D-125) emits
+                // the right one. So keep the staging OUT of the eval walk
+                // (stash it) and hand the clean shape to the flush loop;
+                // everything else keeps the certified pop-time bail.
+                let clean_shared = node_shared[ni]
+                    && t.node.s_right.upd.is_empty()
+                    && t.node.s_right.del.is_empty()
+                    && t.node.s_left.upd.is_empty()
+                    && t.node.s_left.del.is_empty()
+                    && t.s0_in.upd.is_empty()
+                    && t.s0_in.del.is_empty()
+                    && dstash
+                        .last()
+                        .map_or(true, |(a, b, c)| a.is_empty() && b.is_empty() && c.is_empty())
+                    && t.node.s_right.ins.iter().all(|(_, _, ph)| *ph != 1)
+                    && !t.sinks.is_empty()
+                    && t.sinks.iter().all(|s| matches!(s, Sink::Term(_)));
+                if clean_shared {
+                    // D-136: divert to the per-arrival D-125 flush (below) —
+                    // it drains THIS arrival's single-side delta to memory in
+                    // ARRIVAL order and accumulates emissions. Do it on EVERY
+                    // arrival, linked or not: an UNLINKED left left in staging
+                    // batch-flushes (and self-drains) REVERSED, flipping the
+                    // base order the peers then reverse again. The unshared
+                    // D-125 path already drains unlinked deltas the same way.
+                    let sr_all = std::mem::take(&mut t.node.s_right.ins);
+                    let s0_all = std::mem::take(&mut t.s0_in.ins);
+                    let sl_all = std::mem::take(&mut t.node.s_left.ins);
+                    shared_tj_stash[ni] = Some((sr_all, s0_all, sl_all));
+                    stash.push((Vec::new(), Vec::new(), Vec::new()));
+                } else if node_linked[ni] && node_shared[ni] {
+                    // legacy pop-time bail (non-clean shared temporal node)
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
                     let (s0_all, sl_all) = (
                         std::mem::take(&mut t.s0_in.ins),
@@ -3865,6 +3909,37 @@ impl Engine {
         // self-drain: memory in arrival order, no children.
         for ni in 0..self.trie.len() {
             if !self.trie[ni].node.temporal {
+                continue;
+            }
+            // D-136: a shared temporal join computes its per-arrival D-125
+            // batch here (`flush_ins_delta` — the base order the pop-time
+            // `do_join_node` gets REVERSED) but ACCUMULATES it into the
+            // node's `tj_epoch` in forward order rather than routing to the
+            // sinks. It can't route per-arrival: the peer copy reverses each
+            // single-tuple batch (a no-op) and term_pending drains between
+            // arrivals, so the whole-epoch reversal never forms (61% naive
+            // un-bail). The fire boundary drains `tj_epoch` ONCE — first sink
+            // forward, peers reversed (`fire_all`; model_shared_tjo.py 0-div).
+            if let Some((sr, s0, sl)) = shared_tj_stash[ni].take() {
+                let nidx = self.trie[ni].env.1 - 1;
+                let (ri, _) = self.trie[ni].env;
+                self.trie[ni].node.s_right.ins = sr;
+                self.trie[ni].node.s_left.ins = sl;
+                let s0_folds: Vec<(Tup, Origin, u8)> =
+                    s0.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
+                let mut node = std::mem::replace(
+                    &mut self.trie[ni].node,
+                    phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
+                );
+                let mut trg: Staged<Tup> = Staged::default();
+                node.flush_ins_delta(
+                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false },
+                    nidx,
+                    s0_folds,
+                    &mut trg,
+                );
+                node.tj_epoch.extend(trg.ins);
+                self.trie[ni].node = node;
                 continue;
             }
             let nidx = self.trie[ni].env.1 - 1;
@@ -4240,6 +4315,34 @@ impl Engine {
                 self.flush_trigger_tid = Some(self.store.fact_type(f));
                 self.stream_flush_ex(&pre, false);
                 self.flush_trigger_tid = None;
+            }
+        }
+        // D-136: drain each shared temporal join's accumulated epoch batch
+        // to its sinks ONCE, at the fire boundary — the FIRST sink FORWARD
+        // (addAll ⇒ the D-125 order the flush computed), every PEER REVERSED
+        // (peer_merge_term prepends the whole batch ⇒ the SegmentPropagator
+        // reversal over the WHOLE epoch, which the per-arrival flush can't
+        // form). Term sinks only (the validated shape); model_shared_tjo.py
+        // 0-div. Empty `tj_epoch` everywhere else ⇒ byte-identical.
+        for ni in 0..self.trie.len() {
+            if self.trie[ni].node.tj_epoch.is_empty() {
+                continue;
+            }
+            let mut trg: Staged<Tup> = Staged::default();
+            trg.ins = std::mem::take(&mut self.trie[ni].node.tj_epoch);
+            let sinks = self.trie[ni].sinks.clone();
+            for (si, sink) in sinks.into_iter().enumerate() {
+                if let Sink::Term(rb) = sink {
+                    if si == 0 {
+                        let pending = self.nets[rb].term_pending.take();
+                        self.nets[rb].term_pending =
+                            Staged::append_into_pending(pending, trg.clone());
+                    } else {
+                        self.nets[rb].peer_merge_term(&trg);
+                    }
+                    self.nets[rb].dirty = true;
+                    self.nets[rb].queued = true;
+                }
             }
         }
         let mut firings = Vec::new();

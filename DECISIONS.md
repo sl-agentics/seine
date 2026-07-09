@@ -11,18 +11,21 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-09, post-D-136 (exists-inference PORTED D-135; **SHARED
-temporal-join ORDER: MODEL VALIDATED 0-div, port de-risked** — naive un-bail
-fails, the compose is specified). `git log --oneline -12` for live HEAD._
+_Last updated: 2026-07-09, post-D-136 PORT (exists-inference PORTED D-135;
+**SHARED temporal-join ORDER: PORTED 0-div** — D-125 base accumulated in
+`Node.tj_epoch`, drained ONCE at the fire boundary, first sink forward + peers
+reversed; `xf_cep_tjorder_dual_tms` GRADUATED). `git log --oneline -12` for live
+HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **PUSHED through D-136** (`origin/main` at `162fb68`, the
-D-127..D-136 stack + docs is now on origin — Bryan cleared each push 2026-07-09;
-pushes are branch-only, NO tags). Tree CLEAN, gates green. The temporal-`not` port
+**Git:** on `main`, pushed through D-136 RECON (`origin/main` at `162fb68`; Bryan
+cleared each push 2026-07-09; branch-only, NO tags). **D-136 PORT LANDED locally
+— tree DIRTY, NOT yet committed** (`engine.rs` + `phreak.rs` + 3 new witnesses +
+dual_tms graduated + this doc). Gates green. The temporal-`not` port
 is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
 path byte-identical). ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
@@ -31,8 +34,8 @@ publishes `seine-rs` with no manual gate. Recent: D-127 exists×temporal PORT �
 D-128..D-131 not×temporal modeled → port report → D-132/133 §3A (reaping) →
 **D-134 §3B (firing deferral) — not×temporal DONE, CEP-E2 fully unwalled.**
 
-**Gates (green @ HEAD, local + CI):** baseline 11 / probes **956**
-byte-identical / regressions **284** / lint **1334 live·0 ghost·0 inert** / 9
+**Gates (green @ HEAD, local + CI):** baseline 11 / probes **958**
+byte-identical / regressions **288** / lint **1336 live·0 ghost·0 inert** / 9
 Rust suites / bindings pytest 72. Verify: `make diff` · `make lint-probes` ·
 `cargo test` (oracle prebuilt, `oracle/target/classpath.txt`). **Red on resume
 ⇒ drift — investigate before building.** (Known pre-existing fuzz latent:
@@ -91,53 +94,80 @@ override stops forcing NEVER. FACTS-only (reaping) gap (~25% → 0-div); FIRING
 cargo test / lint 1336·0·0 / bindings 72. The whole CEP-E2 inference arc (joins,
 exists, not; explicit + inferred @expires) is now unwalled.
 
-**➡ NEXT SLAB — SHARED temporal-join node ORDER (D-136; ★MODEL DONE & VALIDATED,
-port pending — full handoff below, nothing to re-derive).** ORDER-only, 14% of
-shared-temporal populations, **0 SET-miss** (never a correctness bug — xfail'd
-`xf_cep_tjorder_dual_tms`, LOW priority; not urgent).
+**✅ SHARED temporal-join node ORDER — DONE (D-136).** The compose = D-125 base +
+WHOLE-epoch peer reversal (the engine did neither at pop-time = 14% nor at flush =
+61%). Landed in 3 scoped pieces: DIVERT clean-shape shared temporal joins (insert-
+only delta, all-Term sinks) out of the eval walk on EVERY arrival (linked or not —
+an unlinked left in staging self-drains REVERSED, flipping the base) →
+ACCUMULATE the per-arrival `flush_ins_delta` emission into `phreak.rs Node.tj_epoch`
+FORWARD → DRAIN once at `fire_all` (first sink `append_into_pending`, peers
+`peer_merge_term`). `fuzz_shared_tjo.py` 0-div (5 seeds/700); diff 11/958/288;
+`xf_cep_tjorder_dual_tms` GRADUATED + 3 `fz_tjo_shared*` witnesses. See D-136.
 
-_The SPEC is LOCKED (don't re-model):_ `tools/model_shared_tjo.py`, **0-div / 6
-seeds / 1800 cases**. Composition — per fire cycle (epoch), the shared node's
-D-125 tuple batch (`model_join_flush.Node`, per-arrival order) fires RULE-GROUPED
-(RuleExecutor drains each rule's queue fully, decl order); **the FIRST sink (TJ0)
-fires it FORWARD, every PEER sink (TJ1..) fires it REVERSED** (the D-071/D-102
-peer-copy prepend). Run `python3 tools/model_shared_tjo.py fuzz 300 <seed>` to see
-the spec; `python3 tools/fuzz_shared_tjo.py 300 <seed>` is the engine gate
-(currently 14% ORDER-only). Recon proof: a single-rule-variant diff showed the
-oracle's per-rule order == the single-rule D-125 order for 100% of cases.
+**➡ CURRENT ISSUES — remaining CEP backlog (readiness-ordered; recon/specs/battery
+ALREADY BUILT — start from here, don't re-derive).** The whole temporal-join arc
+is landed (joins D-125, exists D-127, not D-134, @expires-inference D-135, shared
+order D-136); the CEP surface is faithful except:
 
-_DON'T retry the naive un-bail (already disproven):_ making shared temporal nodes
-FLUSH (push-empty stash at `stream_flush_ex` ~3751 `if t.node.temporal`) gave
-**61% wrong + 2 corpus regressions** (`pr_cep_53_perfact_memory_arrival`,
-`pr_rs_r11_stream_staging`) — the flush emits PER-ARRIVAL so `peer_merge_left`
-(`phreak.rs:543`) / `peer_merge_term` (`:984`, both PREPEND) reverse each SMALL
-batch; concatenated per-arrival reversals ≠ the WHOLE-epoch reversal the oracle
-wants. Reverted; the D-102 bail stands (a D-136 breadcrumb comment marks the site).
+1. **E2 item-C classes 1/2/3 — event UPDATE/DELETE re-propagation (D-115; MOST
+   PORT-READY — recon+battery DONE, fenced awaiting a go-ahead, exactly where D-136
+   sat).** Three understood gaps, each with a minimal repro:
+   - **class 1** `xf_cep_c_upd_temporal` — temporal Behavior nodes are NOT
+     property-reactive: Drools re-fires an after/before match on ANY external
+     update of a participant (even a no-op/irrelevant field); engine treats them
+     like a plain property-reactive join ⇒ UNDER-fires. Fix: temporal join re-fires
+     on any update of a participant.
+   - **class 2** `xf_cep_c_upd_{evict_revive,after_exp}` (ONE root) — `on_update`
+     re-propagates a clock-removed (evicted/expired but still `is_alive`) event
+     back into an accumulate; Drools kept it removed. Fix: guard `on_update` on the
+     evicted/expired state (`advance` marks expiry but leaves `is_alive`; kill is
+     deferred to `drain_pending_expirations`).
+   - **class 3** `xf_cep_c_del_churn_exists` — external-delete un-fires an exists, a
+     same-epoch reinsert re-fires it in Drools; engine keeps exists linked ⇒
+     UNDER-fires. Fix: exists external-delete round-trip.
+   Battery: 4 `xf_cep_c_*` repros + 16 `pr_cep_c_*` boundary pins + the `fuzz_cep.py`
+   mutation axis (three class fences to LIFT + `CEP_NO_TEMPORAL` flag); findings
+   `~/.claude/plans/cep-e2-item-c-findings.md`. Gate: lift the fences, fresh-seed
+   `fuzz_cep` 0-div + `make diff` byte-identical. ⚠ RISK medium-high — the shared,
+   corpus-critical D-047 mutation path (D-112 blast-radius mandate: `make fuzz`
+   gen.rs seeds 42/123/7 must stay at the known DELETE-FREE latents only). See D-115.
 
-_The PORT:_ give TJ0 the per-arrival D-125 order (the flush) but reverse PEER
-sinks over the FULL epoch batch — a compose the engine does at NEITHER pop-time
-(the current bail, 14% wrong) NOR flush (61% wrong). Likely shape: let the shared
-temporal node flush for the FIRST sink but ACCUMULATE its emissions across the
-epoch and `peer_merge` the peers ONCE (full-batch reverse) at fire, rather than
-per-arrival. Sites: bail `engine.rs stream_flush_ex` ~3751; per-arrival flush
-`phreak.rs flush_ins_delta:465`; sink loop + peer_merge `engine.rs` ~5393
-(`Sink::Node`→`peer_merge_left`, `Sink::Term`→`peer_merge_term`); pop-time
-`node.shared` lseq stamp `phreak.rs:1310`. Gate: `fuzz_shared_tjo.py` 0-div +
-`make diff` byte-identical (⚠ watch `pr_cep_53`/`pr_rs_r11` + the D-102 18%
-single-rule hazard) + graduate `xf_cep_tjorder_dual_tms`. See D-136.
+2. **cf313 non-temporal `not X() P()` firing ORDER (model-first, small, LOW).**
+   Pre-existing latent — `fuzz_cep` seed 313 `cf313x13` firing[12], reproduces
+   IDENTICALLY with any slab stashed (not caused by recent work). NO model yet ⇒
+   probe-first recon to isolate the non-temporal not-CE staging order (⚠ staging
+   order flip-flops — MODEL-FIRST, do NOT hand-tune). Not yet minimized.
 
-**Parked candidates:** • the fenced within-close-time not ORDER (D-134 xfail) is a
-heap/PQ artifact — only crack it if Seine grows a faithful `PseudoClockScheduler`.
+3. **window × interval count-during-window — PARSER wall, not semantics.**
+   `accumulate($e:E() ...; count($e))` (bound accumulate SOURCE) doesn't parse (2
+   `engine_fenced` probes, `cp_win_int_*`). Backlog: (a) DRL parser extension for a
+   bound accumulate source, THEN (b) the B×E membership-during-window compose. The
+   parser piece is the gate; not started.
 
-**Open/deferred (parked):** • shared-temporal join order (`xf_cep_tjorder_
-dual_tms`; cf101x551-vs-t14 constraint) • item-C re-propagation (classes 1/2/3;
-`xf_cep_c_*`/`pr_cep_c_*`) • window×interval count-during-window (parser wall:
-bound-source accumulate) • beyond-Drools full-Allen inference
-(`docs/allen-beyond-drools.md`) • E1-hardening: accumulate-match latents; the
-D-117-contained temporal+delete+TMS non-termination root cause
-(`scenarios/hang-backlog/`); D-080 TMS envelope; window×TMS; `window:length` +
-standalone window (walled) • Upstream: #2366, `docs/drools-inferred-expiry-
-never.md`.
+4. **temporal+delete+TMS NON-TERMINATION (D-117; deep, backstopped — SAFE now).**
+   `spin_guard` ERRORS (~18s) instead of hanging. Root = a TMS
+   `exp_deferred`/`deferred` RE-ADD cycle inside the D-080/D-106 halt-model envelope
+   (memory BARS local halt-semantics patches ⇒ needs a halt-model rework, the
+   biggest/riskiest). Single repro
+   `scenarios/hang-backlog/pre_existing_temporal_delete_hang`. E1-hardening.
+
+5. **Full-Allen inference — ROADMAP, off-oracle (do NOT start before faithful-
+   first).** `xf_cep_e_{ic,inf}_*` = Drools-incoherence (keepA/keepB) + the
+   documented @expires-inference LEAK. The "fix" is the beyond-Drools SUPERSET
+   (spec-driven vs Allen 1983, opt-in/quarantined) — `docs/allen-beyond-drools.md`,
+   D-118/119. Bryan-ruled parked until Seine is certifiably faithful on the whole
+   CEP surface.
+
+**Fenced by nature — NO backlog (would need JVM emulation; document, don't chase):**
+within-close-time not ORDER (`xf_cep_not_*` = equal-fire-time
+`java.util.PriorityQueue` tie, D-134 §6 / D-131) · reset×WindowNode incoherence
+(`xf_win_reset_incoherence`, D-114) · identity-hash order (`fz_42_84` + the
+fz_42/fz_123 latent family).
+
+**Also walled (E1-hardening / scope):** windowed-accumulate removal TIMING (~0.5%,
+D-112/114 — needs a `model_check_stream`+WindowNode sub-recon, do NOT hand-tune) ·
+D-080 TMS envelope · window×TMS · `window:length` + standalone window · Upstream
+#2366 (`docs/drools-inferred-expiry-never.md`).
 
 ---
 
@@ -6704,14 +6734,20 @@ witnesses (`cp*not*`, incl. `cp_not_chain_defer`) GRADUATED to
 `scenarios/probes/pr_cep_not_*` (3 `expect_inert`, 2 firing).
 
 **Fenced (§6):** the ~0.6% WITHIN-close-time multi-tuple ORDER (chain_not /
-not_mid, order-only, never a set/count miss). Split: most are genuine heap ties
-(Drools' `PseudoClockScheduler` PriorityQueue is fire-time-only, no secondary
-key — INTERNALLY inconsistent, the validated model diverges too); a few are the
-not_mid released-left downstream-join order (pop-time `do_join_node` scans
-descending-ts then PREPENDS, reversing vs the D-125 flush order). Both are the
-"chain within-close-time" residual D-131 flagged; per doctrine (do NOT grind the
-tie) quarantined to `scenarios/xfail/xf_cep_not_{chain_heaptie,mid_release_join_order}`.
-Not black-box-ground.
+not_mid, order-only, never a set/count miss). Split: most are the D-131 UNDEFINED
+tie-order — Drools' `DefaultTimerJobInstance.compareTo` keys SOLELY on fire-time
+(no secondary key, verified), so equal-fire-time jobs' relative order is NOT
+decided by any Drools logic; it falls out of `java.util.PriorityQueue`'s non-stable
+heap add/poll — a JVM / Java-core side-effect, NOT a semantic (same class as the
+`fz_42_84` identity-hash-order quarantine). That is why the black-box tie
+flip-flopped and why the validated model diverges too (no spec exists to match). A
+few are the not_mid released-left downstream-join order (pop-time `do_join_node`
+scans descending-ts then PREPENDS, reversing vs the D-125 flush order). Both are
+the "chain within-close-time" residual D-131 flagged; per doctrine (do NOT grind
+undefined behavior) quarantined to
+`scenarios/xfail/xf_cep_not_{chain_heaptie,mid_release_join_order}`. Not
+black-box-ground; matching it would need byte-emulating `java.util.PriorityQueue`,
+not a better scheduler.
 
 **Not pushed** (Bryan holds the push; the D-127..D-134 stack + docs).
 [Pushed 2026-07-09 — Bryan cleared the hold; branch-only, no tags.]
@@ -6826,3 +6862,58 @@ neither at pop-time (14% wrong) nor at flush (61% wrong). **Next: engine plumbin
 for that compose** (batch the shared node's peer emission and reverse once), gated
 on `fuzz_shared_tjo.py` 0-div + `make diff` byte-identical. Still ORDER-only / LOW
 priority; the SPEC (model) is locked so the port is well-defined.
+
+**PORT LANDED (fresh context + go-ahead) — `fuzz_shared_tjo.py` 0-div / 5 seeds /
+700 cases + the model's 6/1800; `make diff` 11 / 958 / **288** byte-identical.**
+The compose the recon called for, wired in three scoped pieces:
+
+1. **Divert (stash loop, `stream_flush_ex`).** A shared temporal join of the
+   VALIDATED shape — clean INSERT-only delta (no upd/del, no ph=1 right), ALL
+   sinks Term — is taken OUT of the eval walk (so `do_join_node` never re-orders
+   it, the 61% naive-un-bail trap) into a side `shared_tj_stash`. Diverted on
+   EVERY arrival, **linked or not** — the key correction the recon model hid:
+   an UNLINKED left left in staging batch-flushes / self-drains REVERSED, which
+   flips the base order the peers then reverse AGAIN (a first cut that kept the
+   `node_linked` gate was 12%, all base-order flips). Draining each arrival's
+   single-side delta to memory in arrival order (what the unshared D-125 path
+   already does) is what makes the base = D-125. Non-clean shared temporal nodes
+   keep the legacy pop-time bail (byte-identical).
+2. **Accumulate (D-125 flush loop).** The diverted delta runs `flush_ins_delta`
+   (the D-125 base order — where pop-time `do_join_node` gives its REVERSE) and
+   the emission is appended to the node's new `tj_epoch` buffer in FORWARD order.
+   It is NOT routed to the sinks here: per-arrival routing can't form the peer
+   reversal (the peer copy reverses each single-tuple batch = a no-op, and
+   term_pending drains between arrivals — the exact "concatenated per-arrival
+   reversals ≠ whole-epoch reversal" the recon measured at 61%).
+3. **Drain ONCE (fire boundary, `fire_all`).** Before the pop loop, each node
+   with a non-empty `tj_epoch` emits the WHOLE epoch batch: first sink FORWARD
+   (`append_into_pending` = addAll ⇒ the D-125 order), every peer REVERSED
+   (`peer_merge_term` prepends the whole batch ⇒ the SegmentPropagator LIFO
+   reversal, now over the whole epoch). RULE-GROUPING falls out of the existing
+   RuleExecutor (each rule drains its queue in decl order); per-epoch reversal
+   falls out of the terminal draining between fire cycles. **This is the compose
+   the engine did neither at pop-time (14%) nor at flush (61%): D-125 base +
+   whole-epoch peer reversal.**
+
+**Files:** `engine.rs` (the three pieces above); `phreak.rs` (`Node.tj_epoch`,
+empty on every non-shared/non-temporal node ⇒ byte-identical path). ~1 field + 2
+scoped blocks; no change to `flush_ins_delta`, `do_join_node`, `peer_merge_term`,
+or any unshared path.
+
+**Gates:** `fuzz_shared_tjo.py` 0 ORDER / 0 SET (seeds 7101-7104, 8201; 700
+cases; was 14%); `make diff` 11 / 958 / **288** byte-identical; `cargo test` 9
+suites; `make lint-probes` 1336/0/0; bindings pytest 72.
+
+**BONUS — `xf_cep_tjorder_dual_tms` GRADUATED** (xfail → `scenarios/regressions/`).
+The 7-rule TMS scenario (TJ0/TJ1 share the temporal join; J2 insertLogical, ND4
+`not D`, salience ladder) was xfail'd on exactly this order bug; the scoped fix
+corrects the shared-join order while the TMS deletes (upd/del staging ⇒ clean=
+false) stay on the legacy path — now byte-identical, deterministic (3/3). Locked
+alongside 3 new positive witnesses `fz_tjo_shared{2_peer,3,_epoch}` (2-rule peer,
+3-rule two-peer, 3-rule×epoch — each in the pre-fix divergence set). The whole
+CEP-E2 shared-temporal-join ORDER facet is UNWALLED; only the ~0.6% within-close-
+time not-ORDER residual (D-134 §6) remains — and that one is UNDEFINED behavior
+(equal-fire-time `PriorityQueue` order, a JVM/Java-core side-effect per D-131), not
+a fixable order, so it stays fenced by nature.
+
+**Not pushed** (branch-only, Bryan holds the push).
