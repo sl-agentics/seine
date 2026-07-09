@@ -20,10 +20,11 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **10 commits AHEAD of `origin`, NOT pushed** (D-127..D-134 +
-docs — Bryan holds the push; `git push` when cleared). Tree CLEAN, gates green.
-The temporal-`not` port is ACTIVE (gated on temporal + `CeKind::Not`;
-non-temporal-not and every other path byte-identical). ⚠ **NO `v*` TAGS until a
+**Git:** on `main`, **PUSHED through D-134** (`origin/main` at `b0e15cd`, the
+D-127..D-134 stack + docs is now on origin — Bryan cleared the push 2026-07-09;
+push was branch-only, NO tags). Tree CLEAN, gates green. The temporal-`not` port
+is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
+path byte-identical). ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
 and the `pypi` environment has NO protection rules (gh-verified): a new tag
 publishes `seine-rs` with no manual gate. Recent: D-127 exists×temporal PORT →
