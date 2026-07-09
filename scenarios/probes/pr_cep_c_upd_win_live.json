@@ -1,0 +1,27 @@
+{
+ "name": "pr_cep_c_upd_win_live",
+ "_finding": "CEP E2 item C §1a (D-139): external in-place UPDATE of a live WINDOWED-accumulate source event. count() has NO source binding ⇒ the windowed watch mask (bind_fields) is EMPTY ⇒ NO re-fire on any field update (here a no-op tag). Was xfail (engine re-folded → W2 W2 over-fire); the D-139 fix gates a windowed accumulate's source re-fold on bind_fields (bindings) instead of listen_mask (constraints∪bindings), so a constraint-field update is a mask-miss. engine==oracle: W2 once. Contrast pr_cep_c_win_sum_upd (sum($v) re-folds on a $v update).",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "tag", "type": "String"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 100}
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0(tag == \"y\") over window:time(200ms); $c : count() ) then end\n",
+ "facts": [
+  {"type": "E0", "fields": {"ts": 38, "tag": "y"}}
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {"op": "advance", "ms": 100},
+    {"op": "update", "target": 0, "fields": {"tag": "y"}}
+   ],
+   "facts": []
+  }
+ ]
+}

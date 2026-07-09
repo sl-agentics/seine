@@ -1,0 +1,27 @@
+{
+ "name": "pr_cep_c_win_bind_notfn",
+ "_finding": "CEP E2 item C §1a (D-139) DISCRIMINATOR: windowed sum($v:val) whose source ALSO BINDS $w:oth (a var the function never reads). Updating oth RE-fires — so the windowed watch mask is the full source-BINDING set (bind_fields), not merely the function's arguments. Proves the rule is bindings, not fn-args. engine==oracle: W2 twice.",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "val", "type": "i64"},
+    {"name": "oth", "type": "i64"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 100000}
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0($v : val, $w : oth) over window:time(200ms); $s : sum($v) ) then end\n",
+ "facts": [
+  {"type": "E0", "fields": {"ts": 38, "val": 10, "oth": 0}}
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {"op": "update", "target": 0, "fields": {"oth": 7}}
+   ],
+   "facts": []
+  }
+ ]
+}

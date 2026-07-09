@@ -1,0 +1,27 @@
+{
+ "name": "pr_cep_c_plain_cnt_other",
+ "_finding": "CEP E2 item C §1a (D-139) CONTROL — corrects the D-137 finding's claim that a PLAIN accumulate 're-folds on ANY modify'. It does NOT: a plain count(tag==\"y\") is property-reactive on its source pattern (constraints∪bindings). Updating the UNREAD field oth does NOT re-fire (mask miss). The plain analog of the windowed rule; the only difference is that plain KEEPS constraint fields in the mask (pr_cep_c_win_sumc_tag drops them). engine==oracle: W2 once. (Plain re-fires on a tag/constraint update — that path stays byte-identical, unchanged by D-139.)",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "tag", "type": "String"},
+    {"name": "oth", "type": "i64"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 100000}
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0(tag == \"y\"); $c : count() ) then end\n",
+ "facts": [
+  {"type": "E0", "fields": {"ts": 38, "tag": "y", "oth": 0}}
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {"op": "update", "target": 0, "fields": {"oth": 7}}
+   ],
+   "facts": []
+  }
+ ]
+}

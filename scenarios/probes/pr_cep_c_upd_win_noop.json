@@ -1,0 +1,27 @@
+{
+ "name": "pr_cep_c_upd_win_noop",
+ "_finding": "CEP E2 item C §1a (D-139): windowed count() over TWO source events, no-op tag update of one. count() has no binding ⇒ empty windowed watch mask ⇒ NO re-fire (count stays 2). Was xfail (engine re-folded → W2 W2). Same root as pr_cep_c_upd_win_live but with a multi-member accumulate and no expiry advance.",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "tag", "type": "String"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 100000}
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0(tag == \"y\") over window:time(200ms); $c : count() ) then end\n",
+ "facts": [
+  {"type": "E0", "fields": {"ts": 38, "tag": "y"}},
+  {"type": "E0", "fields": {"ts": 40, "tag": "y"}}
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {"op": "update", "target": 0, "fields": {"tag": "y"}}
+   ],
+   "facts": []
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "name": "pr_cep_c_win_sumc_tag",
+ "_finding": "CEP E2 item C §1a (D-139) DISCRIMINATOR: windowed sum($v:val) whose source ALSO CONSTRAINS tag==\"y\". Updating the CONSTRAINT field tag (not the bound $v) does NOT re-fire — the windowed watch mask is bind_fields={val}, constraints excluded. This is the crux distinguishing windowed (bindings-only) from plain (constraints∪bindings): the plain analog pr_cep_c_plain_cnt_other + the temporal p_sumc_tag control re-fire on a constraint update. engine==oracle: W2 once.",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "tag", "type": "String"},
+    {"name": "val", "type": "i64"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 100000}
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0(tag == \"y\", $v : val) over window:time(200ms); $s : sum($v) ) then end\n",
+ "facts": [
+  {"type": "E0", "fields": {"ts": 38, "tag": "y", "val": 10}}
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {"op": "update", "target": 0, "fields": {"tag": "y"}}
+   ],
+   "facts": []
+  }
+ ]
+}

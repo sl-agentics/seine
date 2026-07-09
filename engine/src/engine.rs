@@ -5093,7 +5093,26 @@ impl Engine {
                     // temporal positive node regardless of the listen mask.
                     let temporal_refire =
                         pat.ce == CeKind::Positive && self.trie[ni].node.temporal;
-                    if mask == u64::MAX || pat.listen_mask & mask != 0 || temporal_refire {
+                    // CEP E2 item C §1a (D-139): a WINDOWED accumulate is
+                    // property-reactive on its source pattern's BINDINGS ONLY —
+                    // the alpha-CONSTRAINT fields are dropped from the watch mask
+                    // (with an intervening WindowNode, Drools gates the source
+                    // modify on what the accumulate reads = the bound vars, not
+                    // the alpha constraints). A PLAIN accumulate (and every
+                    // join/not/exists) keeps the full listen mask (constraints ∪
+                    // bindings). Probed over 28 oracle cells: windowed count()
+                    // (no binding) never re-folds on ANY field update; windowed
+                    // sum($v)/max($v) re-fold only when $v's field changes;
+                    // constraint-field updates (tag=="y", val>5) do NOT re-fold
+                    // even though listen_mask includes them (xf_cep_c_upd_win_
+                    // {live,noop}). bind_fields is bindings-only, listen_mask is
+                    // constraints∪bindings, so this drops exactly the constraints.
+                    let eff_mask = if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some()) {
+                        pat.bind_fields
+                    } else {
+                        pat.listen_mask
+                    };
+                    if mask == u64::MAX || eff_mask & mask != 0 || temporal_refire {
                         self.trie[ni].node.s_right.add_upd(f, origin);
                     } else {
                         // mask miss: immediate right-memory reAdd, no

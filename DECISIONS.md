@@ -11,13 +11,16 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-09, post-D-138 (CEP E2 item C — classes 1 + 2 + 3-EXTERNAL
-all PORTED). Class 1 (temporal-join update re-fire) + 2 (clock-removed revival)
-D-137; class 3 EXTERNAL exists-witness churn D-138 (delete-time eval in
-`delete_fact` resolves the STREAM ins-before-del deferral). All corpus
-byte-identical. Remaining fenced: the rule-RHS re-entrant churn variant + the two
-out-of-C gaps (windowed live-modify, temporal-order latents — CURRENT ISSUES
-1a/1b). `git log --oneline -14` for live HEAD._
+_Last updated: 2026-07-09, post-D-139 (CEP E2 item C §1a — windowed-accumulate
+LIVE-modify property-reactivity PORTED). Classes 1+2 (D-137), 3-EXTERNAL (D-138),
+and §1a (D-139) all done. §1a: a WINDOWED accumulate watches BINDINGS-only on
+external update (constraints dropped) vs a PLAIN one's constraints∪bindings — a
+one-block `on_update` gate on `bind_fields` instead of `listen_mask` for windowed
+nodes; probing OVERTURNED the D-137 "plain re-folds on any modify" claim (plain is
+property-reactive too). All corpus byte-identical. Remaining item-C fenced: the
+rule-RHS re-entrant exists churn (D-138) + item 1b temporal-order latents + item #2
+non-temporal not-order (both pre-existing, model-first). `git log --oneline -14`
+for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -32,7 +35,11 @@ DECISIONS.md + 3 xfails→probes + 12 new `pr_cep_c_*` + 3 new `xf_cep_c_*`
 witnesses; `fuzz_cep.py` unchanged (fences kept). **Class 3 EXTERNAL exists-witness
 churn COMMITTED locally at `e2e0b0a` (D-138)** — `delete_fact` delete-time eval +
 `fuzz_cep.py` class-3 fence lift + xf→probe graduation; only the rule-RHS
-re-entrant churn variant remains fenced. The temporal-`not` port
+re-entrant churn variant remains fenced. **§1a windowed-accumulate live-modify
+COMMITTED locally (D-139; hash in the next sync marker)** — one `on_update` block
+(windowed accumulate gates the source re-fold on `bind_fields` not `listen_mask`)
++ `fuzz_cep.py` `windowed_acc_types` UPDATE fence lift + `tools/model_check_react.py`
++ 2 xf→probe graduations + 4 discriminator probes. The temporal-`not` port
 is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
 path byte-identical). ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
@@ -41,15 +48,16 @@ publishes `seine-rs` with no manual gate. Recent: D-127 exists×temporal PORT �
 D-128..D-131 not×temporal modeled → port report → D-132/133 §3A (reaping) →
 **D-134 §3B (firing deferral) — not×temporal DONE, CEP-E2 fully unwalled.**
 
-**Gates (green @ working tree incl. D-138, local):** baseline 11 / probes **974**
-byte-identical / regressions **288** / lint **1361 live·0 ghost·0 inert** / 9 Rust
-suites / bindings pytest 72 / class-3 fuzz 0-div 3×800 (seeds 301/302/303) /
-blast-radius `make fuzz` 42/123/7 == pristine HEAD (item-C changes are event-gated,
-no main-axis regression). (At committed HEAD `6665f40`: 11/970/288, lint 1352.) Verify: `make diff` ·
-`make lint-probes` · `cargo test` (oracle prebuilt, `oracle/target/classpath.txt`).
+**Gates (green @ working tree incl. D-139, local):** baseline 11 / probes **980**
+byte-identical / regressions **288** / lint **1367 live·0 ghost·0 inert** / 9 Rust
+suites / bindings pytest 72 / class-1a fuzz 0-div 3×800 (seeds 401/402/403,
+`windowed_acc_types` fence LIFTED) / class-3 fuzz 0-div 3×800 (seeds 301/302/303) /
+blast-radius: `gen.rs` emits NO windows ⇒ the D-139 windowed-gate is provably inert
+on the main axis. Verify: `make diff` · `make lint-probes` · `cargo test` ·
+`python3 tools/model_check_react.py` (oracle prebuilt, `oracle/target/classpath.txt`).
 **Red on resume ⇒ drift — investigate before building.** (Known pre-existing fuzz latent:
-`fuzz_cep` seed 313 `cf313x13` firing[12], non-temporal `not X() P()` order —
-NOT a regression, reproduces with any slab stashed.)
+`fuzz_cep` seed 313 `cf313x13` firing[12] & seed 401 `cf401x344` firing[7], non-temporal
+`not X() P()` order — NOT a regression, reproduces with any slab stashed; item #2.)
 
 **Landed (background — log has detail):** v0.4.0 CEP E1 + reset + agenda groups
 + queries×mutation + aggregation; data-types (D-096–098); TMS; P1c group CEs;
@@ -152,13 +160,15 @@ order D-136); the CEP surface is faithful except:
    blast-radius seeds 42/123/7 == pristine HEAD (CEP-gated). D-115's "lift fences ⇒
    0-div" premise was OPTIMISTIC (fences do double-duty — 1a/1b). See D-137.
 
-1a. **windowed-accumulate LIVE-modify property-reactivity — NEW gap** (was hidden
-    by class-2's `windowed_acc_types` fence): a windowed accumulate is
-    property-reactive on the FUNCTION fields — `count()`+irrelevant/no-op field
-    OVER-fires (`xf_cep_c_upd_win_{live,noop}`); `sum(val)`+val agrees
-    (`pr_cep_c_win_sum_upd`); a PLAIN accumulate re-folds on any modify. The flagged
-    WindowNode "do-not-hand-tune" wall; needs a `model_check_stream`+WindowNode
-    sub-recon. Fence KEPT.
+1a. **windowed-accumulate LIVE-modify property-reactivity — PORTED (D-139).** The
+    rule was NOT "windowed is reactive on FUNCTION fields, plain re-folds on any
+    modify" (the D-137 sketch — WRONG): probing showed watch(windowed) = source
+    BINDINGS only, watch(plain) = source CONSTRAINTS∪BINDINGS (plain IS
+    property-reactive too). One `on_update` block gates a windowed accumulate's
+    source re-fold on `bind_fields` (= listen_mask minus constraints); plain/every
+    other node keeps `listen_mask` (byte-identical). `xf_cep_c_upd_win_{live,noop}`
+    GRADUATED + 4 discriminators; `windowed_acc_types` UPDATE fence LIFTED; spec
+    `tools/model_check_react.py`. See D-139.
 
 1b. **pre-existing temporal-join-ORDER latents (E1-hardening)** — surfaced by
     lifting `temporal_types` (8/800 fuzz div, ALL bisect-to-HEAD byte-identical:
@@ -7094,3 +7104,64 @@ event-free gen.rs axis is untouched). The class-1 `temporal_types` + class-2
 ⇒ **CEP E2 item C = classes 1 (D-137) + 2 (D-137) + 3-external (D-138) PORTED;**
 remaining fenced: the rule-RHS re-entrant churn + windowed live-modify
 property-reactivity + the pre-existing temporal-join ORDER latents.
+
+### D-139: CEP E2 item C §1a (windowed-accumulate live-modify property-reactivity) — PORTED; the D-137 "plain re-folds on ANY modify" finding CORRECTED
+
+Resumed the readiness-ordered CEP backlog at item 1a — the windowed-accumulate
+LIVE-modify over-fire that the class-2 `windowed_acc_types` fence had been
+hiding (`xf_cep_c_upd_win_{live,noop}`: engine re-folds a windowed accumulate on
+a no-op/irrelevant field update ⇒ `W2 W2`; oracle `W2`). Flagged in the notes as
+the "do-not-hand-tune WindowNode wall", so PROBE-FIRST — a 28-cell oracle matrix
+(no advance ⇒ pure update reactivity, isolated from expiry/eviction).
+
+**The rule (probed, deterministic 3×; OVERTURNS the D-137 finding).** An external
+in-place UPDATE of an accumulate SOURCE event that keeps it matching (alpha still
+passes, still in window) re-fires the rule iff the updated field intersects the
+node's WATCH MASK:
+  watch(PLAIN accumulate)    = source CONSTRAINT fields ∪ source BINDING fields
+  watch(WINDOWED accumulate) = source BINDING fields ONLY  (constraints dropped)
+The D-137 finding claimed "plain re-folds on ANY modify" — FALSE: a plain
+`count(tag=="y")` does NOT re-fire on an unread-field update (`p_cnt_other`=1,
+`pr_cep_c_plain_cnt_other`). Plain IS property-reactive, on the standard source
+mask; WINDOWED is reactive on a NARROWER mask that drops the alpha constraints.
+Discriminators: `w_bind_notfn`=2 (a bound-but-fn-unused `$w:oth` update RE-fires
+⇒ the mask is BINDINGS, not fn-args) and `w_cnt_valconstr`=1 (a constraint-only
+`val>5` update does NOT ⇒ constraints excluded). The timestamp follows the same
+rule (watched iff BOUND, independent of driving window membership): the fuzz's
+`sum($t:ts)` re-fires on a ts update (`fz_wsum_ts`=2) but `count()` never does
+(`fz_wcnt_ts`=1). Executable spec: `tools/model_check_react.py` (32 cells,
+engine==oracle==predicate).
+
+**Why it fits the engine cleanly.** An accumulate node's SOURCE events are its
+RIGHT inputs (engine.rs:1638), so an in-place source update flows through the
+`on_update` trie `(true,true)` branch (~engine.rs:5083), gated on
+`pat.listen_mask & mask`. `listen_mask` = constraints∪bindings (a Bind sets both
+listen_mask and bind_fields at compile; a Cmp sets only listen_mask), and
+`bind_fields` = bindings-only — so the watch-mask difference is EXACTLY
+listen_mask-minus-constraints = bind_fields. **Port (one scoped block):** for a
+WINDOWED accumulate node (`pat.acc.window_time.is_some()`) gate the source re-fold
+on `bind_fields`; plain/join/not/exists keep `listen_mask` (byte-identical). A
+constraint-field update on a windowed source is now a mask-miss (immediate
+right-memory re-add, no re-fold, no re-fire). The `mask==u64::MAX` bare/class
+short-circuit is preserved (unreachable from external field-updates, which always
+carry a specific mask — engine.rs:3341 — so the fuzz/probes never hit it).
+
+**Fuzz.** Lifted the `windowed_acc_types` UPDATE fence in `fuzz_cep.py` (class 2
+was already ported D-137; §1a now too). 3×800 (seeds 401/402/403) = 2400 cases,
+0 NEW divergences. The lone flag `cf401x344` is the pre-existing NON-temporal
+`not E0() P()` firing-ORDER latent (CURRENT-ISSUES item #2, the cf313 family) —
+it bisects byte-identical to HEAD (engine change stashed) and has no windowed
+accumulate at all; the fence-lift's RNG shift merely re-rolled the fuzz surface
+onto it. NOT a §1a regression. The `temporal_types` UPDATE fence STAYS (item 1b,
+the separate pre-existing temporal-join ORDER latents). Blast-radius: the general
+`gen.rs` fuzzer emits ZERO windows ⇒ `window_time.is_some()` is never true there
+⇒ the change is PROVABLY inert on the main axis (byte-identical, no re-run needed).
+
+**Gates (green @ working tree):** `make diff` 11 / **980** / 288 byte-identical
+(`xf_cep_c_upd_win_{live,noop}` GRADUATED → `pr_cep_c_upd_win_{live,noop}` + 4
+discriminators `pr_cep_c_{win_sumc_tag,win_bind_notfn,win_cnt_valconstr,plain_cnt_other}`);
+`make lint-probes` **1367**·0·0; `cargo test` 9 suites; bindings pytest 72;
+class-1a fuzz 0-div 3×800; `model_check_react.py` 32/32. ⇒ **CEP E2 item C §1a
+CLOSED.** Remaining item-C fenced: the rule-RHS re-entrant exists churn (D-138,
+not fuzz-reachable) + item 1b temporal-order latents + item #2 non-temporal
+not-order (both pre-existing, model-first).

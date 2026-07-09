@@ -334,11 +334,17 @@ class Gen:
             epoch_ins = {f["type"] for f in efacts}
             # CEP E2 item C (D-115): external update/delete over a provably-
             # live initial-fact target (liveness reflects the post-advance
-            # clock), with the class 1/2/3 FENCES — those compositions are
-            # xfail'd, not fuzzed:
-            #   UPDATE excludes temporal-join + windowed-accumulate event
-            #     types (class 1 temporal re-fire; class 2 evicted/expired
-            #     revival).
+            # clock). Classes 1/2/3 are PORTED; only the item-1b temporal-join
+            # ORDER latents remain fenced on UPDATE:
+            #   UPDATE excludes temporal-join event types — NOT class-1 (that
+            #     re-fire is ported, D-137), but the pre-existing temporal-join
+            #     ORDER latents (item 1b: cf313 not-order, @duration interval
+            #     join-order) surfaced by lifting the fence; all bisect-to-HEAD
+            #     byte-identical, un-caused by the item-C ports. Windowed
+            #     accumulate is NOW allowed: class-2 evicted/expired revival
+            #     (D-137, clock_removed guard) and §1a live-modify property-
+            #     reactivity (D-139, windowed = bindings-only watch mask) both
+            #     ported.
             #   DELETE excludes an exists-witness churn (deleting an
             #     exists_type event while a same-type event arrives here).
             # (class-2 EXPIRATION, update-of-deleted and double-delete are
@@ -349,8 +355,7 @@ class Gen:
                         if tg["targetable"] and not tg["deleted"]
                         and clock < tg["deadline"]]
                 upd_ok = [tg for tg in live
-                          if tg["type"] not in self.temporal_types
-                          and tg["type"] not in self.windowed_acc_types]
+                          if tg["type"] not in self.temporal_types]
                 del_ok = list(live)  # D-138: class-3 external exists-witness churn PORTED
 
                 def pick(pool):  # bias toward EVENT targets (the item-C heart)

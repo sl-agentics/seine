@@ -1,0 +1,26 @@
+{
+ "name": "pr_cep_c_win_cnt_valconstr",
+ "_finding": "CEP E2 item C §1a (D-139) DISCRIMINATOR: windowed count() with an INEQUALITY constraint val>5 (no binding). Updating val (kept >5) does NOT re-fire — a constraint-only field is not in the windowed watch mask (bind_fields is empty for count()). Confirms the exclusion is CONSTRAINT-vs-BINDING, not equality-vs-inequality. engine==oracle: W2 once.",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "val", "type": "i64"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 100000}
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0(val > 5) over window:time(200ms); $c : count() ) then end\n",
+ "facts": [
+  {"type": "E0", "fields": {"ts": 38, "val": 10}}
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {"op": "update", "target": 0, "fields": {"val": 9}}
+   ],
+   "facts": []
+  }
+ ]
+}
