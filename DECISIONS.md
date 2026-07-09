@@ -20,8 +20,8 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **PUSHED through D-135** (`origin/main` at `5f7862f`, the
-D-127..D-135 stack + docs is now on origin — Bryan cleared each push 2026-07-09;
+**Git:** on `main`, **PUSHED through D-136** (`origin/main` at `162fb68`, the
+D-127..D-136 stack + docs is now on origin — Bryan cleared each push 2026-07-09;
 pushes are branch-only, NO tags). Tree CLEAN, gates green. The temporal-`not` port
 is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
 path byte-identical). ⚠ **NO `v*` TAGS until a
