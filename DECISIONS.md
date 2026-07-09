@@ -11,18 +11,18 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, post-D-129 (not deferral arc A), D-130 (not inference
-arc B / not_partner), D-131 (arc B chains: firing-set 0-div, order residual);
-`git log --oneline -10` for live HEAD._
+_Last updated: 2026-07-08, post-D-129/D-130/D-131 (not×temporal modeled) +
+`docs/not-temporal-port-mechanism.md` (the engine-port mechanism report, awaiting
+Bryan's GATE); `git log --oneline -10` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **6 commits AHEAD of `origin`, NOT pushed** (D-127, D-128,
-D-129 + the docs handoff + D-130 + D-131 — Bryan holds the push; `git push` when
-cleared). Tree CLEAN, gates green. ⚠ **NO `v*` TAGS until a PyPI
+**Git:** on `main`, **7 commits AHEAD of `origin`, NOT pushed** (D-127, D-128,
+D-129 + docs handoff + D-130 + D-131 + the port mechanism report — Bryan holds
+the push; `git push` when cleared). Tree CLEAN, gates green. ⚠ **NO `v*` TAGS until a PyPI
 release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and
 the `pypi` environment has NO protection rules (gh-verified): a new tag publishes
 `seine-rs` with no manual gate. Recent: **D-127 exists×temporal ENGINE PORT** →
@@ -64,23 +64,35 @@ exists (do NOT reach for `exists_flush_admit`; the problem is WHEN a satisfied
 lifted scratch measured **~30%** engine-vs-oracle divergence. Fence today:
 `engine.rs` ~2276 errors only on `CeKind::Not`; STP edge (~2316) tpos-guarded.
 
-**➡ START HERE (cold pickup) — the ENGINE PORT.** All black-box modeling is done
-(`model_not_infer.py`: firing SET 0-div all 3 shapes; order 0-div except the
-D-131 residual). The residual is SETTLED, not open: the source read (D-131)
-proved the within-close-time chain order is a Java `PriorityQueue` heap ARTIFACT
-(`DefaultTimerJobInstance.compareTo` orders on fire-time only, no secondary key),
-NOT a semantic — so DON'T model it (fz_42_84-class); the port matches it only if
-Seine's scheduler happens to reproduce Drools' PQ tie-order, else those ~0.6%
-graduate to `xfail/` as heap-order expected-divergences. The port itself = a
-deferral SCHEDULER (arc A: hold a satisfied not on a pseudo-clock timer keyed to
-fire_time; fire on the advance that retires it via the not-node's window-close;
-cancel on an in-window blocker) that also reproduces the D-130 inferred-offset
-REAPING (check the existing D-109 inference path covers the not edge; the anchor
-gets an inferred offset via the join constraint, so `$a:E0()` is NOT bare-NEVER).
-Mechanism (drools-core): `PhreakNotNode.doLeftInserts` propagates unblocked lefts
-immediately, `doRightDeletes` re-propagates on un-block (addInsert=prepend). Gate:
-`fuzz_not_temporal.py` 0-div (modulo the fenced heap ties) + `cp*not*` witnesses;
-`not` fence LAST. Needs a mechanism report + Bryan GATE before touching engine.rs.
+**➡ START HERE (cold pickup) — the ENGINE PORT. READ `docs/not-temporal-port-
+mechanism.md` FIRST** (the full mechanism report: validated semantics + drools-
+core source read + a 3-way engine-code map with exact file:line sites). All
+black-box modeling is DONE (`model_not_infer.py` = the executable spec: firing
+SET 0-div all 3 shapes; only the within-close-time chain-order residual is fenced
+as a scheduler heap artifact, D-131 — do NOT model it, xfail-quarantine at port
+time). **⚠ AWAITING Bryan's GATE before ANY `engine.rs` edit** (doctrine). On
+gate, the port is TWO independent halves (both mapped in the report):
+
+- **arc B REAPING (the `facts` fix; report §3A):** lift the fence
+  (`engine.rs:2276`); give the `not` pattern an STP-matrix position so its
+  after/before edges get recorded (`engine.rs:2313-2330`, today skipped by the
+  positionless `tpos`-guard at 2319) and its type STOPS being forced to NEVER by
+  the bare-pattern loop (`engine.rs:3005`). Offsets: after ⇒ E0=hi, E1=lo?0:NEVER
+  (before mirror). The reaper (`schedule_expiration` 3497, `advance()` 3946) is
+  UNCHANGED. This alone fixes `facts` — the inference is invisible to firings.
+- **arc A DEFERRAL (report §3B):** the engine fires an unblocked not IMMEDIATELY
+  (`do_existential_node`, `phreak.rs:957`); it must DEFER to fire_time = anchor+hi
+  (after) / anchor−lo (before). No fire-scheduler exists; `advance()` only drains
+  time-keyed DELETES → downstream re-eval fires. RECOMMENDED design: a new
+  `fire_deadlines: BTreeMap<i64,…>` (mirror `deadlines`), drained in `advance()`
+  to RELEASE a held not-left into the existing re-fire path (`phreak.rs:1728`,
+  `create_ce_child`); the PREPEND discipline gives the reverse-close-time order
+  for free. Reuses the whole non-temporal-not blocker model + clock/reaper.
+
+Gate to build against: `fuzz_not_temporal.py` 0-div (modulo the fenced heap
+ties) + graduate `cp*not*` witnesses; `make diff` byte-identical; watch the D-117
+non-termination region (a re-scheduling scheduler is the re-add-cycle shape).
+`not` fence is the LAST CEP-E2 fence.
 
 _Arc B chains DONE-modulo-order (D-131, `tools/model_not_infer.py`):_ composition
 = positive temporal join (D-125, reuse `model_join_flush.Node`) → not FILTERS
