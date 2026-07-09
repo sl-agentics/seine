@@ -20,9 +20,9 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **PUSHED through D-134** (`origin/main` at `b0e15cd`, the
-D-127..D-134 stack + docs is now on origin — Bryan cleared the push 2026-07-09;
-push was branch-only, NO tags). Tree CLEAN, gates green. The temporal-`not` port
+**Git:** on `main`, **PUSHED through D-135** (`origin/main` at `5f7862f`, the
+D-127..D-135 stack + docs is now on origin — Bryan cleared each push 2026-07-09;
+pushes are branch-only, NO tags). Tree CLEAN, gates green. The temporal-`not` port
 is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
 path byte-identical). ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
@@ -6733,4 +6733,5 @@ NEVER; explicit @expires overrides). **Gates:** `fuzz_exists_infer.py` 0 FIRING 
 0 FACTS (4 seeds / 1200 cases, was ~25% facts); `make diff` 11 / **958** / 284
 (+2 locked witnesses `pr_cep_e_exists_infer_{reap,before}`); `fuzz_exists_temporal`
 (D-127 firing) still 0-div; `cargo test` 9 suites; lint 1336/0/0; bindings 72.
-The recon prediction held exactly — no §3B, no surprises.
+The recon prediction held exactly — no §3B, no surprises. [Pushed 2026-07-09 —
+branch-only, no tags; `origin/main` at `5f7862f`.]
