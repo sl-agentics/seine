@@ -11,65 +11,96 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, D-125 (run `git log --oneline -10` for live HEAD —
-this line lags by its own commit)._
+_Last updated: 2026-07-08, post-D-126 handoff for the exists×temporal slab
+(run `git log --oneline -10` for live HEAD — this line lags by its own commit)._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
-NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven this run).
+NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, PUSHED (Bryan's go, 2026-07-08 — the temporal-join-order
-hold released at D-125). ⚠ **NO `v*` TAGS until a PyPI release is intended**:
-`ci.yml`'s `release`/`publish-pypi` jobs fire on tag push and the `pypi`
-environment has NO protection rules (verified via gh API) — a new tag publishes
-`seine-rs` with no manual gate. Branch pushes only build/test. Recent: D-120
-CEP E2 complete (`59b0e68`) → D-121/D-122 faithful graft + v1 disproven →
-D-123 v2 flush model VALIDATED → D-124 engine recon → **D-125 THE ENGINE PORT
-LANDED** → D-126 fence sweep (recon).
+**Git:** on `main`, PUSHED, **CI fully green** (differential + bindings +
+wheels/sdist). Push freely; ⚠ **NO `v*` TAGS until a PyPI release is intended**
+— `ci.yml`'s `release`/`publish-pypi` fire on tag push and the `pypi`
+environment has NO protection rules (gh-verified): a new tag publishes
+`seine-rs` with no manual gate. Recent: D-120 CEP E2 complete → **D-125
+temporal-join-order ENGINE PORT landed** (v2 per-arrival flush; chain-fuzz
+204→0/1500, 0 NEW) → D-126 fence sweep → bindings D-115 test align.
 
-**Gates (all certified green @ D-125/D-126):** baseline 11 / probes **947**
+**Gates (green @ HEAD, local + CI):** baseline 11 / probes **947**
 byte-identical / regressions **284** / lint **1333 live·0 ghost·0 inert** / 9
-Rust suites. Verify: `make diff` · `make lint-probes` · `cargo test` (oracle
-prebuilt, `oracle/target/classpath.txt`). **If any gate is red on resume,
-something drifted — investigate before building on it.**
+Rust suites / bindings pytest 72. Verify: `make diff` · `make lint-probes` ·
+`cargo test` (oracle prebuilt, `oracle/target/classpath.txt`). **Red on resume
+⇒ drift — investigate before building.**
 
-**Landed (background — detail in the log):** v0.4.0 (`5b23e7c`) CEP E1 + reset +
-agenda groups + queries×mutation + aggregation; data-types (nulls/decimals,
-D-096–098); TMS; P1c group CEs. **CEP E2 A–E ALL CLOSED** (D-109..D-120).
-**CEP temporal-join-order FIXED (D-121→D-125):** the engine now does v2's
-PER-ARRIVAL temporal flush — an eager partner with a present anchor joins
-INDIVIDUALLY at its own flush; a held batch drains through the staged
-`addInsert`-prepend and reverses exactly once; unshared temporal fills stamp
-lseq in staged order. Fix sites: `engine.rs stream_flush_ex` cascade dispatch
-(was the unconditional self-drain loop) + `phreak.rs Node::flush_ins_delta` +
-the `do_join_node` temporal fill stamp. Eligibility bails (shared nodes, AB
-self-joins, upd/del staging, ph=1 rights, RIA sinks) keep certified legacy
-behavior. Validation: chain-fuzz 7001 **204→0/1500 (0 NEW)**, 7002 0/1500,
-multi-anchor 0/600, fresh CEP-fuzz 0/1200, latents cf50003x263/x894 +
-`xf_cep_tjorder_chain_exists` RESOLVED. The spec stays executable:
-`tools/model_join_flush.py` (battery/fuzz/fuzzm — 0-div vs the gate oracle).
+**Landed (background — log has detail):** v0.4.0 CEP E1 + reset + agenda groups
++ queries×mutation + aggregation; data-types (D-096–098); TMS; P1c group CEs;
+CEP E2 A–E (D-109..D-120); **temporal-join-order fix (D-121→D-125)**:
+per-arrival temporal flush — eager partner with a present anchor joins
+INDIVIDUALLY at its flush, a held batch reverses ONCE via the staged
+`addInsert`-prepend, unshared temporal fills stamp lseq in staged order. Sites:
+`engine.rs stream_flush_ex` cascade dispatch + `phreak.rs Node::flush_ins_delta`
++ the `do_join_node` fill stamp; bails (shared/AB/upd-del/ph=1/RIA) keep legacy.
+Spec stays executable: `tools/model_join_flush.py`.
 
-**NEXT is Bryan's call — no active build.** Candidates (parked backlog):
-• **shared-temporal join order** — `xf_cep_tjorder_dual_tms` (the one tjo xfail
-left): a SHARED temporal node × TMS; the cascade deliberately bails on shared
-segments (eager flush-pairing is provably wrong there — cf101x551 vs t14); needs
-the agenda-pop composition arc. • **item-C re-propagation** (classes 1/2/3:
-temporal Behavior modify re-fire, on_update evicted/expired guard, exists
-external-delete round-trip; battery `xf_cep_c_*` + `pr_cep_c_*` + mutation
-fuzz). • **not/exists × temporal** (E1 positive-only wall stays; `exists`
-composes but `not` has a window-close deferral + anchor-inference gap; 6
-`engine_fenced`). • **window×interval count-during-window** (needs the
-`accumulate($e:E();count($e))` bound-source form — a pre-existing parser wall;
-interval EXPIRATION already byte-identical). • **beyond-Drools full-Allen
-inference** (`docs/allen-beyond-drools.md`; post-faithfulness). •
-**E1-hardening backlog**: accumulate-match latents (bisect-to-HEAD, non-EP);
-the temporal+delete+TMS NON-TERMINATION CONTAINED by the D-117 spin-guard
-(errors ~18s vs hang; root-cause pending —
-`scenarios/hang-backlog/pre_existing_temporal_delete_hang`, un-gated); D-080
-TMS envelope; window×TMS / node-sharing; `window:length` + standalone window
-(walled). • **Upstream:** #2366 (min/max),
-`docs/drools-inferred-expiry-never.md`.
+**⚠ ACTIVE WORK — UNWALL exists×temporal (Bryan-approved slab; `not` stays
+FENCED).** Recon done (D-126); witnesses + population tool committed.
+
+_What the wall is:_ compile fence `engine.rs` ~2279 rejects `Test::Temporal` on
+any non-Positive CE (D-120). Directly behind it: after/before STP-edge
+recording (~2316) requires `tpos`, which CE patterns lack — the D-126 recon
+bypassed both in a scratch (fence `if false &&`, edges gated `tpos.is_some()`).
+
+_What is KNOWN (D-126, scratch-measured on the D-125 engine):_ the curated
+`probes_pending/cep/e_recon/cp_exists_*` probes PASS unfenced — but they are a
+battery TRAP (v1 lesson): `tools/fuzz_exists_temporal.py 450 11001 <out>
+<unfenced-worktree>` ⇒ **10/450 divergences, ALL one shape — multi-anchor
+admission ORDER**: one exists-blocker admits two E0 anchors; engine fires
+insertion-order, oracle most-recently-blocked-FIRST (the `RightTuple.addBlocked`
+PREPEND, `phreak.rs` `blocked` map comment ~277). Golden witnesses:
+`probes_pending/cep/e_recon/cp_ex_multi_anchor_{before,after}` (engine_fenced —
+lint holds the wall up until the port lands; they graduate to real probes with
+the slab).
+
+_Prescribed method (D-123 precedent — model FIRST, port second):_
+1. Write `tools/model_exists_flush.py` (sibling of `model_join_flush.py`): a
+   minimal exists-node replica (blocked-list admission, blocker choice on
+   right-insert/delete, per-arrival flush like v2) validated **0-div vs the
+   gate oracle on the SHUFFLED population** (`fuzz_exists_temporal.py` shapes;
+   extend it for blocker DELETION/expiration re-admission order — unprobed!).
+   Curated cases alone are disqualifying evidence.
+2. Only then port into `do_existential_node` (`phreak.rs`) — do NOT extend the
+   D-125 Kind::Join cascade to existential kinds blind: different machinery
+   (create_ce_child, `blocked`/`blocker_of`, no join children). Decide
+   flush-time vs pop-time admission from the model, not from reasoning.
+3. Lift the fence LAST: allow `CeKind::Exists` only (`not` keeps erroring),
+   STP edges stay positional-only unless probes say Drools infers @expires
+   through an exists — PROBE that explicitly (D-126 kept inference out of
+   scope with explicit @expires; the fuzz tool does too).
+
+_Slab gates (ALL must hold):_ `make diff` (11+947+284) byte-identical ·
+`fuzz_exists_temporal.py` 0-div on ≥2 seeds + a fresh one ·
+`tools/fuzz_chain.py <n> <seed> <out> <HEAD-worktree>` = 0 NEW (the D-125
+population must STAY 0) · fresh-seed `fuzz_cep.py` clean · `cargo test` ·
+`make lint-probes` (the two cp_ex witnesses flip from engine_fenced to
+promoted probes; the `not` walls must STAY up) · bindings pytest 72.
+
+_Guardrails:_ `not`×temporal is OUT (gap-1 window-close deferral is a TIMER
+semantic, gap-2 anchor-@expires-through-the-not is inference — neither is
+admission order; both signatures re-verified unchanged post-D-125). Shared
+temporal nodes stay on legacy paths (`xf_cep_tjorder_dual_tms`, agenda-pop
+arc). On the GATED tree `fuzz_exists_temporal.py` fails 100% BY DESIGN (the
+wall rejects the DRL) — measure only against an unfenced scratch worktree.
+
+**Open/deferred (parked):** • shared-temporal join order (`xf_cep_tjorder_
+dual_tms`; cf101x551-vs-t14 constraint) • item-C re-propagation (classes 1/2/3;
+`xf_cep_c_*`/`pr_cep_c_*`) • window×interval count-during-window (parser wall:
+bound-source accumulate) • beyond-Drools full-Allen inference
+(`docs/allen-beyond-drools.md`) • E1-hardening: accumulate-match latents; the
+D-117-contained temporal+delete+TMS non-termination root cause
+(`scenarios/hang-backlog/`); D-080 TMS envelope; window×TMS; `window:length` +
+standalone window (walled) • Upstream: #2366, `docs/drools-inferred-expiry-
+never.md`.
 
 ---
 
