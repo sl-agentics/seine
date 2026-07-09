@@ -36,7 +36,7 @@ witnesses; `fuzz_cep.py` unchanged (fences kept). **Class 3 EXTERNAL exists-witn
 churn COMMITTED locally at `e2e0b0a` (D-138)** — `delete_fact` delete-time eval +
 `fuzz_cep.py` class-3 fence lift + xf→probe graduation; only the rule-RHS
 re-entrant churn variant remains fenced. **§1a windowed-accumulate live-modify
-COMMITTED locally (D-139; hash in the next sync marker)** — one `on_update` block
+COMMITTED locally at `4818815` (D-139)** — one `on_update` block
 (windowed accumulate gates the source re-fold on `bind_fields` not `listen_mask`)
 + `fuzz_cep.py` `windowed_acc_types` UPDATE fence lift + `tools/model_check_react.py`
 + 2 xf→probe graduations + 4 discriminator probes. The temporal-`not` port
