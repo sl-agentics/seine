@@ -175,11 +175,24 @@ order D-136); the CEP surface is faithful except:
     cf313 not-order, @duration interval join-order). NOT class 1, NOT caused by the
     `add_upd` port. Same family as item #2 below. Fence KEPT.
 
-2. **cf313 non-temporal `not X() P()` firing ORDER (model-first, small, LOW).**
-   Pre-existing latent — `fuzz_cep` seed 313 `cf313x13` firing[12], reproduces
-   IDENTICALLY with any slab stashed (not caused by recent work). NO model yet ⇒
-   probe-first recon to isolate the non-temporal not-CE staging order (⚠ staging
-   order flip-flops — MODEL-FIRST, do NOT hand-tune). Not yet minimized.
+2. **non-temporal `not X() P()` firing ORDER — MODEL VALIDATED; engine PORT is the
+   next slab (LOW impact — order-only).** Recon proved it is DEFINED by code
+   (deterministic 5×; TupleList FIFO on the not→join path — NOT the fenced TEMPORAL
+   not-order's `java.util.PriorityQueue` tie, D-134 §6). The full rule is the
+   non-temporal not-unblock BATCH-STAGING order (the D-125 analog): on unblock the
+   blocked P's fire grouped by BATCH = last-touch epoch (initial=epoch 0, LAST),
+   epoch batches REVERSE for an EVENT blocker / FORWARD for a PLAIN blocker,
+   within-batch inserts-then-updates(reverse-apply). Executable spec
+   `tools/model_check_notorder.py` validated 0-div on `tools/fuzz_notorder.py`
+   populations (1240 event scenarios, both triggers, 6 seeds). Engine bug:
+   event-expiry full-LIFO, event-delete full-FIFO (both ~90% divergent); PLAIN path
+   already correct (leave untouched). PORT (next): unify both EVENT paths to the
+   model, event-gated + corpus byte-identical (corpus is silent on multi-P
+   event-not-order ⇒ no pins to break); sketch in the findings doc — a per-fact
+   last-touch-cycle + apply-seq stamp reorder may be far cheaper than a full flush
+   rework. Witnesses `cf313x13`, `cf401x344`. Recon+model:
+   `~/.claude/plans/cep-not-order-findings.md`. ⚠ staging flip-flops — the MODEL is
+   the spec, do NOT hand-tune.
 
 3. **window × interval count-during-window — PARSER wall, not semantics.**
    `accumulate($e:E() ...; count($e))` (bound accumulate SOURCE) doesn't parse (2
