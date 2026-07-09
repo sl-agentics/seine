@@ -148,12 +148,17 @@ order D-136); the CEP surface is faithful except:
      the 3 event re-fires; always-arrival wrongly re-fires plain+expiration). SPEC:
      an exists/not over an EVENT type processes an EXPLICIT (non-expiration) right
      DELETE in ARRIVAL order (unblock+retract before a same-batch insert reblocks);
-     plain + expiration keep the batched coalesce. NEXT: the scoped engine PORT
-     (open impl question = recovering the staged right ins-vs-del ARRIVAL order) —
-     Bryan-gate first. Findings + battery:
-     `~/.claude/plans/cep-e2-item-c-class3-findings.md`, `probes_pending/cep/e_*`,
-     `oracle/.../ExistsDump.java`, `tools/model_check_exists_churn.py`. Do NOT
-     hand-tune (D-083).
+     plain + expiration keep the batched coalesce. **PORT ATTEMPT (reverted): the
+     fix is a STREAM-FLUSH eval-ORDER change, not a within-`do_node` batch reorder.**
+     STREAM mode flushes each INSERT per-arrival (`after_insert`→`stream_flush`) but
+     DEFERS deletes to `fire_all` ⇒ a del-first churn evaluates ins-then-del (the
+     `do_node` gets them in SEPARATE calls) and coalesces. The port must flush an
+     explicit event-exists DELETE at arrival-time (before the later insert's
+     stream-flush) — a change to the shared `stream_flush_ex` machinery (engine.rs
+     ~3669); do it in FRESH CONTEXT, carefully, corpus byte-identical. Full spec +
+     the reverted sketch: `~/.claude/plans/cep-e2-item-c-class3-findings.md`. Battery:
+     `probes_pending/cep/e_*`, `oracle/.../ExistsDump.java`,
+     `tools/model_check_exists_churn.py`. Do NOT hand-tune (D-083).
    Gate MET for 1&2: `make diff` 11/**970**/288, lint 1352, cargo test, bindings 72,
    blast-radius seeds 42/123/7 == pristine HEAD (CEP-gated). D-115's "lift fences ⇒
    0-div" premise was OPTIMISTIC (fences do double-duty — 1a/1b). See D-137.
