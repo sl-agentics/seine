@@ -12,21 +12,22 @@ detail in a D-entry below and the active-slab detail in the plan file.
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
 _Last updated: 2026-07-08, post-D-127 (exists×temporal PORT), D-128 (not×temporal
-RECON), D-129 (not deferral arc A modeled); `git log --oneline -10` for live HEAD._
+RECON), D-129 (not deferral arc A modeled), D-130 (not INFERENCE arc B modeled);
+`git log --oneline -10` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **3 commits AHEAD of `origin`, NOT pushed** (D-127, D-128,
-D-129 — Bryan holds the push; `git push` when cleared). Local tree CLEAN, all
-gates green. ⚠ **NO `v*` TAGS until a PyPI release is intended** — `ci.yml`'s
-`release`/`publish-pypi` fire on tag push and the `pypi` environment has NO
-protection rules (gh-verified): a new tag publishes `seine-rs` with no manual
-gate. Recent: D-126 fence sweep → **D-127 exists×temporal ENGINE PORT landed**
-(per-arrival `exists_flush_admit`; fuzz 0-div 9 seeds; 4 witnesses promoted) →
-D-128 not×temporal RECON → **D-129 not deferral arc A modeled (0-div)**.
+**Git:** on `main`, **5 commits AHEAD of `origin`, NOT pushed** (D-127, D-128,
+D-129 + the docs handoff + D-130 — Bryan holds the push; `git push` when
+cleared). Tree CLEAN, gates green. ⚠ **NO `v*` TAGS until a PyPI
+release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and
+the `pypi` environment has NO protection rules (gh-verified): a new tag publishes
+`seine-rs` with no manual gate. Recent: **D-127 exists×temporal ENGINE PORT** →
+D-128 not×temporal RECON → **D-129 not deferral arc A** → **D-130 not inference
+arc B modeled (0-div)**.
 
 **Gates (green @ HEAD, local + CI):** baseline 11 / probes **951**
 byte-identical / regressions **284** / lint **1334 live·0 ghost·0 inert** / 9
@@ -54,37 +55,51 @@ an exists node (its full staging flows to the eval). Gated to temporal
 unobservable (retractions never fire) so the port is insert-only. Spec:
 `tools/model_exists_flush.py`.
 
-**⚠ ACTIVE SLAB — not×temporal (D-128 recon → D-129 arc A done; ~½ through the
-model phase, NO engine change yet).** NOT an admission-order port like exists
-(do NOT reach for `exists_flush_admit` — it reorders admissions; here the
-problem is WHEN a satisfied `not` fires). `tools/fuzz_not_temporal.py` on a
-not-fence-lifted scratch ⇒ **~30% divergence** (10× exists), from TWO coupled
-arcs, each model-first before any port. Fence today: `engine.rs` ~2276 errors
-only on `CeKind::Not`; STP-inference edge (~2316) `tpos.is_some()`-guarded.
+**⚠ ACTIVE SLAB — not×temporal (D-128 recon → D-129 arc A → D-130 arc B; BOTH
+not_partner arcs modeled 0-div, NO engine change yet).** NOT an admission-order
+port like exists (do NOT reach for `exists_flush_admit` — it reorders
+admissions; here the problem is WHEN a satisfied `not` fires + inferred reaping).
+`tools/fuzz_not_temporal.py` on a not-fence-lifted scratch measured **~30%**
+engine-vs-oracle divergence. Fence today: `engine.rs` ~2276 errors only on
+`CeKind::Not`; STP-inference edge (~2316) `tpos.is_some()`-guarded.
 
-**➡ START HERE (cold pickup) — arc B: model @expires INFERENCE through the not.**
-The arcs are COUPLED: absent explicit @expires, Drools INFERS a blocker/anchor
-reach from the not-temporal so an `advance` expires it (MEASURED D-129:
-`before[20,40]` A@4/B@-30 blocks at clock 0, UN-blocks after advance 100).
-Method (D-123/D-129 discipline): extend `tools/model_not_defer.py` (or a
-sibling) to the FINITE/absent-@expires case — probe the inferred reach for the
-blocker E1 and the anchor E0 through the not (sweep advances, find the expiry
-clock like D-129 swept the fire clock), then fold it into `simulate()` and
-re-validate 0-div on the population WITHOUT the large-@expires isolation. Relate
-to the parked positive @expires inference (D-109) and the exists-inference
-question. THEN: chains (`not` off a join) + `not_mid`; THEN the engine port.
+**➡ START HERE (cold pickup) — extend `tools/model_not_infer.py` to the
+chain_not / not_mid shapes** (the last modeling before the engine port). Recon
+(D-130) shows the not-mechanism GENERALIZES unchanged (blocked⇒silent,
+unblocked⇒fires at window-close), COMPOSED with the **D-125 temporal join** for
+the parent binding
+(chain_not: the $a–$b join must match; not_mid: the positive $c must match) and
+the firing renders the join TUPLE. Method: fold the D-125 join-order model
+(`tools/model_join_flush.py`) into `model_not_infer.py simulate()`, render
+tuples, re-validate 0-div on the full 3-shape population. THEN the engine port.
+
+_Arc B DONE (D-130, `tools/model_not_infer.py` 0-div, not_partner, 6 seeds /
+2300 cases — the inference spec):_ inferred per-type offset (after: E0=hi,
+E1=lo?0:NEVER; before: E0=lo?0:NEVER, E1=hi; reap at ts+offset+1; explicit
+@expires=E ⇒ offset E). KEY: **the inference is invisible to FIRINGS** — a
+blocked anchor stays silent whether the blocker is inferred-mortal (B) or
+explicit-immortal (A); the window-close timer is only armed when NO in-window
+blocker exists at insertion, and the sole post-expiry fire-point (the advance
+end) has everything reaped. So arc A ≡ arc B on the firing SET; they differ only
+in the reaped `facts` (the engine port must reproduce the inferred-offset
+reaping). Mechanism = `docs/drools-inferred-expiry-never.md` (D-109).
 
 _Arc A DONE (D-129, `tools/model_not_defer.py` 0-div, not_partner, 6 seeds — the
-validated deferral spec):_ fire_time = A.ts+hi (after) / A.ts−lo (before);
-IMMEDIATE iff fire_time<A.ts (before lo>0 → fires FIFO at the initial fire),
-else DEFER to fire_time (fires when clock≥fire_time; a due advanceTime batch
-REVERSES = descending close-time, the PREPEND discipline). A blocker in-window
-cancels. Pseudo-clock starts at 0, moves only via explicit `advance`.
+deferral spec):_ fire_time = A.ts+hi (after) / A.ts−lo (before); IMMEDIATE iff
+fire_time<A.ts (before lo>0 → fires FIFO at the initial fire), else DEFER to
+fire_time (fires when clock≥fire_time; a due advanceTime batch REVERSES =
+descending close-time, the PREPEND discipline). A blocker in-window cancels.
+Pseudo-clock starts at 0, moves only via explicit `advance`. (Arc A's IMMEDIATE
+regime needs lo>0, which the not_partner population `[0ms,hi]` never hits.)
 
 _The engine port (LAST, after all arcs modeled):_ a deferral SCHEDULER — hold a
 satisfied `not` on a pseudo-clock timer keyed to fire_time, fire on the advance
-that retires it, cancel on an in-window blocker; NOT the D-127 reorder. Gate:
-`fuzz_not_temporal.py` 0-div + `cp*not*` witnesses graduating; `not` fence LAST.
+that retires it, cancel on an in-window blocker; NOT the D-127 reorder. Arc B
+adds NO firing logic (blocked⇒silent already), but the port MUST reproduce the
+inferred-offset reaping (D-130 offsets) so `facts` match under absent @expires —
+check whether the existing D-109 inference path already covers the not's edge.
+Gate: `fuzz_not_temporal.py` 0-div + `cp*not*` witnesses graduating; `not` fence
+LAST.
 
 **Other parked candidates:** • @expires INFERENCE through an exists (D-127 kept
 it out with explicit @expires; STP edge already guarded to skip it) • shared
@@ -6389,3 +6404,75 @@ arc, related to the parked exists-inference); then chains (`not` off a join) +
 a pseudo-clock timer keyed to fire_time, fire on advance, cancel on a blocker)
 NOT the D-127 admission reorder. No engine change this checkpoint (recon+model;
 `make diff` 11/951/284, lint 1334/0/0 untouched).
+
+### D-130: not×temporal arc B — @expires INFERENCE through the not PINNED + validated model (`model_not_infer.py`, 0-div on the not_partner population); the inference is invisible to FIRINGS (blocked ⇒ silent either way), it only reaps working memory
+
+Continued the not slab (Bryan, "continue on not×temporal"). Arc B = the coupled
+inference arc D-129 isolated out with a large explicit @expires. Probe-first
+(oracle-swept, then model-first) on the not_partner shape, @expires ABSENT.
+
+**The inferred expiration offsets (oracle-measured; mechanism =
+`docs/drools-inferred-expiry-never.md`, the D-109 reverse-engineering of
+`TemporalDependencyMatrix.getExpirationOffset` = max upperBound of the type's
+row, NEVER when < 0).** For `not E1(this OP[lo,hi] $a)` (constraint `E1 OP
+[lo,hi] E0`):
+
+| | offset(E0 anchor) | offset(E1 blocker) |
+|---|---|---|
+| after[lo,hi]  | hi                  | lo==0 ? 0 : NEVER |
+| before[lo,hi] | lo==0 ? 0 : NEVER   | hi                |
+
+An event of type T is reaped when clock ≥ `T.ts + offset + 1` (present through
+ts+offset; measured to the tick via the result `facts` multiset — cleaner than
+firing-inference). NEVER (a purely-backward reach, `−lo<0`) ⇒ never reaped.
+Explicit @expires=E overrides to offset=E (reaped at ts+E+1, same +1). This
+EXPLAINS the D-128 `cp2_not_*_adv` gap AND the D-129 "before[20,40] A@4/B@−30
+un-blocks after advance 100": the blocker's offset=hi retires it. It also
+predicted (verified) the `after[lo>0,hi]` **blocker is immortal** (offset −lo →
+NEVER): `after[20,40] A@4 B@30` never fires because B@30 is never reaped.
+
+**Firing rule (lo=0 population; the only fire-points are clock 0 and the single
+advance, and at the advance end every finite-offset event is already reaped):**
+- `ft` (window close) = a+hi (after) / a−lo=a (before). ft < death ALWAYS when
+  lo=0 (death = a+hi+1 or a+1), so an unblocked anchor always outlives its own
+  window close by one tick.
+- An anchor with **no in-window blocker** arms a window-close TIMER and fires at
+  continuous ft *during* whatever advance spans ft — robustly, even though the
+  final clock (1000) is long past its own reaping (verified: `after[0,80] A@4`
+  fires though E0 is reaped at 85 ≪ 1000). Fires at clock 0 when ft==0 (before,
+  a=0).
+- An anchor **with an in-window blocker at insertion does NOT arm the timer**;
+  un-blocking via expiry does not re-arm it, and the sole post-expiry fire-point
+  (the advance end) has the anchor already reaped ⇒ it **NEVER fires**. Verified
+  the discriminator: `after[0,80] A@4 B@10` fires when the advance STOPS at 84
+  (fireAllRules finds it satisfied+window-closed+anchor-alive) but does NOT fire
+  on a single jump 0→1000 (anchor reaped by fireAllRules time). ⇒ **for this
+  population the inference is invisible to firings**: a blocked anchor is silent
+  whether the blocker is inferred-mortal (arc B) or explicit-immortal (arc A) —
+  the arc collapses to the same firing SET, differing only in the reaped `facts`
+  (which the engine port must still get right).
+- Order: within one advance, reverse close-time (descending ft, the PREPEND
+  discipline); clock-0 firings precede advance firings. (No ties/immediate-regime
+  in not_partner: lo=0 kills the before-lo>0 immediate case, and distinct a_ts
+  ⇒ distinct ft.)
+
+`model_not_infer.py simulate()` encodes exactly this and is **0-div vs the gate
+oracle on the shuffled not_partner population, 6 seeds / 2300 cases** (both
+@expires and advance coin-flips).
+
+**Chain recon (staged next).** chain_not / not_mid dumped
+under absent @expires: the not-mechanism GENERALIZES unchanged (blocked⇒silent
+`cn_blk`/`nm_blk`; unblocked⇒fires `cn_nob`/`nm_nob`; out-of-window E2 doesn't
+block `cn_out`), composed with the **D-125 temporal join** for the parent bind
+(chain_not needs the $a–$b join — `cn_nojoin` no-fires; not_mid needs the
+positive $c — `nm_noc` no-fires) and the firing now renders the join TUPLE
+(`[0,20]`,`[0,30]`). So chains = (join-order D-125) × (not deferral+inference) —
+same not-mechanism, richer tuple + join-order; not yet modeled.
+
+**⇒ Next:** (1) extend `model_not_infer.py` to chain_not/not_mid = fold the
+D-125 join-order model in and render tuples; (2) THEN the ENGINE port — a
+deferral SCHEDULER (arc A) whose blocked anchors stay silent under inferred
+expiry (arc B needs no extra firing logic, but the port MUST reproduce the
+inferred-offset reaping so `facts` match) NOT the D-127 admission reorder. No
+engine change this checkpoint (probe+model; new tool `tools/model_not_infer.py`;
+`make diff` 11/951/284 unaffected, tree clean but for the untracked tool).
