@@ -189,8 +189,10 @@ def test_dead_handle_errors():
     s = seine.Session("rule R when T($x : v) then end\n", {"T": {"v": [1.0]}})
     s.fire()
     s.delete(0)
-    with pytest.raises(ValueError, match="dead handle"):
-        s.delete(0)
+    # D-115: delete of an already-dead handle is a Drools-faithful
+    # graceful no-op (session.delete leniency, c_double_del pin) —
+    # only UPDATE of a dead handle errors.
+    s.delete(0)
     with pytest.raises(ValueError, match="dead handle"):
         s.update(0, v=2.0)
 
