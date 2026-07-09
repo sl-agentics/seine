@@ -3542,7 +3542,22 @@ impl Engine {
                         r.patterns.iter().any(|p| p.type_id == tid)
                     });
                     let plus = if referenced { 1 } else { 0 };
-                    self.deadlines.entry(ts + dur + exp + plus).or_default().push(id);
+                    let deadline = ts + dur + exp + plus;
+                    // D-132: Drools cannot schedule an expiration in the PAST.
+                    // Oracle-measured boundary at the insertion clock:
+                    //   deadline < clock  ⇒ KEPT forever (leak — pos_far);
+                    //   deadline == clock ⇒ due on arrival: it still MATCHES and
+                    //     FIRES this cycle, then is dropped (pos_ins) — push the
+                    //     LAZY delete (NOT mark_expired, which would suppress the
+                    //     firing) so it retracts at the next quiescence drain;
+                    //   deadline > clock  ⇒ scheduled normally on the reaper queue.
+                    match deadline.cmp(&self.clock_ms) {
+                        std::cmp::Ordering::Less => {}
+                        std::cmp::Ordering::Equal => self.pending_expirations.push(id),
+                        std::cmp::Ordering::Greater => {
+                            self.deadlines.entry(deadline).or_default().push(id);
+                        }
+                    }
                 }
             }
         }

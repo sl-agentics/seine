@@ -11,20 +11,21 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, post-D-132 (not×temporal port GATED & begun: §3A
-inference STAGED behind the fence; two PRE-EXISTING positive before-inference
-latents bisected — awaiting Bryan's fix-vs-quarantine call); `git log --oneline
--10` for live HEAD._
+_Last updated: 2026-07-08, post-D-133 (not×temporal port: §3A REAPING complete —
+the not's inference + the two positive-latent reaper fixes, facts-validated 0-div
+on the population; §3B firing-deferral is the LAST piece); `git log --oneline -10`
+for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **8 commits AHEAD of `origin`, NOT pushed** (D-127..D-131 +
-docs handoff + port report + D-132 — Bryan holds the push; `git push` when
-cleared). Tree CLEAN, gates green (§3A staged behind the still-up fence is
-INERT). ⚠ **NO `v*` TAGS until a PyPI release is intended** — `ci.yml`'s
+**Git:** on `main`, **9 commits AHEAD of `origin`, NOT pushed** (D-127..D-133 +
+docs handoff + port report — Bryan holds the push; `git push` when cleared).
+Tree CLEAN, gates green. The D-133 reaper fixes are ACTIVE (positive path,
+byte-identical corpus); §3A not-inference is staged behind the still-up fence.
+⚠ **NO `v*` TAGS until a PyPI release is intended** — `ci.yml`'s
 `release`/`publish-pypi` fire on tag push and the `pypi` environment has NO
 protection rules (gh-verified): a new tag publishes `seine-rs` with no manual
 gate. Recent: **D-127 exists×temporal PORT** → D-128..D-131 not×temporal modeled
@@ -57,37 +58,37 @@ an exists node (its full staging flows to the eval). Gated to temporal
 unobservable (retractions never fire) so the port is insert-only. Spec:
 `tools/model_exists_flush.py`.
 
-**⚠ ACTIVE SLAB — not×temporal ENGINE PORT (D-132, GATED, in progress).** All
-modeling done (D-129/130/131); mechanism report `docs/not-temporal-port-
-mechanism.md` (gated: §3B removal-driven `fire_deadlines`, §6 quarantine heap
-ties). **§3A (the not's @expires inference) IMPLEMENTED but STAGED behind the
-still-up fence** (`engine.rs` ~2276): a temporal `not` gets a phantom
-`temporal_pos` recording its after/before edges; positives/exists byte-identical.
-**BLOCKER surfaced (D-132): the port flushed two PRE-EXISTING positive before-
-inference latents** (bisected pure-positive, NOT the port's doing): `pos_far`
-(before[0,hi] earlier-operand offset — engine reaps, Drools keeps) and `pos_ins`
-(engine reaps only on `advance()`, not at insert). Both block a clean
-`fuzz_not_temporal` gate. Awaiting Bryan's fix-vs-quarantine call.
+**⚠ ACTIVE SLAB — not×temporal ENGINE PORT (D-132/133, GATED, in progress; the
+REAPING half is DONE, only firing §3B remains).** All modeling done
+(D-129/130/131); report `docs/not-temporal-port-mechanism.md` (gated: §3B
+removal-driven `fire_deadlines`, §6 quarantine heap ties). **§3A DONE** — the
+not's `temporal_pos` phantom edges (staged behind the fence) PLUS the D-133
+reaper fixes (born-expired leak + at-insert reap) that resolved the two
+pre-existing positive latents the port flushed. With those, `facts_check.py` on
+the not-population (fence temp-lifted) is **0 facts divergences** — the arc-B
+reaping is validated. **Only §3B (the firing-deferral scheduler) remains.**
 
-**➡ START HERE (cold pickup) — the ENGINE PORT is GATED & begun (D-132). READ
-`docs/not-temporal-port-mechanism.md` + D-132 FIRST.** Gate: §3B removal-driven
-`fire_deadlines`, §6 quarantine heap ties. **§3A DONE** (staged inert behind the
-fence: the not's `temporal_pos` phantom edges). **NEXT step 1 — the PRE-EXISTING
-positive latent DECISION (blocks the gate; needs Bryan):** the port flushed two
-pure-positive before-inference bugs (D-132): `pos_far` (before[0,hi] earlier-
-operand offset diverges — probe Drools' real offset, `tools/probe_before_latents.py`)
-and `pos_ins` (no at-insert already-expired reap — the reaper is `advance()`-
-only). FIX in-scope vs QUARANTINE (xfail + generator gate). **THEN step 2 —
-lift the fence** (`engine.rs` ~2276; §3A activates) and re-run `facts_check.py`
-(should go ~0 on not_partner once the positive latents are handled). **THEN
-step 3 — §3B the deferral scheduler** (below). Reference (the two halves, report
-§3A/§3B):
+**➡ START HERE (cold pickup) — §3B, the LAST piece. READ
+`docs/not-temporal-port-mechanism.md` §3B + D-132/133 FIRST.** The reaping half
+is complete & facts-validated; the positive-latent blocker is FIXED (D-133).
+**Do:** (1) LIFT the fence for good (`engine.rs` ~2276 — the `if p.ce ==
+CeKind::Not { return Err }`; §3A activates). (2) Build §3B — a new
+`fire_deadlines: BTreeMap<i64,…>` (mirror `deadlines`) so a satisfied temporal
+`not` DEFERS to fire_time = anchor+hi (after) / anchor−lo (before) instead of
+firing immediately; drain it in `advance()` to RELEASE the held not-left into the
+existing re-fire path (`phreak.rs:1728` `create_ce_child`); the PREPEND
+discipline gives arc-A's reverse-close order for free (report §3B). (3) Gate:
+`fuzz_not_temporal.py` 0-div MODULO the D-131 heap ties (quarantine those to
+`xfail/`); `make diff` byte-identical; graduate `cp*not*` witnesses; watch the
+D-117 non-termination region (a re-scheduling scheduler is the re-add-cycle
+shape). Reference (the two halves, report §3A/§3B):
 
-- **arc B REAPING (the `facts` fix; §3A — IMPLEMENTED):** the `not` pattern's
-  phantom `temporal_pos` records after/before edges (`engine.rs` ~2320) and the
-  bare-NEVER check (~3010) uses `temporal_pos`. Offsets: after ⇒ E0=hi,
-  E1=lo?0:NEVER (before mirror). Reaper unchanged. Fixes `facts` (inference
-  invisible to firings).
+- **arc B REAPING (the `facts` fix; §3A + D-133 — DONE):** the `not` pattern's
+  phantom `temporal_pos` records after/before edges (`engine.rs` ~2320); the
+  bare-NEVER check (~3010) uses `temporal_pos`; offsets after ⇒ E0=hi,
+  E1=lo?0:NEVER (before mirror). The D-133 reaper boundary fix
+  (`schedule_expiration` ~3545): deadline<clock ⇒ leak, ==clock ⇒ lazy delete
+  (fires then drops), >clock ⇒ schedule. Facts-validated 0-div on the population.
 - **arc A DEFERRAL (report §3B — TODO):** the engine fires an unblocked not IMMEDIATELY
   (`do_existential_node`, `phreak.rs:957`); it must DEFER to fire_time = anchor+hi
   (after) / anchor−lo (before). No fire-scheduler exists; `advance()` only drains
@@ -6623,3 +6624,36 @@ feature, likely worth fixing) then deciding.
 byte-identical, lint 1334/0/0 — positives/exists unchanged, `not` still fenced.
 NEXT after the latent decision: lift the fence, resolve/quarantine the latents,
 then §3B (the `fire_deadlines` deferral scheduler).
+
+### D-133: the two pre-existing positive before-inference latents (D-132) FIXED — a born-expired LEAK + an at-insert reap; §3A (not inference) now facts-validated 0-div on the population
+
+Bryan chose PROBE-THEN-FIX. Probed Drools' real reaper boundary (E0 immortal,
+E2 inferred, sweep the advance): an event's inferred offset IS `hi` (E2@0,
+before[0,100] gone at clock 101 = ts+hi+1 — the engine's offset was right). The
+divergence is the SCHEDULING BOUNDARY at the insertion clock (measured to the
+tick, before[0,100], deadline=ts+101):
+
+| deadline vs insert-clock 0 | Drools |
+|---|---|
+| deadline < 0 (born in the past) | **KEPT forever** — can't schedule a past job (leak) |
+| deadline == 0 | **matches + FIRES this cycle, then dropped** |
+| deadline > 0 | scheduled; reaped when clock ≥ deadline |
+
+The engine's `advance()` reaper (`deadlines.range(..=clock)`) reaped the
+born-in-past ones (pos_far) and never reaped the at-insert-due ones without an
+advance (pos_ins). **Fix (both in `schedule_expiration`, `engine.rs` ~3545):**
+`match deadline.cmp(&clock_ms)` — `Less` ⇒ don't schedule (leak); `Equal` ⇒
+`pending_expirations.push` (the LAZY delete — NOT `mark_expired`, so the event
+still matches/fires in this cycle and drops at the post-fire quiescence drain,
+matching the oracle's fire-then-drop); `Greater` ⇒ schedule as before.
+
+**Verified.** pos_far / pos_ise both match; a MATCHING at-insert-due event fires
+`-30--51` AND drops E2 (oracle-identical). `make diff` 11/951/284 BYTE-IDENTICAL,
+lint 1334/0/0 (the fix only changes born-expired / at-insert-due events, which
+the certified corpus never had). Positive reaper fuzz (`/tmp/seine_posfuzz.py`
+shape) **0-div facts+firings, 750 cases / 3 seeds** (far-past + boundary + multi-
+advance). **⇒ §3A payoff:** with the latents fixed, `facts_check.py` on the
+not-population (fence temp-lifted) is **0 facts divergences, 750 cases / 3 seeds**
+— the arc-B REAPING half of the not port is COMPLETE & validated. Fence restored
+(firing §3B pending). NEXT: lift the fence for good + §3B (the `fire_deadlines`
+firing-deferral scheduler) — the last piece.
