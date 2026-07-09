@@ -142,9 +142,18 @@ order D-136); the CEP surface is faithful except:
      right memory changes only inside `fireAllRules`. Working model: an EVENT right
      churn is processed ARRIVAL-ORDER (del→unblock→retract, ins→reblock→assert),
      a PLAIN right batches ins-before-del (re-search finds the new insert ⇒
-     coalesce). NEXT: model_check this (like `model_check_join2`) then the scoped
-     port. Findings + battery: `~/.claude/plans/cep-e2-item-c-class3-findings.md`,
-     `probes_pending/cep/e_*`, `oracle/.../ExistsDump.java`. Do NOT hand-tune (D-083).
+     coalesce). **MODEL_CHECK VALIDATED** (`tools/model_check_exists_churn.py`): of
+     {always_batched, always_arrival, event_explicit_arrival}, only
+     `event_explicit_arrival` is 0-div over all 8 class-3 probes (batched misses
+     the 3 event re-fires; always-arrival wrongly re-fires plain+expiration). SPEC:
+     an exists/not over an EVENT type processes an EXPLICIT (non-expiration) right
+     DELETE in ARRIVAL order (unblock+retract before a same-batch insert reblocks);
+     plain + expiration keep the batched coalesce. NEXT: the scoped engine PORT
+     (open impl question = recovering the staged right ins-vs-del ARRIVAL order) —
+     Bryan-gate first. Findings + battery:
+     `~/.claude/plans/cep-e2-item-c-class3-findings.md`, `probes_pending/cep/e_*`,
+     `oracle/.../ExistsDump.java`, `tools/model_check_exists_churn.py`. Do NOT
+     hand-tune (D-083).
    Gate MET for 1&2: `make diff` 11/**970**/288, lint 1352, cargo test, bindings 72,
    blast-radius seeds 42/123/7 == pristine HEAD (CEP-gated). D-115's "lift fences ⇒
    0-div" premise was OPTIMISTIC (fences do double-duty — 1a/1b). See D-137.
