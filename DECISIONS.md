@@ -11,16 +11,21 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-09, post-D-139 (CEP E2 item C §1a — windowed-accumulate
-LIVE-modify property-reactivity PORTED). Classes 1+2 (D-137), 3-EXTERNAL (D-138),
-and §1a (D-139) all done. §1a: a WINDOWED accumulate watches BINDINGS-only on
-external update (constraints dropped) vs a PLAIN one's constraints∪bindings — a
-one-block `on_update` gate on `bind_fields` instead of `listen_mask` for windowed
-nodes; probing OVERTURNED the D-137 "plain re-folds on any modify" claim (plain is
-property-reactive too). All corpus byte-identical. Remaining item-C fenced: the
-rule-RHS re-entrant exists churn (D-138) + item 1b temporal-order latents + item #2
-non-temporal not-order (both pre-existing, model-first). `git log --oneline -14`
-for live HEAD._
+_Last updated: 2026-07-09, post-D-139 + item-#2 MODEL checkpoint (`9c6735c`).
+D-139 (CEP E2 item C §1a — windowed-accumulate LIVE-modify property-reactivity)
+PORTED: a WINDOWED accumulate watches BINDINGS-only on external update
+(constraints dropped) vs a PLAIN one's constraints∪bindings — a one-block
+`on_update` gate on `bind_fields` instead of `listen_mask`; probing OVERTURNED the
+D-137 "plain re-folds on any modify" claim. All corpus byte-identical.
+**➡ ACTIVE NEXT SLAB (BANKED, clean-pickup): item #2 non-temporal `not X() P()`
+firing-ORDER engine PORT** — the MODEL is VALIDATED & committed (`9c6735c`;
+`tools/model_check_notorder.py` 0-div on 1240 event scenarios); only the engine
+change remains (unify event-expiry/delete not-unblock emission to the model,
+event-gated, corpus byte-identical; PLAIN path already correct — leave it). Start
+from `~/.claude/plans/cep-not-order-findings.md` + CURRENT-ISSUES #2 below; do NOT
+re-derive (the staging flip-flops — the model is the spec). Other remaining item-C
+fenced: rule-RHS re-entrant exists churn (D-138) + item 1b temporal-order latents.
+`git log --oneline -16` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -39,9 +44,10 @@ re-entrant churn variant remains fenced. **§1a windowed-accumulate live-modify
 COMMITTED locally at `4818815` (D-139)** — one `on_update` block
 (windowed accumulate gates the source re-fold on `bind_fields` not `listen_mask`)
 + `fuzz_cep.py` `windowed_acc_types` UPDATE fence lift + `tools/model_check_react.py`
-+ 2 xf→probe graduations + 4 discriminator probes. The temporal-`not` port
-is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
-path byte-identical). ⚠ **NO `v*` TAGS until a
++ 2 xf→probe graduations + 4 discriminator probes. **Item-#2 MODEL checkpoint
+COMMITTED locally at `9c6735c`** — `tools/{fuzz,model_check}_notorder.py` +
+CURRENT-ISSUES #2 upgrade (NO engine change; the not-order PORT is the banked next
+slab). `main` is **13 ahead of `origin/main`** — NOT pushed. ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
 and the `pypi` environment has NO protection rules (gh-verified): a new tag
 publishes `seine-rs` with no manual gate. Recent: D-127 exists×temporal PORT →
