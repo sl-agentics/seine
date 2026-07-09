@@ -23,9 +23,10 @@ NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
 **Git:** on `main`, pushed through D-136 RECON (`origin/main` at `162fb68`; Bryan
-cleared each push 2026-07-09; branch-only, NO tags). **D-136 PORT LANDED locally
-— tree DIRTY, NOT yet committed** (`engine.rs` + `phreak.rs` + 3 new witnesses +
-dual_tms graduated + this doc). Gates green. The temporal-`not` port
+cleared each push 2026-07-09; branch-only, NO tags). **D-136 PORT COMMITTED
+locally at `6551973` — NOT pushed (Bryan holds the push)**; tree clean, gates
+green (`engine.rs` + `phreak.rs` + 3 `fz_tjo_shared*` witnesses + dual_tms
+graduated + docs). The temporal-`not` port
 is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
 path byte-identical). ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
@@ -125,7 +126,7 @@ order D-136); the CEP surface is faithful except:
    - **class 3** `xf_cep_c_del_churn_exists` — external-delete un-fires an exists, a
      same-epoch reinsert re-fires it in Drools; engine keeps exists linked ⇒
      UNDER-fires. Fix: exists external-delete round-trip.
-   Battery: 4 `xf_cep_c_*` repros + 16 `pr_cep_c_*` boundary pins + the `fuzz_cep.py`
+   Battery: 4 `xf_cep_c_*` repros + 14 `pr_cep_c_*` boundary pins + the `fuzz_cep.py`
    mutation axis (three class fences to LIFT + `CEP_NO_TEMPORAL` flag); findings
    `~/.claude/plans/cep-e2-item-c-findings.md`. Gate: lift the fences, fresh-seed
    `fuzz_cep` 0-div + `make diff` byte-identical. ⚠ RISK medium-high — the shared,
