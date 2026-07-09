@@ -11,8 +11,8 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, post-D-127 (exists×temporal ENGINE PORT landed)
-(run `git log --oneline -10` for live HEAD — this line lags by its own commit)._
+_Last updated: 2026-07-08, post-D-127 (exists×temporal PORT) + D-128 (not×temporal
+RECON — staged next); run `git log --oneline -10` for live HEAD (lags this commit)._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -29,7 +29,7 @@ existential admission `exists_flush_admit`; fuzz 0-div 9 seeds; 4 witnesses
 promoted).
 
 **Gates (green @ HEAD, local + CI):** baseline 11 / probes **951**
-byte-identical / regressions **284** / lint **1333 live·0 ghost·0 inert** / 9
+byte-identical / regressions **284** / lint **1334 live·0 ghost·0 inert** / 9
 Rust suites / bindings pytest 72. Verify: `make diff` · `make lint-probes` ·
 `cargo test` (oracle prebuilt, `oracle/target/classpath.txt`). **Red on resume
 ⇒ drift — investigate before building.** (Known pre-existing fuzz latent:
@@ -54,20 +54,32 @@ an exists node (its full staging flows to the eval). Gated to temporal
 unobservable (retractions never fire) so the port is insert-only. Spec:
 `tools/model_exists_flush.py`.
 
-**No active slab — D-127 shipped clean.** Fence now: `engine.rs` ~2279 errors
-only on `CeKind::Not`; the after/before STP-inference edge (~2316) is guarded on
-`tpos.is_some()` (positionless exists records no inference edge).
+**⚠ NEXT SLAB (STAGED, not started) — not×temporal (D-128 recon done).** Fence
+now: `engine.rs` ~2276 errors only on `CeKind::Not`; the STP-inference edge
+(~2316) is `tpos.is_some()`-guarded (positionless not/exists records no edge).
 
-**Next candidates (all parked, none started — pick one and PROBE FIRST):**
-• `not`×temporal (still fenced): gap-1 = window-CLOSE deferral (`not B(this
-after $a)` fires immediately in Seine, Drools defers past the window;
-`cp_not_pt_fire` Seine 1 vs Drools 0) — a TIMER semantic; gap-2 = anchor gets an
-inferred @expires THROUGH the not-temporal in Drools (`cp2_not_*_adv`) — an
-INFERENCE question. Neither is admission order; witnesses live engine_fenced in
-`probes_pending/cep/e_recon/cp*not*`. • @expires INFERENCE through an exists
-(D-127 kept it out with explicit @expires; the STP edge is already guarded to
-skip it). • shared temporal nodes (`xf_cep_tjorder_dual_tms`; cf101x551-vs-t14)
-stay on legacy paths.
+_What the recon found (D-128 — MEASURED, probe-first):_ NOT an admission-order
+port like exists. `tools/fuzz_not_temporal.py` on a scratch (not-fence lifted)
+⇒ **~30% divergence** (seeds 5001/2/3), an order of magnitude over exists' 2%.
+The driver is **gap-1: window-close firing DEFERRAL** — Seine fires a `not`
+satisfied SO FAR immediately, Drools holds it on the pseudo-clock until the
+window retires (no `advance` ⇒ Drools fires 0 where Seine fires ≥1). Pervades
+even pure cases (count AND order); witness `probes_pending/cep/e_recon/
+cp_not_chain_defer` (engine_fenced) + the toy `cp_not_pt_fire`. Plus **gap-2:
+@expires inference THROUGH the not** (on `advance`; `cp2_not_*_adv`).
+
+_Prescribed method (do NOT reach for `exists_flush_admit` — it reorders
+admissions; here the problem is WHEN a satisfied not fires):_ two prerequisite
+arcs, model-first each. (A) a window-close firing DEFERRAL scheduler (a `not`
+held on a timer until the clock proves no blocker can still arrive — a real
+temporal-scheduling machine); (B) @expires inference through the not-temporal
+(extend positive-only inference to the not path; related to the parked
+exists-inference question). Gate with `fuzz_not_temporal.py` 0-div + the
+existing `cp*not*` witnesses graduating; `not` fence lifts LAST.
+
+**Other parked candidates:** • @expires INFERENCE through an exists (D-127 kept
+it out with explicit @expires; STP edge already guarded to skip it) • shared
+temporal nodes (`xf_cep_tjorder_dual_tms`; cf101x551-vs-t14) stay on legacy.
 
 **Open/deferred (parked):** • shared-temporal join order (`xf_cep_tjorder_
 dual_tms`; cf101x551-vs-t14 constraint) • item-C re-propagation (classes 1/2/3;
@@ -6279,3 +6291,48 @@ IDENTICALLY with the slab stashed — a pre-existing latent, NOT this slab) ·
 anchor-@expires-through-the-not — neither is admission order); @expires
 INFERENCE through an exists; shared temporal nodes (legacy paths). These are
 follow-ons.
+
+### D-128: not×temporal RECON (staging the next slab) — it is NOT an admission-order port; the window-close firing DEFERRAL dominates (~30% population), so the timer + inference arcs are prerequisites
+
+Bryan asked to stage `not`×temporal next. Probe-first, like the D-126 recon
+that staged exists (which taught: MEASURE the population, don't trust curated
+gaps). Built `tools/fuzz_not_temporal.py` (sibling of `fuzz_exists_temporal.py`:
+`not` shapes `not_partner`/`chain_not`/`not_mid`, plus a coin-flip trailing
+`advance` for the deferral axis and coin-flip explicit `@expires` for the
+inference axis). Lifted the `not` fence in a scratch (`if false && p.ce ==
+CeKind::Not`; the STP edge is already `tpos.is_some()`-guarded so positionless
+`not` records no inference edge) and measured.
+
+**Finding: ~27–31% divergence across seeds 5001/5002/5003** — an order of
+magnitude worse than exists (D-127 was a clean 2%, one admission-order family).
+`not`×temporal is NOT a clean slab. The divergences are NOT admission order;
+they are the two D-120 gaps, and the FIRST one pervades everything:
+
+- **gap-1, window-close firing DEFERRAL (the dominant driver).** Seine
+  propagates a `not` the moment it is satisfied SO FAR; Drools DEFERS the
+  firing until the pseudo-clock proves the window closed (no later blocker can
+  arrive). Without an `advance` the clock never passes the window, so Drools
+  fires 0 where Seine fires ≥1. Even PURE cases (no advance, no @expires)
+  diverge on firing COUNT and ORDER — e.g. `nt5001x204` (chain `not E2(after
+  $b)`) engine 2 vs oracle 1 with `firing[0]` order differing; `nt5001x171`
+  (`not E1(before[0,50] $a)`, both E1s outside the window) engine 1 vs oracle 0
+  — identical signature to the toy witness `cp_not_pt_fire`. Witness saved:
+  `probes_pending/cep/e_recon/cp_not_chain_defer` (engine_fenced).
+- **gap-2, @expires INFERENCE through the not.** On `advance`, Drools infers the
+  anchor's expiry through the not-temporal and expires it (Seine keeps it) —
+  the `cp2_not_*_adv` signature. 64/81 divergent cases (seed 5001) carried an
+  advance (deferral+inference), only 10/81 were pure (neither) — but those 10
+  still diverge, confirming the deferral is not advance-gated, it is the
+  baseline `not` timing.
+
+**⇒ not×temporal is a HARD slab with two PREREQUISITE arcs, neither admission
+order:** (A) a window-close firing DEFERRAL scheduler — a `not` satisfied only
+"so far" must be held on a timer until the clock retires the window (a genuine
+temporal-scheduling machine, unlike D-127's per-arrival reordering); and (B)
+@expires inference through a not-temporal (the positive-only inference extended
+to the not path — related to the parked exists-inference question). The D-127
+`exists_flush_admit` machinery does NOT transfer (it reorders admissions; here
+the problem is WHEN a satisfied not fires, not in what order). Staged, not
+started. No engine change (recon only; fence reverted, gated tree
+`make diff` 11/951/284 unaffected; `cp_not_chain_defer` joins the fenced set,
+lint 1334/0/0).
