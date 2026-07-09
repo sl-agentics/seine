@@ -1,0 +1,52 @@
+{
+ "name": "pr_cep_c_exists_churn_bare",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule NE when exists E0() then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 21,
+      "tag": "y"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "CLASS 3: bare `exists E0()` over an EVENT, external delete-first churn re-fires (NE NE) \u2014 no P needed. engine==oracle (D-138)."
+}

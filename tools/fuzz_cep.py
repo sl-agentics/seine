@@ -351,8 +351,7 @@ class Gen:
                 upd_ok = [tg for tg in live
                           if tg["type"] not in self.temporal_types
                           and tg["type"] not in self.windowed_acc_types]
-                del_ok = [tg for tg in live if not (
-                    tg["type"] in self.exists_types and tg["type"] in epoch_ins)]
+                del_ok = list(live)  # D-138: class-3 external exists-witness churn PORTED
 
                 def pick(pool):  # bias toward EVENT targets (the item-C heart)
                     ev = [t for t in pool if t["type"] != "P"]

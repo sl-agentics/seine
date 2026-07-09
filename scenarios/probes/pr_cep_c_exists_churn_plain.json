@@ -1,0 +1,57 @@
+{
+ "name": "pr_cep_c_exists_churn_plain",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when exists E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "k": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "k": 2
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "CLASS 3 discriminator: the SAME churn with E0 a PLAIN fact (no @expires) COALESCES (NE) on BOTH engines \u2014 the re-fire is EVENT-SPECIFIC (matches Drools PhreakExistsNode batched path). The D-138 fix is gated on event_specs so this stays coalesced."
+}

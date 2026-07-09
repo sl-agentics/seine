@@ -4293,6 +4293,38 @@ impl Engine {
             for net in self.nets.iter_mut() {
                 net.s0_close_window();
             }
+            // CEP E2 item C class 3 (D-138): an EXPLICIT delete of an EVENT
+            // witness at an exists/not node is evaluated at DELETE-TIME (in
+            // arrival order), NOT deferred to fire_all — so a same-epoch
+            // REINSERT (whose own per-arrival stream-flush follows) re-blocks
+            // and RE-FIRES the churn. STREAM mode stream-flushes inserts
+            // per-arrival but defers deletes to the fire; that ins-before-del
+            // order otherwise coalesces a delete-first event-exists churn
+            // (spec: model_check_exists_churn.py `event_explicit_arrival`).
+            // Expiration deletes (`in_expiration_drain`) stay deferred (D-102).
+            // Scoped to rules with an exists/not CE over the victim's TYPE ⇒ the
+            // plain corpus and every non-event / non-existential delete are
+            // untouched (the deferred fire_all drain still processes them).
+            if !self.in_expiration_drain
+                && self.event_specs.contains_key(&self.store.fact_type(victim))
+            {
+                let tid = self.store.fact_type(victim);
+                let affected: Vec<usize> = (0..self.rules.len())
+                    .filter(|&ri| {
+                        self.rules[ri].patterns.iter().any(|p| {
+                            matches!(p.ce, CeKind::Not | CeKind::Exists) && p.type_id == tid
+                        })
+                    })
+                    .collect();
+                if !affected.is_empty() {
+                    let saved = self.in_stream_flush;
+                    self.in_stream_flush = true;
+                    for ri in affected {
+                        self.evaluate_rule(ri, true, false);
+                    }
+                    self.in_stream_flush = saved;
+                }
+            }
         }
         Ok(())
     }

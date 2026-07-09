@@ -1,0 +1,44 @@
+{
+ "name": "pr_cep_c_exists_delonly",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule NE when exists E0() then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CLASS 3 boundary: delete-only of an event exists witness (no reinsert) un-fires silently (NE, no new fire) \u2014 the delete-time eval retract matches the deferred one. engine==oracle (D-138)."
+}

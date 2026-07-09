@@ -1,6 +1,6 @@
 {
- "name": "xf_cep_c_del_churn_exists",
- "_finding": "CLASS 3 (item C): external DELETE of the sole exists-witness + insert of a fresh witness in the SAME epoch. External delete is IMMEDIATE (on_delete), so it un-fires exists; the same-epoch insert re-fires it -> Drools fires NE twice. The engine keeps exists linked across the churn -> fires once. engine: NE ; oracle: NE NE. C-SPECIFIC: the EXPIRATION analog (expire the witness + insert) PASSES on both (exp_churn_exists \u2014 expiration retraction defers/nets out, D-102). Controls: delete-only (no reinsert) PASSES (d2); not-CE variant PASSES (d4).",
+ "name": "pr_cep_c_del_churn_exists",
+ "_finding": "CLASS 3 PORTED (D-138): external delete of the sole exists EVENT witness + same-epoch reinsert re-fires (NE NE) \u2014 an explicit event-exists delete is evaluated at DELETE-TIME (arrival order) in delete_fact so the reinsert's stream-flush re-blocks+re-fires. engine==oracle.",
  "types": [
   {
    "name": "E0",
@@ -63,6 +63,5 @@
     }
    ]
   }
- ],
- "open_divergence": true
+ ]
 }
