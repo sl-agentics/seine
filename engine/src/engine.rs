@@ -1077,6 +1077,18 @@ pub struct Engine {
     /// count→0). Independent of expiration — fires even under a huge or
     /// explicit @expires.
     window_deadlines: std::collections::BTreeMap<i64, Vec<(usize, FactId)>>,
+    /// D-134 (§3B): scheduled temporal-`not` firing DEFERRALS, keyed by the
+    /// window-close `fire_time` (mirror of `deadlines`, but a firing not a
+    /// reap). Each entry is (not-node trie idx, held left tuple, origin).
+    /// Populated from `Node.new_deferrals` after a not node evaluates;
+    /// drained at fire quiescence (`drain_pending_fires`) BEFORE the
+    /// expiration reap, so a not fires while its anchor is still alive.
+    fire_deadlines: std::collections::BTreeMap<i64, Vec<(usize, Tup, Origin, u64)>>,
+    /// D-134 (§3B): monotonic CREATION sequence stamped on each deferral (the
+    /// D-125 join-creation order the not node sees). The release drain uses it
+    /// as the tie-break so a batch fires in the model's order: creation order
+    /// at the initial fire (agenda FIFO), (−fire_time, creation) at an advance.
+    fire_seq: u64,
     /// D-112 (accumulate-eager deferral): recomputed by each
     /// `build_network` — (accumulate trie-node idx, source event type,
     /// window size N or None for a plain accumulate). Windowed nodes
@@ -1226,6 +1238,8 @@ impl Engine {
             deadlines: std::collections::BTreeMap::new(),
             pending_expirations: Vec::new(),
             window_deadlines: std::collections::BTreeMap::new(),
+            fire_deadlines: std::collections::BTreeMap::new(),
+            fire_seq: 0,
             acc_nodes: Vec::new(),
             in_expiration_drain: false,
             in_stream_flush: false,
@@ -2286,21 +2300,14 @@ impl Engine {
             for c in &p.constraints {
                 match c {
                     Constraint::Temporal { op, params, var } => {
-                        // FENCE (D-120 → D-131) — STILL UP pending D-132 §3B +
-                        // the pre-existing positive before-inference latents the
-                        // not-population flushes (D-132: pos_far / pos_ins,
-                        // bisected to the pure-positive path — before[0,hi]
-                        // earlier-operand offset diverges from Drools; and the
-                        // engine reaps only on advance(), not at insert). §3A
-                        // (the not's own @expires inference, the phantom
-                        // `self_temporal_pos` edges below) is STAGED behind this
-                        // fence — inert until the fence lifts. See
+                        // FENCE LIFTED (D-134): temporal `not` is now PORTED.
+                        // §3A (arc-B REAPING) records the not's own @expires
+                        // inference via the phantom `self_temporal_pos` edges
+                        // below (D-132/D-133); §3B (arc-A FIRING DEFERRAL) is
+                        // the `fire_deadlines` window-close scheduler in
+                        // do_existential_node / drain_pending_fires. This was
+                        // the last CEP-E2 fence. See
                         // docs/not-temporal-port-mechanism.md.
-                        if p.ce == CeKind::Not {
-                            return Err(err(
-                                "temporal constraints on `not` CEs are a follow-on slab (D-101/D-120)".into(),
-                            ));
-                        }
                         // CEP E1/E2 (D-101/D-118): both sides must be DECLARED
                         // events; the test reads each side's ts and, for
                         // intervals, its @duration end (item E).
@@ -3223,6 +3230,8 @@ impl Engine {
         // D-110/D-112: window deadline queue clears; acc_nodes is
         // recomputed by build_network below (trie reindexes on rebuild).
         self.window_deadlines.clear();
+        self.fire_deadlines.clear(); // D-134 (§3B)
+        self.fire_seq = 0;
         self.in_expiration_drain = false;
         self.in_stream_flush = false;
         self.flush_trigger_tid = None;
@@ -3901,7 +3910,7 @@ impl Engine {
                 );
                 let mut trg: Staged<Tup> = Staged::default();
                 node.flush_ins_delta(
-                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no },
+                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false },
                     nidx,
                     s0_folds,
                     &mut trg,
@@ -3930,7 +3939,7 @@ impl Engine {
                     phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
                 );
                 node.self_drain_delta(
-                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no },
+                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false },
                     nidx,
                 );
                 self.trie[ni].node = node;
@@ -4088,6 +4097,57 @@ impl Engine {
         self.in_expiration_drain = false;
         self.tms.expiring.clear();
         true
+    }
+
+    /// D-134 (§3B): release temporal-`not` firing deferrals whose window has
+    /// closed (fire_time <= clock). Re-injects each due held left into its
+    /// not node's `pending_release` and re-queues the rule, so the next
+    /// evaluation fires it (if still UNBLOCKED — a blocked/blocked-then-
+    /// expired left is no longer in node.lefts and stays silent). A due
+    /// advance batch releases in DESCENDING fire_time (arc-A reverse-close-
+    /// time); within one fire_time, arrival/creation order. An anchor reaped
+    /// before its close (element no longer alive) is dropped. Returns whether
+    /// anything was staged (⇒ the fire loop must rescan). Drained at
+    /// quiescence BEFORE `drain_pending_expirations` so a not fires while its
+    /// anchor is still alive (the fire at ts+hi precedes the reap at ts+hi+1).
+    fn drain_pending_fires(&mut self) -> bool {
+        let keys: Vec<i64> =
+            self.fire_deadlines.range(..=self.clock_ms).map(|(k, _)| *k).collect();
+        if keys.is_empty() {
+            return false;
+        }
+        // Gather every due deferral as (fire_time, creation_seq, ni, left, o).
+        let mut due: Vec<(i64, u64, usize, Tup, Origin)> = Vec::new();
+        for k in keys {
+            if let Some(batch) = self.fire_deadlines.remove(&k) {
+                for (ni, l, o, seq) in batch {
+                    due.push((k, seq, ni, l, o));
+                }
+            }
+        }
+        // Target agenda order (model_not_infer): the INITIAL fire (clock 0)
+        // fires in CREATION order — the agenda is FIFO, no timer involved;
+        // an ADVANCE batch fires DESCENDING close-time then creation — the
+        // PseudoClockScheduler PriorityQueue drains by fire-time.
+        if self.clock_ms == 0 {
+            due.sort_by_key(|(_ft, seq, _, _, _)| *seq);
+        } else {
+            due.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        }
+        // Each released child PREPENDS at the not node (addInsert), so the
+        // agenda is the REVERSE of the push order — push reverse(target).
+        let mut any = false;
+        for (_ft, _seq, ni, l, o) in due.into_iter().rev() {
+            if !l.iter().all(|&f| self.store.is_alive(f)) {
+                continue; // anchor reaped before its window closed
+            }
+            let ri = self.trie[ni].env.0;
+            self.trie[ni].node.pending_release.push((l, o));
+            self.nets[ri].dirty = true;
+            self.nets[ri].queued = true;
+            any = true;
+        }
+        any
     }
 
     /// D-110/D-112: remove event `id` from ONE accumulate node's right
@@ -4580,6 +4640,13 @@ impl Engine {
                     self.focus_stack.pop();
                     continue;
                 }
+                // D-134 (§3B): release temporal-not firing deferrals whose
+                // window has closed, BEFORE the expiration reap — a not fires
+                // at ts+hi while its anchor is still alive (reap is ts+hi+1).
+                // The re-injected lefts fire on the rescan.
+                if self.drain_pending_fires() {
+                    continue;
+                }
                 // AGENDA QUIESCENCE (q1/q4): lazy deferred teardowns
                 // drain once the agenda empties; their retractions may
                 // activate rules (not-D observers), so rescan.
@@ -4853,7 +4920,7 @@ impl Engine {
                         // existential variant: blocked lefts re-search
                         // and unmatched ones stay DETACHED (D-031,
                         // NotNode.reorderRightTuple's null sink).
-                        let env = JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                        let env = JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                         if pat.ce == CeKind::Not {
                             self.trie[ni].node.not_mask_miss_re_add(&env, pos - 1, f);
                         } else {
@@ -4934,7 +5001,7 @@ impl Engine {
                             phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, false),
                         );
                         node.drain_staged_rights_to_memory_if(
-                            &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no },
+                            &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false },
                             nidx,
                             None,
                             &|f| self.store.is_alive(f),
@@ -5034,6 +5101,8 @@ impl Engine {
                     // LIA children can sit at any path step of a group
                     // rule (the outer counting node is one, D-089)
                     || !n.s0_in.is_empty()
+                    // D-134 (§3B): a released temporal-not deferral re-fires
+                    || !n.node.pending_release.is_empty()
             })
     }
 
@@ -5193,6 +5262,15 @@ impl Engine {
         // peer copies (SegmentPropagator prepends, LIFO across batches).
         // This rule's continuation is just one of the sinks; the walk
         // then consumes the next node's (freshly topped-up) pending.
+        // D-134 (§3B): this walk is a temporal-`not` deferral RELEASE iff some
+        // path node holds a pending release. Computed once here (before the not
+        // node consumes it) so a DOWNSTREAM join (not_mid's E2) skips the
+        // is_expired partner filter for the whole released-left propagation.
+        let releasing = self
+            .nets[ri]
+            .path
+            .iter()
+            .any(|&ni| !self.trie[ni].node.pending_release.is_empty());
         for step in 0..self.nets[ri].path.len() {
             let ni = self.nets[ri].path[step];
             let (env_ri, env_pos) = self.trie[ni].env;
@@ -5228,7 +5306,13 @@ impl Engine {
                 self.trie[ni].node.kind,
                 phreak::Kind::SubnetNot | phreak::Kind::SubnetExists
             ) && !self.trie[ni].sn_right.is_empty();
-            if src.is_empty() && sr.is_empty() && !sn_dirty {
+            // D-134 (§3B): a pending temporal-not release makes the node
+            // dirty even with no staged input — evaluate so it fires.
+            if src.is_empty()
+                && sr.is_empty()
+                && !sn_dirty
+                && self.trie[ni].node.pending_release.is_empty()
+            {
                 continue;
             }
             // Cross-window child clashes resolve against the FIRST
@@ -5269,7 +5353,7 @@ impl Engine {
             ) {
                 trg = self.eval_subnet_node(ni, src, &mut first_pending);
             } else {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: releasing };
                 phreak::do_node(
                     &env,
                     env_pos - 1,
@@ -5283,6 +5367,15 @@ impl Engine {
             // Consuming the batch spends the not-node link pulse
             // (unlinkNotNodeOnRightInsert, D-031).
             self.trie[ni].pulse = false;
+            // D-134 (§3B): a temporal not deferred these fresh lefts —
+            // schedule each at its window-close fire_time; the quiescence
+            // `drain_pending_fires` releases them (descending fire_time).
+            if !self.trie[ni].node.new_deferrals.is_empty() {
+                for (l, o, ft) in std::mem::take(&mut self.trie[ni].node.new_deferrals) {
+                    self.fire_deadlines.entry(ft).or_default().push((ni, l, o, self.fire_seq));
+                    self.fire_seq += 1;
+                }
+            }
             for si in 0..self.trie[ni].sinks.len() {
                 let sink = self.trie[ni].sinks[si];
                 match sink {
@@ -5581,7 +5674,7 @@ impl Engine {
         // right inserts: fold into the key's group
         for (f, _o, _) in sr.ins.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_right(&env, env_pos - 1, *f)
             };
             self.trie[ni].node.push_right(*f, key);
@@ -5604,7 +5697,7 @@ impl Engine {
         // this same batch's rights — they emit below)
         for (l, o, _) in src.ins.iter() {
             let lkey = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_left(&env, env_pos - 1, l)
             };
             self.trie[ni].node.push_left(l.clone(), lkey);
@@ -5744,7 +5837,7 @@ impl Engine {
         // reverse(stored)+accumulate(new) per still/newly allowed left.
         for (f, _, _) in sr.upd.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_right(&env, node_idx, *f)
             };
             self.trie[ni].node.re_add_right_tuple(*f, key);
@@ -5764,7 +5857,7 @@ impl Engine {
             }
             for l in bucket {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                     phreak::JoinEnv::allowed(&env, node_idx, &l, *f)
                 };
                 let had = self.trie[ni].acc_by_right.get(f).is_some_and(|v| v.contains(&l));
@@ -5791,7 +5884,7 @@ impl Engine {
         // functions take no left declarations, D-038/acc11).
         for (l, _, _) in src.upd.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_left(&env, node_idx, l)
             };
             self.trie[ni].node.re_add_left_tuple(l, key);
@@ -5818,7 +5911,7 @@ impl Engine {
             }
             for f in bucket {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                     phreak::JoinEnv::allowed(&env, node_idx, l, f)
                 };
                 let had = self.trie[ni]
@@ -5838,13 +5931,13 @@ impl Engine {
         // Phase E: right inserts (before left inserts).
         for (f, o, _) in sr.ins.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_right(&env, node_idx, *f)
             };
             self.trie[ni].node.push_right(*f, key.clone());
             for l in self.trie[ni].node.lefts_bucket_pub(key.as_ref()) {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                     phreak::JoinEnv::allowed(&env, node_idx, &l, *f)
                 };
                 if allowed {
@@ -5860,14 +5953,14 @@ impl Engine {
         // Phase F: left inserts — init context, fold the matching bucket.
         for (l, o, _) in src.ins.iter() {
             let lkey = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_left(&env, node_idx, l)
             };
             self.trie[ni].node.push_left(l.clone(), lkey.clone());
             self.trie[ni].acc.insert(l.clone(), AccCtx::new());
             for f in self.trie[ni].node.rights_bucket_pub(lkey.as_ref()) {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                     phreak::JoinEnv::allowed(&env, node_idx, l, f)
                 };
                 if allowed {
@@ -6751,7 +6844,7 @@ impl Engine {
             let self_blocker = self.rules[ri].patterns.iter().enumerate().any(|(pos, pat)| {
                 pat.ce == CeKind::Not && pat.type_id == ftid && {
                     let rule = &self.rules[ri];
-                    let env = JoinEnvImpl { store: &self.store, rule, flush: self.in_stream_flush, fire_no: self.fire_no };
+                    let env = JoinEnvImpl { store: &self.store, rule, flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
                     pat.cmps.iter().all(|c| {
                         if let Test::Group { g, cross_var, .. } = &c.test {
                             return *cross_var
@@ -7094,6 +7187,14 @@ struct JoinEnvImpl<'a> {
     rule: &'a CompiledRule,
     flush: bool,
     fire_no: u64,
+    /// D-134 (§3B): TRUE while a temporal-`not` deferral RELEASE propagates.
+    /// A released not-left logically fires at its window-close fire_time, when
+    /// its downstream join partners were still alive; but a collapsed
+    /// advance() has already expiration-FLAGGED partners that reap after that
+    /// fire_time (they are still `is_alive`, deleted only at the later drain).
+    /// So the release join must NOT skip them (the model ignores partner
+    /// expiration for the not_mid join) — is_expired reads false here.
+    not_releasing: bool,
 }
 
 impl phreak::JoinEnv for JoinEnvImpl<'_> {
@@ -7104,7 +7205,9 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         self.flush
     }
     fn is_expired(&self, f: FactId) -> bool {
-        self.store.is_expired(f)
+        // D-134 (§3B): a not-release join sees partners that were alive at the
+        // window-close fire_time, even if a collapsed advance flagged them.
+        !self.not_releasing && self.store.is_expired(f)
     }
     fn allowed(&self, node: usize, l: &Tup, f: FactId) -> bool {
         let pos = node + 1;
@@ -7237,6 +7340,30 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                 other => eval_alpha_test(&lhs, other),
             }
         })
+    }
+
+    /// D-134 (§3B): fire_time for a temporal `not` left. The window closes
+    /// (no blocker can still arrive) at anchor.ts+hi for `after` and at
+    /// anchor.ts−lo for `before`; the DEFERRED regime is where that time is
+    /// >= anchor.ts (after any hi; before with lo==0, the whole fuzz
+    /// population). before[lo>0] is the IMMEDIATE regime and other Allen ops
+    /// are unmodelled — both return None (fire at insert). Point-event
+    /// formula (anchor.ts, no @duration end): the modelled/fuzzed shapes.
+    fn not_fire_time(&self, node: usize, l: &Tup) -> Option<i64> {
+        let pat = &self.rule.patterns[node + 1];
+        let (op, params, anchor) = pat.cmps.iter().find_map(|c| match &c.test {
+            Test::Temporal { op, params, anchor, .. } => Some((*op, params, *anchor)),
+            _ => None,
+        })?;
+        let Value::I64(a_ts) = self.store.value(l[anchor.0], anchor.1) else {
+            return None;
+        };
+        let (lo, hi) = (params[0], params[1]);
+        match op {
+            AllenOp::After => Some(a_ts + hi),
+            AllenOp::Before if lo == 0 => Some(a_ts),
+            _ => None,
+        }
     }
 
     /// <=1 beta constraint always allows the optimization (Single/Empty

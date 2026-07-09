@@ -1,0 +1,76 @@
+{
+ "name": "pr_cep_not_chain_defer",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule NT when $a : E0() $b : E1(this before[0ms,150ms] $a) not E2(this after[0ms,100ms] $b) then end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": -32
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": -80
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": -9
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": -140
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 3
+   }
+  }
+ ],
+ "epochs": [],
+ "comment": "chain not: $a:E0 $b:E1(before $a) not E2(after $b) \u2014 the D-125 join then the not filter+defer; fires (E0@3,E1@-140). \u2014 graduated D-134 (\u00a73B temporal-not firing-deferral port landed): the not-wall is down, engine==oracle. Was an engine_fenced recon witness."
+}

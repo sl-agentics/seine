@@ -1,19 +1,20 @@
-# not×temporal — ENGINE PORT mechanism report (pre-port, for the GATE)
+# not×temporal — ENGINE PORT mechanism report
 
-Status: **GATED (2026-07-08) — Bryan approved: §3B removal-driven `fire_deadlines`
-+ §6 quarantine the heap-tie undefined behavior to `xfail/`. Port IN PROGRESS
-(D-132): §3A IMPLEMENTED & staged behind the still-up fence (byte-identical
-corpus). ⚠ BLOCKED on a pre-existing-latent decision — the port bisected two
-pure-positive `before`-inference bugs (`pos_far`, `pos_ins`;
-`tools/probe_before_latents.py`) that must be fixed or quarantined before the
-`fuzz_not_temporal` gate can be clean. See DECISIONS D-132.** This is the
-mechanism report the doctrine requires before touching `engine.rs`. It
-consolidates the validated models (D-129 arc A, D-130 arc B, D-131 chains) with a
-drools-core source read and a three-way engine-code map into a concrete port plan
-naming the exact engine sites. Read alongside DECISIONS.md D-128..D-131.
-The GATE decisions Bryan should weigh: §3B's removal-driven deferral design
-(vs the held-firing-queue alternative), and §6's heap-tie stance (match the
-scheduler vs quarantine to xfail).
+Status: **LANDED (2026-07-09, D-134).** The port is complete: §3A (arc-B
+REAPING) landed D-132/D-133; **§3B (arc-A FIRING DEFERRAL) landed D-134** —
+implemented NOT as the report's removal-driven `fire_deadlines` (§3B below), but
+as a **hold-in-lefts + `pending_release` re-fire** design (see DECISIONS D-134
+for why the removal/phantom-blocker design was set aside). All gates green:
+`make diff` 11/956/284 byte-identical, `fuzz_not_temporal` 0 firing-SET
+divergences across ~4600 cases (engine==validated-model on every case), the ~0.6%
+within-close-time ORDER residual quarantined to `scenarios/xfail/` (§6). The 5
+fenced recon witnesses graduated to `scenarios/probes/pr_cep_not_*`.
+
+The sections below are the PRE-PORT plan (kept for provenance); where the landed
+design differs from §3B's recommendation, DECISIONS D-134 is authoritative.
+It consolidates the validated models (D-129 arc A, D-130 arc B, D-131 chains) with
+a drools-core source read and a three-way engine-code map. Read alongside
+DECISIONS.md D-128..D-134.
 
 ---
 

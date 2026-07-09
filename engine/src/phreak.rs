@@ -305,6 +305,14 @@ pub struct Node {
     /// Shared temporal nodes use the this-fire-first partner scan and
     /// the stay-at-flush stash; unshared keep certified behavior.
     pub shared: bool,
+    /// D-134 (§3B, temporal `not` firing-deferral): a satisfied temporal
+    /// `not` left does NOT fire at insert (Drools defers to the pseudo-clock
+    /// window close). `new_deferrals` carries (left, origin, fire_time) OUT
+    /// to the engine, which schedules the release in `fire_deadlines`;
+    /// `pending_release` carries due lefts back IN so a re-eval fires them.
+    /// Both empty for non-temporal / non-not nodes (byte-identical path).
+    pub new_deferrals: Vec<(Tup, Origin, i64)>,
+    pub pending_release: Vec<(Tup, Origin)>,
 }
 
 impl Node {
@@ -366,6 +374,8 @@ impl Node {
             left_sseq: HashMap::new(),
             right_sseq: HashMap::new(),
             shared: false,
+            new_deferrals: Vec::new(),
+            pending_release: Vec::new(),
         }
     }
 
@@ -879,6 +889,15 @@ pub trait JoinEnv {
     /// stored-type truncation, ne_r3/ne_r5) already decided it and
     /// Drools never re-evaluates an indexed constraint (D-035).
     fn allowed_ce(&self, node: usize, l: &Tup, f: FactId) -> bool;
+    /// D-134 (§3B): fire_time for a temporal `not` left in the DEFERRED
+    /// regime (window has not yet fully closed): after ⇒ anchor.ts+hi,
+    /// before[0,hi] ⇒ anchor.ts. None = fire NOW (the IMMEDIATE regime
+    /// before[lo>0], a non-after/before op, or a non-temporal not). The
+    /// caller (`not_emit_or_defer`) defers whenever this is Some(ft); the
+    /// engine's `drain_pending_fires` decides WHEN to release (clock >= ft).
+    fn not_fire_time(&self, _node: usize, _l: &Tup) -> Option<i64> {
+        None
+    }
 }
 
 fn sr_ins_iter<T>(v: &[T]) -> Box<dyn Iterator<Item = &T> + '_> {
@@ -1458,6 +1477,45 @@ fn do_join_node<E: JoinEnv>(
 /// leftIns. Staged-UPDATE lefts are skipped by every right-side walk
 /// ("children cannot be processed twice") and re-attached to the walked
 /// right's blocked list.
+///
+/// D-134 (§3B) temporal `not`: a FRESH satisfied left does not fire at
+/// insert — Drools DEFERS to the pseudo-clock window close (fire_time). A
+/// blocker's later removal never re-fires it (blocked ⇒ silent forever, the
+/// arc-B model_not_infer rule), so the un-block re-fire paths are SUPPRESSED
+/// for a temporal not. The only fire path is the deferral release, replayed
+/// via `pending_release`. All of this is gated on `node.temporal` — a
+/// non-temporal `not` keeps the certified behavior byte-for-byte.
+///
+/// Emit a `not` child for a FRESH unblocked left, or DEFER it. Returns true
+/// if a child was emitted (fired now: immediate regime, an already-due
+/// deferral, or a non-temporal not); false if deferred (recorded in
+/// `node.new_deferrals`, left kept in `node.lefts`, no child).
+fn not_emit_or_defer<E: JoinEnv>(
+    env: &E,
+    node_idx: usize,
+    node: &mut Node,
+    l: &Tup,
+    o: Origin,
+    ph: u8,
+    out: &mut Out<'_>,
+) -> bool {
+    if node.temporal {
+        if let Some(ft) = env.not_fire_time(node_idx, l) {
+            // Deferred-regime temporal not: ALWAYS defer, even when already
+            // due (ft <= clock). The engine's `drain_pending_fires` releases
+            // the due ones at THIS fire's quiescence in the model's
+            // (−fire_time, creation) order — so a clock-0 firing reads the
+            // same order as an advance batch, and a blocker arriving later in
+            // the SAME insert batch still suppresses (blocked ⇒ silent).
+            node.new_deferrals.push((l.clone(), o, ft));
+            return false;
+        }
+    }
+    let t = node.create_ce_child(l);
+    out.child_ins(t, o, ph);
+    true
+}
+
 fn do_existential_node<E: JoinEnv>(
     env: &E,
     node_idx: usize,
@@ -1710,8 +1768,13 @@ fn do_existential_node<E: JoinEnv>(
                 None => {
                     node.lefts.push((l.clone(), env.key_of_left(node_idx, &l)));
                     if is_not {
-                        let t = node.create_ce_child(&l);
-                        out.child_ins(t, *o, 2);
+                        // D-134 (§3B): a temporal not does NOT re-fire when a
+                        // blocker is removed (blocked ⇒ silent forever); the
+                        // left returns to node.lefts but stays childless.
+                        if !node.temporal {
+                            let t = node.create_ce_child(&l);
+                            out.child_ins(t, *o, 2);
+                        }
                     } else if let Some(c) = node.ce_child_of(&l) {
                         let t = node.kill_child(c);
                         out.child_del(t, *o);
@@ -1744,8 +1807,13 @@ fn do_existential_node<E: JoinEnv>(
                 None => {
                     node.lefts.push((l.clone(), env.key_of_left(node_idx, &l)));
                     if is_not {
-                        let t = node.create_ce_child(&l);
-                        out.child_ins(t, *o, 2);
+                        // D-134 (§3B): a temporal not does NOT re-fire when a
+                        // blocker is removed (blocked ⇒ silent forever); the
+                        // left returns to node.lefts but stays childless.
+                        if !node.temporal {
+                            let t = node.create_ce_child(&l);
+                            out.child_ins(t, *o, 2);
+                        }
                     } else if let Some(c) = node.ce_child_of(&l) {
                         let t = node.kill_child(c);
                         out.child_del(t, *o);
@@ -1832,9 +1900,10 @@ fn do_existential_node<E: JoinEnv>(
                     out.child_del(t, *o);
                 }
             } else if child.is_none() {
+                // D-134 (§3B): a temporal not defers a newly-satisfied left
+                // to its window close (not_emit_or_defer); non-temporal fires.
                 node.lefts.push((l.clone(), lkey.clone()));
-                let t = node.create_ce_child(l);
-                out.child_ins(t, *o, 2);
+                not_emit_or_defer(env, node_idx, node, l, *o, 2, out);
             } else {
                 let c = child.unwrap();
                 out.child_upd(node.children[c].tuple.clone(), *o, 2);
@@ -1874,9 +1943,27 @@ fn do_existential_node<E: JoinEnv>(
             None => {
                 node.lefts.push((l.clone(), lkey));
                 if is_not {
-                    let t = node.create_ce_child(l);
-                    out.child_ins(t, *o, 0);
+                    // D-134 (§3B): a temporal not DEFERS to its window close
+                    // instead of firing at insert; the left stays in
+                    // node.lefts so a later blocker still blocks it.
+                    not_emit_or_defer(env, node_idx, node, l, *o, 0, out);
                 }
+            }
+        }
+    }
+
+    // D-134 (§3B): fire the deferrals that came due — the engine drained
+    // fire_deadlines at quiescence and re-injected the due lefts here. Fire
+    // only lefts still UNBLOCKED (in node.lefts) with no child yet: a left
+    // that was blocked (blocker present, or blocked-then-expired) is not in
+    // node.lefts ⇒ silent forever (the arc-B model rule). Uses the ph=0
+    // left-insert slot so a released firing reads as a fresh child.
+    if !node.pending_release.is_empty() {
+        for (l, o) in std::mem::take(&mut node.pending_release) {
+            let unblocked = node.lefts.iter().any(|(x, _)| *x == l);
+            if unblocked && node.ce_child_of(&l).is_none() {
+                let t = node.create_ce_child(&l);
+                out.child_ins(t, o, 0);
             }
         }
     }

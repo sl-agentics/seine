@@ -1,0 +1,69 @@
+{
+ "name": "pr_cep_not_int_block_adv",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule NE when $a : A() not B(this after[60ms,80ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 100,
+    "dur": 30
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 200,
+    "dur": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "expect_inert": true,
+ "comment": "interval not: A@100 dur30 => window shifts, B@200 lands IN it (eval_allen +duration) so A is BLOCKED \u2014 inert even after advance. \u2014 graduated D-134 (\u00a73B temporal-not firing-deferral port landed): the not-wall is down, engine==oracle. Was an engine_fenced recon witness."
+}

@@ -1,0 +1,58 @@
+{
+ "name": "pr_cep_not_pt_defer_noadv",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule NE when $a : A() not B(this after[60ms,80ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 100,
+    "dur": 30
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 200,
+    "dur": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "expect_inert": true,
+ "comment": "point not B(after $a), NO advance: the deferred not does NOT fire until the window closes (D-128's immediate-fire bug is gone). \u2014 graduated D-134 (\u00a73B temporal-not firing-deferral port landed): the not-wall is down, engine==oracle. Was an engine_fenced recon witness."
+}

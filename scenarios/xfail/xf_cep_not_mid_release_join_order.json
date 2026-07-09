@@ -1,0 +1,86 @@
+{
+ "name": "xf_cep_not_mid_release_join_order",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule NT when $a : E0() not E1(this before[0ms,100ms] $a) $c : E2(this before[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 5
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": -3
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": -45
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "comment": "D-134 (\u00a73B) FENCED within-close-time order: not_mid $a:E0 not E1(before $a) $c:E2(before $a). The not releases E0@0 at its window close; the DOWNSTREAM E2 join emits (E0,E2@-3)+(E0,E2@-45) \u2014 both at the SAME not-close-time, so their order is a within-close-time residual. The pop-time do_join_node scans descending-ts then PREPENDS, reversing vs Drools' D-125 flush order. FIRING SET is 0-div; order-only. Not gated (\u00a76 heap/composition residual). See DECISIONS D-134."
+}

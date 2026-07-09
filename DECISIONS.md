@@ -11,28 +11,26 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, post-D-133 (not×temporal port: §3A REAPING complete —
-the not's inference + the two positive-latent reaper fixes, facts-validated 0-div
-on the population; §3B firing-deferral is the LAST piece); `git log --oneline -10`
-for live HEAD._
+_Last updated: 2026-07-09, post-D-134 (not×temporal ENGINE PORT COMPLETE — §3B
+firing-deferral scheduler landed; the LAST CEP-E2 fence is down). `git log
+--oneline -12` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **9 commits AHEAD of `origin`, NOT pushed** (D-127..D-133 +
-docs handoff + port report — Bryan holds the push; `git push` when cleared).
-Tree CLEAN, gates green. The D-133 reaper fixes are ACTIVE (positive path,
-byte-identical corpus); §3A not-inference is staged behind the still-up fence.
-⚠ **NO `v*` TAGS until a PyPI release is intended** — `ci.yml`'s
-`release`/`publish-pypi` fire on tag push and the `pypi` environment has NO
-protection rules (gh-verified): a new tag publishes `seine-rs` with no manual
-gate. Recent: **D-127 exists×temporal PORT** → D-128..D-131 not×temporal modeled
-→ port report → **D-132 port GATED & begun (§3A staged; positive latents
-bisected)**.
+**Git:** on `main`, **10 commits AHEAD of `origin`, NOT pushed** (D-127..D-134 +
+docs — Bryan holds the push; `git push` when cleared). Tree CLEAN, gates green.
+The temporal-`not` port is ACTIVE (gated on temporal + `CeKind::Not`;
+non-temporal-not and every other path byte-identical). ⚠ **NO `v*` TAGS until a
+PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
+and the `pypi` environment has NO protection rules (gh-verified): a new tag
+publishes `seine-rs` with no manual gate. Recent: D-127 exists×temporal PORT →
+D-128..D-131 not×temporal modeled → port report → D-132/133 §3A (reaping) →
+**D-134 §3B (firing deferral) — not×temporal DONE, CEP-E2 fully unwalled.**
 
-**Gates (green @ HEAD, local + CI):** baseline 11 / probes **951**
+**Gates (green @ HEAD, local + CI):** baseline 11 / probes **956**
 byte-identical / regressions **284** / lint **1334 live·0 ghost·0 inert** / 9
 Rust suites / bindings pytest 72. Verify: `make diff` · `make lint-probes` ·
 `cargo test` (oracle prebuilt, `oracle/target/classpath.txt`). **Red on resume
@@ -58,87 +56,35 @@ an exists node (its full staging flows to the eval). Gated to temporal
 unobservable (retractions never fire) so the port is insert-only. Spec:
 `tools/model_exists_flush.py`.
 
-**⚠ ACTIVE SLAB — not×temporal ENGINE PORT (D-132/133, GATED, in progress; the
-REAPING half is DONE, only firing §3B remains).** All modeling done
-(D-129/130/131); report `docs/not-temporal-port-mechanism.md` (gated: §3B
-removal-driven `fire_deadlines`, §6 quarantine heap ties). **§3A DONE** — the
-not's `temporal_pos` phantom edges (staged behind the fence) PLUS the D-133
-reaper fixes (born-expired leak + at-insert reap) that resolved the two
-pre-existing positive latents the port flushed. With those, `facts_check.py` on
-the not-population (fence temp-lifted) is **0 facts divergences** — the arc-B
-reaping is validated. **Only §3B (the firing-deferral scheduler) remains.**
+**✅ not×temporal ENGINE PORT — DONE (D-132/133 §3A reaping, D-134 §3B firing
+deferral).** The LAST CEP-E2 fence is down; joins (D-125), exists (D-127), and
+`not` (D-134) all unwalled. Design (D-134 authoritative; report
+`docs/not-temporal-port-mechanism.md` is the pre-port plan):
+- **§3A REAPING** — a temporal `not` gets a PHANTOM `temporal_pos` recording its
+  after/before @expires-inference edges (`engine.rs` ~2320; bare-NEVER check
+  uses `temporal_pos`), + the D-133 `schedule_expiration` boundary
+  (deadline<clock ⇒ leak, ==clock ⇒ lazy delete, >clock ⇒ schedule).
+- **§3B FIRING DEFERRAL** — `not_fire_time` (after ⇒ anchor+hi; before[0,hi] ⇒
+  anchor) → `not_emit_or_defer` holds the left in `node.lefts` and pushes
+  `node.new_deferrals` (no child) → engine → `fire_deadlines` (mirror
+  `deadlines`, +creation seq) → `drain_pending_fires` at fire-quiescence
+  (BEFORE the reap) releases due lefts to `node.pending_release`, ordered
+  creation@clock0 / (−ft,creation)@advance, ONE prepend reversal → agenda. Fires
+  only still-UNBLOCKED lefts (blocked⇒silent forever ⇒ un-block re-fire SUPPRESSED
+  for temporal nots). `not_releasing` flag makes the not_mid released-left's
+  downstream E2 join ignore `is_expired` (partners alive at fire_time). Specs:
+  `tools/model_not_defer.py` (arc A), `tools/model_not_infer.py` (arc B/chains).
+- **Verified:** `fuzz_not_temporal` 0 firing-SET div / ~4600 cases,
+  engine==validated-model; diff 11/956/284; the ~0.6% within-close-time ORDER
+  residual (chain_not/not_mid) fenced to
+  `scenarios/xfail/xf_cep_not_{chain_heaptie,mid_release_join_order}`; 5 recon
+  witnesses graduated to `scenarios/probes/pr_cep_not_*`.
 
-**➡ START HERE (cold pickup) — §3B, the LAST piece. READ
-`docs/not-temporal-port-mechanism.md` §3B + D-132/133 FIRST.** The reaping half
-is complete & facts-validated; the positive-latent blocker is FIXED (D-133).
-**Do:** (1) LIFT the fence for good (`engine.rs` ~2276 — the `if p.ce ==
-CeKind::Not { return Err }`; §3A activates). (2) Build §3B — a new
-`fire_deadlines: BTreeMap<i64,…>` (mirror `deadlines`) so a satisfied temporal
-`not` DEFERS to fire_time = anchor+hi (after) / anchor−lo (before) instead of
-firing immediately; drain it in `advance()` to RELEASE the held not-left into the
-existing re-fire path (`phreak.rs:1728` `create_ce_child`); the PREPEND
-discipline gives arc-A's reverse-close order for free (report §3B). (3) Gate:
-`fuzz_not_temporal.py` 0-div MODULO the D-131 heap ties (quarantine those to
-`xfail/`); `make diff` byte-identical; graduate `cp*not*` witnesses; watch the
-D-117 non-termination region (a re-scheduling scheduler is the re-add-cycle
-shape). Reference (the two halves, report §3A/§3B):
-
-- **arc B REAPING (the `facts` fix; §3A + D-133 — DONE):** the `not` pattern's
-  phantom `temporal_pos` records after/before edges (`engine.rs` ~2320); the
-  bare-NEVER check (~3010) uses `temporal_pos`; offsets after ⇒ E0=hi,
-  E1=lo?0:NEVER (before mirror). The D-133 reaper boundary fix
-  (`schedule_expiration` ~3545): deadline<clock ⇒ leak, ==clock ⇒ lazy delete
-  (fires then drops), >clock ⇒ schedule. Facts-validated 0-div on the population.
-- **arc A DEFERRAL (report §3B — TODO):** the engine fires an unblocked not IMMEDIATELY
-  (`do_existential_node`, `phreak.rs:957`); it must DEFER to fire_time = anchor+hi
-  (after) / anchor−lo (before). No fire-scheduler exists; `advance()` only drains
-  time-keyed DELETES → downstream re-eval fires. RECOMMENDED design: a new
-  `fire_deadlines: BTreeMap<i64,…>` (mirror `deadlines`), drained in `advance()`
-  to RELEASE a held not-left into the existing re-fire path (`phreak.rs:1728`,
-  `create_ce_child`); the PREPEND discipline gives the reverse-close-time order
-  for free. Reuses the whole non-temporal-not blocker model + clock/reaper.
-
-Gate to build against: `fuzz_not_temporal.py` 0-div (modulo the fenced heap
-ties) + graduate `cp*not*` witnesses; `make diff` byte-identical; watch the D-117
-non-termination region (a re-scheduling scheduler is the re-add-cycle shape).
-`not` fence is the LAST CEP-E2 fence.
-
-_Arc B chains DONE-modulo-order (D-131, `tools/model_not_infer.py`):_ composition
-= positive temporal join (D-125, reuse `model_join_flush.Node`) → not FILTERS
-(blocked⇒silent) → DEFERS to the not's window-close (anchor+hn after / anchor
-before; chain_not anchor=$b, not_mid anchor=$a). **FIRING SET 0-div, all 3
-shapes, ~4500 cases / 9 seeds**; clock-0 FIFO + cross-close-time order 0-div; the
-~0.6% residual (chain_not/not_mid, ALL order-only) is the within-close-time not-
-node staging — fenced, see START HERE.
-
-_Arc B not_partner DONE (D-130, 0-div, 6 seeds / 2300 cases — the inference
-spec):_ inferred per-type offset (after: E0=hi, E1=lo?0:NEVER; before mirror;
-reap at ts+offset+1; explicit @expires=E ⇒ offset E). KEY: **the inference is
-invisible to FIRINGS** — a blocked anchor stays silent whether the blocker is
-inferred-mortal (B) or explicit-immortal (A); arc A ≡ arc B on the firing SET,
-differing only in reaped `facts` (the port must reproduce the reaping).
-Mechanism = `docs/drools-inferred-expiry-never.md` (D-109).
-
-_Arc A DONE (D-129, `tools/model_not_defer.py` 0-div, not_partner, 6 seeds — the
-deferral spec):_ fire_time = A.ts+hi (after) / A.ts−lo (before); IMMEDIATE iff
-fire_time<A.ts (before lo>0 → fires FIFO at the initial fire), else DEFER to
-fire_time (fires when clock≥fire_time; a due advanceTime batch REVERSES =
-descending close-time, the PREPEND discipline). A blocker in-window cancels.
-Pseudo-clock starts at 0, moves only via explicit `advance`. (Arc A's IMMEDIATE
-regime needs lo>0, which the not_partner population `[0ms,hi]` never hits.)
-
-_The engine port (LAST, after all arcs modeled):_ a deferral SCHEDULER — hold a
-satisfied `not` on a pseudo-clock timer keyed to fire_time, fire on the advance
-that retires it, cancel on an in-window blocker; NOT the D-127 reorder. Arc B
-adds NO firing logic (blocked⇒silent already), but the port MUST reproduce the
-inferred-offset reaping (D-130 offsets) so `facts` match under absent @expires —
-check whether the existing D-109 inference path already covers the not's edge.
-Gate: `fuzz_not_temporal.py` 0-div + `cp*not*` witnesses graduating; `not` fence
-LAST.
-
-**Other parked candidates:** • @expires INFERENCE through an exists (D-127 kept
-it out with explicit @expires; STP edge already guarded to skip it) • shared
-temporal nodes (`xf_cep_tjorder_dual_tms`; cf101x551-vs-t14) stay on legacy.
+**Parked candidates (next slabs):** • @expires INFERENCE through an exists
+(D-127 kept it out with explicit @expires; STP edge already guarded to skip it)
+• shared temporal nodes (`xf_cep_tjorder_dual_tms`; cf101x551-vs-t14) stay on
+legacy • the fenced within-close-time not ORDER (D-134 xfail) is a heap/PQ
+artifact — only crack it if Seine grows a faithful `PseudoClockScheduler`.
 
 **Open/deferred (parked):** • shared-temporal join order (`xf_cep_tjorder_
 dual_tms`; cf101x551-vs-t14 constraint) • item-C re-propagation (classes 1/2/3;
@@ -6657,3 +6603,71 @@ not-population (fence temp-lifted) is **0 facts divergences, 750 cases / 3 seeds
 — the arc-B REAPING half of the not port is COMPLETE & validated. Fence restored
 (firing §3B pending). NEXT: lift the fence for good + §3B (the `fire_deadlines`
 firing-deferral scheduler) — the last piece.
+
+### D-134: not×temporal §3B ENGINE PORT — the firing-DEFERRAL scheduler LANDED; the LAST CEP-E2 fence is down. Firing SET 0-div (~4600 cases), engine==validated-model, within-close-time ORDER residual fenced to xfail
+
+The last piece. Lifted the fence (`engine.rs` `Constraint::Temporal` / `p.ce ==
+CeKind::Not`), activating §3A, and built §3B so a satisfied temporal `not`
+DEFERS to its pseudo-clock window close instead of firing at insert.
+
+**Design — hold-in-lefts + `pending_release` re-fire (NOT the report's
+removal-driven `fire_deadlines`).** The report §3B recommended a phantom
+"window-blocker" whose scheduled REMOVAL drives the existing right-delete
+re-fire path. Set aside: a phantom right pollutes `node.rights` (find_blocker /
+allowed_ce would look it up in the store). Landed design instead:
+- `not_fire_time(node, l)` (JoinEnv): `Some(anchor.ts+hi)` for `after`,
+  `Some(anchor.ts)` for `before[0,hi]` (the DEFERRED regime); `None` for
+  `before[lo>0]` (IMMEDIATE regime — fires at insert) / non-after-before /
+  non-temporal. Point-event formula (anchor.ts, no @duration end).
+- At the not's left-insert (and left-update newly-satisfied), `not_emit_or_defer`:
+  a temporal not in the deferred regime does NOT `create_ce_child`; it pushes
+  `(left, origin, fire_time)` to `node.new_deferrals` AND keeps the left in
+  `node.lefts` (so a later blocker's right-insert still blocks it — free
+  cancellation via the existing scan). ALWAYS defers, even when already due.
+- The engine drains `new_deferrals` after `do_node` into
+  `fire_deadlines: BTreeMap<i64, Vec<(ni, Tup, Origin, seq)>>` (mirror of
+  `deadlines`), stamping a monotonic creation `seq`.
+- `drain_pending_fires` (fire-quiescence, BEFORE `drain_pending_expirations` so
+  a not fires while its anchor is still alive) collects the due
+  (`fire_time <= clock`) entries and orders them to the model: **creation order
+  at the initial fire (clock 0, agenda FIFO); (−fire_time, creation) at an
+  advance (the PseudoClockScheduler PQ)**. Each released left goes to its not
+  node's `pending_release`; the rule re-queues + re-evaluates. do_existential_node
+  fires a `pending_release` left ONLY if still UNBLOCKED (in `node.lefts`) with no
+  child yet — a blocked (or blocked-then-expired) left is silent forever, the
+  arc-B `model_not_infer` rule.
+- **Un-block re-fire SUPPRESSED for a temporal not** (`if !node.temporal`) at the
+  right-delete / right-update / left-update paths: a blocker's REMOVAL (an
+  inferred-mortal E1 reaping early) must not resurrect a once-blocked firing.
+- **Ordering falls out of one PREPEND reversal** (`child_ins` addInsert): push
+  `reverse(target)` so the agenda equals `target` (empirically pinned by
+  `w_two_after`, not hand-derived).
+- **not_mid downstream-join fix:** a released left in `not_mid`
+  (`$a:E0 not E1 $c:E2`) joins E2 at fire_time, but a collapsed `advance(1000)`
+  has already expiration-FLAGGED E2 partners that reap AFTER that fire_time
+  (still `is_alive`, deleted only at the later drain). A `not_releasing` flag
+  (a local in `evaluate_rule_inner`, threaded into `JoinEnvImpl` at the do_node
+  site) makes `is_expired` read false for the whole released-left propagation —
+  the model ignores partner expiration for this join. This turned the sole
+  SET-miss the fuzz found into an order-only residual.
+
+**Verification.** `fuzz_not_temporal` (all 3 shapes): **0 firing-SET divergences
+across ~4600 cases** (seeds 11-14/21-26/100-104); a targeted engine-vs-`model_not_infer`
+check is **engine==model on every case**. `make diff` 11 / **956** (+5 graduated
+witnesses) / 284 byte-identical; `make lint-probes` 1334/0/0; `cargo test` 9
+suites; bindings pytest 72. 9 hand witnesses (`after`/`before`, adv/no-adv,
+blocked, interval, no-expires, two-anchor order) all pass. The 5 fenced recon
+witnesses (`cp*not*`, incl. `cp_not_chain_defer`) GRADUATED to
+`scenarios/probes/pr_cep_not_*` (3 `expect_inert`, 2 firing).
+
+**Fenced (§6):** the ~0.6% WITHIN-close-time multi-tuple ORDER (chain_not /
+not_mid, order-only, never a set/count miss). Split: most are genuine heap ties
+(Drools' `PseudoClockScheduler` PriorityQueue is fire-time-only, no secondary
+key — INTERNALLY inconsistent, the validated model diverges too); a few are the
+not_mid released-left downstream-join order (pop-time `do_join_node` scans
+descending-ts then PREPENDS, reversing vs the D-125 flush order). Both are the
+"chain within-close-time" residual D-131 flagged; per doctrine (do NOT grind the
+tie) quarantined to `scenarios/xfail/xf_cep_not_{chain_heaptie,mid_release_join_order}`.
+Not black-box-ground.
+
+**Not pushed** (Bryan holds the push; the D-127..D-134 stack + docs).

@@ -1,0 +1,98 @@
+{
+ "name": "xf_cep_not_chain_heaptie",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule NT when $a : E0() $b : E1(this after[0ms,150ms] $a) not E2(this after[0ms,100ms] $b) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 3
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 4
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 4
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 131
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 106
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 67
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 77
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "comment": "D-134 (\u00a73B) FENCED within-close-time HEAP TIE: chain_not with two tuples sharing a not-anchor (same close-time). Drools' order is a PriorityQueue binary-heap artifact (DefaultTimerJobInstance.compareTo, no secondary key) \u2014 internally INCONSISTENT here (3-then-4 for one tie, 4-then-3 for another), so NO deterministic rule reproduces it; the validated model diverges too. FIRING SET 0-div; order-only. Not gated (\u00a76). See DECISIONS D-134 / model_not_infer.py."
+}
