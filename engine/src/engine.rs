@@ -3757,6 +3757,13 @@ impl Engine {
                 // keep the certified pre-0dc2a4e flush behavior
                 // (delta rights walk; transition fills+pairs).
                 // Unlinked deltas stay staged for the self-drain.
+                // D-136: this stay-at-flush pop-time path orders shared
+                // firings wrong (14%, order-only); the fix is NOT a naive
+                // un-bail (flushing gives per-arrival peer reversals — 61%,
+                // WORSE + 2 corpus regressions). The oracle (model_shared_
+                // tjo.py, 0-div) needs TJ0's per-arrival D-125 order but
+                // peers reversed over the WHOLE epoch batch — a distinct
+                // compose, staged for the port.
                 if node_linked[ni] && node_shared[ni] {
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
                     let (s0_all, sl_all) = (

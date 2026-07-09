@@ -11,9 +11,9 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-09, post-D-135 (not×temporal COMPLETE & pushed through
-D-134; **@expires INFERENCE through an exists PORTED** — D-135 recon+port, one
-line, all gates green). `git log --oneline -12` for live HEAD._
+_Last updated: 2026-07-09, post-D-136 (exists-inference PORTED D-135; **SHARED
+temporal-join ORDER: MODEL VALIDATED 0-div, port de-risked** — naive un-bail
+fails, the compose is specified). `git log --oneline -12` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -91,10 +91,43 @@ override stops forcing NEVER. FACTS-only (reaping) gap (~25% → 0-div); FIRING
 cargo test / lint 1336·0·0 / bindings 72. The whole CEP-E2 inference arc (joins,
 exists, not; explicit + inferred @expires) is now unwalled.
 
-**Parked candidates (next slabs):** • shared temporal nodes (`xf_cep_tjorder_dual_tms`;
-cf101x551-vs-t14) stay on legacy • the fenced within-close-time not ORDER (D-134
-xfail) is a heap/PQ artifact — only crack it if Seine grows a faithful
-`PseudoClockScheduler`.
+**➡ NEXT SLAB — SHARED temporal-join node ORDER (D-136; ★MODEL DONE & VALIDATED,
+port pending — full handoff below, nothing to re-derive).** ORDER-only, 14% of
+shared-temporal populations, **0 SET-miss** (never a correctness bug — xfail'd
+`xf_cep_tjorder_dual_tms`, LOW priority; not urgent).
+
+_The SPEC is LOCKED (don't re-model):_ `tools/model_shared_tjo.py`, **0-div / 6
+seeds / 1800 cases**. Composition — per fire cycle (epoch), the shared node's
+D-125 tuple batch (`model_join_flush.Node`, per-arrival order) fires RULE-GROUPED
+(RuleExecutor drains each rule's queue fully, decl order); **the FIRST sink (TJ0)
+fires it FORWARD, every PEER sink (TJ1..) fires it REVERSED** (the D-071/D-102
+peer-copy prepend). Run `python3 tools/model_shared_tjo.py fuzz 300 <seed>` to see
+the spec; `python3 tools/fuzz_shared_tjo.py 300 <seed>` is the engine gate
+(currently 14% ORDER-only). Recon proof: a single-rule-variant diff showed the
+oracle's per-rule order == the single-rule D-125 order for 100% of cases.
+
+_DON'T retry the naive un-bail (already disproven):_ making shared temporal nodes
+FLUSH (push-empty stash at `stream_flush_ex` ~3751 `if t.node.temporal`) gave
+**61% wrong + 2 corpus regressions** (`pr_cep_53_perfact_memory_arrival`,
+`pr_rs_r11_stream_staging`) — the flush emits PER-ARRIVAL so `peer_merge_left`
+(`phreak.rs:543`) / `peer_merge_term` (`:984`, both PREPEND) reverse each SMALL
+batch; concatenated per-arrival reversals ≠ the WHOLE-epoch reversal the oracle
+wants. Reverted; the D-102 bail stands (a D-136 breadcrumb comment marks the site).
+
+_The PORT:_ give TJ0 the per-arrival D-125 order (the flush) but reverse PEER
+sinks over the FULL epoch batch — a compose the engine does at NEITHER pop-time
+(the current bail, 14% wrong) NOR flush (61% wrong). Likely shape: let the shared
+temporal node flush for the FIRST sink but ACCUMULATE its emissions across the
+epoch and `peer_merge` the peers ONCE (full-batch reverse) at fire, rather than
+per-arrival. Sites: bail `engine.rs stream_flush_ex` ~3751; per-arrival flush
+`phreak.rs flush_ins_delta:465`; sink loop + peer_merge `engine.rs` ~5393
+(`Sink::Node`→`peer_merge_left`, `Sink::Term`→`peer_merge_term`); pop-time
+`node.shared` lseq stamp `phreak.rs:1310`. Gate: `fuzz_shared_tjo.py` 0-div +
+`make diff` byte-identical (⚠ watch `pr_cep_53`/`pr_rs_r11` + the D-102 18%
+single-rule hazard) + graduate `xf_cep_tjorder_dual_tms`. See D-136.
+
+**Parked candidates:** • the fenced within-close-time not ORDER (D-134 xfail) is a
+heap/PQ artifact — only crack it if Seine grows a faithful `PseudoClockScheduler`.
 
 **Open/deferred (parked):** • shared-temporal join order (`xf_cep_tjorder_
 dual_tms`; cf101x551-vs-t14 constraint) • item-C re-propagation (classes 1/2/3;
@@ -6735,3 +6768,61 @@ NEVER; explicit @expires overrides). **Gates:** `fuzz_exists_infer.py` 0 FIRING 
 (D-127 firing) still 0-div; `cargo test` 9 suites; lint 1336/0/0; bindings 72.
 The recon prediction held exactly — no §3B, no surprises. [Pushed 2026-07-09 —
 branch-only, no tags; `origin/main` at `5f7862f`.]
+
+### D-136: SHARED temporal-join node ORDER — RECON (staging the next slab). ORDER-only (14%, 0 SET-miss); the target order is KNOWN (per-rule == single-rule D-125); a genuine model-first slab, NOT a one-liner
+
+Scoped the parked shared-temporal facet (`xf_cep_tjorder_dual_tms`; D-102 bailed
+it to legacy pop-time). Isolated probe `tools/fuzz_shared_tjo.py` — 2-3 rules
+with the SAME temporal-join LHS (`$a:E0() $b:E1(op[0,hi] $a)`) ⇒ the join node is
+SHARED; positive-only (no TMS/not/salience) to isolate the order.
+
+**Recon (seed 7101, 300 cases):**
+- **14% ORDER-only divergence, 0 SET-miss** — a shared temporal join never
+  produces a wrong firing SET/count, only a wrong firing SEQUENCE. Shows up
+  single-epoch too (16% single / 11% multi), so it is not just a pop-boundary
+  effect.
+- **The target order is a KNOWN spec, not a heap tie.** A single-rule-variant
+  diff proved the oracle's PER-RULE tuple order == the single-rule D-125 flush
+  order (`model_join_flush`) for 100% of cases. The engine's legacy bail
+  (`stream_flush_ex` ~3760: a `node_linked && node_shared` temporal node
+  stash-alls ⇒ pop-time) orders the shared node's tuples WRONG.
+- **~76% of divergences (32/42) are GROUPED-by-rule** (each sharing rule fires
+  its D-125 batch contiguously, rules in decl order) — a clean tractable spec.
+  **~24% (10/42) INTERLEAVE across rules** (mostly multi-epoch) — the harder
+  agenda-pop composition (shared-segment re-pop under salience, the D-091/D-106
+  envelope).
+
+**⇒ Assessment: a genuine MODEL-FIRST slab, NOT a one-liner** (unlike D-135
+exists). Well-defined and tractable (clear target order, never black-box), but it
+needs (1) a model of the shared-node cross-rule agenda composition (grouped
+single-epoch + interleaved multi-epoch), validated 0-div, then (2) engine
+plumbing to un-bail the shared flush — route a shared node's per-arrival D-125
+emissions to EACH sharing rule path in agenda order. **Risk MEDIUM:** D-102's
+NOTE that the naive unscoped force-flush blast-radiused 18% of single-rule
+scenarios is the warning — the plumbing must stay scoped to shared temporal
+nodes. **Priority: LOW** — ORDER-only (never a correctness/set bug), currently
+xfail'd. Recommend the full model→validate→port with a fresh context + a go-ahead.
+Tool: `tools/fuzz_shared_tjo.py` (ORDER/SET split; the future gate).
+
+**MODEL VALIDATED (same session) — `tools/model_shared_tjo.py`, 0-div / 6 seeds /
+1800 cases.** The composition is SIMPLER than the recon feared (the "interleaved
+24%" was not a deep agenda arc): per fire cycle (epoch) the single node's D-125
+tuple batch fires RULE-GROUPED (RuleExecutor drains each rule's queue, decl
+order), and **the FIRST sink (TJ0) fires it FORWARD while every PEER sink
+(TJ1, TJ2, …) fires it REVERSED** — the D-071/D-102 peer-copy discipline
+(SegmentPropagator prepends ⇒ peers LIFO). A v1 "all rules forward" was 77%
+wrong; adding the peer-reversal → 0-div.
+
+**PORT — naive un-bail FAILS (de-risked, NOT landed).** Hypothesis: stop stashing
+shared temporal nodes so they flush per-arrival and the existing peer-merge gives
+the order. Tried it (`stream_flush_ex` push-empty for shared temporal): **61%
+shared-div (WORSE than the 14% bail) + 2 corpus regressions**
+(`pr_cep_53_perfact_memory_arrival`, `pr_rs_r11_stream_staging`) — reverted, diff
+back to 11/958/284. ROOT CAUSE: the flush emits PER-ARRIVAL, so peer sinks get
+each small batch reversed; concatenated per-arrival reversals ≠ the WHOLE-epoch
+reversal the oracle wants. The correct port needs TJ0's per-arrival D-125 order
+BUT peers reversed over the FULL epoch batch — a distinct compose the engine does
+neither at pop-time (14% wrong) nor at flush (61% wrong). **Next: engine plumbing
+for that compose** (batch the shared node's peer emission and reverse once), gated
+on `fuzz_shared_tjo.py` 0-div + `make diff` byte-identical. Still ORDER-only / LOW
+priority; the SPEC (model) is locked so the port is well-defined.
