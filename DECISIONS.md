@@ -11,24 +11,25 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, post-D-129/D-130/D-131 (not×temporal modeled) +
-`docs/not-temporal-port-mechanism.md` (the engine-port mechanism report, awaiting
-Bryan's GATE); `git log --oneline -10` for live HEAD._
+_Last updated: 2026-07-08, post-D-132 (not×temporal port GATED & begun: §3A
+inference STAGED behind the fence; two PRE-EXISTING positive before-inference
+latents bisected — awaiting Bryan's fix-vs-quarantine call); `git log --oneline
+-10` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **7 commits AHEAD of `origin`, NOT pushed** (D-127, D-128,
-D-129 + docs handoff + D-130 + D-131 + the port mechanism report — Bryan holds
-the push; `git push` when cleared). Tree CLEAN, gates green. ⚠ **NO `v*` TAGS until a PyPI
-release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and
-the `pypi` environment has NO protection rules (gh-verified): a new tag publishes
-`seine-rs` with no manual gate. Recent: **D-127 exists×temporal ENGINE PORT** →
-D-128 not×temporal RECON → **D-129 arc A** → **D-130 arc B (not_partner, 0-div)**
-→ **D-131 arc B chains (firing-set 0-div; within-close-time order = not-node
-staging, staged)**.
+**Git:** on `main`, **8 commits AHEAD of `origin`, NOT pushed** (D-127..D-131 +
+docs handoff + port report + D-132 — Bryan holds the push; `git push` when
+cleared). Tree CLEAN, gates green (§3A staged behind the still-up fence is
+INERT). ⚠ **NO `v*` TAGS until a PyPI release is intended** — `ci.yml`'s
+`release`/`publish-pypi` fire on tag push and the `pypi` environment has NO
+protection rules (gh-verified): a new tag publishes `seine-rs` with no manual
+gate. Recent: **D-127 exists×temporal PORT** → D-128..D-131 not×temporal modeled
+→ port report → **D-132 port GATED & begun (§3A staged; positive latents
+bisected)**.
 
 **Gates (green @ HEAD, local + CI):** baseline 11 / probes **951**
 byte-identical / regressions **284** / lint **1334 live·0 ghost·0 inert** / 9
@@ -56,31 +57,38 @@ an exists node (its full staging flows to the eval). Gated to temporal
 unobservable (retractions never fire) so the port is insert-only. Spec:
 `tools/model_exists_flush.py`.
 
-**⚠ ACTIVE SLAB — not×temporal (D-128 recon → D-129 arc A → D-130 arc B
-not_partner → D-131 arc B chains; ALL 3 shapes' FIRING SET modeled 0-div, one
-order residual staged, NO engine change yet).** NOT an admission-order port like
-exists (do NOT reach for `exists_flush_admit`; the problem is WHEN a satisfied
-`not` fires + inferred reaping). `tools/fuzz_not_temporal.py` on a not-fence-
-lifted scratch measured **~30%** engine-vs-oracle divergence. Fence today:
-`engine.rs` ~2276 errors only on `CeKind::Not`; STP edge (~2316) tpos-guarded.
+**⚠ ACTIVE SLAB — not×temporal ENGINE PORT (D-132, GATED, in progress).** All
+modeling done (D-129/130/131); mechanism report `docs/not-temporal-port-
+mechanism.md` (gated: §3B removal-driven `fire_deadlines`, §6 quarantine heap
+ties). **§3A (the not's @expires inference) IMPLEMENTED but STAGED behind the
+still-up fence** (`engine.rs` ~2276): a temporal `not` gets a phantom
+`temporal_pos` recording its after/before edges; positives/exists byte-identical.
+**BLOCKER surfaced (D-132): the port flushed two PRE-EXISTING positive before-
+inference latents** (bisected pure-positive, NOT the port's doing): `pos_far`
+(before[0,hi] earlier-operand offset — engine reaps, Drools keeps) and `pos_ins`
+(engine reaps only on `advance()`, not at insert). Both block a clean
+`fuzz_not_temporal` gate. Awaiting Bryan's fix-vs-quarantine call.
 
-**➡ START HERE (cold pickup) — the ENGINE PORT. READ `docs/not-temporal-port-
-mechanism.md` FIRST** (the full mechanism report: validated semantics + drools-
-core source read + a 3-way engine-code map with exact file:line sites). All
-black-box modeling is DONE (`model_not_infer.py` = the executable spec: firing
-SET 0-div all 3 shapes; only the within-close-time chain-order residual is fenced
-as a scheduler heap artifact, D-131 — do NOT model it, xfail-quarantine at port
-time). **⚠ AWAITING Bryan's GATE before ANY `engine.rs` edit** (doctrine). On
-gate, the port is TWO independent halves (both mapped in the report):
+**➡ START HERE (cold pickup) — the ENGINE PORT is GATED & begun (D-132). READ
+`docs/not-temporal-port-mechanism.md` + D-132 FIRST.** Gate: §3B removal-driven
+`fire_deadlines`, §6 quarantine heap ties. **§3A DONE** (staged inert behind the
+fence: the not's `temporal_pos` phantom edges). **NEXT step 1 — the PRE-EXISTING
+positive latent DECISION (blocks the gate; needs Bryan):** the port flushed two
+pure-positive before-inference bugs (D-132): `pos_far` (before[0,hi] earlier-
+operand offset diverges — probe Drools' real offset, `tools/probe_before_latents.py`)
+and `pos_ins` (no at-insert already-expired reap — the reaper is `advance()`-
+only). FIX in-scope vs QUARANTINE (xfail + generator gate). **THEN step 2 —
+lift the fence** (`engine.rs` ~2276; §3A activates) and re-run `facts_check.py`
+(should go ~0 on not_partner once the positive latents are handled). **THEN
+step 3 — §3B the deferral scheduler** (below). Reference (the two halves, report
+§3A/§3B):
 
-- **arc B REAPING (the `facts` fix; report §3A):** lift the fence
-  (`engine.rs:2276`); give the `not` pattern an STP-matrix position so its
-  after/before edges get recorded (`engine.rs:2313-2330`, today skipped by the
-  positionless `tpos`-guard at 2319) and its type STOPS being forced to NEVER by
-  the bare-pattern loop (`engine.rs:3005`). Offsets: after ⇒ E0=hi, E1=lo?0:NEVER
-  (before mirror). The reaper (`schedule_expiration` 3497, `advance()` 3946) is
-  UNCHANGED. This alone fixes `facts` — the inference is invisible to firings.
-- **arc A DEFERRAL (report §3B):** the engine fires an unblocked not IMMEDIATELY
+- **arc B REAPING (the `facts` fix; §3A — IMPLEMENTED):** the `not` pattern's
+  phantom `temporal_pos` records after/before edges (`engine.rs` ~2320) and the
+  bare-NEVER check (~3010) uses `temporal_pos`. Offsets: after ⇒ E0=hi,
+  E1=lo?0:NEVER (before mirror). Reaper unchanged. Fixes `facts` (inference
+  invisible to firings).
+- **arc A DEFERRAL (report §3B — TODO):** the engine fires an unblocked not IMMEDIATELY
   (`do_existential_node`, `phreak.rs:957`); it must DEFER to fire_time = anchor+hi
   (after) / anchor−lo (before). No fire-scheduler exists; `advance()` only drains
   time-keyed DELETES → downstream re-eval fires. RECOMMENDED design: a new
@@ -6568,3 +6576,50 @@ discipline; the model's within-close-time order finalises alongside the port,
 exactly as `model_join_flush`'s order did with D-125). Until then the model is
 the FIRING-SET spec + the cross-close-time order spec. No engine change this
 checkpoint (`make diff` 11/951/284 unaffected).
+
+### D-132: not×temporal ENGINE PORT — GATED & begun; §3A (not @expires inference) implemented & STAGED behind the fence; the port BISECTED two PRE-EXISTING positive before-inference latents the not-population flushes (fence held, corpus byte-identical)
+
+Bryan GATED the port (`docs/not-temporal-port-mechanism.md`): §3B removal-driven
+`fire_deadlines`, §6 quarantine the heap-tie undefined behavior. Began the port.
+
+**§3A (arc-B reaping — the not's @expires inference) IMPLEMENTED.** Gave a
+temporal `not` a PHANTOM temporal-matrix position (`CompiledPattern.temporal_pos`,
+a high-base index that records the after/before STP edges without claiming a
+tuple slot — `tpos` is too wired into constraint eval to overload). Routed the
+edge recording (`engine.rs` ~2320) and the bare-pattern-NEVER check
+(`engine.rs` ~3010) through `temporal_pos` (= `tpos` for positives/exists, so
+they're byte-identical; = phantom for a temporal `not`). With the fence lifted,
+the not's own offsets come out right (after: E0=hi, E1=lo?0:NEVER; before mirror)
+and a facts-only differ (`facts_check.py`, engine `run` vs `oracle`, firings
+ignored) dropped not-temporal facts from all-fenced to **~1.5% divergence**.
+
+**⚠ THE PORT FLUSHED PRE-EXISTING POSITIVE LATENTS (bisected to the pure-positive
+path — NO `not` involved, so NOT caused by §3A).** The ~1.5% residual is entirely
+two latents that the not-population (absent @expires + far-past `before` shapes)
+is the first to exercise at scale (D-125 isolated join order with LARGE @expires;
+these never fired):
+- **pos_far** — `$a:E0() $c:E2(this before[0ms,100ms] $a)`, E2@−129, advance:
+  the ENGINE reaps E2 (inferred offset = hi = 100 ⇒ deadline −28) but DROOLS
+  KEEPS E2@−129 (offset NEVER/huge). The engine's `before` earlier-operand
+  inferred offset diverges from Drools. (Drools' actual before-offset is
+  unprobed — the doc's `−lo` rule predicts 0, not NEVER either; NEEDS a probe.)
+- **pos_ins** — `$c:E2(this before[0ms,50ms] $a)`, E2@−51, NO advance: DROOLS
+  drops E2 at INSERTION (clock 0 ≥ its deadline 0), the engine keeps it — the
+  reaper runs only in `advance()`, there is no at-insert already-expired sweep.
+
+Both reproduce with `tools/probe_before_latents.py`; both are pure-positive, so
+they are latent bugs in the D-109 positive inference / reaper, surfaced (not
+caused) by the port. They BLOCK a clean `fuzz_not_temporal` gate.
+
+**⇒ Decision surfaced to Bryan (supervision).** The not port can't gate 0-div
+until these positive latents are resolved. Options per each: (a) FIX in-scope —
+probe Drools' real `before[0,hi]` earlier-operand offset + add an at-insert
+already-expired sweep; or (b) QUARANTINE — `scenarios/xfail/` + a generator gate
+excluding the far-past-before surface, and proceed with the not port on the rest.
+Recommend probing the before-offset first (it's a correctness bug in a landed
+feature, likely worth fixing) then deciding.
+
+**State: §3A code committed but INERT (fence restored).** `make diff` 11/951/284
+byte-identical, lint 1334/0/0 — positives/exists unchanged, `not` still fenced.
+NEXT after the latent decision: lift the fence, resolve/quarantine the latents,
+then §3B (the `fire_deadlines` deferral scheduler).

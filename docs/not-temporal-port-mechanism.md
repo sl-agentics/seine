@@ -1,6 +1,12 @@
 # not×temporal — ENGINE PORT mechanism report (pre-port, for the GATE)
 
-Status: **COMPLETE, awaiting Bryan's GATE — no engine change yet.** This is the
+Status: **GATED (2026-07-08) — Bryan approved: §3B removal-driven `fire_deadlines`
++ §6 quarantine the heap-tie undefined behavior to `xfail/`. Port IN PROGRESS
+(D-132): §3A IMPLEMENTED & staged behind the still-up fence (byte-identical
+corpus). ⚠ BLOCKED on a pre-existing-latent decision — the port bisected two
+pure-positive `before`-inference bugs (`pos_far`, `pos_ins`;
+`tools/probe_before_latents.py`) that must be fixed or quarantined before the
+`fuzz_not_temporal` gate can be clean. See DECISIONS D-132.** This is the
 mechanism report the doctrine requires before touching `engine.rs`. It
 consolidates the validated models (D-129 arc A, D-130 arc B, D-131 chains) with a
 drools-core source read and a three-way engine-code map into a concrete port plan

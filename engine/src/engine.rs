@@ -269,6 +269,13 @@ struct CompiledPattern {
     /// This pattern's index into rule tuples (None for not/exists — CE
     /// patterns contribute no tuple element, D-031).
     tpos: Option<usize>,
+    /// Position in the per-rule temporal-distance matrix (D-132). Positive
+    /// patterns reuse `tpos`; a temporal `not` gets a PHANTOM position (it
+    /// records after/before @expires-inference edges without claiming a tuple
+    /// slot); exists stays None (inference kept out, D-127). Drives the
+    /// bare-pattern NEVER check so a temporally-constrained `not` is NOT forced
+    /// to NEVER.
+    temporal_pos: Option<usize>,
     /// Whether any constraint references an earlier pattern's binding
     /// (beta constraint) — drives not-node linking (D-031).
     beta: bool,
@@ -2038,6 +2045,7 @@ impl Engine {
                 listen_mask: 0,
                 ce: CeKind::Positive,
                 tpos: Some(0),
+                temporal_pos: Some(0),
                 beta: false,
                 pindex: phreak::Index::None,
                 index_ci: None,
@@ -2070,6 +2078,10 @@ impl Engine {
             })
             .collect();
         let mut sub_off = 0usize;
+        // Phantom temporal-matrix positions for `not` patterns (D-132): a high
+        // base keeps them clear of real tuple positions (0..tuple_len + subnet
+        // slots), which stay small.
+        let mut phantom_pos = 1usize << 20;
         let mut group_binds: Vec<String> = Vec::new();
         for (p, role) in flat {
             if let SubRole::Outer { len, .. } = role {
@@ -2093,6 +2105,7 @@ impl Engine {
                     listen_mask: 0,
                     ce: p.ce,
                     tpos: None,
+                    temporal_pos: None,
                     beta: false,
                     pindex: phreak::Index::None,
                     index_ci: None,
@@ -2210,6 +2223,7 @@ impl Engine {
                     listen_mask: 0,
                     ce: CeKind::Positive,
                     tpos: Some(t),
+                    temporal_pos: Some(t),
                     beta: false,
                     pindex: phreak::Index::None,
                     index_ci: None,
@@ -2247,6 +2261,16 @@ impl Engine {
             } else {
                 None
             };
+            // Temporal-matrix position (D-132): a `not` gets a phantom so its
+            // after/before edges record (§3A of the port report); positive
+            // patterns reuse their tuple slot; exists stays None.
+            let self_temporal_pos: Option<usize> = if p.ce == CeKind::Not {
+                let pp = phantom_pos;
+                phantom_pos += 1;
+                Some(pp)
+            } else {
+                tpos
+            };
             if let Some(b) = &p.binding {
                 let t = tpos.ok_or_else(|| err("binding on a CE pattern".into()))?;
                 if fact_binds.insert(b.clone(), (t, type_id)).is_some() {
@@ -2262,17 +2286,16 @@ impl Engine {
             for c in &p.constraints {
                 match c {
                     Constraint::Temporal { op, params, var } => {
-                        // FENCE (D-120 → D-127): `exists`+temporal is now
-                        // PORTED (the multi-anchor admission-order family, model
-                        // model_exists_flush.py). `not`+temporal stays walled —
-                        // it has TWO unresolved gaps needing their own recon
-                        // ladder: (1) a window-CLOSE deferral — `not B(this after
-                        // $a)` fires immediately in Seine but Drools defers until
-                        // the clock passes the window (cp_not_pt_fire: Seine 1 vs
-                        // Drools 0, no advance); (2) the anchor A gets an inferred
-                        // @expires THROUGH the not-temporal in Drools but not in
-                        // Seine's positive-only inference (cp2_not_*_adv: Seine
-                        // keeps A, Drools expires it). Neither is admission order.
+                        // FENCE (D-120 → D-131) — STILL UP pending D-132 §3B +
+                        // the pre-existing positive before-inference latents the
+                        // not-population flushes (D-132: pos_far / pos_ins,
+                        // bisected to the pure-positive path — before[0,hi]
+                        // earlier-operand offset diverges from Drools; and the
+                        // engine reaps only on advance(), not at insert). §3A
+                        // (the not's own @expires inference, the phantom
+                        // `self_temporal_pos` edges below) is STAGED behind this
+                        // fence — inert until the fence lifts. See
+                        // docs/not-temporal-port-mechanism.md.
                         if p.ce == CeKind::Not {
                             return Err(err(
                                 "temporal constraints on `not` CEs are a follow-on slab (D-101/D-120)".into(),
@@ -2311,12 +2334,13 @@ impl Engine {
                         // keep full D-109 inference. (self_pos is a tuple
                         // position — only after/before inference needs it.)
                         if matches!(op, AllenOp::After | AllenOp::Before) {
-                            // POSITIONLESS patterns (exists: tpos=None) claim no
-                            // tuple slot, so they record NO @expires-inference
-                            // edge — the exists×temporal port keeps inference-
-                            // THROUGH-an-exists out of scope (explicit @expires
-                            // only, D-126/D-127). Positive patterns infer as before.
-                            if let Some(self_pos) = tpos {
+                            // `self_temporal_pos` = the tuple slot for a positive
+                            // pattern, a PHANTOM slot for a `not` (D-132: the not
+                            // records inference edges — E0 anchor gets +hi, the
+                            // not's type gets −lo→NEVER/0), None for exists (which
+                            // keeps inference-THROUGH-an-exists out of scope,
+                            // explicit @expires only, D-126/D-127).
+                            if let Some(self_pos) = self_temporal_pos {
                                 let (lo_ms, hi_ms) = (params[0], params[1]);
                                 let (earlier, later) = if *op == AllenOp::After {
                                     (apos, self_pos)
@@ -2756,6 +2780,7 @@ impl Engine {
                 listen_mask,
                 ce: p.ce,
                 tpos,
+                temporal_pos: self_temporal_pos,
                 beta,
                 pindex,
                 index_ci,
@@ -3002,7 +3027,11 @@ impl Engine {
                 }
                 continue;
             }
-            if !cp.tpos.is_some_and(|tp| temporal_pos_type.contains_key(&tp)) {
+            // `temporal_pos` (not `tpos`) so a temporally-constrained `not`
+            // counts as participating (D-132): its phantom position is in
+            // `temporal_pos_type` iff it recorded an after/before edge. A bare
+            // `not`/exists (no temporal edge) still forces its type to NEVER.
+            if !cp.temporal_pos.is_some_and(|tp| temporal_pos_type.contains_key(&tp)) {
                 self.never_inferred.insert(cp.type_id);
             }
         }
