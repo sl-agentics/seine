@@ -127,13 +127,18 @@ order D-136); the CEP surface is faithful except:
      per-node `TrieNode.clock_removed` set (filled in `stage_acc_removal`) makes the
      `on_update` `(false,true)` re-entry NOT revive a clock-removed (evicted/
      expired, still `is_alive`) event into an accumulate.
-   - **class 3 — DEFERRED** (`xf_cep_c_del_churn_exists`+`_rule` stay xfail): the
-     exists explicit-delete churn (external AND rule-RHS both diverge; expiration
-     stays coalesced, D-102) needs INVERTING the D-031-pinned existential
-     rightIns-before-rightDel order for explicit (non-expiration, via
-     `in_expiration_drain`) deletes — a flip-flop-prone staging change requiring a
-     model_check (like `model_check_join2`). Model pinned by `pr_cep_c_exists_*`. Do
-     NOT hand-tune (D-083). See D-137.
+   - **class 3 — ACTIVE sub-recon** (`xf_cep_c_del_churn_exists`+`_rule` stay xfail):
+     the exists delete+reinsert churn. **REFINED 2026-07-09 (post-D-137): it is
+     EVENT-SPECIFIC, not a general phase-order bug.** A PLAIN-fact exists churn
+     COALESCES on BOTH engines (`e_plain_churn` — matches Drools' own
+     `PhreakExistsNode` batched path, hand-traced); only an EVENT witness re-fires,
+     and only DELETE-FIRST + single-witness + EXPLICIT delete (external OR rule-RHS;
+     expiration stays coalesced, D-102). ⇒ the fix is NOT inverting the D-031 beta
+     phase order — it's how an external EVENT delete is propagated (likely
+     arrival-order/immediate vs a plain fact's batched staging). NEXT: a GRAFT
+     (oracle ExistsNode BetaMemory dump, `AccDump.java` pattern) to confirm before
+     any port. Findings + battery: `~/.claude/plans/cep-e2-item-c-class3-findings.md`,
+     `probes_pending/cep/e_*`. Do NOT hand-tune (D-083).
    Gate MET for 1&2: `make diff` 11/**970**/288, lint 1352, cargo test, bindings 72,
    blast-radius seeds 42/123/7 == pristine HEAD (CEP-gated). D-115's "lift fences ⇒
    0-div" premise was OPTIMISTIC (fences do double-duty — 1a/1b). See D-137.
