@@ -11,8 +11,8 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, post-D-127 (exists×temporal PORT) + D-128 (not×temporal
-RECON — staged next); run `git log --oneline -10` for live HEAD (lags this commit)._
+_Last updated: 2026-07-08, post-D-127 (exists×temporal PORT), D-128 (not×temporal
+RECON), D-129 (not deferral arc A modeled); `git log --oneline -10` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -68,14 +68,19 @@ even pure cases (count AND order); witness `probes_pending/cep/e_recon/
 cp_not_chain_defer` (engine_fenced) + the toy `cp_not_pt_fire`. Plus **gap-2:
 @expires inference THROUGH the not** (on `advance`; `cp2_not_*_adv`).
 
-_Prescribed method (do NOT reach for `exists_flush_admit` — it reorders
-admissions; here the problem is WHEN a satisfied not fires):_ two prerequisite
-arcs, model-first each. (A) a window-close firing DEFERRAL scheduler (a `not`
-held on a timer until the clock proves no blocker can still arrive — a real
-temporal-scheduling machine); (B) @expires inference through the not-temporal
-(extend positive-only inference to the not path; related to the parked
-exists-inference question). Gate with `fuzz_not_temporal.py` 0-div + the
-existing `cp*not*` witnesses graduating; `not` fence lifts LAST.
+_Method (do NOT reach for `exists_flush_admit` — it reorders admissions; here
+the problem is WHEN a satisfied not fires):_ two prerequisite arcs, model-first.
+**(A) DEFERRAL — DONE (D-129, `tools/model_not_defer.py` 0-div on the
+not_partner population, 6 seeds).** fire_time = A.ts+hi (after) / A.ts-lo
+(before); immediate iff fire_time<A.ts (before lo>0, fires FIFO at the initial
+fire), else defer to fire_time (fires clock≥fire_time; a due advanceTime batch
+REVERSES = descending close). A blocker in-window cancels. **(B) INFERENCE —
+NEXT:** absent @expires, Drools infers a blocker/anchor reach through the
+not-temporal so an advance expires it (measured: `before[20,40]` A@4/B@-30
+blocks at clock 0, un-blocks after advance 100); the D-129 model uses LARGE
+@expires to isolate arc A. Then chains (not off a join) + `not_mid`; then the
+ENGINE port — a deferral SCHEDULER (timer keyed to fire_time). Gate:
+`fuzz_not_temporal.py` 0-div + `cp*not*` witnesses graduating; fence lifts LAST.
 
 **Other parked candidates:** • @expires INFERENCE through an exists (D-127 kept
 it out with explicit @expires; STP edge already guarded to skip it) • shared
@@ -6336,3 +6341,47 @@ the problem is WHEN a satisfied not fires, not in what order). Staged, not
 started. No engine change (recon only; fence reverted, gated tree
 `make diff` 11/951/284 unaffected; `cp_not_chain_defer` joins the fenced set,
 lint 1334/0/0).
+
+### D-129: not×temporal cold-start — arc A (firing DEFERRAL) semantic PINNED + validated model (`model_not_defer.py`, 0-div on the not_partner population)
+
+Cold-started the not slab (Bryan). Probe-first on the dominant arc — the
+window-close firing deferral — then model-first (D-123 discipline). Two things
+the recon (D-128) hadn't separated are now nailed.
+
+**The deferral firing clock (oracle-swept, single anchor A, no blocker).** A
+`not` does not fire when satisfied-so-far; Drools holds it until the pseudo-
+clock (starts at 0, advances ONLY via explicit `advance` — insertion does not
+move it) proves no blocker can still arrive:
+- `after[lo,hi]`: fires at clock ≥ **A.ts + hi** (blocker window [A+lo,A+hi] is
+  future). advance 179→0, 180→1 for A@100/after[60,80].
+- `before[lo,hi]` with **lo=0**: fires at clock ≥ **A.ts** (window touches the
+  present — a coincident blocker is possible).
+- `before[lo,hi]` with **lo>0**: fires **IMMEDIATELY** at the initial fire
+  (window [A-hi,A-lo] is strictly in A's past; once A is present no earlier
+  event arrives). Formula: `fire_time = A+hi`(after)/`A-lo`(before); immediate
+  iff `fire_time < A.ts`, else defer to `fire_time` (fires at the initial fire
+  when `fire_time ≤ 0`).
+
+**Firing ORDER.** A blocker with ts in the window suppresses (cancels) the
+firing. Deferred firings that come due in ONE `advanceTime` fire in **reverse
+close-time order** (descending fire_time — the addInsert-PREPEND discipline
+again, the same reversal exists/joins showed); across separate advances, in
+advance order. IMMEDIATE firings fire at the initial fire in **insertion/FIFO**
+order (a before-lo>0 not behaves like a plain not). `model_not_defer.py
+simulate()` encodes exactly this and is **0-div vs the gate oracle on the
+shuffled not_partner population, 6 seeds / 1800 cases**.
+
+**Arcs are COUPLED (why the isolation matters).** With NO explicit @expires,
+Drools INFERS a reach for the blocker from the temporal constraint: `before
+[20,40]` A@4 / B@-30 blocks at clock 0 but UN-blocks after `advance 100` (the
+blocker's inferred @expires retires it). So absent @expires does NOT isolate the
+deferral — it enables the inference arc. The validated model uses LARGE explicit
+@expires (nothing expires) to pin arc A alone.
+
+**⇒ Next (staged in D-128, arc A now done):** (B) model the inference through
+the not (blocker/anchor expiry when @expires is absent/finite — the coupled
+arc, related to the parked exists-inference); then chains (`not` off a join) +
+`not_mid`; then the ENGINE port — a deferral SCHEDULER (hold a satisfied not on
+a pseudo-clock timer keyed to fire_time, fire on advance, cancel on a blocker)
+NOT the D-127 admission reorder. No engine change this checkpoint (recon+model;
+`make diff` 11/951/284, lint 1334/0/0 untouched).
