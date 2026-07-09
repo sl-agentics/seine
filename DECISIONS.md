@@ -6151,3 +6151,46 @@ stamp; eager split) were each HALF of v2, unfaithful alone because the other
 half's compensation was still in place. Model-first paid for itself: the port
 was mechanical once `simulate()` was validated, and every ordering question
 ("which side scans what, in which order") had an executable answer.
+
+### D-126: post-port FENCE SWEEP (recon) — nothing fenced in E2 lifts from D-125 as-is; exists×temporal is CLOSER but has its own multi-anchor admission-order family (2 new witnesses)
+
+Bryan asked whether any E2 fence lifts now that the per-arrival flush landed.
+Swept the whole fenced surface; answer: **no fence lifts outright, and every
+still-failing signature is byte-for-byte the one that motivated its fence** —
+the port changed exactly what it claimed and nothing else.
+
+- **All 101 xfails still fail** (batch sweep): the 4 `xf_cep_c_*` (item-C
+  re-propagation — mutation semantics, not join order), the 17 `xf_cep_e_*`
+  Allen-expiry witnesses (inference fence, EXPECTED to diverge),
+  `xf_cep_tjorder_dual_tms` (shared-node facet, known), the alu*/win_reset
+  deliberate witnesses, and the old fz_* quarantines.
+- **hang-backlog** `pre_existing_temporal_delete_hang`: still trips the D-117
+  spin-guard (~18s error) — the cycle is the TMS `exp_deferred` re-add drain in
+  `next_activation`, untouched by flush granularity.
+- **`win2_*` walls**: parse/feature-level (`window:length` follow-on; standalone
+  windows; the `cp_win_int_*` bound-source accumulate form) — confirmed error
+  text, unreachable by an engine-semantics change.
+- **not/exists×temporal (the D-120 fence) — scratch-worktree recon** (wall
+  lifted at `engine.rs` ~2279 + STP edges made positional-only, recon-only,
+  worktree removed): the D-120 signature reproduces EXACTLY on the ported
+  engine — `cp_exists_*` + `cp_not_int_inert` PASS; `cp_not_pt_fire` still
+  engine-1-vs-oracle-0 (gap-1 window-close deferral, a NOT-node timer
+  semantic); `cp2_not_*_adv` still engine-keeps-A (gap-2 inference through the
+  not-temporal). Neither gap is flush-granularity.
+- **NEW FINDING — the curated exists probes are another battery trap** (the v1
+  lesson again): a 450-case shuffled population fuzz over exists×temporal
+  shapes (`ex_partner`/`chain_ex`/`ex_mid`, explicit @expires) on the unfenced
+  scratch found **10/450 divergences, ALL multi-anchor admission ORDER** — one
+  exists-blocker admits two E0 anchors; the engine fires them in insertion
+  order, the oracle most-recently-blocked-first (the `RightTuple.addBlocked`
+  PREPEND analog in `do_existential_node`, which D-125 deliberately excludes —
+  Kind::Join only). Witnesses saved as `probes_pending/cep/e_recon/
+  cp_ex_multi_anchor_before` / `_after` (engine_fenced; lint 1333/0/0).
+
+**⇒ Unwalling exists×temporal is now a CANDIDATE SLAB with a known work item:**
+the existential analog of the per-arrival discipline (blocked-list admission
+order), model-first like D-123 (a small exists-flush replica validated against
+the oracle population BEFORE touching `do_existential_node`), plus the gap-2
+inference question scoped out. `not`×temporal stays fenced on gap-1/gap-2
+regardless. No engine change this checkpoint (recon only; gated tree
+untouched — `make diff` 11+947+284 unaffected).

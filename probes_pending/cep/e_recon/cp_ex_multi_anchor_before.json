@@ -1,0 +1,55 @@
+{
+ "name": "cp_ex_multi_anchor_before",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule EX when $a : E0() exists E1(this before[0ms,150ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 5
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": -106
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true,
+ "comment": "post-D-125 fence-sweep witness (2026-07-08): with the not/exists temporal wall lifted, exists x temporal diverges on MULTI-ANCHOR admission order \u2014 one exists-blocker admits two E0 anchors; engine fires insertion-order, oracle most-recently-blocked-first (RightTuple.addBlocked prepend analog). 10/450 population rate; the do_existential_node counterpart of the D-125 per-arrival family. Unwalling exists needs its own model-first slab."
+}
