@@ -1,0 +1,56 @@
+{
+ "name": "pr_cep_e_exists_infer_reap",
+ "comment": "D-135: @expires INFERENCE through an exists (absent @expires). exists E1(after[0,50] $a): the exists fires (E0@3,E1@37) at clock 0, then the INFERRED offsets reap E0 at ts+hi+1=54 and E1 at ts+0+1=38, so after advance the WM is empty. Locks the reaping (facts) \u2014 inference is invisible to the firing.",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule EX when $a : E0() exists E1(this after[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 3
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 37
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

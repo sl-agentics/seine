@@ -11,9 +11,9 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-09, post-D-134 (not×temporal ENGINE PORT COMPLETE — §3B
-firing-deferral scheduler landed; the LAST CEP-E2 fence is down). `git log
---oneline -12` for live HEAD._
+_Last updated: 2026-07-09, post-D-135 (not×temporal COMPLETE & pushed through
+D-134; **@expires INFERENCE through an exists PORTED** — D-135 recon+port, one
+line, all gates green). `git log --oneline -12` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -81,11 +81,20 @@ deferral).** The LAST CEP-E2 fence is down; joins (D-125), exists (D-127), and
   `scenarios/xfail/xf_cep_not_{chain_heaptie,mid_release_join_order}`; 5 recon
   witnesses graduated to `scenarios/probes/pr_cep_not_*`.
 
-**Parked candidates (next slabs):** • @expires INFERENCE through an exists
-(D-127 kept it out with explicit @expires; STP edge already guarded to skip it)
-• shared temporal nodes (`xf_cep_tjorder_dual_tms`; cf101x551-vs-t14) stay on
-legacy • the fenced within-close-time not ORDER (D-134 xfail) is a heap/PQ
-artifact — only crack it if Seine grows a faithful `PseudoClockScheduler`.
+**✅ @expires INFERENCE through an exists — DONE (D-135, one line).** A temporal
+exists now gets a phantom `temporal_pos` (`engine.rs` ~2281, the not §3A device
+extended to `CeKind::Exists`) so its after/before edges record and the bare-NEVER
+override stops forcing NEVER. FACTS-only (reaping) gap (~25% → 0-div); FIRING
+0-div throughout (invisible to exists firings, like the not); NO §3B. Gates:
+`fuzz_exists_infer.py` 0 firing+facts, `make diff` 11/958/284 (+witnesses
+`pr_cep_e_exists_infer_{reap,before}`), `fuzz_exists_temporal` (D-127) 0-div,
+cargo test / lint 1336·0·0 / bindings 72. The whole CEP-E2 inference arc (joins,
+exists, not; explicit + inferred @expires) is now unwalled.
+
+**Parked candidates (next slabs):** • shared temporal nodes (`xf_cep_tjorder_dual_tms`;
+cf101x551-vs-t14) stay on legacy • the fenced within-close-time not ORDER (D-134
+xfail) is a heap/PQ artifact — only crack it if Seine grows a faithful
+`PseudoClockScheduler`.
 
 **Open/deferred (parked):** • shared-temporal join order (`xf_cep_tjorder_
 dual_tms`; cf101x551-vs-t14 constraint) • item-C re-propagation (classes 1/2/3;
@@ -6672,3 +6681,56 @@ tie) quarantined to `scenarios/xfail/xf_cep_not_{chain_heaptie,mid_release_join_
 Not black-box-ground.
 
 **Not pushed** (Bryan holds the push; the D-127..D-134 stack + docs).
+[Pushed 2026-07-09 — Bryan cleared the hold; branch-only, no tags.]
+
+### D-135: @expires INFERENCE through an exists — RECON + PORT LANDED (one-line). FACTS-only (reaping) ~25% → 0-div; FIRING 0-div throughout (inference invisible, like the not); mechanism = the not §3A phantom-`temporal_pos` extended to exists, NO §3B
+
+Scoped the parked "@expires inference through an exists" candidate (D-126/D-127
+kept it out — the exists port was insert-only + explicit-@expires only; the STP
+edge is guarded so a positionless exists records no inference edge). Probe-first:
+`tools/fuzz_exists_infer.py` sweeps exists×temporal with @expires ABSENT half the
+time + a coin-flip advance, splitting engine-vs-oracle into FIRING-set vs
+FACTS-only.
+
+**Recon result (seeds 5001-5004, ~1000 cases):**
+- **FIRING-set divergences: 0.** The inference is INVISIBLE to firings — exactly
+  the D-130 key insight, now confirmed for exists: an exists fires when a partner
+  is PRESENT (at clock 0 in the population, before any reaping); its retraction
+  (when a partner expires) is unobservable (D-127); and the anchor reaps only
+  after its own firing. So arc-A-style firing logic is NOT needed.
+- **FACTS-only divergences: ~25%** (all in the absent-@expires + advance cases).
+  Drools infers a finite expiry and REAPS; the engine forces the exists type to
+  NEVER (no phantom `temporal_pos`) so it KEEPS the events. The kept events match
+  the §2b/D-130 table exactly: for `exists E1(OP[lo,hi] $a)` (constraint
+  `E1 OP[lo,hi] E0`), after ⇒ E0=hi, E1=lo?0:NEVER; before ⇒ mirror; reap at
+  ts+off+1. Uniform across `ex_partner`/`chain_ex`/`ex_mid` — no chain
+  composition quirk (unlike not_mid, there is no deferral, so no release-time
+  downstream-join order to compose).
+
+**⇒ Scope: this is the §3A REAPING analog of the not port, and ONLY that —
+there is NO §3B (no firing-deferral scheduler).** A strictly SMALLER slab than
+the not. **Mechanism = extend the not's phantom `temporal_pos`** (D-132 §3A):
+`engine.rs` ~2281, change `if p.ce == CeKind::Not` to also cover
+`CeKind::Exists` so an exists pattern gets a phantom matrix position; then its
+after/before STP edges record (~2350) and the bare-NEVER override (~3030) stops
+forcing its type to NEVER — Floyd-Warshall + `infer_event_expiry` fold them in
+unchanged, and the reaper (incl. the D-133 boundary fix) is untouched. **Gate:**
+`fuzz_exists_infer.py` 0 FIRING + 0 FACTS divergence; `make diff` byte-identical
+(gate on temporal + `CeKind::Exists`); the D-127 firing gate
+(`fuzz_exists_temporal.py`) stays 0-div; verify the phantom does NOT perturb the
+D-127 admission order (it drives inference only, not the exists node's tpos/kind).
+**Risk:** low — no new firing machinery; watch the same positive-latent reaper
+boundary (already landed D-133) and the byte-identical corpus.
+
+**PORT LANDED (same session, one line).** `engine.rs` ~2281:
+`if p.ce == CeKind::Not` → `if matches!(p.ce, CeKind::Not | CeKind::Exists)` so a
+temporal exists gets a phantom `temporal_pos`; its after/before edges then record
+and the bare-NEVER override (which already keys on `temporal_pos`, D-132) stops
+forcing NEVER — Floyd-Warshall + `infer_event_expiry` + the reaper (incl. the
+D-133 boundary) fold it in UNCHANGED. Byte-identical everywhere except a temporal
+exists with an after/before edge (a non-temporal exists records no edge ⇒ still
+NEVER; explicit @expires overrides). **Gates:** `fuzz_exists_infer.py` 0 FIRING +
+0 FACTS (4 seeds / 1200 cases, was ~25% facts); `make diff` 11 / **958** / 284
+(+2 locked witnesses `pr_cep_e_exists_infer_{reap,before}`); `fuzz_exists_temporal`
+(D-127 firing) still 0-div; `cargo test` 9 suites; lint 1336/0/0; bindings 72.
+The recon prediction held exactly — no §3B, no surprises.

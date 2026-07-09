@@ -2092,9 +2092,9 @@ impl Engine {
             })
             .collect();
         let mut sub_off = 0usize;
-        // Phantom temporal-matrix positions for `not` patterns (D-132): a high
-        // base keeps them clear of real tuple positions (0..tuple_len + subnet
-        // slots), which stay small.
+        // Phantom temporal-matrix positions for `not` (D-132) and `exists`
+        // (D-135) patterns: a high base keeps them clear of real tuple positions
+        // (0..tuple_len + subnet slots), which stay small.
         let mut phantom_pos = 1usize << 20;
         let mut group_binds: Vec<String> = Vec::new();
         for (p, role) in flat {
@@ -2275,10 +2275,14 @@ impl Engine {
             } else {
                 None
             };
-            // Temporal-matrix position (D-132): a `not` gets a phantom so its
-            // after/before edges record (§3A of the port report); positive
-            // patterns reuse their tuple slot; exists stays None.
-            let self_temporal_pos: Option<usize> = if p.ce == CeKind::Not {
+            // Temporal-matrix position (D-132/D-135): a `not` OR `exists` gets a
+            // phantom so its after/before @expires-inference edges record (they
+            // contribute no tuple element, so they can't reuse a tuple slot);
+            // positive patterns reuse their tuple slot. D-135: exists inference
+            // is FACTS-only (reaping) — INVISIBLE to firings (fires when a
+            // partner is present, retraction unobservable) — so this is the
+            // whole exists slab; no firing scheduler.
+            let self_temporal_pos: Option<usize> = if matches!(p.ce, CeKind::Not | CeKind::Exists) {
                 let pp = phantom_pos;
                 phantom_pos += 1;
                 Some(pp)
@@ -2342,11 +2346,11 @@ impl Engine {
                         // position — only after/before inference needs it.)
                         if matches!(op, AllenOp::After | AllenOp::Before) {
                             // `self_temporal_pos` = the tuple slot for a positive
-                            // pattern, a PHANTOM slot for a `not` (D-132: the not
-                            // records inference edges — E0 anchor gets +hi, the
-                            // not's type gets −lo→NEVER/0), None for exists (which
-                            // keeps inference-THROUGH-an-exists out of scope,
-                            // explicit @expires only, D-126/D-127).
+                            // pattern, a PHANTOM slot for a `not` (D-132) or an
+                            // `exists` (D-135): both record inference edges — E0
+                            // anchor gets +hi, the CE's type gets −lo→NEVER/0
+                            // (after; before mirrors). The offset is invisible to
+                            // firings; it only fixes the reaped `facts`.
                             if let Some(self_pos) = self_temporal_pos {
                                 let (lo_ms, hi_ms) = (params[0], params[1]);
                                 let (earlier, later) = if *op == AllenOp::After {
