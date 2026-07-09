@@ -1,0 +1,84 @@
+{
+ "name": "pr_cep_tjo_multi_anchor_per_right",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule CH when $a : E0() $b : E1(this after[0ms,50ms] $a) $c : E2(this after[0ms,100ms] $b) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 2
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 26
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 23
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 25
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 110
+   }
+  }
+ ],
+ "epochs": []
+}

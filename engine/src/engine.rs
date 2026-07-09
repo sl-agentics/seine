@@ -3787,25 +3787,97 @@ impl Engine {
                 }
             }
         }
-        // self-drain: deltas left staged at UNLINKED temporal nodes
-        // move to memory (arrival order), no children
+        // D-125 (v2 flush model port): deltas left staged at temporal
+        // nodes the eval didn't consume process PER-ARRIVAL, ascending
+        // ni = parents before children so same-flush emissions cascade.
+        // An eligible UNSHARED temporal join eager-joins a partner whose
+        // anchor side is populated (individually, memory order) and
+        // holds it in memory otherwise; the anchor's own arrival drains
+        // the held batch through the staged prepend (one reversal —
+        // `model_join_flush.py`, 0-div vs the gate oracle). Everything
+        // else (shared nodes, mixed/upd/del staging, AB self-join
+        // shapes, ph=1 rights, RIA sinks) keeps the certified legacy
+        // self-drain: memory in arrival order, no children.
         for ni in 0..self.trie.len() {
-            if self.trie[ni].node.temporal {
-                let nidx = self.trie[ni].env.1 - 1;
-                let (ri, _) = self.trie[ni].env;
-                if !self.trie[ni].node.s_right.ins.is_empty()
-                    || !self.trie[ni].node.s_left.ins.is_empty()
-                {
-                    let mut node = std::mem::replace(
-                        &mut self.trie[ni].node,
-                        phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
-                    );
-                    node.self_drain_delta(
-                        &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no },
-                        nidx,
-                    );
-                    self.trie[ni].node = node;
+            if !self.trie[ni].node.temporal {
+                continue;
+            }
+            let nidx = self.trie[ni].env.1 - 1;
+            let (ri, _) = self.trie[ni].env;
+            let has_r = !self.trie[ni].node.s_right.ins.is_empty();
+            let has_l = !self.trie[ni].node.s_left.ins.is_empty()
+                || !self.trie[ni].s0_in.ins.is_empty();
+            if !has_r && !has_l {
+                continue;
+            }
+            let n = &self.trie[ni].node;
+            let t = &self.trie[ni];
+            let eligible = n.kind == phreak::Kind::Join
+                && !node_shared[ni]
+                && n.s_right.upd.is_empty()
+                && n.s_right.del.is_empty()
+                && n.s_left.upd.is_empty()
+                && n.s_left.del.is_empty()
+                && t.s0_in.upd.is_empty()
+                && t.s0_in.del.is_empty()
+                && !(has_r && has_l)
+                && n.s_right.ins.iter().all(|(_, _, ph)| *ph != 1)
+                && t.sinks.len() == 1
+                && match t.sinks[0] {
+                    Sink::Node(_) => true,
+                    // a Term-sinked emission only happens at a LINKED
+                    // eval (which already consumed the staging) — allow
+                    // the cascade only when no emission is possible
+                    Sink::Term(_) => {
+                        (has_r && n.lefts_is_empty()) || (has_l && n.rights_is_empty())
+                    }
+                    Sink::Ria(_) => false,
+                };
+            if eligible {
+                let s0_folds: Vec<(Tup, Origin, u8)> =
+                    std::mem::take(&mut self.trie[ni].s0_in.ins)
+                        .into_iter()
+                        .map(|(f, o, p)| (vec![f], o, p))
+                        .collect();
+                let mut node = std::mem::replace(
+                    &mut self.trie[ni].node,
+                    phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
+                );
+                let mut trg: Staged<Tup> = Staged::default();
+                node.flush_ins_delta(
+                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no },
+                    nidx,
+                    s0_folds,
+                    &mut trg,
+                );
+                self.trie[ni].node = node;
+                if !trg.is_empty() {
+                    match self.trie[ni].sinks[0] {
+                        Sink::Node(c) => {
+                            let pending = self.trie[c].node.s_left.take();
+                            self.trie[c].node.s_left =
+                                Staged::append_into_pending(pending, trg);
+                        }
+                        Sink::Term(rb) => {
+                            let pending = self.nets[rb].term_pending.take();
+                            self.nets[rb].term_pending =
+                                Staged::append_into_pending(pending, trg);
+                        }
+                        Sink::Ria(_) => unreachable!("cascade never targets a RIA sink"),
+                    }
                 }
+            } else if !self.trie[ni].node.s_right.ins.is_empty()
+                || !self.trie[ni].node.s_left.ins.is_empty()
+            {
+                let mut node = std::mem::replace(
+                    &mut self.trie[ni].node,
+                    phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
+                );
+                node.self_drain_delta(
+                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no },
+                    nidx,
+                );
+                self.trie[ni].node = node;
             }
         }
         // restore the held right tails

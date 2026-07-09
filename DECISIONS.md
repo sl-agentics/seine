@@ -11,89 +11,63 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, D-124 + tooling (run `git log --oneline -10` for live
-HEAD — this line lags by its own commit)._
+_Last updated: 2026-07-08, D-125 (run `git log --oneline -10` for live HEAD —
+this line lags by its own commit)._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven this run).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **many commits UNPUSHED**. ⚠ **DO NOT PUSH until the CEP
-temporal-join-order latent is actually FIXED** (Bryan, 2026-07-08 — characterized
-≠ fixed; the hold releases when the port LANDS, not when it's understood). Recent:
-`59b0e68` D-120 (CEP E2 item E) → D-121 discriminator hunt → **D-122** (`62565a6`
-faithful graft + v1 disproven) → **D-123** (`803eca2` v2 model VALIDATED) →
-**D-124** (`1e6bf28` engine recon) + tooling. **Engine at HEAD; nothing landed
-there — the port is the ACTIVE work below.**
+**Git:** on `main`, **many commits UNPUSHED**. The push was HELD on the CEP
+temporal-join-order latent (Bryan, 2026-07-08); **that latent is now FIXED and
+gated (D-125)** — the stated hold condition ("releases when the port LANDS") is
+met, but the actual `git push` is left for Bryan's explicit go (it publishes the
+whole backlog). Recent: D-120 CEP E2 complete (`59b0e68`) → D-121/D-122 faithful
+graft + v1 disproven → D-123 v2 flush model VALIDATED → D-124 engine recon →
+**D-125 THE ENGINE PORT LANDED**.
 
-**Gates (last certified green @ D-120; engine unchanged since ⇒ still green):**
-baseline 11 / probes **944** byte-identical / regressions 281 / lint **1325
-live·0 ghost·0 inert** / 9 Rust suites. Verify: `make diff` · `make lint-probes` ·
-`cargo test` (oracle prebuilt, `oracle/target/classpath.txt`). **If any gate is
-red on resume, something drifted — investigate before building on it.**
+**Gates (all certified green @ D-125):** baseline 11 / probes **947**
+byte-identical / regressions **284** / lint **1331 live·0 ghost·0 inert** / 9
+Rust suites. Verify: `make diff` · `make lint-probes` · `cargo test` (oracle
+prebuilt, `oracle/target/classpath.txt`). **If any gate is red on resume,
+something drifted — investigate before building on it.**
 
 **Landed (background — detail in the log):** v0.4.0 (`5b23e7c`) CEP E1 + reset +
 agenda groups + queries×mutation + aggregation; data-types (nulls/decimals,
-D-096–098); TMS; P1c group CEs. **CEP E2 A–E ALL CLOSED:** @expires inference
-(D-109), windows (D-110–114), event upd/del (D-115), entry points (D-116),
-@duration intervals + Allen predicate algebra (D-120).
+D-096–098); TMS; P1c group CEs. **CEP E2 A–E ALL CLOSED** (D-109..D-120).
+**CEP temporal-join-order FIXED (D-121→D-125):** the engine now does v2's
+PER-ARRIVAL temporal flush — an eager partner with a present anchor joins
+INDIVIDUALLY at its own flush; a held batch drains through the staged
+`addInsert`-prepend and reverses exactly once; unshared temporal fills stamp
+lseq in staged order. Fix sites: `engine.rs stream_flush_ex` cascade dispatch
+(was the unconditional self-drain loop) + `phreak.rs Node::flush_ins_delta` +
+the `do_join_node` temporal fill stamp. Eligibility bails (shared nodes, AB
+self-joins, upd/del staging, ph=1 rights, RIA sinks) keep certified legacy
+behavior. Validation: chain-fuzz 7001 **204→0/1500 (0 NEW)**, 7002 0/1500,
+multi-anchor 0/600, fresh CEP-fuzz 0/1200, latents cf50003x263/x894 +
+`xf_cep_tjorder_chain_exists` RESOLVED. The spec stays executable:
+`tools/model_join_flush.py` (battery/fuzz/fuzzm — 0-div vs the gate oracle).
 
-**⚠ ACTIVE WORK — the CEP TEMPORAL-JOIN-ORDER SOURCES-PORT** (Bryan-GATE'd; the
-ONE thing blocking the push). **Full playbook + exact code pointers: memory
-`cep-temporal-join-order.md`.** The temporal-join firing ORDER diverges from
-Drools (~2/1000 CEP-fuzz; canonical repro `C_e0last` — engine fires `25,23,26`,
-oracle wants `26,23,25`). It is a FAMILY of batch-reversal facets; NO node-local
-fix is clean (3 engine attempts regressed — see dead-ends).
-
-_Steps 1–2 DONE — the SPEC exists (D-122/D-123)._ `tools/model_join_flush.py` is
-a VALIDATED reference model: **0 divergences vs the gate oracle on 33 curated +
-~4300 random shuffled cases** (single- AND multi-anchor). Run (all self-contained):
-`python3 tools/model_join_flush.py battery` · `… fuzz <n> <seed>` · `… fuzzm <n>
-<seed>`. The faithful rule (drools-core 9.44 sources, oracle-arbitrated): a
-PER-PROPAGATION phreak flush — FIFO memory (append), scan the OPPOSITE memory
-FORWARD, emit via staged `addInsert`-PREPEND, child processes staged in
-`getInsertFirst` order ⇒ **a lone eager emit is identity; a batch drain of N held
-partners reverses EXACTLY ONCE.** (`firing = reverse(node2 ltm)` is only the
-partner-last special case; the disproven v1 baked the reversal into SCAN DIRECTION
-and missed the held-right family — 27 % population.)
-
-_Step 3 NEXT — port the cascade into the engine (HIGH-RISK)._ Recon (D-124,
-`SEINE_TRACE=1`): the divergence is **FLUSH GRANULARITY** — the engine drains held
-partners to memory then does ONE deferred flush, so e0first/e0last reach node1
-BYTE-IDENTICAL (`sl.ins=[25,23,26]`); that is why no node-local edit separates
-them. **Fix site:** `Engine::stream_flush_ex` (`engine.rs` ~3602) UNCONDITIONALLY
-self-drains temporal nodes (loop ~3790 → `phreak::Node::self_drain_delta`,
-`phreak.rs`:427). **Hypothesis to test:** self-drain a partner ONLY when its
-anchor side is empty; else eager-join it individually (per v2). Collides with the
-cycle-4 / `rule_held_pre` gating (`engine.rs` ~3767) that fuzz survivors depend on
-⇒ **gate HARD and REVERT on any regression** (all 3 prior engine edits regressed).
-
-_Twin gates (ALL must hold before landing):_ `make diff` (944) byte-identical +
-`tools/fuzz_chain.py <n> <seed> <outdir> <HEAD-worktree>` = 0 NEW regressions +
-`model_join_flush.py fuzz`/`fuzzm` still 0 + the CEP-fuzz latents cf50003x263 /
-cf50003x894 resolve. Trace with `SEINE_TRACE=1` / `SEINE_FLUSH_DEBUG=1`.
-
-_Dead ends — do NOT re-attempt:_ ENGINE — naive scan→memory swap (regressed
-t1/t4/t5/t8/t15); node2-only forward-stamp (+172/−121 chain-fuzz); node1
-arrival-split (regressed facet-3, 542/1500). MODEL — v1 uniform reverse-scan
-(27 % pop; the reversal is a STAGING artifact, not a scan flag).
-
-**Open/deferred (parked; revisit AFTER the port):**
-• **item-C re-propagation** (classes 1/2/3: temporal Behavior modify re-fire,
-on_update evicted/expired guard, exists external-delete round-trip; battery
-`xf_cep_c_*` + `pr_cep_c_*` + mutation fuzz). • **not/exists × temporal** (E1
-positive-only wall stays; `exists` composes but `not` has a window-close deferral
-+ anchor-inference gap; 6 `engine_fenced`). • **window×interval count-during-
-window** (needs the `accumulate($e:E();count($e))` bound-source form — a
-pre-existing parser wall; interval EXPIRATION already byte-identical). •
-**beyond-Drools full-Allen inference** (`docs/allen-beyond-drools.md`;
-post-faithfulness). • **E1-hardening backlog**: temporal-join-order / accumulate-
-match latents (all bisect-to-HEAD, non-EP) incl. a temporal+delete+TMS
-NON-TERMINATION now CONTAINED by the D-117 spin-guard (errors ~18s vs hang;
-root-cause pending — `scenarios/hang-backlog/pre_existing_temporal_delete_hang`,
-un-gated); 2 tjo xfails; D-080 TMS envelope; window×TMS / node-sharing;
-`window:length` + standalone window (walled). • **Upstream:** #2366 (min/max),
+**NEXT is Bryan's call — no active build.** Candidates (parked backlog):
+• **shared-temporal join order** — `xf_cep_tjorder_dual_tms` (the one tjo xfail
+left): a SHARED temporal node × TMS; the cascade deliberately bails on shared
+segments (eager flush-pairing is provably wrong there — cf101x551 vs t14); needs
+the agenda-pop composition arc. • **item-C re-propagation** (classes 1/2/3:
+temporal Behavior modify re-fire, on_update evicted/expired guard, exists
+external-delete round-trip; battery `xf_cep_c_*` + `pr_cep_c_*` + mutation
+fuzz). • **not/exists × temporal** (E1 positive-only wall stays; `exists`
+composes but `not` has a window-close deferral + anchor-inference gap; 6
+`engine_fenced`). • **window×interval count-during-window** (needs the
+`accumulate($e:E();count($e))` bound-source form — a pre-existing parser wall;
+interval EXPIRATION already byte-identical). • **beyond-Drools full-Allen
+inference** (`docs/allen-beyond-drools.md`; post-faithfulness). •
+**E1-hardening backlog**: accumulate-match latents (bisect-to-HEAD, non-EP);
+the temporal+delete+TMS NON-TERMINATION CONTAINED by the D-117 spin-guard
+(errors ~18s vs hang; root-cause pending —
+`scenarios/hang-backlog/pre_existing_temporal_delete_hang`, un-gated); D-080
+TMS envelope; window×TMS / node-sharing; `window:length` + standalone window
+(walled). • **Upstream:** #2366 (min/max),
 `docs/drools-inferred-expiry-never.md`.
 
 ---
@@ -6101,3 +6075,79 @@ segment-flush path in `engine.rs` (D-101/D-102 machinery), NOT `phreak.rs`
 do it in a focused pass with `model_join_flush.py` as the spec and `make diff`
 (944) + `fuzz_chain` vs a HEAD worktree as the twin gates. RECON only this
 checkpoint — engine still at HEAD.
+
+### D-125: THE ENGINE PORT LANDED — per-arrival temporal flush cascade (v2 model), all gates green: chain-fuzz 204→0/1500, 0 NEW regressions, both cf50003 latents resolved
+
+The D-121→D-124 arc closes. The port is TWO coupled pieces (each alone was a
+proven dead end; together they equal v2):
+
+**P1 — the per-arrival cascade** (`engine.rs stream_flush_ex`, replacing the
+unconditional temporal self-drain loop; `phreak.rs Node::flush_ins_delta`): at
+each per-insert flush, an ELIGIBLE temporal join node consumes its staged
+INSERTS per-arrival instead of draining them blind to memory —
+- a staged RIGHT (arrival order = `.rev()` of the prepend list) appends to
+  memory and, if the left memory is populated, EAGER-JOINS it individually,
+  scanning lefts in MEMORY order and prepending emissions (`addInsert`);
+- a staged LEFT (getInsertFirst order — `s0_in` folds first, then `s_left`)
+  appends to memory with **lseq stamped in that SAME staged order** and joins
+  the right memory in memory order;
+- emissions route to the node's single sink (`append_into_pending`, the walk's
+  first-sink discipline); ascending `ni` = parents before children, so a
+  same-flush cascade completes (node0's eager emit fills node1 this flush).
+So a lone eager emit is identity and an anchor draining N held partners
+reverses EXACTLY once (the staged prepend) — v2's whole game. Eager-vs-held
+provenance now lives in the CHILD's memory + lseq order, which the certified
+rel_arrival right-insert scan then reads back naturally (post-set empty,
+pre-set sorted (lsq=0, lseq)).
+
+**Eligibility (else the certified legacy `self_drain_delta`, unchanged):**
+unshared `Kind::Join` temporal node, insert-only staging (no upd/del on
+s0_in/s_left/s_right), NOT both sides staged (AB self-join shapes keep the
+D-102 per-fact walk), no ph=1 rights, exactly one Node/Term sink (Term only
+when no emission is possible — an emitting Term-sinked node is linked, and a
+linked rule's flush eval already consumed the staging), never RIA. Shared
+temporal nodes keep the whole D-102 cf101x* stash machinery.
+
+**P2 — the fill stamp** (`phreak.rs do_join_node`, temporal non-AB fill): an
+UNSHARED temporal fill stamps lseq in STAGED (getInsertFirst) order instead of
+`.rev()` — a genuine anchor-drain batch keeps its single reversal for LATER
+right-insert partner scans (the linked-eval case P1 never sees: anchor arrival
+links the rule, the flush eval consumes the batch, a later E2' joins by lseq).
+Shared nodes keep the arrival stamp. This is the disproven "node2-only forward
+stamp" — UNFAITHFUL at HEAD granularity (−121 NEW: eager singles arrived as
+batches and got flipped), CORRECT under P1 (eager singles are per-arrival
+singletons, order-free; only genuine batches remain multi-fact).
+
+**Gates (ALL green):**
+- `make diff`: baseline 11 + probes **947** + regressions **284** byte-identical
+  (pre-existing 944 untouched; +3 promoted probes, +3 graduated regressions).
+- `fuzz_chain` seed 7001: HEAD-worktree **204/1500** divergences → port
+  **0/1500** = +204 resolved / **0 NEW**; seed 7002: **0/1500**.
+- multi-anchor engine-vs-oracle (facet-4, `_gen_multi` shapes) seed 9001:
+  **0/600**.
+- CEP-fuzz FRESH seeds 60007/60013: **0/1200**, 0 hangs (windows/TMS/
+  not-exists/accumulate/mutation composition clean).
+- the two real CEP-fuzz latents **cf50003x263 / cf50003x894 PASS**.
+- `model_join_flush.py battery` 33/33 (spec unchanged); engine-vs-oracle
+  battery 33/33; `cargo test` 9 suites; lint 1331 live / 0 ghosts / 0 inert.
+
+**Corpus adds:** promoted `pr_cep_tjo_e0first_eager_singles` /
+`pr_cep_tjo_e0last_batch_reversal` (the golden pair, facets 2/1) /
+`pr_cep_tjo_multi_anchor_per_right` (facet 4); graduated
+`xf_cep_tjorder_chain_exists` (RESOLVED → regressions/) + `fz_tjo_7001_2node`
++ `fz_tjo_7001_3node` (resolved chain-fuzz representatives, incl. 3-node).
+
+**Still open (unchanged scope):** `xf_cep_tjorder_dual_tms` stays xfail — a
+SHARED temporal node (TJ0/TJ1 same pattern) composed with TMS; the cascade
+deliberately bails there (Drools defers shared-segment evaluation to agenda
+pops; eager flush-pairing is provably wrong — cf101x551 vs t14). That family
+needs the agenda-pop composition arc, not this port. Item-C re-propagation,
+not/exists×temporal, and the rest of the E1-hardening backlog are untouched.
+
+**Lesson (uniform-fold signature, again):** the bug was "one drain applied
+across distinguishable arrivals". The fix scoped the distinction (eager vs
+held) instead of adding machinery — and the TWO dead-end "knobs" (forward
+stamp; eager split) were each HALF of v2, unfaithful alone because the other
+half's compensation was still in place. Model-first paid for itself: the port
+was mechanical once `simulate()` was validated, and every ordering question
+("which side scans what, in which order") had an executable answer.

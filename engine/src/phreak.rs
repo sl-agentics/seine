@@ -440,6 +440,68 @@ impl Node {
         }
     }
 
+    /// D-125: the PER-ARRIVAL temporal flush (the v2 flush-model port,
+    /// `tools/model_join_flush.py` — 0-div vs the gate oracle on ~4300
+    /// shuffled cases). Consumes this node's staged INSERTS at a stream
+    /// flush: a staged right (arrival order) appends to memory and
+    /// eager-joins the left memory INDIVIDUALLY in memory order; a
+    /// staged left (getInsertFirst order — `s0_folds` first, then
+    /// s_left) appends to memory with lseq stamped in that SAME order —
+    /// so a batch emitted by an anchor draining held partners keeps its
+    /// single staged-prepend reversal — then joins the right memory in
+    /// memory order. Emissions stage into `trg` via addInsert-prepend:
+    /// a lone eager emit is identity, a batch of N held partners
+    /// reverses exactly once. The caller routes `trg` to the sink.
+    pub fn flush_ins_delta<E: JoinEnv>(
+        &mut self,
+        env: &E,
+        node_idx: usize,
+        s0_folds: Vec<(Tup, Origin, u8)>,
+        trg: &mut Staged<Tup>,
+    ) {
+        let fno = env.fire_no();
+        let rins = std::mem::take(&mut self.s_right.ins);
+        for (f, o, _) in rins.iter().rev() {
+            let rkey = env.key_of_right(node_idx, *f);
+            self.rights.push((*f, rkey));
+            let partners: Vec<Tup> = self.lefts.iter().map(|(l, _)| l.clone()).collect();
+            for l in partners {
+                if l.iter().any(|lf| env.is_expired(*lf)) {
+                    continue; // D-102: corpse lefts make no NEW pairs
+                }
+                if env.allowed(node_idx, &l, *f) {
+                    let t = self.create_child(&l, *f, None, None);
+                    trg.add_ins_ph(t, *o, 1);
+                }
+            }
+        }
+        let lins = std::mem::take(&mut self.s_left.ins);
+        for (l, o, _) in s0_folds.iter().chain(lins.iter()) {
+            self.stamp_left_seq(l);
+            self.left_fire.insert(l.clone(), fno);
+            let lkey = env.key_of_left(node_idx, l);
+            self.lefts.push((l.clone(), lkey));
+            let partners: Vec<FactId> = self.rights.iter().map(|(f, _)| *f).collect();
+            for f in partners {
+                if env.is_expired(f) {
+                    continue; // D-102: corpse rights make no NEW pairs
+                }
+                if env.allowed(node_idx, l, f) {
+                    let t = self.create_child(l, f, None, None);
+                    trg.add_ins_ph(t, *o, 0);
+                }
+            }
+        }
+    }
+
+    pub fn lefts_is_empty(&self) -> bool {
+        self.lefts.is_empty()
+    }
+
+    pub fn rights_is_empty(&self) -> bool {
+        self.rights.is_empty()
+    }
+
     pub fn lefts_snapshot(&self) -> Vec<Tup> {
         self.lefts.iter().map(|(l, _)| l.clone()).collect()
     }
@@ -1226,8 +1288,19 @@ fn do_join_node<E: JoinEnv>(
                 }
             }
         } else {
-        for (l, _, _) in sl.ins.iter().rev() {
-            node.stamp_left_seq(l);
+        if node.shared {
+            for (l, _, _) in sl.ins.iter().rev() {
+                node.stamp_left_seq(l);
+            }
+        } else {
+            // D-125 (v2 flush model): an UNSHARED temporal fill stamps
+            // lseq in STAGED (getInsertFirst) order = memory order — a
+            // genuine anchor-drain batch keeps its single staged-prepend
+            // reversal for later right-insert partner scans. Eager
+            // singles (the per-arrival flush cascade) are order-free.
+            for (l, _, _) in &sl.ins {
+                node.stamp_left_seq(l);
+            }
         }
         for (l, _, _) in &sl.ins {
             let lkey = env.key_of_left(node_idx, l);
