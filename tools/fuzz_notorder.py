@@ -11,8 +11,8 @@ curated battery). Usage:  fuzz_notorder.py <n> <seed>  ->  writes
 """
 import json, os, sys, random, subprocess
 
-ROOT = "/home/bryan/rust-rules"
-TMP = os.environ.get("NOTPOP_TMP", "/home/bryan/.claude/jobs/577ad61a/tmp") + "/notpop"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TMP = os.environ.get("NOTPOP_TMP", "/tmp/seine_notpop") + "/notpop"
 os.makedirs(TMP, exist_ok=True)
 # BLOCKER: "plain" (D) or "event" (E0, @expires). TRIGGER: "delete" or "expiry"
 # (expiry = advance past the blocker's deadline; requires an event blocker).
