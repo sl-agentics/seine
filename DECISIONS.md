@@ -11,8 +11,8 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, post-D-127 (exists×temporal PORT), D-128 (not×temporal
-RECON), D-129 (not deferral arc A modeled), D-130 (not INFERENCE arc B modeled);
+_Last updated: 2026-07-08, post-D-129 (not deferral arc A), D-130 (not inference
+arc B / not_partner), D-131 (arc B chains: firing-set 0-div, order residual);
 `git log --oneline -10` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
@@ -20,14 +20,15 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **5 commits AHEAD of `origin`, NOT pushed** (D-127, D-128,
-D-129 + the docs handoff + D-130 — Bryan holds the push; `git push` when
+**Git:** on `main`, **6 commits AHEAD of `origin`, NOT pushed** (D-127, D-128,
+D-129 + the docs handoff + D-130 + D-131 — Bryan holds the push; `git push` when
 cleared). Tree CLEAN, gates green. ⚠ **NO `v*` TAGS until a PyPI
 release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and
 the `pypi` environment has NO protection rules (gh-verified): a new tag publishes
 `seine-rs` with no manual gate. Recent: **D-127 exists×temporal ENGINE PORT** →
-D-128 not×temporal RECON → **D-129 not deferral arc A** → **D-130 not inference
-arc B modeled (0-div)**.
+D-128 not×temporal RECON → **D-129 arc A** → **D-130 arc B (not_partner, 0-div)**
+→ **D-131 arc B chains (firing-set 0-div; within-close-time order = not-node
+staging, staged)**.
 
 **Gates (green @ HEAD, local + CI):** baseline 11 / probes **951**
 byte-identical / regressions **284** / lint **1334 live·0 ghost·0 inert** / 9
@@ -55,34 +56,47 @@ an exists node (its full staging flows to the eval). Gated to temporal
 unobservable (retractions never fire) so the port is insert-only. Spec:
 `tools/model_exists_flush.py`.
 
-**⚠ ACTIVE SLAB — not×temporal (D-128 recon → D-129 arc A → D-130 arc B; BOTH
-not_partner arcs modeled 0-div, NO engine change yet).** NOT an admission-order
-port like exists (do NOT reach for `exists_flush_admit` — it reorders
-admissions; here the problem is WHEN a satisfied `not` fires + inferred reaping).
-`tools/fuzz_not_temporal.py` on a not-fence-lifted scratch measured **~30%**
-engine-vs-oracle divergence. Fence today: `engine.rs` ~2276 errors only on
-`CeKind::Not`; STP-inference edge (~2316) `tpos.is_some()`-guarded.
+**⚠ ACTIVE SLAB — not×temporal (D-128 recon → D-129 arc A → D-130 arc B
+not_partner → D-131 arc B chains; ALL 3 shapes' FIRING SET modeled 0-div, one
+order residual staged, NO engine change yet).** NOT an admission-order port like
+exists (do NOT reach for `exists_flush_admit`; the problem is WHEN a satisfied
+`not` fires + inferred reaping). `tools/fuzz_not_temporal.py` on a not-fence-
+lifted scratch measured **~30%** engine-vs-oracle divergence. Fence today:
+`engine.rs` ~2276 errors only on `CeKind::Not`; STP edge (~2316) tpos-guarded.
 
-**➡ START HERE (cold pickup) — extend `tools/model_not_infer.py` to the
-chain_not / not_mid shapes** (the last modeling before the engine port). Recon
-(D-130) shows the not-mechanism GENERALIZES unchanged (blocked⇒silent,
-unblocked⇒fires at window-close), COMPOSED with the **D-125 temporal join** for
-the parent binding
-(chain_not: the $a–$b join must match; not_mid: the positive $c must match) and
-the firing renders the join TUPLE. Method: fold the D-125 join-order model
-(`tools/model_join_flush.py`) into `model_not_infer.py simulate()`, render
-tuples, re-validate 0-div on the full 3-shape population. THEN the engine port.
+**➡ START HERE (cold pickup) — the ENGINE PORT.** All black-box modeling is done
+(`model_not_infer.py`: firing SET 0-div all 3 shapes; order 0-div except the
+D-131 residual). The residual is SETTLED, not open: the source read (D-131)
+proved the within-close-time chain order is a Java `PriorityQueue` heap ARTIFACT
+(`DefaultTimerJobInstance.compareTo` orders on fire-time only, no secondary key),
+NOT a semantic — so DON'T model it (fz_42_84-class); the port matches it only if
+Seine's scheduler happens to reproduce Drools' PQ tie-order, else those ~0.6%
+graduate to `xfail/` as heap-order expected-divergences. The port itself = a
+deferral SCHEDULER (arc A: hold a satisfied not on a pseudo-clock timer keyed to
+fire_time; fire on the advance that retires it via the not-node's window-close;
+cancel on an in-window blocker) that also reproduces the D-130 inferred-offset
+REAPING (check the existing D-109 inference path covers the not edge; the anchor
+gets an inferred offset via the join constraint, so `$a:E0()` is NOT bare-NEVER).
+Mechanism (drools-core): `PhreakNotNode.doLeftInserts` propagates unblocked lefts
+immediately, `doRightDeletes` re-propagates on un-block (addInsert=prepend). Gate:
+`fuzz_not_temporal.py` 0-div (modulo the fenced heap ties) + `cp*not*` witnesses;
+`not` fence LAST. Needs a mechanism report + Bryan GATE before touching engine.rs.
 
-_Arc B DONE (D-130, `tools/model_not_infer.py` 0-div, not_partner, 6 seeds /
-2300 cases — the inference spec):_ inferred per-type offset (after: E0=hi,
-E1=lo?0:NEVER; before: E0=lo?0:NEVER, E1=hi; reap at ts+offset+1; explicit
-@expires=E ⇒ offset E). KEY: **the inference is invisible to FIRINGS** — a
-blocked anchor stays silent whether the blocker is inferred-mortal (B) or
-explicit-immortal (A); the window-close timer is only armed when NO in-window
-blocker exists at insertion, and the sole post-expiry fire-point (the advance
-end) has everything reaped. So arc A ≡ arc B on the firing SET; they differ only
-in the reaped `facts` (the engine port must reproduce the inferred-offset
-reaping). Mechanism = `docs/drools-inferred-expiry-never.md` (D-109).
+_Arc B chains DONE-modulo-order (D-131, `tools/model_not_infer.py`):_ composition
+= positive temporal join (D-125, reuse `model_join_flush.Node`) → not FILTERS
+(blocked⇒silent) → DEFERS to the not's window-close (anchor+hn after / anchor
+before; chain_not anchor=$b, not_mid anchor=$a). **FIRING SET 0-div, all 3
+shapes, ~4500 cases / 9 seeds**; clock-0 FIFO + cross-close-time order 0-div; the
+~0.6% residual (chain_not/not_mid, ALL order-only) is the within-close-time not-
+node staging — fenced, see START HERE.
+
+_Arc B not_partner DONE (D-130, 0-div, 6 seeds / 2300 cases — the inference
+spec):_ inferred per-type offset (after: E0=hi, E1=lo?0:NEVER; before mirror;
+reap at ts+offset+1; explicit @expires=E ⇒ offset E). KEY: **the inference is
+invisible to FIRINGS** — a blocked anchor stays silent whether the blocker is
+inferred-mortal (B) or explicit-immortal (A); arc A ≡ arc B on the firing SET,
+differing only in reaped `facts` (the port must reproduce the reaping).
+Mechanism = `docs/drools-inferred-expiry-never.md` (D-109).
 
 _Arc A DONE (D-129, `tools/model_not_defer.py` 0-div, not_partner, 6 seeds — the
 deferral spec):_ fire_time = A.ts+hi (after) / A.ts−lo (before); IMMEDIATE iff
@@ -6476,3 +6490,69 @@ expiry (arc B needs no extra firing logic, but the port MUST reproduce the
 inferred-offset reaping so `facts` match) NOT the D-127 admission reorder. No
 engine change this checkpoint (probe+model; new tool `tools/model_not_infer.py`;
 `make diff` 11/951/284 unaffected, tree clean but for the untracked tool).
+
+### D-131: not×temporal arc B — CHAINS (chain_not / not_mid) modeled; FIRING SET 0-div all 3 shapes, but the within-close-time chain tuple ORDER is not-node PHREAK staging (D-125 analog) — fenced from the model, not black-box-ground
+
+Extended `model_not_infer.py` from `not_partner` to all three fuzz_not_temporal
+shapes. The composition (probe-confirmed) is: **positive temporal join (D-125
+order, reuse `model_join_flush.Node`) → the `not` FILTERS (blocked ⇒ silent) and
+DEFERS to its window-close → schedule.** The not's anchor is where its window
+closes: not_partner/not_mid anchor = `$a`; chain_not anchor = `$b` (the joined
+E1). ft = anchor+hn (after) / anchor (before). Firing SET (which tuples match) =
+`_join_tuples` (E0-E1 for chain_not, E0-E2 for not_mid) minus the blocked ones;
+tuples render the join TUPLE (the not contributes no element, D-031).
+
+**Ordering, probe-measured:** clock-0 (ft≤0) tuples fire FIFO/creation order
+(x159 `[3,5]`, cn0_fifo `[5,3]` — both the join's propagation order, verified);
+the advance batch fires **descending close-time** across anchors (nm_2a: a=5
+ft55 before a=0 ft50). Both modelled 0-div. What resists: the **within-same-
+close-time** multi-tuple order (chain shapes, when several tuples share the not-
+anchor's ft — same `b` with different `a` in chain_not, same `a` with different
+`c` in not_mid). Measured tie-break behaviour is NOT a creation-index sort:
+`nm_ins_81_86`/`nm_ins_86_81` (1 anchor) fire REVERSE of the positive partner's
+insertion order, but `nm_2a` (2 anchors) fires a=5's partners FORWARD while
+a=0's REVERSE in the *same* case. Five hypotheses (crt asc/desc, reverse-insert,
+LIFO, whole-batch reverse) each fit some cells and break others — the classic
+PHREAK-staging flip-flop. This is the **not-node window-close re-propagation
+staging**, the direct analog of the D-121..125 join-flush order (which needed a
+drools-core sources-informed per-propagation flush model to pin).
+
+**SOURCE READ (drools-core 9.44, behaviour only — Apache-2.0, nothing copied).**
+Peeked to settle whether the tie is a clean rule or an artifact. Mechanism:
+`PhreakNotNode.doLeftInserts` propagates an unblocked left-tuple IMMEDIATELY
+(`insertChildLeftTuple` → `trgLeftTuples.addInsert` = PREPEND); a temporal not
+holds the tuple via a scheduled window-close, and on close/blocker-expiry
+`doRightDeletes` re-propagates the un-blocked lefts (again `addInsert` PREPEND,
+iterating `rightTuple.getBlocked()`). ALL time-scheduled firings drain through
+`PseudoClockScheduler.queue`, a `java.util.PriorityQueue<TimerJobInstance>`, and
+`DefaultTimerJobInstance.compareTo` orders **solely by `trigger.hasNextFireTime()`
+— NO secondary key** (verified, lines 54-56). So same-close-time jobs are EQUAL
+in the queue ⇒ their relative fire order is a **binary-heap artifact** of the
+add/poll sequence (Java `PriorityQueue` is NOT stable for equal elements) — the
+add order being the schedule/propagation order, itself carrying `addInsert`
+prepends. ⇒ the within-close-time order is an **implementation artifact, not a
+semantic** (same class as the `fz_42_84` identity-hash-order quarantine — the
+doctrine says document, don't chase). This is the airtight reason the black-box
+tie flip-flopped, and it re-scopes the fence: the FENCE IS CORRECT to keep in the
+MODEL; the ENGINE PORT will match these ~0.6% cases only if Seine's scheduler
+reproduces Drools' PriorityQueue tie-order (a port/scheduler concern, testable
+vs the oracle) — else they graduate to `xfail/` as heap-order expected-
+divergences, NOT a firing-set error.
+
+**⇒ Result / scope.** FIRING SET: **0 divergences, all 3 shapes, ~4500 cases /
+9 seeds** — the semantic content is fully modelled (which tuples fire, blocked ⇒
+silent under inferred/explicit @expires alike, D-130's "inference invisible to
+firings" holds across chains too). ORDER: 0-div for not_partner + the cross-
+close-time ordering; residual **~0.6%, chain_not/not_mid ONLY, every one order-
+only (never a set/count miss)** = the within-close-time not-node staging. Per
+the STOP-RULE (don't grind an Nth black-box round on a flush micro-order),
+FENCED from the model and staged. Repro seeds: `nif7001x146` (not_mid),
+`nif7002x120` / `nif7003x321` (chain_not).
+
+**⇒ Next.** The not-node flush staging is best cracked WITH the engine port
+(it reuses the D-125 flush-cascade machinery — model the not-node as a per-
+propagation flush node whose window-close emission obeys the same prepend
+discipline; the model's within-close-time order finalises alongside the port,
+exactly as `model_join_flush`'s order did with D-125). Until then the model is
+the FIRING-SET spec + the cross-close-time order spec. No engine change this
+checkpoint (`make diff` 11/951/284 unaffected).
