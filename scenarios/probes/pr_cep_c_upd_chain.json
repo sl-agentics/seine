@@ -1,0 +1,95 @@
+{
+ "name": "pr_cep_c_upd_chain",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R when $a : E0() $b : E1(this after[0ms,100ms] $a) $c : E2(this after[0ms,100ms] $b) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 60,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 110,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "w"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CLASS 1: E0->E1->E2 temporal chain re-fires when the middle event is updated."
+}

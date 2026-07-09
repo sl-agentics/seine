@@ -1,0 +1,71 @@
+{
+ "name": "pr_cep_c_upd_anchor",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 50,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 10,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "w"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CLASS 1 discriminator: updating the ANCHOR (pattern 0, non-temporal left input) of a temporal join does NOT re-fire (only the temporal/prober side does). engine==oracle."
+}

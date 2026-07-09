@@ -11,11 +11,12 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-09, post-D-136 PORT (exists-inference PORTED D-135;
-**SHARED temporal-join ORDER: PORTED 0-div** — D-125 base accumulated in
-`Node.tj_epoch`, drained ONCE at the fire boundary, first sink forward + peers
-reversed; `xf_cep_tjorder_dual_tms` GRADUATED). `git log --oneline -12` for live
-HEAD._
+_Last updated: 2026-07-09, post-D-137 (CEP E2 item-C classes 1/2/3 re-propagation
+PORT — committed locally, NOT pushed). Classes 1 (temporal-join update re-fire) +
+2 (clock-removed revival) FIXED corpus byte-identical; class 3 (exists
+explicit-delete churn) CHARACTERIZED + DEFERRED to a model_check sub-recon (ACTIVE
+next slab). Fences kept (each also guards a separate out-of-C gap — see CURRENT
+ISSUES 1/1a/1b). `git log --oneline -12` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -24,9 +25,11 @@ Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
 **Git:** on `main`, pushed through D-136 RECON (`origin/main` at `162fb68`; Bryan
 cleared each push 2026-07-09; branch-only, NO tags). **D-136 PORT COMMITTED
-locally at `6551973` — NOT pushed (Bryan holds the push)**; tree clean, gates
-green (`engine.rs` + `phreak.rs` + 3 `fz_tjo_shared*` witnesses + dual_tms
-graduated + docs). The temporal-`not` port
+locally at `6551973` — NOT pushed (Bryan holds the push)**. **D-137 (item-C
+classes 1&2) COMMITTED locally — NOT pushed** — `engine.rs` + DECISIONS.md + 3
+xfails→probes + 12 new `pr_cep_c_*` + 3 new `xf_cep_c_*` witnesses; `fuzz_cep.py`
+unchanged (fences kept). Class 3 (exists explicit-delete churn) is the ACTIVE next
+slab (model_check sub-recon). The temporal-`not` port
 is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
 path byte-identical). ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
@@ -35,11 +38,12 @@ publishes `seine-rs` with no manual gate. Recent: D-127 exists×temporal PORT �
 D-128..D-131 not×temporal modeled → port report → D-132/133 §3A (reaping) →
 **D-134 §3B (firing deferral) — not×temporal DONE, CEP-E2 fully unwalled.**
 
-**Gates (green @ HEAD, local + CI):** baseline 11 / probes **958**
-byte-identical / regressions **288** / lint **1336 live·0 ghost·0 inert** / 9
-Rust suites / bindings pytest 72. Verify: `make diff` · `make lint-probes` ·
-`cargo test` (oracle prebuilt, `oracle/target/classpath.txt`). **Red on resume
-⇒ drift — investigate before building.** (Known pre-existing fuzz latent:
+**Gates (green @ HEAD incl. D-137, local):** baseline 11 / probes **970**
+byte-identical / regressions **288** / lint **1352 live·0 ghost·0 inert** / 9 Rust
+suites / bindings pytest 72 / blast-radius `make fuzz` 42/123/7 == pristine
+pre-D-137 (CEP-gated, no main-axis regression). Verify: `make diff` ·
+`make lint-probes` · `cargo test` (oracle prebuilt, `oracle/target/classpath.txt`).
+**Red on resume ⇒ drift — investigate before building.** (Known pre-existing fuzz latent:
 `fuzz_cep` seed 313 `cf313x13` firing[12], non-temporal `not X() P()` order —
 NOT a regression, reproduces with any slab stashed.)
 
@@ -110,28 +114,42 @@ ALREADY BUILT — start from here, don't re-derive).** The whole temporal-join a
 is landed (joins D-125, exists D-127, not D-134, @expires-inference D-135, shared
 order D-136); the CEP surface is faithful except:
 
-1. **E2 item-C classes 1/2/3 — event UPDATE/DELETE re-propagation (D-115; MOST
-   PORT-READY — recon+battery DONE, fenced awaiting a go-ahead, exactly where D-136
-   sat).** Three understood gaps, each with a minimal repro:
-   - **class 1** `xf_cep_c_upd_temporal` — temporal Behavior nodes are NOT
-     property-reactive: Drools re-fires an after/before match on ANY external
-     update of a participant (even a no-op/irrelevant field); engine treats them
-     like a plain property-reactive join ⇒ UNDER-fires. Fix: temporal join re-fires
-     on any update of a participant.
-   - **class 2** `xf_cep_c_upd_{evict_revive,after_exp}` (ONE root) — `on_update`
-     re-propagates a clock-removed (evicted/expired but still `is_alive`) event
-     back into an accumulate; Drools kept it removed. Fix: guard `on_update` on the
-     evicted/expired state (`advance` marks expiry but leaves `is_alive`; kill is
-     deferred to `drain_pending_expirations`).
-   - **class 3** `xf_cep_c_del_churn_exists` — external-delete un-fires an exists, a
-     same-epoch reinsert re-fires it in Drools; engine keeps exists linked ⇒
-     UNDER-fires. Fix: exists external-delete round-trip.
-   Battery: 4 `xf_cep_c_*` repros + 14 `pr_cep_c_*` boundary pins + the `fuzz_cep.py`
-   mutation axis (three class fences to LIFT + `CEP_NO_TEMPORAL` flag); findings
-   `~/.claude/plans/cep-e2-item-c-findings.md`. Gate: lift the fences, fresh-seed
-   `fuzz_cep` 0-div + `make diff` byte-identical. ⚠ RISK medium-high — the shared,
-   corpus-critical D-047 mutation path (D-112 blast-radius mandate: `make fuzz`
-   gen.rs seeds 42/123/7 must stay at the known DELETE-FREE latents only). See D-115.
+1. **E2 item-C classes 1/2/3 — event UPDATE/DELETE re-propagation (D-115 fenced →
+   D-137 PARTIAL PORT, committed locally, NOT pushed).** Classes 1 & 2 FIXED (corpus
+   byte-identical); class 3 CHARACTERIZED + DEFERRED (**ACTIVE next slab**); the two
+   update fuzz fences STAY (each guards a SEPARATE out-of-C gap — 1a/1b).
+   - **class 1 — PORTED** (`pr_cep_c_upd_temporal` graduated): a POSITIVE temporal
+     (after/before/Allen) join node is NOT property-reactive; updating the event on
+     the TEMPORAL side re-fires (the ANCHOR/left input does NOT —
+     `pr_cep_c_upd_anchor`). Fix = `on_update` `(true,true)` forces `add_upd` when
+     `pat.ce==Positive && node.temporal`. Validated after/shared(D-136)/chain.
+   - **class 2 — PORTED** (`pr_cep_c_upd_{evict_revive,after_exp}` graduated): a
+     per-node `TrieNode.clock_removed` set (filled in `stage_acc_removal`) makes the
+     `on_update` `(false,true)` re-entry NOT revive a clock-removed (evicted/
+     expired, still `is_alive`) event into an accumulate.
+   - **class 3 — DEFERRED** (`xf_cep_c_del_churn_exists`+`_rule` stay xfail): the
+     exists explicit-delete churn (external AND rule-RHS both diverge; expiration
+     stays coalesced, D-102) needs INVERTING the D-031-pinned existential
+     rightIns-before-rightDel order for explicit (non-expiration, via
+     `in_expiration_drain`) deletes — a flip-flop-prone staging change requiring a
+     model_check (like `model_check_join2`). Model pinned by `pr_cep_c_exists_*`. Do
+     NOT hand-tune (D-083). See D-137.
+   Gate MET for 1&2: `make diff` 11/**970**/288, lint 1352, cargo test, bindings 72,
+   blast-radius seeds 42/123/7 == pristine HEAD (CEP-gated). D-115's "lift fences ⇒
+   0-div" premise was OPTIMISTIC (fences do double-duty — 1a/1b). See D-137.
+
+1a. **windowed-accumulate LIVE-modify property-reactivity — NEW gap** (was hidden
+    by class-2's `windowed_acc_types` fence): a windowed accumulate is
+    property-reactive on the FUNCTION fields — `count()`+irrelevant/no-op field
+    OVER-fires (`xf_cep_c_upd_win_{live,noop}`); `sum(val)`+val agrees
+    (`pr_cep_c_win_sum_upd`); a PLAIN accumulate re-folds on any modify. The flagged
+    WindowNode "do-not-hand-tune" wall; needs a `model_check_stream`+WindowNode
+    sub-recon. Fence KEPT.
+
+1b. **pre-existing temporal-join-ORDER latents (E1-hardening)** — surfaced by
+    lifting `temporal_types` (8/800 fuzz div, ALL bisect-to-HEAD byte-identical:
+    cf313 not-order, @duration interval join-order). NOT class 1, NOT caused by the
+    `add_upd` port. Same family as item #2 below. Fence KEPT.
 
 2. **cf313 non-temporal `not X() P()` firing ORDER (model-first, small, LOW).**
    Pre-existing latent — `fuzz_cep` seed 313 `cf313x13` firing[12], reproduces
@@ -6918,3 +6936,97 @@ time not-ORDER residual (D-134 §6) remains — and that one is UNDEFINED behavi
 a fixable order, so it stays fenced by nature.
 
 **Not pushed** (branch-only, Bryan holds the push).
+
+### D-137: CEP E2 item C classes 1/2/3 — DEFERRED re-propagation PORT. Class 1 (temporal-join update re-fire) + Class 2 (clock-removed revival) LANDED, corpus byte-identical; Class 3 (exists explicit-delete churn) CHARACTERIZED + DEFERRED (the existential right-phase order is D-031-pinned ⇒ needs a model_check sub-recon). FENCE DOUBLE-DUTY: the two update fences also guard SEPARATE out-of-C gaps, so they CANNOT be lifted to 0-div by fixing only 1/2/3
+
+Resumed the port D-115 fenced (HYBRID: cheap delete-of-dead + FENCE classes
+1/2/3; battery pre-built). Probe-first, one class at a time.
+
+**CLASS 1 — temporal-join update re-fire (engine UNDER-fired) — PORTED.** A
+POSITIVE temporal (after/before/Allen) join Behavior node is NOT
+property-reactive: Drools re-fires the match on ANY external update of the event
+on the TEMPORAL (constraint-bearing) side, even a no-op/irrelevant field.
+Distinct-anchor/prober discriminator probes (NOT the xfail's self-join) PINNED
+the trigger: updating the PROBER (the pattern carrying the `Test::Temporal`, i.e.
+the `node.temporal` node) re-fires; updating the ANCHOR (pattern 0, the plain
+left input) does NOT (`pr_cep_c_upd_anchor`) — so the fix is NARROW. Port
+(`engine.rs on_update` `(true,true)` branch): `temporal_refire = pat.ce ==
+Positive && node.temporal` forces `add_upd` regardless of the listen mask (the
+mask-miss `re_add_right_fact` never re-fires). Validated: `xf_cep_c_upd_temporal`
+→ green + after / shared (D-136 two-rule, both re-fire in order) / chain probes,
+corpus byte-identical. Scoped to Positive — temporal not (D-134) / exists (D-127)
+keep their own semantics.
+
+**CLASS 2 — clock-removed revival (engine OVER-fired) — PORTED.** A window
+eviction / expiration-eager acc-removal (`stage_acc_removal`) drops the event
+from `trie[ni].active` but leaves it `is_alive` until the deferred drain; a later
+external UPDATE hits the `on_update` `(false,true)` re-entry and re-adds it to the
+accumulate (count springs back). Port: a per-node `TrieNode.clock_removed` set
+populated in `stage_acc_removal`; the entry branch suppresses the revival when
+the event is in it. Naturally CEP-gated (only events reach `stage_acc_removal` ⇒
+empty on the plain corpus ⇒ byte-identical; FactIds are monotonic and `reset`
+rebuilds the trie, so no stale-id hazard). Validated: `xf_cep_c_upd_evict_revive`
+(window) + `xf_cep_c_upd_after_exp` (expiration) → green, corpus byte-identical,
+population fuzz-checked (windowed fence lifted, seed 201/600).
+
+**CLASS 3 — exists explicit-delete churn (engine UNDER-fires) — CHARACTERIZED,
+DEFERRED.** Delete the sole `exists` witness + reinsert a fresh one in the SAME
+epoch ⇒ Drools un-fires+re-fires (NE NE); the engine coalesces (NE). Full model
+pinned by probes (`pr_cep_c_exists_*`): (1) NOT external-specific — a RULE-RHS
+`delete($w); insert(new witness)` churn ALSO re-fires (`xf_cep_c_del_churn_exists_
+rule`: NE,CH,NE vs NE,CH) ⇒ it is ANY EXPLICIT (non-expiration) delete; (2)
+EXPIRATION churn must STAY coalesced (`pr_cep_c_exists_exp_churn`, D-102; engine
+distinguishes via `in_expiration_drain`); (3) ORDER-sensitive — delete-first
+re-fires (count 1→0→1), insert-first does NOT (`pr_cep_c_exists_ins_first`),
+separate-epoch works (`pr_cep_c_exists_sepepoch`), delete-one-of-two no-ops
+(`pr_cep_c_exists_2wit`). ROOT: the existential right-phase order is
+rightIns-BEFORE-rightDel (`phreak.rs` ~1487, D-031 pinned) — so the same-batch
+reinsert W′ is already in right memory when the delete of the blocker W
+re-searches, is found as a replacement blocker, and the left never unblocks ⇒ no
+child retract, no re-fire. The fix requires INVERTING/scoping that pinned order
+for explicit deletes — a flip-flop-prone existential-staging change the doctrine
+MANDATES a model_check for (the "rule-vs-external survived 17 hand timelines"
+warning is literally this class). DEFERRED to a dedicated model_check sub-recon
+(like `model_check_join2`); `xf_cep_c_del_churn_exists`(+`_rule`) stay xfail, the
+fence stays. NOT hand-tuned (D-083 discipline).
+
+**FENCE DOUBLE-DUTY (revises D-115's optimistic gate premise).** The item-C gate
+assumed "lift the 3 fences ⇒ fresh fuzz 0-div." FALSE — each update fence ALSO
+incidentally suppresses a SEPARATE, out-of-item-C gap, so it cannot be lifted to
+0-div by fixing only 1/2/3:
+- `windowed_acc_types` (was class 2): lifting it flushed a WINDOWED-accumulate
+  LIVE-modify PROPERTY-REACTIVITY gap (`xf_cep_c_upd_win_{live,noop}`) — a
+  windowed accumulate is property-reactive on the FUNCTION's fields: `count()` +
+  an irrelevant/no-op `tag` update does NOT re-fire in Drools but the engine
+  re-folds ⇒ OVER-fires; `sum(val)` + a `val` update re-folds and AGREES
+  (`pr_cep_c_win_sum_upd`); a PLAIN accumulate re-folds on ANY modify (agrees).
+  This is the flagged WindowNode "do-not-hand-tune" wall, NOT class 2 (the
+  clock-removed revival, now fixed). Fence KEPT.
+- `temporal_types` (was class 1): lifting it (seed 202/800) flushed 8
+  divergences — ALL bisect-to-HEAD PRE-EXISTING temporal-join-ORDER / not-order
+  E1-hardening latents (byte-identical on the pristine HEAD worktree, my
+  `add_upd` port does NOT change them; incl. the cf313-family `not X() P()` order
+  and @duration-interval join-order). NOT class 1 (the update re-fire, now
+  fixed). Fence KEPT.
+⇒ Classes 1 & 2 are FIXED (their divergence witnesses flip green + graduate) but
+the two update fences stay, each now guarding an orthogonal deferred gap.
+Consistent with D-115's own HYBRID.
+
+**Gates (green @ working tree):** `make diff` 11 / **970** / 288 byte-identical
+(+12 `pr_cep_c_*`: 3 graduated xfails + 9 boundary pins); `make lint-probes`
+**1352** live·0·0; `cargo test` 9 suites; bindings pytest **72**; blast-radius
+`make fuzz` seeds 42/123/7 divergence set IDENTICAL to the pristine HEAD worktree
+(the port is CEP-gated — `clock_removed` only via `stage_acc_removal`, `add_upd`
+only on `node.temporal`+Positive — so the event-free gen.rs main axis is provably
+untouched; the fz_42/123 DELETE-FREE latents are unchanged). **Battery:** 3
+xfails→probes (`upd_temporal` / `upd_evict_revive` / `upd_after_exp`), 9 new
+`pr_cep_c_*` pins, 3 new xfail witnesses (`del_churn_exists_rule`,
+`upd_win_live`, `upd_win_noop`); `xf_cep_c_del_churn_exists` kept.
+
+**Artifacts:** `engine.rs` (`TrieNode.clock_removed` field + `stage_acc_removal`
+insert + `on_update` class-1 `temporal_refire` and class-2 revival guard). **Left
+for a fresh-context slab (needs a go-ahead):** (a) class 3 — the existential
+right-phase-order model_check + un-bail; (b) windowed-accumulate modify
+property-reactivity (the WindowNode sub-recon); (c) the pre-existing
+temporal-join-ORDER E1-hardening family. **Committed locally, NOT pushed (Bryan
+holds the push); class 3 is the ACTIVE next slab (Bryan-directed).**

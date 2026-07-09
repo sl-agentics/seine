@@ -1,8 +1,8 @@
 {
- "name": "xf_cep_c_upd_after_exp",
+ "name": "pr_cep_c_exists_exp_churn",
  "types": [
   {
-   "name": "E",
+   "name": "E0",
    "fields": [
     {
      "name": "ts",
@@ -28,13 +28,19 @@
    ]
   }
  ],
- "drl": "rule W when accumulate( E(); $c : count() ) then end\n",
+ "drl": "rule NE when exists E0() P() then end\n",
  "facts": [
   {
-   "type": "E",
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
    "fields": {
     "ts": 10,
-    "tag": "x"
+    "tag": "z"
    }
   }
  ],
@@ -44,17 +50,18 @@
     {
      "op": "advance",
      "ms": 100
-    },
-    {
-     "op": "update",
-     "target": 0,
-     "fields": {
-      "tag": "z"
-     }
     }
    ],
-   "facts": []
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 110,
+      "tag": "y"
+     }
+    }
+   ]
   }
  ],
- "open_divergence": true
+ "_finding": "CLASS 3 / D-102 boundary: EXPIRATION of the witness + reinsert defers/nets out -> no re-fire (engine==oracle); external DELETE churn is the divergent case."
 }

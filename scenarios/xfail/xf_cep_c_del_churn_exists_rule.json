@@ -1,0 +1,71 @@
+{
+ "name": "xf_cep_c_del_churn_exists_rule",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Trig",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when exists E0() P() then end\nrule CH salience -10 when $t : Trig() $w : E0(tag==\"z\") then delete($w); insert(new E0(21, \"y\")); delete($t); end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "Trig",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "CLASS 3 rule-driven variant: a RULE RHS delete($w); insert(new witness) ALSO re-fires the exists in Drools (NE,CH,NE) but not the engine (NE,CH) \u2014 the churn re-fire is NOT external-specific, it is any EXPLICIT (non-expiration) delete. Same root as xf_cep_c_del_churn_exists; needs the existential right-phase-order model_check sub-recon.",
+ "open_divergence": true
+}

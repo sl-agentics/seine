@@ -1,0 +1,66 @@
+{
+ "name": "pr_cep_c_exists_2wit",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when exists E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 22,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CLASS 3 boundary: deleting one of TWO exists witnesses keeps exists satisfied -> no re-fire (engine==oracle)."
+}

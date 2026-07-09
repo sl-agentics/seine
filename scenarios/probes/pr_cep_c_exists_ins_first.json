@@ -1,0 +1,67 @@
+{
+ "name": "pr_cep_c_exists_ins_first",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when exists E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "E0",
+     "fields": {
+      "ts": 21,
+      "tag": "y"
+     }
+    },
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CLASS 3 boundary: reinsert BEFORE delete (count 1->2->1, never 0) does NOT re-fire (engine==oracle) \u2014 the churn re-fire needs delete-first."
+}

@@ -591,6 +591,14 @@ struct TrieNode {
     env: (usize, usize),
     /// Alpha membership of this node's right input.
     active: HashSet<FactId>,
+    /// CEP E2 item C class 2 (D-137): events removed from `active` by a
+    /// CLOCK job (window eviction / expiration-eager acc-removal via
+    /// `stage_acc_removal`) — still `is_alive` until the deferred drain.
+    /// A later external UPDATE must NOT revive such an event into the
+    /// accumulate (Drools keeps it removed); the `on_update` re-entry
+    /// branch consults this to suppress the revival. Populated only for
+    /// event types (empty on the plain corpus ⇒ byte-identical).
+    clock_removed: HashSet<FactId>,
     /// Transient link pulse for UNCONSTRAINED not nodes (D-031).
     pulse: bool,
     /// Level-1 only: pattern-0 fact staging from the owning LIA.
@@ -1534,6 +1542,7 @@ impl Engine {
                                 ),
                                 env: (ri, j),
                                 active: HashSet::new(),
+                                clock_removed: HashSet::new(),
                                 pulse: false,
                                 s0_in,
                                 sinks: Vec::new(),
@@ -4251,6 +4260,12 @@ impl Engine {
         if !self.trie[ni].active.remove(&id) {
             return false;
         }
+        // CEP E2 item C class 2 (D-137): remember that the CLOCK removed this
+        // event here, so a later external UPDATE (which re-propagates on
+        // `is_alive`+alpha-pass, ignorant of the eviction/expiration) does not
+        // revive it into the accumulate. Persists past the staged del's
+        // processing — Drools keeps a clock-removed event removed.
+        self.trie[ni].clock_removed.insert(id);
         self.mark_queries_pending();
         let mut was: Vec<bool> =
             (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
@@ -4998,6 +5013,16 @@ impl Engine {
                 continue; // pass A: entries/updates; pass B: exits (D-094)
             }
             match (was_in, now) {
+                (false, true) if self.trie[ni].clock_removed.contains(&f) => {
+                    // CEP E2 item C class 2 (D-137): a CLOCK-removed event
+                    // (window-evicted / expiration-eager acc-removed — staged
+                    // out of `active` by stage_acc_removal, still is_alive
+                    // until the deferred drain) is NOT revived by an external
+                    // update. Drools keeps it removed (xf_cep_c_upd_evict_revive
+                    // window; xf_cep_c_upd_after_exp expiration). Without this,
+                    // the re-entry below re-adds it to the accumulate (the
+                    // count springs back). Leave it removed — a no-op entry.
+                }
                 (false, true) => {
                     self.trie[ni].active.insert(f);
                     self.maybe_pulse(ni);
@@ -5026,7 +5051,17 @@ impl Engine {
                 (true, true) => {
                     // ALL-SET mask (bare update) is class-reactive
                     // (fz_42_3311); property masks need intersection.
-                    if mask == u64::MAX || pat.listen_mask & mask != 0 {
+                    // CEP E2 item C class 1 (D-137): a POSITIVE temporal-join
+                    // Behavior node is NOT property-reactive — Drools re-fires
+                    // an after/before match on ANY external update of the event
+                    // on the temporal (constraint-bearing) side, even a no-op
+                    // value or an irrelevant field (xf_cep_c_upd_temporal; probe
+                    // p_prober: prober update re-fires, p_anchor: the plain
+                    // anchor/left input does NOT). Force the re-propagate for a
+                    // temporal positive node regardless of the listen mask.
+                    let temporal_refire =
+                        pat.ce == CeKind::Positive && self.trie[ni].node.temporal;
+                    if mask == u64::MAX || pat.listen_mask & mask != 0 || temporal_refire {
                         self.trie[ni].node.s_right.add_upd(f, origin);
                     } else {
                         // mask miss: immediate right-memory reAdd, no

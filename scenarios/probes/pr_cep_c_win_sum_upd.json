@@ -1,0 +1,47 @@
+{
+ "name": "pr_cep_c_win_sum_upd",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0($v : val) over window:time(200ms); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 38,
+    "val": 10
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "val": 99
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "windowed sum(val): updating val (a FUNCTION-read field) re-folds+re-fires (engine==oracle) \u2014 contrasts the windowed no-op-modify over-fire gap (xf_cep_c_upd_win_live)."
+}

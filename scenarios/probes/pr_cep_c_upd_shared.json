@@ -1,0 +1,71 @@
+{
+ "name": "pr_cep_c_upd_shared",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R1 when $a : A() $b : B(this before[0ms,100ms] $a) then end\nrule R2 when $a : A() $b : B(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 50,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 10,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "w"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CLASS 1: two rules SHARING a temporal join node (D-136) both re-fire on the shared prober update, in order."
+}
