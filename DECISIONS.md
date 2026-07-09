@@ -135,10 +135,16 @@ order D-136); the CEP surface is faithful except:
      and only DELETE-FIRST + single-witness + EXPLICIT delete (external OR rule-RHS;
      expiration stays coalesced, D-102). ⇒ the fix is NOT inverting the D-031 beta
      phase order — it's how an external EVENT delete is propagated (likely
-     arrival-order/immediate vs a plain fact's batched staging). NEXT: a GRAFT
-     (oracle ExistsNode BetaMemory dump, `AccDump.java` pattern) to confirm before
-     any port. Findings + battery: `~/.claude/plans/cep-e2-item-c-class3-findings.md`,
-     `probes_pending/cep/e_*`. Do NOT hand-tune (D-083).
+     arrival-order/immediate vs a plain fact's batched staging). GRAFT BUILT + RUN
+     (`oracle/.../ExistsDump.java`): the EVENT churn emits a 2nd `match+CREATED`
+     (⇒ re-fire) with NO cancel; the PLAIN churn emits neither (coalesce) — both
+     end with the new fact as sole blocker; both delete synchronously but the beta
+     right memory changes only inside `fireAllRules`. Working model: an EVENT right
+     churn is processed ARRIVAL-ORDER (del→unblock→retract, ins→reblock→assert),
+     a PLAIN right batches ins-before-del (re-search finds the new insert ⇒
+     coalesce). NEXT: model_check this (like `model_check_join2`) then the scoped
+     port. Findings + battery: `~/.claude/plans/cep-e2-item-c-class3-findings.md`,
+     `probes_pending/cep/e_*`, `oracle/.../ExistsDump.java`. Do NOT hand-tune (D-083).
    Gate MET for 1&2: `make diff` 11/**970**/288, lint 1352, cargo test, bindings 72,
    blast-radius seeds 42/123/7 == pristine HEAD (CEP-gated). D-115's "lift fences ⇒
    0-div" premise was OPTIMISTIC (fences do double-duty — 1a/1b). See D-137.
