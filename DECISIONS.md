@@ -29,8 +29,10 @@ cleared each push 2026-07-09; branch-only, NO tags). **D-136 PORT COMMITTED
 locally at `6551973` — NOT pushed (Bryan holds the push)**. **D-137 (item-C
 classes 1&2) COMMITTED locally at `c9a1fde` — NOT pushed** — `engine.rs` +
 DECISIONS.md + 3 xfails→probes + 12 new `pr_cep_c_*` + 3 new `xf_cep_c_*`
-witnesses; `fuzz_cep.py` unchanged (fences kept). Class 3 (exists explicit-delete
-churn) is the ACTIVE next slab (model_check sub-recon). The temporal-`not` port
+witnesses; `fuzz_cep.py` unchanged (fences kept). **Class 3 EXTERNAL exists-witness
+churn COMMITTED locally at `e2e0b0a` (D-138)** — `delete_fact` delete-time eval +
+`fuzz_cep.py` class-3 fence lift + xf→probe graduation; only the rule-RHS
+re-entrant churn variant remains fenced. The temporal-`not` port
 is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
 path byte-identical). ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
