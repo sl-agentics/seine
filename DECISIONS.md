@@ -26,10 +26,10 @@ Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 **Git:** on `main`, pushed through D-136 RECON (`origin/main` at `162fb68`; Bryan
 cleared each push 2026-07-09; branch-only, NO tags). **D-136 PORT COMMITTED
 locally at `6551973` — NOT pushed (Bryan holds the push)**. **D-137 (item-C
-classes 1&2) COMMITTED locally — NOT pushed** — `engine.rs` + DECISIONS.md + 3
-xfails→probes + 12 new `pr_cep_c_*` + 3 new `xf_cep_c_*` witnesses; `fuzz_cep.py`
-unchanged (fences kept). Class 3 (exists explicit-delete churn) is the ACTIVE next
-slab (model_check sub-recon). The temporal-`not` port
+classes 1&2) COMMITTED locally at `c9a1fde` — NOT pushed** — `engine.rs` +
+DECISIONS.md + 3 xfails→probes + 12 new `pr_cep_c_*` + 3 new `xf_cep_c_*`
+witnesses; `fuzz_cep.py` unchanged (fences kept). Class 3 (exists explicit-delete
+churn) is the ACTIVE next slab (model_check sub-recon). The temporal-`not` port
 is ACTIVE (gated on temporal + `CeKind::Not`; non-temporal-not and every other
 path byte-identical). ⚠ **NO `v*` TAGS until a
 PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
