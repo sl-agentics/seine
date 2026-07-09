@@ -19,16 +19,17 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven this run).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **many commits UNPUSHED**. The push was HELD on the CEP
-temporal-join-order latent (Bryan, 2026-07-08); **that latent is now FIXED and
-gated (D-125)** — the stated hold condition ("releases when the port LANDS") is
-met, but the actual `git push` is left for Bryan's explicit go (it publishes the
-whole backlog). Recent: D-120 CEP E2 complete (`59b0e68`) → D-121/D-122 faithful
-graft + v1 disproven → D-123 v2 flush model VALIDATED → D-124 engine recon →
-**D-125 THE ENGINE PORT LANDED**.
+**Git:** on `main`, PUSHED (Bryan's go, 2026-07-08 — the temporal-join-order
+hold released at D-125). ⚠ **NO `v*` TAGS until a PyPI release is intended**:
+`ci.yml`'s `release`/`publish-pypi` jobs fire on tag push and the `pypi`
+environment has NO protection rules (verified via gh API) — a new tag publishes
+`seine-rs` with no manual gate. Branch pushes only build/test. Recent: D-120
+CEP E2 complete (`59b0e68`) → D-121/D-122 faithful graft + v1 disproven →
+D-123 v2 flush model VALIDATED → D-124 engine recon → **D-125 THE ENGINE PORT
+LANDED** → D-126 fence sweep (recon).
 
-**Gates (all certified green @ D-125):** baseline 11 / probes **947**
-byte-identical / regressions **284** / lint **1331 live·0 ghost·0 inert** / 9
+**Gates (all certified green @ D-125/D-126):** baseline 11 / probes **947**
+byte-identical / regressions **284** / lint **1333 live·0 ghost·0 inert** / 9
 Rust suites. Verify: `make diff` · `make lint-probes` · `cargo test` (oracle
 prebuilt, `oracle/target/classpath.txt`). **If any gate is red on resume,
 something drifted — investigate before building on it.**
