@@ -8,12 +8,13 @@ everywhere (inference stays OUT of scope — probe it separately). Runs
 `seine-harness diff` (engine vs oracle, full canonical output) and keeps
 divergent scenarios in <outdir>.
 
-NOTE: on the GATED tree every case FAILS at compile (the D-120 wall:
-"temporal constraints on not/exists CEs are a follow-on slab") — that is
-the wall working. Point [repo] at an UNFENCED scratch worktree (or the
-ported engine) to measure real divergences. D-126 baseline on the
-unfenced D-125 engine: 10/450 @ seed 11001 — ALL multi-anchor admission
-order (engine insertion-order vs oracle most-recently-blocked-first).
+NOTE: exists×temporal is now PORTED (D-127) — the main tree measures
+0 divergences. History: D-126 recon on the unfenced D-125 engine found
+10/450 @ seed 11001, ALL multi-anchor admission order (engine insertion-
+order vs oracle most-recently-blocked-first); the D-127 per-arrival
+existential admission (`exists_flush_admit`, model `model_exists_flush.py`)
+closed it. `not`×temporal stays fenced, so a `not` shape here still FAILs
+at compile by design.
 
 Usage: fuzz_exists_temporal.py <n> <seed> <outdir> [repo]
 """

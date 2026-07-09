@@ -11,7 +11,7 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-08, post-D-126 handoff for the exists×temporal slab
+_Last updated: 2026-07-08, post-D-127 (exists×temporal ENGINE PORT landed)
 (run `git log --oneline -10` for live HEAD — this line lags by its own commit)._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
@@ -23,15 +23,18 @@ Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 wheels/sdist). Push freely; ⚠ **NO `v*` TAGS until a PyPI release is intended**
 — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the `pypi`
 environment has NO protection rules (gh-verified): a new tag publishes
-`seine-rs` with no manual gate. Recent: D-120 CEP E2 complete → **D-125
-temporal-join-order ENGINE PORT landed** (v2 per-arrival flush; chain-fuzz
-204→0/1500, 0 NEW) → D-126 fence sweep → bindings D-115 test align.
+`seine-rs` with no manual gate. Recent: D-125 temporal-JOIN-order port → D-126
+fence sweep → **D-127 exists×temporal ENGINE PORT landed** (per-arrival
+existential admission `exists_flush_admit`; fuzz 0-div 9 seeds; 4 witnesses
+promoted).
 
-**Gates (green @ HEAD, local + CI):** baseline 11 / probes **947**
+**Gates (green @ HEAD, local + CI):** baseline 11 / probes **951**
 byte-identical / regressions **284** / lint **1333 live·0 ghost·0 inert** / 9
 Rust suites / bindings pytest 72. Verify: `make diff` · `make lint-probes` ·
 `cargo test` (oracle prebuilt, `oracle/target/classpath.txt`). **Red on resume
-⇒ drift — investigate before building.**
+⇒ drift — investigate before building.** (Known pre-existing fuzz latent:
+`fuzz_cep` seed 313 `cf313x13` firing[12], non-temporal `not X() P()` order —
+NOT a regression, reproduces with any slab stashed.)
 
 **Landed (background — log has detail):** v0.4.0 CEP E1 + reset + agenda groups
 + queries×mutation + aggregation; data-types (D-096–098); TMS; P1c group CEs;
@@ -41,56 +44,30 @@ INDIVIDUALLY at its flush, a held batch reverses ONCE via the staged
 `addInsert`-prepend, unshared temporal fills stamp lseq in staged order. Sites:
 `engine.rs stream_flush_ex` cascade dispatch + `phreak.rs Node::flush_ins_delta`
 + the `do_join_node` fill stamp; bails (shared/AB/upd-del/ph=1/RIA) keep legacy.
-Spec stays executable: `tools/model_join_flush.py`.
+Spec stays executable: `tools/model_join_flush.py`. **exists×temporal
+(D-127):** the existential analog — a temporal EXISTS node is admitted
+per-arrival by `phreak.rs exists_flush_admit` (a pure-insert batch replayed in
+arrival order — max-FactId groups one upstream join emission, admitted/blocked
+REVERSED once), and `engine.rs stream_flush_ex` no longer `self_drain_delta`s
+an exists node (its full staging flows to the eval). Gated to temporal
+`Kind::Exists`; `not`/non-temporal exists byte-identical. Exists deletes are
+unobservable (retractions never fire) so the port is insert-only. Spec:
+`tools/model_exists_flush.py`.
 
-**⚠ ACTIVE WORK — UNWALL exists×temporal (Bryan-approved slab; `not` stays
-FENCED).** Recon done (D-126); witnesses + population tool committed.
+**No active slab — D-127 shipped clean.** Fence now: `engine.rs` ~2279 errors
+only on `CeKind::Not`; the after/before STP-inference edge (~2316) is guarded on
+`tpos.is_some()` (positionless exists records no inference edge).
 
-_What the wall is:_ compile fence `engine.rs` ~2279 rejects `Test::Temporal` on
-any non-Positive CE (D-120). Directly behind it: after/before STP-edge
-recording (~2316) requires `tpos`, which CE patterns lack — the D-126 recon
-bypassed both in a scratch (fence `if false &&`, edges gated `tpos.is_some()`).
-
-_What is KNOWN (D-126, scratch-measured on the D-125 engine):_ the curated
-`probes_pending/cep/e_recon/cp_exists_*` probes PASS unfenced — but they are a
-battery TRAP (v1 lesson): `tools/fuzz_exists_temporal.py 450 11001 <out>
-<unfenced-worktree>` ⇒ **10/450 divergences, ALL one shape — multi-anchor
-admission ORDER**: one exists-blocker admits two E0 anchors; engine fires
-insertion-order, oracle most-recently-blocked-FIRST (the `RightTuple.addBlocked`
-PREPEND, `phreak.rs` `blocked` map comment ~277). Golden witnesses:
-`probes_pending/cep/e_recon/cp_ex_multi_anchor_{before,after}` (engine_fenced —
-lint holds the wall up until the port lands; they graduate to real probes with
-the slab).
-
-_Prescribed method (D-123 precedent — model FIRST, port second):_
-1. Write `tools/model_exists_flush.py` (sibling of `model_join_flush.py`): a
-   minimal exists-node replica (blocked-list admission, blocker choice on
-   right-insert/delete, per-arrival flush like v2) validated **0-div vs the
-   gate oracle on the SHUFFLED population** (`fuzz_exists_temporal.py` shapes;
-   extend it for blocker DELETION/expiration re-admission order — unprobed!).
-   Curated cases alone are disqualifying evidence.
-2. Only then port into `do_existential_node` (`phreak.rs`) — do NOT extend the
-   D-125 Kind::Join cascade to existential kinds blind: different machinery
-   (create_ce_child, `blocked`/`blocker_of`, no join children). Decide
-   flush-time vs pop-time admission from the model, not from reasoning.
-3. Lift the fence LAST: allow `CeKind::Exists` only (`not` keeps erroring),
-   STP edges stay positional-only unless probes say Drools infers @expires
-   through an exists — PROBE that explicitly (D-126 kept inference out of
-   scope with explicit @expires; the fuzz tool does too).
-
-_Slab gates (ALL must hold):_ `make diff` (11+947+284) byte-identical ·
-`fuzz_exists_temporal.py` 0-div on ≥2 seeds + a fresh one ·
-`tools/fuzz_chain.py <n> <seed> <out> <HEAD-worktree>` = 0 NEW (the D-125
-population must STAY 0) · fresh-seed `fuzz_cep.py` clean · `cargo test` ·
-`make lint-probes` (the two cp_ex witnesses flip from engine_fenced to
-promoted probes; the `not` walls must STAY up) · bindings pytest 72.
-
-_Guardrails:_ `not`×temporal is OUT (gap-1 window-close deferral is a TIMER
-semantic, gap-2 anchor-@expires-through-the-not is inference — neither is
-admission order; both signatures re-verified unchanged post-D-125). Shared
-temporal nodes stay on legacy paths (`xf_cep_tjorder_dual_tms`, agenda-pop
-arc). On the GATED tree `fuzz_exists_temporal.py` fails 100% BY DESIGN (the
-wall rejects the DRL) — measure only against an unfenced scratch worktree.
+**Next candidates (all parked, none started — pick one and PROBE FIRST):**
+• `not`×temporal (still fenced): gap-1 = window-CLOSE deferral (`not B(this
+after $a)` fires immediately in Seine, Drools defers past the window;
+`cp_not_pt_fire` Seine 1 vs Drools 0) — a TIMER semantic; gap-2 = anchor gets an
+inferred @expires THROUGH the not-temporal in Drools (`cp2_not_*_adv`) — an
+INFERENCE question. Neither is admission order; witnesses live engine_fenced in
+`probes_pending/cep/e_recon/cp*not*`. • @expires INFERENCE through an exists
+(D-127 kept it out with explicit @expires; the STP edge is already guarded to
+skip it). • shared temporal nodes (`xf_cep_tjorder_dual_tms`; cf101x551-vs-t14)
+stay on legacy paths.
 
 **Open/deferred (parked):** • shared-temporal join order (`xf_cep_tjorder_
 dual_tms`; cf101x551-vs-t14 constraint) • item-C re-propagation (classes 1/2/3;
@@ -6226,3 +6203,79 @@ the oracle population BEFORE touching `do_existential_node`), plus the gap-2
 inference question scoped out. `not`×temporal stays fenced on gap-1/gap-2
 regardless. No engine change this checkpoint (recon only; gated tree
 untouched — `make diff` 11+947+284 unaffected).
+
+### D-127: exists×temporal ENGINE PORT landed — per-arrival existential admission (`exists_flush_admit`), all gates green; `not` stays fenced
+
+The D-126 candidate closes. Model-first (D-123 discipline), then port, then the
+fence lifted exists-only LAST.
+
+**Model (`tools/model_exists_flush.py`, sibling of `model_join_flush.py`):** a
+minimal network replica (positive joins + exists nodes) with the SAME phreak
+disciplines as the validated v2 join model — node memory APPENDS, opposite
+memory scanned FORWARD, emissions PREPEND into the child staged set (a batch of
+N reverses exactly once). Exists specifics: a left is blocked by the FIRST
+matching right; a RIGHT-insert blocks every matching unblocked left in memory
+order and emits that batch REVERSED once; a LEFT-BATCH (one upstream join
+emission) admits/parks then emits the admitted REVERSED once. **0-div vs the
+gate oracle on the shuffled population** — 6+ seeds, ~2450 cases, incl. the
+D-126 seed 11001 that gave the engine 10/450. Curated cases alone are
+disqualifying (v1 lesson) — the population is the bar.
+
+**What the engine did wrong (probe-measured, not derived):** the temporal
+EXISTS node is NOT on the join per-arrival flush path (`flush_ins_delta`) — it
+is processed POP-time/batched by `do_existential_node`. Two coupled defects:
+(1) the cascade's `self_drain_delta` drained the exists node's `s_left` in
+`.iter().rev()` order — REVERSING each upstream join-emission batch in memory —
+and without checking blockers (so a blocker-before-left admission would be
+LOST); (2) even with correct memory, the batched rightIns-then-leftIns phase
+order emits admissions in insertion order, not the oracle's most-recently-
+blocked-first. Ground-truth traces: `cp_ex_multi_anchor_before` engine
+[E0@1,E0@5] vs oracle [E0@5,E0@1]; interleaved `E0@1,E0@2,E1@50,E0@3,E1@51`
+engine [1,2,3] vs oracle/model [2,1,3] (a PARTIAL reversal — proves per-arrival
+is required, a naive reorder cannot reproduce it).
+
+**Port (two sites, both gated to temporal `Kind::Exists`; `not` and non-
+temporal exists byte-identical):**
+1. `phreak.rs do_existential_node` — for a pure-insert batch, `exists_flush_
+   admit` replays the staged inserts in ARRIVAL order. FactIds are monotonic
+   with insertion, so a left tuple "arrives" at its max FactId (completing
+   fact); staged lefts sharing a completing fact are ONE upstream join emission
+   (kept in staged order = the join's own single reversal) and admit/emit as a
+   reversed batch; rights arrive at their own id and block memory lefts (also
+   reversed). All keys distinct ⇒ a plain sort, independent of staged list
+   order (s0_in prepends, s_left appends). Emissions staged so `trg.ins`
+   (getInsertFirst = the static-salience FIFO firing order) equals the replay.
+2. `engine.rs stream_flush_ex` cascade — a temporal exists node no longer
+   `self_drain_delta`s; its full staged history flows to the eval, where (1)
+   reconstructs the order. (Lazy-PHREAK: leaving staging in place is correct.)
+
+**Deletes are out of scope BY PROOF, not omission:** for `exists`, a right-
+delete only takes a left blocked→unblocked (a child retraction) or blocked→
+still-blocked (nothing) — it can NEVER fire. Retractions don't append to the
+firing log, so exists blocker-delete/re-admit ordering is UNOBSERVABLE in the
+differential (oracle-confirmed: `ex_del_multi`/`ex_del_readmit` add no firing).
+So the port is correctly insert-only; `fuzz_exists_temporal.py` (insert-only)
+is the complete gate, and `fuzz_cep` never pairs a temporal constraint with
+not/exists so it is unaffected.
+
+**Fence lift (LAST):** `engine.rs` ~2279 now errors only on `CeKind::Not`
+(`exists` allowed); the after/before STP-inference edge (~2316) is guarded on
+`tpos.is_some()` so a POSITIONLESS exists records no @expires-inference edge —
+inference-through-an-exists stays out of scope (explicit @expires only, D-126).
+
+**Witnesses promoted:** `cp_ex_multi_anchor_{before,after}`, `cp_exists_int_
+fire`, `cp_exists_pt_inert` → `scenarios/probes/pr_cep_e_ex*` / `pr_cep_e_
+exists_*` (engine_fenced dropped; join the differential). The four
+`cp_not*`/`cp2_not*` and two `cp_win*` stay engine_fenced (walls up).
+
+**Gates (all green):** `make diff` **11 / 951 / 284** byte-identical (was 947;
++4 promoted) · `fuzz_exists_temporal` 0-div on 9 seeds (~3.4k cases) ·
+`fuzz_chain` 0-div (D-125 join population intact) · fresh `fuzz_cep` clean (one
+divergence, `cf313x13` firing[12] on non-temporal `not E2() P()`, reproduces
+IDENTICALLY with the slab stashed — a pre-existing latent, NOT this slab) ·
+`cargo test` 9 suites · `make lint-probes` 1333 live·0·0 · bindings pytest 72.
+
+**Still fenced (unchanged):** `not`×temporal (gap-1 window-close deferral, gap-2
+anchor-@expires-through-the-not — neither is admission order); @expires
+INFERENCE through an exists; shared temporal nodes (legacy paths). These are
+follow-ons.

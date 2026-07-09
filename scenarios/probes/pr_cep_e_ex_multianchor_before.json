@@ -1,0 +1,53 @@
+{
+ "name": "pr_cep_e_ex_multianchor_before",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule EX when $a : E0() exists E1(this before[0ms,150ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 5
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": -106
+   }
+  }
+ ],
+ "epochs": []
+}

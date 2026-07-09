@@ -1475,6 +1475,30 @@ fn do_existential_node<E: JoinEnv>(
         );
     }
 
+    // D-127: a temporal EXISTS node is processed POP-time/batched (it is
+    // NOT on the join per-arrival flush path — different machinery), so a
+    // right that admits N held anchors would emit them insertion-order.
+    // The oracle admits most-recently-blocked-FIRST (RightTuple.addBlocked
+    // PREPENDS). For a pure-insert batch we replay the staged inserts in
+    // ARRIVAL order (the exists analog of flush_ins_delta; model
+    // tools/model_exists_flush.py, 0-div vs the gate oracle on the shuffled
+    // exists×temporal population). `not` stays fenced; non-temporal exists
+    // keeps the legacy batched path (its single-anchor shapes are reversal-
+    // identity, so byte-identical).
+    if !is_not
+        && node.temporal
+        && sl.upd.is_empty()
+        && sl.del.is_empty()
+        && sr.upd.is_empty()
+        && sr.del.is_empty()
+    {
+        exists_flush_admit(env, node_idx, node, sl, sr, out);
+        if trace {
+            eprintln!("  [flush_admit] trg ins={:?} blocked={:?}", out.trg.ins, node.blocked);
+        }
+        return;
+    }
+
     // --- left deletes (BEFORE right processing — Not/Exists phase order) ---
     for (l, o, _) in &sl.del {
         if let Some(b) = node.blocker_of.remove(l) {
@@ -1863,6 +1887,117 @@ fn do_existential_node<E: JoinEnv>(
             "  rights={:?} lefts={:?} blocked={:?}",
             node.rights, node.lefts, node.blocked
         );
+    }
+}
+
+/// D-127: PER-ARRIVAL existential admission for a temporal exists node's
+/// pure-insert batch — the exists analog of `flush_ins_delta`. The exists
+/// node is not on the join per-arrival flush path, so `do_existential_node`
+/// sees the whole accumulated batch; we reconstruct ARRIVAL order from
+/// FactIds (a left tuple "arrives" when its last-completing element does —
+/// its max FactId; a right arrives at its own FactId; all ids distinct so
+/// left/right keys never tie, and same-key lefts — one right completing
+/// several join tuples — keep staged reverse-arrival order under the stable
+/// sort) and replay each arrival like the model:
+///  * a RIGHT appends to memory and blocks every matching UNBLOCKED left in
+///    memory order, emitting that batch REVERSED exactly once
+///    (RightTuple.addBlocked / addInsert PREPEND → most-recently-blocked
+///    first);
+///  * a LEFT BATCH (all staged lefts sharing a completing fact = ONE upstream
+///    join emission, kept in staged order = the join's own single reversal):
+///    each left finds its first blocker or parks; the admitted ones emit as a
+///    batch REVERSED once (doLeftInserts addInsert PREPEND).
+/// A batch's arrival instant is its completing fact (max FactId, monotonic
+/// with insertion); rights arrive at their own id. All keys are distinct
+/// (one completing fact per join emission, distinct from any right), so the
+/// merge is a plain sort — independent of staged list order (s0_in prepends,
+/// s_left appends). Emissions stage so `trg.ins` (getInsertFirst = the
+/// static-salience FIFO firing order) equals the replay order. Validated
+/// 0-div vs the gate oracle by `tools/model_exists_flush.py` and
+/// `tools/fuzz_exists_temporal.py`.
+fn exists_flush_admit<E: JoinEnv>(
+    env: &E,
+    node_idx: usize,
+    node: &mut Node,
+    sl: Staged<Tup>,
+    sr: Staged<FactId>,
+    out: &mut Out<'_>,
+) {
+    enum Ev {
+        LBatch(Vec<(Tup, Origin)>),
+        R(FactId, Origin),
+    }
+    // group staged lefts into batches by completing fact (max id), keeping
+    // staged order within a batch (= the upstream join's emission order)
+    let mut batches: Vec<(u32, Vec<(Tup, Origin)>)> = Vec::new();
+    for (l, o, _) in sl.ins.iter() {
+        let key = l.iter().map(|f| f.0).max().unwrap_or(0);
+        match batches.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, v)) => v.push((l.clone(), *o)),
+            None => batches.push((key, vec![(l.clone(), *o)])),
+        }
+    }
+    let mut evs: Vec<(u32, Ev)> = Vec::with_capacity(batches.len() + sr.ins.len());
+    for (k, v) in batches {
+        evs.push((k, Ev::LBatch(v)));
+    }
+    for (f, o, _) in sr.ins.iter() {
+        evs.push((f.0, Ev::R(*f, *o)));
+    }
+    evs.sort_by_key(|(k, _)| *k);
+
+    let fno = env.fire_no();
+    // fire_order: child inserts in desired firing (FIFO) order
+    let mut fire_order: Vec<(Tup, Origin)> = Vec::new();
+    for (_, ev) in evs {
+        match ev {
+            Ev::R(f, o) => {
+                let rkey = env.key_of_right(node_idx, f);
+                node.rights.push((f, rkey.clone()));
+                let mut blocked_fwd: Vec<Tup> = Vec::new();
+                for l in node.scan_lefts(rkey.as_ref()) {
+                    if env.allowed_ce(node_idx, &l, f) {
+                        node.blocker_of.insert(l.clone(), f);
+                        node.blocked.entry(f).or_default().insert(0, l.clone());
+                        node.remove_left(&l);
+                        blocked_fwd.push(l);
+                    }
+                }
+                // a batch of N blocked lefts reverses exactly once (PREPEND)
+                for l in blocked_fwd.into_iter().rev() {
+                    let t = node.create_ce_child(&l);
+                    fire_order.push((t, o));
+                }
+            }
+            Ev::LBatch(batch) => {
+                // doLeftInserts over the batch: park the unblocked, collect
+                // the admitted in batch order, then emit them REVERSED once
+                let mut emitted: Vec<(Tup, Origin)> = Vec::new();
+                for (l, o) in &batch {
+                    node.stamp_left_seq(l);
+                    node.left_fire.insert(l.clone(), fno);
+                    let lkey = env.key_of_left(node_idx, l);
+                    match node.find_blocker_plain(env, node_idx, l, lkey.as_ref()) {
+                        Some(b) => {
+                            node.blocker_of.insert(l.clone(), b);
+                            node.blocked.entry(b).or_default().insert(0, l.clone());
+                            emitted.push((l.clone(), *o));
+                        }
+                        None => {
+                            node.push_left(l.clone(), lkey);
+                        }
+                    }
+                }
+                for (l, o) in emitted.into_iter().rev() {
+                    let t = node.create_ce_child(&l);
+                    fire_order.push((t, o));
+                }
+            }
+        }
+    }
+    // child_ins PREPENDS, so emit in REVERSE to make trg.ins == fire_order
+    for (t, o) in fire_order.into_iter().rev() {
+        out.child_ins(t, o, 0);
     }
 }
 

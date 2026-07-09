@@ -2262,23 +2262,20 @@ impl Engine {
             for c in &p.constraints {
                 match c {
                     Constraint::Temporal { op, params, var } => {
-                        // FENCE (D-120): temporal predicates on not/exists CEs
-                        // stay walled this slab. The recon (cp_*/cp2_* e_recon)
-                        // showed `exists`+temporal composes cleanly over
-                        // intervals (END used, matching correct), but `not`+
-                        // temporal has TWO unresolved gaps needing their own
-                        // recon ladder: (1) a window-CLOSE deferral —
-                        // `not B(this after $a)` fires immediately in Seine but
-                        // Drools defers until the clock passes the window
-                        // (cp_not_pt_fire: Seine 1 vs Drools 0, no advance);
-                        // (2) the anchor A gets an inferred @expires THROUGH the
-                        // not-temporal in Drools but not in Seine's positive-only
-                        // inference (cp2_not_*_adv: Seine keeps A, Drools expires
-                        // it). Item E ports POSITIVE-pattern intervals + the full
-                        // Allen predicate set; not/exists+temporal is a follow-on.
-                        if p.ce != CeKind::Positive {
+                        // FENCE (D-120 → D-127): `exists`+temporal is now
+                        // PORTED (the multi-anchor admission-order family, model
+                        // model_exists_flush.py). `not`+temporal stays walled —
+                        // it has TWO unresolved gaps needing their own recon
+                        // ladder: (1) a window-CLOSE deferral — `not B(this after
+                        // $a)` fires immediately in Seine but Drools defers until
+                        // the clock passes the window (cp_not_pt_fire: Seine 1 vs
+                        // Drools 0, no advance); (2) the anchor A gets an inferred
+                        // @expires THROUGH the not-temporal in Drools but not in
+                        // Seine's positive-only inference (cp2_not_*_adv: Seine
+                        // keeps A, Drools expires it). Neither is admission order.
+                        if p.ce == CeKind::Not {
                             return Err(err(
-                                "temporal constraints on not/exists CEs are a follow-on slab (D-101/D-120)".into(),
+                                "temporal constraints on `not` CEs are a follow-on slab (D-101/D-120)".into(),
                             ));
                         }
                         // CEP E1/E2 (D-101/D-118): both sides must be DECLARED
@@ -2314,19 +2311,23 @@ impl Engine {
                         // keep full D-109 inference. (self_pos is a tuple
                         // position — only after/before inference needs it.)
                         if matches!(op, AllenOp::After | AllenOp::Before) {
-                            let self_pos = tpos.ok_or_else(|| {
-                                err("temporal constraint on a positionless pattern".into())
-                            })?;
-                            let (lo_ms, hi_ms) = (params[0], params[1]);
-                            let (earlier, later) = if *op == AllenOp::After {
-                                (apos, self_pos)
-                            } else {
-                                (self_pos, apos)
-                            };
-                            temporal_edges.push((earlier, later, hi_ms));
-                            temporal_edges.push((later, earlier, -lo_ms));
-                            temporal_pos_type.insert(self_pos, type_id);
-                            temporal_pos_type.insert(apos, atid);
+                            // POSITIONLESS patterns (exists: tpos=None) claim no
+                            // tuple slot, so they record NO @expires-inference
+                            // edge — the exists×temporal port keeps inference-
+                            // THROUGH-an-exists out of scope (explicit @expires
+                            // only, D-126/D-127). Positive patterns infer as before.
+                            if let Some(self_pos) = tpos {
+                                let (lo_ms, hi_ms) = (params[0], params[1]);
+                                let (earlier, later) = if *op == AllenOp::After {
+                                    (apos, self_pos)
+                                } else {
+                                    (self_pos, apos)
+                                };
+                                temporal_edges.push((earlier, later, hi_ms));
+                                temporal_edges.push((later, earlier, -lo_ms));
+                                temporal_pos_type.insert(self_pos, type_id);
+                                temporal_pos_type.insert(apos, atid);
+                            }
                         }
                         listen_mask |= 1 << own_fi;
                         cmps.push(CompiledCmp {
@@ -3808,6 +3809,17 @@ impl Engine {
             let has_l = !self.trie[ni].node.s_left.ins.is_empty()
                 || !self.trie[ni].s0_in.ins.is_empty();
             if !has_r && !has_l {
+                continue;
+            }
+            // D-127: a temporal EXISTS node is admitted PER-ARRIVAL at eval
+            // time (do_existential_node → exists_flush_admit reconstructs the
+            // arrival order from the whole staged batch). It must NOT
+            // self-drain here — self_drain_delta moves lefts to memory in
+            // REVERSED order and without checking blockers, which corrupts
+            // both the admission order and (blocker-before-left) the set.
+            // Leaving the staging in place is the lazy-PHREAK behavior; the
+            // eval consumes it. (`not` stays fenced; joins still drain.)
+            if self.trie[ni].node.kind == phreak::Kind::Exists {
                 continue;
             }
             let n = &self.trie[ni].node;
