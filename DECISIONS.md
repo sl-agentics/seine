@@ -19,14 +19,14 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, PUSHED, **CI fully green** (differential + bindings +
-wheels/sdist). Push freely; ⚠ **NO `v*` TAGS until a PyPI release is intended**
-— `ci.yml`'s `release`/`publish-pypi` fire on tag push and the `pypi`
-environment has NO protection rules (gh-verified): a new tag publishes
-`seine-rs` with no manual gate. Recent: D-125 temporal-JOIN-order port → D-126
-fence sweep → **D-127 exists×temporal ENGINE PORT landed** (per-arrival
-existential admission `exists_flush_admit`; fuzz 0-div 9 seeds; 4 witnesses
-promoted).
+**Git:** on `main`, **3 commits AHEAD of `origin`, NOT pushed** (D-127, D-128,
+D-129 — Bryan holds the push; `git push` when cleared). Local tree CLEAN, all
+gates green. ⚠ **NO `v*` TAGS until a PyPI release is intended** — `ci.yml`'s
+`release`/`publish-pypi` fire on tag push and the `pypi` environment has NO
+protection rules (gh-verified): a new tag publishes `seine-rs` with no manual
+gate. Recent: D-126 fence sweep → **D-127 exists×temporal ENGINE PORT landed**
+(per-arrival `exists_flush_admit`; fuzz 0-div 9 seeds; 4 witnesses promoted) →
+D-128 not×temporal RECON → **D-129 not deferral arc A modeled (0-div)**.
 
 **Gates (green @ HEAD, local + CI):** baseline 11 / probes **951**
 byte-identical / regressions **284** / lint **1334 live·0 ghost·0 inert** / 9
@@ -54,33 +54,37 @@ an exists node (its full staging flows to the eval). Gated to temporal
 unobservable (retractions never fire) so the port is insert-only. Spec:
 `tools/model_exists_flush.py`.
 
-**⚠ NEXT SLAB (STAGED, not started) — not×temporal (D-128 recon done).** Fence
-now: `engine.rs` ~2276 errors only on `CeKind::Not`; the STP-inference edge
-(~2316) is `tpos.is_some()`-guarded (positionless not/exists records no edge).
+**⚠ ACTIVE SLAB — not×temporal (D-128 recon → D-129 arc A done; ~½ through the
+model phase, NO engine change yet).** NOT an admission-order port like exists
+(do NOT reach for `exists_flush_admit` — it reorders admissions; here the
+problem is WHEN a satisfied `not` fires). `tools/fuzz_not_temporal.py` on a
+not-fence-lifted scratch ⇒ **~30% divergence** (10× exists), from TWO coupled
+arcs, each model-first before any port. Fence today: `engine.rs` ~2276 errors
+only on `CeKind::Not`; STP-inference edge (~2316) `tpos.is_some()`-guarded.
 
-_What the recon found (D-128 — MEASURED, probe-first):_ NOT an admission-order
-port like exists. `tools/fuzz_not_temporal.py` on a scratch (not-fence lifted)
-⇒ **~30% divergence** (seeds 5001/2/3), an order of magnitude over exists' 2%.
-The driver is **gap-1: window-close firing DEFERRAL** — Seine fires a `not`
-satisfied SO FAR immediately, Drools holds it on the pseudo-clock until the
-window retires (no `advance` ⇒ Drools fires 0 where Seine fires ≥1). Pervades
-even pure cases (count AND order); witness `probes_pending/cep/e_recon/
-cp_not_chain_defer` (engine_fenced) + the toy `cp_not_pt_fire`. Plus **gap-2:
-@expires inference THROUGH the not** (on `advance`; `cp2_not_*_adv`).
+**➡ START HERE (cold pickup) — arc B: model @expires INFERENCE through the not.**
+The arcs are COUPLED: absent explicit @expires, Drools INFERS a blocker/anchor
+reach from the not-temporal so an `advance` expires it (MEASURED D-129:
+`before[20,40]` A@4/B@-30 blocks at clock 0, UN-blocks after advance 100).
+Method (D-123/D-129 discipline): extend `tools/model_not_defer.py` (or a
+sibling) to the FINITE/absent-@expires case — probe the inferred reach for the
+blocker E1 and the anchor E0 through the not (sweep advances, find the expiry
+clock like D-129 swept the fire clock), then fold it into `simulate()` and
+re-validate 0-div on the population WITHOUT the large-@expires isolation. Relate
+to the parked positive @expires inference (D-109) and the exists-inference
+question. THEN: chains (`not` off a join) + `not_mid`; THEN the engine port.
 
-_Method (do NOT reach for `exists_flush_admit` — it reorders admissions; here
-the problem is WHEN a satisfied not fires):_ two prerequisite arcs, model-first.
-**(A) DEFERRAL — DONE (D-129, `tools/model_not_defer.py` 0-div on the
-not_partner population, 6 seeds).** fire_time = A.ts+hi (after) / A.ts-lo
-(before); immediate iff fire_time<A.ts (before lo>0, fires FIFO at the initial
-fire), else defer to fire_time (fires clock≥fire_time; a due advanceTime batch
-REVERSES = descending close). A blocker in-window cancels. **(B) INFERENCE —
-NEXT:** absent @expires, Drools infers a blocker/anchor reach through the
-not-temporal so an advance expires it (measured: `before[20,40]` A@4/B@-30
-blocks at clock 0, un-blocks after advance 100); the D-129 model uses LARGE
-@expires to isolate arc A. Then chains (not off a join) + `not_mid`; then the
-ENGINE port — a deferral SCHEDULER (timer keyed to fire_time). Gate:
-`fuzz_not_temporal.py` 0-div + `cp*not*` witnesses graduating; fence lifts LAST.
+_Arc A DONE (D-129, `tools/model_not_defer.py` 0-div, not_partner, 6 seeds — the
+validated deferral spec):_ fire_time = A.ts+hi (after) / A.ts−lo (before);
+IMMEDIATE iff fire_time<A.ts (before lo>0 → fires FIFO at the initial fire),
+else DEFER to fire_time (fires when clock≥fire_time; a due advanceTime batch
+REVERSES = descending close-time, the PREPEND discipline). A blocker in-window
+cancels. Pseudo-clock starts at 0, moves only via explicit `advance`.
+
+_The engine port (LAST, after all arcs modeled):_ a deferral SCHEDULER — hold a
+satisfied `not` on a pseudo-clock timer keyed to fire_time, fire on the advance
+that retires it, cancel on an in-window blocker; NOT the D-127 reorder. Gate:
+`fuzz_not_temporal.py` 0-div + `cp*not*` witnesses graduating; `not` fence LAST.
 
 **Other parked candidates:** • @expires INFERENCE through an exists (D-127 kept
 it out with explicit @expires; STP edge already guarded to skip it) • shared
