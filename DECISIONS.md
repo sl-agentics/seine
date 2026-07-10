@@ -47,52 +47,24 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, pushed through D-136 RECON (`origin/main` at `162fb68`; Bryan
-cleared each push 2026-07-09; branch-only, NO tags). **D-136 PORT COMMITTED
-locally at `6551973` — NOT pushed (Bryan holds the push)**. **D-137 (item-C
-classes 1&2) COMMITTED locally at `c9a1fde` — NOT pushed** — `engine.rs` +
-DECISIONS.md + 3 xfails→probes + 12 new `pr_cep_c_*` + 3 new `xf_cep_c_*`
-witnesses; `fuzz_cep.py` unchanged (fences kept). **Class 3 EXTERNAL exists-witness
-churn COMMITTED locally at `e2e0b0a` (D-138)** — `delete_fact` delete-time eval +
-`fuzz_cep.py` class-3 fence lift + xf→probe graduation; only the rule-RHS
-re-entrant churn variant remains fenced. **§1a windowed-accumulate live-modify
-COMMITTED locally at `4818815` (D-139)** — one `on_update` block
-(windowed accumulate gates the source re-fold on `bind_fields` not `listen_mask`)
-+ `fuzz_cep.py` `windowed_acc_types` UPDATE fence lift + `tools/model_check_react.py`
-+ 2 xf→probe graduations + 4 discriminator probes. **Item-#2 MODEL checkpoint
-COMMITTED locally at `9c6735c`** — `tools/{fuzz,model_check}_notorder.py` +
-CURRENT-ISSUES #2 upgrade. **Item #2 ENGINE PORT COMMITTED locally at `05399b3`
-(D-140)** — `engine.rs` post-hoc agenda reorder (clean-regime-gated) + 3 graduated
-pins `pr_cep_not_order_ev_{expiry,delete,upd}` + DECISIONS.md; `fuzz_cep.py`
-unchanged (no fence lift — the `temporal_types` fence still guards item 1b).
-**Item 1b Family A COMMITTED locally at `e858587` (D-141)** — `store.rs`
-(`event_ts` snapshot + `temporal_ts`) + `engine.rs` (after_insert snapshot; temporal
-eval/keys read the snapshot) + 3 pins `pr_cep_tj_ts_{update_overfire,update_underfire,
-field_mutable}`; `fuzz_cep.py` unchanged (fence stays — the A2/B tail remains).
-**Item 1b Family B RECON INFRASTRUCTURE COMMITTED at `dec1c0e` (D-142)** —
-`tools/fuzz_notorder_b.py` + `tools/model_check_notorder_b.py` (NO engine change;
-model NOT yet cracked — the ACTIVE slab). `main` is **21 ahead of `origin/main`**
-— NOT pushed. ⚠ **NO `v*`
-TAGS until a PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire
-on tag push and the `pypi` environment has NO protection rules (gh-verified): a new
-tag publishes `seine-rs` with no manual gate. Recent: D-132/133 §3A (reaping) →
-**D-134 §3B — not×temporal DONE** → D-135 exists-inference → D-136 shared-tjo →
-D-137/138/139 item-C → **D-140 non-temporal not-ORDER — item #2 CLOSED.**
+**Git:** on `main`, **PUSHED through D-155** (`origin/main` at `740451b`;
+Bryan cleared the push 2026-07-10; branch-only, NO tags — the D-143..D-155
+span landed in one push). ⚠ **NO `v*` TAGS until a PyPI release is
+intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
+`pypi` environment has NO protection rules (gh-verified): a new tag
+publishes `seine-rs` with no manual gate. Arc history: the D-entries below
+(D-136 shared-tjo → D-137/138/139 item-C → D-140 not-order → D-141 tj-ts →
+D-143..D-153 the mechanical shadows → D-154/155 A2 winacc).
 
-**Gates (green @ working tree incl. D-141, local):** baseline 11 / probes **986**
-byte-identical / regressions **288** / lint **1373 live·0 ghost·0 inert** / 9 Rust
-suites / bindings pytest 72 / **D-141 temporal-join ts: 8/12 item-1b witnesses + both
-minimal repros fixed, corpus byte-identical, 0 temporal-JOIN div on 2400 fresh
-fence-lifted cases, blast-radius analytically ZERO (gen.rs emits no temporal ops)** /
-**D-140 not-order: 0-div on 1800 validated + 2100 FRESH-seed event + 360 plain;
-cf313x13/cf401x344 A/B-proven; blast-radius ZERO** / class-1a fuzz
-0-div 3×800 / class-3 fuzz 0-div 3×800 /
-blast-radius: `gen.rs` emits NO windows ⇒ the D-139 windowed-gate is provably inert
-on the main axis. Verify: `make diff` · `make lint-probes` · `cargo test` ·
-`python3 tools/model_check_react.py` (oracle prebuilt, `oracle/target/classpath.txt`).
-**Red on resume ⇒ drift — investigate before building.** (Known pre-existing fuzz latent:
-`fuzz_cep` seed 313 `cf313x13` firing[12] & seed 401 `cf401x344` firing[7], non-temporal
-`not X() P()` order — NOT a regression, reproduces with any slab stashed; item #2.)
+**Gates (green @ `740451b`):** baseline 11 / probes **1035** / regressions
+**293** byte-identical / lint **1427 live·0 ghost·0 inert** / 9 Rust suites
+/ bindings pytest 72 / winacc: battery 30/30, witnesses 5/5, soup
+3,312/3,335 (the 23 = the filed per-entry-flush residual), A/B vs pre-port
+base +1,985/0 / `SEINE_WINUPD_FULL=1` fuzz_cep 401/423/719/811 ×400 0-div.
+Verify: `make diff` · `make lint-probes` · `cargo test` · winacc spec:
+`python3 tools/model_check_winacc.py <popdir>` (populations regenerate via
+`tools/fuzz_winacc.py <n> <seed>`; battery via `tools/gen_winacc_probes.py`).
+**Red on resume ⇒ drift — investigate before building.**
 
 **Landed (background — log has detail):** v0.4.0 CEP E1 + reset + agenda groups
 + queries×mutation + aggregation; data-types (D-096–098); TMS; P1c group CEs;
