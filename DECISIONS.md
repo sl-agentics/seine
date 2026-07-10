@@ -11,28 +11,27 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-150 (bf-with-arrivals MECHANISM CRACKED — the
-graft arc). The BfDump graft (listener dumps + a PropagationList reflection
-proxy + Drools linking TRACE) exposed the five concrete pieces that GENERATE
-the event-not firing order: join rtm LIST ORDER + staged backlog (firing =
-reverse(rtm) at unblock), FIFO queue entries with per-EVENT force-flush evals,
-QUIESCENCE expirations (all retracts after every queued entry, incl. post-ADV
-updates; deadline = ts+@expires+1), bare-P updates = immediate rtm
-move-to-tail at queue position (staged-only = no-op; never re-fires), and
-NotNode UNLINKING on right-insert-while-linked (creates multi-epoch staged
-backlogs; relink at last retract). The MECHANICAL simulator
-`tools/model_check_notorder_b.py MODEL=flush` is **0-div on 9041 scenarios
-across ALL event-blocker regimes** (pure-bf banked 694 + fresh 679; P-first;
-MIXED; val) **+ 55/55 probes** — it SUBSUMES seg/seg2/d140 on this family
-(they are per-regime shadows). ENGINE UNCHANGED (bf shapes still run the d140
-key; `xf_cep_not_bf_arrival{,2}` stay xfail). **➡ NEXT: Bryan gates the
-ENGINE PORT** — option on the table: replace the D-140/143/146 key reorders
-with an rtm-order simulation in the fire path (retires three phenomenological
-models + regime branches at once; touches a byte-identical corpus, hence the
-gate). See D-150 for the full machinery + port sketch.
-Item-1b tails after this: plain-not cf313x4 order (non-event — different
-machinery), A2 windowed-accumulate (cf401x25/42+cf423x107). Fenced-by-nature
-residuals (D-134 §6 PriorityQueue tie, fz_42_84 identity-hash) unchanged.
+_Last updated: 2026-07-10, post-D-151 (EPICYCLES RETIRED — the mechanical
+model is IN THE ENGINE). Bryan's call: replace the phenomenological key models
+with the graft-derived machinery. `BfShadow` (engine.rs) replays the D-150
+mechanics per external op (rtm order + staged backlog + not/join linking +
+quiescence expirations + queue-position updates/deletes) and ranks the gated
+`not <EVENT>() P()` picks by its emitted order. RETIRED: `seg_order_key`,
+`seg_p_first`, `FactTouch.upd_seg` (D-143/D-146 branches). KEPT: the gated
+EXISTS keys (D-144/D-147 — next natural retirement) + the D-140 in_cycle guard
+(now the RHS-regime fence) + static shadow exclusions (bare patterns,
+non-event P, no RHS/window touch of gated types). Spec extended to explicit
+DELETES (retract-at-queue-position; join unlink at right-counter 0 — dl881x20)
+= 9,693 spec scenarios 0-div. Gates: corpus 11/994/291 byte-identical (every
+D-140..147 pin reproduced; `xf_cep_not_bf_arrival{,2}` GRADUATED to
+regressions), lint 1384, cargo green; engine-vs-oracle CLEAN on bf 694+679 and
+P-first/mixed/val 5,100; delete population +203 fixed / 0 regressed vs HEAD
+(23 in_cycle-guard residuals remain, a future slab); fuzz_cep 313/401/407/511
+×400 all 0-div (511 A/B'd both trees). gen.rs never builds a shadow (no
+events) ⇒ main axis inert. See D-151.
+Item-1b tails: plain-not cf313x4 (non-event machinery), A2 windowed-accumulate
+(cf401x25/42+cf423x107), the 23 delete-residuals, gated-exists mechanical
+retirement. Fenced-by-nature: D-134 §6 PriorityQueue tie, fz_42_84.
 `git log --oneline -20` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
@@ -7741,3 +7740,67 @@ the port = maintain move-to-tail on update + drain-window bookkeeping +
 reverse at emission), which would retire three phenomenological models and
 their regime branches at once — but it touches the fire path of a landed,
 byte-identical corpus, so: mechanism report filed, Bryan gates the port.
+
+### D-151: EPICYCLES RETIRED — the mechanical BfShadow replaces the D-140/D-143/D-146 not-family key models in the engine; corpus byte-identical, 7,800+ engine-vs-oracle scenarios clean, the bf-with-arrivals witnesses GRADUATED, and the delete family improves by 203 cases with zero regressions
+
+**Bryan's call:** "retire the epicycles model for the better-working elliptical
+orbits model" — the D-150 mechanical model goes in the engine; the
+phenomenological keys go.
+
+**Spec extension first (delete ops).** `predict_flush` gained explicit-delete
+semantics: an E0 delete retracts AT ITS QUEUE POSITION (D-138 delete-time —
+unlike expiry quiescence), same retract eval (relink on counter 1→0, unblock
+if last); a P delete annihilates its staged insert or leaves rtm + cancels its
+queued activation. dl881x20 exposed a missing linking rule: **the JOIN itself
+unlinks when its right counter hits 0 (last P deleted) and relinks on the next
+P insert** — which flips whether a later E0 arrival unlinks the not
+(join_count in the model). Validated on a 597-case delete-augmented population
+(seeds 881-883; 63 invalid update-after-dead scenarios excluded as
+oracle-NPE): 0-div, plus the full 9,041 + 55 regression sweep stays 0-div.
+**Spec totals: 9,693 scenarios.**
+
+**The engine port (`BfShadow` in engine.rs).** A per-rule shadow state machine
+— rtm order, staged backlog, e0_alive, pending expirations, not/join link
+bits, exec_queued — stepped by the EXTERNAL op stream at the exact hook
+points the engine already stamps (`after_insert`, `update_fact`,
+`delete_fact` (non-expiration only), `advance` in engine deadline order), plus
+`pre_fire`/`post_fire` at the fire boundary. `pre_fire` replays the fire-loop
+eval + quiescence expirations and ranks the predicted emission
+(`emit_rank`); the gated static pick takes rank-min (FIFO tiebreak) instead
+of the retired keys. `schedule_expiration` now returns the deadline-vs-clock
+ordering (the due-on-arrival Equal case registers in the same flush; Less =
+the D-132 leak, alive forever).
+RETIRED: `seg_order_key`, `RuleNet.seg_p_first` + its latch,
+`FactTouch.upd_seg` + stamps — the whole D-143/D-146 branch structure.
+KEPT: `not_order_key` + `ins_seg`/`satisfy_seg`/`last_fire_no` (the gated
+EXISTS path, D-144/D-147 — its mechanical treatment is a future arc) and the
+D-140 in_cycle guard (a fired P inserted THIS cycle ⇒ FIFO — now the
+RHS-regime fence).
+STATIC exclusions keep the shadow inside its validated surface (else no
+shadow ⇒ plain FIFO): bare patterns only (constraints∪bindings empty ⇒ the
+empty inferred update mask), non-event P, distinct blocker/P classification,
+no rule RHS inserting/mutating a gated type, no windowed accumulate over a
+gated type. gen.rs emits no events ⇒ the main fuzz axis provably never
+builds a shadow.
+
+**Gates (all green).** Corpus `make diff` 11/994/**291** byte-identical —
+every D-140/143/144/146/147 pin reproduced by the shadow; `xf_cep_not_bf_
+arrival{,2}` now PASS engine-vs-oracle and are **GRADUATED to regressions/**
+(fuzz suppression lifted). Lint 1384 live / 0 ghost / 0 inert; 9 cargo
+suites. ENGINE-vs-oracle sweeps: pure-bf banked 694 + fresh 679 (seeds
+871-873) CLEAN; P-first + mixed + val populations **5,100 scenarios CLEAN**
+(the retirement reproduces everything the keys did); delete population
+511/534 valid pass — the 23 residuals are all in_cycle-guard territory
+(same-epoch insert + delete-unblock ⇒ FIFO fallback), where **HEAD failed
+226**: the port fixes 203 delete-family divergences with **ZERO regressions**
+(A/B against a HEAD worktree, oracle classpath grafted in). fuzz_cep seeds
+313/401/407 ×400 = 0 divergences; fresh seed 511 ×400 A/B'd on both trees =
+0 both.
+
+**Standing scope notes.** The 23 delete-residuals are the in_cycle guard's
+price — closing them means extending the validated spec into the same-cycle
+insert regime (the guard exists because delete-immediate vs expiry-deferred
+unblock inserts genuinely differ, D-140) — a future slab if wanted. The
+gated-EXISTS family still runs the D-144/D-147 keys; the mechanical
+treatment of PhreakExistsNode (witness-toggle emission) is the natural next
+retirement. The D-134 §6 PriorityQueue tie stays fenced by nature.

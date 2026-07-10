@@ -214,8 +214,10 @@ def predict_flush(scn):
     rtm = []                      # join right memory (P order) — THE carrier
     staged = []                   # join staged right-ins backlog, arrival order
     e0_alive = {}                 # uid -> deadline for live E0s
+    e0_del_uid = {}               # global fact index -> E0 uid (delete targets)
     pending_exp = []              # uids REGISTERED for retract this flush
     not_linked = [True]
+    join_count = [0]              # join right counter: links >0, unlinks at 0
     join_linked = [False]
     exec_queued = [False]
     if_blocked = [False]
@@ -268,6 +270,7 @@ def predict_flush(scn):
             deadline = f["fields"]["ts"] + E0_EXPIRES + 1
             uid = idx
             e0_alive[uid] = deadline
+            e0_del_uid[idx] = uid
             # staging notify: first-E0 links the not-bit (already linked);
             # later E0s setNodeDirty — queue iff segment linked (pre-unlink)
             if segment_linked():
@@ -279,8 +282,9 @@ def predict_flush(scn):
             v = f["fields"]["v"]; vof[idx] = v
             staged_was_empty = not staged
             staged.append(v)
-            if not join_linked[0]:
-                join_linked[0] = True        # first right ever: linkNode
+            join_count[0] += 1
+            if join_count[0] == 1:
+                join_linked[0] = True        # counter 0->1: linkNode
                 if segment_linked():
                     exec_queued[0] = True
             elif staged_was_empty and segment_linked():
@@ -297,6 +301,42 @@ def predict_flush(scn):
         if v in rtm:
             rtm.remove(v)
             rtm.append(v)
+
+    def flush_entry_delete(a):
+        # An EXPLICIT delete retracts AT ITS QUEUE POSITION (unlike expiry
+        # quiescence — D-138 delete-time semantics): E0 delete = the same
+        # retract force-eval as an expiry (relink on counter 1->0, unblock if
+        # last, backlog drain in its eval); P delete = staged-insert
+        # annihilation or rtm removal + activation cancel, notify-iff-linked.
+        tgt = a["target"]
+        if tgt in e0_del_uid:                # an E0 handle
+            uid = e0_del_uid[tgt]
+            if uid not in e0_alive:
+                return                       # already expired/deleted
+            if uid in pending_exp:
+                pending_exp.remove(uid)      # registered expiry superseded
+            if len(e0_alive) == 1:           # counter 1->0: relink + queue
+                not_linked[0] = True
+                exec_queued[0] = True
+            elif segment_linked():
+                exec_queued[0] = True
+            eval_window(("del", uid))
+            return
+        v = vof.get(tgt)
+        if v is None:
+            return
+        if v in staged or v in rtm:
+            join_count[0] -= 1
+            if join_count[0] == 0:
+                join_linked[0] = False       # counter 1->0: join unlinks
+            elif segment_linked():
+                exec_queued[0] = True        # stagedDeleteWasEmpty notify
+        if v in staged:
+            staged.remove(v)                 # addDelete annihilates staged ins
+        elif v in rtm:
+            rtm.remove(v)
+        if v in Q:
+            Q.remove(v)                      # matchCancelled
 
     def flush_entry_advance(ms):
         # WorkingMemoryReteExpireAction entries only REGISTER the expiration
@@ -344,6 +384,8 @@ def predict_flush(scn):
                 flush_entry_update(a)
             elif a["op"] == "insert":
                 flush_entry_insert(a)
+            elif a["op"] == "delete":
+                flush_entry_delete(a)
             elif a["op"] == "advance":
                 flush_entry_advance(a["ms"])
         for f in ep["facts"]:
