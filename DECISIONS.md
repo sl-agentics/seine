@@ -37,9 +37,17 @@ oracle fires the net-zero value, engine's staged ins+del compensates) +
 follow-on = per-entry incremental drain. The winacc spec/tools
 (model_check_winacc.py 0-div incl. the residual shapes, fuzz_winacc.py,
 gen_winacc_probes.py) are the family's regression harness. Item-1b tails
-remaining: plain-not cf313x4, tj pair-order (cf613x306 kin,
-xf_cep_tjorder_613_pair — also what SEINE_WINUPD_FULL still guards; lift
-the fence by default when that slab lands). Fenced-by-nature: D-134 §6
+remaining: plain-not cf313x4; **tj pair-order — RECON DONE (2026-07-10,
+active slab): the mechanism is probe-cracked** — SHARED temporal SELF-join
+arrival batches only (8/9 probe battery passes unshared; the D-136 divert
+is the sole gate). Oracle = per-arrival LEFT-insert-then-RIGHT-insert
+propagations, each prepend-reversed: [left-role old-rights newest-first] ++
+[right-role: SELF-pair first, old-lefts newest-first]; the engine's
+`flush_ins_delta` rights-first loop puts the self-pair in the wrong phase.
+Fix naturally scoped to the shared divert (the unshared cascade excludes
+both-side arrivals). READ `~/.claude/plans/tj-pairorder-findings.md` —
+population plan = extend fuzz_shared_tjo/model_shared_tjo (self-joins were
+structurally unreachable in D-136's population), 0-div, GATE, port. Fenced-by-nature: D-134 §6
 PriorityQueue tie, fz_42_84. `git log --oneline -20` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
