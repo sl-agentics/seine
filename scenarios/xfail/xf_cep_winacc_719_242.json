@@ -144,5 +144,5 @@
    ]
   }
  ],
- "_finding": "PRE-EXISTING A2 windowed-accumulate latent, flushed by fresh fuzz seed 719 during the D-153 blast-radius A/B: W2 (sum over window:time) firing diverges. FAILS ON D-152 (63d422e) IDENTICALLY \u2014 bisected; same family as the documented cf401x25/42 + cf423x107 tails (windowed accumulate over event churn), unrelated to the not/exists order machinery. Filed for the A2 slab."
+ "_finding": "A2 windowed-accumulate \u2014 MECHANISM CRACKED (D-154 recon, port gate-pending): the extra-fire class. The E0 tag-update (z->x at clock 280) makes the never-admitted event (alpha-failed at insert => NO WindowNode RightTuple) take the fresh-ADMISSION path, which checks the INSERT-SNAPSHOT ts against the window (SlidingTimeWindow.assertFact: isExpired(now, startTimestamp) \u2014 live ts irrelevant): 22+100 <= 280 => REJECTED, no transient, count stays 0 (oracle fires J3 next; the RightTuple IS created, so a LATER mask-hit update would revive it). The engine admits with no window check and past-due-evicts at quiescence => the transient W2 count=1 extra fire. Same spec/report as xf_cep_winacc_719_34. GRADUATES at the port."
 }

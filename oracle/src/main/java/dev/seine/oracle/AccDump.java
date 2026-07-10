@@ -84,15 +84,63 @@ public final class AccDump {
                 dumpAcc(session);
             }
         });
+        java.util.List<org.kie.api.runtime.rule.FactHandle> inserted = new java.util.ArrayList<>();
         for (JsonNode fact : scenario.path("facts")) {
-            session.insert(instantiate(kbase, scenario, fact));
+            inserted.add(session.insert(instantiate(kbase, scenario, fact)));
         }
         session.fireAllRules(10_000);
         System.out.println("== FIRE-BOUNDARY ==");
         dumpAcc(session);
         for (JsonNode epoch : scenario.path("epochs")) {
+            // A2 winacc extension: replay epoch ACTIONS (advance/update/delete,
+            // default-EP handles only) with a dump after each, mirroring
+            // OracleRunner's property-masked ep.update.
+            for (JsonNode action : epoch.path("actions")) {
+                String op = action.path("op").asText();
+                if (op.equals("advance")) {
+                    ((org.drools.core.time.SessionPseudoClock) session.getSessionClock())
+                            .advanceTime(action.path("ms").asLong(),
+                                    java.util.concurrent.TimeUnit.MILLISECONDS);
+                    System.out.println("-- ADVANCE " + action.path("ms").asLong());
+                } else if (op.equals("update")) {
+                    org.kie.api.runtime.rule.FactHandle fh =
+                            inserted.get(action.path("target").asInt());
+                    Object bean = session.getObject(fh);
+                    FactType ft = kbase.getFactType(PKG, bean.getClass().getSimpleName());
+                    java.util.List<String> props = new java.util.ArrayList<>();
+                    java.util.Iterator<String> it = action.path("fields").fieldNames();
+                    while (it.hasNext()) {
+                        String fname = it.next();
+                        JsonNode v = action.path("fields").path(fname);
+                        String jt = null;
+                        for (JsonNode t : scenario.path("types")) {
+                            if (t.path("name").asText().equals(bean.getClass().getSimpleName())) {
+                                for (JsonNode f : t.path("fields")) {
+                                    if (f.path("name").asText().equals(fname)) {
+                                        jt = f.path("type").asText();
+                                    }
+                                }
+                            }
+                        }
+                        if ("i64".equals(jt)) ft.set(bean, fname, v.asLong());
+                        else if ("f64".equals(jt)) ft.set(bean, fname, v.asDouble());
+                        else if ("bool".equals(jt)) ft.set(bean, fname, v.asBoolean());
+                        else ft.set(bean, fname, v.asText());
+                        props.add(fname);
+                    }
+                    session.update(fh, bean, props.toArray(new String[0]));
+                    System.out.println("-- UPDATE " + action.path("target").asInt()
+                            + " " + action.path("fields"));
+                } else if (op.equals("delete")) {
+                    session.delete(inserted.get(action.path("target").asInt()));
+                    System.out.println("-- DELETE " + action.path("target").asInt());
+                } else {
+                    System.out.println("-- UNSUPPORTED ACTION " + op);
+                }
+                dumpAcc(session);
+            }
             for (JsonNode fact : epoch.path("facts")) {
-                session.insert(instantiate(kbase, scenario, fact));
+                inserted.add(session.insert(instantiate(kbase, scenario, fact)));
             }
             session.fireAllRules(10_000);
             System.out.println("== FIRE-BOUNDARY ==");
@@ -149,6 +197,8 @@ public final class AccDump {
             dumpAccNode(node, reteEval);
         } else if (node.getClass().getSimpleName().equals("JoinNode")) {
             dumpJoinNode(node, reteEval);
+        } else if (node.getClass().getSimpleName().equals("WindowNode")) {
+            dumpWindowNode(node, reteEval);
         }
         // descend object sinks and left sinks
         for (String prop : new String[]{"getObjectSinkPropagator", "getSinkPropagator"}) {
@@ -160,6 +210,26 @@ public final class AccDump {
             } catch (NoSuchMethodException ignore) {
             }
         }
+    }
+
+    /** A2 winacc: the SlidingTimeWindow queue — each queued CLONE handle's
+     *  bean + startTimestamp + validity (the window-membership ground truth). */
+    static void dumpWindowNode(Object node, Object reteEval) throws Exception {
+        Object mem = call1(reteEval, "getNodeMemory", node,
+                Class.forName("org.drools.core.common.MemoryFactory"));
+        StringBuilder sb = new StringBuilder("  WIN node ").append(call(node, "getId"));
+        sb.append(" queue[");
+        Object ctxs = mem.getClass().getField("behaviorContext").get(mem);
+        for (Object ctx : (Object[]) ctxs) {
+            for (Object efh : (java.util.Collection<?>) call(ctx, "getFactHandles")) {
+                sb.append(short_(call(efh, "getObject")))
+                        .append("@ts").append(call(efh, "getStartTimestamp"))
+                        .append(call(efh, "isValid").equals(Boolean.TRUE) ? "" : "!INVALID")
+                        .append("; ");
+            }
+        }
+        sb.append(']');
+        System.out.println(sb);
     }
 
     static void dumpJoinNode(Object node, Object reteEval) throws Exception {

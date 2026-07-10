@@ -354,8 +354,15 @@ class Gen:
                 live = [tg for tg in self.targets
                         if tg["targetable"] and not tg["deleted"]
                         and clock < tg["deadline"]]
-                upd_ok = [tg for tg in live
-                          if tg["type"] not in self.temporal_types]
+                # SEINE_WINUPD_FULL=1 (A2 slab): lift the temporal-type UPDATE
+                # fence — updates of temporal-join event types generate too,
+                # surfacing the windowed-accumulate-over-update family
+                # (cf401x25/42, cf423x107, xf_cep_winacc_719_*).
+                if os.environ.get("SEINE_WINUPD_FULL"):
+                    upd_ok = list(live)
+                else:
+                    upd_ok = [tg for tg in live
+                              if tg["type"] not in self.temporal_types]
                 del_ok = list(live)  # D-138: class-3 external exists-witness churn PORTED
 
                 def pick(pool):  # bias toward EVENT targets (the item-C heart)

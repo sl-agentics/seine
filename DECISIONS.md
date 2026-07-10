@@ -11,49 +11,40 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-153 (the in_cycle guard retired — the
-existential order machinery is fully mechanical and UNGUARDED on both sides;
-nothing of the D-140..D-147 key/stamp economy remains). D-152 landed the
-EXISTS retirement; D-153 extended the not-side spec to the same-cycle +
-staged-IF regimes (`SEINE_NOTPOP_FULL` soup, 2,891 scenarios 0-div — two
-model corrections: the IF left is STAGED until the first QUEUED fire-loop
-eval (the exists-arc discovery ported back, BfShadow `fire_loop` eval), and
-`unlinkNotNodeOnRightInsert` fires only WHILE LINKED exactly as D-150
-recorded), removed the guard, and deleted FactTouch outright. Gates: corpus
-11/**1002**/291 byte-identical (the guard's own pins reproduce mechanically;
-+3 `pr_cep_not_flush_*`), lint 1392, notpop sweep 3,840/3,840 clean, A/B vs
-D-152: 401 fixed (the 23 delete-residuals subsumed) / 0 regressed; fuzz
-313/401/407 0-div, fresh 719 flushed 2 PRE-EXISTING A2 windowed-accumulate
-cases (fail on D-152 identically; filed `xf_cep_winacc_719_*`). See D-153. `ExShadow` (engine.rs) replays the graft-derived exists machinery
-(BfDump recon: the IF left is STAGED at the exists until the first fire-loop
-eval ⇒ first-satisfaction emission at the fire loop, re-satisfy at the
-witness exec; the fire-loop eval runs iff QUEUED — one-sided windows never
-link; marked-expired witnesses count/block until quiescence, which runs
-post-agenda ⇒ transient fires) and ranks the gated `exists <EVENT>() P()`
-picks. RETIRED: `not_order_key`, `last_fire_no`, `satisfy_seg`,
-`FactTouch.{epoch,is_upd,upd_seq,ins_seg}`, `event_seg`, `upd_seq_next` (the
-whole D-144/D-147 stamp economy; `FactTouch` = `insert_epoch` only, feeding
-the not-side in_cycle RHS fence). BONUS: the D-133 expiration boundary
-CORRECTED (`schedule_expiration`) — only NEGATIVE deadlines leak
-(DROOLS-455); nonneg-past deadlines register due-on-arrival (match + fire
-this cycle, drop at quiescence) — oracle xq1-xq3, pins
-`pr_cep_exp_boundary_{leak,past}`. Spec: `model_check_exists.py EMODEL=flush`
-0-div on **5,507** oracle scenarios (14 banked + 7 full-axis
-`SEINE_EXPOP_FULL` populations: P deletes, partial witness deletes, delayed
-first satisfaction, staggered/due-on-arrival expiry, leak boundary, witness
-updates, pure-P windows). Gates: corpus 11/**999**/291 byte-identical (+5
-pins incl. `pr_cep_exists_flush_*`), lint 1389, cargo + bindings 72 green;
-engine-vs-oracle **5,605/5,605** clean; A/B vs HEAD: 1,012 divergences fixed
-(738 order via the shadow + ~274 boundary), ZERO regressions; fuzz_cep
-313/401/407 ×400 0-div, fresh 613 flushed one PRE-EXISTING temporal-join
-latent (fails on HEAD identically; filed `xf_cep_tjorder_613_pair`). gen.rs
-never builds a shadow. See D-152.
-Item-1b tails: plain-not cf313x4, A2 windowed-accumulate
-(cf401x25/42+cf423x107 + the fresh xf_cep_winacc_719 pair — CLEAN-CONTEXT
-HANDOFF PREPARED: `~/.claude/plans/a2-windowed-accumulate-handoff.md`),
-temporal-join pair-order latents (cf613x306 kin). The 23 delete-residuals are CLOSED
-(D-153). Fenced-by-nature: D-134 §6 PriorityQueue tie, fz_42_84.
-`git log --oneline -20` for live HEAD._
+_Last updated: 2026-07-10, post-D-154-RECON — **the A2 windowed-accumulate
+mechanism is CRACKED and SPECIFIED; the engine port is GATE-PENDING (Bryan)**.
+Read `~/.claude/plans/a2-winacc-mechanism-report.md` (mechanism + port plan +
+prescribed post-port gates), then D-154 below. One machine, four pieces, all
+oracle-validated: (1) a per-(window-node,event) RightTuple bit that survives
+eviction/rejection/alpha-fail (created before the behavior check; eviction
+retracts only the clone); (2) no-RT updates re-run admission against the
+INSERT-SNAPSHOT ts (live ts irrelevant — no transient on reject, but the RT
+plants); (3) RT-path modifies are mask-gated (windowed mask = BINDINGS only,
+D-139's) and a mask-HIT of a fold-absent event re-asserts it at LIVE fields
+BYPASSING the window queue (zombie if evicted; re-evicts at ts0+N if still
+queued) — the D-137 clock_removed guard pinned the mask-MISS cell and
+over-blocked; (4) external updates queue per-entry (own mask) and execute
+FIFO at the drain against the epoch-FINAL bean (BfDump proxy-proven; no mask
+merging — killed two wrong hypotheses). Bonus: expiry deadline D=ts+ex+1
+re-pinned under windows (ts+ex=-1 ⇒ due-on-arrival NOT leak; leak ⇔
+ts+ex<=-2). Spec `tools/model_check_winacc.py` **0-div on 3,368** (30-probe
+battery `tools/gen_winacc_probes.py` + all 5 witnesses incl. regenerated
+cf401x25/42+cf423x107 (same mechanism, no sibling) + 3,300+ soup
+`tools/fuzz_winacc.py` seeds 901-909). `SEINE_WINUPD_FULL=1` gate added to
+fuzz_cep.py (lifts the temporal-type UPDATE fence). AccDump extended
+(epoch actions + WindowNode queue dumps). NO ENGINE CHANGE in this slab.
+**Resume (post-GATE): port per the report §Port plan** — 4 scoped changes,
+all gated on `pat.acc.window_time.is_some()`: detached-set semantics at
+5876, snapshot admission on (false,true)+insert paths, pre-fire FIFO
+update drain for windowed nodes; then the report's gate battery (corpus
+byte-identity, 9-population engine-vs-oracle sweep, SEINE_WINUPD_FULL fuzz
+401/423/719+fresh ×400 both trees, wa/m battery graduates to
+pr_cep_winacc_*, xf_cep_winacc_719_* graduate to regressions, D-155).
+Item-1b tails after A2: plain-not cf313x4, tj pair-order (cf613x306 kin,
+xf_cep_tjorder_613_pair). Fenced-by-nature: D-134 §6 PriorityQueue tie,
+fz_42_84. Gates at this checkpoint: `make diff` 11/1002/291 byte-identical,
+lint 1392, cargo 9 suites, bindings 72 (no engine change — drift-check
+only). `git log --oneline -20` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -7998,3 +7989,93 @@ mechanical and unguarded on both sides; the 23 delete-residuals are CLOSED
 (subsumed by the 401). Remaining item-1b tails: plain-not cf313x4, the A2
 windowed-accumulate family (now with two fresh minimizable witnesses), and
 the temporal-join pair-order latents (cf613x306 kin).
+
+## D-154 (RECON) — A2 windowed-accumulate: the mechanism, cracked and specified (port GATE-PENDING)
+
+**The family.** All five witnesses (`xf_cep_winacc_719_{34,242}` +
+fence-lifted cf401x25/42, cf423x107 — regenerated this arc, deterministic
+per seed, no sibling mechanism) are ONE machine with four pieces, each
+oracle-validated:
+
+1. **The RightTuple bit.** Per (window-node, event), Drools keeps a
+   RightTuple created at the FIRST alpha-pass (insert or update) that
+   SURVIVES window-eviction, window-REJECTION, and alpha-fail modifies
+   (`WindowNode.assertObject` creates it before `behavior.assertFact`;
+   `expireFacts` retracts only the CLONE). It decides which update path
+   runs: no-RT → fresh admission; RT → mask-gated modify.
+2. **Snapshot admission.** The no-RT path re-runs admission against the
+   INSERT-SNAPSHOT ts (`SlidingTimeWindow.assertFact`:
+   `startTimestamp + N <= now` rejects — the handle ts is never refreshed,
+   D-141-consistent; live ts irrelevant — `wa_fresh_reject_snap`). A
+   rejected event propagates NOTHING (no transient — the cf719x242 engine
+   extra-fire) but keeps the RT (`wa_stale_ins_revive`).
+3. **Mask-gated revival.** On the RT path a modify whose written set hits
+   the windowed mask (BINDINGS ONLY — the same structural mask D-139
+   found) re-ASSERTS a fold-absent event at LIVE field values
+   (`BetaNode.modifyObject`: absent tuple + mask intersect → assert),
+   BYPASSING the window queue: revived-after-eviction = ZOMBIE (never
+   evicted again — `wa_zombie`; only delete/expiry reap);
+   revived-before-eviction stays queued and re-evicts at ts0+N
+   (`wa_toggle_reevict`). Mask-miss does NOTHING — even an alpha fail→pass
+   toggle stays out (`wa_toggle_stuck`; reconciles
+   `pr_cep_c_upd_evict_revive`, which pinned the mask-MISS cell — the
+   D-137 class-2 "no revival" was that cell over-generalized; cf719x34 is
+   the mask-HIT cell: oracle sum 559 = engine 359 + the revived live
+   ts=200).
+4. **Deferred entry execution.** Each external update queues its OWN
+   propagation entry (own written-mask); entries execute FIFO at the fire
+   drain against the LIVE bean = the epoch-FINAL state (BfDump
+   PropagationList proxy: `EXEC> Update E(..tag=x)` for a tag=z write —
+   the intermediate state never evaluates). No mask merging: two
+   same-epoch entries can evaluate DIFFERENTLY as node state evolves
+   between them (wf901x261: entry 1 fresh-admission REJECT plants the RT,
+   entry 2 mask-hit REVIVES). Killed two wrong hypotheses (sequential
+   per-call masks; mask-coalescing) — the m1–m15 matrix discriminates.
+
+**Bonus boundary pin.** The expiry deadline composed with windows is
+exactly D-150's `D = ts+@expires+1`: `ts+ex = -1` ⇒ D=0 ⇒ DUE-ON-ARRIVAL
+(drops at that epoch's quiescence), NOT a leak; leak = `ts+ex <= -2`
+(wf905x127's +41 trailing-fire splits pinned it). Window EVICTION stays
+exactly `ts0+N` (no +1) and eager; windowed-source EXPIRY fold-outs stay
+deferred to quiescence (trailing fire, `df_win_expire_reins`) — both
+landed semantics, now population-re-verified under churn.
+
+**The spec.** `tools/model_check_winacc.py` — a per-node three-bit
+(rt/queue/fold) fold simulator + FIFO entry drain + the D-152/D-150 expiry
+model; compares per-rule fired-VALUE sequences against banked oracle runs.
+**0-div on 3,368 scenarios**: the 30-probe battery
+(`tools/gen_winacc_probes.py` — 17 wa_* state-machine cells + 13 m*
+deferred-execution cells, every prediction first-shot) + all 5 witnesses
+(model reproduces them inside their full rule mixes) + 3,300+ soup
+(`tools/fuzz_winacc.py`, seeds 901–909; 904–909 fully out-of-sample;
+908–909 generated boundary-aware). Soup axes: boundary-aimed advances
+(deadline ±1), stale/due-on-arrival/leak inserts, field-subset updates
+incl. same-value writes and multi-update epochs, deletes, 1–3
+windowed/plain sum/count rules, tag constraints, entry-points, @expires
+above/below/at the window.
+
+**Tooling landed.** AccDump extended with epoch-ACTION replay
+(advance/update/delete, property-masked `session.update`) + WindowNode
+queue dumps; `fuzz_cep.py` gains the `SEINE_WINUPD_FULL=1` env gate
+(lifts the temporal-type UPDATE fence — the D-141-era fence that hid this
+family; default runs unchanged).
+
+**Engine gaps this closes (at the port).** (a) `clock_removed` blocks ALL
+revival — must become mask-gated "detached" (windowed nodes only; PLAIN
+expiry-eager keeps the D-137 guard — `pr_cep_c_upd_after_exp` intact);
+(b) the (false,true) update-in path admits with NO window check (the 242
+transient) — must run snapshot admission + detached-marking; (c) the
+insert path folds stale events in — same check; (d) update evaluation is
+immediate per-call — windowed-acc nodes must defer to a pre-fire FIFO
+drain (single-update epochs provably equivalent ⇒ corpus-safe; the
+multi-update cells are today unreachable in fuzz_cep and reachable via
+API). Port plan §"Port plan" of the report; everything gates on
+`pat.acc.window_time.is_some()` — plain paths byte-identical by
+construction, gen.rs emits no windows ⇒ main axis inert.
+
+**Status: STOPPED AT THE GATE** (per workflow — engine changes to the
+landed byte-identical corpus need Bryan's GATE). Report:
+`~/.claude/plans/a2-winacc-mechanism-report.md`. Witnesses re-filed with
+mechanism-level `_finding`s; they graduate at the port, when the wa/m
+battery lands as `pr_cep_winacc_*` pins. Post-port gate battery is
+prescribed in the report (§"Planned gates").
