@@ -49,11 +49,11 @@ COMMITTED locally at `4818815` (D-139)** — one `on_update` block
 + `fuzz_cep.py` `windowed_acc_types` UPDATE fence lift + `tools/model_check_react.py`
 + 2 xf→probe graduations + 4 discriminator probes. **Item-#2 MODEL checkpoint
 COMMITTED locally at `9c6735c`** — `tools/{fuzz,model_check}_notorder.py` +
-CURRENT-ISSUES #2 upgrade. **Item #2 ENGINE PORT COMMITTED locally at `<D140-sync>`
+CURRENT-ISSUES #2 upgrade. **Item #2 ENGINE PORT COMMITTED locally at `05399b3`
 (D-140)** — `engine.rs` post-hoc agenda reorder (clean-regime-gated) + 3 graduated
 pins `pr_cep_not_order_ev_{expiry,delete,upd}` + DECISIONS.md; `fuzz_cep.py`
 unchanged (no fence lift — the `temporal_types` fence still guards item 1b).
-`main` is **N ahead of `origin/main`** (see sync marker) — NOT pushed. ⚠ **NO `v*`
+`main` is **17 ahead of `origin/main`** (post sync marker) — NOT pushed. ⚠ **NO `v*`
 TAGS until a PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire
 on tag push and the `pypi` environment has NO protection rules (gh-verified): a new
 tag publishes `seine-rs` with no manual gate. Recent: D-132/133 §3A (reaping) →
