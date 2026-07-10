@@ -11,9 +11,20 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-152 (the EXISTS keys retired — BOTH gated
-existential families now run mechanical shadows; the D-150 retirement arc is
-COMPLETE). `ExShadow` (engine.rs) replays the graft-derived exists machinery
+_Last updated: 2026-07-10, post-D-153 (the in_cycle guard retired — the
+existential order machinery is fully mechanical and UNGUARDED on both sides;
+nothing of the D-140..D-147 key/stamp economy remains). D-152 landed the
+EXISTS retirement; D-153 extended the not-side spec to the same-cycle +
+staged-IF regimes (`SEINE_NOTPOP_FULL` soup, 2,891 scenarios 0-div — two
+model corrections: the IF left is STAGED until the first QUEUED fire-loop
+eval (the exists-arc discovery ported back, BfShadow `fire_loop` eval), and
+`unlinkNotNodeOnRightInsert` fires only WHILE LINKED exactly as D-150
+recorded), removed the guard, and deleted FactTouch outright. Gates: corpus
+11/**1002**/291 byte-identical (the guard's own pins reproduce mechanically;
++3 `pr_cep_not_flush_*`), lint 1392, notpop sweep 3,840/3,840 clean, A/B vs
+D-152: 401 fixed (the 23 delete-residuals subsumed) / 0 regressed; fuzz
+313/401/407 0-div, fresh 719 flushed 2 PRE-EXISTING A2 windowed-accumulate
+cases (fail on D-152 identically; filed `xf_cep_winacc_719_*`). See D-153. `ExShadow` (engine.rs) replays the graft-derived exists machinery
 (BfDump recon: the IF left is STAGED at the exists until the first fire-loop
 eval ⇒ first-satisfaction emission at the fire loop, re-satisfy at the
 witness exec; the fire-loop eval runs iff QUEUED — one-sided windows never
@@ -38,9 +49,10 @@ engine-vs-oracle **5,605/5,605** clean; A/B vs HEAD: 1,012 divergences fixed
 latent (fails on HEAD identically; filed `xf_cep_tjorder_613_pair`). gen.rs
 never builds a shadow. See D-152.
 Item-1b tails: plain-not cf313x4, A2 windowed-accumulate
-(cf401x25/42+cf423x107), the 23 not-side delete-residuals, temporal-join
-pair-order latents (cf613x306 kin). Fenced-by-nature: D-134 §6 PriorityQueue
-tie, fz_42_84. `git log --oneline -20` for live HEAD._
+(cf401x25/42+cf423x107 + the fresh xf_cep_winacc_719 pair), temporal-join
+pair-order latents (cf613x306 kin). The 23 delete-residuals are CLOSED
+(D-153). Fenced-by-nature: D-134 §6 PriorityQueue tie, fz_42_84.
+`git log --oneline -20` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -7918,3 +7930,70 @@ shadows; the D-140 in_cycle guard survives only as the not-side RHS fence
 cf313x4, the A2 windowed-accumulate family, the temporal-join pair-order
 latents (cf613x306 kin). Next natural mechanical candidates: none in the
 existential family — the retirement arc Bryan opened at D-150 is COMPLETE.
+
+### D-153: the in_cycle guard RETIRED — the not-side spec extended to the same-cycle and staged-IF regimes (full-axis soup, 2,891 scenarios 0-div), the BfShadow gains the exists-arc IF-staging correction, and the unguarded shadow fixes 401 soup divergences with zero regressions; the D-140 stamp economy is now entirely gone
+
+**The slab.** D-151 kept the D-140 in_cycle guard ("a fired P inserted THIS
+cycle ⇒ FIFO") as the not-side fence for the same-cycle insert regime the
+spec hadn't covered, eating 23 documented delete-family residuals. The
+exists arc (D-152) then proved the shadow machinery covers in-cycle streams
+natively. This slab extends the not-side spec into that territory and
+removes the guard.
+
+**Spec extension (`fuzz_notorder_b.py SEINE_NOTPOP_FULL=1`).** The committed
+replacement for D-151's lost scratch delete generator: free op soup
+mirroring the exists arc's `SEINE_EXPOP_FULL` — explicit E0 deletes at any
+position (delete-unblock + SAME-EPOCH P inserts, the guard's regime),
+P deletes, delayed first blocker, multi-blocker staggered ts, due-on-arrival
+and DROOLS-455-leaked blockers (the D-152 boundary, now generated on the not
+side too), blocker updates (inert), pure-P epochs, action-interleaved
+inserts. The model (`MODEL=flush`) needed TWO corrections, both settled by
+graft/oracle after hand-derivation misfired again:
+1. **The IF left is STAGED at the not until the first QUEUED fire-loop
+   eval** — the D-152 exists discovery ported back verbatim. The D-150/151
+   populations always had an initial P, making "IF at fire 1"
+   indistinguishable from "IF at first queued eval"; the soup's one-sided
+   windows split them (nb884x248: a blocker-only initial window leaves the
+   IF staged through ep1, so the delete-unblock emission happens at the
+   FIRE-LOOP eval and covers post-delete inserts — oracle [3,4,5,1,2] where
+   the fire-1 model said [1,2,3,4,5]).
+2. **`unlinkNotNodeOnRightInsert` fires only WHILE LINKED — exactly as
+   D-150 recorded** (a pure-emptiness re-model of the bit broke 79
+   previously-clean scenarios; nb880x7 re-confirmed: a blocker arriving
+   before any P leaves the bit SET, so the first P links the segment,
+   queues fire 1, and the IF is RESIDENT with per-window drains). The
+   asymmetry vs the exists node (whose bit is pure right-population) is
+   now graft-pinned on both sides.
+Validated **0-div on 2,891 scenarios**: 975 full-axis soup (seeds 880-886)
++ 1,916 regenerated legacy populations (P-first 801-803, mixed 811-812,
+pure-bf 861-862/871) — the corrections are invisible on every legacy
+regime, exactly as the counterfactual analysis predicted.
+
+**The port.** `BfShadow.eval_window` gains the `fire_loop` flag (staged-IF
+processing after the drain/unblock steps); `pre_fire` gates the fire-loop
+eval on `exec_queued` (no more unconditional first-fire branch) and adds
+the post-expiry eval for a relink that queues with the IF still staged.
+The gated-not pick drops the in_cycle guard — pure `emit_rank` (no-shadow
+shapes stay FIFO). RETIRED with the guard: `FactTouch` + `fact_touch` +
+both stamp sites (its last reader) — nothing of the D-140 stamp economy
+remains in the engine.
+
+**Gates (all green).** Corpus `make diff` 11/**1002**/291 byte-identical —
+the guard's own pins (`pr_cep_c_del_not`/`_u3`/`_v3`/`_v5`) reproduce
+MECHANICALLY, confirming the guard was a shadow of machinery the shadow now
+implements; +3 pins `pr_cep_not_flush_{if_staged_del,if_staged_leak,
+bit_preblocker}`. Lint **1392**; 9 cargo suites. ENGINE-vs-oracle:
+**3,840/3,840 notpop scenarios clean** (soup + legacy). A/B vs a D-152
+worktree: D-152 fails **401** (all in the soup regimes — the guard's FIFO
+plus the fire-1 IF approximation; the 23 documented delete-residuals are a
+subset); D-153 fixes **all 401 with zero regressions**. fuzz_cep
+313/401/407 ×400 = 0 divergences; fresh seed 719 flushed TWO — both W2
+windowed-accumulate (A2-family) cases that **fail on D-152 identically**
+(bisected; filed `xf_cep_winacc_719_{34,242}`). gen.rs unchanged ⇒ main
+axis inert.
+
+**Standing scope.** The gated existential order machinery is now fully
+mechanical and unguarded on both sides; the 23 delete-residuals are CLOSED
+(subsumed by the 401). Remaining item-1b tails: plain-not cf313x4, the A2
+windowed-accumulate family (now with two fresh minimizable witnesses), and
+the temporal-join pair-order latents (cf613x306 kin).

@@ -1,0 +1,116 @@
+{
+ "name": "cep_not_flush_if_staged_del",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     },
+     "op": "insert"
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 5
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 0
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 0
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": -306
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-153 (staged-IF, the exists-arc discovery ported back): with the blocker alone in the initial window, NOTHING queues the executor (one-sided), so the InitialFact left sits STAGED at the not across epochs. ep1's [ins P1, ins P2, delete E0] + facts [P3,P4,P5]: the delete's force-flush drains [P1,P2] (rtm=[P2,P1]) but cannot unblock (no IF resident); the fire-loop eval drains [P3,P4,P5] and THEN processes the staged IF -> emission reverse([P2,P1,P5,P4,P3]) = [3,4,5,1,2]. The D-151 model (IF at fire 1) predicted [1,2,3,4,5]; the D-152 engine (in_cycle guard) FIFO'd. Graft: BfDump nb884x248."
+}

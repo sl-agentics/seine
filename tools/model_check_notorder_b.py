@@ -238,14 +238,19 @@ def predict_flush(scn):
             Q.extend(staged)
         staged.clear()
 
-    def eval_window(e0_op=None):
+    def eval_window(e0_op=None, fire_loop=False):
         # 1. the not processes its staged E0 op (upstream of the join)
         unblock = False
         if e0_op is not None:
             kind, uid = e0_op
             if kind == "ins":
                 if segment_linked():
-                    not_linked[0] = False    # unlinkNotNodeOnRightInsert
+                    not_linked[0] = False    # unlinkNotNodeOnRightInsert —
+                                             # fires only WHILE LINKED (D-150;
+                                             # re-confirmed D-153 nb880x7: a
+                                             # blocker arriving before any P
+                                             # leaves the bit SET, so the
+                                             # first P links the segment)
                 if if_propagated[0] and not if_blocked[0]:
                     if_blocked[0] = True     # block the IF: children die
                     Q.clear()                # matchCancelled for queued
@@ -259,26 +264,36 @@ def predict_flush(scn):
         if unblock:
             if_blocked[0] = False
             Q.extend(reversed(rtm))
+        # 4. the IF's own staged left-ins — processed only by a FIRE-LOOP
+        # eval (the exists-arc discovery, D-152/D-153: an E0 force-flush
+        # skips staged lefts; one-sided windows never queue, so the IF can
+        # sit staged for epochs and its first emission then swallows the
+        # whole rtm at that point — nb884x248/nb886x21)
+        if fire_loop and not if_propagated[0]:
+            if_propagated[0] = True
+            if_blocked[0] = bool(e0_alive)
+            if not if_blocked[0]:
+                Q.extend(reversed(rtm))
 
     def flush_entry_insert(f):
         nonlocal idx
         if f["type"] == "E0":
             # Drools schedules the expire job at endTs + @expires + 1 (an
             # advance to EXACTLY ts+expires does not expire — mu4 probe);
-            # an arrival already past its deadline enqueues the expire action
-            # in the SAME flush (still a quiescence retract). D-152 boundary
-            # note: a NEGATIVE deadline never schedules at all (DROOLS-455 —
-            # the leak); this population never generates one.
+            # an arrival already past its NONNEG deadline enqueues the expire
+            # action in the SAME flush (still a quiescence retract); a
+            # NEGATIVE deadline never schedules at all — the DROOLS-455 leak,
+            # immortal (D-152 boundary, oracle xq1-xq3).
             deadline = f["fields"]["ts"] + E0_EXPIRES + 1
             uid = idx
-            e0_alive[uid] = deadline
+            e0_alive[uid] = deadline if deadline >= 0 else float("inf")
             e0_del_uid[idx] = uid
             # staging notify: first-E0 links the not-bit (already linked);
             # later E0s setNodeDirty — queue iff segment linked (pre-unlink)
             if segment_linked():
                 exec_queued[0] = True
             eval_window(("ins", uid))        # STREAM force-flush at its position
-            if deadline <= clock[0]:
+            if 0 <= deadline <= clock[0]:
                 pending_exp.append(uid)
         else:
             v = f["fields"]["v"]; vof[idx] = v
@@ -351,16 +366,9 @@ def predict_flush(scn):
         pending_exp.extend(u for _, u in due)
 
     def fire_all():
-        if not if_propagated[0]:             # the IF left-ins, first fire
-            if_propagated[0] = True
-            exec_queued[0] = False
-            if_blocked[0] = bool(e0_alive)
-            drain_staged(emit_children=False)
-            if not if_blocked[0]:
-                Q.extend(reversed(rtm))
-        elif exec_queued[0]:
-            eval_window()
-            exec_queued[0] = False
+        if exec_queued[0]:                   # the fire-loop eval — runs iff
+            eval_window(fire_loop=True)      # QUEUED; processes the staged
+            exec_queued[0] = False           # IF (D-153)
         fired.extend(Q)
         Q.clear()
         # QUIESCENCE: flushExpirations — per-retract force-flush evals in
@@ -373,6 +381,11 @@ def predict_flush(scn):
                 exec_queued[0] = True
             eval_window(("del", u))
         pending_exp.clear()
+        if exec_queued[0] and not if_propagated[0]:
+            eval_window(fire_loop=True)      # a relink queued the executor
+                                             # with the IF still staged: it
+                                             # processes in the continuing
+                                             # fire loop (D-153)
         fired.extend(Q)
         Q.clear()
         exec_queued[0] = False               # consumed by the closing fire round

@@ -1,0 +1,222 @@
+{
+ "name": "cf719x34",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 200,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 when $a : E1() from entry-point \"S1\" $b : E1(this before[0ms,150ms] $a) from entry-point \"S1\" then end\nrule TJ1 when $a : E2(tag == \"y\") from entry-point \"S2\" $b : E1(this meets $a) from entry-point \"S1\" then end\nrule W2 when accumulate( E0($t : ts) over window:time(150ms) from entry-point \"S1\"; $c : sum($t) ) then end\nrule NE3 when exists E1() from entry-point \"S1\" P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 7,
+    "tag": "x",
+    "dur": 50
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 26,
+    "tag": "z",
+    "dur": 0
+   },
+   "entry_point": "S2"
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 31,
+    "tag": "z",
+    "dur": 20
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "tag": "y",
+    "dur": 10
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 151
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 154,
+      "tag": "x",
+      "dur": 10
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 49
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y",
+      "ts": 200
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 205,
+      "tag": "z",
+      "dur": 50
+     },
+     "entry_point": "S1"
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    },
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "PRE-EXISTING A2 windowed-accumulate latent, flushed by fresh fuzz seed 719 during the D-153 blast-radius A/B: W2 (sum over window:time) firing diverges. FAILS ON D-152 (63d422e) IDENTICALLY \u2014 bisected; same family as the documented cf401x25/42 + cf423x107 tails (windowed accumulate over event churn), unrelated to the not/exists order machinery. Filed for the A2 slab."
+}

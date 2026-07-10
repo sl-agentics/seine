@@ -1,0 +1,219 @@
+{
+ "name": "cep_not_flush_if_staged_leak",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not E0() P() then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     },
+     "op": "insert"
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": -336
+     },
+     "op": "insert"
+    },
+    {
+     "op": "advance",
+     "ms": 146
+    },
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": -230
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 4
+    },
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "v": 3
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 7
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 32
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 8
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 5,
+     "fields": {
+      "ts": 99
+     }
+    },
+    {
+     "op": "advance",
+     "ms": 155
+    },
+    {
+     "op": "delete",
+     "target": 5
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 211
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 174
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 183
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 9
+     },
+     "op": "insert"
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 10
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 11
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 426
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 404
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 12
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-153: staged-IF composition with a LEAKED blocker (negative deadline, DROOLS-455 D-152) \u2014 the immortal E0 blocks until explicitly deleted; the IF (staged since the empty initial window... P1's insert linked the segment pre-blocker) processes at ep1's fire-loop eval after the delete: emission reverse([P1,P4,P3,P2]) = [2,3,4,1] with the post-delete facts INSIDE the batch. Also exercises delete-of-leaked + nonneg-past arrivals downstream."
+}
