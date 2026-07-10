@@ -1,0 +1,63 @@
+{
+ "name": "wa_fresh_reject_snap",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\", $v : val) over window:time(100ms); $c : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 10,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "x",
+      "ts": 140,
+      "val": 20
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP A2 windowed-accumulate (D-154/D-155): fresh admission (no RightTuple: alpha-failed at insert) checks the INSERT-SNAPSHOT ts, NOT the live ts: update {tag->x, ts:140} at clock 150 with live window (50,150] REJECTS because snapshot 0+100 <= 150. Kills any live-ts membership model."
+}

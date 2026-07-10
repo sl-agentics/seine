@@ -1,0 +1,62 @@
+{
+ "name": "m1_failts_only",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\", $t : ts) over window:time(150ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": -453,
+    "val": 1,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 157
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z",
+      "ts": 7
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP A2 windowed-accumulate (D-154/D-155): deferred-entry semantics: a single alpha-FAIL write ({tag:z, ts:7}) evaluates against the epoch-final bean (tag=z) -> constraint fail -> fold-absent no-op. No fire."
+}

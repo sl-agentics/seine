@@ -1596,6 +1596,18 @@ pub struct Engine {
     /// count→0). Independent of expiration — fires even under a huge or
     /// explicit @expires.
     window_deadlines: std::collections::BTreeMap<i64, Vec<(usize, FactId)>>,
+    /// D-154: FIFO of EXTERNAL update ENTRIES for facts whose type feeds a
+    /// windowed accumulate. Drools queues each update as its own
+    /// propagation entry (its own written-mask) and executes it at the
+    /// next flush point against the LIVE bean — by then the epoch-FINAL
+    /// field state (BfDump proxy: a same-epoch tag z→x pair never shows
+    /// the network the z state; a fire boundary between them does).
+    /// Drained FIFO at fire_all pre-fire and at an EVENT insert (the
+    /// D-150 force-flush position). Single-update epochs are equivalent
+    /// to the pre-D-154 immediate processing: staging lands before the
+    /// first agenda pick either way, and the pick orders by
+    /// (salience, decl_pos), not queue time.
+    winacc_pending: Vec<(FactId, u64)>,
     /// D-134 (§3B): scheduled temporal-`not` firing DEFERRALS, keyed by the
     /// window-close `fire_time` (mirror of `deadlines`, but a firing not a
     /// reap). Each entry is (not-node trie idx, held left tuple, origin).
@@ -1757,6 +1769,7 @@ impl Engine {
             deadlines: std::collections::BTreeMap::new(),
             pending_expirations: Vec::new(),
             window_deadlines: std::collections::BTreeMap::new(),
+            winacc_pending: Vec::new(),
             fire_deadlines: std::collections::BTreeMap::new(),
             fire_seq: 0,
             acc_nodes: Vec::new(),
@@ -3822,6 +3835,14 @@ impl Engine {
             if let Value::I64(ts) = self.store.value(id, ts_fi) {
                 self.store.set_event_ts(id, ts);
             }
+            // D-154: pending windowed-acc update entries drain at the FIRE
+            // boundary only. Drools force-flushes them at an event insert's
+            // queue position (D-150), but an accumulate's result emission
+            // happens at rule evaluation either way, so fold values and
+            // per-rule sequences are position-independent — and staging
+            // into an acc node mid-epoch trips the per-arrival stream
+            // flush's segment scoping (the port_insdrain probe lost the
+            // revival to it).
         }
         let exp_ord = self.schedule_expiration(id);
         // D-151: feed the mechanical flush shadows (external inserts only —
@@ -3873,6 +3894,7 @@ impl Engine {
         // D-110/D-112: window deadline queue clears; acc_nodes is
         // recomputed by build_network below (trie reindexes on rebuild).
         self.window_deadlines.clear();
+        self.winacc_pending.clear();
         self.fire_deadlines.clear(); // D-134 (§3B)
         self.fire_seq = 0;
         self.in_expiration_drain = false;
@@ -4336,8 +4358,151 @@ impl Engine {
             let (ni, wtid, win) = self.acc_nodes[i];
             if wtid == tid {
                 if let Some(n) = win {
-                    self.window_deadlines.entry(ts + n).or_default().push((ni, id));
+                    // D-154: an already-due deadline never schedules — the
+                    // event is REJECTED at admission (winacc_admits uses the
+                    // same immutable snapshot ts, so it can never be admitted
+                    // later either), and a stale past-key entry would
+                    // otherwise pop at the next advance and evict a REVIVED
+                    // member that Drools' queue never contained
+                    // (wf902x184: the zombie must survive).
+                    if ts + n > self.clock_ms {
+                        self.window_deadlines.entry(ts + n).or_default().push((ni, id));
+                    }
                 }
+            }
+        }
+    }
+
+    /// D-154: sliding-window ADMISSION for one event at one windowed
+    /// accumulate node — Drools' `SlidingTimeWindow.assertFact`:
+    /// `startTimestamp + N <= now` REJECTS (wa_fresh_bnd_at pins the exact
+    /// boundary), where startTimestamp is the INSERT-FIXED snapshot
+    /// (D-141; a live ts write never re-positions — wa_fresh_reject_snap).
+    /// Runs on the assertObject paths only: the insert walk and the
+    /// no-RightTuple update transition. Members admitted here evict at the
+    /// pre-scheduled `window_deadlines` entry (snapshot ts+N), which
+    /// always still pends when admission succeeds.
+    fn winacc_admits(&self, ni: usize, f: FactId) -> bool {
+        let (ri, pos) = self.trie[ni].env;
+        let Some(n) =
+            self.rules[ri].patterns[pos].acc.as_ref().and_then(|a| a.window_time)
+        else {
+            return true;
+        };
+        let tid = self.store.fact_type(f);
+        let Some(&EventSpec { ts_fi, .. }) = self.event_specs.get(&tid) else {
+            return true; // windowed sources are events; non-events never gate
+        };
+        let Value::I64(ts) = self.store.temporal_ts(f, ts_fi) else {
+            return true;
+        };
+        ts + n > self.clock_ms
+    }
+
+    /// D-154: ONE windowed-accumulate node processes ONE update of a
+    /// source event — either a drained EXTERNAL entry (deferred; live
+    /// fields = epoch-final) or an RHS modify (immediate; fuzz-unreachable
+    /// for windowed sources, kept for coherence). The RightTuple machine:
+    /// `clock_removed` = DETACHED (RT present, fold absent) — marked by
+    /// eviction/expiry-eager (stage_acc_removal), by admission REJECTION
+    /// (RT plants with no transient — wa_stale_ins_reject/revive), and by
+    /// an alpha-fail exit (WindowNode keeps the RT; wa_toggle_*).
+    /// Transitions:
+    ///   in-fold, alpha-pass  -> D-139 re-fold, mask = source BINDINGS
+    ///                           only (constraints live on the WindowNode);
+    ///   in-fold, alpha-fail  -> fold-out, UN-mask-gated (the WindowNode
+    ///                           re-checks constraints on every modify) +
+    ///                           detach;
+    ///   detached, alpha-pass -> mask-HIT re-asserts at LIVE fields =
+    ///                           REVIVAL (BetaNode.modifyObject: absent
+    ///                           RightTuple + mask intersect -> assert),
+    ///                           BYPASSING the window queue — a
+    ///                           revived-after-eviction member is a zombie
+    ///                           (wa_zombie; only delete/expiry reap it), a
+    ///                           revived-before-eviction member still
+    ///                           evicts at ts0+N (wa_toggle_reevict).
+    ///                           Mask-MISS does NOTHING (the
+    ///                           pr_cep_c_upd_evict_revive cell — D-137's
+    ///                           guard was this cell over-generalized);
+    ///   no RT, alpha-pass    -> fresh admission (winacc_admits) — the 242
+    ///                           class: REJECT folds nothing (no
+    ///                           transient) but plants the RT.
+    fn winacc_step(&mut self, ni: usize, f: FactId, mask: u64, origin: Origin, was: &mut Vec<bool>) {
+        let (ri, pos) = self.trie[ni].env;
+        let was_in = self.trie[ni].active.contains(&f);
+        let now = self.alpha_passes(ri, pos, f);
+        let hit = mask == u64::MAX || self.rules[ri].patterns[pos].bind_fields & mask != 0;
+        match (was_in, now) {
+            (true, true) => {
+                if hit {
+                    self.trie[ni].node.s_right.add_upd(f, origin);
+                } else {
+                    // mask miss: immediate right-memory reAdd, no staging
+                    // (the existing D-139 miss path, fz_42_4359)
+                    let env = JoinEnvImpl {
+                        store: &self.store,
+                        rule: &self.rules[ri],
+                        flush: self.in_stream_flush,
+                        fire_no: self.fire_no,
+                        not_releasing: false,
+                    };
+                    let key = phreak::JoinEnv::key_of_right(&env, pos - 1, f);
+                    self.trie[ni].node.re_add_right_fact(f, key);
+                }
+            }
+            (true, false) => {
+                self.trie[ni].active.remove(&f);
+                self.trie[ni].clock_removed.insert(f);
+                self.trie[ni].node.s_right.add_del(f, origin);
+            }
+            (false, true) => {
+                let detached = self.trie[ni].clock_removed.contains(&f);
+                let admit = if detached { hit } else { self.winacc_admits(ni, f) };
+                if admit {
+                    self.trie[ni].clock_removed.remove(&f);
+                    self.trie[ni].active.insert(f);
+                    // re-entry staging exactly as the plain (false,true)
+                    // update branch (D-082/D-083 ph classification)
+                    let reentry =
+                        self.trie[ni].node.s_right.del.iter().any(|(x, _, _)| *x == f);
+                    let ph = if reentry { 1 } else { 0 };
+                    self.trie[ni].node.s_right.add_ins_ph(f, origin, ph);
+                } else if !detached {
+                    self.trie[ni].clock_removed.insert(f); // rejected: RT plants
+                }
+            }
+            (false, false) => {}
+        }
+        self.note_link_effects_ex(was, Some(f));
+    }
+
+    /// D-154: execute the queued external-update entries FIFO against the
+    /// live (now epoch-final) fields. Runs at fire_all pre-fire and at an
+    /// EVENT insert's position (Drools' force-flush, D-150) — before the
+    /// insert's own propagation. Entries for since-deleted facts drop
+    /// (their fold effects compensated at the delete; net-identical).
+    fn drain_winacc_pending(&mut self) {
+        if self.winacc_pending.is_empty() {
+            return;
+        }
+        let entries = std::mem::take(&mut self.winacc_pending);
+        let mut was: Vec<bool> =
+            (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
+        for (f, mask) in entries {
+            if !self.store.is_alive(f) {
+                continue;
+            }
+            let ftype = self.store.fact_type(f);
+            for ni in 0..self.trie.len() {
+                let (ri, pos) = self.trie[ni].env;
+                let pat = &self.rules[ri].patterns[pos];
+                if pat.type_id != ftype
+                    || matches!(pat.sub, SubRole::Outer { .. })
+                    || !pat.acc.as_ref().is_some_and(|a| a.window_time.is_some())
+                {
+                    continue;
+                }
+                self.winacc_step(ni, f, mask, None, &mut was);
             }
         }
     }
@@ -5111,6 +5276,12 @@ impl Engine {
                 self.flush_trigger_tid = None;
             }
         }
+        // D-154: execute the queued external-update entries for windowed
+        // accumulates BEFORE any evaluation — FIFO, against the live
+        // (epoch-final) fields. The agenda pick orders by (salience,
+        // decl_pos), so staging here instead of at the update call is
+        // byte-identical for single-update epochs.
+        self.drain_winacc_pending();
         // D-136: drain each shared temporal join's accumulated epoch batch
         // to its sinks ONCE, at the fire boundary — the FIRST sink FORWARD
         // (addAll ⇒ the D-125 order the flush computed), every PEER REVERSED
@@ -5746,6 +5917,19 @@ impl Engine {
                 continue; // subnet CE nodes take rights via the RIA hop
             }
             if self.alpha_passes(ri, pos, f) {
+                // D-154: sliding-window admission at INSERT — an event whose
+                // snapshot ts+N is already due folds NOTHING (no transient,
+                // wa_stale_ins_reject) but plants the RightTuple bit, so a
+                // later mask-hit update revives it (wa_stale_ins_revive).
+                if self.rules[ri].patterns[pos]
+                    .acc
+                    .as_ref()
+                    .is_some_and(|a| a.window_time.is_some())
+                    && !self.winacc_admits(ni, f)
+                {
+                    self.trie[ni].clock_removed.insert(f);
+                    continue;
+                }
                 self.trie[ni].active.insert(f);
                 self.maybe_pulse(ni);
                 // D-102 (survivor pre_lifo_then_post_arr): in EVENT
@@ -5784,6 +5968,7 @@ impl Engine {
     fn on_update(&mut self, f: FactId, mask: u64, origin: Origin) {
         self.mark_queries_pending();
         let ftype = self.store.fact_type(f);
+        let mut winacc_defer = false; // D-154: external update of a windowed-acc source
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         // D-094: within ONE fact-update, alpha ENTRIES and in-place
         // (mask-hit) updates process BEFORE alpha EXITS — Drools asserts
@@ -5867,6 +6052,25 @@ impl Engine {
             if pat.type_id != ftype || matches!(pat.sub, SubRole::Outer { .. }) {
                 continue;
             }
+            // D-154: WINDOWED accumulate nodes take updates via the
+            // RightTuple entry machine (winacc_step) — external updates
+            // DEFER to the flush points as queued entries evaluating the
+            // epoch-final fields (the m1-m15 matrix); RHS modifies of a
+            // windowed source (fuzz-unreachable) step immediately. The
+            // D-137/D-139 arms below stay for every other node — for
+            // windowed ones their machinery (incl. the clock_removed
+            // guard and the bind_fields eff_mask) is subsumed by the
+            // step's mask-gated revival/admission semantics.
+            if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some()) {
+                if pass == 0 {
+                    if origin.is_none() {
+                        winacc_defer = true;
+                    } else {
+                        self.winacc_step(ni, f, mask, origin, &mut was);
+                    }
+                }
+                continue;
+            }
             let was_in = self.trie[ni].active.contains(&f);
             let now = self.alpha_passes(ri, pos, f);
             if (pass == 0) == (was_in && !now) {
@@ -5875,13 +6079,15 @@ impl Engine {
             match (was_in, now) {
                 (false, true) if self.trie[ni].clock_removed.contains(&f) => {
                     // CEP E2 item C class 2 (D-137): a CLOCK-removed event
-                    // (window-evicted / expiration-eager acc-removed — staged
-                    // out of `active` by stage_acc_removal, still is_alive
-                    // until the deferred drain) is NOT revived by an external
-                    // update. Drools keeps it removed (xf_cep_c_upd_evict_revive
-                    // window; xf_cep_c_upd_after_exp expiration). Without this,
-                    // the re-entry below re-adds it to the accumulate (the
-                    // count springs back). Leave it removed — a no-op entry.
+                    // (expiration-eager acc-removed — staged out of `active`
+                    // by stage_acc_removal, still is_alive until the deferred
+                    // drain) is NOT revived by an external update. Drools
+                    // keeps it removed (xf_cep_c_upd_after_exp expiration).
+                    // Without this, the re-entry below re-adds it to the
+                    // accumulate (the count springs back). Leave it removed —
+                    // a no-op entry. (The WINDOW-evicted variant now lives in
+                    // winacc_step: eviction-detached events DO revive on a
+                    // mask-HIT — D-154; this arm serves plain accumulates.)
                 }
                 (false, true) => {
                     self.trie[ni].active.insert(f);
@@ -5961,6 +6167,12 @@ impl Engine {
             }
             self.note_link_effects_ex(&mut was, Some(f));
         }
+        }
+        if winacc_defer {
+            // ONE queue entry per external update call, carrying ITS OWN
+            // written-mask (BfDump: no merging across a batch's entries);
+            // the drain walks every windowed node of the type.
+            self.winacc_pending.push((f, mask));
         }
         self.tms_eager_break(f);
     }

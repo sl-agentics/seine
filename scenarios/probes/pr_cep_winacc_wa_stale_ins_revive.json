@@ -1,0 +1,61 @@
+{
+ "name": "wa_stale_ins_revive",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E($v : val) over window:time(100ms); $c : sum($v) ) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 0,
+      "val": 10,
+      "tag": "x"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "val": 20
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP A2 windowed-accumulate (D-154/D-155): the REJECTED insert still creates the WindowNode RightTuple (created BEFORE behavior.assertFact), so a later mask-hit update REVIVES it (sum 20) \u2014 rejection is not a permanent block."
+}

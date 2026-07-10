@@ -1,0 +1,87 @@
+{
+ "name": "port_insdrain",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400,
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0($t : ts) over window:time(150ms) from entry-point \"S1\"; $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 7,
+    "tag": "x",
+    "dur": 50
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "tag": "y",
+    "dur": 10
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 151
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 49
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y",
+      "ts": 200
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 205,
+      "tag": "z",
+      "dur": 50
+     },
+     "entry_point": "S1"
+    }
+   ]
+  }
+ ],
+ "_finding": "CEP A2 (D-155 port guard): revival coalesces with a SAME-epoch event insert (evict at the advance, ts-update revives, insert adds: one fire 405 = 200+205). Guards the drain-vs-stream-flush interaction: pending winacc entries drain at the FIRE boundary only \u2014 draining at the insert's position tripped the per-arrival flush's segment scoping and lost the revival."
+}

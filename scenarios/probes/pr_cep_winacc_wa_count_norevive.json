@@ -1,0 +1,73 @@
+{
+ "name": "wa_count_norevive",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\") over window:time(100ms); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 10,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "val": 20
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "x"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP A2 windowed-accumulate (D-154/D-155): windowed count() has an EMPTY bindings-only mask: NO update can ever revive an evicted member (neither {val} nor the constraint write {tag})."
+}

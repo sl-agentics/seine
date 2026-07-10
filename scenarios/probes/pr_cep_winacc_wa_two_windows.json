@@ -1,0 +1,70 @@
+{
+ "name": "wa_two_windows",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W1 when accumulate( E($v : val) over window:time(100ms); $c : sum($v) ) then end\nrule W2 when accumulate( E($v : val) over window:time(200ms); $c : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 10,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "val": 20
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP A2 windowed-accumulate (D-154/D-155): per-node independence: one update revives the member at the N=100 node (evicted there) while re-folding it at the N=200 node (still in); the N=200 eviction later pops it there while the N=100 zombie persists."
+}

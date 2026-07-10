@@ -1,0 +1,77 @@
+{
+ "name": "port_ep",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400,
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule W2 when accumulate( E0($t : ts) over window:time(150ms) from entry-point \"S1\"; $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 7,
+    "tag": "x",
+    "dur": 50
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "tag": "y",
+    "dur": 10
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 151
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 49
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y",
+      "ts": 200
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP A2 (D-155 port guard): the cf719x34 revival shape routed through entry-point S1 \u2014 the RightTuple machine composes with D-116 routing."
+}

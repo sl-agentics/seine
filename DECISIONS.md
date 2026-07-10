@@ -11,40 +11,36 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-154-RECON — **the A2 windowed-accumulate
-mechanism is CRACKED and SPECIFIED; the engine port is GATE-PENDING (Bryan)**.
-Read `~/.claude/plans/a2-winacc-mechanism-report.md` (mechanism + port plan +
-prescribed post-port gates), then D-154 below. One machine, four pieces, all
-oracle-validated: (1) a per-(window-node,event) RightTuple bit that survives
-eviction/rejection/alpha-fail (created before the behavior check; eviction
-retracts only the clone); (2) no-RT updates re-run admission against the
-INSERT-SNAPSHOT ts (live ts irrelevant — no transient on reject, but the RT
-plants); (3) RT-path modifies are mask-gated (windowed mask = BINDINGS only,
-D-139's) and a mask-HIT of a fold-absent event re-asserts it at LIVE fields
-BYPASSING the window queue (zombie if evicted; re-evicts at ts0+N if still
-queued) — the D-137 clock_removed guard pinned the mask-MISS cell and
-over-blocked; (4) external updates queue per-entry (own mask) and execute
-FIFO at the drain against the epoch-FINAL bean (BfDump proxy-proven; no mask
-merging — killed two wrong hypotheses). Bonus: expiry deadline D=ts+ex+1
-re-pinned under windows (ts+ex=-1 ⇒ due-on-arrival NOT leak; leak ⇔
-ts+ex<=-2). Spec `tools/model_check_winacc.py` **0-div on 3,368** (30-probe
-battery `tools/gen_winacc_probes.py` + all 5 witnesses incl. regenerated
-cf401x25/42+cf423x107 (same mechanism, no sibling) + 3,300+ soup
-`tools/fuzz_winacc.py` seeds 901-909). `SEINE_WINUPD_FULL=1` gate added to
-fuzz_cep.py (lifts the temporal-type UPDATE fence). AccDump extended
-(epoch actions + WindowNode queue dumps). NO ENGINE CHANGE in this slab.
-**Resume (post-GATE): port per the report §Port plan** — 4 scoped changes,
-all gated on `pat.acc.window_time.is_some()`: detached-set semantics at
-5876, snapshot admission on (false,true)+insert paths, pre-fire FIFO
-update drain for windowed nodes; then the report's gate battery (corpus
-byte-identity, 9-population engine-vs-oracle sweep, SEINE_WINUPD_FULL fuzz
-401/423/719+fresh ×400 both trees, wa/m battery graduates to
-pr_cep_winacc_*, xf_cep_winacc_719_* graduate to regressions, D-155).
-Item-1b tails after A2: plain-not cf313x4, tj pair-order (cf613x306 kin,
-xf_cep_tjorder_613_pair). Fenced-by-nature: D-134 §6 PriorityQueue tie,
-fz_42_84. Gates at this checkpoint: `make diff` 11/1002/291 byte-identical,
-lint 1392, cargo 9 suites, bindings 72 (no engine change — drift-check
-only). `git log --oneline -20` for live HEAD._
+_Last updated: 2026-07-10, post-D-155 — **the A2 windowed-accumulate family
+is CLOSED: mechanism (D-154) + engine port (D-155) both landed.** Bryan
+cleared the gate; the port = `winacc_admits` (snapshot admission on the
+insert + no-RT-update paths; rejection plants the RightTuple, no transient)
++ `winacc_step` (the per-node RightTuple machine: detached =
+`clock_removed` at windowed nodes; mask-HIT revival at live fields, zombies
+never re-evict, revive-before-eviction pops at ts0+N; plain nodes keep the
+D-137 guard) + `winacc_pending`/`drain_winacc_pending` (external updates
+defer as per-entry FIFO queue entries evaluating epoch-final fields at
+fire_all pre-fire — single-update epochs provably byte-identical) + the
+stale-deadline guard in `schedule_window_evictions` (already-due deadlines
+never schedule — else they evict revived zombies; the one bug the
+population sweep caught, wf902x184). Gates: corpus 11/**1035**/**293**
+byte-identical (+33 `pr_cep_winacc_*` pins = the wa/m battery + port
+guards; both A2 witnesses GRADUATED to regressions/), lint **1427**/0/0,
+cargo 9, bindings 72; engine-vs-oracle: battery 30/30, all 5 witnesses
+pass, soup **3,312/3,335**; A/B vs base **+1,985 fixed / 0 regressed**;
+`SEINE_WINUPD_FULL=1` fuzz_cep 401/423/719/811 ×400 = **0 div** (base: the
+5 witnesses). RESIDUAL (filed, pre-existing, one family): same-epoch
+multi-op batching at NON-windowed nodes vs Drools' per-entry incremental
+flush — `xf_cep_acc_updel_flush_{plain,win}` (update-admits then delete ⇒
+oracle fires the net-zero value, engine's staged ins+del compensates) +
+`xf_cep_acc_multiupd_plain` (out-and-back double-update composition);
+follow-on = per-entry incremental drain. The winacc spec/tools
+(model_check_winacc.py 0-div incl. the residual shapes, fuzz_winacc.py,
+gen_winacc_probes.py) are the family's regression harness. Item-1b tails
+remaining: plain-not cf313x4, tj pair-order (cf613x306 kin,
+xf_cep_tjorder_613_pair — also what SEINE_WINUPD_FULL still guards; lift
+the fence by default when that slab lands). Fenced-by-nature: D-134 §6
+PriorityQueue tie, fz_42_84. `git log --oneline -20` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -8079,3 +8075,72 @@ landed byte-identical corpus need Bryan's GATE). Report:
 mechanism-level `_finding`s; they graduate at the port, when the wa/m
 battery lands as `pr_cep_winacc_*` pins. Post-port gate battery is
 prescribed in the report (§"Planned gates").
+
+## D-155 — A2 windowed-accumulate PORT: the RightTuple entry machine (winacc_step)
+
+**Gate cleared by Bryan ("port it"); the D-154 mechanism is now the engine.**
+Four scoped pieces, all keyed on `pat.acc.window_time.is_some()`:
+
+1. **`winacc_admits`** — `SlidingTimeWindow.assertFact`'s snapshot admission
+   (`temporal_ts + N > clock`, rejection at <=): runs on the INSERT walk
+   (stale-on-arrival events fold NOTHING and mark `clock_removed` = the
+   RightTuple plants; no transient) and on the no-RT update transition.
+2. **`winacc_step`** — the per-node update machine replacing the D-137/D-139
+   arms for windowed nodes: in-fold mask-gated re-fold (bindings-only mask,
+   unchanged semantics), alpha-fail exit folds out un-mask-gated AND
+   detaches (RT persists), detached + mask-HIT re-asserts at live fields
+   (REVIVAL — no queue re-entry: zombies never re-evict; revived-before-
+   eviction still pops at ts0+N via the pending deadline entry), no-RT +
+   alpha-pass runs fresh admission. `clock_removed` at windowed nodes now
+   MEANS "detached" (RT present, fold absent); plain nodes keep the D-137
+   expiry-eager no-revival guard untouched (`pr_cep_c_upd_after_exp`).
+3. **`winacc_pending` + `drain_winacc_pending`** — EXTERNAL updates of a
+   windowed source defer as FIFO queue entries (own written-mask each) and
+   execute at fire_all PRE-FIRE against the live = epoch-final fields (the
+   deferred-entry semantics BfDump proxied; m1-m15). Single-update epochs
+   are provably byte-identical (staging lands before the first agenda pick;
+   the pick orders by salience/decl_pos, not queue time). RHS modifies of a
+   windowed source (fuzz-unreachable) step immediately. NOT drained at the
+   event-insert position: an accumulate emits at rule evaluation either
+   way, and mid-epoch staging tripped the per-arrival stream flush's
+   segment scoping (pin `pr_cep_winacc_revive_insdrain` guards this).
+4. **The stale-deadline guard** in `schedule_window_evictions` — an
+   already-due deadline (ts+N <= clock) never schedules: the event can
+   never be admitted (the snapshot check is time-monotone), and the stale
+   past-key entry would otherwise pop at the next advance and evict a
+   REVIVED member that Drools' queue never contained (wf902x184 — the
+   zombie must survive; this was the one port bug the population sweep
+   caught).
+
+**Gates (all green).** Corpus `make diff` 11/**1035**/**293** byte-identical
+(+33 pins: the full wa_*/m* battery as `pr_cep_winacc_*` with per-cell
+findings, the insdrain/ep port guards, the updel_inmember control; the two
+A2 witnesses GRADUATED to regressions/). Lint **1427**/0/0; cargo 9 suites;
+bindings 72. ENGINE-vs-oracle: battery 30/30, all 5 witnesses (both
+committed + the 3 fence-lifted legacy) PASS; the 9 winacc soup populations
+**3,312/3,335**. A/B vs the pre-port base (worktree at `a6110a5`): base
+passes 1,327/3,335 ⇒ **+1,985 fixed / 0 regressed** (every residual fails
+on base identically). Fence-lifted `SEINE_WINUPD_FULL=1 fuzz_cep` seeds
+401/423/719 + fresh 811, ×400 each: **0 divergences** on the ported tree
+(base: the 5 witnesses); re-run post-deadline-guard: clean. gen.rs emits no
+windows ⇒ main axis untouched; the not/exists shadow machinery is
+rule-disjoint from windowed accs (D-151 static exclusions) and the 1,600
+fence-lifted fuzz cases cover the scenario-level mixes.
+
+**The residual (filed, NOT this slab).** 23/3,335 soup cases = ONE family:
+same-epoch multi-op batching at NON-windowed nodes vs Drools' PER-ENTRY
+incremental flush — (a) update-then-DELETE where the update brings the
+fact IN: each oracle entry dirties the accumulate result and the terminal
+fires the NET-ZERO value; the engine's batched ins+del staging compensates
+silently (22 cases; `xf_cep_acc_updel_flush_{plain,win}`, minimal repros;
+the windowed twin's drain skips the dead fact — same no-fire); (b) plain
+out-and-back double-update composed with a windowed sibling + insert
+(1 case; `xf_cep_acc_multiupd_plain`, minimized from wf906x9; the bare
+shape passes). Both PRE-EXISTING (fail on base identically), unreachable
+in fuzz_cep (max one op per epoch per target), and the model_check spec
+handles them (the spec stays 0-div — only the engine lags). Follow-on:
+generalize the deferred-entry drain to per-entry incremental evaluation.
+
+**Standing.** The `SEINE_WINUPD_FULL` fuzz gate stays env-guarded: with A2
+closed it now guards only the temporal-join pair-order latents (cf613x306
+kin) — lift it by default when that slab lands. The A2 family is CLOSED.

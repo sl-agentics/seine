@@ -1,0 +1,77 @@
+{
+ "name": "xf_cep_acc_multiupd_plain",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 150
+   }
+  }
+ ],
+ "drl": "rule W0 when accumulate( E(tag == \"z\"); $c : count() ) then end\nrule W1 when accumulate( E(tag == \"x\", $t : ts) over window:time(150ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": -160,
+    "val": 7,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": -260,
+    "val": 4,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z",
+      "ts": -7
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 144,
+      "val": 6,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "OPEN residual (D-155, pre-existing \u2014 fails on the pre-port base identically): same-epoch out-and-back DOUBLE-UPDATE of a plain-accumulate member (tag z->x->z) composed with a windowed sibling rule + a same-epoch insert: the oracle's entries evaluate against the epoch-FINAL bean (the member never leaves; count 2), the engine's immediate per-call processing sees the intermediate x state and its staged del+ins loses the member (count 1). The bare shape without the sibling/insert passes (multiupd control) \u2014 the composition is load-bearing (minimized from wf906x9). Same per-entry-deferral root as xf_cep_acc_updel_flush_*."
+}

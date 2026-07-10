@@ -1,0 +1,56 @@
+{
+ "name": "xf_cep_acc_updel_flush_plain",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\"); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 1,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "OPEN residual (D-155, pre-existing \u2014 fails on the pre-port base identically): same-epoch UPDATE-then-DELETE where the update brings the fact INTO a plain accumulate. Drools executes each queued entry incrementally \u2014 the upd entry folds it in and dirties the result, the delete folds it out; the terminal fires the NET-ZERO value (W:0). The engine batches both into one staging window and the ins+del compensation swallows the emission (no fire). Root: per-entry incremental flush at NON-windowed nodes \u2014 the deferred-entry semantics D-155 ported for windowed accumulate nodes, generalized. 22 of the 23 winacc-population residuals are this shape; unreachable in fuzz_cep (max 1 op/epoch). Follow-on slab."
+}

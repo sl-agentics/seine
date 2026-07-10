@@ -1,0 +1,57 @@
+{
+ "name": "xf_cep_acc_updel_flush_win",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\", $t : val) over window:time(100ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 5,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "x",
+      "val": 7
+     }
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "OPEN residual (D-155, pre-existing-class): the windowed twin of xf_cep_acc_updel_flush_plain \u2014 update-admits then same-epoch delete; the oracle fires the net-zero W:0 (per-entry flush), the engine's fire-boundary drain skips the dead fact (no fire). Same root: per-entry incremental execution. Contrast pr_cep_winacc_updel_inmember (already-in member: both sides fire)."
+}

@@ -1,0 +1,56 @@
+{
+ "name": "updel_inmember",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\", $t : val) over window:time(100ms); $c : sum($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 5,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "val": 7
+     }
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "CEP A2 (D-155 control): update-then-DELETE of an already-IN-fold member in one epoch nets a REAL membership change -> both sides fire the post-delete value (5 -> 0). Contrast xf_cep_acc_updel_flush_*: when the UPDATE ITSELF brings the member in, the oracle's per-entry flush fires the net-zero value and the engine's batched staging compensates silently (the open residual)."
+}
