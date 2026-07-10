@@ -7478,3 +7478,32 @@ satisfying-epoch insert fall to FIFO (matches HEAD — not a regression; cf407x1
 `[1,2,3,2]` vs oracle `[1,3,2,2]`). Needs a per-P before/after-witness segment bit; left
 as the documented exists tail. Other item-1b tails unchanged (plain-`not` cf313x4,
 windowed-accumulate A2, mixed-regime `e_p_blk_p`).
+
+### D-145: mixed-regime `not` order (`e_p_blk_p`) — hand-built witness FILED + candidate rule cracked at hand-probe level. `scenarios/xfail/xf_cep_not_order_mixed_initial.json`; 10/10 probes fit "within a segment: epoch-inserts, then updates, then the POST-BLOCKER EPOCH-0 INITIALS last" — a strict extension of D-143, NOT yet population-validated
+
+**The corner.** Initial P's on BOTH sides of the blocker (`[P1, E0, P2]`) — the shape
+neither D-140's fuzz (blocker-first) nor D-143's `fuzz_notorder_b` (all initials before
+the blocker) ever generated, absent from the certified corpus and the fence-lifted
+sweeps. DETERMINISTIC, order-only (SET 0-div): oracle `[3,2,1]` vs engine `[2,3,1]`
+(the D-143 seg model latches P-first via P1 and orders seg1's inserts purely by gidx;
+the oracle demotes the post-blocker epoch-0 initial P2 behind the epoch insert P3).
+
+**Candidate rule (hand-probed 10/10, `$JOB/tmp/mprobe.py` — m_base/m_0ep/m_2ep/
+m_2in1ep/m_2after/m_2before/m_updP1/m_updP2mid/m_updP2unb/m_upd2/m_upd2r/m_arr).**
+Segments (blocker-insert count) newest-first exactly as D-143; WITHIN a segment =
+`[epoch>=1 inserts, gidx asc] ++ [updates, apply-seq desc] ++ [epoch-0 initials, gidx
+asc]`. Class moves: an epoch-0 initial UPDATED at all — even same-segment — promotes
+into the updates slot (`m_updP2mid` `[3,2,1]`); an epoch>=1 insert updated same-segment
+stays an insert (D-143's nb801x0 no-op); updates order newest-apply-first (`m_upd2`
+`[3,1,2]` vs `m_upd2r` `[3,2,1]`). Epoch batches inside the segment go FORWARD
+(`m_2ep` `[3,4,2,1]` — my first reversal hypothesis was WRONG; the probes corrected
+it). REDUCES to D-143 exactly when no segment holds post-blocker initials, so the
+port would be a pure extension of `seg_order_key` (an initials-last class + the
+epoch-0-update promotion), byte-identical on the validated population by construction.
+
+**Status: witness + candidate only — NOT ported.** The method lesson stands: hand
+battery ≠ population spec. To close: extend `fuzz_notorder_b` with mixed initial
+positions (P's after the blocker, including multi-blocker/arrival interactions with
+the untested epoch-0-initial-updated-across-an-arrival case), model_check to 0-div,
+then extend the key. xfail is outside the diff tiers ⇒ corpus gates unchanged
+(**11/991/288** re-verified). Impact remains LOW (order-only, out-of-distribution).
