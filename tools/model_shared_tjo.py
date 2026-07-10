@@ -42,6 +42,28 @@ def gen(rng, name):
     op = rng.choice(["after", "before"])
     hi = rng.choice([50, 100, 150])
     nrules = rng.choice([2, 2, 3])
+    # tj pair-order slab: SEINE_TJO_SELF=1 adds the SELF-join axis — the
+    # shape D-136's population never reached (the shared divert's self-pair
+    # phase membership; ~/.claude/plans/tj-pairorder-findings.md). lo=0
+    # always (lo>0 kills self-pairs). Same-type facts, ts ties included,
+    # up to 3 arrival epochs.
+    if os.environ.get("SEINE_TJO_SELF") and rng.random() < 0.65:
+        pat = f"$a : E0() $b : E0(this {op}[0ms,{hi}ms] $a)"
+        drl = "".join(f"rule TJ{i} when {pat} then end\n" for i in range(nrules))
+        n_ev = rng.randint(2, 6)
+        tss = [rng.randint(0, min(hi + 20, 60)) for _ in range(n_ev)]
+        facts = [("E0", t) for t in tss]
+        eps = []
+        n_ep = rng.choice([1, 2, 2, 3])
+        while n_ep > 1 and len(facts) > 1:
+            k = rng.randint(1, len(facts) - 1)
+            facts, tail = facts[:k], facts[k:]
+            eps.insert(0, {"actions": [], "facts": [
+                {"type": t, "fields": {"ts": v}} for t, v in tail]})
+            n_ep -= 1
+        return {"name": name, "types": [etype("E0"), etype("E1")], "drl": drl,
+                "facts": [{"type": t, "fields": {"ts": v}} for t, v in facts],
+                "epochs": eps}
     pat = f"$a : E0() $b : E1(this {op}[0ms,{hi}ms] $a)"
     drl = "".join(f"rule TJ{i} when {pat} then end\n" for i in range(nrules))
     facts = []
@@ -69,15 +91,17 @@ def gen(rng, name):
             "facts": [{"type": t, "fields": {"ts": v}} for t, v in facts], "epochs": ep}
 
 
-def _tuple_render(t):
-    # firings are (E0_ts, E1_ts); render as the sorted (type,ts) tuple the diff uses
-    return tuple(sorted((("E0", t[0]), ("E1", t[1]))))
+def _tuple_render(t, selfjoin=False):
+    # firings are (E0_ts, partner_ts); render as the sorted (type,ts) tuple
+    # the diff uses (partner type = E0 for the self-join axis)
+    return tuple(sorted((("E0", t[0]), ("E0" if selfjoin else "E1", t[1]))))
 
 
 def simulate(scn):
     m = re.search(r'this (after|before)\[(\d+)ms,(\d+)ms\] \$a', scn["drl"])
     op, hi = m.group(1), int(m.group(3))
     nrules = scn["drl"].count("rule TJ")
+    selfjoin = re.search(r'\$b : E0\(', scn["drl"]) is not None
     node = Node(op, 0, hi)
 
     # per epoch: feed the epoch's facts, snapshot the NEW D-125 firings
@@ -86,7 +110,18 @@ def simulate(scn):
     firings = []
     for efacts in epoch_fact_lists:
         for f in efacts:
-            if f["type"] == "E0":
+            if selfjoin:
+                # tj pair-order (probe-derived, 9-shape battery + the
+                # cf613x306 decode): a self-join arrival propagates its
+                # LEFT insert FIRST (joining the right memory WITHOUT the
+                # not-yet-inserted self-right), THEN its RIGHT insert
+                # (joining the left memory WITH the self-left) — each
+                # batch through the Node's own prepend reversal. Net:
+                # [left-role: old rights newest-first] ++ [right-role:
+                # SELF-pair first, old lefts newest-first].
+                node.left_insert([f["fields"]["ts"]])
+                node.right_insert(f["fields"]["ts"])
+            elif f["type"] == "E0":
                 node.left_insert([f["fields"]["ts"]])
             elif f["type"] == "E1":
                 node.right_insert(f["fields"]["ts"])
@@ -99,7 +134,7 @@ def simulate(scn):
         for i in range(nrules):
             seq = new if i == 0 else list(reversed(new))
             for t in seq:
-                firings.append((f"TJ{i}", _tuple_render(t)))
+                firings.append((f"TJ{i}", _tuple_render(t, selfjoin)))
     return firings
 
 
