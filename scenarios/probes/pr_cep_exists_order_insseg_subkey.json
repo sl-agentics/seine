@@ -1,0 +1,97 @@
+{
+ "name": "cep_exists_order_insseg_subkey",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 200
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 3
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 400
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-147 exists within-batch sub-key: at the SECOND re-fire, P2 and P3 share the last-touch epoch (both inserted in ep2), but P3's insert-segment is HIGHER (inserted after ep2's mid-epoch witness arrival) -> within the epoch batch, inserts order by ins_seg DESC then insertion: [3,2], initial P1 last. Sequence: [1] [2,1,3] then re-fire [3,2,1]. Engine pre-D-147 ordered [2,3] by insertion alone."
+}

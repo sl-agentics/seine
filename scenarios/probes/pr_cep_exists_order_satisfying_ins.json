@@ -1,0 +1,77 @@
+{
+ "name": "cep_exists_order_satisfying_ins",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 200
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-147 exists regime 2 (was the D-144 in_cycle fence): a P inserted in the SATISFYING epoch splits by position vs the transition witness. P2 (BEFORE the E1) was inserted while unsatisfied -> joins the re-fire batch as its newest epoch, firing FIRST; P3 (AFTER the E1) arrived while SATISFIED -> a fresh stream insert firing AFTER the batch: cycle1 [1], re-fire+fresh [2,1,3]. Engine pre-D-147 FIFO'd the whole cycle ([1,2,3]). ins_seg >= RuleNet.satisfy_seg detects the fresh class. Fixes cf407x121's NE6."
+}

@@ -1,20 +1,24 @@
 #!/usr/bin/env python3
-"""CEP item-1b Family B (exists) — `exists E1() P()` RE-FIRE order model (D-144).
-Validates a PREDICT against the oracle firing SEQUENCE from fuzz_existsorder.py.
-0-div on the CLEAN regime (delete + single toggle, EMODEL=epoch); the full
-multi-toggle/expiry populations are validated engine-vs-oracle by `diff` (the
-simplified batch-structure sim here does not replicate expiry transient fires).
+"""CEP item-1b Family B (exists) — `exists E1() P()` RE-FIRE order model
+(D-144 + D-147). Validates a PREDICT against the oracle firing SEQUENCE from
+fuzz_existsorder.py. 0-div on the delete-toggle regimes (EMODEL=epoch), incl.
+the D-147 regime-2 satisfying-epoch inserts; the expiry/multi-toggle populations
+are validated engine-vs-oracle by `diff` (this simplified sim does not replicate
+expiry transient-fires).
 
-THE RULE (cracked 2026-07-09): P's fire when the witness EXISTS; each satisfy
-transition (live 0->1) re-fires the whole held memory.
+THE RULE: P's fire when the witness EXISTS; each satisfy transition (live 0->1)
+re-fires the whole held memory.
   - the FIRST satisfaction fires the accumulated P's FIFO (insertion order);
-  - every RE-FIRE (after the witness toggles) uses the D-140 EPOCH model: batch
-    by last-touch epoch, REVERSE (newest first), the INITIAL epoch LAST; within a
-    batch INSERTS (insertion order) then UPDATES (newest apply first). A P updated
-    in a later epoch re-stages into that (newest) batch.
-So exists re-fire == the D-140 blocker-first `not` order (`not_order_key`), NOT
-the D-143 P-first SEGMENT model. FENCED tail (regime 2): a P inserted in the
-SATISFYING epoch (before/after the re-arrival witness) — cf407x121's NE6 residual.
+  - every RE-FIRE uses the D-140 EPOCH model: batch by last-touch epoch, REVERSE
+    (newest first), the INITIAL epoch LAST; within a batch INSERTS then UPDATES
+    (newest apply first). WITHIN-BATCH inserts sub-order by ins_seg DESC then
+    insertion order (a P inserted after a mid-epoch witness arrival precedes an
+    earlier one — D-147, ex801x145);
+  - D-147 (regime 2, was the D-144 fence): a P inserted while SATISFIED — in the
+    satisfying epoch AT/AFTER the transition witness (`ins_seg >= satisfy seg`)
+    — fires IMMEDIATELY as a fresh stream insert (arrival order), NOT inside the
+    re-fire batch; a before-witness insert joins the batch as its newest epoch.
+    This closed cf407x121 (NE6).
 EMODEL=epoch (default) | seg (the rejected mirror-of-not variant, kept for record).
 Usage: model_check_exists.py <existspop_*.json>
 """
@@ -50,7 +54,10 @@ def predict(scn, model=None):
             out = []
             for b in ebs + [0]:
                 mem = [v for v in ps if batch[v] == b]
-                inss = sorted((v for v in mem if not is_upd.get(v)), key=lambda v: gidx[v])
+                # within-batch inserts: ins_seg DESC then gidx — a P inserted
+                # after a mid-epoch witness arrival precedes an earlier one
+                # (expop_ins residuals ex801x145/x150/x42)
+                inss = sorted((v for v in mem if not is_upd.get(v)), key=lambda v: (-ins_seg[v], gidx[v]))
                 upds = sorted((v for v in mem if is_upd.get(v)), key=lambda v: -upd_app[v])
                 out.extend(inss + upds)
             return out
@@ -83,6 +90,8 @@ def predict(scn, model=None):
             v = f["fields"]["v"]; vof[fi] = v
             gidx[v] = idx[0]; ins_seg[v] = seg[0]; upd_seg[v] = seg[0]; is_upd[v] = False
             ins_epoch[v] = epoch[0]; upd_epoch[v] = epoch[0]
+            if live:                 # inserted while SATISFIED: fires immediately
+                firings.append(v)    # (fresh stream insert, arrival order)
 
     def do_update(a):
         v = vof.get(a["target"])

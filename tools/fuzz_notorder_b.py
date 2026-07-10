@@ -5,8 +5,15 @@ UNBLOCK epoch). Same clean single-unblock shape as fuzz_notorder.py, but the
 final (unblock) epoch also carries P UPDATES, interleaved with the UNBLOCK
 advance at a random position — the axis fuzz_notorder never exercised.
 
+D-146: the initial-fact BLOCKER POSITION is now RANDOM among the initial P's
+(0-3 P's before it, 0-2 after), so one population spans all three regimes:
+P-FIRST (D-143's shape), MIXED (post-blocker epoch-0 initials — the D-145
+`xf_cep_not_order_mixed_initial` corner, incl. epoch-0-initials updated across
+an ARRIVAL), and BLOCKER-FIRST **with arrivals** (D-140's population had none).
+
 model_check_notorder_b.py validates a simulator against this population (0-div is
-the port gate). Usage:  fuzz_notorder_b.py <n> <seed>  ->  writes
+the port gate; MODEL=seg2 is the D-146 unified rule). Usage:
+fuzz_notorder_b.py <n> <seed>  ->  writes
 <tmp>/notpop_b_<seed>.json = [{"scenario":..., "order":[v...]}].
 """
 import json, os, sys, random, subprocess
@@ -28,11 +35,13 @@ def gen(r, name):
     advance = single unblock). N uniquely-valued P facts inserted / updated
     across batches while blocked; the FINAL epoch ALSO updates prior P's, with
     the UNBLOCK advance interleaved at a random position among those updates."""
-    # P-FIRST regime (the divergent one — the real witnesses cf401x362/notB_min
-    # insert P before the blocker; a blocker inserted BEFORE a P promotes an
-    # unblock-epoch update, AFTER a P does not — the key Family-B discriminator).
-    # D-140's fuzz_notorder put the blocker at idx0 (blocker-first), so it only
-    # ever saw the easy regime. Here: initial P's first, then the blocker.
+    # D-146 MIXED initial positions: n_before P's, the blocker, n_after P's.
+    # DEFAULT n_before>=1 = the P-first/MIXED regimes (the D-143 seg model + the
+    # D-145 initials-last tail) — the seg2 0-div gate. SEINE_NOTPOP_BF=1 allows
+    # n_before==0 = BLOCKER-FIRST **with arrivals**, a regime D-140 never
+    # validated (its population had none) and whose within-segment composition
+    # is UNCRACKED (D-146 recon: d140/class/seg-d140 all ~26-47% divergent) —
+    # kept out of the spec population until its own model arc.
     facts = []
     gidx = 0
     vpos = {}          # v -> global insertion index (only once inserted)
@@ -43,9 +52,16 @@ def gen(r, name):
         facts.append({"type": "P", "fields": {"v": v}})
         nonlocal gidx
         vpos[v] = gidx; gidx += 1
-    for _ in range(r.randint(1, 3)):
+    lo = 0 if os.environ.get("SEINE_NOTPOP_BF") else 1
+    n_before = r.randint(lo, 3)
+    n_after = r.randint(0, 2)
+    if n_before + n_after == 0:
+        n_before = 1
+    for _ in range(n_before):
         add_initial()
-    facts.append(dict(BFACT)); gidx += 1   # blocker AFTER the initial P's
+    facts.append(dict(BFACT)); gidx += 1   # the blocker, mid-initials
+    for _ in range(n_after):
+        add_initial()
     n_epochs = r.randint(1, 3)
     epochs = []
     for _ep in range(n_epochs):

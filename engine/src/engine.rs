@@ -980,6 +980,13 @@ struct RuleNet {
     /// (forward), matching Drools; only after the witness toggles do the epoch
     /// batches reverse. `None` until the rule first fires.
     last_fire_no: Option<u64>,
+    /// D-146 (exists regime 2): `event_seg` at the moment this rule's queue went
+    /// EMPTY → NON-EMPTY — for a gated exists that is the satisfy transition (the
+    /// witness insert bumps `event_seg`, then its flush enqueues the whole held
+    /// batch). A P with `ins_seg >= satisfy_seg` was inserted at/after the
+    /// satisfying witness — i.e. while SATISFIED — and fires AFTER the re-fire
+    /// batch as a fresh stream insert (FIFO), not inside it.
+    satisfy_seg: u64,
 }
 
 impl RuleNet {
@@ -1664,6 +1671,7 @@ impl Engine {
                 dirty_stamp: 0,
                 seg_p_first: false,
                 last_fire_no: None,
+                satisfy_seg: 0,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -4496,19 +4504,29 @@ impl Engine {
         (batch_hi, batch_lo, kind, tie)
     }
 
-    /// D-143 (item 1b Family B): the P-FIRST unblock order as a sort key
-    /// (`tools/model_check_notorder_b.py`). Released P's fire by SEGMENT (event-
-    /// insert count) NEWEST-first; within a segment, INSERTS (insertion order)
-    /// then UPDATES (newest apply first). A P updated into a LATER segment than
-    /// its insert re-stages there (an UPDATE of that segment); a same-segment
-    /// update stays an INSERT. `min_by_key` ⇒ smallest fires first.
+    /// D-143/D-146 (item 1b Family B): the P-FIRST/MIXED unblock order as a sort
+    /// key (`tools/model_check_notorder_b.py MODEL=seg2`). Released P's fire by
+    /// SEGMENT (event-insert count) NEWEST-first; WITHIN a segment three classes:
+    /// [epoch-≥1 INSERTS, insertion order] ++ [UPDATES, newest apply first] ++
+    /// [EPOCH-0 INITIALS, insertion order — the last-class tail (D-145
+    /// `xf_cep_not_order_mixed_initial`)]. Class moves: a P updated into a LATER
+    /// segment moves there as an update (D-143); an EPOCH-0 initial updated at
+    /// ALL — even same-segment — promotes into the updates slot (D-145
+    /// m_updP2mid); an epoch-≥1 insert updated same-segment stays an insert
+    /// (D-143 nb801x0). `min_by_key` ⇒ smallest fires first.
     fn seg_order_key(touch: &HashMap<FactId, FactTouch>, f: Option<FactId>) -> (i64, i64, i64, i64) {
         let Some(f) = f else { return (2, 0, 0, 0) };
         let t = touch.get(&f).copied().unwrap_or_default();
-        let moved = t.is_upd && t.upd_seg > t.ins_seg;
+        let moved = t.is_upd && (t.upd_seg > t.ins_seg || t.insert_epoch == 0);
         let seg = if moved { t.upd_seg } else { t.ins_seg };
-        let (kind, tie) = if moved { (1, -(t.upd_seq as i64)) } else { (0, f.0 as i64) };
-        (-(seg as i64), kind, tie, 0)
+        let (class, tie) = if moved {
+            (1, -(t.upd_seq as i64))
+        } else if t.insert_epoch == 0 {
+            (2, f.0 as i64)
+        } else {
+            (0, f.0 as i64)
+        };
+        (-(seg as i64), class, tie, 0)
     }
 
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
@@ -4642,34 +4660,74 @@ impl Engine {
                         let use_seg = !exists && self.nets[ri].seg_p_first;
                         let touch = &self.fact_touch;
                         let q = &self.nets[ri].queue;
-                        // `in_cycle`: a fired P inserted THIS cycle. For `not` this
-                        // is the delete-unblock's fresh post-unblock insert (FIFO).
-                        // For EXISTS it is a P inserted in the SATISFYING epoch: the
-                        // re-fire order over such a mixed batch is the FENCED regime-2
-                        // tail (a P inserted AFTER the satisfying witness fires last,
-                        // BEFORE joins the newest batch — an insert-vs-witness timing
-                        // split this stamp can't tell apart), so fall back to FIFO
-                        // there too (matches HEAD; cf407x121's NE6 residual).
-                        let in_cycle = q.iter().any(|a| {
-                            a.t.get(pos)
-                                .and_then(|f| touch.get(f))
-                                .is_some_and(|t| t.insert_epoch >= fno)
-                        });
-                        if in_cycle || exists_first_fire {
-                            0
+                        if exists {
+                            if exists_first_fire {
+                                0
+                            } else {
+                                // D-146 (regime 2 — was the D-144 in_cycle fence): a
+                                // P with `ins_seg >= satisfy_seg` was inserted
+                                // at/after the satisfying witness, i.e. while
+                                // SATISFIED — a FRESH stream insert that fires AFTER
+                                // the re-fire batch, FIFO. The batch (held P's +
+                                // any inserted this epoch BEFORE the witness)
+                                // epoch-reorders; a before-witness in-cycle P's
+                                // touch epoch == fire_no ⇒ the newest batch, firing
+                                // first — the cracked model
+                                // (`tools/model_check_exists.py`, expop_ins_clean
+                                // 0-div; fixes cf407x121's NE6).
+                                let sseg = self.nets[ri].satisfy_seg;
+                                q.iter()
+                                    .enumerate()
+                                    .min_by_key(|(i, a)| {
+                                        let f = a.t.get(pos).copied();
+                                        let t = f.and_then(|f| touch.get(&f)).copied();
+                                        let fresh = t.is_some_and(|t| {
+                                            t.ins_seg >= sseg && t.insert_epoch >= fno
+                                        });
+                                        if fresh {
+                                            (1, *i as i64, 0, 0, 0, 0)
+                                        } else {
+                                            // within-batch inserts: ins_seg DESC
+                                            // then FactId — a P inserted after a
+                                            // mid-epoch witness arrival precedes
+                                            // an earlier one (ex801x145).
+                                            let k = Self::not_order_key(touch, f);
+                                            let sub = if t.is_some_and(|t| !t.is_upd) {
+                                                -(t.map(|t| t.ins_seg).unwrap_or(0) as i64)
+                                            } else {
+                                                0
+                                            };
+                                            (0, k.0, k.1, k.2, sub, k.3)
+                                        }
+                                    })
+                                    .map(|(i, _)| i)
+                                    .unwrap_or(0)
+                            }
                         } else {
-                            q.iter()
-                                .enumerate()
-                                .min_by_key(|(_, a)| {
-                                    let f = a.t.get(pos).copied();
-                                    if use_seg {
-                                        Self::seg_order_key(touch, f)
-                                    } else {
-                                        Self::not_order_key(touch, f)
-                                    }
-                                })
-                                .map(|(i, _)| i)
-                                .unwrap_or(0)
+                            // `not`: the in_cycle guard — a delete-unblock's fresh
+                            // post-unblock insert fires FIFO (pr_cep_c_del_not);
+                            // fall back whenever a fired P was inserted THIS cycle.
+                            let in_cycle = q.iter().any(|a| {
+                                a.t.get(pos)
+                                    .and_then(|f| touch.get(f))
+                                    .is_some_and(|t| t.insert_epoch >= fno)
+                            });
+                            if in_cycle {
+                                0
+                            } else {
+                                q.iter()
+                                    .enumerate()
+                                    .min_by_key(|(_, a)| {
+                                        let f = a.t.get(pos).copied();
+                                        if use_seg {
+                                            Self::seg_order_key(touch, f)
+                                        } else {
+                                            Self::not_order_key(touch, f)
+                                        }
+                                    })
+                                    .map(|(i, _)| i)
+                                    .unwrap_or(0)
+                            }
                         }
                     }
                 },
@@ -6761,6 +6819,14 @@ impl Engine {
             }
         };
         let pre = self.queue_top_sal(ri).unwrap_or(0);
+        // D-146 (exists regime 2): an EMPTY -> NON-EMPTY enqueue marks a fresh
+        // batch; stamp the current event segment (for a gated exists, the
+        // satisfy-transition segment — the witness bumped `event_seg` just
+        // before its flush enqueued the batch). Read only by the gated-exists
+        // re-fire split; harmless everywhere else.
+        if self.nets[ri].queue.is_empty() {
+            self.nets[ri].satisfy_seg = self.event_seg;
+        }
         self.nets[ri].queue.push(Act { t, sal, seq });
         self.update_item_salience(ri, pre);
     }

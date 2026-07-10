@@ -8,8 +8,7 @@ TOGGLES, each = the witness LEAVES (delete or expiry-advance) + P's churn while
 absent (inserts + updates) + the witness RE-ARRIVES (>=1 E1) => a re-fire. The
 divergence is the re-fire ORDER (the D-140 EPOCH model). Captures the FULL firing
 sequence; the port gate is engine-vs-oracle `diff` 0-fail on the emitted files
-(model_check_exists.py derives the order rule on the clean delete-single-toggle
-subset). Usage: fuzz_existsorder.py <n> <seed> -> <tmp>/existspop_<seed>.json.
+(model_check_exists.py, incl. the D-147 regime-2 rule). Usage: fuzz_existsorder.py <n> <seed> -> <tmp>/existspop_<seed>.json.
 """
 import json, os, sys, random, subprocess
 
@@ -66,13 +65,23 @@ def gen(r, name):
         for _ in range(r.randint(1, 2)):
             ts = clock[0] + r.randint(0, 20)
             rf.append({"type": "E1", "fields": {"ts": ts}})
+        # D-147 (regime 2): P's inserted IN the satisfying epoch, interleaved
+        # before/after the re-arrival witnesses — before-witness joins the
+        # re-fire batch, after-witness fires fresh (cf407x121's NE6 shape).
+        for _ in range(r.randint(0, 2)):
+            v = nextv[0]; nextv[0] += 1
+            rf.insert(r.randint(0, len(rf)), {"type": "P", "fields": {"v": v}})
         existing = list(vpos.keys()); r.shuffle(existing)
         for pv in existing:
             if r.random() < 0.3:
                 actions2.append({"op": "update", "target": vpos[pv], "fields": {"v": pv}})
         epochs.append({"actions": actions2, "facts": rf})
-        for _ in rf:
-            live_e1.append(gidx); gidx += 1
+        for fct in rf:
+            if fct["type"] == "E1":
+                live_e1.append(gidx)
+            else:
+                vpos[fct["fields"]["v"]] = gidx
+            gidx += 1
     return {"name": name, "types": TYPES, "drl": DRL, "facts": facts, "epochs": epochs}
 
 

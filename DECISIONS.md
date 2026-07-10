@@ -7507,3 +7507,75 @@ positions (P's after the blocker, including multi-blocker/arrival interactions w
 the untested epoch-0-initial-updated-across-an-arrival case), model_check to 0-div,
 then extend the key. xfail is outside the diff tiers ⇒ corpus gates unchanged
 (**11/991/288** re-verified). Impact remains LOW (order-only, out-of-distribution).
+
+### D-146: mixed-regime `not` order PORTED — the D-145 candidate rule population-validated to 0-div (`MODEL=seg2`, ~5150 scenarios incl. the D-143 reduction) and enforced by a `seg_order_key` class extension; the D-145 witness GRADUATED. BONUS DISCOVERY: BLOCKER-FIRST **with arrivals** is a NEW uncracked latent family (D-140's population had none) — recon'd + fenced with witnesses
+
+**The population.** `tools/fuzz_notorder_b.py` now places the blocker at a RANDOM
+position among the initial P's (`n_before ∈ [1,3]`, `n_after ∈ [0,2]`), spanning
+P-first + MIXED (post-blocker epoch-0 initials, incl. epoch-0 initials updated ACROSS
+an arrival — the untested D-145 interaction, generated naturally by the epoch
+updates + arrival machinery). `SEINE_NOTPOP_BF=1` additionally allows `n_before==0`
+(blocker-first-with-arrivals) for the new-family recon only.
+
+**The model (`tools/model_check_notorder_b.py MODEL=seg2`) — 0-div.** Exactly the
+D-145 candidate: segments newest-first as D-143; WITHIN a segment `[epoch≥1 inserts,
+gidx] ++ [updates, apply-seq desc] ++ [epoch-0 initials, gidx]`; move rules: update
+into a LATER segment moves (D-143), an EPOCH-0 initial updated at ALL promotes into
+the updates slot, an epoch≥1 insert updated same-segment stays. Validated: 743 (seeds
+811-813) + 1736 FRESH (821-825) mixed scenarios ALL MATCH + the 2671 OLD D-143
+populations ALL MATCH (the strict-reduction proof — seg2 == seg where no post-blocker
+initials exist).
+
+**The port.** `seg_order_key` gains the class split: `moved := is_upd && (upd_seg >
+ins_seg || insert_epoch == 0)`; key `(-seg, class{0=ins,1=upd,2=epoch-0-initial},
+tie)`. Order-identical to the D-143 key on the validated population by construction
+(class 2 only exists in seg0 there). Verified: engine diff 0-fail on all 2500 new +
+2750 old population files + 1950 exists files; `make diff` byte-identical; the D-145
+witness PASSES → GRADUATED to `scenarios/regressions/` (the D-136 convention) + a new
+pin `pr_cep_not_order_mixed_upd_promote` (the epoch-0 update-promotion); mprobe
+battery 12/12; fence-lifted fuzz spot = the known residual set exactly.
+
+**NEW FAMILY (fenced): BLOCKER-FIRST with mid-run arrivals.** ~31% divergent (16/51,
+seed 831) vs the engine's D-140 key — D-140's population had NO arrivals, so its
+epoch model is the no-arrival special case. UNCRACKED: d140 40/127, the P-first class
+model 60/127, segments-desc+d140-within 33/127; hand analysis flip-flops
+(nb811x8's mid-epoch-update-promotes vs nb811x110's unblock-update-demotes;
+`xf_cep_not_bf_arrival`'s [3,5,4,1,2] isn't even segment-descending) ⇒ needs its own
+model arc. Witnesses `scenarios/xfail/xf_cep_not_bf_arrival{,2}.json`; deterministic,
+order-only, out of every validated distribution. Engine behavior there = HEAD
+(unchanged): no P has `ins_seg==0` ⇒ the seg branch never engages.
+
+### D-147: exists regime-2 SOLVED — the D-146 segment lens transferred: a P inserted while SATISFIED is a FRESH stream insert (fires after the re-fire batch), detected by `ins_seg >= RuleNet.satisfy_seg`; plus an `ins_seg`-DESC within-batch sub-key. The D-144 `in_cycle` fence is REPLACED; **cf407x121 PASSES** (left the fence-lifted residual set); all populations 0-fail
+
+**The insight transfer (the point of the exercise).** The D-144 fence ("a P inserted
+in the SATISFYING epoch — before/after-witness timing `insert_epoch` can't tell
+apart") is exactly a SEGMENT question: the witness insert bumps `event_seg`, so a
+before-witness P has `ins_seg < S_w` and an after-witness P has `ins_seg >= S_w`.
+THE RULE (cracked via `model_check_exists.py` + a dedicated population): a P inserted
+while SATISFIED (at/after the transition witness) fires IMMEDIATELY as a fresh stream
+insert, arrival order — NOT inside the re-fire batch; a before-witness insert joins
+the batch as its newest epoch (touch epoch == fire_no ⇒ fires first). REFINEMENT
+(multi-toggle populations): within an epoch batch, inserts sub-order by `ins_seg`
+DESC then insertion (a P inserted after a mid-epoch witness arrival precedes an
+earlier one — ex801x145).
+
+**The port.** `RuleNet.satisfy_seg` = `event_seg` stamped at every EMPTY→NON-EMPTY
+queue enqueue (`push_activation`) — for a gated exists that is the satisfy transition
+(the witness bumped `event_seg` just before its flush enqueued the batch; fresh P's
+enqueue onto the non-empty queue without re-stamping). The gated-exists re-fire pick
+replaces the D-144 `in_cycle`-FIFO fallback with the split: fresh (`ins_seg >=
+satisfy_seg && insert_epoch >= fire_no`) → FIFO tail; else the D-140 epoch key + the
+`ins_seg`-DESC insert sub-key. The `not` arm keeps its `in_cycle` guard unchanged.
+
+**Verified.** Engine diff 0-fail: 600 regime-2 (delete-clean, seeds 841-843) + 400
+multi-toggle/expiry+regime-2 (expop_ins — was ~110 order-divergent) + 500 FRESH
+(851-852) + all 1950 D-144 populations + 100 from the re-banked generator. `make
+diff` **11 / 994 / 289** byte-identical (+2 pins `pr_cep_exists_order_{satisfying_ins,
+insseg_subkey}`); lint 1382; cargo test. **cf407x121 PASSES** and is GONE from the
+fence-lifted residual set — remaining: cf313x4 (plain-not), cf401x25/42 + cf423x107
+(windowed-accumulate A2), all non-existential families. Tools re-banked:
+`fuzz_existsorder.py` (regime-2 axis) + `model_check_exists.py` (the full rule; sim
+0-div on delete-toggle regimes, expiry validated via engine diff). Blast-radius zero
+(gen.rs no events; corpus byte-identity). The exists tail is CLOSED; item-1b's
+remaining tails: plain-not cf313x4, A2 windowed-accumulate, and the new D-146
+blocker-first-with-arrivals family.

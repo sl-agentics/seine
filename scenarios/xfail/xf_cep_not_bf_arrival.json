@@ -1,0 +1,110 @@
+{
+ "name": "xf_cep_not_bf_arrival",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "v": 1
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 58
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 111
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 300
+    },
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "v": 3
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "comment": "D-146 FENCED (order-only, NEW family): BLOCKER-FIRST `not E0() P()` **with mid-run E0 arrivals** \u2014 a regime D-140 never validated (its population had no arrivals; its epoch model = the no-arrival special case). Engine (D-140 `not_order_key`, no P has ins_seg==0 so the seg branch never engages) diverges ~31% here (16/51, seed 831). RECON (D-146): the order is segment-STRUCTURED but the within/between composition is UNCRACKED \u2014 d140 40/127, P-first class model 60/127, segments-desc+d140-within 33/127 all fail; hand analysis flip-flops between mid-epoch-update-promotes (nb811x8 [3,2,4]) and unblock-update-demotes (nb811x110 [4,5,6,2,3,1]) shapes, and this witness's [3,5,4,1,2] is not even segment-descending. Needs its own model arc (population SEINE_NOTPOP_BF=1 tools/fuzz_notorder_b.py). SET 0-div; deterministic; out of the certified corpus + gen.rs. See DECISIONS D-146."
+}

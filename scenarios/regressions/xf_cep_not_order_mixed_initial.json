@@ -1,0 +1,71 @@
+{
+ "name": "xf_cep_not_order_mixed_initial",
+ "comment": "GRADUATED D-146 (was the D-145 FENCED witness): mixed-regime `not E0() P()` \u2014 initial P's on BOTH sides of the blocker ([P1, E0, P2]). Order [3,2,1]: within a segment, epoch-inserts fire first, then updates, then the POST-BLOCKER EPOCH-0 INITIALS as the last-class tail (P2 behind the epoch insert P3), initial-before-blocker segment last. Enforced by the D-146 `seg_order_key` class extension; spec = tools/model_check_notorder_b.py MODEL=seg2 (0-div on ~5150 scenarios incl. the D-143 reduction). See DECISIONS D-145/D-146.",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 300
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

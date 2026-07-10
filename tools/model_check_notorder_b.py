@@ -107,8 +107,79 @@ def predict_d140(scn):
     return out
 
 
+def predict_seg2(scn):
+    """D-146 UNIFIED rule (mixed initial positions, `xf_cep_not_order_mixed_initial`).
+    BLOCKER-FIRST (no initial P before the first E0) -> the D-140 epoch model.
+    Else (P-first / MIXED): segments (E0-insert count) NEWEST-first as D-143; WITHIN
+    a segment three classes: [epoch>=1 inserts, gidx asc] ++ [updates, apply-seq
+    DESC] ++ [EPOCH-0 INITIALS, gidx asc — the last-class tail]. Class moves: a P
+    updated into a LATER segment moves there as an update (D-143); an EPOCH-0
+    initial updated AT ALL (even same-segment) promotes into the updates slot
+    (D-145 m_updP2mid); an epoch>=1 insert updated same-segment stays an insert
+    (D-143 nb801x0)."""
+    seg = 0
+    gidx = {}; ins_seg = {}; ins_epoch = {}; upd_seg = {}; upd_app = {}; is_upd = {}
+    vof = {}
+    idx = 0; app = [0]
+    first_e0 = first_p = None
+
+    def do_insert(f, epoch_no):
+        nonlocal seg, idx, first_e0, first_p
+        if f["type"] == "E0":
+            if first_e0 is None:
+                first_e0 = idx
+            seg += 1
+        else:
+            v = f["fields"]["v"]; vof[idx] = v
+            if first_p is None:
+                first_p = idx
+            gidx[v] = idx; ins_seg[v] = seg; ins_epoch[v] = epoch_no; is_upd[v] = False
+        idx += 1
+
+    def do_update(a):
+        v = vof.get(a["target"])
+        if v is not None:
+            upd_seg[v] = seg; upd_app[v] = app[0]; is_upd[v] = True; app[0] += 1
+
+    for f in scn["facts"]:
+        do_insert(f, 0)
+    for e_i, ep in enumerate(scn["epochs"]):
+        for a in ep["actions"]:
+            if a["op"] == "update":
+                do_update(a)
+            elif a["op"] == "insert":
+                do_insert(a, e_i + 1)
+        for f in ep["facts"]:
+            do_insert(f, e_i + 1)
+
+    blocker_first = first_e0 is not None and (first_p is None or first_e0 < first_p)
+    if blocker_first:
+        return predict_d140(scn)
+
+    ps = list(gidx)
+    seg_of = {}; cls = {}
+    for v in ps:
+        moved = is_upd[v] and (upd_seg[v] > ins_seg[v] or ins_epoch[v] == 0)
+        if moved:
+            seg_of[v] = upd_seg[v]; cls[v] = 1
+        elif ins_epoch[v] == 0:
+            seg_of[v] = ins_seg[v]; cls[v] = 2
+        else:
+            seg_of[v] = ins_seg[v]; cls[v] = 0
+    out = []
+    for s in sorted({seg_of[v] for v in ps}, reverse=True):
+        mem = [v for v in ps if seg_of[v] == s]
+        mem.sort(key=lambda v: (cls[v], -upd_app[v] if cls[v] == 1 else gidx[v]))
+        out.extend(mem)
+    return out
+
+
 def predict(scn, model="seg"):
-    return predict_d140(scn) if model == "d140" else predict_seg(scn)
+    if model == "d140":
+        return predict_d140(scn)
+    if model == "seg2":
+        return predict_seg2(scn)
+    return predict_seg(scn)
 
 
 def main():
