@@ -431,12 +431,21 @@ struct Act {
 /// The two epochs differ ONLY for a fact updated after insert: the RELEASED-vs-
 /// FRESH split keys on `insert_epoch` (a fact inserted in the unblock epoch was
 /// never blocked), while the batch reversal keys on `epoch` (last-touch).
+///
+/// D-143 (item 1b Family B): `ins_seg`/`upd_seg` add the P-FIRST segment order.
+/// A SEGMENT counter (`event_seg`) advances on every event insert (the blocker
+/// re-blocks + flushes); `ins_seg` = the segment at this fact's insert, `upd_seg`
+/// = the segment at its last update (== `ins_seg` until updated). A P updated
+/// into a LATER segment moves there; the released P's fire newest-segment-first.
+/// Read only by the gated not-over-EVENT reorder, P-first branch (`seg_order_key`).
 #[derive(Clone, Copy, Default)]
 struct FactTouch {
     insert_epoch: u64,
     epoch: u64,
     is_upd: bool,
     upd_seq: u64,
+    ins_seg: u64,
+    upd_seg: u64,
 }
 
 use crate::phreak::{self, Origin, Staged, Tup};
@@ -954,6 +963,12 @@ struct RuleNet {
     /// D-106: stage_seq at the most recent dirty-marking — the
     /// executor's halt-peek ignores dirt born of the CURRENT firing.
     dirty_stamp: u64,
+    /// D-143 (item 1b Family B): LATCHED P-first regime for the gated
+    /// not-over-EVENT reorder. Set true once a released P with `ins_seg == 0`
+    /// (inserted before the first blocker) is seen in the queue; stays true as
+    /// the queue drains (the regime is a stable property of the run, but the
+    /// signal fact fires and leaves — re-deriving per pick would flip it).
+    seg_p_first: bool,
 }
 
 impl RuleNet {
@@ -1139,6 +1154,10 @@ pub struct Engine {
     /// inert on the plain corpus (no gated rule ⇒ never read).
     fact_touch: HashMap<FactId, FactTouch>,
     upd_seq_next: u64,
+    /// D-143 (item 1b Family B): monotonic count of event inserts = the current
+    /// not-unblock SEGMENT. Stamped into `FactTouch.ins_seg`/`upd_seg`; read only
+    /// by the P-first branch of the gated reorder. Reset with the session.
+    event_seg: u64,
     flush_trigger_tid: Option<TypeId>,
     ever_linked: Vec<bool>,
     stage_seq: u64,
@@ -1285,6 +1304,7 @@ impl Engine {
             fire_no: 0,
             fact_touch: HashMap::new(),
             upd_seq_next: 0,
+            event_seg: 0,
             flush_trigger_tid: None,
             ever_linked: Vec::new(),
             stage_seq: 0,
@@ -1631,6 +1651,7 @@ impl Engine {
                 ever_linked: false,
                 dirty: false,
                 dirty_stamp: 0,
+                seg_p_first: false,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -3245,7 +3266,11 @@ impl Engine {
         // D-140 (item #2): stamp the fact's birth epoch (fire boundaries count
         // external epochs). Read only by the gated not-over-EVENT reorder.
         let fno = self.fire_no;
-        self.fact_touch.insert(id, FactTouch { insert_epoch: fno, epoch: fno, is_upd: false, upd_seq: 0 });
+        let seg = self.event_seg;
+        self.fact_touch.insert(
+            id,
+            FactTouch { insert_epoch: fno, epoch: fno, is_upd: false, upd_seq: 0, ins_seg: seg, upd_seg: seg },
+        );
         // D-141 (item 1b): snapshot the event's FIXED temporal position (its ts
         // at insert). A later ts-field UPDATE mutates the field but not this —
         // temporal joins / index keys keep the insert position (Drools CEP).
@@ -3254,6 +3279,12 @@ impl Engine {
             if let Value::I64(ts) = self.store.value(id, ts_fi) {
                 self.store.set_event_ts(id, ts);
             }
+            // D-143 (item 1b Family B): an event insert opens the next not-unblock
+            // SEGMENT (the blocker re-blocks + flushes the staged P's). Facts
+            // inserted after it stamp the higher `ins_seg`; the released P's fire
+            // newest-segment-first (P-first regime). Inert unless the gated
+            // not-over-EVENT reorder reads it.
+            self.event_seg += 1;
         }
         self.schedule_expiration(id);
         self.schedule_window_evictions(id);
@@ -3323,6 +3354,7 @@ impl Engine {
         self.act_seq = 0;
         self.fact_touch.clear(); // D-140 (item #2): dead handles, WM cleared
         self.upd_seq_next = 0;
+        self.event_seg = 0; // D-143 (item 1b Family B): segment counter
         self.query_mem = Default::default();
         self.query_pending = vec![false; self.queries.len()];
         self.qce_children.clear();
@@ -3409,13 +3441,22 @@ impl Engine {
         let fno = self.fire_no;
         let seq = self.upd_seq_next;
         self.upd_seq_next += 1;
-        let e = self
-            .fact_touch
-            .entry(id)
-            .or_insert(FactTouch { insert_epoch: fno, epoch: fno, is_upd: false, upd_seq: 0 });
+        let seg = self.event_seg;
+        let e = self.fact_touch.entry(id).or_insert(FactTouch {
+            insert_epoch: fno,
+            epoch: fno,
+            is_upd: false,
+            upd_seq: 0,
+            ins_seg: seg,
+            upd_seg: seg,
+        });
         e.epoch = fno;
         e.is_upd = true;
         e.upd_seq = seq;
+        // D-143 (item 1b Family B): re-stamp the segment current at this update.
+        // A P updated into a LATER segment than its insert re-stages there (fires
+        // with that segment's batch); a same-segment update leaves it in place.
+        e.upd_seg = seg;
         if self.lists_built {
             self.on_update(id, mask, None);
             for net in self.nets.iter_mut() {
@@ -4434,6 +4475,21 @@ impl Engine {
         (batch_hi, batch_lo, kind, tie)
     }
 
+    /// D-143 (item 1b Family B): the P-FIRST unblock order as a sort key
+    /// (`tools/model_check_notorder_b.py`). Released P's fire by SEGMENT (event-
+    /// insert count) NEWEST-first; within a segment, INSERTS (insertion order)
+    /// then UPDATES (newest apply first). A P updated into a LATER segment than
+    /// its insert re-stages there (an UPDATE of that segment); a same-segment
+    /// update stays an INSERT. `min_by_key` ⇒ smallest fires first.
+    fn seg_order_key(touch: &HashMap<FactId, FactTouch>, f: Option<FactId>) -> (i64, i64, i64, i64) {
+        let Some(f) = f else { return (2, 0, 0, 0) };
+        let t = touch.get(&f).copied().unwrap_or_default();
+        let moved = t.is_upd && t.upd_seg > t.ins_seg;
+        let seg = if moved { t.upd_seg } else { t.ins_seg };
+        let (kind, tie) = if moved { (1, -(t.upd_seq as i64)) } else { (0, f.0 as i64) };
+        (-(seg as i64), kind, tie, 0)
+    }
+
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
         // D-081: slot memory does not survive a fire boundary —
         // same-window out-and-back restores the original slot
@@ -4500,6 +4556,25 @@ impl Engine {
                     "fire limit {limit} reached (non-terminating?)"
                 )));
             }
+            // D-143 (item 1b Family B): latch the P-first regime from the FULL
+            // queue before draining. Once a released P with `ins_seg == 0` is
+            // present, the run is P-first for good — but that P fires and leaves,
+            // so this must be sticky (else the tail mis-picks the D-140 key).
+            if matches!(self.rules[ri].salience, EngineSalience::Static(_)) {
+                if let Some(pos) = self.rules[ri].not_order_pos {
+                    if !self.nets[ri].seg_p_first {
+                        let touch = &self.fact_touch;
+                        let seen = self.nets[ri].queue.iter().any(|a| {
+                            a.t.get(pos)
+                                .and_then(|f| touch.get(f))
+                                .is_some_and(|t| t.ins_seg == 0)
+                        });
+                        if seen {
+                            self.nets[ri].seg_p_first = true;
+                        }
+                    }
+                }
+            }
             // RuleExecutor.getNextTuple: static rules removeFirst (FIFO);
             // dynamic-salience rules pop the queue MAX — ties NEWEST
             // first (MatchConflictResolver, D-043).
@@ -4522,6 +4597,18 @@ impl Engine {
                     None => 0,
                     Some(pos) => {
                         let fno = self.fire_no;
+                        // D-143 (item 1b Family B): the D-140 EPOCH key is the
+                        // BLOCKER-FIRST special case (every epoch flush blocked ⇒
+                        // epoch reversal). When a released P was inserted BEFORE the
+                        // first blocker (`ins_seg == 0` ⇒ P-FIRST, the real witness
+                        // cf401x362 + fuzz_notorder_b), epoch boundaries do NOT
+                        // segment — only event inserts do, so use the SEGMENT key.
+                        // Blocker-first (all P's after the blocker) keeps the D-140
+                        // key byte-identical (the pins). LATCHED (`seg_p_first`,
+                        // updated before this match): the signal P fires and leaves
+                        // the queue, so re-deriving per pick would flip the regime
+                        // mid-drain (nb801x110).
+                        let seg_pf = self.nets[ri].seg_p_first;
                         let touch = &self.fact_touch;
                         let q = &self.nets[ri].queue;
                         let in_cycle = q.iter().any(|a| {
@@ -4534,7 +4621,14 @@ impl Engine {
                         } else {
                             q.iter()
                                 .enumerate()
-                                .min_by_key(|(_, a)| Self::not_order_key(touch, a.t.get(pos).copied()))
+                                .min_by_key(|(_, a)| {
+                                    let f = a.t.get(pos).copied();
+                                    if seg_pf {
+                                        Self::seg_order_key(touch, f)
+                                    } else {
+                                        Self::not_order_key(touch, f)
+                                    }
+                                })
                                 .map(|(i, _)| i)
                                 .unwrap_or(0)
                         }

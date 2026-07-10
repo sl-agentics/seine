@@ -1,0 +1,77 @@
+{
+ "name": "not_order_ev_pfirst_arr",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 50
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 300
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-143 item 1b Family B: a mid-run blocker ARRIVAL opens a new not-unblock SEGMENT. P2 (before the arrival) and P3 (after) fall in different segments; segments fire NEWEST-first, so [3,2,1] (P3, then P2, then the initial P1). Isolates the segment boundary = event insert."
+}

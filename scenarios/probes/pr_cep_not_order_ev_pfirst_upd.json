@@ -1,0 +1,78 @@
+{
+ "name": "not_order_ev_pfirst_upd",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "op": "advance",
+     "ms": 300
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-143 item 1b Family B: P2 (initial, segment 0) UPDATED in a LATER segment (after the blocker) re-stages into that segment, firing with P3's batch BEFORE the untouched initial P1: [3,2,1]. A same-segment update would NOT move it. Isolates the update re-staging rule."
+}

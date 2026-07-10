@@ -1,0 +1,88 @@
+{
+ "name": "not_order_ev_pfirst",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 300
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-143 item 1b Family B: when a P is inserted BEFORE the blocker (P-FIRST), the released P's fire by SEGMENT (event-insert count) newest-first, but with ONE initial segment the epoch inserts fire FORWARD (ep1 then ep2), the initial P LAST: [2,3,4,5,1]. Contrast the BLOCKER-first not_order_ev_expiry ([3,2,1], epochs REVERSED) \u2014 the blocker-vs-P insert position flips the regime. Engine emitted the reversed (blocker-first) order here pre-D-143."
+}

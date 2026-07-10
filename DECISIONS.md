@@ -7374,3 +7374,59 @@ refine `predict()` to 0-div, then PORT (extend the D-140 `fire_all` reorder +
 byte-identical). This slightly recontextualizes D-140 (its validation was blocker-first
 only) but D-140's LANDED state is unaffected — corpus byte-identical, and P-first
 not-order is exactly this documented tail.
+
+### D-143: item-1b Family B — the SEGMENT model, CRACKED + PORTED. The event-`not` EXPIRY firing order in the P-FIRST regime is the SEGMENT model (P's grouped by event-insert count, newest-segment-first); enforced by a regime-branched extension of the D-140 reorder. Model 0-div on 2750 scenarios; engine diff 0-fail on all; corpus byte-identical (11/989/288); real witness cf401x362 A/B FAIL→PASS; blast-radius zero
+
+**The model (`tools/model_check_notorder_b.py`, `MODEL=seg`).** `not E0() P()`, blocked
+P's fire at the expiry-unblock advance. A SEGMENT counter advances on EACH E0 INSERT
+(initial blocker AND every mid-run arrival). Each released P records `ins_seg` (segment
+at insert) and, if updated, `upd_seg` + a global apply-seq (segment at last update). A P
+updated into a LATER segment than its insert RE-STAGES into that segment; a same-segment
+update does NOT move it. FIRE ORDER = segments NEWEST-first; within a segment, INSERTS
+(insertion order) then UPDATES (newest apply first). Derived probe-first (controlled
+oracle scenarios): pure-initial → forward; 2 insert-epochs → forward (NOT D-140's
+reverse — the tell); update = move-to-front, refined to segment re-stage; mid-run
+arrival = a segment boundary; update to an already-in-segment fact = no-op.
+
+**Why segments, not D-140 epochs (the blocker-position resolution).** D-140's
+`fuzz_notorder` was BLOCKER-FIRST (E0 before any P) — there every epoch flush is blocked
+so each epoch is its own segment (⇒ epoch reversal, the D-140 model). In the P-FIRST
+regime (a P inserted before the blocker — the real witness cf401x362 + the whole
+`fuzz_notorder_b` population) epoch boundaries do NOT segment; only E0 inserts do. So
+D-140's epoch key is the blocker-first SPECIAL CASE; the segment model is the general
+rule. This retires the D-142 "multi-dimensional (count/advance/position)" framing — all
+those axes fall out of the single segmentation.
+
+**The port (`engine/src/engine.rs`, gated to the existing `not <event>() P()` shape).**
+`FactTouch` += `ins_seg`/`upd_seg`; a monotonic `event_seg` bumps on every event insert
+(`after_insert`), stamped at insert and re-stamped at update. `seg_order_key` = the model
+as a `min_by_key` sort key `(-seg, insert<update, tie)`. The `fire_all` reorder BRANCHES:
+P-FIRST (a released P has `ins_seg==0` ⇒ inserted before the first blocker) →
+`seg_order_key`; BLOCKER-FIRST → the D-140 `not_order_key`, byte-identical (the pins).
+The regime is LATCHED per-rule (`RuleNet.seg_p_first`, sticky-true) — the signal P fires
+and leaves the queue, so re-deriving it per pick flips the regime mid-drain (the
+nb801x110 bug: seg-2 tail mis-picked the epoch key once the `ins_seg==0` P left → caught
+in validation, fixed by the latch).
+
+**Verified.** `model_check_notorder_b seg` 0-div on 733 (seeds 801-803) + 1938 fresh
+(901-905). ENGINE diff 0-fail on all 2750 individual scenario files. `make diff`
+**11 / 989 / 288** byte-identical (+3 graduated pins `pr_cep_not_order_ev_pfirst{,_arr,
+_upd}` — P-first counterparts of the D-140 blocker-first pins). `make lint-probes`
+1376·0·0; `cargo test`. cf401x362 (the real event-`not` witness) A/B **FAIL→PASS**
+(stash the engine port → FAIL, restore → PASS = causation). Fence-lifted `fuzz_cep` A/B
+(seeds 401/313/407/410/411 ×120 identical divergence sets; 420-427 ×200 = 1 pre-existing
+temporal-join divergence, A/B-unchanged) ⇒ ZERO new divergences across ~3k fresh cases.
+BLAST-RADIUS analytically ZERO: `gen.rs` emits no event types ⇒ `not_order_pos` always
+None AND `event_seg` never bumps ⇒ the whole Family-B path is dead on the main axis
+(same argument as D-140/D-141); fuzz 42/123/7 = 1/2/2 divergences (the pre-existing
+accumulate/identity-hash family, unchanged).
+
+**Remaining Family-B tails (SEPARATE mechanisms, gate excludes them — NOT this port):**
+`exists E1() P()` (cf407x121 — EXISTS not `not`, own model needed); fence-lifted
+plain-`not` order (cf313x4 — plain blocker ⇒ D-140/D-143 leave plain firing order
+alone; the FENCED cf313x4 passes); A2 windowed-accumulate-over-updated-ts (cf401x25/42,
+cf423x107 — the D-139/D-141 reactivity tail). And the mixed-regime corner `e_p_blk_p`
+(an initial P inserted AFTER the blocker — needs epoch+segment composition; outside the
+population, absent from the corpus, no fuzz witness). The whole item-1b arc (Family A
+D-141 ts-snapshot + Family B D-143 segment order) is now LANDED except these documented
+tails; findings `~/.claude/plans/cep-item-1b-findings.md`.
