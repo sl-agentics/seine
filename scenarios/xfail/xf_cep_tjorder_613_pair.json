@@ -1,0 +1,140 @@
+{
+ "name": "cf613x306",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 when $a : E0() $b : E0(this before[0ms,100ms] $a) then end\nrule TJ1 when $a : E0() $b : E0(this before[0ms,100ms] $a) then end\nrule W2 salience -5 when accumulate( E0(tag == \"y\", $t : ts) over window:time(150ms); $c : sum($t) ) then end\nrule J3 when $e : E0($t : tag) then insertLogical(new D($t)); end\nrule RD4 salience 3 when D() then end\nrule ND5 salience -2 when not D() P() then end\nrule G6 salience 15 when P(v == 2) then insert(new P3(3)); end\nrule C7 salience 3 when P3() then end\nrule NE8 when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 25,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 14,
+    "tag": "x",
+    "dur": 0
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 22,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 24,
+    "tag": "z",
+    "dur": 10
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 4,
+     "fields": {
+      "tag": "z",
+      "ts": 1
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 29,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 7,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "PRE-EXISTING temporal-join pair-order latent, flushed by fresh fuzz seed 613 during the D-152 blast-radius A/B: TJ0 firing[11] pairs E0(ts=29) with itself where the oracle pairs E0(ts=22),E0(ts=29). FAILS ON HEAD (e5d62b2) IDENTICALLY \u2014 bisected D-152, engine output invariant across plain HEAD / HEAD+boundary-fix / the ExShadow port. Same family as the documented item-1b temporal-join latents (fz_42/123/7, cf313x4 kin); not exists-related (the scenario has no exists rule). Filed for the eventual temporal-join-order slab."
+}

@@ -1,0 +1,65 @@
+{
+ "name": "cep_exp_boundary_leak",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": -300
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 500
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-152 (D-133 boundary corrected): an event whose deadline (endTs+@expires+1) is NEGATIVE never schedules an expiration \u2014 DROOLS-455 maps a negative effectiveEnd to Long.MAX_VALUE (never). E1(ts=-300, deadline -199) is IMMORTAL: it survives advance 500 and satisfies the exists forever \u2014 P2 inserted later fresh-fires [2]. Oracle xq1."
+}

@@ -1,0 +1,91 @@
+{
+ "name": "cep_exists_flush_link_gate",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists E1() P() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 8
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 7
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 313
+    },
+    {
+     "op": "insert",
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 191
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 480
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-152: the fire-loop eval runs only when the RuleAgendaItem got QUEUED \u2014 witnesses alone (join empty) never link the segment, so the IF sits staged across epochs; and a MARKED-expired witness keeps counting/blocking until its quiescence retract. E1a/E1b initial, advance past both deadlines (registered, marked), then [P1,E1c(due-on-arrival),P2]: P1's staging links the segment; the fire-loop drains [P2] and the IF blocks on the MARKED E1a: reverse([P1,P2]) = [2,1] fire transiently; quiescence retracts all. Graft: BfDump ex990x32 ep3 ([46] blocked{()*} on the marked witness)."
+}

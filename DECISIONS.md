@@ -11,28 +11,36 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-151 (EPICYCLES RETIRED — the mechanical
-model is IN THE ENGINE). Bryan's call: replace the phenomenological key models
-with the graft-derived machinery. `BfShadow` (engine.rs) replays the D-150
-mechanics per external op (rtm order + staged backlog + not/join linking +
-quiescence expirations + queue-position updates/deletes) and ranks the gated
-`not <EVENT>() P()` picks by its emitted order. RETIRED: `seg_order_key`,
-`seg_p_first`, `FactTouch.upd_seg` (D-143/D-146 branches). KEPT: the gated
-EXISTS keys (D-144/D-147 — next natural retirement) + the D-140 in_cycle guard
-(now the RHS-regime fence) + static shadow exclusions (bare patterns,
-non-event P, no RHS/window touch of gated types). Spec extended to explicit
-DELETES (retract-at-queue-position; join unlink at right-counter 0 — dl881x20)
-= 9,693 spec scenarios 0-div. Gates: corpus 11/994/291 byte-identical (every
-D-140..147 pin reproduced; `xf_cep_not_bf_arrival{,2}` GRADUATED to
-regressions), lint 1384, cargo green; engine-vs-oracle CLEAN on bf 694+679 and
-P-first/mixed/val 5,100; delete population +203 fixed / 0 regressed vs HEAD
-(23 in_cycle-guard residuals remain, a future slab); fuzz_cep 313/401/407/511
-×400 all 0-div (511 A/B'd both trees). gen.rs never builds a shadow (no
-events) ⇒ main axis inert. See D-151.
-Item-1b tails: plain-not cf313x4 (non-event machinery), A2 windowed-accumulate
-(cf401x25/42+cf423x107), the 23 delete-residuals, gated-exists mechanical
-retirement. Fenced-by-nature: D-134 §6 PriorityQueue tie, fz_42_84.
-`git log --oneline -20` for live HEAD._
+_Last updated: 2026-07-10, post-D-152 (the EXISTS keys retired — BOTH gated
+existential families now run mechanical shadows; the D-150 retirement arc is
+COMPLETE). `ExShadow` (engine.rs) replays the graft-derived exists machinery
+(BfDump recon: the IF left is STAGED at the exists until the first fire-loop
+eval ⇒ first-satisfaction emission at the fire loop, re-satisfy at the
+witness exec; the fire-loop eval runs iff QUEUED — one-sided windows never
+link; marked-expired witnesses count/block until quiescence, which runs
+post-agenda ⇒ transient fires) and ranks the gated `exists <EVENT>() P()`
+picks. RETIRED: `not_order_key`, `last_fire_no`, `satisfy_seg`,
+`FactTouch.{epoch,is_upd,upd_seq,ins_seg}`, `event_seg`, `upd_seq_next` (the
+whole D-144/D-147 stamp economy; `FactTouch` = `insert_epoch` only, feeding
+the not-side in_cycle RHS fence). BONUS: the D-133 expiration boundary
+CORRECTED (`schedule_expiration`) — only NEGATIVE deadlines leak
+(DROOLS-455); nonneg-past deadlines register due-on-arrival (match + fire
+this cycle, drop at quiescence) — oracle xq1-xq3, pins
+`pr_cep_exp_boundary_{leak,past}`. Spec: `model_check_exists.py EMODEL=flush`
+0-div on **5,507** oracle scenarios (14 banked + 7 full-axis
+`SEINE_EXPOP_FULL` populations: P deletes, partial witness deletes, delayed
+first satisfaction, staggered/due-on-arrival expiry, leak boundary, witness
+updates, pure-P windows). Gates: corpus 11/**999**/291 byte-identical (+5
+pins incl. `pr_cep_exists_flush_*`), lint 1389, cargo + bindings 72 green;
+engine-vs-oracle **5,605/5,605** clean; A/B vs HEAD: 1,012 divergences fixed
+(738 order via the shadow + ~274 boundary), ZERO regressions; fuzz_cep
+313/401/407 ×400 0-div, fresh 613 flushed one PRE-EXISTING temporal-join
+latent (fails on HEAD identically; filed `xf_cep_tjorder_613_pair`). gen.rs
+never builds a shadow. See D-152.
+Item-1b tails: plain-not cf313x4, A2 windowed-accumulate
+(cf401x25/42+cf423x107), the 23 not-side delete-residuals, temporal-join
+pair-order latents (cf613x306 kin). Fenced-by-nature: D-134 §6 PriorityQueue
+tie, fz_42_84. `git log --oneline -20` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -7804,3 +7812,109 @@ unblock inserts genuinely differ, D-140) — a future slab if wanted. The
 gated-EXISTS family still runs the D-144/D-147 keys; the mechanical
 treatment of PhreakExistsNode (witness-toggle emission) is the natural next
 retirement. The D-134 §6 PriorityQueue tie stays fenced by nature.
+
+### D-152: the EXISTS keys retired for the mechanical ExShadow — graft recon cracked the exists-side machinery (staged-IF deferral + segment-link gating), the spec went 0-div on 5,507 oracle scenarios across every axis the keys never saw, and the port fixes 1,012 full-axis divergences with zero regressions; BONUS: the D-133 expiration boundary was CORRECTED (nonneg-past deadlines register due-on-arrival; only NEGATIVE deadlines leak — DROOLS-455)
+
+**Bryan's directive:** "Please retire exists the same way" — the D-151 arc
+(graft → mechanical spec → shadow port) applied to the gated
+`exists <EVENT>() P()` family, retiring the D-144 re-fire epoch key and the
+D-147 regime-2 segment split.
+
+**Graft recon (BfDump on ex501x14 / ex990x20 / ex990x32).** The D-150 frame
+transfers, but THREE exists-side mechanics had to be observed, not derived
+(two hand-derivation attempts predicted wrong orders before the dumps
+settled it):
+1. **The IF (InitialFact) left is itself a STAGED tuple at the exists** until
+   the first fire-loop eval. An E1 force-flush processes RIGHTS along the
+   path (drains the join backlog staged-LIFO into rtm) but staged LEFTS
+   wait — so a FIRST satisfaction emits reverse(rtm) at the FIRE-LOOP eval,
+   swallowing P's drained after the witness in the same window (ex990x20
+   fires [3,1,2] where the retired key said FIFO [1,2,3]), while a
+   RE-satisfy (IF resident, re-blocked by the arriving witness) emits at the
+   witness's own exec after that exec's drain. The D-144 "first fires FIFO /
+   re-fires reverse" split and the D-147 before/after-witness rule are both
+   THIS seam — the banked toggle scaffold (witness always initial, single
+   drain window) could not distinguish them.
+2. **The fire-loop eval runs iff the RuleAgendaItem got QUEUED this window**:
+   the satisfy-link COMPLETING the segment (witness count 0→1 with the join
+   populated), P staging while the exists side is populated, or a
+   terminal-reaching delete. One-sided windows queue NOTHING — witnesses
+   alone never link the rule (ex990x32 sat with three witnesses and a staged
+   IF for two epochs), P's alone never drain (ex990x20 cycle 0).
+3. **Marked-expired witnesses keep counting AND blocking until their
+   quiescence retract** (ex990x32 ep3: the IF blocks on a witness whose
+   expire action already exec'd), and quiescence runs AFTER the agenda
+   drained — pre-quiescence emissions FIRE (the transient fires the old
+   sims could not represent; probes xm1-xm4).
+Everything else transfers verbatim: rtm order + global prepend backlog,
+reverse(rtm) emission via child-prepend, per-arrival force-flush drains,
+bare-P update move-to-tail (never re-fires), explicit deletes at queue
+position (cancelling queued activations), witness updates inert.
+
+**The D-133 boundary CORRECTION (a bonus find).** The full-axis population's
+due-on-arrival witnesses exposed that the D-133 rule ("deadline < clock ⇒
+KEPT forever") conflated two cases — its probes ran at insert-clock 0, where
+past ⇔ NEGATIVE. The real boundary (Drools
+`PropagationEntry.Insert.scheduleExpiration`, read for names; oracle probes
+xq1-xq3): **deadline < 0 ⇒ leak** (DROOLS-455 maps a negative effectiveEnd
+to Long.MAX_VALUE = never); **0 ≤ deadline ≤ clock ⇒ the expire action
+enqueues in the SAME flush** — the event matches + fires this cycle and
+drops at the quiescence drain; **deadline > clock ⇒ scheduled**. Fixed in
+`schedule_expiration` (engine.rs); the returned Ordering keeps its contract
+(Equal = due-on-arrival, consumed by both shadows). pos_far/pos_ins and the
+whole corpus are unaffected (negative-deadline and at-clock cases unchanged);
+the not-family populations never generate nonneg-past arrivals (analytically
+inert there). Pins: `pr_cep_exp_boundary_{leak,past}`.
+
+**The spec (`tools/model_check_exists.py EMODEL=flush`).** The mechanical
+simulator replays the pieces above; `fuzz_existsorder.py` gained
+`SEINE_EXPOP_FULL=1` — free op soup adding every axis the banked scaffold
+lacks: explicit P deletes, PARTIAL witness deletes (2→1), multi-witness with
+staggered ts (partial expiry, deadline-order quiescence), DELAYED first
+satisfaction, due-on-arrival witnesses, the leak boundary, witness updates
+(inert), pure-P windows, action-interleaved inserts. Validated **0-div on
+5,507 oracle scenarios**: all 14 banked D-144/D-147 populations (3,500;
+seeds 501-703, 841-843, 851-852 regenerated) + 7 full-axis populations
+(2,007; seeds 990-996) + probes xm1-4/xq1-3. The retired EMODEL=epoch key
+fails ~46% of a mixed banked population on the same full-sequence check
+(structurally blind to expiry transients).
+
+**The port (`ExShadow` in engine.rs).** A sibling of `BfShadow` under the
+same D-151 static exclusions (bare patterns, distinct types, non-event P, no
+RHS/window touch of gated types ⇒ else no shadow ⇒ plain FIFO): per-rule
+state = rtm / staged / e1_alive / pending_exp / join_count / if_staged /
+if_through / exec_queued, stepped by the same external-op hooks; `pre_fire`
+runs the fire-loop eval, fences the agenda-drained prefix (`q_floor` — a
+quiescence unsatisfy cancels only quiescence-born emissions), replays the
+registered expirations, and ranks the emission; the gated-exists pick takes
+rank-min (FIFO tiebreak) with NO in_cycle guard — the shadow covers in-cycle
+stream inserts natively (regime 2 was exactly that).
+RETIRED: `not_order_key` (the D-140 epoch key — its last reader),
+`RuleNet.last_fire_no` + the fire-boundary commit + `fired_this_cycle`,
+`RuleNet.satisfy_seg` + the push_activation stamp, `FactTouch.{epoch,is_upd,
+upd_seq,ins_seg}` + `Engine.{upd_seq_next,event_seg}` — `FactTouch` shrinks
+to `insert_epoch` (the gated-NOT in_cycle guard's sole field). The exists
+keys' entire stamp economy is gone.
+
+**Gates (all green).** Corpus `make diff` 11/**999**/291 byte-identical —
+every D-144/D-147 pin (`pr_cep_exists_order_*`, `pr_cep_v4_exists_two_held_
+gens`) reproduced by the shadow; +5 pins `pr_cep_exists_flush_{first_defer,
+link_gate,transient}` + `pr_cep_exp_boundary_{leak,past}`. Lint **1389**
+live / 0 / 0; all cargo suites; bindings pytest 72. ENGINE-vs-oracle sweep:
+**5,605 scenarios, 0 fail** (the whole spec surface). A/B against a HEAD
+worktree (oracle grafted): HEAD fails **1,012/5,605** — all in the full-axis
+populations (banked seeds stay green, confirming the D-144/147 gates were
+honest); HEAD+boundary-fix-only fails 738 ⇒ the ExShadow order machinery
+fixes ~738, the boundary correction ~274; the port fixes **all 1,012 with
+zero regressions**. fuzz_cep 313/401/407 ×400 = 0 divergences; fresh seed
+613 ×400 flushed ONE — `cf613x306`, a TEMPORAL-JOIN pair-order case with no
+exists rule that **fails on plain HEAD byte-identically** (bisected; filed
+`xf_cep_tjorder_613_pair`, the documented item-1b temporal-join latent
+family). gen.rs emits no events ⇒ the main axis never builds a shadow.
+
+**Standing scope.** The gated existential families now BOTH run mechanical
+shadows; the D-140 in_cycle guard survives only as the not-side RHS fence
+(its 23 delete-residuals unchanged). Remaining item-1b tails: plain-not
+cf313x4, the A2 windowed-accumulate family, the temporal-join pair-order
+latents (cf613x306 kin). Next natural mechanical candidates: none in the
+existential family — the retirement arc Bryan opened at D-150 is COMPLETE.

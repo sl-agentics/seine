@@ -425,32 +425,17 @@ struct Act {
     seq: u64,
 }
 
-/// D-140 (item #2): per-fact touch stamp driving the non-temporal
-/// not-over-EVENT unblock firing order (`tools/model_check_notorder.py`).
-/// `insert_epoch` = `fire_no` at INSERT (never rewritten); `epoch` = `fire_no`
-/// at the last insert/update — both count fire boundaries, so they equal the
-/// model's batch index (initial-batch inserts land at 0). `is_upd`/`upd_seq` =
-/// the last touch was an update and its global apply-order. Insertion order
-/// (the model's `gidx`) comes for free from the monotonic `FactId`.
-///
-/// The two epochs differ ONLY for a fact updated after insert: the RELEASED-vs-
-/// FRESH split keys on `insert_epoch` (a fact inserted in the unblock epoch was
-/// never blocked), while the batch reversal keys on `epoch` (last-touch).
-///
-/// D-143/D-147: `ins_seg` adds the segment order. A SEGMENT counter
-/// (`event_seg`) advances on every event insert; `ins_seg` = the segment at
-/// this fact's insert. Read by the gated EXISTS reorder (D-144/D-147:
-/// `satisfy_seg` comparison + the within-batch `ins_seg` DESC sub-key). The
-/// not-family stamp readers (D-143 `seg_order_key`, D-146 `upd_seg` class
-/// moves) were RETIRED by D-151 — the mechanical `BfShadow` replays the
-/// actual Drools machinery instead of keying on stamps.
+/// D-140 (item #2): per-fact birth stamp. `insert_epoch` = `fire_no` at
+/// INSERT (never rewritten; fire boundaries count external epochs). The sole
+/// remaining reader is the gated-NOT `in_cycle` guard — a fired P inserted
+/// THIS cycle falls back to FIFO (the RHS-regime fence). The last-touch
+/// epoch / update-seq / segment fields that fed the D-140/D-143/D-146/D-144/
+/// D-147 key models were retired with them (D-151 `BfShadow`, D-152
+/// `ExShadow` — the mechanical shadows replay the actual Drools machinery
+/// instead of keying on stamps).
 #[derive(Clone, Copy, Default)]
 struct FactTouch {
     insert_epoch: u64,
-    epoch: u64,
-    is_upd: bool,
-    upd_seq: u64,
-    ins_seg: u64,
 }
 
 /// D-151: the MECHANICAL per-arrival flush shadow for one gated
@@ -577,9 +562,10 @@ impl BfShadow {
 
     /// External E0 insert at its queue position: staging notify (queue iff
     /// the segment is linked, read PRE-unlink), then the STREAM force-flush
-    /// eval. `due_now` = the deadline equals the insertion clock (Drools
-    /// enqueues the expire action in the same flush; deadline < clock is the
-    /// D-132 leak — alive forever, never registered).
+    /// eval. `due_now` = the deadline is nonneg-past/at the insertion clock
+    /// (Drools enqueues the expire action in the same flush; a NEGATIVE
+    /// deadline is the DROOLS-455 leak — alive forever, never registered —
+    /// D-133 boundary corrected by D-152).
     fn on_e0_insert(&mut self, id: FactId, due_now: bool) {
         if self.segment_linked() {
             self.exec_queued = true;
@@ -702,6 +688,234 @@ impl BfShadow {
         self.emit_rank.clear();
     }
 
+}
+
+/// D-152: the mechanical flush shadow for one gated `exists <EVENT>() P()`
+/// rule with BARE patterns — the exists-side sibling of `BfShadow`, ported
+/// from the graft-validated spec (`tools/model_check_exists.py EMODEL=flush`;
+/// BfDump on ex501x14/ex990x20/ex990x32; 0-div on 5,274 oracle scenarios
+/// across the banked D-144/D-147 populations and the full-axis
+/// SEINE_EXPOP_FULL soup — P deletes, partial witness deletes, delayed first
+/// satisfaction, staggered multi-witness expiry, due-on-arrival witnesses,
+/// witness updates). Retires the D-144/D-147 key models (`not_order_key`
+/// re-fire gating + `satisfy_seg`/`ins_seg` regime-2 split), which were
+/// per-regime shadows of this machinery. Same rtm/staged carrier as the not
+/// family; the EXISTS-side mechanics:
+///   1. the IF (InitialFact) left is itself STAGED at the exists until the
+///      first FIRE-LOOP eval — an E1 force-flush processes RIGHTS along the
+///      path but staged LEFTS wait. A FIRST satisfaction therefore emits
+///      reverse(rtm) at the fire-loop eval, AFTER that eval's own drain of
+///      post-witness P's (ex990x20 fires [3,1,2]); a RE-satisfy (the IF
+///      resident in the exists memory) emits at the witness's exec, after
+///      that exec's drain — the D-144 "epoch reversal" and the D-147
+///      before/after-witness split both fall out of this seam;
+///   2. the fire-loop eval runs iff the RuleAgendaItem got QUEUED this
+///      window: the satisfy-link COMPLETING the segment (witness count 0->1
+///      with the join populated), P staging while the exists side is
+///      populated, or a terminal-reaching delete. One-sided windows queue
+///      nothing — the IF and the P backlog sit staged across epochs
+///      (ex990x32 cycle 0: witnesses alone never link the rule);
+///   3. an unsatisfy edge (count 1->0) is the IF left-DELETE: children die
+///      and QUEUED activations cancel. An explicit E1 delete retracts at
+///      its queue position; EXPIRY retracts run at QUIESCENCE (registered
+///      by advance / due-on-arrival in the same flush, deadline order)
+///      AFTER the agenda drained — pre-quiescence emissions fire (the
+///      transient fires, probes xm1-xm4) and marked-expired witnesses keep
+///      counting/blocking until their retract (`q_floor` protects the
+///      already-drained prefix from a quiescence unsatisfy);
+///   4. a drain emits children in arrival order iff the IF is THROUGH (the
+///      regime-2 fresh stream fires); a bare-P update is an rtm
+///      move-to-tail (staged: no-op) and never re-fires; witness updates
+///      are inert; a P delete annihilates its staged insert or leaves rtm
+///      and cancels its queued activation.
+struct ExShadow {
+    e1_tid: TypeId,
+    e1_ep: u32,
+    p_tid: TypeId,
+    p_ep: u32,
+    rtm: Vec<FactId>,
+    staged: Vec<FactId>,
+    e1_alive: Vec<FactId>,
+    pending_exp: Vec<FactId>,
+    join_count: u32,
+    if_staged: bool,
+    if_through: bool,
+    exec_queued: bool,
+    /// Predicted emission order for the current fire cycle; `q_floor` marks
+    /// the agenda-drained prefix a quiescence unsatisfy cannot cancel.
+    q: Vec<FactId>,
+    q_floor: usize,
+    emit_rank: HashMap<FactId, usize>,
+}
+
+impl ExShadow {
+    fn new(e1_tid: TypeId, e1_ep: u32, p_tid: TypeId, p_ep: u32) -> Self {
+        ExShadow {
+            e1_tid,
+            e1_ep,
+            p_tid,
+            p_ep,
+            rtm: Vec::new(),
+            staged: Vec::new(),
+            e1_alive: Vec::new(),
+            pending_exp: Vec::new(),
+            join_count: 0,
+            if_staged: true,
+            if_through: false,
+            exec_queued: false,
+            q: Vec::new(),
+            q_floor: 0,
+            emit_rank: HashMap::new(),
+        }
+    }
+
+    /// doRightInserts: iterate the staged prepend-list LIFO, appending to
+    /// rtm; with the IF through, each child prepends into trg so the
+    /// terminal sees arrival order back (double reversal).
+    fn drain(&mut self, emit_children: bool) {
+        self.rtm.extend(self.staged.iter().rev().copied());
+        if emit_children {
+            self.q.extend(self.staged.iter().copied());
+        }
+        self.staged.clear();
+    }
+
+    /// One network evaluation: the exists consumes its staged E1 op
+    /// (`(is_insert, id)`), the join drains staged right-inserts, then the
+    /// join's staged LEFTS process — the re-satisfy child in the same exec,
+    /// the IF's own left-ins only in a FIRE-LOOP eval.
+    fn eval_window(&mut self, e1_op: Option<(bool, FactId)>, fire_loop: bool) {
+        let mut satisfy = false;
+        if let Some((is_ins, id)) = e1_op {
+            if is_ins {
+                if !self.if_staged && !self.if_through && self.e1_alive.len() == 1 {
+                    satisfy = true; // resident IF re-blocks: emits THIS exec
+                }
+            } else {
+                self.e1_alive.retain(|&e| e != id);
+                if self.if_through && self.e1_alive.is_empty() {
+                    self.if_through = false; // left-delete: children die
+                    self.q.truncate(self.q_floor); // matchCancelled for queued
+                }
+            }
+        }
+        self.drain(self.if_through);
+        if satisfy {
+            self.if_through = true;
+            let rev: Vec<FactId> = self.rtm.iter().rev().copied().collect();
+            self.q.extend(rev);
+        }
+        if fire_loop && self.if_staged {
+            self.if_staged = false;
+            if !self.e1_alive.is_empty() {
+                self.if_through = true;
+                let rev: Vec<FactId> = self.rtm.iter().rev().copied().collect();
+                self.q.extend(rev);
+            }
+        }
+    }
+
+    /// External E1 insert at its queue position: the satisfy-link queues the
+    /// rule iff it COMPLETES the segment (join populated); then the STREAM
+    /// force-flush eval. `due_now` = deadline == insertion clock (registers
+    /// in the same flush; deadline < clock is the D-132 leak — alive
+    /// forever, never registered).
+    fn on_e1_insert(&mut self, id: FactId, due_now: bool) {
+        let was_empty = self.e1_alive.is_empty();
+        self.e1_alive.push(id);
+        if was_empty && self.join_count > 0 {
+            self.exec_queued = true;
+        }
+        self.eval_window(Some((true, id)), false);
+        if due_now {
+            self.pending_exp.push(id);
+        }
+    }
+
+    /// External P insert: stage; staging notifies iff the exists side is
+    /// populated (marked-expired witnesses count until their retract).
+    fn on_p_insert(&mut self, id: FactId) {
+        self.staged.push(id);
+        self.join_count += 1;
+        if !self.e1_alive.is_empty() {
+            self.exec_queued = true;
+        }
+    }
+
+    /// External bare-P update: immediate rtm move-to-tail at this queue
+    /// position (reorder-only branch); still-staged ⇒ total no-op.
+    fn on_p_update(&mut self, id: FactId) {
+        if let Some(pos) = self.rtm.iter().position(|&p| p == id) {
+            self.rtm.remove(pos);
+            self.rtm.push(id);
+        }
+    }
+
+    /// External explicit delete (never the expiration drain): an E1
+    /// retracts AT ITS QUEUE POSITION (unsatisfy cancels queued
+    /// activations); a P annihilates its staged insert or leaves rtm and
+    /// cancels its queued activation. Terminal-reaching deletes queue the
+    /// fire-loop eval.
+    fn on_delete(&mut self, id: FactId) {
+        if self.e1_alive.contains(&id) {
+            self.pending_exp.retain(|&e| e != id);
+            if self.if_through {
+                self.exec_queued = true;
+            }
+            self.eval_window(Some((false, id)), false);
+            return;
+        }
+        let in_staged = self.staged.contains(&id);
+        let in_rtm = self.rtm.contains(&id);
+        if in_staged || in_rtm {
+            self.join_count -= 1;
+            if self.if_through {
+                self.exec_queued = true;
+            }
+        }
+        if in_staged {
+            self.staged.retain(|&p| p != id); // addDelete annihilates
+        } else if in_rtm {
+            self.rtm.retain(|&p| p != id);
+        }
+        self.q.retain(|&p| p != id); // matchCancelled
+    }
+
+    /// A clock advance made this live E1's deadline due: register it (the
+    /// retract itself runs at the next fire's quiescence). Engine deadline
+    /// order = registration order.
+    fn on_advance_due(&mut self, id: FactId) {
+        if self.e1_alive.contains(&id) && !self.pending_exp.contains(&id) {
+            self.pending_exp.push(id);
+        }
+    }
+
+    /// fireAllRules analog: the fire-loop eval if the executor was queued;
+    /// then QUIESCENCE — the agenda has drained (`q_floor` fences the fired
+    /// prefix), and every registered expiration retracts in deadline order,
+    /// each with its own force-eval. Ranks the emitted order for the gated
+    /// picks.
+    fn pre_fire(&mut self) {
+        if self.exec_queued {
+            self.eval_window(None, true);
+        }
+        self.q_floor = self.q.len();
+        for id in std::mem::take(&mut self.pending_exp) {
+            if !self.e1_alive.contains(&id) {
+                continue; // explicitly deleted after registration
+            }
+            self.eval_window(Some((false, id)), false);
+        }
+        self.q_floor = 0;
+        self.exec_queued = false;
+        self.emit_rank = self.q.iter().enumerate().map(|(i, &f)| (f, i)).collect();
+    }
+
+    /// Fire boundary: the cycle's prediction is consumed.
+    fn post_fire(&mut self) {
+        self.q.clear();
+        self.emit_rank.clear();
+    }
 }
 
 use crate::phreak::{self, Origin, Staged, Tup};
@@ -1223,19 +1437,11 @@ struct RuleNet {
     /// rule with bare patterns (None otherwise — constrained/exotic shapes
     /// fall to FIFO). Replaces the retired D-140/D-143/D-146 key models.
     bf: Option<BfShadow>,
-    /// D-144 (item 1b Family B exists): the `fire_no` of this rule's most recent
-    /// firing. A gated `exists` reorders only on a RE-FIRE (fired in a STRICTLY
-    /// earlier cycle) — the FIRST satisfaction fires the accumulated P's FIFO
-    /// (forward), matching Drools; only after the witness toggles do the epoch
-    /// batches reverse. `None` until the rule first fires.
-    last_fire_no: Option<u64>,
-    /// D-146 (exists regime 2): `event_seg` at the moment this rule's queue went
-    /// EMPTY → NON-EMPTY — for a gated exists that is the satisfy transition (the
-    /// witness insert bumps `event_seg`, then its flush enqueues the whole held
-    /// batch). A P with `ins_seg >= satisfy_seg` was inserted at/after the
-    /// satisfying witness — i.e. while SATISFIED — and fires AFTER the re-fire
-    /// batch as a fresh stream insert (FIFO), not inside it.
-    satisfy_seg: u64,
+    /// D-152: the mechanical flush shadow for a gated `exists <EVENT>() P()`
+    /// rule with bare patterns, under the same static exclusions. Replaces
+    /// the retired D-144/D-147 key models (re-fire epoch key + regime-2
+    /// segment split — per-regime shadows of this machinery).
+    ex: Option<ExShadow>,
 }
 
 impl RuleNet {
@@ -1415,16 +1621,10 @@ pub struct Engine {
     in_expiration_drain: bool,
     in_stream_flush: bool,
     fire_no: u64,
-    /// D-140 (item #2): per-fact last-touch stamps + a global update
-    /// apply-counter, read ONLY by the non-temporal not-over-EVENT firing
-    /// reorder (`not_order_pos` gate). Written on every external insert/update;
-    /// inert on the plain corpus (no gated rule ⇒ never read).
+    /// D-140 (item #2): per-fact birth stamps, read ONLY by the gated-NOT
+    /// in_cycle guard (`not_order_pos` rules). Written on every external
+    /// insert/update; inert on the plain corpus (no gated rule ⇒ never read).
     fact_touch: HashMap<FactId, FactTouch>,
-    upd_seq_next: u64,
-    /// D-143 (item 1b Family B): monotonic count of event inserts = the current
-    /// not-unblock SEGMENT. Stamped into `FactTouch.ins_seg`; read only
-    /// by the P-first branch of the gated reorder. Reset with the session.
-    event_seg: u64,
     flush_trigger_tid: Option<TypeId>,
     ever_linked: Vec<bool>,
     stage_seq: u64,
@@ -1570,8 +1770,6 @@ impl Engine {
             in_stream_flush: false,
             fire_no: 0,
             fact_touch: HashMap::new(),
-            upd_seq_next: 0,
-            event_seg: 0,
             flush_trigger_tid: None,
             ever_linked: Vec::new(),
             stage_seq: 0,
@@ -1905,25 +2103,26 @@ impl Engine {
                 }
                 self.trie[parent.unwrap()].sinks.push(Sink::Term(ri));
             }
-            // D-151: build the mechanical flush shadow for a gated NOT rule
-            // whose not-CE and P patterns are BARE (no constraints, no
-            // bindings — the validated surface; the inferred update mask is
-            // empty exactly then). A gated exists keeps the D-144/D-147 key
-            // path. STATIC exclusions keep the shadow inside its validated
-            // regime (each ⇒ no shadow ⇒ the pick is plain FIFO):
+            // D-151/D-152: build the mechanical flush shadow for a gated
+            // existential rule whose CE and P patterns are BARE (no
+            // constraints, no bindings — the validated surface; the inferred
+            // update mask is empty exactly then): `not` ⇒ BfShadow (D-151),
+            // `exists` ⇒ ExShadow (D-152). STATIC exclusions keep each
+            // shadow inside its validated regime (each ⇒ no shadow ⇒ the
+            // pick is plain FIFO):
             //   - the P type must be a NON-event (an event P would expire
             //     outside the shadow's op stream);
             //   - distinct blocker/P classification (type or entry point);
             //   - no rule's RHS inserts or mutates either gated type (RHS
             //     ops are mid-fire propagation entries the spec never
-            //     validated — the D-140 in_cycle guard covers the cycle,
-            //     the exclusion covers the residue);
+            //     validated — the D-140 in_cycle guard covers the not
+            //     cycle, the exclusion covers the residue);
             //   - no windowed accumulate over either gated type (window
             //     evictions delete outside the external-op stream).
-            let bf = {
+            let (bf, ex) = {
                 let r = &self.rules[ri];
                 match r.not_order_pos {
-                    Some(_) if !r.order_exists => {
+                    Some(_) => {
                         let n = &r.patterns[1];
                         let p = &r.patterns[2];
                         let bare = n.cmps.is_empty()
@@ -1959,17 +2158,32 @@ impl Engine {
                             })
                         });
                         if bare && distinct && p_plain && !rhs_touches && !windowed {
-                            Some(BfShadow::new(
-                                n.type_id,
-                                n.entry_point,
-                                p.type_id,
-                                p.entry_point,
-                            ))
+                            if r.order_exists {
+                                (
+                                    None,
+                                    Some(ExShadow::new(
+                                        n.type_id,
+                                        n.entry_point,
+                                        p.type_id,
+                                        p.entry_point,
+                                    )),
+                                )
+                            } else {
+                                (
+                                    Some(BfShadow::new(
+                                        n.type_id,
+                                        n.entry_point,
+                                        p.type_id,
+                                        p.entry_point,
+                                    )),
+                                    None,
+                                )
+                            }
                         } else {
-                            None
+                            (None, None)
                         }
                     }
-                    _ => None,
+                    _ => (None, None),
                 }
             };
             self.nets.push(RuleNet {
@@ -1986,8 +2200,7 @@ impl Engine {
                 dirty: false,
                 dirty_stamp: 0,
                 bf,
-                last_fire_no: None,
-                satisfy_seg: 0,
+                ex,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -3608,14 +3821,10 @@ impl Engine {
     /// entry-point tag is set (CEP E2 item D) so routing (alpha_passes) sees
     /// the right partition.
     fn after_insert(&mut self, id: FactId) {
-        // D-140 (item #2): stamp the fact's birth epoch (fire boundaries count
-        // external epochs). Read only by the gated not-over-EVENT reorder.
+        // D-140 (item #2): stamp the fact's birth epoch. Read only by the
+        // gated-NOT in_cycle guard.
         let fno = self.fire_no;
-        let seg = self.event_seg;
-        self.fact_touch.insert(
-            id,
-            FactTouch { insert_epoch: fno, epoch: fno, is_upd: false, upd_seq: 0, ins_seg: seg },
-        );
+        self.fact_touch.insert(id, FactTouch { insert_epoch: fno });
         // D-141 (item 1b): snapshot the event's FIXED temporal position (its ts
         // at insert). A later ts-field UPDATE mutates the field but not this —
         // temporal joins / index keys keep the insert position (Drools CEP).
@@ -3624,12 +3833,6 @@ impl Engine {
             if let Value::I64(ts) = self.store.value(id, ts_fi) {
                 self.store.set_event_ts(id, ts);
             }
-            // D-143 (item 1b Family B): an event insert opens the next not-unblock
-            // SEGMENT (the blocker re-blocks + flushes the staged P's). Facts
-            // inserted after it stamp the higher `ins_seg`; the released P's fire
-            // newest-segment-first (P-first regime). Inert unless the gated
-            // not-over-EVENT reorder reads it.
-            self.event_seg += 1;
         }
         let exp_ord = self.schedule_expiration(id);
         // D-151: feed the mechanical flush shadows (external inserts only —
@@ -3701,8 +3904,6 @@ impl Engine {
         self.collect_scalar_vals.clear();
         self.act_seq = 0;
         self.fact_touch.clear(); // D-140 (item #2): dead handles, WM cleared
-        self.upd_seq_next = 0;
-        self.event_seg = 0; // D-143 (item 1b Family B): segment counter
         self.query_mem = Default::default();
         self.query_pending = vec![false; self.queries.len()];
         self.qce_children.clear();
@@ -3781,27 +3982,14 @@ impl Engine {
             self.store.set_value(id, fi, v).map_err(EngineError)?;
             mask |= 1 << fi;
         }
-        // D-140 (item #2): re-stamp last-touch as an UPDATE at this epoch, with
-        // a global apply-order (the model orders same-batch updates newest-
-        // first). Every external update counts — including a same-value no-op
-        // (`cf401x344`'s P1 re-touch). `insert_epoch` is PRESERVED (an update
-        // never makes a fact "fresh"). Read only by the gated reorder.
+        // D-140 (item #2): `insert_epoch` is PRESERVED (an update never makes
+        // a fact "fresh" for the in_cycle guard); a fact first seen here
+        // stamps this epoch. The update-touch fields the key models read
+        // were retired with them (D-151/D-152).
         let fno = self.fire_no;
-        let seq = self.upd_seq_next;
-        self.upd_seq_next += 1;
-        let seg = self.event_seg;
-        let e = self.fact_touch.entry(id).or_insert(FactTouch {
-            insert_epoch: fno,
-            epoch: fno,
-            is_upd: false,
-            upd_seq: 0,
-            ins_seg: seg,
-        });
-        e.epoch = fno;
-        e.is_upd = true;
-        e.upd_seq = seq;
-        // D-151: an external bare-P update is an immediate rtm move-to-tail
-        // in the mechanical shadow at this op's queue position.
+        self.fact_touch.entry(id).or_insert(FactTouch { insert_epoch: fno });
+        // D-151/D-152: an external bare-P update is an immediate rtm
+        // move-to-tail in the mechanical shadows at this op's queue position.
         self.bf_on_external_update(id);
         if self.lists_built {
             self.on_update(id, mask, None);
@@ -4001,10 +4189,11 @@ impl Engine {
     /// Schedule expiration for a freshly inserted fact of an event
     /// type. Timestamps are FIXED at insert (DefaultEventHandle
     /// semantics); deadline = ts + expires_ms.
-    /// D-151: classify an EXTERNAL insert for every rule's mechanical flush
-    /// shadow. `exp_ord` = the deadline-vs-clock ordering from
+    /// D-151/D-152: classify an EXTERNAL insert for every rule's mechanical
+    /// flush shadow. `exp_ord` = the boundary class from
     /// `schedule_expiration` (Equal ⇒ due-on-arrival registers in the same
-    /// flush; Less = the D-132 leak ⇒ alive forever, never registered).
+    /// flush; Less = a NEGATIVE deadline, the DROOLS-455 leak ⇒ alive
+    /// forever, never registered).
     fn bf_on_external_insert(&mut self, id: FactId, exp_ord: Option<std::cmp::Ordering>) {
         if self.nets.is_empty() {
             return;
@@ -4018,6 +4207,13 @@ impl Engine {
                     bf.on_e0_insert(id, due_now);
                 } else if bf.p_tid == tid && bf.p_ep == ep {
                     bf.on_p_insert(id);
+                }
+            }
+            if let Some(ex) = net.ex.as_mut() {
+                if ex.e1_tid == tid && ex.e1_ep == ep {
+                    ex.on_e1_insert(id, due_now);
+                } else if ex.p_tid == tid && ex.p_ep == ep {
+                    ex.on_p_insert(id);
                 }
             }
         }
@@ -4038,6 +4234,11 @@ impl Engine {
                     bf.on_p_update(id);
                 }
             }
+            if let Some(ex) = net.ex.as_mut() {
+                if ex.p_tid == tid && ex.p_ep == ep {
+                    ex.on_p_update(id);
+                }
+            }
         }
     }
 
@@ -4053,6 +4254,11 @@ impl Engine {
             if let Some(bf) = net.bf.as_mut() {
                 if (bf.e0_tid == tid && bf.e0_ep == ep) || (bf.p_tid == tid && bf.p_ep == ep) {
                     bf.on_delete(id);
+                }
+            }
+            if let Some(ex) = net.ex.as_mut() {
+                if (ex.e1_tid == tid && ex.e1_ep == ep) || (ex.p_tid == tid && ex.p_ep == ep) {
+                    ex.on_delete(id);
                 }
             }
         }
@@ -4090,22 +4296,34 @@ impl Engine {
                     });
                     let plus = if referenced { 1 } else { 0 };
                     let deadline = ts + dur + exp + plus;
-                    // D-132: Drools cannot schedule an expiration in the PAST.
-                    // Oracle-measured boundary at the insertion clock:
-                    //   deadline < clock  ⇒ KEPT forever (leak — pos_far);
-                    //   deadline == clock ⇒ due on arrival: it still MATCHES and
-                    //     FIRES this cycle, then is dropped (pos_ins) — push the
-                    //     LAZY delete (NOT mark_expired, which would suppress the
-                    //     firing) so it retracts at the next quiescence drain;
-                    //   deadline > clock  ⇒ scheduled normally on the reaper queue.
-                    let ord = deadline.cmp(&self.clock_ms);
-                    match ord {
-                        std::cmp::Ordering::Less => {}
-                        std::cmp::Ordering::Equal => self.pending_expirations.push(id),
-                        std::cmp::Ordering::Greater => {
-                            self.deadlines.entry(deadline).or_default().push(id);
-                        }
-                    }
+                    // D-133 boundary, CORRECTED by D-152: the D-133 probes ran
+                    // at insert-clock 0, where "past deadline" ⇔ NEGATIVE
+                    // deadline — two cases they conflated (Drools
+                    // PropagationEntry.Insert.scheduleExpiration read for
+                    // names; oracle-verified xq1-xq3 + the exists full-axis
+                    // population):
+                    //   deadline < 0 ⇒ KEPT forever (the DROOLS-455 guard maps
+                    //     a negative effectiveEnd to Long.MAX_VALUE = never —
+                    //     the leak, pos_far/xq1);
+                    //   0 <= deadline <= clock ⇒ due on arrival: the expire
+                    //     action enqueues in THIS flush — the event still
+                    //     MATCHES and FIRES this cycle, then drops at the
+                    //     quiescence drain (pos_ins/xq2/xq3) — push the LAZY
+                    //     delete (NOT mark_expired, which would suppress the
+                    //     firing);
+                    //   deadline > clock ⇒ scheduled normally on the reaper
+                    //     queue.
+                    // The returned Ordering is the boundary CLASS (Equal =
+                    // due-on-arrival), consumed by the mechanical shadows.
+                    let ord = if deadline < 0 {
+                        std::cmp::Ordering::Less
+                    } else if deadline <= self.clock_ms {
+                        self.pending_expirations.push(id);
+                        std::cmp::Ordering::Equal
+                    } else {
+                        self.deadlines.entry(deadline).or_default().push(id);
+                        std::cmp::Ordering::Greater
+                    };
                     return Some(ord);
                 }
             }
@@ -4639,12 +4857,15 @@ impl Engine {
             }
             out
         };
-        // D-151: register due E0s with the mechanical shadows in engine
-        // deadline order (the retracts run at the shadows' quiescence).
+        // D-151/D-152: register due events with the mechanical shadows in
+        // engine deadline order (the retracts run at the shadows' quiescence).
         for &id in &due {
             for net in self.nets.iter_mut() {
                 if let Some(bf) = net.bf.as_mut() {
                     bf.on_advance_due(id);
+                }
+                if let Some(ex) = net.ex.as_mut() {
+                    ex.on_advance_due(id);
                 }
             }
         }
@@ -4883,25 +5104,6 @@ impl Engine {
         Ok(())
     }
 
-    /// D-140 (item #2): sort key for the non-temporal not-over-EVENT unblock
-    /// firing order (`tools/model_check_notorder.py`, validated 0-div). Ascending
-    /// order = the oracle sequence.
-    ///
-    /// Batches (by LAST-TOUCH `epoch`, so a released fact updated in the unblock
-    /// epoch joins the newest batch — `cf401x344`'s P1) go REVERSE (newest epoch
-    /// first), the INITIAL batch (epoch 0) LAST; within a batch, inserts (by
-    /// insertion index = `FactId`) precede updates (newest apply first). This is
-    /// the EVENT variant (the only gated one — plain blockers already emit their
-    /// forward-epoch order). A missing stamp (never a live P) sorts last. The
-    /// caller applies this ONLY in the clean regime (see `fire_all`).
-    fn not_order_key(touch: &HashMap<FactId, FactTouch>, f: Option<FactId>) -> (i64, i64, i64, i64) {
-        let Some(f) = f else { return (2, 0, 0, 0) };
-        let t = touch.get(&f).copied().unwrap_or_default();
-        let (batch_hi, batch_lo) = if t.epoch == 0 { (1, 0) } else { (0, -(t.epoch as i64)) };
-        let (kind, tie) = if t.is_upd { (1, -(t.upd_seq as i64)) } else { (0, f.0 as i64) };
-        (batch_hi, batch_lo, kind, tie)
-    }
-
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
         // D-081: slot memory does not survive a fire boundary —
         // same-window out-and-back restores the original slot
@@ -4955,17 +5157,19 @@ impl Engine {
                 }
             }
         }
-        // D-151: step every mechanical flush shadow to its fire boundary
-        // (fire-loop eval if queued, then quiescence expirations) and rank
-        // the predicted emission for the gated picks below.
+        // D-151/D-152: step every mechanical flush shadow to its fire
+        // boundary (fire-loop eval if queued, then quiescence expirations)
+        // and rank the predicted emission for the gated picks below.
         for net in self.nets.iter_mut() {
             if let Some(bf) = net.bf.as_mut() {
                 bf.pre_fire();
             }
+            if let Some(ex) = net.ex.as_mut() {
+                ex.pre_fire();
+            }
         }
         let mut firings = Vec::new();
         let mut last_fired: Option<usize> = None;
-        let mut fired_this_cycle: Vec<usize> = Vec::new(); // D-144: rules that fired this cycle
         while let Some(ri) = self.next_activation(last_fired) {
             if let Some(e) = self.pending_err.take() {
                 return Err(EngineError(e));
@@ -4999,62 +5203,35 @@ impl Engine {
                     None => 0,
                     Some(pos) => {
                         let fno = self.fire_no;
-                        // D-144: a gated EXISTS reorders only on a RE-FIRE (fired
-                        // in a STRICTLY earlier cycle); the FIRST satisfaction fires
-                        // the accumulated P's FIFO (forward, Drools), so the epoch
-                        // reversal must NOT apply then (pr_cep_v4_exists_two_held_gens).
-                        // It uses the D-140 epoch key (`not_order_key`).
-                        // D-151: a gated NOT instead follows its MECHANICAL flush
-                        // shadow's emitted order (the retired D-140/143/146 keys
-                        // were per-regime approximations of that machinery).
+                        // D-151/D-152: a gated existential rule follows its
+                        // MECHANICAL flush shadow's emitted order (the retired
+                        // D-140/143/146 not keys and D-144/147 exists keys were
+                        // per-regime approximations of that machinery).
                         let exists = self.rules[ri].order_exists;
-                        let exists_first_fire =
-                            exists && !self.nets[ri].last_fire_no.is_some_and(|lf| lf < fno);
                         let touch = &self.fact_touch;
                         let q = &self.nets[ri].queue;
                         if exists {
-                            if exists_first_fire {
-                                0
-                            } else {
-                                // D-146 (regime 2 — was the D-144 in_cycle fence): a
-                                // P with `ins_seg >= satisfy_seg` was inserted
-                                // at/after the satisfying witness, i.e. while
-                                // SATISFIED — a FRESH stream insert that fires AFTER
-                                // the re-fire batch, FIFO. The batch (held P's +
-                                // any inserted this epoch BEFORE the witness)
-                                // epoch-reorders; a before-witness in-cycle P's
-                                // touch epoch == fire_no ⇒ the newest batch, firing
-                                // first — the cracked model
-                                // (`tools/model_check_exists.py`, expop_ins_clean
-                                // 0-div; fixes cf407x121's NE6).
-                                let sseg = self.nets[ri].satisfy_seg;
-                                q.iter()
-                                    .enumerate()
-                                    .min_by_key(|(i, a)| {
-                                        let f = a.t.get(pos).copied();
-                                        let t = f.and_then(|f| touch.get(&f)).copied();
-                                        let fresh = t.is_some_and(|t| {
-                                            t.ins_seg >= sseg && t.insert_epoch >= fno
-                                        });
-                                        if fresh {
-                                            (1, *i as i64, 0, 0, 0, 0)
-                                        } else {
-                                            // within-batch inserts: ins_seg DESC
-                                            // then FactId — a P inserted after a
-                                            // mid-epoch witness arrival precedes
-                                            // an earlier one (ex801x145).
-                                            let k = Self::not_order_key(touch, f);
-                                            let sub = if t.is_some_and(|t| !t.is_upd) {
-                                                -(t.map(|t| t.ins_seg).unwrap_or(0) as i64)
-                                            } else {
-                                                0
-                                            };
-                                            (0, k.0, k.1, k.2, sub, k.3)
-                                        }
-                                    })
-                                    .map(|(i, _)| i)
-                                    .unwrap_or(0)
-                            }
+                            // D-152: rank by the exists shadow's emission
+                            // order — first-satisfaction FIFO, re-fire
+                            // reversal, and the regime-2 fresh split all
+                            // fall out of the machinery (no in_cycle guard:
+                            // the shadow covers in-cycle stream inserts
+                            // natively; RHS-touching shapes never build a
+                            // shadow ⇒ every fact unranked ⇒ plain FIFO).
+                            let rank = self.nets[ri].ex.as_ref().map(|e| &e.emit_rank);
+                            q.iter()
+                                .enumerate()
+                                .min_by_key(|(i, a)| {
+                                    let r = a
+                                        .t
+                                        .get(pos)
+                                        .and_then(|f| rank.and_then(|m| m.get(f)))
+                                        .copied()
+                                        .unwrap_or(usize::MAX);
+                                    (r, *i)
+                                })
+                                .map(|(i, _)| i)
+                                .unwrap_or(0)
                         } else {
                             // `not`: the in_cycle guard (D-140, kept) — a
                             // delete-unblock's fresh post-unblock insert fires
@@ -5101,11 +5278,6 @@ impl Engine {
                     .unwrap_or(0),
             };
             let tuple = self.nets[ri].queue.remove(idx).t;
-            // D-144: record that ri fired this cycle; `last_fire_no` is committed
-            // at the fire boundary (NOT here) so the gated-exists re-fire test stays
-            // STABLE across the batch drain — updating it per pick would flip the
-            // regime mid-batch (the seg_p_first-latch lesson, ex601x10).
-            fired_this_cycle.push(ri);
             self.execute_rhs(ri, &tuple)?;
             // Mid-firing item resort (RuleExecutor.fire, D-043): after
             // the flush, a dynamic item whose queue top no longer
@@ -5169,16 +5341,13 @@ impl Engine {
             self.trie[ni].s0_in.clear_slots();
         }
 
-        // D-144: commit this cycle's firings to `last_fire_no` at the boundary
-        // (fire_no not yet bumped) — a later cycle then reads `last_fire_no < fno`
-        // to detect a gated-exists RE-FIRE.
-        for &ri in &fired_this_cycle {
-            self.nets[ri].last_fire_no = Some(self.fire_no);
-        }
-        // D-151: the shadows' cycle predictions are consumed.
+        // D-151/D-152: the shadows' cycle predictions are consumed.
         for net in self.nets.iter_mut() {
             if let Some(bf) = net.bf.as_mut() {
                 bf.post_fire();
+            }
+            if let Some(ex) = net.ex.as_mut() {
+                ex.post_fire();
             }
         }
         self.fire_no += 1; // D-102 cycle-4: fire boundary — between-fire inserts stamp the NEXT fire
@@ -7186,14 +7355,6 @@ impl Engine {
             }
         };
         let pre = self.queue_top_sal(ri).unwrap_or(0);
-        // D-146 (exists regime 2): an EMPTY -> NON-EMPTY enqueue marks a fresh
-        // batch; stamp the current event segment (for a gated exists, the
-        // satisfy-transition segment — the witness bumped `event_seg` just
-        // before its flush enqueued the batch). Read only by the gated-exists
-        // re-fire split; harmless everywhere else.
-        if self.nets[ri].queue.is_empty() {
-            self.nets[ri].satisfy_seg = self.event_seg;
-        }
         self.nets[ri].queue.push(Act { t, sal, seq });
         self.update_item_salience(ri, pre);
     }

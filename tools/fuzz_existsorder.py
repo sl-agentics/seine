@@ -9,6 +9,20 @@ absent (inserts + updates) + the witness RE-ARRIVES (>=1 E1) => a re-fire. The
 divergence is the re-fire ORDER (the D-140 EPOCH model). Captures the FULL firing
 sequence; the port gate is engine-vs-oracle `diff` 0-fail on the emitted files
 (model_check_exists.py, incl. the D-147 regime-2 rule). Usage: fuzz_existsorder.py <n> <seed> -> <tmp>/existspop_<seed>.json.
+
+SEINE_EXPOP_FULL=1 (D-152): the FULL-AXIS generator for the mechanical-model
+spec — free op soup instead of the toggle scaffold. Adds every axis the banked
+populations lack: explicit P DELETES (staged annihilation / rtm removal /
+queued-activation cancel), PARTIAL witness deletes (count 2->1), MULTI-witness
+with staggered ts (partial expiry; deadline-order quiescence), DELAYED first
+satisfaction (no initial witness — multi-epoch P backlog), DUE-ON-ARRIVAL
+witnesses (ts already past deadline => transient satisfy + same-flush expiry),
+pure-P epochs (no witness op — the boundary-drain axis), witness UPDATES
+(inert — bare mask), action-interleaved inserts, and the D-133-corrected
+expiration boundary (rare deep-negative ts => deadline < 0 = the DROOLS-455
+leak, immortal; ts in [-101, clock-101] => nonneg-past deadline = due on
+arrival). Never updates/deletes a dead handle (oracle NPE, D-151 note).
+The spec gate: `EMODEL=flush model_check_exists.py <existspop_*.json>`.
 """
 import json, os, sys, random, subprocess
 
@@ -85,6 +99,90 @@ def gen(r, name):
     return {"name": name, "types": TYPES, "drl": DRL, "facts": facts, "epochs": epochs}
 
 
+def gen_full(r, name):
+    """The D-152 full-axis generator (SEINE_EXPOP_FULL=1): 2-5 epochs of free
+    op soup over live-handle tracking. The generator mirrors the runners'
+    clock/deadline arithmetic (deadline = ts + expires + 1) so it never
+    touches a dead handle."""
+    clock = [0]
+    gidx = [0]
+    nextv = [1]
+    p_live = {}        # v -> handle idx (live P's)
+    e_live = {}        # handle idx -> deadline (live E1s by the generator's books)
+    facts = []
+
+    def mk_p(into):
+        v = nextv[0]; nextv[0] += 1
+        into.append({"type": "P", "fields": {"v": v}})
+        p_live[v] = gidx[0]; gidx[0] += 1
+
+    def mk_e(into, initial=False):
+        # ts around the clock; negative offsets make DUE-ON-ARRIVAL witnesses;
+        # rare deep-negative ts make the DROOLS-455 leak (deadline < 0 ⇒
+        # immortal, xq1) and nonneg-past deadlines (xq2/xq3)
+        roll = r.random()
+        if roll < 0.06:
+            ts = r.randint(-400, -102)               # deadline < 0: the leak
+        elif roll < 0.12:
+            ts = r.randint(-101, max(-101, clock[0] - 101))  # nonneg past
+        else:
+            lo = 0 if initial else -130
+            ts = max(0, clock[0] + r.randint(lo, 30))
+        into.append({"type": "E1", "fields": {"ts": ts}})
+        dl = ts + 100 + 1
+        if dl < 0:
+            e_live[gidx[0]] = float("inf")           # leaked: alive forever
+        elif dl > clock[0]:
+            e_live[gidx[0]] = dl
+        gidx[0] += 1
+
+    # initial facts: P's and (0-2) E1's interleaved — E1 ABSENT sometimes
+    # (delayed first satisfaction), positions random
+    slots = ["p"] * r.randint(0, 3) + ["e"] * r.choice([0, 0, 1, 1, 2])
+    r.shuffle(slots)
+    for s in slots:
+        (mk_p if s == "p" else lambda i: mk_e(i, True))(facts)
+    epochs = []
+    for _ep in range(r.randint(2, 5)):
+        actions = []
+        n_ops = r.randint(0, 5)
+        for _ in range(n_ops):
+            op = r.choice(["upd", "upd", "pdel", "edel", "adv", "ins_p", "ins_e", "eupd"])
+            if op == "upd" and p_live:
+                v = r.choice(list(p_live))
+                actions.append({"op": "update", "target": p_live[v], "fields": {"v": v}})
+            elif op == "pdel" and len(p_live) > 1 and r.random() < 0.6:
+                v = r.choice(list(p_live))
+                actions.append({"op": "delete", "target": p_live.pop(v)})
+            elif op == "edel" and e_live:
+                h = r.choice(list(e_live))
+                del e_live[h]
+                actions.append({"op": "delete", "target": h})
+            elif op == "adv":
+                ms = r.randint(40, 250)
+                clock[0] += ms
+                for h in [h for h, dl in e_live.items() if dl <= clock[0]]:
+                    del e_live[h]
+                actions.append({"op": "advance", "ms": ms})
+            elif op == "ins_p":
+                mk_p(actions)
+                actions[-1]["op"] = "insert"
+            elif op == "ins_e":
+                mk_e(actions)
+                actions[-1]["op"] = "insert"
+            elif op == "eupd" and e_live:
+                h = r.choice(list(e_live))
+                actions.append({"op": "update", "target": h,
+                                "fields": {"ts": r.randint(0, clock[0] + 30)}})
+        efacts = []
+        slots = ["p"] * r.randint(0, 3) + ["e"] * r.choice([0, 0, 0, 1, 1, 2])
+        r.shuffle(slots)
+        for s in slots:
+            (mk_p if s == "p" else mk_e)(efacts)
+        epochs.append({"actions": actions, "facts": efacts})
+    return {"name": name, "types": TYPES, "drl": DRL, "facts": facts, "epochs": epochs}
+
+
 def order_of(result):
     return [next((m["fields"]["v"] for m in f["matches"] if m["type"] == "P"), None)
             for f in result["firings"]]
@@ -93,9 +191,10 @@ def order_of(result):
 def main():
     n = int(sys.argv[1]); seed = int(sys.argv[2])
     r = random.Random(seed)
+    g = gen_full if os.environ.get("SEINE_EXPOP_FULL") else gen
     made = []
     for i in range(n):
-        s = gen(r, f"ex{seed}x{i}")
+        s = g(r, f"ex{seed}x{i}")
         p = os.path.join(TMP, s["name"] + ".json")
         json.dump(s, open(p, "w"), indent=1); made.append((p, s))
     files = [p for p, _ in made]

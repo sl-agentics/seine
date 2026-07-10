@@ -1,0 +1,66 @@
+{
+ "name": "cep_exp_boundary_past",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": -101
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-152 (D-133 boundary corrected): a NONNEG past deadline (0 <= deadline <= clock) enqueues the expire action in the SAME flush \u2014 the event matches/fires this cycle and drops at quiescence. E1(ts=-101, deadline exactly 0) inserted at clock 50: satisfies transiently (P1 re-fires [1]), then retracts; P2 later stays held (no witness) \u2014 firings [1 | 1 | ] and no E1 in the final WM. Pre-D-152 the engine leaked it (kept forever => P2 would fresh-fire). Oracle xq2."
+}

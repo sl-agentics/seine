@@ -1,0 +1,75 @@
+{
+ "name": "cep_exists_flush_transient",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    },
+    {
+     "op": "advance",
+     "ms": 300
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 10
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-152: a DUE-ON-ARRIVAL witness (nonneg deadline <= clock) still satisfies at its exec \u2014 the re-fire batch FIRES (the agenda drains before flushExpirations) and the witness drops at quiescence. P2 then E1(ts=10, deadline 111 <= clock 300): drain [P2] -> rtm=[P1,P2]; satisfy at exec: reverse = [2,1]; quiescence retracts E1. Cycle fires [2,1] transiently; final WM has no E1. The engine pre-D-152 LEAKED the witness (D-133's boundary conflated nonneg-past with negative deadlines)."
+}

@@ -1,0 +1,73 @@
+{
+ "name": "cep_exists_flush_first_defer",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 13
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-152 (mechanical ExShadow): the IF left is itself STAGED at the exists until the first FIRE-LOOP eval, so a FIRST satisfaction emits reverse(rtm) at the fire loop \u2014 swallowing P's drained AFTER the witness in the same window. P1 staged since cycle 0 (one-sided window: never linked), [P2,E1,P3] in ep1: E1's force-flush drains [P1,P2] (staged-LIFO -> rtm=[P2,P1]) but the staged IF waits; the fire-loop drains [P3] then the IF goes through: reverse([P2,P1,P3]) = [3,1,2]. The retired D-144 key predicted FIFO [1,2,3] (graft: BfDump ex990x20)."
+}

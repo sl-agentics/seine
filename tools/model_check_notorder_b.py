@@ -266,7 +266,9 @@ def predict_flush(scn):
             # Drools schedules the expire job at endTs + @expires + 1 (an
             # advance to EXACTLY ts+expires does not expire — mu4 probe);
             # an arrival already past its deadline enqueues the expire action
-            # in the SAME flush (still a quiescence retract).
+            # in the SAME flush (still a quiescence retract). D-152 boundary
+            # note: a NEGATIVE deadline never schedules at all (DROOLS-455 —
+            # the leak); this population never generates one.
             deadline = f["fields"]["ts"] + E0_EXPIRES + 1
             uid = idx
             e0_alive[uid] = deadline
