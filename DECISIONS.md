@@ -19,7 +19,11 @@ D-136 shared divert. Gates: corpus 11/**1044**/**294** byte-identical (+9
 72 (pre-port run; no python change), population 250/250, fuzz 613 ×400
 0-div. Spec: `SEINE_TJO_SELF=1 model_shared_tjo.py fuzz` (0-div/1,000).
 A2 (D-154/155) also closed this session. Item-1b remaining: plain-not
-cf313x4 ONLY; the update fence is LIFTED by default (D-157; seeds 42/401/719/902 x400 0-div).
+cf313x4 ONLY — **CLEAN-CONTEXT HANDOFF READY:
+`~/.claude/plans/plain-not-handoff.md`** (witness regen via seed 313 —
+note D-157 widened it; the D-155 per-entry-flush overlap check; the
+main-axis blast-radius warning — plain nots ARE gen.rs-reachable, unlike
+every prior item-1b family); the update fence is LIFTED by default (D-157; seeds 42/401/719/902 x400 0-div).
 Fenced-by-nature: D-134 §6, fz_42_84. `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
