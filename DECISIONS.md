@@ -28,15 +28,23 @@ but the engine re-read the LIVE ts. Fix = `store.event_ts` snapshot read by the
 temporal eval + index keys. 8/12 witnesses + both minimal repros fixed; corpus
 byte-identical; 0 temporal-JOIN divergences on 2400 fresh fence-lifted cases;
 blast-radius analytically ZERO (`gen.rs` emits no temporal ops). See D-141.
-**➡ ACTIVE NEXT SLAB: the item-1b TAIL** (both deferred, bisect-to-HEAD; findings
-`~/.claude/plans/cep-item-1b-findings.md`): **(A2)** windowed-accumulate over an
-UPDATED ts (`cf401x25/42`, W3=`accumulate(E2($t:ts) over window; sum($t))`) — a
-window-membership/re-fold sub-mechanism (kin of D-139), SEPARATE from the join eval;
-**(B)** not-order in the temporal regime (`cf401x362` event-not, `cf313x4` plain-not,
-no ts-update) — the clean D-140 model breaks under surrounding temporal activity.
+**➡ ACTIVE NEXT SLAB: item-1b Family B — existential (not/exists) firing-ORDER in the
+temporal-EXPIRY regime — MODEL DERIVATION IN PROGRESS (D-142 recon; NOT cracked).**
+Bryan chose the full model-first arc (CEP order-faithfulness). START from the
+**PICK-UP RUNBOOK** at the top of `~/.claude/plans/cep-item-1b-findings.md` (exact
+commands + inline discriminator repros — job tmp is gone in a fresh ctx). Infra
+COMMITTED (`dec1c0e`): `tools/fuzz_notorder_b.py` (P-first population, ~55% d140-
+divergent) + `tools/model_check_notorder_b.py` (predict harness, `MODEL=d140` baseline).
+KEY FINDING: order turns on BLOCKER-vs-P insert position (before-P promotes an
+unblock-epoch update = D-140; after-P does not) + blocker count + non-final advances +
+epoch structure — a multi-dimensional D-125-class model. D-140's `fuzz_notorder` was
+blocker-FIRST only ⇒ its model is that special case; the general P-first regime (the
+real witnesses) is Family B. NEXT: refine `predict()` to 0-div, then port (extend the
+D-140 reorder). Deferred sibling **(A2)** windowed-accumulate over an UPDATED ts
+(`cf401x25/42`, W3=`accumulate(E2($t:ts) over window; sum($t))`, kin of D-139).
 Fenced-by-nature residuals (within-close-time temporal not tie = java.util.PriorityQueue,
-D-134 §6; identity-hash fz_42_84; and the fz_42/123/7 NON-event accumulate family — NOT
-item 1b) are NOT backlog. `git log --oneline -18` for live HEAD._
+D-134 §6; identity-hash fz_42_84; the fz_42/123/7 NON-event accumulate family — NOT
+item 1b) are NOT backlog. `git log --oneline -20` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -65,7 +73,10 @@ unchanged (no fence lift — the `temporal_types` fence still guards item 1b).
 (`event_ts` snapshot + `temporal_ts`) + `engine.rs` (after_insert snapshot; temporal
 eval/keys read the snapshot) + 3 pins `pr_cep_tj_ts_{update_overfire,update_underfire,
 field_mutable}`; `fuzz_cep.py` unchanged (fence stays — the A2/B tail remains).
-`main` is **19 ahead of `origin/main`** (post sync marker) — NOT pushed. ⚠ **NO `v*`
+**Item 1b Family B RECON INFRASTRUCTURE COMMITTED at `dec1c0e` (D-142)** —
+`tools/fuzz_notorder_b.py` + `tools/model_check_notorder_b.py` (NO engine change;
+model NOT yet cracked — the ACTIVE slab). `main` is **21 ahead of `origin/main`**
+— NOT pushed. ⚠ **NO `v*`
 TAGS until a PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire
 on tag push and the `pypi` environment has NO protection rules (gh-verified): a new
 tag publishes `seine-rs` with no manual gate. Recent: D-132/133 §3A (reaping) →
@@ -7320,3 +7331,46 @@ temporal-ts-update anywhere in the corpus.
 The fz_42/123/7 main-fuzzer latents are UNRELATED to item 1b (they carry no event
 type — accumulate/identity-hash family; D-140's blast-radius A/B already showed
 `fz_42_258` byte-identical HEAD-vs-port).
+
+### D-142: item-1b Family B (existential firing-ORDER in the temporal-EXPIRY regime) — model-first RECON + infrastructure. KEY FINDING: the order turns on BLOCKER-vs-P insert position; D-140's `fuzz_notorder` was blocker-FIRST only, so its model is that special case. Deterministic ⇒ portable; MODEL NOT yet cracked (the ACTIVE slab)
+
+**Scope.** The Family-B tail (D-141 §Family B): `not`/`exists` firing-order when the
+blocker leaves by EXPIRY under surrounding temporal activity. Witnesses `cf401x362`
+(event-`not E0() P()`), `cf313x4` (plain-`not D() P()`), `cf407x121` (`exists E1() P()`
+— an EXISTS; the earlier "NE6 not-order" label was wrong). DETERMINISTIC across 5 fresh
+oracle runs ⇒ defined-by-code, PORTABLE — NOT the fence-by-nature `java.util.
+PriorityQueue` tie of D-134 §6. Order-only, low-impact; Bryan chose the full model-first
+arc for CEP order-faithfulness.
+
+**Infrastructure (committed `dec1c0e`, no engine change).** `tools/fuzz_notorder_b.py`
+(population capture: event-`not` expiry unblock with P inserts/updates across epochs
+INCLUDING the unblock epoch + mid-run blocker arrivals; P-FIRST initial order) +
+`tools/model_check_notorder_b.py` (predict harness; `MODEL=d140` = the item-#2 model).
+
+**THE KEY FINDING — blocker-vs-P insert position.** A `not E0() P()` with P2 inserted
+in a prior epoch and P1 UPDATED in the unblock (advance) epoch orders:
+- blocker inserted BEFORE P (`[E0, P1]`) ⇒ the update PROMOTES P1 (last-touch batch,
+  = D-140) ⇒ `[1,2]`;
+- blocker inserted AFTER P (`[P1, E0]` — the REAL-witness order, `cf401x362`) ⇒ NO
+  promotion ⇒ `[2,1]`.
+This is why D-140 looked complete: its `fuzz_notorder` put the blocker at idx0
+(blocker-FIRST) EXCLUSIVELY, so its validated population never left the easy regime;
+the general P-first regime IS Family B. `fuzz_notorder_b` initially inherited that
+blind spot (blocker-first ⇒ d140 matched 566/566); fixed to P-first ⇒ d140 diverges
+~55% (132/244, 146/244), correctly reproducing the divergence. A mid-run blocker
+ARRIVAL is just another way to land "blocker after P".
+
+**Multi-dimensional (D-125-class).** Also confirmed to move the order: blocker COUNT
+(`notB_2init`), NON-FINAL advances (`notB_2adv`), and epoch structure. Update POSITION
+vs the advance does NOT (`notB_base` == `notB_base_before`). CONTRADICTION proving a
+model is needed (not a one-liner): `cf401x344` (P-first, multi-blocker, updated TWICE)
+PROMOTES → `[1,2]`; `notB_base` (P-first, single blocker, updated once) does NOT →
+`[2,1]` — blocker-position is necessary, not sufficient.
+
+**STATUS + next.** Model NOT cracked (d140 ~55% divergent on the P-first population).
+NEXT (fresh-context runbook at the TOP of `~/.claude/plans/cep-item-1b-findings.md`):
+refine `predict()` to 0-div, then PORT (extend the D-140 `fire_all` reorder +
+`FactTouch` with the blocker-position/count/advance axes, event-gated, corpus
+byte-identical). This slightly recontextualizes D-140 (its validation was blocker-first
+only) but D-140's LANDED state is unaffected — corpus byte-identical, and P-first
+not-order is exactly this documented tail.
