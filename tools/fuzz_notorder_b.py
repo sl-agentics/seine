@@ -52,11 +52,19 @@ def gen(r, name):
         facts.append({"type": "P", "fields": {"v": v}})
         nonlocal gidx
         vpos[v] = gidx; gidx += 1
-    lo = 0 if os.environ.get("SEINE_NOTPOP_BF") else 1
-    n_before = r.randint(lo, 3)
+    if os.environ.get("SEINE_NOTPOP_BF_ONLY"):
+        lo, hi = 0, 0      # PURE blocker-first (the D-149 recon population)
+    elif os.environ.get("SEINE_NOTPOP_BF"):
+        lo, hi = 0, 3
+    else:
+        lo, hi = 1, 3
+    n_before = r.randint(lo, hi)
     n_after = r.randint(0, 2)
     if n_before + n_after == 0:
-        n_before = 1
+        if hi == 0:
+            n_after = 1     # BF_ONLY: keep the blocker first
+        else:
+            n_before = 1
     for _ in range(n_before):
         add_initial()
     facts.append(dict(BFACT)); gidx += 1   # the blocker, mid-initials
