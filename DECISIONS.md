@@ -61,11 +61,11 @@ CURRENT-ISSUES #2 upgrade. **Item #2 ENGINE PORT COMMITTED locally at `05399b3`
 (D-140)** — `engine.rs` post-hoc agenda reorder (clean-regime-gated) + 3 graduated
 pins `pr_cep_not_order_ev_{expiry,delete,upd}` + DECISIONS.md; `fuzz_cep.py`
 unchanged (no fence lift — the `temporal_types` fence still guards item 1b).
-**Item 1b Family A COMMITTED locally at `<D141-sync>` (D-141)** — `store.rs`
+**Item 1b Family A COMMITTED locally at `e858587` (D-141)** — `store.rs`
 (`event_ts` snapshot + `temporal_ts`) + `engine.rs` (after_insert snapshot; temporal
 eval/keys read the snapshot) + 3 pins `pr_cep_tj_ts_{update_overfire,update_underfire,
 field_mutable}`; `fuzz_cep.py` unchanged (fence stays — the A2/B tail remains).
-`main` is **N ahead of `origin/main`** (see sync marker) — NOT pushed. ⚠ **NO `v*`
+`main` is **19 ahead of `origin/main`** (post sync marker) — NOT pushed. ⚠ **NO `v*`
 TAGS until a PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire
 on tag push and the `pypi` environment has NO protection rules (gh-verified): a new
 tag publishes `seine-rs` with no manual gate. Recent: D-132/133 §3A (reaping) →
