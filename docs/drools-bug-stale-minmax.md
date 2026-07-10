@@ -1,9 +1,31 @@
 # Upstream bug report — Drools accumulate min/max stale result
 
+**✅ FIXED UPSTREAM (2026-07-08, one day after filing).**
+https://github.com/apache/incubator-kie-drools/pull/6796 — *"Fix
+accumulate for non-reversible functions"*, authored by **Mario Fusco**
+(merged by Gabriele Cardosi, commit `275baf9c`), closing issue #2366.
+The merged change is **exactly the repair suggested below** — `isDirty
+= …` → `isDirty |= …` at BOTH arms of
+`PhreakAccumulateNode.doLeftUpdatesProcessChildren` — and the upstream
+regression test (`AccumulateTest.testAccumulateMinStaleAfterLeftTupleUpdate`)
+is derived from this report's reproducer (the P/S/G min shape, `b:
+-10→5`, sources `{12, -2}`, expected results `[-2, 12]`).
+
+**Convergence status (D-148):** no RELEASE carries the fix yet (latest
+10.2.0 is 2026-04-28, pre-merge; Apache snapshots stale since April), so
+the pinned oracle (9.44.0.Final) still exhibits the defect and the D-093
+quarantine + generator wall REMAIN IN FORCE. At the next oracle bump to
+a fix-bearing release: the seven documented-expected-divergence
+witnesses (alu6a, alu7a/7d/7f/7g, fz_123_8426, fz_min_8426) should flip
+to CONVERGENT (Seine's correct re-derivation == fixed Drools) and
+graduate into the normal gate, and the D-093 generator wall (min/max
+mutation-free) can be lifted. See DECISIONS D-148.
+
 **FILED: https://github.com/apache/incubator-kie-issues/issues/2366**
-(2026-07-07, status open at filing time). Found and analyzed 2026-07-06
-by differential testing against the Seine engine (D-092 in this
-repository's DECISIONS.md). The text below is the filed content.
+(2026-07-07, status open at filing time; CLOSED 2026-07-08 by the fix).
+Found and analyzed 2026-07-06 by differential testing against the Seine
+engine (D-092 in this repository's DECISIONS.md). The text below is the
+filed content.
 
 ---
 

@@ -7579,3 +7579,38 @@ fence-lifted residual set — remaining: cf313x4 (plain-not), cf401x25/42 + cf42
 (gen.rs no events; corpus byte-identity). The exists tail is CLOSED; item-1b's
 remaining tails: plain-not cf313x4, A2 windowed-accumulate, and the new D-146
 blocker-first-with-arrivals family.
+
+### D-148: the D-093 upstream defect is FIXED IN DROOLS — apache/incubator-kie-drools#6796, authored by Mario Fusco, merged 2026-07-08 (ONE DAY after the report), adopting the report's suggested `isDirty |=` repair VERBATIM at both arms + a regression test derived from the filed reproducer. No release carries it yet ⇒ the pinned oracle keeps the defect and the D-093 quarantine/wall REMAIN; convergence graduation is queued for the next oracle bump
+
+**The event.** apache/incubator-kie-issues#2366 (the D-093 report, filed 2026-07-07)
+was CLOSED 2026-07-08T13:06Z by PR **apache/incubator-kie-drools#6796** — "Fix
+accumulate for non-reversible functions", authored by **Mario Fusco** (Drools lead;
+merged by Gabriele Cardosi, merge commit `275baf9c`). The change is EXACTLY the
+repair the report suggested: `isDirty = accumulate.hasRequiredDeclarations()` →
+`isDirty |= …` (the re-add arm) and `isDirty = !reversed` → `isDirty |= !reversed`
+(the removeMatch arm) in `PhreakAccumulateNode.doLeftUpdatesProcessChildren` — the
+last-writer-wins clobber D-092 identified as the mechanism. The added upstream test
+(`AccumulateTest.testAccumulateMinStaleAfterLeftTupleUpdate`) is the report's
+reproducer shape verbatim (P/S/G, `b: -10→5`, sources `{12, -2}`, expected
+`[-2, 12]`). External validation of the whole differential-testing arc: D-092's
+mechanism analysis, D-093's doctrine call (Seine corrects value-bearing defects),
+and the report were all adopted upstream in one day.
+
+**What changes NOW: nothing.** The oracle stays pinned at 9.44.0.Final (defect
+present); the latest release 10.2.0 (2026-04-28) PRE-dates the merge and Apache
+snapshot publishing is stale (999/10.x.999 lastUpdated Mar/Apr 2026), so no
+fetchable artifact carries the fix — the empirical convergence check defers to the
+next release, exactly the path D-093 anticipated ("track the issue when bumping
+oracle versions"). The D-093 quarantine (documented-expected-divergence witnesses)
+and the generator wall (min/max mutation-free) REMAIN IN FORCE.
+
+**Queued for the next oracle bump (the convergence protocol):** (1) verify the bump
+target's tag contains `275baf9c`; (2) re-run the seven quarantined witnesses —
+`alu6a`, `alu7a/7d/7f/7g`, `fz_123_8426`, `fz_min_8426` — expecting CONVERGENCE
+(Seine's correct re-derivation == fixed Drools) and graduate them into the normal
+gate; (3) LIFT the D-093 generator wall (min/max accumulates re-enter mutation
+scenarios; external updates stop rerouting to deletes) and re-fuzz the restored
+surface; (4) update `docs/drools-bug-stale-minmax.md` (resolution banner added now,
+D-148) and re-run the full corpus per the pin-bump protocol. Doctrine note: the
+D-093 "faithfulness is to Drools-the-spec, not to defects" ruling is now vindicated
+by Drools itself — the corrected behavior IS the spec.
