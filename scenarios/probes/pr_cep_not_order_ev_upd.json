@@ -1,0 +1,72 @@
+{
+ "name": "not_order_ev_upd",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 300
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "v": 1
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-140 item #2: a RELEASED P (initial, blocked throughout) UPDATED in the unblock epoch joins the NEWEST batch (last-touch epoch), so it fires BEFORE an earlier-batch insert: [1,2]. Minimal analog of cf401x344's NE7. No P is inserted in the unblock epoch, so the clean-regime reorder applies."
+}

@@ -384,6 +384,12 @@ struct CompiledRule {
     /// evaluateQueriesForRule drains these BEFORE the rule's network
     /// evaluates.
     dep_queries: Vec<usize>,
+    /// D-140 (item #2): `Some(tuple_pos)` iff this rule is the modeled
+    /// non-temporal `not <EVENT>() P()` shape — then the static-agenda pick
+    /// reorders firings to the not-unblock BATCH-STAGING order
+    /// (`not_order_key`), keying on the fact at tuple position `tuple_pos`
+    /// (the P join slot). `None` for every other rule ⇒ plain FIFO, untouched.
+    not_order_pos: Option<usize>,
 }
 
 /// Compiled rule salience (D-043). Dynamic expressions evaluate per
@@ -412,6 +418,25 @@ struct Act {
     t: Tup,
     sal: i32,
     seq: u64,
+}
+
+/// D-140 (item #2): per-fact touch stamp driving the non-temporal
+/// not-over-EVENT unblock firing order (`tools/model_check_notorder.py`).
+/// `insert_epoch` = `fire_no` at INSERT (never rewritten); `epoch` = `fire_no`
+/// at the last insert/update — both count fire boundaries, so they equal the
+/// model's batch index (initial-batch inserts land at 0). `is_upd`/`upd_seq` =
+/// the last touch was an update and its global apply-order. Insertion order
+/// (the model's `gidx`) comes for free from the monotonic `FactId`.
+///
+/// The two epochs differ ONLY for a fact updated after insert: the RELEASED-vs-
+/// FRESH split keys on `insert_epoch` (a fact inserted in the unblock epoch was
+/// never blocked), while the batch reversal keys on `epoch` (last-touch).
+#[derive(Clone, Copy, Default)]
+struct FactTouch {
+    insert_epoch: u64,
+    epoch: u64,
+    is_upd: bool,
+    upd_seq: u64,
 }
 
 use crate::phreak::{self, Origin, Staged, Tup};
@@ -1108,6 +1133,12 @@ pub struct Engine {
     in_expiration_drain: bool,
     in_stream_flush: bool,
     fire_no: u64,
+    /// D-140 (item #2): per-fact last-touch stamps + a global update
+    /// apply-counter, read ONLY by the non-temporal not-over-EVENT firing
+    /// reorder (`not_order_pos` gate). Written on every external insert/update;
+    /// inert on the plain corpus (no gated rule ⇒ never read).
+    fact_touch: HashMap<FactId, FactTouch>,
+    upd_seq_next: u64,
     flush_trigger_tid: Option<TypeId>,
     ever_linked: Vec<bool>,
     stage_seq: u64,
@@ -1252,6 +1283,8 @@ impl Engine {
             in_expiration_drain: false,
             in_stream_flush: false,
             fire_no: 0,
+            fact_touch: HashMap::new(),
+            upd_seq_next: 0,
             flush_trigger_tid: None,
             ever_linked: Vec::new(),
             stage_seq: 0,
@@ -3058,7 +3091,20 @@ impl Engine {
         // D-109: close this rule's temporal graph and fold the per-type
         // inferred reach into `temporal_ub` (MAX across rules).
         self.accumulate_temporal_closure(&temporal_edges, &temporal_pos_type);
-        Ok(CompiledRule { def, patterns, actions, salience, dep_queries })
+        // D-140 (item #2): detect the modeled `not <EVENT>() P()` shape —
+        // compiled patterns [InitialFact, non-temporal NOT over an event type,
+        // one positive P]. @role(event) membership is set at type declaration
+        // (before compile), so this reads it here. A PLAIN blocker or a
+        // temporal not falls through to None (plain firing order already
+        // matches the oracle; temporal not-order is the fenced D-134 §6 tie).
+        let not_order_pos = (patterns.len() == 3
+            && patterns[1].ce == CeKind::Not
+            && !patterns[1].cmps.iter().any(|c| matches!(c.test, Test::Temporal { .. }))
+            && self.event_specs.contains_key(&patterns[1].type_id)
+            && patterns[2].ce == CeKind::Positive)
+            .then(|| patterns[2].tpos)
+            .flatten();
+        Ok(CompiledRule { def, patterns, actions, salience, dep_queries, not_order_pos })
     }
 
     fn compile_arg(
@@ -3196,6 +3242,10 @@ impl Engine {
     /// entry-point tag is set (CEP E2 item D) so routing (alpha_passes) sees
     /// the right partition.
     fn after_insert(&mut self, id: FactId) {
+        // D-140 (item #2): stamp the fact's birth epoch (fire boundaries count
+        // external epochs). Read only by the gated not-over-EVENT reorder.
+        let fno = self.fire_no;
+        self.fact_touch.insert(id, FactTouch { insert_epoch: fno, epoch: fno, is_upd: false, upd_seq: 0 });
         self.schedule_expiration(id);
         self.schedule_window_evictions(id);
         self.tms_note_stated(id);
@@ -3262,6 +3312,8 @@ impl Engine {
         self.collect_vals.clear();
         self.collect_scalar_vals.clear();
         self.act_seq = 0;
+        self.fact_touch.clear(); // D-140 (item #2): dead handles, WM cleared
+        self.upd_seq_next = 0;
         self.query_mem = Default::default();
         self.query_pending = vec![false; self.queries.len()];
         self.qce_children.clear();
@@ -3340,6 +3392,21 @@ impl Engine {
             self.store.set_value(id, fi, v).map_err(EngineError)?;
             mask |= 1 << fi;
         }
+        // D-140 (item #2): re-stamp last-touch as an UPDATE at this epoch, with
+        // a global apply-order (the model orders same-batch updates newest-
+        // first). Every external update counts — including a same-value no-op
+        // (`cf401x344`'s P1 re-touch). `insert_epoch` is PRESERVED (an update
+        // never makes a fact "fresh"). Read only by the gated reorder.
+        let fno = self.fire_no;
+        let seq = self.upd_seq_next;
+        self.upd_seq_next += 1;
+        let e = self
+            .fact_touch
+            .entry(id)
+            .or_insert(FactTouch { insert_epoch: fno, epoch: fno, is_upd: false, upd_seq: 0 });
+        e.epoch = fno;
+        e.is_upd = true;
+        e.upd_seq = seq;
         if self.lists_built {
             self.on_update(id, mask, None);
             for net in self.nets.iter_mut() {
@@ -4339,6 +4406,25 @@ impl Engine {
         Ok(())
     }
 
+    /// D-140 (item #2): sort key for the non-temporal not-over-EVENT unblock
+    /// firing order (`tools/model_check_notorder.py`, validated 0-div). Ascending
+    /// order = the oracle sequence.
+    ///
+    /// Batches (by LAST-TOUCH `epoch`, so a released fact updated in the unblock
+    /// epoch joins the newest batch — `cf401x344`'s P1) go REVERSE (newest epoch
+    /// first), the INITIAL batch (epoch 0) LAST; within a batch, inserts (by
+    /// insertion index = `FactId`) precede updates (newest apply first). This is
+    /// the EVENT variant (the only gated one — plain blockers already emit their
+    /// forward-epoch order). A missing stamp (never a live P) sorts last. The
+    /// caller applies this ONLY in the clean regime (see `fire_all`).
+    fn not_order_key(touch: &HashMap<FactId, FactTouch>, f: Option<FactId>) -> (i64, i64, i64, i64) {
+        let Some(f) = f else { return (2, 0, 0, 0) };
+        let t = touch.get(&f).copied().unwrap_or_default();
+        let (batch_hi, batch_lo) = if t.epoch == 0 { (1, 0) } else { (0, -(t.epoch as i64)) };
+        let (kind, tie) = if t.is_upd { (1, -(t.upd_seq as i64)) } else { (0, f.0 as i64) };
+        (batch_hi, batch_lo, kind, tie)
+    }
+
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
         // D-081: slot memory does not survive a fire boundary —
         // same-window out-and-back restores the original slot
@@ -4409,7 +4495,42 @@ impl Engine {
             // dynamic-salience rules pop the queue MAX — ties NEWEST
             // first (MatchConflictResolver, D-043).
             let idx = match self.rules[ri].salience {
-                EngineSalience::Static(_) => 0,
+                // D-140 (item #2): a modeled `not <EVENT>() P()` rule picks the
+                // not-unblock BATCH-STAGING order instead of FIFO — the smallest
+                // `not_order_key` over P's touch stamp. A no-op for a singleton
+                // queue and reduces to FIFO within one epoch's inserts, so every
+                // non-gated (incl. PLAIN-blocker) rule stays byte-identical.
+                //
+                // GATED to the CLEAN REGIME the model was validated on: every
+                // fired P was staged while blocked in a PRIOR fire cycle. If any
+                // fired P was INSERTED in THIS cycle (`insert_epoch >= fire_no`),
+                // the fire mixes in an in-cycle stream — an immediate
+                // delete-unblock and/or fresh post-unblock insert
+                // (`pr_cep_c_del_not` / `_u3` / `_v3` / `_v5`) — whose natural
+                // FIFO order the engine already emits correctly; fall back to
+                // FIFO so those stay byte-identical to HEAD.
+                EngineSalience::Static(_) => match self.rules[ri].not_order_pos {
+                    None => 0,
+                    Some(pos) => {
+                        let fno = self.fire_no;
+                        let touch = &self.fact_touch;
+                        let q = &self.nets[ri].queue;
+                        let in_cycle = q.iter().any(|a| {
+                            a.t.get(pos)
+                                .and_then(|f| touch.get(f))
+                                .is_some_and(|t| t.insert_epoch >= fno)
+                        });
+                        if in_cycle {
+                            0
+                        } else {
+                            q.iter()
+                                .enumerate()
+                                .min_by_key(|(_, a)| Self::not_order_key(touch, a.t.get(pos).copied()))
+                                .map(|(i, _)| i)
+                                .unwrap_or(0)
+                        }
+                    }
+                },
                 EngineSalience::Dyn { .. } => self.nets[ri]
                     .queue
                     .iter()

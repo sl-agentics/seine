@@ -11,21 +11,24 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-09, post-D-139 + item-#2 MODEL checkpoint (`9c6735c`).
-D-139 (CEP E2 item C §1a — windowed-accumulate LIVE-modify property-reactivity)
-PORTED: a WINDOWED accumulate watches BINDINGS-only on external update
-(constraints dropped) vs a PLAIN one's constraints∪bindings — a one-block
-`on_update` gate on `bind_fields` instead of `listen_mask`; probing OVERTURNED the
-D-137 "plain re-folds on any modify" claim. All corpus byte-identical.
-**➡ ACTIVE NEXT SLAB (BANKED, clean-pickup): item #2 non-temporal `not X() P()`
-firing-ORDER engine PORT** — the MODEL is VALIDATED & committed (`9c6735c`;
-`tools/model_check_notorder.py` 0-div on 1240 event scenarios); only the engine
-change remains (unify event-expiry/delete not-unblock emission to the model,
-event-gated, corpus byte-identical; PLAIN path already correct — leave it). Start
-from `~/.claude/plans/cep-not-order-findings.md` + CURRENT-ISSUES #2 below; do NOT
-re-derive (the staging flip-flops — the model is the spec). Other remaining item-C
-fenced: rule-RHS re-entrant exists churn (D-138) + item 1b temporal-order latents.
-`git log --oneline -16` for live HEAD._
+_Last updated: 2026-07-09, post-D-140 (item #2 non-temporal not-order ENGINE PORT
+LANDED). D-140 enforces the banked `9c6735c` model via a post-hoc AGENDA reorder
+(static-rule pick = smallest `not_order_key` instead of FIFO), gated to `not
+<EVENT>() P()` AND the CLEAN unblock regime (no fired P inserted in the current
+cycle ⇒ else HEAD-identical FIFO — the crux that keeps `pr_cep_c_del_not`/`u3`/
+`v3`/`v5` byte-identical). Per-fact `FactTouch` stamps carry epoch/insert-epoch/
+update-seq; `epoch == fire_no` (one fire boundary per external epoch). Corpus
+byte-identical; cf313x13/cf401x344 A/B-PROVEN fixed; ~4200 event-fuzz + 360 plain
+engine-vs-oracle 0-div; blast-radius ZERO (all `gen.rs` fuzz divergences are
+non-event ⇒ code inert). See D-140.
+**➡ ACTIVE NEXT SLAB: item 1b — pre-existing temporal-join ORDER latents** (the
+fz_42/123/7 "latent family"; @duration interval join-order + kin). Model-first,
+surfaced by lifting the `temporal_types` UPDATE fence; all bisect-to-HEAD
+byte-identical, NOT caused by any port. This is the LAST order gap on the CEP
+surface — item #2 (non-temporal not-order) is now CLOSED, the whole not/exists/
+join temporal arc is landed. Fenced-by-nature order residuals (within-close-time
+temporal not tie = java.util.PriorityQueue, D-134 §6; identity-hash fz_42_84) are
+NOT backlog. `git log --oneline -16` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -46,18 +49,24 @@ COMMITTED locally at `4818815` (D-139)** — one `on_update` block
 + `fuzz_cep.py` `windowed_acc_types` UPDATE fence lift + `tools/model_check_react.py`
 + 2 xf→probe graduations + 4 discriminator probes. **Item-#2 MODEL checkpoint
 COMMITTED locally at `9c6735c`** — `tools/{fuzz,model_check}_notorder.py` +
-CURRENT-ISSUES #2 upgrade (NO engine change; the not-order PORT is the banked next
-slab). `main` is **13 ahead of `origin/main`** — NOT pushed. ⚠ **NO `v*` TAGS until a
-PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push
-and the `pypi` environment has NO protection rules (gh-verified): a new tag
-publishes `seine-rs` with no manual gate. Recent: D-127 exists×temporal PORT →
-D-128..D-131 not×temporal modeled → port report → D-132/133 §3A (reaping) →
-**D-134 §3B (firing deferral) — not×temporal DONE, CEP-E2 fully unwalled.**
+CURRENT-ISSUES #2 upgrade. **Item #2 ENGINE PORT COMMITTED locally at `<D140-sync>`
+(D-140)** — `engine.rs` post-hoc agenda reorder (clean-regime-gated) + 3 graduated
+pins `pr_cep_not_order_ev_{expiry,delete,upd}` + DECISIONS.md; `fuzz_cep.py`
+unchanged (no fence lift — the `temporal_types` fence still guards item 1b).
+`main` is **N ahead of `origin/main`** (see sync marker) — NOT pushed. ⚠ **NO `v*`
+TAGS until a PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire
+on tag push and the `pypi` environment has NO protection rules (gh-verified): a new
+tag publishes `seine-rs` with no manual gate. Recent: D-132/133 §3A (reaping) →
+**D-134 §3B — not×temporal DONE** → D-135 exists-inference → D-136 shared-tjo →
+D-137/138/139 item-C → **D-140 non-temporal not-ORDER — item #2 CLOSED.**
 
-**Gates (green @ working tree incl. D-139, local):** baseline 11 / probes **980**
-byte-identical / regressions **288** / lint **1367 live·0 ghost·0 inert** / 9 Rust
-suites / bindings pytest 72 / class-1a fuzz 0-div 3×800 (seeds 401/402/403,
-`windowed_acc_types` fence LIFTED) / class-3 fuzz 0-div 3×800 (seeds 301/302/303) /
+**Gates (green @ working tree incl. D-140, local):** baseline 11 / probes **983**
+byte-identical / regressions **288** / lint **1370 live·0 ghost·0 inert** / 9 Rust
+suites / bindings pytest 72 / **D-140 not-order: engine-vs-oracle 0-div on 1800
+validated + 2100 FRESH-seed event (expiry+delete) + 360 plain scenarios; cf313x13/
+cf401x344 A/B-proven fixed; blast-radius ZERO (all 7 gen.rs fuzz divergences @
+42/123/7 are non-event ⇒ code inert; fz_42_258 A/B byte-identical)** / class-1a fuzz
+0-div 3×800 / class-3 fuzz 0-div 3×800 /
 blast-radius: `gen.rs` emits NO windows ⇒ the D-139 windowed-gate is provably inert
 on the main axis. Verify: `make diff` · `make lint-probes` · `cargo test` ·
 `python3 tools/model_check_react.py` (oracle prebuilt, `oracle/target/classpath.txt`).
@@ -181,24 +190,21 @@ order D-136); the CEP surface is faithful except:
     cf313 not-order, @duration interval join-order). NOT class 1, NOT caused by the
     `add_upd` port. Same family as item #2 below. Fence KEPT.
 
-2. **non-temporal `not X() P()` firing ORDER — MODEL VALIDATED; engine PORT is the
-   next slab (LOW impact — order-only).** Recon proved it is DEFINED by code
-   (deterministic 5×; TupleList FIFO on the not→join path — NOT the fenced TEMPORAL
-   not-order's `java.util.PriorityQueue` tie, D-134 §6). The full rule is the
-   non-temporal not-unblock BATCH-STAGING order (the D-125 analog): on unblock the
-   blocked P's fire grouped by BATCH = last-touch epoch (initial=epoch 0, LAST),
-   epoch batches REVERSE for an EVENT blocker / FORWARD for a PLAIN blocker,
-   within-batch inserts-then-updates(reverse-apply). Executable spec
-   `tools/model_check_notorder.py` validated 0-div on `tools/fuzz_notorder.py`
-   populations (1240 event scenarios, both triggers, 6 seeds). Engine bug:
-   event-expiry full-LIFO, event-delete full-FIFO (both ~90% divergent); PLAIN path
-   already correct (leave untouched). PORT (next): unify both EVENT paths to the
-   model, event-gated + corpus byte-identical (corpus is silent on multi-P
-   event-not-order ⇒ no pins to break); sketch in the findings doc — a per-fact
-   last-touch-cycle + apply-seq stamp reorder may be far cheaper than a full flush
-   rework. Witnesses `cf313x13`, `cf401x344`. Recon+model:
-   `~/.claude/plans/cep-not-order-findings.md`. ⚠ staging flip-flops — the MODEL is
-   the spec, do NOT hand-tune.
+2. **non-temporal `not X() P()` firing ORDER — ✅ DONE (D-140).** The banked model
+   (`9c6735c`) is now ENFORCED by a post-hoc AGENDA reorder (the per-fact
+   last-touch/insert-epoch/update-seq stamp reorder the findings doc sketched — far
+   cheaper than a flush rework), event-gated + corpus byte-identical. On unblock the
+   blocked P's fire by BATCH = last-touch epoch (initial=0 LAST; epoch batches
+   REVERSE for EVENT / already-correct FORWARD for PLAIN, left untouched), within-
+   batch inserts-then-updates(reverse-apply). THE CRUX that made it corpus-safe: the
+   reorder is GATED to the CLEAN regime (no fired P inserted in the current cycle) —
+   an in-cycle insert (immediate delete-unblock / fresh post-unblock insert) keeps
+   the engine's already-correct FIFO (HEAD-identical), which is why `pr_cep_c_del_not`
+   / `_u3` / `_v3` / `_v5` stayed byte-identical while the reversal only fires in the
+   `fuzz_notorder`-validated regime. Witnesses `cf313x13`/`cf401x344` A/B-proven
+   fixed; 3 pins `pr_cep_not_order_ev_{expiry,delete,upd}`. The early
+   "PriorityQueue-tie" mischaracterization is fully retired (it is DEFINED by code).
+   See D-140; recon/model `~/.claude/plans/cep-not-order-findings.md`.
 
 3. **window × interval count-during-window — PARSER wall, not semantics.**
    `accumulate($e:E() ...; count($e))` (bound accumulate SOURCE) doesn't parse (2
@@ -7184,3 +7190,71 @@ class-1a fuzz 0-div 3×800; `model_check_react.py` 32/32. ⇒ **CEP E2 item C §
 CLOSED.** Remaining item-C fenced: the rule-RHS re-entrant exists churn (D-138,
 not fuzz-reachable) + item 1b temporal-order latents + item #2 non-temporal
 not-order (both pre-existing, model-first).
+
+### D-140: item #2 non-temporal `not <EVENT>() P()` firing-ORDER — ENGINE PORT LANDED. The banked MODEL (`model_check_notorder.py`, `9c6735c`) is now ENFORCED by a post-hoc AGENDA reorder, gated to the CLEAN unblock regime. Corpus byte-identical; cf313x13/cf401x344 FIXED (A/B-proven); ~4200 event-fuzz + 360 plain engine-vs-oracle 0-div; ZERO blast-radius
+
+**What.** On unblock of a non-temporal `not <EVENT>() P()`, the blocked P's fire
+grouped by BATCH = each P's LAST-TOUCH epoch: epoch batches REVERSE (newest first),
+the INITIAL batch (epoch 0) LAST; within a batch, inserts (insertion order) precede
+updates (newest apply first). This is the D-checkpoint-`9c6735c` model, now enforced.
+Engine pre-port: event-EXPIRY full-LIFO, event-DELETE full-FIFO (both ~90% divergent
+vs oracle); PLAIN blocker already correct ⇒ LEFT UNTOUCHED (gate excludes it).
+
+**How — approach (b), post-hoc agenda reorder (NOT the staging-flush rework).** The
+firing order of a STATIC-salience rule = the order its terminal `queue` drains
+(`fire_all` picks `idx=0`, removeFirst FIFO); the not→join fan lays those activations
+down in the wrong order. Rather than re-plumb the delicate not→join stream staging
+(the true D-125 analog, high corpus-flip risk), the pick is REORDERED in place — the
+static branch of `fire_all` now mirrors the dynamic-salience `max_by_key`, choosing
+the smallest `not_order_key` instead of FIFO. Five scoped pieces in `engine.rs`:
+- **`FactTouch` stamp** (`fact_touch: HashMap<FactId, FactTouch>` + `upd_seq_next`):
+  per external fact, `insert_epoch`/`epoch` = `fire_no` at insert / last-touch,
+  `is_upd`/`upd_seq`. `fire_no` bumps once per `fire_all` (one per external epoch),
+  so `epoch` == the model's batch index (initial-batch inserts = 0). Written in
+  `after_insert` + `update_fact` (an update PRESERVES `insert_epoch`); cleared on
+  `reset`. Insertion order (`gidx`) is free from the monotonic `FactId`.
+- **`not_order_pos: Option<usize>`** on `CompiledRule`, computed at compile: `Some(P's
+  tuple pos)` iff compiled patterns are exactly `[InitialFact, non-temporal NOT over
+  an @role(event) type, positive P]`; else `None`. @role membership is set at type
+  declaration (pre-compile). PLAIN blockers / temporal nots / any other shape ⇒ None
+  ⇒ FIFO, byte-identical.
+- **`not_order_key`** = the model as a sort key (event variant: reverse batches,
+  epoch-0 last, ins-before-upd).
+- **CLEAN-REGIME GUARD** (the crux). The model is validated ONLY where every fired P
+  was staged while blocked in a PRIOR fire cycle. If ANY fired P was INSERTED in the
+  current cycle (`insert_epoch >= fire_no`), the fire mixes an in-cycle stream — an
+  immediate delete-unblock and/or a fresh post-unblock insert — whose NATURAL FIFO
+  order the engine already emits correctly; the reorder FALLS BACK to `idx=0` so those
+  stay byte-identical to HEAD.
+
+**Why the guard (the two mischaracterizations corrected by probing).** (1) A first cut
+reordered the whole queue greedily → broke `pr_cep_c_del_not` (a DELETE unblock with a
+P inserted AFTER the delete: that P was NEVER blocked, so the oracle streams it FIFO
+`[1,2]`, not reversed). (2) The obvious fix "reorder only `epoch < fire_no`" then broke
+`cf401x344`: its P1 was UPDATED in the unblock epoch (last-touch = fire_no) yet was
+inserted initially and blocked throughout — an update must NOT make a fact "fresh".
+The reconciling insight: DELETE unblocks fire the released batch IMMEDIATELY (so a
+same-epoch later insert fires separately, FIFO), while EXPIRY DEFERS to `fire_all` (so
+a same-epoch insert joins the reversed batch) — `pr_cep_c_del_not` (delete) vs
+`pr_cep_{u3,v3,v5}` (expiry) need OPPOSITE treatment of the unblock-epoch P, which a
+per-fact stamp can't tell apart. But all four are cases the ENGINE ALREADY EMITS
+CORRECTLY (pinned probes, FIFO). So the guard sidesteps the whole ambiguity: reorder
+ONLY the clean regime (no in-cycle insert among the fired P's — exactly what
+`model_check_notorder`/`fuzz_notorder` covers, unblock epoch always empty), and defer
+to HEAD-identical FIFO otherwise. FENCED (untested, model-undefined): a P inserted
+WHILE BLOCKED in the unblock epoch then released same-epoch — no corpus/fuzz case
+exercises it; the guard classes it FIFO.
+
+**Verified.** `make diff` **11 / 983 / 288** byte-identical (3 graduated pins
+`pr_cep_not_order_ev_{expiry,delete,upd}`); `make lint-probes` **1370**·0·0; `cargo
+test` 9 suites; `model_check_notorder.py` 0-div (event expiry+delete). Engine-vs-oracle
+0-div: 1800 validated-seed + 2100 FRESH-seed event scenarios (expiry+delete) + 360
+plain — ALL PASS. Witnesses `cf313x13` (`NE6: not E2() P()`) + `cf401x344` (`NE7: not
+E0() P()`) A/B-PROVEN: PASS post-port, FAIL on stashed HEAD (causation). BLAST-RADIUS
+ZERO: all 7 `gen.rs` main-fuzzer divergences across seeds 42/123/7 (11k cases) have NO
+event type ⇒ `not_order_pos` None ⇒ code inert; `fz_42_258` A/B byte-identical HEAD vs
+post-port. `gen.rs` reorder is engaged only for `not <event>() P()` in the clean
+regime; every other path takes the `None`/guard FIFO arm. ⇒ **item #2 CLOSED.** Item
+1b (temporal-join ORDER latents, the fz_42/123/7 family) remains the last pre-existing
+model-first order gap; item #2's `not X() P()` mischaracterization as a PriorityQueue
+tie (early recon) is fully retired — it is DEFINED by code and now enforced.

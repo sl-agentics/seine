@@ -1,0 +1,76 @@
+{
+ "name": "not_order_ev_expiry",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when not E0() P() then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 300
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-140 item #2: non-temporal not-over-EVENT unblock by EXPIRY reverses the staged batches — the blocked P fires newest-epoch-first, the initial batch (epoch 0) LAST: [3,2,1]. Engine emitted full-LIFO here pre-port."
+}
