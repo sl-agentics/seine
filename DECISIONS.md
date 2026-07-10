@@ -11,40 +11,29 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-09, post-D-140 (item #2 non-temporal not-order ENGINE PORT
-LANDED). D-140 enforces the banked `9c6735c` model via a post-hoc AGENDA reorder
-(static-rule pick = smallest `not_order_key` instead of FIFO), gated to `not
-<EVENT>() P()` AND the CLEAN unblock regime (no fired P inserted in the current
-cycle ⇒ else HEAD-identical FIFO — the crux that keeps `pr_cep_c_del_not`/`u3`/
-`v3`/`v5` byte-identical). Per-fact `FactTouch` stamps carry epoch/insert-epoch/
-update-seq; `epoch == fire_no` (one fire boundary per external epoch). Corpus
-byte-identical; cf313x13/cf401x344 A/B-PROVEN fixed; ~4200 event-fuzz + 360 plain
-engine-vs-oracle 0-div; blast-radius ZERO (all `gen.rs` fuzz divergences are
-non-event ⇒ code inert). See D-140.
-**item 1b Family A — temporal-join UPDATE re-propagation — DONE (D-141).** RECON
-overturned the "ORDER latents" label: lifting the `temporal_types` UPDATE fence gives
-a dominantly SET/COUNT family, ROOT = a CEP event's temporal position is INSERT-FIXED
-but the engine re-read the LIVE ts. Fix = `store.event_ts` snapshot read by the
-temporal eval + index keys. 8/12 witnesses + both minimal repros fixed; corpus
-byte-identical; 0 temporal-JOIN divergences on 2400 fresh fence-lifted cases;
-blast-radius analytically ZERO (`gen.rs` emits no temporal ops). See D-141.
-**➡ ACTIVE NEXT SLAB: item-1b Family B — existential (not/exists) firing-ORDER in the
-temporal-EXPIRY regime — MODEL DERIVATION IN PROGRESS (D-142 recon; NOT cracked).**
-Bryan chose the full model-first arc (CEP order-faithfulness). START from the
-**PICK-UP RUNBOOK** at the top of `~/.claude/plans/cep-item-1b-findings.md` (exact
-commands + inline discriminator repros — job tmp is gone in a fresh ctx). Infra
-COMMITTED (`dec1c0e`): `tools/fuzz_notorder_b.py` (P-first population, ~55% d140-
-divergent) + `tools/model_check_notorder_b.py` (predict harness, `MODEL=d140` baseline).
-KEY FINDING: order turns on BLOCKER-vs-P insert position (before-P promotes an
-unblock-epoch update = D-140; after-P does not) + blocker count + non-final advances +
-epoch structure — a multi-dimensional D-125-class model. D-140's `fuzz_notorder` was
-blocker-FIRST only ⇒ its model is that special case; the general P-first regime (the
-real witnesses) is Family B. NEXT: refine `predict()` to 0-div, then port (extend the
-D-140 reorder). Deferred sibling **(A2)** windowed-accumulate over an UPDATED ts
-(`cf401x25/42`, W3=`accumulate(E2($t:ts) over window; sum($t))`, kin of D-139).
-Fenced-by-nature residuals (within-close-time temporal not tie = java.util.PriorityQueue,
-D-134 §6; identity-hash fz_42_84; the fz_42/123/7 NON-event accumulate family — NOT
-item 1b) are NOT backlog. `git log --oneline -20` for live HEAD._
+_Last updated: 2026-07-10, post-D-150 (bf-with-arrivals MECHANISM CRACKED — the
+graft arc). The BfDump graft (listener dumps + a PropagationList reflection
+proxy + Drools linking TRACE) exposed the five concrete pieces that GENERATE
+the event-not firing order: join rtm LIST ORDER + staged backlog (firing =
+reverse(rtm) at unblock), FIFO queue entries with per-EVENT force-flush evals,
+QUIESCENCE expirations (all retracts after every queued entry, incl. post-ADV
+updates; deadline = ts+@expires+1), bare-P updates = immediate rtm
+move-to-tail at queue position (staged-only = no-op; never re-fires), and
+NotNode UNLINKING on right-insert-while-linked (creates multi-epoch staged
+backlogs; relink at last retract). The MECHANICAL simulator
+`tools/model_check_notorder_b.py MODEL=flush` is **0-div on 9041 scenarios
+across ALL event-blocker regimes** (pure-bf banked 694 + fresh 679; P-first;
+MIXED; val) **+ 55/55 probes** — it SUBSUMES seg/seg2/d140 on this family
+(they are per-regime shadows). ENGINE UNCHANGED (bf shapes still run the d140
+key; `xf_cep_not_bf_arrival{,2}` stay xfail). **➡ NEXT: Bryan gates the
+ENGINE PORT** — option on the table: replace the D-140/143/146 key reorders
+with an rtm-order simulation in the fire path (retires three phenomenological
+models + regime branches at once; touches a byte-identical corpus, hence the
+gate). See D-150 for the full machinery + port sketch.
+Item-1b tails after this: plain-not cf313x4 order (non-event — different
+machinery), A2 windowed-accumulate (cf401x25/42+cf423x107). Fenced-by-nature
+residuals (D-134 §6 PriorityQueue tie, fz_42_84 identity-hash) unchanged.
+`git log --oneline -20` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -7656,3 +7645,99 @@ arc. ENGINE UNCHANGED (bf stays at HEAD = the d140 key; corpus untouched —
 tooling + docs only this entry). Witnesses `xf_cep_not_bf_arrival{,2}` updated
 with the full recon. Item-1b tails now: plain-not cf313x4, A2
 windowed-accumulate, bf-with-arrivals (recon'd, awaiting the flush-sim arc).
+
+### D-150: bf-with-arrivals MECHANISM CRACKED via the graft arc — the order is generated by FIVE pieces of concrete Drools machinery (rtm list order + staged backlog + queue-position updates + quiescence expirations + not-node unlinking); a MECHANICAL simulator (`MODEL=flush`) is 0-div on 9041 scenarios ACROSS ALL THREE REGIMES (it subsumes seg/seg2/d140 on the event-blocker family) + 55 probes — ENGINE PORT AWAITS THE GATE
+
+**The graft (BfDump.java).** ExistsDump-style runner graft, extended twice
+during the arc: (1) listener-driven DYNAMIC dumps — matchCreated/Cancelled/
+Fired + WM events each dump the not/join beta memories (right-memory ORDER,
+staged R ins/del/upd, blocked lefts) and the RuleExecutor tupleList mid-fire;
+(2) the decisive instrument: a reflection PROXY swapped over the session's
+`ActivationsManagerImpl.propagationList` that logs every PropagationEntry
+ENQUEUE and (by wrapping the takeAll chain) every entry EXECUTION with a state
+dump after each. Plus slf4j-simple (jobs-tmp classpath copy; slf4j-nop swapped
+out) enabling Drools' own RuleNetworkEvaluator/SegmentMemory/PathMemory TRACE
+(eval-pass structure, LinkNode/UnlinkNode/LinkRule/Queue with masks).
+
+**THE MACHINERY (all graft-observed; sources read for names only).**
+1. **The hidden state is the JOIN's right-memory LIST ORDER (`rtm`) plus the
+   staged-right-insert BACKLOG** — not any per-fact stamp. Firing order at an
+   unblock = **reverse(rtm)**: doLeftInserts iterates rtm in order, each child
+   is PREPENDED into the target staging, the terminal appends head-first
+   (executor FIFO, fires front-first — PhreakRuleTerminalNode/RuleExecutor).
+2. **Every external op is a FIFO PropagationEntry** executed inside
+   fireAllRules. An EVENT insert (E0 at the not) FORCE-FLUSHES a network eval
+   at its queue position (BetaNode.assertObject: `shouldFlush=isStreamMode()`
+   → TupleEvaluationUtil.forceFlushLeftTuple → headerless outerEval — the
+   D-125 per-arrival flush, now seen on the not-path). Each eval drains the
+   join's staged-ins LIFO into rtm (batch-reversed; the emission reversal then
+   makes within-batch firing FORWARD/gidx — the D-149 "cracked" structure).
+3. **Expire entries only REGISTER** (WorkingMemoryReteExpireAction.execute =
+   registerExpiration + mark-expired; NO retract at its position). ALL
+   retracts run at QUIESCENCE — `ActivationsManagerImpl.flushExpirations`,
+   AFTER every queued entry of that fireAllRules **including post-ADV
+   updates** — in deadline order, each retract with its own force-eval
+   (NotNode.doDeleteRightTuple ends in flushLeftTupleIfNecessary). Re-block
+   scans surviving rtm_not; the LAST retract (counter 1→0) RELINKS the not,
+   queues the rule, and its eval UNBLOCKS: emission = reverse(rtm). Expiry
+   deadline = **ts + @expires + 1** (advance to the exact boundary does NOT
+   expire — mu4 probe); an arrival already past deadline enqueues its expire
+   action in the same flush.
+4. **A bare-P update (empty inferred mask — `P()` has no constraints) is an
+   IMMEDIATE `rtm.removeAdd` (move-to-tail) at its FIFO queue position**
+   (BetaNode.modifyObject line-298 reorder-only branch; no staging, no
+   executor queueing, no re-fire — updates NEVER re-fire this family, all
+   re-fires come from unblock re-emission). An update of a still-STAGED P
+   (memory==null) is a TOTAL NO-OP. Sequential updates = sequential
+   move-to-tails (the d_addP4first/last apply-order sensitivity, exactly).
+5. **P staging queues the fire-loop eval ONLY while the segment is fully
+   linked** — and an E0 right-insert batch processed while the segment is
+   linked **UNLINKS the unconstrained NotNode**
+   (PhreakNotNode.unlinkNotNodeOnRightInsert; segment mask drops its bit;
+   re-link at the last E0 retract). While unlinked, P inserts accumulate
+   STAGED across epochs (nb861x58's ep2 backlog — the flip-flop's other
+   half); a linked-era epoch drains per-epoch (the "per-epoch batches").
+
+**Why every static key failed (D-146/D-149, 3456-combo sweep cap 72.2%):**
+placement is the composition of (a) which drain WINDOW each insert lands in
+(a function of linking history), (b) queue-position move-to-tails over the
+CURRENT rtm (visible only against what has already drained — a move among
+staged-invisible peers is silent), and (c) the quiescence rule putting even
+post-ADV updates BEFORE the unblock emission. All three are history-valued;
+no per-fact stamp carries them. The D-149 flip-flops dissolve: bf_P1_pre's
+update moved a drained P1 to the rtm tail (fronts at emission); nb861x58's
+identical-class update moved rtm=[P1] (identity) while P2 sat STAGED and
+appended after at the retract drain (tails). d_ctl/d_P4P1/d_addP4first/last
+are literal move-to-tail sequences. The out-of-sample discriminators
+(unlk2ep/unlk3ep: merged multi-epoch backlog windows — [2,3,1]/[2,3,4,1]
+where the D-149 per-epoch frame predicts [3,2,1]/[4,3,2,1]) were predicted
+by the model BEFORE running and confirmed by the oracle.
+
+**The simulator (`tools/model_check_notorder_b.py MODEL=flush`,
+`predict_flush`).** ~120 lines replaying exactly the five pieces. Validated
+**0-div on 9041 banked+fresh population scenarios**: pure-bf 694 (seeds
+861-863) + 679 FRESH (871-873, SEINE_NOTPOP_BF_ONLY) + P-first (notpopb/2/3/
+fresh, 801-803) + MIXED (notpopb_mixed, notpopb_m2 811-813/821-825) + val
+(901-905) — i.e. **the mechanical model subsumes seg (D-143), seg2 (D-146),
+and the d140 key on the ENTIRE event-blocker family**; they are per-regime
+shadows of this machinery. Plus **55/55 probes**: all D-149 flip-flop pairs
+and batteries (bfprobe_sc/2/3), the backlog discriminators (bk*/unlk*), the
+update-history axes (u_*/ax*), and mid-run unblock/re-block/re-fire
+timelines (mu1-mu4, 7-firing multi-unblock sequences). SCOPE: event
+blockers (@role(event) @expires); the plain-fact `not D()` family
+(fuzz_notorder.py, D-140) is DIFFERENT machinery (no stream force-flush, no
+expiration deferral — explicit deletes retract at their queue position) and
+stays on the landed D-140 model.
+
+**Status.** ENGINE UNCHANGED — `xf_cep_not_bf_arrival{,2}` stay xfail (the
+engine still runs the d140 key on bf shapes); corpus 11/994/289
+byte-identical, lint 1382 live, cargo suites green. The graft
+(oracle/.../BfDump.java) is committed as the reusable instrument (the
+PropagationList proxy is the new RunnerDump-family tool). **PORT DESIGN
+QUESTION FOR THE GATE:** the mechanical model suggests replacing the D-140/
+D-143/D-146 key-based agenda reorder with a per-rule rtm-ORDER simulation
+(a Vec the engine already effectively has in `FactStore` iteration order —
+the port = maintain move-to-tail on update + drain-window bookkeeping +
+reverse at emission), which would retire three phenomenological models and
+their regime branches at once — but it touches the fire path of a landed,
+byte-identical corpus, so: mechanism report filed, Bryan gates the port.
