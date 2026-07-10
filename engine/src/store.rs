@@ -306,6 +306,14 @@ pub struct FactStore {
     schemas: Vec<TypeSchema>,
     data: Vec<TypeData>,
     handles: Vec<HandleEntry>,
+    /// D-141 (item 1b): each event fact's TEMPORAL position — its ts read at
+    /// INSERT, fixed for the fact's life. A CEP event's stream position is
+    /// immutable in Drools; the ts FIELD stays mutable (non-temporal reads see
+    /// an update), but temporal joins / index keys / the deadline all use this
+    /// fixed value. Set by the engine at insert (`set_event_ts`); read via
+    /// `event_ts`. Absent ⇒ non-event (or pre-snapshot) ⇒ callers fall back to
+    /// the live field, so non-updated events stay byte-identical.
+    event_ts: std::collections::HashMap<FactId, i64>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -330,7 +338,8 @@ impl FactStore {
             })
             .collect();
         FactStore {
-            expired: std::collections::HashSet::new(), schemas, data, handles: Vec::new() }
+            expired: std::collections::HashSet::new(), schemas, data, handles: Vec::new(),
+            event_ts: std::collections::HashMap::new() }
     }
 
     pub fn schemas(&self) -> &[TypeSchema] {
@@ -345,6 +354,7 @@ impl FactStore {
     pub fn reset(&mut self) {
         self.expired.clear();
         self.handles.clear();
+        self.event_ts.clear(); // D-141 (item 1b): fixed positions die with the facts
         for (s, d) in self.schemas.iter().zip(self.data.iter_mut()) {
             d.columns = s
                 .fields
@@ -446,6 +456,22 @@ impl FactStore {
     pub fn value(&self, id: FactId, field_idx: usize) -> Value {
         let h = self.handles[id.0 as usize];
         self.data[h.type_id as usize].columns[field_idx].get(h.row as usize)
+    }
+
+    /// D-141 (item 1b): snapshot an event's fixed TEMPORAL position at insert.
+    pub fn set_event_ts(&mut self, id: FactId, ts: i64) {
+        self.event_ts.insert(id, ts);
+    }
+
+    /// D-141 (item 1b): the fixed temporal position (`Some` for an event with a
+    /// snapshot), or the LIVE field value at `field_idx` (non-event / defensive).
+    /// Temporal joins, index keys, and the deadline read this so a ts-field
+    /// UPDATE never moves the event in the stream (`tj_ts_update` repros).
+    pub fn temporal_ts(&self, id: FactId, field_idx: usize) -> Value {
+        match self.event_ts.get(&id) {
+            Some(&ts) => Value::I64(ts),
+            None => self.value(id, field_idx),
+        }
     }
 
     /// EVERY fact ever inserted, live or dead, in handle order (D-047:

@@ -1,0 +1,42 @@
+{
+ "name": "tj_ts_field_mutable",
+ "types": [
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R when E2(ts > 100) then end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 30
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "ts": 211
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-141 item 1b boundary: the ts FIELD VALUE stays MUTABLE (only the temporal position is fixed). E2.ts 30->211, rule R(ts>100) \u2014 oracle & engine both FIRE on 211 (non-temporal read sees the update). This is why the fix snapshots a SEPARATE temporal position rather than freezing the field."
+}

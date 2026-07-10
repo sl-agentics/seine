@@ -21,14 +21,22 @@ update-seq; `epoch == fire_no` (one fire boundary per external epoch). Corpus
 byte-identical; cf313x13/cf401x344 A/B-PROVEN fixed; ~4200 event-fuzz + 360 plain
 engine-vs-oracle 0-div; blast-radius ZERO (all `gen.rs` fuzz divergences are
 non-event ⇒ code inert). See D-140.
-**➡ ACTIVE NEXT SLAB: item 1b — pre-existing temporal-join ORDER latents** (the
-fz_42/123/7 "latent family"; @duration interval join-order + kin). Model-first,
-surfaced by lifting the `temporal_types` UPDATE fence; all bisect-to-HEAD
-byte-identical, NOT caused by any port. This is the LAST order gap on the CEP
-surface — item #2 (non-temporal not-order) is now CLOSED, the whole not/exists/
-join temporal arc is landed. Fenced-by-nature order residuals (within-close-time
-temporal not tie = java.util.PriorityQueue, D-134 §6; identity-hash fz_42_84) are
-NOT backlog. `git log --oneline -16` for live HEAD._
+**item 1b Family A — temporal-join UPDATE re-propagation — DONE (D-141).** RECON
+overturned the "ORDER latents" label: lifting the `temporal_types` UPDATE fence gives
+a dominantly SET/COUNT family, ROOT = a CEP event's temporal position is INSERT-FIXED
+but the engine re-read the LIVE ts. Fix = `store.event_ts` snapshot read by the
+temporal eval + index keys. 8/12 witnesses + both minimal repros fixed; corpus
+byte-identical; 0 temporal-JOIN divergences on 2400 fresh fence-lifted cases;
+blast-radius analytically ZERO (`gen.rs` emits no temporal ops). See D-141.
+**➡ ACTIVE NEXT SLAB: the item-1b TAIL** (both deferred, bisect-to-HEAD; findings
+`~/.claude/plans/cep-item-1b-findings.md`): **(A2)** windowed-accumulate over an
+UPDATED ts (`cf401x25/42`, W3=`accumulate(E2($t:ts) over window; sum($t))`) — a
+window-membership/re-fold sub-mechanism (kin of D-139), SEPARATE from the join eval;
+**(B)** not-order in the temporal regime (`cf401x362` event-not, `cf313x4` plain-not,
+no ts-update) — the clean D-140 model breaks under surrounding temporal activity.
+Fenced-by-nature residuals (within-close-time temporal not tie = java.util.PriorityQueue,
+D-134 §6; identity-hash fz_42_84; and the fz_42/123/7 NON-event accumulate family — NOT
+item 1b) are NOT backlog. `git log --oneline -18` for live HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -53,19 +61,24 @@ CURRENT-ISSUES #2 upgrade. **Item #2 ENGINE PORT COMMITTED locally at `05399b3`
 (D-140)** — `engine.rs` post-hoc agenda reorder (clean-regime-gated) + 3 graduated
 pins `pr_cep_not_order_ev_{expiry,delete,upd}` + DECISIONS.md; `fuzz_cep.py`
 unchanged (no fence lift — the `temporal_types` fence still guards item 1b).
-`main` is **17 ahead of `origin/main`** (post sync marker) — NOT pushed. ⚠ **NO `v*`
+**Item 1b Family A COMMITTED locally at `<D141-sync>` (D-141)** — `store.rs`
+(`event_ts` snapshot + `temporal_ts`) + `engine.rs` (after_insert snapshot; temporal
+eval/keys read the snapshot) + 3 pins `pr_cep_tj_ts_{update_overfire,update_underfire,
+field_mutable}`; `fuzz_cep.py` unchanged (fence stays — the A2/B tail remains).
+`main` is **N ahead of `origin/main`** (see sync marker) — NOT pushed. ⚠ **NO `v*`
 TAGS until a PyPI release is intended** — `ci.yml`'s `release`/`publish-pypi` fire
 on tag push and the `pypi` environment has NO protection rules (gh-verified): a new
 tag publishes `seine-rs` with no manual gate. Recent: D-132/133 §3A (reaping) →
 **D-134 §3B — not×temporal DONE** → D-135 exists-inference → D-136 shared-tjo →
 D-137/138/139 item-C → **D-140 non-temporal not-ORDER — item #2 CLOSED.**
 
-**Gates (green @ working tree incl. D-140, local):** baseline 11 / probes **983**
-byte-identical / regressions **288** / lint **1370 live·0 ghost·0 inert** / 9 Rust
-suites / bindings pytest 72 / **D-140 not-order: engine-vs-oracle 0-div on 1800
-validated + 2100 FRESH-seed event (expiry+delete) + 360 plain scenarios; cf313x13/
-cf401x344 A/B-proven fixed; blast-radius ZERO (all 7 gen.rs fuzz divergences @
-42/123/7 are non-event ⇒ code inert; fz_42_258 A/B byte-identical)** / class-1a fuzz
+**Gates (green @ working tree incl. D-141, local):** baseline 11 / probes **986**
+byte-identical / regressions **288** / lint **1373 live·0 ghost·0 inert** / 9 Rust
+suites / bindings pytest 72 / **D-141 temporal-join ts: 8/12 item-1b witnesses + both
+minimal repros fixed, corpus byte-identical, 0 temporal-JOIN div on 2400 fresh
+fence-lifted cases, blast-radius analytically ZERO (gen.rs emits no temporal ops)** /
+**D-140 not-order: 0-div on 1800 validated + 2100 FRESH-seed event + 360 plain;
+cf313x13/cf401x344 A/B-proven; blast-radius ZERO** / class-1a fuzz
 0-div 3×800 / class-3 fuzz 0-div 3×800 /
 blast-radius: `gen.rs` emits NO windows ⇒ the D-139 windowed-gate is provably inert
 on the main axis. Verify: `make diff` · `make lint-probes` · `cargo test` ·
@@ -7258,3 +7271,52 @@ regime; every other path takes the `None`/guard FIFO arm. ⇒ **item #2 CLOSED.*
 1b (temporal-join ORDER latents, the fz_42/123/7 family) remains the last pre-existing
 model-first order gap; item #2's `not X() P()` mischaracterization as a PriorityQueue
 tie (early recon) is fully retired — it is DEFINED by code and now enforced.
+
+### D-141: item 1b Family A — temporal-join UPDATE re-propagation. RECON corrected the "ORDER latents" label (it is dominantly a SET/COUNT family), NAILED the mechanism (a CEP event's temporal position is INSERT-FIXED; the engine re-read the LIVE ts), and PORTED the fix (a `store.event_ts` snapshot). 8/12 witnesses + both minimal repros FIXED; corpus byte-identical; blast-radius analytically ZERO
+
+**Recon overturned the label.** Lifting the `fuzz_cep.py` `temporal_types` UPDATE fence
+(seeds 313/401/402/403 ×400) surfaced 12 divergences, ALL bisect-to-HEAD (stash D-140 →
+identical). NOT "ORDER latents" (the DECISIONS guess): **10/12 are firing-COUNT/SET**
+divergences from re-propagating a temporal event's UPDATE; only 2/12 are order. Perfect
+correlation: the 10 SET all have a ts-update on a temporal event; the 2 order have none.
+
+**Family A (10/12) mechanism — NAILED, both directions.** A CEP event's TEMPORAL
+POSITION is fixed at insert; the ts FIELD stays mutable (probe `ts_field_mut`: oracle
+fires `R(ts>100)` on the updated value ⇒ non-temporal reads see the update). But the
+engine's temporal-join eval + index keys re-read the LIVE field, so a ts-update
+over/under-fires the join. Minimal repros: `tj_ts_update` (E2.ts 30→211 ⇒ engine JOINS
+on 211, oracle doesn't on fixed 30 — engine 1/oracle 0) and `tj_ts_update_under`
+(200→30 ⇒ oracle JOINS on 200, engine doesn't on 30 — engine 0/oracle 1).
+
+**Fix — `FactStore.event_ts` insert snapshot.** `after_insert` snapshots each event's
+ts (`set_event_ts`); the three temporal ts-reads — `JoinEnvImpl::allowed` +
+`allowed_ce` (`bs`/`as_`) and the index keys `key_of_left`/`key_of_right` — now read
+`store.temporal_ts` (the snapshot, else the live field). The deadline was already
+insert-fixed (`schedule_expiration` snapshots at insert; not re-scheduled on update), so
+it is untouched. NATURALLY byte-identical: snapshot == live unless the ts is UPDATED, so
+the whole clean corpus is unaffected; only the fenced ts-update regime changes.
+
+**Verified.** `make diff` **11 / 986 / 288** byte-identical (3 pins
+`pr_cep_tj_ts_{update_overfire,update_underfire,field_mutable}`); `make lint-probes`;
+`cargo test` 51. Bisect (stash D-141 → D-140-HEAD): 8 witnesses FAIL→PASS, the 4
+residuals byte-IDENTICAL (D-141 only fixes, never worsens). Fresh-seed fence-lifted fuzz
+(404-409, 2400 cases): **ZERO temporal-JOIN divergences** ⇒ the join-ts family is
+complete; the only residuals are windowed-accumulate + not-order (see below).
+BLAST-RADIUS analytically ZERO: `gen.rs` emits NO temporal ops and updates only bool
+guard fields (never event ts), so `temporal_ts` is never read on the main axis (same
+class as D-139's "gen.rs emits no windows"); corpus byte-identity confirms no
+temporal-ts-update anywhere in the corpus.
+
+**Residuals — the item-1b tail (deferred, all bisect-to-HEAD, findings
+`~/.claude/plans/cep-item-1b-findings.md`):**
+- **A2 — windowed-accumulate over an updated ts** (`cf401x25`/`cf401x42`, W3 =
+  `accumulate(E2($t:ts) over window:time; sum($t))`; fresh W2 hits). SEPARATE
+  sub-mechanism (window membership / re-fold over a ts-update), NOT the join eval —
+  D-141 leaves it byte-identical. Related to D-139 windowed-accumulate reactivity.
+- **B — not-order in the temporal regime** (`cf401x362` event-`not`, `cf313x4`
+  plain-`not`; no ts-update). The clean D-140 model does not hold under surrounding
+  temporal activity (e.g. `cf401x362` P1-updated-in-unblock-epoch: D-140 predicts
+  [1,2] but oracle is [2,1]). A distinct order coupling; deferred.
+The fz_42/123/7 main-fuzzer latents are UNRELATED to item 1b (they carry no event
+type — accumulate/identity-hash family; D-140's blast-radius A/B already showed
+`fz_42_258` byte-identical HEAD-vs-port).

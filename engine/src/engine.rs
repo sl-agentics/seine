@@ -3246,6 +3246,15 @@ impl Engine {
         // external epochs). Read only by the gated not-over-EVENT reorder.
         let fno = self.fire_no;
         self.fact_touch.insert(id, FactTouch { insert_epoch: fno, epoch: fno, is_upd: false, upd_seq: 0 });
+        // D-141 (item 1b): snapshot the event's FIXED temporal position (its ts
+        // at insert). A later ts-field UPDATE mutates the field but not this —
+        // temporal joins / index keys keep the insert position (Drools CEP).
+        let tid = self.store.fact_type(id);
+        if let Some(&EventSpec { ts_fi, .. }) = self.event_specs.get(&tid) {
+            if let Value::I64(ts) = self.store.value(id, ts_fi) {
+                self.store.set_event_ts(id, ts);
+            }
+        }
         self.schedule_expiration(id);
         self.schedule_window_evictions(id);
         self.tms_note_stated(id);
@@ -7550,8 +7559,12 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                     // CEP E1/E2 interval join: [Bs,Be] (self) vs [As,Ae]
                     // (anchor); each end = start + @duration (0 if point, so
                     // after/before reduce to the E1 point delta).
-                    let Value::I64(bs) = lhs else { return false };
-                    let Value::I64(as_) = self.store.value(l[anchor.0], anchor.1) else {
+                    // D-141 (item 1b): the interval STARTS read the INSERT-fixed
+                    // temporal position (`temporal_ts`), NOT the mutable ts field
+                    // (`lhs`) — a ts-update mutates the field but never moves the
+                    // event in the stream (`tj_ts_update{,_under}` repros).
+                    let Value::I64(bs) = self.store.temporal_ts(f, c.field_idx) else { return false };
+                    let Value::I64(as_) = self.store.temporal_ts(l[anchor.0], anchor.1) else {
                         return false;
                     };
                     let be = bs + dur_of(self.store, f, *self_dur_fi);
@@ -7568,10 +7581,12 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pos = node + 1;
         let pat = &self.rule.patterns[pos];
         // D-101: temporal nodes key the LEFT by the ANCHOR fact's ts
+        // (D-141 item 1b: the INSERT-fixed position, so a ts-update never
+        // re-buckets the event — consistent with the eval above).
         if let Some(Test::Temporal { anchor, .. }) =
             pat.cmps.iter().find_map(|c| matches!(&c.test, Test::Temporal { .. }).then(|| &c.test))
         {
-            return Some(vec![self.store.value(l[anchor.0], anchor.1)]);
+            return Some(vec![self.store.temporal_ts(l[anchor.0], anchor.1)]);
         }
         if let Some(ci) = pat.index_ci {
             // range index: the single relational constraint's binding value
@@ -7600,10 +7615,12 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         let pos = node + 1;
         let pat = &self.rule.patterns[pos];
         // D-101: temporal nodes key the RIGHT by its own ts field
+        // (D-141 item 1b: the INSERT-fixed position, so a ts-update never
+        // re-buckets the event — consistent with the eval above).
         if let Some(fi) = pat.cmps.iter().find_map(|c| {
             matches!(&c.test, Test::Temporal { .. }).then(|| c.field_idx)
         }) {
-            return Some(vec![self.store.value(f, fi)]);
+            return Some(vec![self.store.temporal_ts(f, fi)]);
         }
         if let Some(ci) = pat.index_ci {
             // range index: the constraint's own field value
@@ -7649,8 +7666,12 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                     // CEP E1/E2 interval join: [Bs,Be] (self) vs [As,Ae]
                     // (anchor); each end = start + @duration (0 if point, so
                     // after/before reduce to the E1 point delta).
-                    let Value::I64(bs) = lhs else { return false };
-                    let Value::I64(as_) = self.store.value(l[anchor.0], anchor.1) else {
+                    // D-141 (item 1b): the interval STARTS read the INSERT-fixed
+                    // temporal position (`temporal_ts`), NOT the mutable ts field
+                    // (`lhs`) — a ts-update mutates the field but never moves the
+                    // event in the stream (`tj_ts_update{,_under}` repros).
+                    let Value::I64(bs) = self.store.temporal_ts(f, c.field_idx) else { return false };
+                    let Value::I64(as_) = self.store.temporal_ts(l[anchor.0], anchor.1) else {
                         return false;
                     };
                     let be = bs + dur_of(self.store, f, *self_dur_fi);

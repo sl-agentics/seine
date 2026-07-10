@@ -1,0 +1,62 @@
+{
+ "name": "tj_ts_update_underfire",
+ "types": [
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule TJ0 when $a : E2() $b : E0(this after[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 200
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "ts": 30
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 223
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-141 item 1b (under-fire direction): E2.ts 200->30 then E0(223) after[0,50] E2 \u2014 insert-fixed 200 \u21d2 23ms \u21d2 oracle JOINS; engine used to read updated 30 \u21d2 193ms \u21d2 suppress. Confirms the fix both ways."
+}

@@ -1,0 +1,63 @@
+{
+ "name": "tj_ts_update_overfire",
+ "expect_inert": true,
+ "types": [
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule TJ0 when $a : E2() $b : E0(this after[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 30
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "ts": 211
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 223
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-141 item 1b: a CEP event's temporal position is FIXED at insert. E2.ts 30->211 then E0(223) after[0,50] E2 \u2014 engine used to re-read the updated ts=211 (12ms gap \u21d2 JOIN, over-fire); oracle uses the insert-fixed 30 (193ms \u21d2 NO join). Fixed by the store.event_ts snapshot."
+}
