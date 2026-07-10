@@ -482,10 +482,27 @@ impl Node {
     ) {
         let fno = env.fire_no();
         let rins = std::mem::take(&mut self.s_right.ins);
+        // D-156 (tj pair-order): a SELF-join arrival stages the SAME fact on
+        // both sides of one flush call. Drools propagates its LEFT insert
+        // FIRST (that walk never sees the not-yet-inserted self-right), then
+        // its RIGHT insert (whose walk sees the just-inserted self-left) —
+        // probe battery t1-t9 + model_shared_tjo SEINE_TJO_SELF, 0-div/1000.
+        // With trg's prepend inverting phase order, the rights-first loop
+        // already puts the left-role batch first; only the self-pair's phase
+        // MEMBERSHIP moves: the right walk appends the pending same-fact
+        // staged left (⇒ post-reversal the self-pair heads the right-role
+        // batch), and the left walk skips the same-flush self-right.
+        // Single-side batches are byte-identical by construction.
+        let flush_rights: Vec<FactId> = rins.iter().map(|(f, _, _)| *f).collect();
         for (f, o, _) in rins.iter().rev() {
             let rkey = env.key_of_right(node_idx, *f);
             self.rights.push((*f, rkey));
-            let partners: Vec<Tup> = self.lefts.iter().map(|(l, _)| l.clone()).collect();
+            let mut partners: Vec<Tup> = self.lefts.iter().map(|(l, _)| l.clone()).collect();
+            for (l, _, _) in s0_folds.iter().chain(self.s_left.ins.iter()) {
+                if l.len() == 1 && l[0] == *f {
+                    partners.push(l.clone()); // the pending self-left
+                }
+            }
             for l in partners {
                 if l.iter().any(|lf| env.is_expired(*lf)) {
                     continue; // D-102: corpse lefts make no NEW pairs
@@ -506,6 +523,11 @@ impl Node {
             for f in partners {
                 if env.is_expired(f) {
                     continue; // D-102: corpse rights make no NEW pairs
+                }
+                // D-156: the self-pair was emitted by the RIGHT walk above
+                // (Drools' left propagation ran before the self-right existed)
+                if l.len() == 1 && l[0] == f && flush_rights.contains(&f) {
+                    continue;
                 }
                 if env.allowed(node_idx, l, f) {
                     let t = self.create_child(l, f, None, None);

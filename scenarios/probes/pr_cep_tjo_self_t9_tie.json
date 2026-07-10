@@ -1,0 +1,53 @@
+{
+ "name": "t9_tie",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule TJ when $a : E0() $b : E0(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 30,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "CEP tj pair-order (D-156): the t9_tie cell of the self-join arrival-batch battery \u2014 oracle = [left-role: old rights newest-arrival-first] ++ [right-role: SELF-pair first, old lefts newest-first], per-phase prepend reversal; only the SHARED divert (t5 twin) diverged pre-port."
+}

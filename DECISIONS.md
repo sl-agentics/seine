@@ -11,44 +11,16 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-155 — **the A2 windowed-accumulate family
-is CLOSED: mechanism (D-154) + engine port (D-155) both landed.** Bryan
-cleared the gate; the port = `winacc_admits` (snapshot admission on the
-insert + no-RT-update paths; rejection plants the RightTuple, no transient)
-+ `winacc_step` (the per-node RightTuple machine: detached =
-`clock_removed` at windowed nodes; mask-HIT revival at live fields, zombies
-never re-evict, revive-before-eviction pops at ts0+N; plain nodes keep the
-D-137 guard) + `winacc_pending`/`drain_winacc_pending` (external updates
-defer as per-entry FIFO queue entries evaluating epoch-final fields at
-fire_all pre-fire — single-update epochs provably byte-identical) + the
-stale-deadline guard in `schedule_window_evictions` (already-due deadlines
-never schedule — else they evict revived zombies; the one bug the
-population sweep caught, wf902x184). Gates: corpus 11/**1035**/**293**
-byte-identical (+33 `pr_cep_winacc_*` pins = the wa/m battery + port
-guards; both A2 witnesses GRADUATED to regressions/), lint **1427**/0/0,
-cargo 9, bindings 72; engine-vs-oracle: battery 30/30, all 5 witnesses
-pass, soup **3,312/3,335**; A/B vs base **+1,985 fixed / 0 regressed**;
-`SEINE_WINUPD_FULL=1` fuzz_cep 401/423/719/811 ×400 = **0 div** (base: the
-5 witnesses). RESIDUAL (filed, pre-existing, one family): same-epoch
-multi-op batching at NON-windowed nodes vs Drools' per-entry incremental
-flush — `xf_cep_acc_updel_flush_{plain,win}` (update-admits then delete ⇒
-oracle fires the net-zero value, engine's staged ins+del compensates) +
-`xf_cep_acc_multiupd_plain` (out-and-back double-update composition);
-follow-on = per-entry incremental drain. The winacc spec/tools
-(model_check_winacc.py 0-div incl. the residual shapes, fuzz_winacc.py,
-gen_winacc_probes.py) are the family's regression harness. Item-1b tails
-remaining: plain-not cf313x4; **tj pair-order — RECON DONE (2026-07-10,
-active slab): the mechanism is probe-cracked** — SHARED temporal SELF-join
-arrival batches only (8/9 probe battery passes unshared; the D-136 divert
-is the sole gate). Oracle = per-arrival LEFT-insert-then-RIGHT-insert
-propagations, each prepend-reversed: [left-role old-rights newest-first] ++
-[right-role: SELF-pair first, old-lefts newest-first]; the engine's
-`flush_ins_delta` rights-first loop puts the self-pair in the wrong phase.
-Fix naturally scoped to the shared divert (the unshared cascade excludes
-both-side arrivals). READ `~/.claude/plans/tj-pairorder-findings.md` —
-population plan = extend fuzz_shared_tjo/model_shared_tjo (self-joins were
-structurally unreachable in D-136's population), 0-div, GATE, port. Fenced-by-nature: D-134 §6
-PriorityQueue tie, fz_42_84. `git log --oneline -20` for live HEAD._
+_Last updated: 2026-07-10, post-D-156 — **the tj pair-order family is
+CLOSED** (recon + spec + port in one day; see D-156). The self-join
+arrival's phase-membership fix landed in `flush_ins_delta`, scoped to the
+D-136 shared divert. Gates: corpus 11/**1044**/**294** byte-identical (+9
+`pr_cep_tjo_self_*`, witness graduated), lint **1437**, cargo 9, bindings
+72 (pre-port run; no python change), population 250/250, fuzz 613 ×400
+0-div. Spec: `SEINE_TJO_SELF=1 model_shared_tjo.py fuzz` (0-div/1,000).
+A2 (D-154/155) also closed this session. Item-1b remaining: plain-not
+cf313x4 ONLY; `SEINE_WINUPD_FULL` guards nothing known (lift candidate).
+Fenced-by-nature: D-134 §6, fz_42_84. `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -8124,3 +8096,22 @@ generalize the deferred-entry drain to per-entry incremental evaluation.
 **Standing.** The `SEINE_WINUPD_FULL` fuzz gate stays env-guarded: with A2
 closed it now guards only the temporal-join pair-order latents (cf613x306
 kin) — lift it by default when that slab lands. The A2 family is CLOSED.
+
+## D-156 — tj pair-order PORT: the self-join arrival's phase membership
+
+Gate cleared by Bryan. ONE mechanism (probe battery t1-t9 + the cf613x306
+decode + `model_shared_tjo SEINE_TJO_SELF` 0-div/1,000): a self-join
+arrival's LEFT insert propagates BEFORE its self-right exists; the RIGHT
+insert then sees the self-left ⇒ arrival batch = [left-role: old rights
+newest-first] ++ [right-role: SELF-pair first, old lefts newest-first].
+Port (`phreak.rs flush_ins_delta`): the right walk appends the pending
+same-fact staged left; the left walk skips the same-flush self-right. trg's
+prepend already ordered the phases correctly — only the self-pair moved.
+Naturally scoped to the D-136 shared divert (the unshared cascade excludes
+both-side arrivals; legacy eval already correct — t1/t7). Single-side
+batches byte-identical by construction. GATES: corpus 11/**1044**/**294**
+byte-identical (+9 `pr_cep_tjo_self_*` pins; `xf_cep_tjorder_613_pair`
+GRADUATED), lint **1437**/0/0, cargo 9, self-join population 250/250
+engine-vs-oracle, fuzz_cep seed 613 ×400 **0 div** (was 1). The
+`SEINE_WINUPD_FULL` fence now guards nothing known — lift candidate.
+Item-1b remaining: plain-not cf313x4 only.

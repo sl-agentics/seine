@@ -136,5 +136,5 @@
    ]
   }
  ],
- "_finding": "PRE-EXISTING temporal-join pair-order latent, flushed by fresh fuzz seed 613 during the D-152 blast-radius A/B: TJ0 firing[11] pairs E0(ts=29) with itself where the oracle pairs E0(ts=22),E0(ts=29). FAILS ON HEAD (e5d62b2) IDENTICALLY \u2014 bisected D-152, engine output invariant across plain HEAD / HEAD+boundary-fix / the ExShadow port. Same family as the documented item-1b temporal-join latents (fz_42/123/7, cf313x4 kin); not exists-related (the scenario has no exists rule). Filed for the eventual temporal-join-order slab."
+ "_finding": "GRADUATED (D-156): shared temporal SELF-join arrival batch \u2014 the self-pair belongs to the RIGHT-role phase (Drools propagates the left insert before the self-right exists); the engine's flush_ins_delta rights-first loop had it heading the left-role batch. Fixed by the D-156 membership move, scoped to the shared divert."
 }
