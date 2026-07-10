@@ -49,8 +49,9 @@ engine-vs-oracle **5,605/5,605** clean; A/B vs HEAD: 1,012 divergences fixed
 latent (fails on HEAD identically; filed `xf_cep_tjorder_613_pair`). gen.rs
 never builds a shadow. See D-152.
 Item-1b tails: plain-not cf313x4, A2 windowed-accumulate
-(cf401x25/42+cf423x107 + the fresh xf_cep_winacc_719 pair), temporal-join
-pair-order latents (cf613x306 kin). The 23 delete-residuals are CLOSED
+(cf401x25/42+cf423x107 + the fresh xf_cep_winacc_719 pair — CLEAN-CONTEXT
+HANDOFF PREPARED: `~/.claude/plans/a2-windowed-accumulate-handoff.md`),
+temporal-join pair-order latents (cf613x306 kin). The 23 delete-residuals are CLOSED
 (D-153). Fenced-by-nature: D-134 §6 PriorityQueue tie, fz_42_84.
 `git log --oneline -20` for live HEAD._
 
