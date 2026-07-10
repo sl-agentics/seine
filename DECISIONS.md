@@ -19,7 +19,7 @@ D-136 shared divert. Gates: corpus 11/**1044**/**294** byte-identical (+9
 72 (pre-port run; no python change), population 250/250, fuzz 613 ×400
 0-div. Spec: `SEINE_TJO_SELF=1 model_shared_tjo.py fuzz` (0-div/1,000).
 A2 (D-154/155) also closed this session. Item-1b remaining: plain-not
-cf313x4 ONLY; `SEINE_WINUPD_FULL` guards nothing known (lift candidate).
+cf313x4 ONLY; the update fence is LIFTED by default (D-157; seeds 42/401/719/902 x400 0-div).
 Fenced-by-nature: D-134 §6, fz_42_84. `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
@@ -8115,3 +8115,10 @@ GRADUATED), lint **1437**/0/0, cargo 9, self-join population 250/250
 engine-vs-oracle, fuzz_cep seed 613 ×400 **0 div** (was 1). The
 `SEINE_WINUPD_FULL` fence now guards nothing known — lift candidate.
 Item-1b remaining: plain-not cf313x4 only.
+
+## D-157 — the temporal-type UPDATE fence lifted by default
+
+Every family it guarded is closed (D-141, D-143..153, D-154/155, D-156).
+`fuzz_cep.py` now always draws updates of temporal-join event types; the
+`SEINE_WINUPD_FULL` env gate is gone. Verified: seeds 42/401/719/902 x400
+= 0 divergences fence-lifted-by-default.
