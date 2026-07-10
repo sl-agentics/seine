@@ -7430,3 +7430,51 @@ cf423x107 — the D-139/D-141 reactivity tail). And the mixed-regime corner `e_p
 population, absent from the corpus, no fuzz witness). The whole item-1b arc (Family A
 D-141 ts-snapshot + Family B D-143 segment order) is now LANDED except these documented
 tails; findings `~/.claude/plans/cep-item-1b-findings.md`.
+
+### D-144: item-1b Family B (exists) — `exists E1() P()` witness-toggle RE-FIRE order. The re-fire order is the D-140 EPOCH model (reuses `not_order_key`), gated to RE-FIRES only (the FIRST satisfaction fires FIFO). Ported by extending the D-143 gate to `exists`; corpus byte-identical (11/991/288); engine-vs-oracle 0-fail on 2150+ scenarios; the real witness cf407x121 improves but its satisfying-epoch-insert sub-case (regime 2) is a documented FENCE
+
+**Scope + the divergence.** `exists E1() P()` (E1 an @event) — P's fire when the
+witness EXISTS; each satisfy transition (live-witness 0→1) re-fires the whole held P
+memory. While the witness is ABSENT the P's stage (delete/expiry drop it); on re-arrival
+they re-fire. The RE-FIRE ORDER was FIFO in the engine but epoch-reversed in Drools (all
+divergences ORDER-only — 0 count/multiset diffs across the population, so the engine's
+batch structure incl. expiry transient-fires + multi-toggle is already correct).
+
+**The model (`tools/model_check_exists.py`, cracked probe-first).** The re-fire order is
+the **D-140 EPOCH model** — batch by last-touch epoch, REVERSE (newest first), the INITIAL
+epoch LAST; within a batch INSERTS (insertion order) then UPDATES (newest apply first); a
+P updated in a later epoch re-stages into that batch. So exists re-fire == the D-140
+blocker-first `not` order, NOT the D-143 P-first SEGMENT model (probes rejected the
+mirror-of-not segment variant: `a_updP1`/`ex601x16`/`ex601x10` fixed the within-segment
+order to epoch batches). The FIRST satisfaction is special: it fires the accumulated P's
+FIFO/forward (a P-set spanning epochs first-fires in insertion order — cf. the corpus pin
+`pr_cep_v4_exists_two_held_gens`); only after the witness TOGGLES do the batches reverse.
+
+**The port (`engine/src/engine.rs`) — REUSES the D-143 machinery.** The compile gate
+extends to `exists <EVENT>() P()` (`is_exists`, `CompiledRule.order_exists`); a gated
+exists uses `not_order_key` (the epoch key) unconditionally — never the P-first
+`seg_order_key`. Two exists-specific pieces: (1) `RuleNet.last_fire_no` (committed at the
+FIRE BOUNDARY, not per pick — else it flips the regime mid-drain, the seg_p_first-latch
+lesson, `ex601x10`) makes the reorder engage only on a RE-FIRE (`last_fire_no < fire_no`);
+the first satisfaction falls to FIFO. (2) the `in_cycle` guard stays for exists too,
+FENCING regime 2.
+
+**Verified.** `make diff` **11 / 991 / 288** byte-identical (+2 graduated pins
+`pr_cep_exists_order_refire_{epoch,update}`); `make lint-probes` 1378·0·0; `cargo test`.
+Engine-vs-oracle diff **0-fail** on 2150+ exists scenarios (`fuzz_existsorder.py`, seeds
+501-503 + 601-603 + 701-703, multi-toggle + expiry + delete). `model_check_exists.py`
+0-div on the clean delete-single-toggle regime (its simplified sim doesn't replicate
+expiry transient-fires; the engine diff is the full gate). Fence-lifted `fuzz_cep` A/B
+(seeds 407/420/421/422): ZERO new divergences. D-143 (`not`) preserved (cf401x362 PASS,
+notpop 0-fail). BLAST-RADIUS zero (gen.rs no events ⇒ gate None ⇒ path dead; fuzz 42
+unchanged).
+
+**FENCED — regime 2 (the cf407x121 residual):** a P inserted in the SATISFYING epoch
+(alongside the re-arrival witness). A P inserted BEFORE the witness joins the newest
+batch (epoch-reorder); one inserted AFTER fires last (FIFO) — an insert-vs-witness timing
+split the `insert_epoch` stamp can't distinguish (dropping `in_cycle` fixed the before
+case but broke the after case: 110→239 divergent). So exists re-fires with a
+satisfying-epoch insert fall to FIFO (matches HEAD — not a regression; cf407x121's NE6
+`[1,2,3,2]` vs oracle `[1,3,2,2]`). Needs a per-P before/after-witness segment bit; left
+as the documented exists tail. Other item-1b tails unchanged (plain-`not` cf313x4,
+windowed-accumulate A2, mixed-regime `e_p_blk_p`).

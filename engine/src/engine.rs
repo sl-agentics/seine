@@ -390,6 +390,11 @@ struct CompiledRule {
     /// (`not_order_key`), keying on the fact at tuple position `tuple_pos`
     /// (the P join slot). `None` for every other rule ⇒ plain FIFO, untouched.
     not_order_pos: Option<usize>,
+    /// D-144 (item 1b Family B exists): this gated rule is `exists <EVENT>() P()`
+    /// (not `not`). The witness-toggle RE-FIRE order is the D-140 EPOCH model
+    /// (`not_order_key`) unconditionally — NOT the P-first SEGMENT branch (which
+    /// is a `not`-only phenomenon). So a gated exists never takes `seg_order_key`.
+    order_exists: bool,
 }
 
 /// Compiled rule salience (D-043). Dynamic expressions evaluate per
@@ -969,6 +974,12 @@ struct RuleNet {
     /// the queue drains (the regime is a stable property of the run, but the
     /// signal fact fires and leaves — re-deriving per pick would flip it).
     seg_p_first: bool,
+    /// D-144 (item 1b Family B exists): the `fire_no` of this rule's most recent
+    /// firing. A gated `exists` reorders only on a RE-FIRE (fired in a STRICTLY
+    /// earlier cycle) — the FIRST satisfaction fires the accumulated P's FIFO
+    /// (forward), matching Drools; only after the witness toggles do the epoch
+    /// batches reverse. `None` until the rule first fires.
+    last_fire_no: Option<u64>,
 }
 
 impl RuleNet {
@@ -1652,6 +1663,7 @@ impl Engine {
                 dirty: false,
                 dirty_stamp: 0,
                 seg_p_first: false,
+                last_fire_no: None,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -3118,14 +3130,23 @@ impl Engine {
         // (before compile), so this reads it here. A PLAIN blocker or a
         // temporal not falls through to None (plain firing order already
         // matches the oracle; temporal not-order is the fenced D-134 §6 tie).
-        let not_order_pos = (patterns.len() == 3
+        // D-143 (item 1b Family B): `not`. D-144 (item 1b Family B exists): also
+        // `exists <EVENT>() P()` — the witness-toggle RE-FIRE order (P's fire when
+        // the witness EXISTS; each satisfy transition re-fires the whole memory).
+        // Both gate on a non-temporal existential over an event + a positive P.
+        let is_not = patterns.len() == 3
             && patterns[1].ce == CeKind::Not
             && !patterns[1].cmps.iter().any(|c| matches!(c.test, Test::Temporal { .. }))
             && self.event_specs.contains_key(&patterns[1].type_id)
-            && patterns[2].ce == CeKind::Positive)
-            .then(|| patterns[2].tpos)
-            .flatten();
-        Ok(CompiledRule { def, patterns, actions, salience, dep_queries, not_order_pos })
+            && patterns[2].ce == CeKind::Positive;
+        let is_exists = patterns.len() == 3
+            && patterns[1].ce == CeKind::Exists
+            && !patterns[1].cmps.iter().any(|c| matches!(c.test, Test::Temporal { .. }))
+            && self.event_specs.contains_key(&patterns[1].type_id)
+            && patterns[2].ce == CeKind::Positive;
+        let not_order_pos = (is_not || is_exists).then(|| patterns[2].tpos).flatten();
+        let order_exists = is_exists;
+        Ok(CompiledRule { def, patterns, actions, salience, dep_queries, not_order_pos, order_exists })
     }
 
     fn compile_arg(
@@ -4545,6 +4566,7 @@ impl Engine {
         }
         let mut firings = Vec::new();
         let mut last_fired: Option<usize> = None;
+        let mut fired_this_cycle: Vec<usize> = Vec::new(); // D-144: rules that fired this cycle
         while let Some(ri) = self.next_activation(last_fired) {
             if let Some(e) = self.pending_err.take() {
                 return Err(EngineError(e));
@@ -4608,22 +4630,39 @@ impl Engine {
                         // updated before this match): the signal P fires and leaves
                         // the queue, so re-deriving per pick would flip the regime
                         // mid-drain (nb801x110).
-                        let seg_pf = self.nets[ri].seg_p_first;
+                        // D-144: a gated EXISTS reorders only on a RE-FIRE (fired
+                        // in a STRICTLY earlier cycle); the FIRST satisfaction fires
+                        // the accumulated P's FIFO (forward, Drools), so the epoch
+                        // reversal must NOT apply then (pr_cep_v4_exists_two_held_gens).
+                        // It always uses the D-140 epoch key (never the P-first
+                        // SEGMENT branch, a `not`-only phenomenon).
+                        let exists = self.rules[ri].order_exists;
+                        let exists_first_fire =
+                            exists && !self.nets[ri].last_fire_no.is_some_and(|lf| lf < fno);
+                        let use_seg = !exists && self.nets[ri].seg_p_first;
                         let touch = &self.fact_touch;
                         let q = &self.nets[ri].queue;
+                        // `in_cycle`: a fired P inserted THIS cycle. For `not` this
+                        // is the delete-unblock's fresh post-unblock insert (FIFO).
+                        // For EXISTS it is a P inserted in the SATISFYING epoch: the
+                        // re-fire order over such a mixed batch is the FENCED regime-2
+                        // tail (a P inserted AFTER the satisfying witness fires last,
+                        // BEFORE joins the newest batch — an insert-vs-witness timing
+                        // split this stamp can't tell apart), so fall back to FIFO
+                        // there too (matches HEAD; cf407x121's NE6 residual).
                         let in_cycle = q.iter().any(|a| {
                             a.t.get(pos)
                                 .and_then(|f| touch.get(f))
                                 .is_some_and(|t| t.insert_epoch >= fno)
                         });
-                        if in_cycle {
+                        if in_cycle || exists_first_fire {
                             0
                         } else {
                             q.iter()
                                 .enumerate()
                                 .min_by_key(|(_, a)| {
                                     let f = a.t.get(pos).copied();
-                                    if seg_pf {
+                                    if use_seg {
                                         Self::seg_order_key(touch, f)
                                     } else {
                                         Self::not_order_key(touch, f)
@@ -4643,6 +4682,11 @@ impl Engine {
                     .unwrap_or(0),
             };
             let tuple = self.nets[ri].queue.remove(idx).t;
+            // D-144: record that ri fired this cycle; `last_fire_no` is committed
+            // at the fire boundary (NOT here) so the gated-exists re-fire test stays
+            // STABLE across the batch drain — updating it per pick would flip the
+            // regime mid-batch (the seg_p_first-latch lesson, ex601x10).
+            fired_this_cycle.push(ri);
             self.execute_rhs(ri, &tuple)?;
             // Mid-firing item resort (RuleExecutor.fire, D-043): after
             // the flush, a dynamic item whose queue top no longer
@@ -4706,6 +4750,12 @@ impl Engine {
             self.trie[ni].s0_in.clear_slots();
         }
 
+        // D-144: commit this cycle's firings to `last_fire_no` at the boundary
+        // (fire_no not yet bumped) — a later cycle then reads `last_fire_no < fno`
+        // to detect a gated-exists RE-FIRE.
+        for &ri in &fired_this_cycle {
+            self.nets[ri].last_fire_no = Some(self.fire_no);
+        }
         self.fire_no += 1; // D-102 cycle-4: fire boundary — between-fire inserts stamp the NEXT fire
         Ok(firings)
     }
