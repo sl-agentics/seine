@@ -73,5 +73,5 @@
    ]
   }
  ],
- "_finding": "OPEN residual (D-155, pre-existing \u2014 fails on the pre-port base identically): same-epoch out-and-back DOUBLE-UPDATE of a plain-accumulate member (tag z->x->z) composed with a windowed sibling rule + a same-epoch insert: the oracle's entries evaluate against the epoch-FINAL bean (the member never leaves; count 2), the engine's immediate per-call processing sees the intermediate x state and its staged del+ins loses the member (count 1). The bare shape without the sibling/insert passes (multiupd control) \u2014 the composition is load-bearing (minimized from wf906x9). Same per-entry-deferral root as xf_cep_acc_updel_flush_*."
+ "_finding": "D-155 residual -> D-160 FIXED (graduated): same-epoch out-and-back double-update (z->x->z) of a plain-acc member composed with a windowed sibling + insert. Oracle entries evaluate against the epoch-FINAL bean - the member never leaves (count 2). The engine's immediate per-call arms saw the intermediate x state and lost the member via staged del+ins. Fix: plain-acc external updates of evented sources defer to the same per-entry drain (final-fields evaluation, no intermediate transitions)."
 }

@@ -1782,6 +1782,17 @@ struct EventSpec {
     dur_fi: Option<usize>,
 }
 
+/// D-160: one queued external op on an EVENT-TYPED accumulate source —
+/// Drools executes these per-entry (FIFO) at the fire drain against the
+/// epoch-final bean, each entry dirtying the accumulate result.
+#[derive(Clone, Copy)]
+enum AccEntry {
+    /// External update carrying ITS OWN written-mask (no merging).
+    Upd(u64),
+    /// Explicit external delete (expiry stays on its own certified path).
+    Del,
+}
+
 pub struct Engine {
     /// CEP E1 (D-100/D-101): pseudo-clock in ms. Advances only via
     /// advance(); starts at 0 like the oracle's PseudoClockScheduler.
@@ -1833,12 +1844,18 @@ pub struct Engine {
     /// next flush point against the LIVE bean — by then the epoch-FINAL
     /// field state (BfDump proxy: a same-epoch tag z→x pair never shows
     /// the network the z state; a fire boundary between them does).
-    /// Drained FIFO at fire_all pre-fire and at an EVENT insert (the
-    /// D-150 force-flush position). Single-update epochs are equivalent
-    /// to the pre-D-154 immediate processing: staging lands before the
-    /// first agenda pick either way, and the pick orders by
+    /// Drained FIFO at fire_all pre-fire. Single-update epochs are
+    /// equivalent to the pre-D-154 immediate processing: staging lands
+    /// before the first agenda pick either way, and the pick orders by
     /// (salience, decl_pos), not queue time.
-    winacc_pending: Vec<(FactId, u64)>,
+    /// D-160 generalizes the queue to ALL accumulate nodes over
+    /// EVENT-TYPED sources and adds explicit external DELETES as entries:
+    /// per-entry FIFO execution against epoch-final fields, with
+    /// aliveness decided by ENTRY ORDER (an update entry followed by a
+    /// delete entry executes while "alive" — Drools fires the net value,
+    /// even net-zero). Plain-typed sources keep immediate processing
+    /// (oracle-certified: ap1/ap1b probes — plain ops batch-annihilate).
+    acc_pending: Vec<(FactId, AccEntry)>,
     /// D-134 (§3B): scheduled temporal-`not` firing DEFERRALS, keyed by the
     /// window-close `fire_time` (mirror of `deadlines`, but a firing not a
     /// reap). Each entry is (not-node trie idx, held left tuple, origin).
@@ -2013,7 +2030,7 @@ impl Engine {
             deadlines: std::collections::BTreeMap::new(),
             pending_expirations: Vec::new(),
             window_deadlines: std::collections::BTreeMap::new(),
-            winacc_pending: Vec::new(),
+            acc_pending: Vec::new(),
             fire_deadlines: std::collections::BTreeMap::new(),
             fire_seq: 0,
             acc_nodes: Vec::new(),
@@ -4219,7 +4236,7 @@ impl Engine {
         // D-110/D-112: window deadline queue clears; acc_nodes is
         // recomputed by build_network below (trie reindexes on rebuild).
         self.window_deadlines.clear();
-        self.winacc_pending.clear();
+        self.acc_pending.clear();
         self.fire_deadlines.clear(); // D-134 (§3B)
         self.fire_seq = 0;
         self.in_expiration_drain = false;
@@ -4827,7 +4844,9 @@ impl Engine {
     fn winacc_step(&mut self, ni: usize, f: FactId, mask: u64, origin: Origin, was: &mut Vec<bool>) {
         let (ri, pos) = self.trie[ni].env;
         let was_in = self.trie[ni].active.contains(&f);
-        let now = self.alpha_passes(ri, pos, f);
+        // fields-only alpha (D-160): a drained entry may execute for a
+        // fact a LATER Del entry retracts — entry-order aliveness.
+        let now = self.alpha_passes_fields(ri, pos, f);
         let hit = mask == u64::MAX || self.rules[ri].patterns[pos].bind_fields & mask != 0;
         match (was_in, now) {
             (true, true) => {
@@ -4873,33 +4892,164 @@ impl Engine {
         self.note_link_effects_ex(was, Some(f));
     }
 
-    /// D-154: execute the queued external-update entries FIFO against the
-    /// live (now epoch-final) fields. Runs at fire_all pre-fire and at an
-    /// EVENT insert's position (Drools' force-flush, D-150) — before the
-    /// insert's own propagation. Entries for since-deleted facts drop
-    /// (their fold effects compensated at the delete; net-identical).
-    fn drain_winacc_pending(&mut self) {
-        if self.winacc_pending.is_empty() {
+    /// D-160: the plain (non-windowed) accumulate analog of `winacc_step` —
+    /// the D-137/D-139 immediate arms extracted verbatim, executed at the
+    /// entry drain against the live (epoch-final) fields. One entry, one
+    /// node, D-094 two-pass (pass 0 = entries/updates, pass 1 = exits).
+    fn plainacc_step(
+        &mut self,
+        ni: usize,
+        f: FactId,
+        mask: u64,
+        pass: u8,
+        was: &mut Vec<bool>,
+    ) {
+        let (ri, pos) = self.trie[ni].env;
+        let was_in = self.trie[ni].active.contains(&f);
+        // fields-only alpha (D-160): entry-order aliveness (see winacc_step)
+        let now = self.alpha_passes_fields(ri, pos, f);
+        if (pass == 0) == (was_in && !now) {
+            return; // pass A: entries/updates; pass B: exits (D-094)
+        }
+        match (was_in, now) {
+            (false, true) if self.trie[ni].clock_removed.contains(&f) => {
+                // D-137 class 2: expiry-eager acc-removed events stay removed.
+            }
+            (false, true) => {
+                self.trie[ni].active.insert(f);
+                self.maybe_pulse(ni);
+                let reentry =
+                    self.trie[ni].node.s_right.del.iter().any(|(x, _, _)| *x == f);
+                let ph = if reentry { 1 } else { 0 };
+                self.trie[ni].node.s_right.add_ins_ph(f, None, ph);
+            }
+            (true, false) => {
+                self.trie[ni].active.remove(&f);
+                self.trie[ni].node.s_right.add_del(f, None);
+            }
+            (true, true) => {
+                // plain accumulate: full listen mask (constraints ∪ bindings,
+                // D-139); acc nodes are never temporal positives.
+                if mask == u64::MAX || self.rules[ri].patterns[pos].listen_mask & mask != 0 {
+                    self.trie[ni].node.s_right.add_upd(f, None);
+                } else {
+                    let env = JoinEnvImpl {
+                        store: &self.store,
+                        rule: &self.rules[ri],
+                        flush: self.in_stream_flush,
+                        fire_no: self.fire_no,
+                        not_releasing: false,
+                    };
+                    let key = phreak::JoinEnv::key_of_right(&env, pos - 1, f);
+                    self.trie[ni].node.re_add_right_fact(f, key);
+                }
+            }
+            (false, false) => {}
+        }
+        self.note_link_effects_ex(was, Some(f));
+    }
+
+    /// D-154/D-160: execute the queued external acc-source entries FIFO
+    /// against the live (now epoch-final) fields, at fire_all pre-fire.
+    /// Aliveness is decided by ENTRY ORDER (D-160): an update entry
+    /// followed by a Del entry executes while "alive" — its fold-in and
+    /// the Del's fold-out EACH dirty the accumulate, so the terminal
+    /// re-fires the net value (the oracle's per-entry incremental flush;
+    /// xf_cep_acc_updel_flush_{plain,win}). A fact dead WITHOUT a later
+    /// Del entry (expiry / prior epochs) still drops — its fold effects
+    /// were compensated on the certified expiry path (D-155).
+    fn drain_acc_pending(&mut self) {
+        if self.acc_pending.is_empty() {
             return;
         }
-        let entries = std::mem::take(&mut self.winacc_pending);
+        let entries = std::mem::take(&mut self.acc_pending);
+        let del_pos: std::collections::HashMap<FactId, usize> = entries
+            .iter()
+            .enumerate()
+            .filter(|(_, (_, e))| matches!(e, AccEntry::Del))
+            .map(|(i, (f, _))| (*f, i))
+            .fold(std::collections::HashMap::new(), |mut m, (f, i)| {
+                m.entry(f).or_insert(i);
+                m
+            });
+        let mut drain_dead: std::collections::HashSet<FactId> =
+            std::collections::HashSet::new();
         let mut was: Vec<bool> =
             (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
-        for (f, mask) in entries {
-            if !self.store.is_alive(f) {
-                continue;
-            }
+        for (i, (f, entry)) in entries.into_iter().enumerate() {
             let ftype = self.store.fact_type(f);
-            for ni in 0..self.trie.len() {
-                let (ri, pos) = self.trie[ni].env;
-                let pat = &self.rules[ri].patterns[pos];
-                if pat.type_id != ftype
-                    || matches!(pat.sub, SubRole::Outer { .. })
-                    || !pat.acc.as_ref().is_some_and(|a| a.window_time.is_some())
-                {
-                    continue;
+            match entry {
+                AccEntry::Upd(mask) => {
+                    if drain_dead.contains(&f) {
+                        continue; // an earlier Del entry retracted it
+                    }
+                    if !self.store.is_alive(f)
+                        && del_pos.get(&f).is_none_or(|&d| d < i)
+                    {
+                        continue; // dead via expiry/other: certified drop
+                    }
+                    for pass in 0..2u8 {
+                        for ni in 0..self.trie.len() {
+                            let (ri, pos) = self.trie[ni].env;
+                            let pat = &self.rules[ri].patterns[pos];
+                            if pat.type_id != ftype
+                                || matches!(pat.sub, SubRole::Outer { .. })
+                                || pat.acc.is_none()
+                            {
+                                continue;
+                            }
+                            if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some())
+                            {
+                                if pass == 0 {
+                                    self.winacc_step(ni, f, mask, None, &mut was);
+                                }
+                                continue;
+                            }
+                            self.plainacc_step(ni, f, mask, pass, &mut was);
+                        }
+                    }
                 }
-                self.winacc_step(ni, f, mask, None, &mut was);
+                AccEntry::Del => {
+                    drain_dead.insert(f);
+                    for ni in 0..self.trie.len() {
+                        let (ri, pos) = self.trie[ni].env;
+                        let pat = &self.rules[ri].patterns[pos];
+                        if pat.type_id != ftype
+                            || matches!(pat.sub, SubRole::Outer { .. })
+                            || pat.acc.is_none()
+                        {
+                            continue;
+                        }
+                        if self.trie[ni].active.remove(&f) {
+                            let had_pending_ins = self.trie[ni]
+                                .node
+                                .s_right
+                                .ins
+                                .iter()
+                                .any(|(x, _, _)| *x == f);
+                            self.trie[ni].node.s_right.add_del(f, None);
+                            if had_pending_ins {
+                                // The del ANNIHILATED an in-drain staged ins:
+                                // Drools' two entries each dirtied the result —
+                                // force the net-value re-emission through every
+                                // left (Phase D re-derives + re-propagates).
+                                for l in self.trie[ni].node.lefts_snapshot() {
+                                    self.trie[ni].node.s_left.add_upd(l, None);
+                                }
+                                for ri2 in 0..self.rules.len() {
+                                    if self.nets[ri2].path.contains(&ni)
+                                        && self.rule_linked(ri2)
+                                    {
+                                        self.nets[ri2].queued = true;
+                                        self.nets[ri2].dirty = true;
+                                        self.nets[ri2].dirty_stamp = self.stage_seq;
+                                    }
+                                }
+                            }
+                        }
+                        self.note_link_effects_ex(&mut was, Some(f));
+                    }
+                }
             }
         }
     }
@@ -5615,7 +5765,27 @@ impl Engine {
             self.bf_on_external_delete(victim);
         }
         if self.lists_built {
-            self.on_delete(victim, None);
+            // D-160: an explicit external delete of an EVENT-TYPED fact
+            // feeding an accumulate node queues a Del ENTRY — its acc
+            // fold-out executes at the drain in FIFO order with the
+            // deferred update entries (Drools' per-entry incremental
+            // flush: an update entry before it still executes "alive").
+            // Expiry (in_expiration_drain) and internal cascades keep
+            // the immediate path.
+            let victim_tid = self.store.fact_type(victim);
+            let defer_acc = !self.in_expiration_drain
+                && self.event_specs.contains_key(&victim_tid)
+                && (0..self.trie.len()).any(|ni| {
+                    let (ri, pos) = self.trie[ni].env;
+                    let pat = &self.rules[ri].patterns[pos];
+                    pat.type_id == victim_tid
+                        && !matches!(pat.sub, SubRole::Outer { .. })
+                        && pat.acc.is_some()
+                });
+            self.on_delete_ex(victim, None, defer_acc);
+            if defer_acc {
+                self.acc_pending.push((victim, AccEntry::Del));
+            }
             for net in self.nets.iter_mut() {
                 net.s0_close_window();
             }
@@ -5696,7 +5866,7 @@ impl Engine {
         // (epoch-final) fields. The agenda pick orders by (salience,
         // decl_pos), so staging here instead of at the update call is
         // byte-identical for single-update epochs.
-        self.drain_winacc_pending();
+        self.drain_acc_pending();
         // D-136: drain each shared temporal join's accumulated epoch batch
         // to its sinks ONCE, at the fire boundary — the FIRST sink FORWARD
         // (addAll ⇒ the D-125 order the flush computed), every PEER REVERSED
@@ -6420,7 +6590,7 @@ impl Engine {
     fn on_update(&mut self, f: FactId, mask: u64, origin: Origin) {
         self.mark_queries_pending();
         let ftype = self.store.fact_type(f);
-        let mut winacc_defer = false; // D-154: external update of a windowed-acc source
+        let mut acc_defer = false; // D-154/D-160: external update of an acc source (evented)
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         // D-094: within ONE fact-update, alpha ENTRIES and in-place
         // (mask-hit) updates process BEFORE alpha EXITS — Drools asserts
@@ -6516,10 +6686,26 @@ impl Engine {
             if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some()) {
                 if pass == 0 {
                     if origin.is_none() {
-                        winacc_defer = true;
+                        acc_defer = true;
                     } else {
                         self.winacc_step(ni, f, mask, origin, &mut was);
                     }
+                }
+                continue;
+            }
+            // D-160: PLAIN accumulate nodes over an EVENT-TYPED source
+            // defer external updates to the same per-entry drain (the
+            // oracle executes each queued entry incrementally against the
+            // epoch-final bean — updel/multiupd witnesses). Plain-typed
+            // sources keep the immediate arms below (oracle-certified:
+            // plain ops batch-annihilate, ap1/ap1b). RHS modifies step
+            // immediately, mirroring the windowed arm.
+            if pat.acc.is_some()
+                && origin.is_none()
+                && self.event_specs.contains_key(&ftype)
+            {
+                if pass == 0 {
+                    acc_defer = true;
                 }
                 continue;
             }
@@ -6620,16 +6806,20 @@ impl Engine {
             self.note_link_effects_ex(&mut was, Some(f));
         }
         }
-        if winacc_defer {
+        if acc_defer {
             // ONE queue entry per external update call, carrying ITS OWN
             // written-mask (BfDump: no merging across a batch's entries);
-            // the drain walks every windowed node of the type.
-            self.winacc_pending.push((f, mask));
+            // the drain walks every accumulate node of the type.
+            self.acc_pending.push((f, AccEntry::Upd(mask)));
         }
         self.tms_eager_break(f);
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
+        self.on_delete_ex(f, origin, false)
+    }
+
+    fn on_delete_ex(&mut self, f: FactId, origin: Origin, defer_acc: bool) {
         self.pn_on_wm_delete(f); // D-158: plain-not blocker shadows
         self.mark_queries_pending();
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
@@ -6647,6 +6837,16 @@ impl Engine {
             }
         }
         for ni in 0..self.trie.len() {
+            // D-160: an explicit external delete of an EVENT-TYPED acc
+            // source executes its fold-out at the entry drain (its queue
+            // position relative to deferred update entries), not here.
+            if defer_acc
+                && self.rules[self.trie[ni].env.0].patterns[self.trie[ni].env.1]
+                    .acc
+                    .is_some()
+            {
+                continue;
+            }
             if self.trie[ni].active.remove(&f) {
                 self.trie[ni].node.s_right.add_del(f, origin);
                 self.note_link_effects_ex(&mut was, Some(f));
@@ -8065,16 +8265,23 @@ impl Engine {
     }
 
     fn alpha_passes(&self, ri: usize, pos: usize, f: FactId) -> bool {
+        self.store.is_alive(f) && self.alpha_passes_fields(ri, pos, f)
+    }
+
+    /// D-160: the constraint/type/entry-point test WITHOUT the liveness
+    /// gate — the acc entry drain evaluates a queued update entry whose
+    /// fact a LATER Del entry retracts (entry-order aliveness; retracted
+    /// facts' fields stay readable in the arena, matching the live Java
+    /// bean Drools' queued entry executes against). Every other caller
+    /// goes through `alpha_passes` (identical on alive facts).
+    fn alpha_passes_fields(&self, ri: usize, pos: usize, f: FactId) -> bool {
         let pat = &self.rules[ri].patterns[pos];
         // CEP E2 item D: a fact only feeds a pattern in the SAME entry point
         // (DEFAULT=0 for both untagged facts and plain patterns → no change
         // to the certified corpus). The single choke point for alpha/source
         // membership, so all routing (insert/update/delete/accumulate) and
         // node-sharing partition by entry point.
-        if !self.store.is_alive(f)
-            || self.store.fact_type(f) != pat.type_id
-            || self.fact_ep(f) != pat.entry_point
-        {
+        if self.store.fact_type(f) != pat.type_id || self.fact_ep(f) != pat.entry_point {
             return false;
         }
         pat.cmps.iter().all(|c| {

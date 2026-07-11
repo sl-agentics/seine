@@ -11,37 +11,36 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-159 — **the D-158 annihilation residual
-is CLOSED; the plain-not family has NO open divergence** (item-1b stays
-fully done: D-141 tj-ts, D-143..153 existential order, D-154/155 A2
-winacc, D-156 tj pair-order, D-158 plain-not order, D-159 plain-blocker
-lazy staging). Fix = ONE gated stash branch in `stream_flush_ex`'s
-non-Join arm (engine.rs ~5059, ~19 lines): a `Kind::Not` node with a
-PLAIN-typed blocker stashes ALL staged right-ins for the flush walk
-(Drools force-flushes only EVENT inserts — plain ops stage until an
-eval), so a same-window ins+del pair meets at the fire eval and
-`Staged::add_del` annihilates natively; event blockers keep D-102
-visibility; `touched_node` untouched (handoff option A — zero order
-drift measured). Witness `xf_cep_pn_annihilation_set` GRADUATED (12→6
-firings); +4 `pr_cep_pn_annih_*` pins. Probe battery 11/11 predictions
-correct (incl. the generator-excluded same-epoch-TMS cell — agrees with
-pflush, NO spec gap; plain-EXISTS scope probe recorded 0-0, widening
-stays out per the coalescing pin). Gates: corpus **11/1060/296**
-byte-identical, lint **1455**, cargo 9, bindings 72, plain populations
-**4,000/4,000** on the fixed tree vs base failing **exactly the 37** + 9
-on fresh seeds 4401-4403 ⇒ **+46/0**, pflush **ALL MATCH ×13
-populations** (1,667 regeneration-identical + 503 fresh), notpop-FULL
-600 + flush-model 309/309, expop-FULL 600, fuzz_cep 313/907/911/921/923
-×400 BOTH trees 0-div, main-axis 42/123/7 ×10k BOTH trees identical
-flagged sets, early-warning pins 36/36 by name (q1/q2/q4 caveat region
-untouched). **NEXT is Bryan's call — no active slab.** Candidates
-(deferred): D-093 min/max quarantine graduation (awaits the oracle bump,
-D-148 protocol), D-080 TMS envelope, the D-155 per-entry-flush SET
-residual (`xf_cep_acc_updel_flush_{plain,win}`,
-`xf_cep_acc_multiupd_plain` — per-entry incremental drain at accumulate
-nodes, different mechanism), plain-EXISTS lazy-staging (probe-first, own
-population). Fenced-by-nature: D-134 §6 PriorityQueue ties, fz_42_84
-identity-hash. `git log --oneline -20` for HEAD._
+_Last updated: 2026-07-10, post-D-160 — **the D-155 per-entry-flush
+residual is CLOSED; the ACCUMULATE family has NO open divergence** (and
+D-159 closed the plain-not annihilation the same day — every
+mechanical-shadow-era slab D-150..D-160 is now landed, corpus
+byte-identical throughout). D-160 = per-entry incremental acc drain:
+external upd/del of EVENT-TYPED acc sources queue as `acc_pending`
+entries (`AccEntry::{Upd(mask),Del}`, the D-154/155 winacc queue
+generalized to ALL acc nodes) executing FIFO at the fire drain against
+EPOCH-FINAL fields (`alpha_passes_fields` — liveness split out) with
+ENTRY-ORDER aliveness; a Del that annihilates a drain-staged ins
+force-re-emits every left (`s_left.add_upd` → Phase D/G). Gate =
+source-type EVENTED (probe-settled: plain sources batch-annihilate on
+the oracle in BOTH session modes — ap1/ap1b pins; evented ins+del
+already agreed via the insert force-flush — ap2 pin; inserts never
+queue). 3 witnesses GRADUATED (`xf_cep_acc_updel_flush_{plain,win}`,
+`xf_cep_acc_multiupd_plain`) + ap9 k=2 fixed; +5 `pr_cep_acc_drain_*`
+pins. Gates: corpus **11/1065/299** byte-identical, lint **1463**,
+cargo 9, bindings 72, winacc soup ×11 seeds (901-909 + fresh 911/913)
+fixed **4,275/4,275** vs base **30 fail** on the same files ⇒ **+30/0**,
+spec **4,125/4,125 0-div**, fuzz_cep 401/423/719/811/313/927/929 ×400
+BOTH trees 0-div, notpop/expop FULL 600+600 (fresh 890/891), main-axis
+42/123/7 ×10k BOTH trees identical flagged sets. **NEXT is Bryan's call
+— no active slab.** Candidates (deferred): D-093 min/max quarantine
+graduation (awaits the oracle bump, D-148 protocol), D-080 TMS envelope,
+plain-EXISTS lazy-staging (probe-first, own population), the Allen
+@expires-inference fence (17 `xf_cep_e_*`, D-120 — needs STP-edge
+emission design), the class-3 re-entrant RHS exists churn
+(`xf_cep_c_del_churn_exists_rule`, not fuzz-reachable).
+Fenced-by-nature: D-134 §6 PriorityQueue ties, fz_42_84 identity-hash.
+`git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -50,23 +49,23 @@ Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
 **Git:** on `main`, **PUSHED through D-156** (`origin/main` at `5483b47`;
 Bryan holds every push; branch-only, NO tags). UNPUSHED: the D-157 →
-D-159 span (b9dc98e D-157 fence-lift / 8aa90ed + 8e5a02b handoff pointers
-/ 5648a71 D-158 spec / 3b2aa52 D-158 port / the D-159 annihilation
-commit). ⚠ **NO `v*` TAGS until a PyPI release is intended** — `ci.yml`'s
-`release`/`publish-pypi` fire on tag push and the `pypi` environment has
-NO protection rules (gh-verified): a new tag publishes `seine-rs` with no
-manual gate. Arc history: the D-entries below (D-136 shared-tjo →
-D-137/138/139 item-C → D-140 not-order → D-141 tj-ts → D-143..D-153 the
-mechanical shadows → D-154/155 A2 winacc → D-156 tj pair-order →
-D-158/159 plain-not).
+D-160 span (b9dc98e D-157 fence-lift / 8aa90ed + 8e5a02b handoff pointers
+/ 5648a71 D-158 spec / 3b2aa52 D-158 port / 7d53106 D-159 annihilation /
+the D-160 acc-drain commit). ⚠ **NO `v*` TAGS until a PyPI release is
+intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
+`pypi` environment has NO protection rules (gh-verified): a new tag
+publishes `seine-rs` with no manual gate. Arc history: the D-entries
+below (D-136 shared-tjo → D-137/138/139 item-C → D-140 not-order →
+D-141 tj-ts → D-143..D-153 the mechanical shadows → D-154/155 A2 winacc
+→ D-156 tj pair-order → D-158/159 plain-not → D-160 acc drain).
 
-**Gates (green @ the D-159 commit):** baseline 11 / probes **1060** /
-regressions **296** byte-identical / lint **1455 live·0 ghost·0 inert** /
+**Gates (green @ the D-160 commit):** baseline 11 / probes **1065** /
+regressions **299** byte-identical / lint **1463 live·0 ghost·0 inert** /
 9 Rust suites / bindings pytest 72. Verify: `make diff` ·
 `make lint-probes` · `cargo test`. Specs stay executable: plain-not
 `SEINE_NOTPOP_PLAIN=1 tools/fuzz_notorder_b.py <n> <seed>` +
 `tools/model_check_notorder_b.py <pop> pflush`; event-not MODEL=flush;
-winacc `tools/model_check_winacc.py <popdir>` (regenerate via
+winacc/acc-drain `tools/model_check_winacc.py <popdir>` (regenerate via
 `tools/fuzz_winacc.py`; battery via `tools/gen_winacc_probes.py`).
 **Red on resume ⇒ drift — investigate before building.**
 
@@ -8358,3 +8357,88 @@ GATES (ALL green; A/B base = a `3b2aa52` worktree with the oracle symlink):
 The PnShadow is untouched (it models Drools, not engine internals). The
 D-155 per-entry-flush accumulate residual is a DIFFERENT mechanism and
 stays filed. With this, **the plain-not family has NO open divergence**.
+
+## D-160 — per-entry incremental acc drain: the D-155 flush residual is CLOSED
+
+The last filed accumulate divergence (D-155's 23-case residual,
+`xf_cep_acc_updel_flush_{plain,win}` + `xf_cep_acc_multiupd_plain`):
+same-epoch multi-op sequences over accumulate sources evaluated as ONE
+batched staging window while Drools executes each queued entry
+INCREMENTALLY. Slab directed by Bryan ("D-155 it is"); no handoff file —
+recon from the witnesses, the D-154/155 entries, and the validated spec.
+
+MECHANISM (probe-settled — 7-probe ap battery + the 3 witnesses,
+predictions written first, `$CLAUDE_JOB_DIR/tmp/accdrain/`): external
+updates/deletes of EVENT-TYPED facts feeding accumulate nodes are queue
+entries executing per-entry FIFO at the fire drain against the
+EPOCH-FINAL bean, with aliveness decided by ENTRY ORDER — an update
+entry followed by a Del entry executes "alive"; each entry that touches
+fold membership dirties the result; the terminal fires the final (even
+net-zero) value once per boundary. The battery's gating cells came back
+DECISIVE: a PLAIN-typed source stays SILENT on the oracle in BOTH
+session modes (ap1/ap1b — plain ops batch in one staging window and the
+ins+del pair annihilates, coherent with the D-158 plain-staging
+laziness; gen.rs REACHES that shape on the main axis, so the gate
+protects certified behavior), and an evented same-epoch INSERT+delete
+fires net-zero on BOTH sides already (ap2 — the event insert's
+per-arrival force-flush materializes the fold-in before the delete, so
+no annihilation ever forms; inserts never queue as entries). The
+D-154/155 winacc entry queue was this mechanism's windowed special case;
+its drain's is_alive skip was the win-twin's bug (an update entry for a
+fact deleted LATER in the same epoch was dropped instead of executed).
+The spec (`model_check_winacc.simulate`) already modeled every cell —
+its domain is evented sources; the ap1/ap1b cells mark its boundary.
+
+PORT (engine.rs, ~180 lines): `AccEntry { Upd(mask), Del }`;
+`winacc_pending` → `acc_pending`. on_update: plain-acc nodes over
+evented sources defer external updates to the queue (the windowed arm
+generalized); RHS modifies and plain-typed sources keep the immediate
+D-137/D-139 arms byte-identically. delete_fact: an explicit external
+delete of an evented acc-feeding type queues `Del` and
+`on_delete_ex(defer_acc)` skips exactly those acc nodes (expiry keeps
+`in_expiration_drain`; TMS cascades bypass delete_fact — both stay
+immediate). `drain_acc_pending` (fire_all pre-fire, the D-155 site):
+FIFO; Upd → `winacc_step` / new `plainacc_step` (the immediate arms
+extracted verbatim, D-094 two-pass) evaluating FINAL fields via
+`alpha_passes_fields` (the liveness gate split out of `alpha_passes`;
+retracted facts' fields stay readable, matching the live Java bean);
+an Upd for a fact dead WITHOUT a later Del entry drops (the certified
+D-155 expiry compensation). Del → active.remove + add_del at its queue
+position; when that add_del ANNIHILATES a drain-staged ins, the entries
+still each dirtied Drools' result — force the net-value re-emission by
+staging `s_left.add_upd` for every left (Phase D re-derives, Phase G
+updates the child unconditionally) + requeue sharing rules.
+
+GATES (ALL green; A/B base = a `7d53106` worktree, oracle symlinked):
+- witnesses + battery: 3/3 witnesses PASS (plain 1→2 firings, win 1→2,
+  multiupd count 1→2) + ap9 k=2 re-emission through real lefts; all
+  scope controls hold. Witnesses GRADUATED; +5 pins
+  `pr_cep_acc_drain_{updel_k2,updel_plainsrc,updel_plainsrc_stream,
+  insdel_event,updupd_final}`.
+- corpus `make diff` **11/1065/299 byte-identical** (incl. all 33
+  `pr_cep_winacc_*`, the D-137/139 arm pins, the w-ladder and shadow
+  pins), lint **1463 live/0/0**, cargo 9 suites, bindings pytest **72**.
+- winacc soup (regenerated, 11 seeds: 901-909 + fresh out-of-sample
+  911/913): FIXED tree **4,275/4,275** engine-vs-oracle (incl. 150
+  n=400 leftovers from the D-155 session sharing this job's tmp); BASE
+  tree fails **30** on the same files (24 across 901-909 + 6 on the
+  fresh seeds; spot-checked seed 906: all under-fires = the missing
+  incremental re-fires) ⇒ **+30 fixed / 0 regressed**. Spec:
+  **4,125/4,125 ok, 0 div** across all 11 regenerated banks.
+- fuzz_cep ×400 BOTH trees: 401/423/719/811 (winacc surface, winupd
+  axis default-on since D-157) + 313 + fresh 927/929 = **0 divergences
+  everywhere** (fuzz_cep caps 1 op/epoch/target ⇒ blast radius only).
+- event-family sweeps (fresh seeds): notpop FULL 600/600 (seed 890),
+  expop FULL 600/600 (seed 891) — shadow surfaces unperturbed.
+- main-axis gen.rs 42/123/7 ×10k BOTH trees: **identical flagged name
+  sets** (the known 3/2/4 latents; the evented-only gate is analytically
+  dead there — plain-source shapes pinned by pr_cep_acc_drain_updel_
+  plainsrc; artifacts cleaned).
+
+SCOPE NOTES. Plain-typed-source lazy staging at acc nodes (the ap1/ap1b
+silent cells) is CERTIFIED CURRENT BEHAVIOR, now pinned — any future
+evidence to the contrary starts a new probe-first arc, not a gate widen.
+RHS modifies of acc sources stay immediate (fuzz-unreachable for
+windowed; certified for plain). The accumulate family now has NO open
+divergence; every 2026-07 mechanical-shadow-era slab (D-150..D-160) is
+closed with the corpus byte-identical throughout.

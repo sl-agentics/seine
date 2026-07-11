@@ -1,0 +1,56 @@
+{
+ "name": "xf_cep_acc_updel_flush_plain",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\"); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 1,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-155 residual -> D-160 FIXED (graduated): same-epoch UPDATE-then-DELETE where the update brings the fact INTO a plain accumulate (evented source). Drools executes each queued entry incrementally - the upd entry folds it in and dirties the result, the delete folds it out; the terminal fires the NET-ZERO value (W:0). Fix: external upd/del of EVENT-TYPED acc sources queue as acc_pending entries executed FIFO at the fire drain against epoch-final fields with ENTRY-ORDER aliveness; a Del that annihilates a drain-staged ins force-re-emits every left (Phase D)."
+}

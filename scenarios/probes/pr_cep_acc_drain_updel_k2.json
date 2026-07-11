@@ -1,0 +1,71 @@
+{
+ "name": "pr_cep_acc_drain_updel_k2",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when A() accumulate( E(tag == \"x\"); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "n": 1
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 1,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-160 (the k=2 cell): update-admits-then-delete of an evented plain-acc source under a real join left (A() accumulate(E)) - the net-zero re-fire re-emits through every left tuple (oracle 2 firings). Pins the drain's force-re-emission walking node lefts, not just the InitialFact shape."
+}

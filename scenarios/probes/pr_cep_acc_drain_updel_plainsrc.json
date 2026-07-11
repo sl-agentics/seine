@@ -1,0 +1,52 @@
+{
+ "name": "pr_cep_acc_drain_updel_plainsrc",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\"); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 1,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-160 SCOPE GUARD: the same update-admits-then-delete over a PLAIN (non-event) source in a NON-stream session stays SILENT (oracle: 1 firing, the initial W:0) - plain ops batch in one staging window and the ins+del pair annihilates with no entry-wise dirty. The D-160 gate (event_specs.contains_key(source)) must exclude this cell; gen.rs can reach the shape on the main axis."
+}

@@ -1,0 +1,59 @@
+{
+ "name": "pr_cep_acc_drain_updupd_final",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\"); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "val": 1,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-160 CONTROL: admit-then-exit via two updates nets SILENT - both queued entries evaluate the epoch-FINAL bean (non-member), so neither dirties the fold. Distinguishes update-entry pairs (final-state evaluation) from update+delete pairs (the delete is a real WM op at its queue position)."
+}

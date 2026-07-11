@@ -1,0 +1,49 @@
+{
+ "name": "pr_cep_acc_drain_insdel_event",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "val",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E(tag == \"x\"); $c : count() ) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "E",
+     "fields": {
+      "ts": 0,
+      "val": 1,
+      "tag": "x"
+     }
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-160 CONTROL: same-epoch action-INSERT + delete of an evented acc member fires the net-zero W:0 on BOTH sides via the event insert's force-flush (the fold materializes at the insert's per-arrival flush, so the delete is a real fold-out, not an annihilation). Pins that INSERTS stay call-time (never queue as drain entries)."
+}
