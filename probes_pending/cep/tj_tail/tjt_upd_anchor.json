@@ -1,0 +1,154 @@
+{
+ "name": "tjt_upd_anchor",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule CH2 when $a : E0() $b : E1(this before[0ms,100ms] $a) $c : E2(this after[0ms,100ms] $b) then end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 33,
+    "tag": "z",
+    "dur": 50
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 35,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 5,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 23,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 52,
+      "tag": "x"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 4,
+     "fields": {
+      "tag": "q"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 38,
+      "tag": "z",
+      "dur": 50
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-165 tj-tail CONTROL cell (engine==oracle): updating the E0 anchor does not perturb E1 enumeration (hoist is per-updated-fact memory)."
+}

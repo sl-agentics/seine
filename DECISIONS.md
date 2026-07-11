@@ -11,34 +11,29 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11, post-D-164 — **the Allen `@expires`-inference
-fence is LIFTED; the last fenced feature gap inside implemented-CEP is
-closed** (right after D-163's oracle patch). Mechanism: every Allen op
-carries a PARAM-BLIND CONSTANT interval (mvel getInterval —
-coincides/starts/startedby [0,0]; meets/overlappedby/finishes [0,MAX];
-metby/overlaps/includes/finishedby [MIN,0]; during [1,MAX]) fed into
-the certified D-109 STP matrix; every finite Allen reach is ZERO;
-deadline = endTS + reach + 1; only `during` leaks (both sides, the
-after[lo>0]-class negative row-max); matrices are PER-RULE (cross-rule
-chains never compose — mispredict-then-verified), in-rule chains sum.
-Oracle-pinned by the 124-cell predictions-first reach ladder
-(`probes_pending/cep/e_allen/{gen,check}_allen_ladder.py` — ALL
-PREDICTED, then 124/124 engine-vs-oracle post-port). Port = one
-else-branch at the D-120 edge-emission gate (constants into certified
-machinery) + the fuzz_cep explicit-@expires Allen gate lifted. The 17
-`xf_cep_e_*` witnesses GRADUATED (+`expect_inert`); 9
-`pr_cep_allen_inf_*` reach pins. Gates: corpus **11/1084/326**
-byte-identical, lint **1509/0/0**, cargo 9, bindings 72; fence-lifted
-fuzz_cep 313/941/943/945 ×400 clean except `cf313x346` — bisected
-PRE-EXISTING (61f4281 A/B identical; during infers NEVER both trees):
-a temporal-join firing-choice latent newly REACHED by the lifted
-stream, QUARANTINED to the item-1b tail ledger. Main-axis analytically
-inert (gen.rs emits no temporal ops). **NEXT (handoff ready):
-`~/.claude/plans/tj-tail-latents-handoff.md`** — D-165, the tj-tail
-latent ledger (cf933x385 + cf313x346: two pre-existing ORDER/CHOICE
-composition latents in salience'd rule mixes — BfShadow-composition /
-join-partner-choice recon; minimize first, both A/B bisects already
-done, witnesses are the stable artifacts). Other deferred: D-080 TMS
+_Last updated: 2026-07-11, post-D-165 — **the tj-tail latent ledger is
+CRACKED: cf933x385 + cf313x346 are ONE family, UPDATE-RECENCY ordering**
+(recon only; no engine change; the port is Bryan-gated). Both minimized
+to single-digit-line reproducers whose only active ingredient is a fact
+UPDATE — every handoff seam candidate (shadows, salience, tj_epoch,
+chains) was a red herring. Spec (12 divergence + 6 control cells,
+`probes_pending/cep/tj_tail/`, report
+`docs/tj-tail-update-recency-mechanism.md`): Drools enumerates
+temporal-join partners most-recently-updated FIRST (durable, permanent,
+value-blind, idempotent, stacking; untouched keep insertion order;
+anchor/rightmost immune; engine = pure insertion order via the original
+(left_sseq,left_seq) stamps); same-epoch multi-update refires FIFO
+oracle / LIFO engine; the event-not cell hoists an updated blocked-left
+release-FIRST but only EPOCH-LOCALLY at blocker expiry (baseline
+recency-DESC matches). Both cf* stay QUARANTINED, `_finding`s point at
+the report. **NEXT: Bryan's gate on the D-165 fix plan** (front-stamp on
+update re-add for the join scan + epoch-local not-release hoist — ⚠
+D-106 caveat there; Python model over an update-heavy fuzz axis BEFORE
+any Rust). Prior slab D-164: Allen `@expires` inference LIFTED (124-cell
+ladder; constant intervals into the certified D-109 STP matrix; only
+`during` leaks; 17 `xf_cep_e_*` graduated, 9 `pr_cep_allen_inf_*` pins).
+Gates: corpus **11/1084/326** byte-identical, lint 1509 + 18 new
+battery cells, cargo 9, bindings 72. Other deferred: D-080 TMS
 envelope, class-3 re-entrant churn, window:length (never built), the
 Allen-beyond-Drools enhancement (docs/allen-beyond-drools.md,
 spec-driven, post-faithfulness).
@@ -8786,3 +8781,48 @@ The Bryan-noted post-faithfulness enhancement (Allen algebra BEYOND
 Drools — coherent inference where Drools is incoherent, e.g. the
 during leak and the param-blind intervals) remains a roadmap item
 (docs/allen-beyond-drools.md), now with the faithful baseline landed.
+
+## D-165 — tj-tail latent ledger CRACKED: both composition latents are ONE family, UPDATE-RECENCY ordering (2026-07-11)
+
+RECON (no engine change; the port is Bryan-gated). The two quarantined
+fuzz_cep composition latents (`cf933x385`, `cf313x346` — both bisected
+PRE-EXISTING, both re-verified ORDER-class on HEAD by full firing-
+multiset comparison) minimized (tools/minimize.py, keyed variant
+pinning the diverging rule so the ORDER divergence could not drift) to
+single-digit-line reproducers whose ONLY active ingredient is a fact
+UPDATE. Every handoff candidate seam — BfShadow×agenda partition,
+shadow×shadow shared-P, tj_epoch drain, salience interleave, chain
+enumeration — was a red herring: cf313x346 reduces to ONE unsalienced
+rule (`E0() E1(before[0,100]) E2(after[0,100])`), cf933x385 to two
+(`not E1() P()` + an undropped window:time accumulate).
+
+MECHANISM (12 divergence cells + 6 control cells, oracle 3×-
+deterministic; battery committed to `probes_pending/cep/tj_tail/`,
+report `docs/tj-tail-update-recency-mechanism.md`):
+- JOIN CELL: Drools enumerates temporal-join partners for later right
+  arrivals as most-recently-UPDATED first (durable across epochs,
+  permanent across multiple arrivals, value-blind, idempotent, stacking
+  most-recent-first), then untouched facts in insertion order; the
+  engine's (left_sseq,left_seq) ASC scan keeps pure insertion order
+  (re_add-to-tail is erased by the original stamps). Controls: anchor
+  (leftmost) updates and rightmost-pattern updates are order-inert.
+  Sub-seam: same-epoch multi-update refires FIFO oracle / LIFO engine.
+- EVENT-NOT CELL: baseline blocked-left release at blocker expiry is
+  recency-DESC and MATCHES (the D-134 reversal); an update to a
+  blocked-under left IN the expiry epoch (either side of the advance)
+  hoists it release-FIRST oracle-side. EPOCH-LOCAL, unlike the join
+  cell.
+- NOT raw Drools list placement (TupleList.add is tail-append —
+  sources read, no code copied); the internal Drools seam is left
+  uncracked deliberately (observable spec is probe-pinned; a BfDump
+  graft can settle internals if the port needs it).
+
+STATUS: both cf* witnesses stay QUARANTINED (xfail `_finding`s updated
+to point at the report); the family spec = the committed battery.
+FIX PLAN (pre-read only): a durable front-stamp on update re-add for
+the join scan + an epoch-local hoist in the not-release path (⚠ D-106
+caveat there — checker-first); model-check in Python over an
+update-heavy fuzz axis BEFORE any Rust, then the Bryan gate.
+GATES: no engine change — corpus 11/1084/326 byte-identical, lint
+green over the new battery (12 open_divergence + 6 live controls),
+cargo 9 (see commit).

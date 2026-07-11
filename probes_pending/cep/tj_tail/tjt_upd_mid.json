@@ -1,0 +1,156 @@
+{
+ "name": "tjt_upd_mid",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule CH2 when $a : E0() $b : E1(this before[0ms,100ms] $a) $c : E2(this after[0ms,100ms] $b) then end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 33,
+    "tag": "z",
+    "dur": 50
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 35,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 5,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 23,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 52,
+      "tag": "x"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "x",
+      "ts": 54
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 38,
+      "tag": "z",
+      "dur": 50
+     }
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-165 tj-tail family: Drools hoists an UPDATED fact to the FRONT of temporal-join partner enumeration for all subsequent right arrivals (durable, value-blind, idempotent; multiple updates stack most-recent-first; untouched facts keep insertion order); the engine's (left_sseq,left_seq) ASC scan keeps original stamps = pure insertion order. See docs/tj-tail-update-recency-mechanism.md. Middle-inserted E1 updated: oracle hoists it first."
+}
