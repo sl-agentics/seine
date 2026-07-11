@@ -613,6 +613,19 @@ impl BfShadow {
             self.rtm.remove(pos);
             self.rtm.push(id);
         }
+        // D-166 (update-recency, the cf933x385 cell): if the emission queue
+        // already formed (a window deadline forced an early eval inside the
+        // same advance — the unblock q froze before this update's queue
+        // position), the rtm move must reflect there too: q = reverse(rtm),
+        // so move-to-tail ≡ hoist-to-front (tjt_933_min/tjt_933_upd_before_adv;
+        // controls tjt_933_{noupd,upd_p2,split_epoch} pin the scope).
+        if let Some(pos) = self.q.iter().position(|&p| p == id) {
+            self.q.remove(pos);
+            self.q.insert(0, id);
+            // the rank map is a snapshot of q taken at the eval step —
+            // rebuild it so the pick sees the hoist
+            self.emit_rank = self.q.iter().enumerate().map(|(i, &f)| (f, i)).collect();
+        }
     }
 
     /// External explicit delete (never the expiration drain): an E0 retracts
@@ -2735,7 +2748,13 @@ impl Engine {
                                     && gated.contains(&q.type_id)
                             })
                         });
-                        if bare && distinct && p_plain && !rhs_touches && !windowed {
+                        // D-166: the `windowed` exclusion (a D-150 scope cut)
+                        // is LIFTED for the event-not shadow — cf933x385's cell
+                        // needs the shadow (and its update hoist) under a
+                        // window:time accumulate over the blocker type. The
+                        // event-not populations + notpop-FULL gate the lift.
+                        let _ = windowed;
+                        if bare && distinct && p_plain && !rhs_touches {
                             if r.order_exists {
                                 (
                                     None,
@@ -4766,9 +4785,27 @@ impl Engine {
         // move-to-tail in the mechanical shadows at this op's queue position.
         self.bf_on_external_update(id);
         if self.lists_built {
-            self.on_update(id, mask, None);
-            for net in self.nets.iter_mut() {
-                net.s0_close_window();
+            // D-166 (update-recency, FIFO refires): an EVENT-type external
+            // update gets the same per-arrival trigger-scoped stream flush
+            // as an insert (D-125 pattern) — each update action is its own
+            // propagation batch, so multi-update epochs refire FIFO in
+            // action order (model_join_flush v3 u5/m6; the tj-tail family).
+            // Plain-type updates keep the certified batch path (the
+            // mechanical shadows pin it).
+            if self.event_specs.contains_key(&tid) {
+                let pre = self.stage_snapshot();
+                self.on_update(id, mask, None);
+                for net in self.nets.iter_mut() {
+                    net.s0_close_window();
+                }
+                self.flush_trigger_tid = Some(tid);
+                self.stream_flush(&pre);
+                self.flush_trigger_tid = None;
+            } else {
+                self.on_update(id, mask, None);
+                for net in self.nets.iter_mut() {
+                    net.s0_close_window();
+                }
             }
         }
         Ok(())
@@ -5576,7 +5613,7 @@ impl Engine {
     /// (staging prepends).
     fn stage_snapshot(
         &self,
-    ) -> (Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>) {
+    ) -> (Vec<(usize, usize, usize, usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>, Vec<Vec<usize>>) {
         // Per-node (s0_in, s_left, s_right) ins lengths for TOUCH
         // detection + per-rule k=1 s0 sizes. The STASH is rights-only
         // (D-102: the flush is LEFT-flushing — forceFlushLeftTuple;
@@ -5594,6 +5631,9 @@ impl Engine {
                         t.s0_in.del.len(),
                         t.node.s_left.del.len(),
                         t.node.s_right.del.len(),
+                        t.s0_in.upd.len(),
+                        t.node.s_left.upd.len(),
+                        t.node.s_right.upd.len(),
                     )
                 })
                 .collect(),
@@ -5603,6 +5643,10 @@ impl Engine {
                 .collect(),
             (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect(),
             self.ever_linked.clone(),
+            // D-166: per-net per-window UPD counts — the k=1 stash scopes
+            // to PRE-EXISTING upds so an update-triggered flush sees its
+            // own effect (insert triggers add no upds: byte-identical).
+            self.nets.iter().map(|n| n.s0.iter().map(|w| w.upd.len()).collect()).collect(),
         )
     }
 
@@ -5617,14 +5661,14 @@ impl Engine {
     /// memory (t6/t14 — this replaced drain-at-link), restore stashes.
     fn stream_flush(
         &mut self,
-        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>),
+        pre: &(Vec<(usize, usize, usize, usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>, Vec<Vec<usize>>),
     ) {
         self.stream_flush_ex(pre, true)
     }
 
     fn stream_flush_ex(
         &mut self,
-        pre: &(Vec<(usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>),
+        pre: &(Vec<(usize, usize, usize, usize, usize, usize, usize, usize, usize)>, Vec<usize>, Vec<bool>, Vec<bool>, Vec<Vec<usize>>),
         close_windows: bool,
     ) {
         if self.event_specs.is_empty() || !self.lists_built {
@@ -5648,6 +5692,10 @@ impl Engine {
                 t.s0_in.ins.len() > p.0
                     || t.node.s_left.ins.len() > p.1
                     || t.node.s_right.ins.len() > p.2
+                    // D-166: an update-triggered flush touches via upds
+                    || t.s0_in.upd.len() > p.6
+                    || t.node.s_left.upd.len() > p.7
+                    || t.node.s_right.upd.len() > p.8
             })
             .collect();
         // stash pre-insert HELD RIGHT tails (delta = head segments) —
@@ -5845,12 +5893,19 @@ impl Engine {
         // fire; cf5x17's k=1 justifier teardown must not run at a flush)
         let mut k1_stash: Vec<Vec<(usize, Vec<(FactId, Origin, u8)>, Vec<(FactId, Origin, u8)>)>> =
             Vec::with_capacity(self.nets.len());
-        for net in self.nets.iter_mut() {
+        for (ri, net) in self.nets.iter_mut().enumerate() {
             let mut per: Vec<(usize, Vec<(FactId, Origin, u8)>, Vec<(FactId, Origin, u8)>)> =
                 Vec::new();
             for (wi, w) in net.s0.iter_mut().enumerate() {
-                if !w.del.is_empty() || !w.upd.is_empty() {
-                    per.push((wi, std::mem::take(&mut w.del), std::mem::take(&mut w.upd)));
+                // D-166: stash only PRE-EXISTING upds (the tail — staging
+                // prepends); an update-triggered flush keeps its own fresh
+                // upds visible. Insert triggers add none: byte-identical.
+                let pre_upd =
+                    pre.4.get(ri).and_then(|v| v.get(wi)).copied().unwrap_or(0).min(w.upd.len());
+                let fresh_len = w.upd.len() - pre_upd;
+                let upd_tail = w.upd.split_off(fresh_len);
+                if !w.del.is_empty() || !upd_tail.is_empty() {
+                    per.push((wi, std::mem::take(&mut w.del), upd_tail));
                 }
             }
             k1_stash.push(per);

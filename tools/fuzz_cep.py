@@ -55,6 +55,12 @@ import sys
 
 BATCH = 150
 INF = 1 << 60
+# D-166: SEINE_TJUPD=1 — the UPDATE-RECENCY axis (tj-tail family): every
+# scenario mutates, one update per epoch (biased to temporal event types),
+# more initial facts (partner multiplicity) and guaranteed fresh arrivals
+# (the enumeration observation point). All overrides are applied AFTER the
+# default RNG draws so the flag-off stream is byte-identical.
+TJUPD = bool(os.environ.get("SEINE_TJUPD"))
 # A batch that exceeds this is presumed to contain a NON-TERMINATING scenario
 # (an engine spin the fire limit can't catch — a rare pre-existing latent). We
 # bisect it out (per-scenario engine `run`) so the campaign completes rather
@@ -123,6 +129,8 @@ class Gen:
         # actions over the initial-facts prefix (see module docstring for
         # the soundness invariant).
         self.mutate = r.random() < 0.5
+        if TJUPD:
+            self.mutate = True
         # types: 2-3 event types + 1 plain + logical target. D-109: in an
         # inference scenario, most event types OMIT expires_ms (engine
         # infers the reach); a minority stay explicit (mixed path).
@@ -286,7 +294,10 @@ class Gen:
         facts = [{"type": "P", "fields": {"v": 1}}]
         self.targets.append({"idx": 0, "type": "P", "deadline": INF,
                              "targetable": True, "deleted": False})
-        for _ in range(r.randint(1, 4)):
+        nfacts = r.randint(1, 4)
+        if TJUPD:
+            nfacts += 2
+        for _ in range(nfacts):
             t = r.choice(self.etypes)
             ts = r.randint(0, 40)
             facts.append(self.efact(t, {"ts": ts, "tag": r.choice("xyz")}))
@@ -324,7 +335,10 @@ class Gen:
             # this epoch's fresh arrivals — drawn BEFORE the mutation so the
             # class-3 exists-churn fence can see which types arrive here.
             efacts = []
-            for _ in range(r.randint(0, 2)):
+            n_arr = r.randint(0, 2)
+            if TJUPD:
+                n_arr = max(n_arr, 1)
+            for _ in range(n_arr):
                 t = r.choice(self.etypes)
                 efacts.append(self.efact(t, {"ts": clock + r.randint(0, 30), "tag": r.choice("xyz")}))
             if r.random() < 0.3:
@@ -348,7 +362,7 @@ class Gen:
             # (class-2 EXPIRATION, update-of-deleted and double-delete are
             # already unreachable — the liveness gate never targets a past-
             # deadline or deleted handle; delete-of-dead now no-ops anyway.)
-            if self.mutate and r.random() < 0.6:
+            if self.mutate and ((r.random() < 0.6) or TJUPD):
                 live = [tg for tg in self.targets
                         if tg["targetable"] and not tg["deleted"]
                         and clock < tg["deadline"]]
@@ -359,11 +373,17 @@ class Gen:
                 del_ok = list(live)  # D-138: class-3 external exists-witness churn PORTED
 
                 def pick(pool):  # bias toward EVENT targets (the item-C heart)
+                    if TJUPD:  # D-166: bias to temporal-join participant types
+                        tj = [t for t in pool if t["type"] in self.temporal_types]
+                        if tj and r.random() < 0.85:
+                            return r.choice(tj)
                     ev = [t for t in pool if t["type"] != "P"]
                     return r.choice(ev) if ev and r.random() < 0.75 else r.choice(pool)
 
                 if upd_ok and del_ok:
                     op = "delete" if r.random() < 0.4 else "update"
+                    if TJUPD and r.random() < 0.85:
+                        op = "update"
                 elif del_ok:
                     op = "delete"
                 elif upd_ok:

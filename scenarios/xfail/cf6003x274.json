@@ -1,0 +1,157 @@
+{
+ "name": "cf6003x274",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 salience -2 when $a : E1() from entry-point \"S2\" $b : E0(this after[0ms,50ms] $a) from entry-point \"S1\" then end\nrule TJ1 when $a : E1(tag == \"z\") from entry-point \"S2\" $b : E1(this before[0ms,50ms] $a) from entry-point \"S2\" then end\nrule W2 when accumulate( E1(tag == \"x\") over window:time(50ms) from entry-point \"S2\"; $c : count() ) then end\nrule NE3 salience 5 when not E1() from entry-point \"S2\" P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 39,
+    "tag": "y"
+   },
+   "entry_point": "S2"
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 6,
+    "tag": "y"
+   },
+   "entry_point": "S2"
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 25,
+    "tag": "y"
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "ts": 24
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 10,
+      "tag": "y"
+     },
+     "entry_point": "S2"
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z",
+      "ts": 105
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 110,
+      "tag": "z"
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 126,
+      "tag": "y"
+     },
+     "entry_point": "S1"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-166 residual ledger (SEINE_TJUPD axis, update-heavy fuzz_cep): ORDER (TJ1 self-join partner choice, firing[3]). PRE-EXISTING. The D-166 join/not cells are CLOSED (mju 0/2000); these are adjacent sub-seams flushed by the new axis - recon when scheduled."
+}

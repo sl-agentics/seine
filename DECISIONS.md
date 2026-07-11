@@ -11,33 +11,31 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11, post-D-165 — **the tj-tail latent ledger is
-CRACKED: cf933x385 + cf313x346 are ONE family, UPDATE-RECENCY ordering**
-(recon only; no engine change; the port is Bryan-gated). Both minimized
-to single-digit-line reproducers whose only active ingredient is a fact
-UPDATE — every handoff seam candidate (shadows, salience, tj_epoch,
-chains) was a red herring. Spec (12 divergence + 6 control cells,
-`probes_pending/cep/tj_tail/`, report
-`docs/tj-tail-update-recency-mechanism.md`): Drools enumerates
-temporal-join partners most-recently-updated FIRST (durable, permanent,
-value-blind, idempotent, stacking; untouched keep insertion order;
-anchor/rightmost immune; engine = pure insertion order via the original
-(left_sseq,left_seq) stamps); same-epoch multi-update refires FIFO
-oracle / LIFO engine; the event-not cell hoists an updated blocked-left
-release-FIRST but only EPOCH-LOCALLY at blocker expiry (baseline
-recency-DESC matches). Both cf* stay QUARANTINED, `_finding`s point at
-the report. **NEXT: Bryan's gate on the D-165 fix plan** (front-stamp on
-update re-add for the join scan + epoch-local not-release hoist — ⚠
-D-106 caveat there; Python model over an update-heavy fuzz axis BEFORE
-any Rust). Prior slab D-164: Allen `@expires` inference LIFTED (124-cell
-ladder; constant intervals into the certified D-109 STP matrix; only
-`during` leaks; 17 `xf_cep_e_*` graduated, 9 `pr_cep_allen_inf_*` pins).
-Gates: corpus **11/1084/326** byte-identical, lint 1509 + 18 new
-battery cells, cargo 9, bindings 72. Other deferred: D-080 TMS
-envelope, class-3 re-entrant churn, window:length (never built), the
-Allen-beyond-Drools enhancement (docs/allen-beyond-drools.md,
-spec-driven, post-faithfulness).
-Fenced-by-nature: D-134 §6 ties, fz_42_84.
+_Last updated: 2026-07-11, post-D-166 — **the tj-tail UPDATE-RECENCY
+family is PORTED and CLOSED: cf313x346 + cf933x385 GRADUATED** (Bryan
+gated the D-165 plan; D-166 executed it Python-first). Spec =
+model_join_flush.py v3 `usimulate`/`fuzzu` (0-div on 2,000/2,000 vs the
+oracle): insert-stamped match ts; root updates inert; non-root update =
+tail re-add + child upds staged with the SAME prepend/once-reversal as
+inserts; per-action FIFO batches; double-touch fires once. Engine =
+four gated pieces: chronological `refresh_left_seq` at the temporal
+reorder (phreak `do_join_node`); the D-125 per-arrival stream flush for
+EVENT-type updates; trigger-scoped k1 upd stash (9-field snapshot);
+BfShadow q-hoist on P-update + the D-150 `windowed` shadow-exclusion
+LIFT. Engine 0/2,000 on the population; corpus **11/1084/328**
+byte-identical; lint **1536/0/0**; cargo 9; bindings 72; fuzz_cep
+4 seeds ×400 = 0; notpop/expop fresh (590/210/600/293) engine-0 AND
+all four model specs MATCH. NEW: the `SEINE_TJUPD=1` update-heavy
+fuzz_cep axis (flag-off stream byte-identical) — its RESIDUAL LEDGER =
+6 pre-existing adjacent latents quarantined to xfail/ (cf6001x245,
+cf6001x384 ⚠ SET-class, cf6002x359 = the known D-117 hang witness,
+cf6003x274, cf6004x233/cf6005x208 self-PAIR choice) — **NEXT candidate:
+that ledger** (minimize-first, the D-165/166 method: keyed minimizer →
+u-ladder probes → model → gated port). Other deferred: D-080 TMS
+envelope, class-3 re-entrant churn, window:length (never built),
+Allen-beyond-Drools (docs/allen-beyond-drools.md). Prior slabs: D-165
+recon (docs/tj-tail-update-recency-mechanism.md), D-164 Allen
+inference. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
@@ -8826,3 +8824,72 @@ update-heavy fuzz axis BEFORE any Rust, then the Bryan gate.
 GATES: no engine change — corpus 11/1084/326 byte-identical, lint
 green over the new battery (12 open_divergence + 6 live controls),
 cargo 9 (see commit).
+
+## D-166 — the update-recency ORDER port: tj-tail family CLOSED, cf313x346 + cf933x385 GRADUATED (2026-07-11)
+
+Bryan gated the D-165 fix plan; this slab executes it Python-first.
+
+SPEC (model_join_flush.py v3 `usimulate` + the `fuzzu` update-heavy
+population generator — **0 divergences on 2,000/2,000** vs the live
+oracle, seeds 42/7/101/202; disciplines pinned by a 7-cell u-ladder
+`probes_pending/cep/tj_tail/tjt_u*`):
+- temporal MATCH uses the INSERT-time ts (handle-stamped; a ts-field
+  update changes the printed value only);
+- ROOT-pattern (leftmost) updates do NOT re-propagate (u2; re-explains
+  the D-165 m8 control);
+- a non-root UPDATE moves the fact/tuple to the TAIL of its node
+  memory and re-propagates child UPDATEs staged with the SAME
+  prepend/once-reversal discipline as inserts (grid-searched:
+  UPD_BETA=prepend, UPD_TERM=prepend, RUPD_ORDER=opposite-memory
+  scan — the alternatives die on the population at 52-81%);
+- each external update action is its OWN propagation batch (FIFO
+  across actions); a tuple staged twice in one epoch fires ONCE at its
+  first staging position (u5).
+
+ENGINE PORT (engine 0/2,000 on the same population + 7/7 u-ladder;
+all four pieces gated to temporal/event paths, plain sessions
+byte-identical by construction):
+1. phreak.rs `do_join_node` reorder block: a TEMPORAL node refreshes
+   the updated left's `lseq` (`refresh_left_seq`) — the certified
+   (left_sseq, lseq) partner scan then sees the tuple at its NEW
+   memory position chronologically (tail now, before any later fill).
+   The first attempts (fresh global sseq; an upd_rank major key) were
+   WRONG — rank-major pins updated-after-everything, but a fresh left
+   arriving after the update must enumerate after it (mju42x142);
+   chronological lseq is the memory order exactly.
+2. engine.rs `update_fact`: an EVENT-type update gets the D-125
+   per-arrival trigger-scoped `stream_flush` (each update action = its
+   own batch ⇒ FIFO refires). Plain-type updates keep the certified
+   batch path (the shadows pin it).
+3. `stream_flush_ex`: the k=1 stash scopes to PRE-EXISTING upds (the
+   9-field stage_snapshot + per-window upd counts) so the update
+   trigger sees its own effect; `touched_node` counts upd growth.
+   Insert triggers add no upds ⇒ byte-identical.
+4. BfShadow: `on_p_update` also hoists the fact inside an
+   already-formed emission queue (q = reverse(rtm) ⇒ move-to-tail ≡
+   hoist-to-front) + rebuilds emit_rank; and the D-150-era `windowed`
+   shadow-construction exclusion is LIFTED (cf933x385's cell needs the
+   shadow under a window:time accumulate over the blocker type — the
+   window deadline forces an early eval that freezes q before the
+   update's queue position). pn/ex/px shadows untouched.
+
+SCENARIOS: cf313x346 + cf933x385 GRADUATED to regressions/ (328); the
+12 D-165 battery divergence cells flipped to live pins; +7 u-ladder
+pins. NEW AXIS: `SEINE_TJUPD=1 tools/fuzz_cep.py` (update-heavy,
+temporal-target-biased; flag-off stream verified byte-identical
+200/200). RESIDUAL LEDGER: the axis flushes 6 PRE-EXISTING adjacent
+latents (identical on the pre-port base bank — NOT port regressions),
+quarantined to xfail/: cf6001x245/cf6003x274 (tj partner-choice),
+cf6004x233/cf6005x208 (self-join SELF-PAIR choice), cf6001x384 (the
+one SET-class find), cf6002x359 (a reached witness for the KNOWN
+D-117-guarded non-termination). Known-name suppression: these 6 are
+the axis's expected flags.
+
+GATES: corpus **11/1084/328** byte-identical; lint **1536/0/0**;
+cargo 9 suites; bindings 72 (fresh maturin build); fuzz_cep
+313/941/943/945 ×400 = 0 div; SEINE_TJUPD 6001-6005 ×400 = exactly
+the 6 ledger names; notpop event 590 + plain 210 + expop 600 + plain
+293 regenerated fresh seeds 91-94: engine 0/1000+0/1000 AND all four
+model specs ALL MATCH (flush/pflush/EMODEL=flush/pexists); mju
+population 0/2,000. Main-axis analytically inert (every change gates
+on temporal nodes / event types / event-session flushes).

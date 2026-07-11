@@ -1,0 +1,105 @@
+{
+ "name": "tjt_u3",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E3",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule CH when $a0 : E0() $a1 : E1(this after[0ms,100ms] $a0) $a2 : E2(this after[0ms,100ms] $a1) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 10
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 20
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 30
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 40
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "ts": 10
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-166 u-ladder: middle-pattern update child_upd re-scan order (single reversal)."
+}

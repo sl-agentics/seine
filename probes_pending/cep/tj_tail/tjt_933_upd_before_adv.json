@@ -114,6 +114,5 @@
    "facts": []
   }
  ],
- "open_divergence": true,
- "_finding": "D-165 tj-tail family (event-not cell): an update to a blocked-under left in the blocker-expiry epoch (either side of the advance) hoists it to release-FIRST oracle-side; baseline release order (recency-DESC) matches both trees. Same root as the join cell: update-recency ordering the engine does not track. See docs/tj-tail-update-recency-mechanism.md. Update BEFORE the advance in the same epoch also hoists."
+ "_finding": "D-166 GRADUATED (was a D-165 divergence cell): D-165 tj-tail family (event-not cell): an update to a blocked-under left in the blocker-expiry epoch (either side of the advance) hoists it to release-FIRST oracle-side; baseline release order (recency-DESC) matches both trees. Same root as the join cell: update-recency ordering the engine does not track. See docs/tj-tail-update-recency-mechanism.md. Update BEFORE the advance in the same epoch also hoists."
 }

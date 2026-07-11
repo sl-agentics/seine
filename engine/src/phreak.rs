@@ -337,6 +337,14 @@ impl Node {
         self.lseq.get(l).copied().unwrap_or(0)
     }
 
+    /// D-166 (update-recency): give an updated left a FRESH arrival
+    /// counter — it re-enters the partner scan at its new (tail) memory
+    /// position, chronologically ordered against later fills.
+    pub fn refresh_left_seq(&mut self, l: &Tup) {
+        self.lseq.remove(l);
+        self.stamp_left_seq(l);
+    }
+
     /// BetaNode.modifyObject on a mask MISS: the right tuple is re-added
     /// (removeAdd to the END, re-keyed) immediately, without staging and
     /// without child updates (fz_42_4359/3433 vs fz_42_1057 pins).
@@ -1072,6 +1080,7 @@ fn do_join_node<E: JoinEnv>(
                 }
             }
         }
+
     }
     // --- reorder left memory: remove all staged, re-add at the END in
     // staged-list order; children reAddRight ---
@@ -1088,6 +1097,15 @@ fn do_join_node<E: JoinEnv>(
                     node.re_add_right(c);
                 }
             }
+        }
+        // D-166 (update-recency): a TEMPORAL node's partner scan sorts by
+        // the (left_sseq, lseq) arrival stamps, which erases the move-to-END
+        // above — refresh the updated left's lseq so it re-enters the scan
+        // chronologically at its NEW memory position (tail now, before any
+        // later fill; model_join_flush v3 usimulate, fuzzu 2000/2000; the
+        // tj-tail family cf313x346/cf933x385).
+        if node.temporal {
+            node.refresh_left_seq(l);
         }
     }
 

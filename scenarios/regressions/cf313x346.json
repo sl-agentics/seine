@@ -1,0 +1,180 @@
+{
+ "name": "cf313x346",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 when $a : E0() $b : E2(this after[0ms,50ms] $a) then end\nrule TJ1 salience -4 when $a : E2() $b : E2(this during[50ms,80ms] $a) then end\nrule CH2 when $a : E0() $b : E1(this before[0ms,100ms] $a) $c : E2(this after[0ms,100ms] $b) then end\nrule W3 when accumulate( E1(tag == \"z\", $t : ts) over window:time(100ms); $c : sum($t) ) then end\nrule J4 when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule RD5 salience 3 when D() then end\nrule ND6 salience 5 when not D() P() then end\nrule NE7 salience -8 when exists E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 33,
+    "tag": "z",
+    "dur": 50
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 35,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 5,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 23,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 30
+    },
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 52,
+      "tag": "x"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "tag": "x",
+      "ts": 54
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 57,
+      "tag": "y"
+     }
+    },
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 38,
+      "tag": "z",
+      "dur": 50
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "PRE-EXISTING (D-164 triage): a temporal-join FIRING-choice latent in a salience'd chain-rule composite (CH2's firing[17] joins E1(y,35) engine-side vs E1(x,54) oracle-side) \u2014 fails IDENTICALLY on the pre-D-164 tree (61f4281 worktree A/B), and the case's during[50,80] rule infers NEVER on both trees, so the Allen-inference port is not implicated. Newly REACHED by the D-164 fence-lifted fuzz_cep draw stream (un-annotated types under Allen ops now draw). Kin of the item-1b temporal-join tail latents (cf613x306/cf933x385 ledger); recon when that family is scheduled. || GRADUATED by the D-166 update-recency port (chronological lseq refresh at temporal re-add + per-action event-update stream flush + BfShadow q-hoist + the windowed shadow-exclusion lift). Spec: docs/tj-tail-update-recency-mechanism.md; battery probes_pending/cep/tj_tail/."
+}
