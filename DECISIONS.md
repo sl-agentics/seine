@@ -11,40 +11,32 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11, post-D-162 PORT — **the plain-EXISTS
-satisfy-order family is CLOSED** (spec arc 2026-07-10 `5c15f80`; Bryan
-cleared the gate; port landed same-day-after). Port = TWO gated pieces
-(PLAIN-witnessed non-temporal `Kind::Exists`, STREAM sessions):
-(1) the QUIESCENCE step — `next_activation`'s quiescence chain
-re-queues rules whose gated exists node holds staged witness ops at the
-window's end (the flushExpirations slot; the x75 6-vs-8 root was a
-staged witness DEL leaking across its boundary — dstash-hidden from a
-mid-epoch flush whose eval wiped the dirty flag — then BATCHING with
-the next window's ins into a no-transition witness handover; the wiped
-flag is otherwise LOAD-BEARING: it is what coalesces same-window
-del+ins pairs, x170/x79); (2) **PxShadow** — the FOURTH mechanical
-shadow (`predict_pexists` in Rust): NET witness batches, link-counter
-queue economy (sync deletes / deferred updates; sync 1→0 dequeues LINK
-signals; explicit witness deletes carry a sticky WM signal
-(`px_explicit_victim`); TMS cascades silent), alpha-tracked witness
-updates (the cons drive — `alpha_passes_fields` per op), evals iff
-queued + its own quiescence eval, `join_left_ins` = staged-arrival ++
-reversed(rtm), NO refraction. Gate `px_pos` [IF, EXISTS over PLAIN,
-positive P] + STREAM; PnShadow-style exclusions EXCEPT alpha-only
-witness cmps + RHS Insert/InsertLogical of the WITNESS type allowed
-(the logical J-drive); P bare. Spec: `EMODEL=pexists
-tools/model_check_exists.py` (0-div on 2,010 banked+fresh, seeds
-5001-5007). GATES: populations FIXED **2,100/2,100** vs BASE
-fails **479/2,100** — 68+67+65 banked (EXACTLY the D-161 fixedfails counts) + 74+60+72+73 fresh ⇒ **+479 fixed / 0 regressed** (A/B worktree at `d400c56`); corpus **11/1075/302**
-byte-identical (+5 `pr_cep_px_*` pins; 3 xfails GRADUATED:
-`xf_cep_ex_{backlog_order,plain_order_set,order_widen_exposed}`); lint
-**1476**; cargo 9; bindings 72; expop FULL 600/600 (896) + notpop FULL
-600/600 (897) + notpop PLAIN 400/400 (4406); D-152 banked event-exists
-60/60; fuzz_cep 313/907/911/933 ×400 both trees (0-div; 933 =
-`cf933x385` both, the quarantined pre-existing latent); main-axis
-42/123/7 ×10k both trees identical flagged sets — 3/2/4, the known 9 pre-existing latents (fz_42_{258,6358,7682}, fz_123_{763,1589}, fz_7_{776,1936,2990,3185}); artifacts cleaned. **NEXT is Bryan's call — no
-active slab.** Deferred: D-093 quarantine graduation (oracle bump,
-D-148), D-080 TMS envelope, Allen @expires fence (17 `xf_cep_e_*`),
+_Last updated: 2026-07-11, post-D-163 — **the ORACLE is 9.44.0.Final+p1
+and the D-093 quarantine is GRADUATED** (executed right after the
+v0.4.1 release + the D-162 close; Bryan-directed: patch the oracle, no
+version bump). The upstream-merged stale-min/max repair (#6796,
+`275baf9c` — two `isDirty |=` hunks, fetched from the merge commit,
+applied verbatim) is VENDORED as a classpath shadow
+(`oracle/src/.../PhreakAccumulateNode.java`; `oracle/target/classes`
+precedes the jars). **SCOPE RULE: only upstream-MERGED fixes for
+defects Seine itself reported + quarantined under the D-093 doctrine
+may be vendored** — the oracle label carries the asterisk (README,
+NOTICE, docs/drools-bug-stale-minmax.md banner). The 7 witnesses
+(alu6a, alu7a/7d/7f/7g, fz_123_8426, fz_min_8426) FAILED 0/7 vs stock
+and PASS 7/7 vs +p1 (the two-character A/B) ⇒ GRADUATED to
+regressions/. The gen.rs D-093 wall is LIFTED (min/max×mutation back
+in fuzz; `has_minmax` deleted) — NOTE the lift changed the generator
+draw stream, so the main-axis flag baselines were RE-BASELINED:
+unpatched-oracle capture legs (lifted gen) flagged exactly 8 of the
+old 9 latents (2/2/4 — fz_42_7682's case stream shifted away; ZERO
+defect-family hits in 30k, the witnesses carry causation); patched
+legs = byte-identical flag sets (2/2/4); fresh 777 = 4 flags, all stock-oracle-identical + min/max-free ⇒ pre-existing (deferred). Gates: corpus **11/1075/309** byte-identical
+(regressions 302→309), lint **1483/0/0**, cargo 9, bindings 72, fuzz_cep
+313 ×400 0-div. Stock oracle classes preserved at the job tmp
+(`oracle_stock_classes`) for future flag classification. The D-148
+bump contingency is RETIRED; a real version bump stays its own
+re-certification arc. **NEXT is Bryan's call — no active slab.**
+Deferred: D-080 TMS envelope, Allen @expires fence (17 `xf_cep_e_*`),
 class-3 re-entrant churn, the `cf933x385` BfShadow-composition recon.
 Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -8679,3 +8671,57 @@ step is FAMILY-WIDE (not shadow-gated): staged witness ops at gated
 nodes always evaluate by their window's end — fuzz_cep composites and
 the corpus verify the non-shadowed shapes. Coverage caveats from the
 spec stand: zero-live-P satisfy-link corner untested by the generator.
+
+## D-163 — the ORACLE PATCHED to 9.44.0.Final+p1 (upstream #6796 vendored): the D-093 quarantine GRADUATED, the gen.rs wall LIFTED
+
+DATE: 2026-07-11, Bryan-directed ("just add the `|` character in the
+oracle") — the D-148 convergence protocol executed via a LOCAL oracle
+patch instead of a version bump, eliminating the 9→10 re-certification
+risk entirely: everything except the two-line fix stays bit-for-bit
+9.44.0.Final.
+
+MECHANISM: `oracle/src/main/java/org/drools/core/phreak/
+PhreakAccumulateNode.java` — the 9.44.0.Final source with EXACTLY the
+upstream-merged repair (apache/incubator-kie-drools#6796, commit
+`275baf9c`, Mario Fusco, 2026-07-08 — Seine's suggested `isDirty |=`
+repair verbatim, both arms of `doLeftUpdatesProcessChildren`; hunk
+fetched from the merge commit and applied verbatim, TWO sites). The
+class SHADOWS the drools-core jar copy via classpath order
+(`oracle/target/classes` precedes the jars, harness/src/oracle.rs) —
+same mechanism as the graft dumps; no jar surgery, CI builds it with
+`mvn package` unchanged. Provenance: loud file header + NOTICE entry;
+the vendored file never touches the Rust engine (brief §8 intact).
+
+SCOPE RULE (the slippery-slope fence): only upstream-MERGED fixes for
+defects Seine itself reported and quarantined under the D-093 doctrine
+(faithfulness axis 2 — value-bearing self-inconsistent defects) may be
+vendored as oracle patches. The oracle is labeled **9.44.0.Final+p1**
+(README provenance + docs/drools-bug-stale-minmax.md banner).
+
+WALL LIFT (`harness/src/gen.rs`): min/max accumulates re-enter the
+mutation pool (the `allow_mutation` func-pool split removed) and
+external updates stop rerouting to deletes (`has_minmax` deleted).
+NOTE: the lift changes the generator's draw stream — the old main-axis
+flag baselines (3/2/4, 9 names) do NOT carry name-for-name; this entry
+re-baselines them below.
+
+CAUSATION A/B (same lifted generator, two oracle builds):
+- UNPATCHED oracle, seeds 42/123/7 ×10k: 2/2/4 divergences over 30k cases = 8 of the old 9 latent names EXACTLY (fz_42_{258,6358}, fz_123_{763,1589}, fz_7_{776,1936,2990,3185}; fz_42_7682's case stream shifted away under the lifted generator); ZERO defect-family hits — the 7 witnesses carry the causation (0/7 pass vs stock)
+- PATCHED oracle, same seeds/programs: flag sets BYTE-IDENTICAL to the
+  unpatched legs (2/2/4, the same 8 names) — the patch is INERT outside
+  the defect family; the family itself converges at the witnesses.
+
+CONVERGENCE + GATES: the 7 quarantined witnesses (alu6a, alu7a/7d/7f/
+7g, fz_123_8426, fz_min_8426) flipped 0/7 (vs stock, same session) to **7/7 PASS** — GRADUATED to
+regressions/. Corpus `make diff` **11/1075/309** byte-identical under the patched oracle
+(the D-093 wall had kept certified scenarios off the changed surface,
+so byte-identity was expected and held). lint **1483/0/0**, cargo 9,
+bindings 72. fuzz_cep 313 ×400 0-div (CEP surface unaffected).
+Main-axis RE-BASELINE (patched oracle + lifted generator, 42/123/7
+×10k + fresh seed 777): 42/123/7 = 2/2/4 (the re-baselined sets above, cleaned); fresh seed 777 ×10k = 4 flags (fz_777_{1086,2897,6781,7035}) — ALL 4 fail against the STOCK oracle identically and NONE contains min/max ⇒ pre-existing fresh-seed latents of the known order classes (deferred to the latent ledger), neither patch- nor wall-lift-caused.
+
+docs/drools-bug-stale-minmax.md carries the +p1 resolution banner;
+FEATURES.md accumulate row updated; README provenance notes the
+asterisk. The D-148 "next oracle bump" contingency is RETIRED — the
+graduation is done; a future real version bump remains its own
+re-certification arc if ever wanted for other reasons.

@@ -29,3 +29,10 @@ Each scenario records its upstream source file and test method in a
 adapted to declared scalar types; test-harness statements translated to
 scenario facts). These adaptations are derivative works of the upstream
 test content and are used under the Apache License 2.0.
+
+oracle/src/main/java/org/drools/core/phreak/PhreakAccumulateNode.java is
+Apache Drools 9.44.0.Final source (Apache-2.0, ASF) carrying the
+upstream-merged fix apache/incubator-kie-drools#6796 (two-line delta,
+documented in the file header and DECISIONS.md D-163); it shadows the
+drools-core jar class in the ORACLE runner only and is not part of the
+Seine engine.

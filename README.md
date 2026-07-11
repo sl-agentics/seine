@@ -2,7 +2,9 @@
 
 A Rust reimplementation of a **bounded subset** of the Drools DRL
 forward-chaining rule semantics, proven faithful by **differential testing
-against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
+against real Drools** (pinned: **9.44.0.Final+p1** — stock 9.44.0.Final
+plus exactly one vendored upstream-merged fix for a defect Seine
+reported; see `NOTICE` and DECISIONS D-163) as a live oracle.
 
 > **Status: v0.4.1 on PyPI** (`pip install seine-rs`, import `seine`).
 > The certified corpus is **11 baseline / 1,075 probe / 302 regression

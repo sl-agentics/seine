@@ -11,10 +11,14 @@ regression test (`AccumulateTest.testAccumulateMinStaleAfterLeftTupleUpdate`)
 is derived from this report's reproducer (the P/S/G min shape, `b:
 -10→5`, sources `{12, -2}`, expected results `[-2, 12]`).
 
-**Convergence status (D-148):** no RELEASE carries the fix yet (latest
-10.2.0 is 2026-04-28, pre-merge; Apache snapshots stale since April), so
-the pinned oracle (9.44.0.Final) still exhibits the defect and the D-093
-quarantine + generator wall REMAIN IN FORCE. At the next oracle bump to
+**Convergence status — RESOLVED LOCALLY (D-163, 2026-07-11):** no
+RELEASE carries the fix (latest 10.2.0 is 2026-04-28, pre-merge), so the
+oracle now VENDORS the upstream-merged repair verbatim as a classpath
+shadow (`oracle/src/main/java/org/drools/core/phreak/
+PhreakAccumulateNode.java` — the oracle is **9.44.0.Final+p1**). The
+seven expected-divergence witnesses CONVERGED and graduated to
+`scenarios/regressions/`; the D-093 generator wall in `gen.rs` is
+lifted. The original D-148 contingency below is retained for the record. At the next oracle bump to
 a fix-bearing release: the seven documented-expected-divergence
 witnesses (alu6a, alu7a/7d/7f/7g, fz_123_8426, fz_min_8426) should flip
 to CONVERGENT (Seine's correct re-derivation == fixed Drools) and

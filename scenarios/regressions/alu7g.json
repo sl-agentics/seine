@@ -61,5 +61,6 @@
    }
   }
  ],
- "drl": "rule R_acc when $p : P($b : b) accumulate(S(v >= $b, $s : v); $m : min($s)) then end\nrule R_low salience -5 when $g : G() $p : P() then modify($p){ setB(2) } end\n"
+ "drl": "rule R_acc when $p : P($b : b) accumulate(S(v >= $b, $s : v); $m : min($s)) then end\nrule R_low salience -5 when $g : G() $p : P() then modify($p){ setB(2) } end\n",
+ "comment": "D-093 expected-divergence witness (the Drools stale-min/max extremum defect, D-092: the oracle held a stale extremum where Seine computes the correct value) \u21d2 D-163 GRADUATED: the oracle is 9.44.0.Final+p1 \u2014 the upstream-merged repair (kie-drools#6796, the report's isDirty|= fix verbatim) is vendored as a classpath shadow, the witness CONVERGED, and it now pins the correct extremum re-derivation as a regression."
 }
