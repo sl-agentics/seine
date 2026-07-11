@@ -43,7 +43,7 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, fully PUSHED (`origin/main` at `2a482e8`).
+**Git:** on `main`, fully PUSHED (`origin/main` at `1ad3009`, D-166).
 **RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
 on `2a482e8`, the ci.yml release pipeline all-green incl. the
 differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
