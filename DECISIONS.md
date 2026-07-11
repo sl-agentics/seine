@@ -11,42 +11,47 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11 late, post-D-167 — **the TJUPD residual
-ledger: all SIX mechanisms cracked in one recon slab; the SET fix is
-VALIDATED and awaiting the gate** (no engine change landed; the
-six-line fix is reverted, diff verbatim in
-`docs/tjupd-ledger-mechanisms.md`). (1) SET cf6001x384: a stale staged
-UPD on an UNLINKED temporal join fails the D-125 eligibility gate →
-childless self_drain_delta → the pair is permanently lost across the
-unlink/relink; fix = the self-drain fallback also requires empty upd
-staging; with it in-tree the minimal + FULL case graduate and EVERY
-gate is green (corpus/tjt/mju/fuzz_cep ×4/TJUPD ×3/cargo). (2) ORDER
-×4 (cf6001x245/6003x274/6004x233/6005x208): ONE family, the
-anchored/self-join MODIFY composition — spec model_tjupd_v4 (98.4% on
-1,200; entry scans pre-move memory, exit cancels, A' reversed
-child-list refires tag-gated, $b listen-all refires + always
-tail-re-add post-scan, anchor left-re-add, dedup-keep-first); residual
-= the same-fact double-touch queue-position sub-rule (D-106-adjacent),
-port blocked on 0-div per doctrine. (3) HANG cf6002x359 = the known
-D-117 spin, minimized to 4 facts (tju_359_spin_min). Batteries:
-`probes_pending/cep/tj_upd/` (17 files). All six stay QUARANTINED,
-findings sharpened. **NEXT: Bryan's gate — (a) land the SET fix
-(evidence complete); (b) close the v4 residual → port the ORDER
-family; (c) the spin root-cause slab (checker-first, ⚠ D-106) —
-handoff ready at `~/.claude/plans/tjupd-ledger-handoff.md`.**
-Gates this slab: corpus **11/1084/328** byte-identical, lint
-**1553/0/0**, cargo 9. Prior: D-166 update-recency port (cf313x346 +
-cf933x385 graduated), D-165 recon. Other deferred: D-080 TMS envelope,
-class-3 re-entrant churn, window:length (never built),
-Allen-beyond-Drools. Fenced-by-nature: D-134 §6 ties, fz_42_84.
-`git log --oneline -20` for HEAD._
+_Last updated: 2026-07-11 late, post-D-168 — **the TJUPD SET fix is
+LANDED** (Bryan-gated deliverable (a) of the D-167 ledger): the
+six-line `stream_flush_ex` self-drain guard is in-tree (the childless
+self-drain fallback now requires empty upd staging — a stale staged
+UPD on an UNLINKED temporal join no longer starves the D-125 flush
+and loses the pair across unlink/relink); cf6001x384 GRADUATED to
+regressions/ (**329**), tju_384_min + tju_m4_split are live pins.
+ALSO D-168: the mju executable spec's committed default REPAIRED
+(model_join_flush.py RUPD_ORDER childlist→oppmem — the D-166 grid
+winner; the committed loser scored 79% on mju42; grid argv wired;
+re-certified 0/200 ×2 seeds; the D-166 0/2,000 claim was real, the
+default just didn't match the validated config). REMAINING TJUPD
+ledger (quarantined, findings sharp): (1) ORDER ×4 (cf6001x245/
+6003x274/6004x233/6005x208): ONE family, the anchored/self-join
+MODIFY composition — spec model_tjupd_v4 (98.4% on 1,200; entry scans
+pre-move memory, exit cancels, A' reversed child-list refires
+tag-gated, $b listen-all refires + always tail-re-add post-scan,
+anchor left-re-add, dedup-keep-first); residual = the same-fact
+double-touch queue-position sub-rule (D-106-adjacent), port blocked
+on 0-div per doctrine. (2) HANG cf6002x359 = the known D-117 spin,
+minimized to 4 facts (tju_359_spin_min). Batteries:
+`probes_pending/cep/tj_upd/` (17 files). **NEXT: Bryan's gate —
+(b) close the v4 double-touch residual → port the ORDER family;
+(c) the spin root-cause slab (checker-first, ⚠ D-106) — handoff at
+`~/.claude/plans/tjupd-ledger-handoff.md` (deliverable (a) DONE).**
+Gates this slab: corpus **11/1084/329** byte-identical, lint
+**1554/0/0**, cargo 9, bindings 72, fuzz_cep ×4 = 0, TJUPD 6001-6005
+= only the 5 known residual names, shadow populations engine 0-div +
+specs ALL MATCH. Prior: D-167 ledger recon, D-166 update-recency
+port. Other deferred: D-080 TMS envelope, class-3 re-entrant churn,
+window:length (never built), Allen-beyond-Drools. Fenced-by-nature:
+D-134 §6 ties, fz_42_84. `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, fully PUSHED (`origin/main` at `1ad3009`, D-166).
+**Git:** on `main`; `origin/main` at `80ecc6b` — UNPUSHED local:
+`8697dc2` (D-167) + `c62d437` (handoff pointer) + the D-168 commit
+(Bryan holds every push).
 **RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
 on `2a482e8`, the ci.yml release pipeline all-green incl. the
 differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
@@ -8954,3 +8959,58 @@ complete); (b) close the v4 residual then port the ORDER family;
 GATES this slab (recon artifacts only): corpus 11/1084/328
 byte-identical, lint green over the new battery, cargo 9, xfail
 findings sharpened, minimals + model committed.
+## D-168 — the SET fix LANDED: cf6001x384 graduated; the mju spec's committed default repaired (2026-07-11)
+
+Bryan gated deliverable (a) of the D-167 ledger; this slab lands it.
+
+ENGINE (the D-167 §1 six-liner, applied verbatim from the report): in
+`engine.rs stream_flush_ex`, the childless self-drain fallback now
+additionally requires EMPTY upd staging (s_right/s_left/s0_in — three
+conjuncts). Before: an arrival reaching an UNLINKED temporal join
+alongside a stale staged upd failed the D-125 clean-insert-only
+eligibility gate, fell to `self_drain_delta` (memory WITHOUT
+children), and the pair was PERMANENTLY lost across the unlink/relink
+(the relink eval never re-derives from memories). Now mixed staging
+stays in place for the eval. The exists early-continue and the D-125
+eligible cascade sit upstream of the branch; corpus byte-identical.
+
+SCENARIOS: cf6001x384 GRADUATED xfail→regressions (329); tju_384_min +
+tju_m4_split flipped to LIVE pins in probes_pending/cep/tj_upd
+(open_divergence dropped, findings kept with the GRADUATED
+annotation). The ORDER/hang cells (tju_208/233/245/274/359 minimals,
+r3/s4/s8) stay open_divergence — lint re-verifies they STILL diverge,
+i.e. the fix did not leak into the ORDER family.
+
+GATES (all green): witnesses tju_384_min + tju_m4_split + the FULL
+cf6001x384 (19/19 firings) PASS, controls tju_m2/m3/m5 PASS; corpus
+**11/1084/329** byte-identical; tjt battery 25/25; mju ENGINE leg
+0/200 (seed 42); fuzz_cep 313/941/943/945 ×400 = 0 div; SEINE_TJUPD
+6001-6005 ×400 = EXACTLY cf6001x245/cf6002x359/cf6003x274/cf6004x233/
+cf6005x208 (the SET name GONE); cargo 9 suites; lint **1554/0/0**
+(+1 = the graduate entering the linted regressions tier); bindings 72
+(fresh maturin --release, .so refreshed); shadow populations on fresh
+seeds 91-94 (notpop event 197 + plain 97, expop event 200 + plain
+150): engine 0-div AND all four model specs ALL MATCH
+(flush/pflush/EMODEL=flush/pexists).
+
+SPEC REPAIR (flushed by this slab's gate; engine-independent):
+`tools/model_join_flush.py` was COMMITTED at D-166 with
+`RUPD_ORDER="childlist"` — a grid LOSER (158/200 = 79% divergent on
+mju seed 42, inside the "alternatives die at 52-81%" band the D-166
+entry itself records) — while the validated winner is `oppmem`
+(opposite-memory scan, exactly what the D-166 text says won). An
+8-cell knob grid against one cached oracle pass reproduced the D-166
+conclusion (oppmem 0/200; every other combo 104-173/200); fuzzm (the
+v2 no-update control) 0/200 shows the base model was never affected.
+Default flipped, the docstring's grid-override argv (documented but
+never parsed) wired into __main__, re-certified 0/200 on seeds 42 AND
+7. The D-166 0/2,000 claim was REAL — the committed default just
+didn't match the session's validated config (the session-state trap,
+same family as the scratch-only keyed minimizer). The mju ENGINE leg
+was green throughout — engine-vs-oracle gates were never affected.
+
+NEXT (unchanged, Bryan-gated): (b) close the model_tjupd_v4
+double-touch residual → port the ORDER family (cf6001x245/6003x274/
+6004x233/6005x208); (c) the cf6002x359 spin root-cause arc
+(checker-first, ⚠ D-106). Handoff:
+`~/.claude/plans/tjupd-ledger-handoff.md` (deliverable (a) DONE).

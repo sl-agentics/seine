@@ -163,6 +163,5 @@
    ]
   }
  ],
- "open_divergence": true,
- "_finding": "D-167 SET family MINIMAL (cf6001x384): a stale staged UPD on an UNLINKED temporal join makes the D-125 per-arrival flush ineligible; the childless self_drain_delta then permanently loses the (E0,E1) pair across the unlink/relink. FIX VALIDATED in recon (leave mixed staging for the eval) \u2014 awaiting the Bryan gate."
+ "_finding": "D-167 SET family MINIMAL (cf6001x384): a stale staged UPD on an UNLINKED temporal join makes the D-125 per-arrival flush ineligible; the childless self_drain_delta then permanently loses the (E0,E1) pair across the unlink/relink. FIX VALIDATED in recon (leave mixed staging for the eval) \u2014 awaiting the Bryan gate. || GRADUATED by the D-168 SET-fix landing: stream_flush_ex's self-drain fallback now requires empty upd staging (mixed staging stays for the eval), so the unlink/relink no longer loses the pair. Mechanism D-167 \u00a71, docs/tjupd-ledger-mechanisms.md."
 }

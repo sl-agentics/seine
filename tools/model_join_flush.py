@@ -248,7 +248,10 @@ def fuzzm(n, seed):
 #   model_join_flush.py fuzzu <n> <seed> [UPD_BETA UPD_TERM RUPD_ORDER]
 # ======================================================================
 
-CFG = {"UPD_BETA": "prepend", "UPD_TERM": "prepend", "RUPD_ORDER": "childlist"}
+# D-168: the D-166-validated grid winner is RUPD_ORDER=oppmem (opposite-
+# memory scan; DECISIONS D-166 "the alternatives die at 52-81%") — the
+# file was committed with the losing childlist default (79% on mju42).
+CFG = {"UPD_BETA": "prepend", "UPD_TERM": "prepend", "RUPD_ORDER": "oppmem"}
 
 
 class UNode:
@@ -459,4 +462,7 @@ if __name__ == "__main__":
     elif sys.argv[1] == "fuzzm":
         fuzzm(int(sys.argv[2]), int(sys.argv[3]))
     elif sys.argv[1] == "fuzzu":
+        # optional grid overrides (docstring interface): fuzzu n seed [UPD_BETA UPD_TERM RUPD_ORDER]
+        for key, val in zip(("UPD_BETA", "UPD_TERM", "RUPD_ORDER"), sys.argv[4:7]):
+            CFG[key] = val
         fuzzu(int(sys.argv[2]), int(sys.argv[3]))

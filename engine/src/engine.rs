@@ -6062,8 +6062,17 @@ impl Engine {
                         Sink::Ria(_) => unreachable!("cascade never targets a RIA sink"),
                     }
                 }
-            } else if !self.trie[ni].node.s_right.ins.is_empty()
-                || !self.trie[ni].node.s_left.ins.is_empty()
+            // D-167: only CLEAN insert-only staging may self-drain. A stale
+            // staged upd means the arrival failed the D-125 eligibility gate
+            // on an UNLINKED join; a childless self_drain_delta would lose
+            // the pair PERMANENTLY across the unlink/relink (the relink eval
+            // never re-derives from memories) — mixed staging stays for the
+            // eval instead (cf6001x384).
+            } else if (!self.trie[ni].node.s_right.ins.is_empty()
+                || !self.trie[ni].node.s_left.ins.is_empty())
+                && self.trie[ni].node.s_right.upd.is_empty()
+                && self.trie[ni].node.s_left.upd.is_empty()
+                && self.trie[ni].s0_in.upd.is_empty()
             {
                 let mut node = std::mem::replace(
                     &mut self.trie[ni].node,

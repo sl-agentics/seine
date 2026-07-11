@@ -24,7 +24,7 @@ lost (SET), durable across epoch splits (`tju_m4_split`). Controls: no
 update (`tju_m2`), no advance (`tju_m3`), no initial E2 (`tju_m5`) all
 converge.
 
-**FIX (validated in recon, REVERTED pending the Bryan gate):** in
+**FIX (validated in recon; ⇒ LANDED at D-168, Bryan-gated):** in
 `stream_flush_ex`'s self-drain fallback, leave MIXED staging (any
 staged upds alongside the ins) in place for the eval instead of the
 childless self-drain:
@@ -93,10 +93,12 @@ halt-model caveat applies to any fix attempt.
 
 ## Status
 
-All six cf* stay QUARANTINED with sharpened `_finding`s. Deliverables
-awaiting the Bryan gate, in order of value:
-1. the SET fix (6 lines, fully gate-validated in recon — re-apply and
-   land);
+_Updated at D-168._ The five ORDER/hang cf* stay QUARANTINED with
+sharpened `_finding`s. Deliverables, in order of value:
+1. ✅ the SET fix — **LANDED (D-168)**: cf6001x384 graduated to
+   regressions/, tju_384_min + tju_m4_split live pins, all gates
+   green (corpus 11/1084/329, TJUPD 6001-6005 = only the ORDER/hang
+   names);
 2. the ORDER-family port (blocked on closing the ~1.6% model residual:
    the double-touch queue ladder, then the engine composition — the
    engine work spans alpha-entry staging, A′ refires, child-list

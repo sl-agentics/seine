@@ -168,6 +168,5 @@
    ]
   }
  ],
- "open_divergence": true,
- "_finding": "D-167 SET family: E1/E2 arrivals in SEPARATE epochs still lose the pair (the staging leak is durable until the relink eval)."
+ "_finding": "D-167 SET family: E1/E2 arrivals in SEPARATE epochs still lose the pair (the staging leak is durable until the relink eval). || GRADUATED by the D-168 SET-fix landing: stream_flush_ex's self-drain fallback now requires empty upd staging (mixed staging stays for the eval), so the unlink/relink no longer loses the pair. Mechanism D-167 \u00a71, docs/tjupd-ledger-mechanisms.md."
 }
