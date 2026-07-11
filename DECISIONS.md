@@ -30,17 +30,29 @@ tag-class staging). Fast battery 75/75 (incl. tj_tail 25/25 — D-166
 intact). NEW residual ledger (pre-existing, A/B-proven on the
 pre-port tree, quarantined in probes_pending/cep/tj_upd/):
 tu51x80/tu51x187 = SET losses in an exit→unlinked→re-enter relink
-shape (the relink eval never re-derives — kin of the D-168 SET
-family) + tu51x207 (a 3-touch ORDER compound). **NEXT: Bryan's gate —
-(c) the cf6002x359 spin root-cause slab (checker-first, ⚠⚠ D-106;
-witness tju_359_spin_min, 4 facts) and/or the tu51x relink-SET recon
+shape + tu51x207 (a 3-touch ORDER compound). **⇒ D-171 (this slab):
+the relink-SET mechanism is CRACKED and the fix VALIDATED-then-
+REVERTED (recon; diff verbatim in docs/tjupd-ledger-mechanisms.md §4,
+~15 flush-layer lines, D-106-clean):** the exit's s0-del outlives the
+unlink (dels aren't flush-touch; unlinked evals don't fold s0), the
+dstash hides it from the relink eval, and its post-re-entry drain
+value-kills the re-created pairs — Drools' relink drain does
+del-then-ins by stage order on tuple OBJECTS. Ladder
+`probes_pending/cep/tj_upd/tju_relink_*` (min/sameepoch/gap
+open_divergence + nobacklog live control); with the fix in-tree ALL
+five family witnesses pass, corpus 11/1084/333 byte-identical, fast
+battery 71/71, population 2,199/2,200 (only tu51x207 left), fuzz 313
++ TJUPD 6001 = 0, cargo 9. `tools/minimize_keyed.py` now COMMITTED.
+**NEXT: Bryan's gate — (d) land the relink-SET fix (evidence
+complete); (c) the cf6002x359 spin root-cause slab (checker-first,
+⚠⚠ D-106; witness tju_359_spin_min); tu51x207's ORDER-compound recon
 — handoff `~/.claude/plans/tjupd-ledger-handoff.md` ((a)(b) DONE).**
-Gates this slab: corpus 11/1084/333, lint **1591/0/0**, cargo 9,
-bindings 72, fuzz_cep ×4 = 0, TJUPD ×5 = only the spin, tjt 25/25,
-mju 0/200 + 200/200, notpop/expop fresh engine-clean. Prior: D-169
-T6 spec (0-div 2,200), D-168 SET fix + mju default repair (PUSHED
-through D-168 at `374e309`). Other deferred: D-080 TMS envelope,
-class-3 re-entrant churn, window:length (never built),
+Gates at D-170 (all standing): corpus 11/1084/333, lint 1591/0/0 →
+**1595/0/0** with the D-171 pins, cargo 9, bindings 72, fuzz_cep ×4 =
+0, TJUPD ×5 = only the spin, tjt 25/25, mju 0/200 + 200/200,
+notpop/expop fresh engine-clean. Prior: D-169 T6 spec, D-168 SET fix
+(PUSHED through D-170 at `8f2cfb6`). Other deferred: D-080 TMS
+envelope, class-3 re-entrant churn, window:length (never built),
 Allen-beyond-Drools. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
@@ -49,9 +61,9 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`; `origin/main` at `374e309` (D-168, Bryan-directed
-push 2026-07-11) — UNPUSHED local: `3a00e53` (D-169) + the D-170
-commit (Bryan holds every push).
+**Git:** on `main`; `origin/main` at `8f2cfb6` (D-170, Bryan-directed
+push 2026-07-11) — UNPUSHED local: the D-171 commit (Bryan holds every
+push).
 **RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
 on `2a482e8`, the ci.yml release pipeline all-green incl. the
 differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
@@ -9154,3 +9166,51 @@ bindings 72 (fresh --release .so).
 REMAINING TJUPD ledger: cf6002x359 (the D-117 spin — deliverable (c),
 checker-first, ⚠ D-106) + the new tu51x ledger (the relink SET family
 recon). The tju_359_spin_min stays open_divergence.
+## D-171 — the relink-SET recon: mechanism CRACKED, fix VALIDATED (reverted; the port pends Bryan's gate) (2026-07-11)
+
+Bryan directed the tu51x recon post-D-170-push. RECON slab — the
+validated fix is REVERTED per doctrine; diff verbatim in
+`docs/tjupd-ledger-mechanisms.md` §4.
+
+MECHANISM (trace-pinned, EVAL/FLUSH debug + the minimized
+`tju_relink_min`): an anchor's alpha-EXIT stages an s0-DEL that
+nothing consumes while the rule is unlinked — (1) dels don't count as
+flush-TOUCH (`touched_node` checks ins/upd growth only) so the exit's
+own trigger flush never evaluates; (2) unlinked evals don't fold s0
+(lazy PHREAK — the oracle defers too); (3) at the RE-ENTRY the dstash
+("earlier actions' dels batch to the fire") hides the del from the
+relink eval, which re-creates the pairs; (4) the del drains at the
+NEXT FIRE — after the re-entry — and the value-keyed child/queue kill
+destroys the freshly re-created same-VALUE pairs (Drools kills by
+tuple OBJECT at the relink drain, del-then-ins in stage order; the
+Staged no-fold comment's object-identity distinction made lethal by
+the deferral). Also exposed: the backlog arrival's flush eval pairs
+against the STALE not-yet-deleted left (dies pre-fire — SET-invisible
+but order-relevant).
+
+LADDER (probes_pending/cep/tj_upd/tju_relink_*): the same-epoch
+exit+re-entry ALSO diverges (`_sameepoch` — RJ has no $b-side upd, so
+unlike the SJ analogs the re-entry stays cascade-eligible and the
+dstash bites even within one epoch); gap epochs preserve the loss
+(`_gap`); no-backlog converges (`_nobacklog`, live control — the del
+drains at its own epoch's pop when no arrival eval interleaves).
+
+FIX (validated, REVERTED): the dstash exempts an s0-del whose fact
+RE-ENTERS in the same flush — the eval processes del-then-ins in
+stage order (Drools' relink drain). ~15 lines in stream_flush_ex's
+dstash loop; flush-layer only, the executor/halt machinery untouched
+(⚠ D-106-clean by construction). Evidence with the fix in-tree:
+all five family witnesses PASS (min/sameepoch/gap/tu51x80/tu51x187);
+corpus 11/1084/333 byte-identical; fast battery 71/71; population
+2,199/2,200 (only tu51x207 — the separate 3-touch ORDER compound);
+fuzz_cep 313 + SEINE_TJUPD 6001 ×400 = 0; cargo 9.
+
+TOOLING: `tools/minimize_keyed.py` COMMITTED (the per-session-rebuilt
+keyed minimizer from the D-165/D-167 recons — KEY-literal-pinned
+divergence predicate, unquoted-rule split; the handoff's trap list
+retires an entry).
+
+NEXT (Bryan gates): (d) land the relink-SET fix (evidence complete —
+re-apply §4's diff, graduate the 5 witnesses + flip _nobacklog
+stays-live, full battery); (c) the cf6002x359 spin arc (checker-first,
+⚠⚠ D-106); tu51x207's ORDER compound recon (smallest).

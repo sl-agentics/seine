@@ -1,0 +1,94 @@
+{
+ "name": "tju_relink_min",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule RJ when $a : E1(tag == \"z\") $b : E0(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 62,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 84,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y",
+      "ts": 22
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 72,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z",
+      "ts": 76
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-171 relink-SET family (mechanism CRACKED, fix VALIDATED in recon and REVERTED pending the Bryan gate \u2014 diff verbatim in docs/tjupd-ledger-mechanisms.md \u00a74): an anchor's alpha-EXIT stages an s0-DEL that no eval consumes while the rule is unlinked (dels don't count as flush-touch; unlinked evals don't fold s0); at the RE-ENTRY the dstash hides the pre-existing del from the relink eval, so it drains at the NEXT FIRE after the fresh pairs derive and its value-keyed kill destroys the re-created children. Fix = the dstash exempts an s0-del whose fact re-enters in the same flush (del-then-ins in stage order, Drools' relink drain).",
+ "open_divergence": true
+}

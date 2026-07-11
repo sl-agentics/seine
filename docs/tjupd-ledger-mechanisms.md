@@ -118,9 +118,85 @@ the KNOWN deferred E1-hardening root cause (D-117), not a new family;
 the minimal makes the eventual checker-first recon tractable. ⚠ D-106
 halt-model caveat applies to any fix attempt.
 
+### 4. The RELINK-SET family — tu51x80 / tu51x187 (D-171 recon): the
+### exit's s0-del outlives the unlink and kills the re-entry's pairs
+
+Minimal (`tju_relink_min`, from tu51x80 via the now-committed
+`tools/minimize_keyed.py`): RJ = `$a : E1(tag=="z") $b : E0(before
+[0,100] $a)`; E0(62,y) + E1(84,z) fire initially; ep0 = the anchor
+EXITS (rule unlinks) and a backlog E0(72,z) arrives; ep1 = the anchor
+RE-ENTERS. Oracle re-derives both pairs (ts0 frozen at 84); the engine
+derives NEITHER.
+
+Trace-pinned mechanism (SEINE_TRACE + EVAL/FLUSH debug):
+1. the EXIT's s0-DEL is consumed by NOTHING in its own epoch — dels do
+   not count as flush-TOUCH (`touched_node` checks ins/upd growth
+   only) so the exit's own trigger flush skips the eval, and while the
+   rule is UNLINKED no later eval folds the s0 staging (lazy PHREAK —
+   the oracle defers too);
+2. the ep0 backlog arrival's flush eval (queued && touched) runs with
+   the del DSTASHED ("staged deletes from earlier actions batch to the
+   fire") and pairs the arrival against the STALE left;
+3. at the RE-ENTRY the dstash again hides the del from the relink
+   eval, which re-creates the pairs (same tuple VALUES); the del then
+   drains at the NEXT FIRE — after the re-entry — and the value-keyed
+   child/queue kill destroys the re-created pairs. Drools' relink
+   drain processes del-then-INS in stage order and kills only the OLD
+   tuple OBJECTS (the Staged no-fold comment's object-identity point,
+   made lethal by the deferral).
+
+Ladder (probes_pending/cep/tj_upd/tju_relink_*): the SAME-EPOCH
+exit+re-entry diverges too (`_sameepoch` — the dstash hides even a
+same-epoch earlier-action del; the SJ analogs never hit this because
+their re-entries carry a $b-side upd ⇒ ineligible ⇒ the D-170 replay
+consumes del-then-ins in order); the del survives gap epochs
+(`_gap`); WITHOUT the backlog the engine converges (`_nobacklog`,
+live control — the del drains at its own epoch's pop when no arrival
+eval interleaves).
+
+**FIX (validated in recon, REVERTED pending the Bryan gate):** the
+dstash exempts an s0-del whose fact RE-ENTERS in the same flush (a
+fresh same-fact s0-ins) — the eval then processes del-then-ins in
+stage order, exactly Drools' relink drain:
+
+```rust
+let mut s0_dtail = t.s0_in.del.split_off(dd0);
+// D-171 (relink out-and-back): a pre-existing s0-del whose
+// fact RE-ENTERS in THIS flush (a fresh same-fact s0-ins)
+// stays VISIBLE — the eval then processes del-then-ins in
+// stage order (Drools' relink drain kills the OLD tuple
+// objects before the fresh pairs derive).
+let fresh_ins = t.s0_in.ins.len() - p.0.min(t.s0_in.ins.len());
+if fresh_ins > 0 && !s0_dtail.is_empty() {
+    let fresh: Vec<FactId> =
+        t.s0_in.ins[..fresh_ins].iter().map(|(f, _, _)| *f).collect();
+    let mut keep: Vec<(FactId, Origin, u8)> = Vec::new();
+    s0_dtail.retain(|e| {
+        if fresh.contains(&e.0) {
+            keep.push(e.clone());
+            false
+        } else {
+            true
+        }
+    });
+    t.s0_in.del.extend(keep);
+}
+```
+
+Gate evidence with the fix in-tree: tju_relink_min + _sameepoch +
+_gap + tu51x80 + tu51x187 ALL PASS; corpus 11/1084/333
+byte-identical; fast battery 71/71; population **2,199/2,200** (only
+tu51x207 — the separate 3-touch ORDER compound — remains); fuzz_cep
+313 + SEINE_TJUPD 6001 ×400 = 0; cargo 9. Executor/halt machinery
+untouched (the fix is flush-layer — D-106-clean).
+
 ## Status
 
-_Updated at D-170._ Deliverables:
+_Updated at D-171._ Deliverables:
+0. the RELINK-SET family (§4) — **mechanism CRACKED, fix validated in
+   recon and REVERTED — awaiting the Bryan gate** (tu51x80/x187 +
+   the tju_relink_* ladder; tu51x207 stays the one open ORDER
+   compound, recon when scheduled);
 1. ✅ the SET fix — **LANDED (D-168)**: cf6001x384 graduated;
 2. ✅ the ORDER family — **spec closed (D-169, 0-div on 2,200) and
    ENGINE-PORTED (D-170)**: cf6001x245/cf6003x274/cf6004x233/

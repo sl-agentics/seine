@@ -1,0 +1,85 @@
+{
+ "name": "tju_relink_nobacklog",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule RJ when $a : E1(tag == \"z\") $b : E0(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 62,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 84,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y",
+      "ts": 22
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z",
+      "ts": 76
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-171 relink-SET CONTROL: without the unlinked-epoch backlog the engine converges (the del drains at its own epoch's pop) \u2014 the 2x2 discriminator's passing corner; live pin."
+}
