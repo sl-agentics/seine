@@ -32,7 +32,8 @@ D-117 spin, minimized to 4 facts (tju_359_spin_min). Batteries:
 `probes_pending/cep/tj_upd/` (17 files). All six stay QUARANTINED,
 findings sharpened. **NEXT: Bryan's gate — (a) land the SET fix
 (evidence complete); (b) close the v4 residual → port the ORDER
-family; (c) the spin root-cause slab (checker-first, ⚠ D-106).**
+family; (c) the spin root-cause slab (checker-first, ⚠ D-106) —
+handoff ready at `~/.claude/plans/tjupd-ledger-handoff.md`.**
 Gates this slab: corpus **11/1084/328** byte-identical, lint
 **1553/0/0**, cargo 9. Prior: D-166 update-recency port (cf313x346 +
 cf933x385 graduated), D-165 recon. Other deferred: D-080 TMS envelope,
