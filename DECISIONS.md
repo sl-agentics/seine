@@ -28,10 +28,20 @@ Drools' lazy staging — same-window ins+del should annihilate; follow-on =
 defer plain not-blocker staging to the fire eval), fuzz_cep 313/907/911
 ×400 = 0-div (base: 313=1, causation), notpop/expop FULL sweeps 600+600
 0-fail, main-axis gen.rs 42/123/7 ×10k BOTH trees identical sets.
-Fenced-by-nature: D-134 §6, fz_42_84. Deferred slabs: D-093 min/max
-quarantine (oracle bump, D-148), D-080 TMS envelope, the two SET residuals
-(per-entry-flush D-155 + annihilation D-158). `git log --oneline -20`
-for HEAD._
+**NEXT (Bryan-directed, HANDOFF READY):
+`~/.claude/plans/annihilation-handoff.md`** — close the D-158
+annihilation residual by lazy-staging PLAIN not-blocker right-inserts in
+`stream_flush_ex` (the recon is DONE and in the handoff: exact stash-loop
+fix site ~5059 + gate design, Kind::Not + plain-typed right ONLY —
+plain-EXISTS is explicitly out (the `pr_cep_c_exists_churn_plain`
+coalescing pin), the w-ladder is event-typed/untouched, temporal nots
+structurally excluded; probe battery + the FULL intense gate battery with
+expected numbers enumerated; watch the q1/q2/q4 D-106-caveat pins and the
+D-102 18%-blast-radius precedent). Fenced-by-nature: D-134 §6, fz_42_84.
+Deferred slabs: D-093 min/max quarantine (oracle bump, D-148), D-080 TMS
+envelope, the D-155 per-entry-flush SET residual (sibling mismatch,
+different mechanism — NOT closed by the annihilation slab).
+`git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
