@@ -1,0 +1,79 @@
+{
+ "name": "pr_cep_allen_inf_mix_never",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule R1 when $a : A() $b : B(this coincides $a) then end\nrule R2 when $a : A() $c : C(this during $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 0,
+    "dur": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "expect_inert": true,
+ "comment": "D-164 Allen @expires-inference reach pin: a NEVER-marking rule (during anchor) OVERWRITES another rule's finite reach for the same type. Facts-only probe (no join partner \u21d2 deliberately inert firings)."
+}

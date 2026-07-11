@@ -3664,13 +3664,9 @@ impl Engine {
                         // pairwise 100). Edge (u,v,ub) means ub(time_v − time_u).
                         // `after`: t_self−t_anchor ∈ [lo,hi] ⇒ ub(anchor→self)
                         // =hi, ub(self→anchor)=−lo; `before` swaps self/anchor.
-                        // The 11 NEW Allen ops emit NO edge and do NOT register
-                        // in temporal_pos_type ⇒ an Allen-only event type reads
-                        // as a bare pattern and infers NEVER — the slab-1 fence
-                        // (DIVERGES from Drools for finite-classified ops;
-                        // documented expected-divergence witnesses). after/before
-                        // keep full D-109 inference. (self_pos is a tuple
-                        // position — only after/before inference needs it.)
+                        // D-164: the 11 Allen ops emit their constant interval
+                        // edges too (the D-120 slab-1 fence is LIFTED — see the
+                        // else-branch below).
                         if matches!(op, AllenOp::After | AllenOp::Before) {
                             // `self_temporal_pos` = the tuple slot for a positive
                             // pattern, a PHANTOM slot for a `not` (D-132) or an
@@ -3690,6 +3686,45 @@ impl Engine {
                                 temporal_pos_type.insert(self_pos, type_id);
                                 temporal_pos_type.insert(apos, atid);
                             }
+                        } else if let Some(self_pos) = self_temporal_pos {
+                            // D-164 (the D-120 fence LIFTED): the 11 Allen ops
+                            // emit their PARAM-BLIND constant interval edges —
+                            // Drools' mvel EvaluatorDefinitions return fixed
+                            // getInterval() bounds regardless of dev/min/max
+                            // params (oracle-verified, 124-cell reach ladder,
+                            // probes_pending/cep/e_allen/gen_allen_ladder.py):
+                            //   coincides/starts/startedby      [0, 0]
+                            //   meets/overlappedby/finishes     [0, MAX]
+                            //   metby/overlaps/includes/
+                            //     finishedby                    [MIN, 0]
+                            //   during                          [1, MAX]
+                            // Edge (anchor→self)=H iff H<MAX; (self→anchor)=−L
+                            // iff L>MIN; the existing closure derives the
+                            // classification (only `during` leaks both sides —
+                            // its −1 backward row-max is the after[lo>0]-style
+                            // NEVER) and the deadline stays endTS + reach + 1.
+                            let (lo, hi): (Option<i64>, Option<i64>) = match op {
+                                AllenOp::Coincides
+                                | AllenOp::Starts
+                                | AllenOp::StartedBy => (Some(0), Some(0)),
+                                AllenOp::Meets
+                                | AllenOp::OverlappedBy
+                                | AllenOp::Finishes => (Some(0), None),
+                                AllenOp::MetBy
+                                | AllenOp::Overlaps
+                                | AllenOp::Includes
+                                | AllenOp::FinishedBy => (None, Some(0)),
+                                AllenOp::During => (Some(1), None),
+                                AllenOp::After | AllenOp::Before => unreachable!(),
+                            };
+                            if let Some(h) = hi {
+                                temporal_edges.push((apos, self_pos, h));
+                            }
+                            if let Some(l) = lo {
+                                temporal_edges.push((self_pos, apos, -l));
+                            }
+                            temporal_pos_type.insert(self_pos, type_id);
+                            temporal_pos_type.insert(apos, atid);
                         }
                         listen_mask |= 1 << own_fi;
                         cmps.push(CompiledCmp {

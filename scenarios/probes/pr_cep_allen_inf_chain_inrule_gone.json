@@ -1,0 +1,79 @@
+{
+ "name": "pr_cep_allen_inf_chain_inrule_gone",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this coincides $a) $c : C(this after[0ms,100ms] $b) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 0,
+    "dur": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "expect_inert": true,
+ "comment": "D-164 Allen @expires-inference reach pin: in-rule chains SUM through the closure (coincides 0 + after 100 \u21d2 reach 100). Facts-only probe (no join partner \u21d2 deliberately inert firings)."
+}

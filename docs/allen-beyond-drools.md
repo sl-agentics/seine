@@ -9,7 +9,7 @@ prime-directive goal). This note exists so the idea is not lost.
 
 Once Seine faithfully reproduces Drools 9.44's `@duration` interval-event
 behavior (item E slab 1: the Allen predicates + `endTS = ts+dur`, with Allen-op
-`@expires` **inference fenced**), a follow-on would **fully implement the Allen
+`@expires` inference now FAITHFUL per D-164 — Drools' param-blind constant intervals, `during` leaking both sides), a follow-on would **fully implement the Allen
 interval algebra** — including the places where **Drools itself is incomplete or
 incoherent**, providing clean, complete interval semantics as a *superset* of
 Drools.

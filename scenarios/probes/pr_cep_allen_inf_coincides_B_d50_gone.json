@@ -1,5 +1,5 @@
 {
- "name": "xf_cep_e_inf_coincides_A",
+ "name": "pr_cep_allen_inf_coincides_B_d50_gone",
  "types": [
   {
    "name": "A",
@@ -39,7 +39,7 @@
  "drl": "rule R when $a : A() $b : B(this coincides $a) then end\n",
  "facts": [
   {
-   "type": "A",
+   "type": "B",
    "fields": {
     "ts": 0,
     "dur": 50
@@ -51,12 +51,12 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 100000
+     "ms": 51
     }
    ],
    "facts": []
   }
  ],
- "open_divergence": true,
- "_finding": "CEP E2 item E FENCE (D-120): the Allen op `coincides` @expires INFERENCE is fenced this slab. Seine emits NO STP edge for the new Allen ops, so an un-annotated event type referenced only via `coincides` infers NEVER; Drools infers a FINITE reach for this op/position and expires the event. engine: event PERSISTS after the far advance ; oracle: event EXPIRED. The matching PREDICATE is certified byte-identical (pr_cep_e_coincides* fire probes); only the inference reach is fenced. Lift = the beyond-Drools / full-inference follow-on (docs/allen-beyond-drools.md)."
+ "expect_inert": true,
+ "comment": "D-164 Allen @expires-inference reach pin: subject of a bare coincides reaps at endTS+0+1 (reach 0). Facts-only probe (no join partner \u21d2 deliberately inert firings)."
 }

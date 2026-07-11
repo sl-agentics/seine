@@ -11,33 +11,33 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11, post-D-163 — **the ORACLE is 9.44.0.Final+p1
-and the D-093 quarantine is GRADUATED** (executed right after the
-v0.4.1 release + the D-162 close; Bryan-directed: patch the oracle, no
-version bump). The upstream-merged stale-min/max repair (#6796,
-`275baf9c` — two `isDirty |=` hunks, fetched from the merge commit,
-applied verbatim) is VENDORED as a classpath shadow
-(`oracle/src/.../PhreakAccumulateNode.java`; `oracle/target/classes`
-precedes the jars). **SCOPE RULE: only upstream-MERGED fixes for
-defects Seine itself reported + quarantined under the D-093 doctrine
-may be vendored** — the oracle label carries the asterisk (README,
-NOTICE, docs/drools-bug-stale-minmax.md banner). The 7 witnesses
-(alu6a, alu7a/7d/7f/7g, fz_123_8426, fz_min_8426) FAILED 0/7 vs stock
-and PASS 7/7 vs +p1 (the two-character A/B) ⇒ GRADUATED to
-regressions/. The gen.rs D-093 wall is LIFTED (min/max×mutation back
-in fuzz; `has_minmax` deleted) — NOTE the lift changed the generator
-draw stream, so the main-axis flag baselines were RE-BASELINED:
-unpatched-oracle capture legs (lifted gen) flagged exactly 8 of the
-old 9 latents (2/2/4 — fz_42_7682's case stream shifted away; ZERO
-defect-family hits in 30k, the witnesses carry causation); patched
-legs = byte-identical flag sets (2/2/4); fresh 777 = 4 flags, all stock-oracle-identical + min/max-free ⇒ pre-existing (deferred). Gates: corpus **11/1075/309** byte-identical
-(regressions 302→309), lint **1483/0/0**, cargo 9, bindings 72, fuzz_cep
-313 ×400 0-div. Stock oracle classes preserved at the job tmp
-(`oracle_stock_classes`) for future flag classification. The D-148
-bump contingency is RETIRED; a real version bump stays its own
-re-certification arc. **NEXT is Bryan's call — no active slab.**
-Deferred: D-080 TMS envelope, Allen @expires fence (17 `xf_cep_e_*`),
-class-3 re-entrant churn, the `cf933x385` BfShadow-composition recon.
+_Last updated: 2026-07-11, post-D-164 — **the Allen `@expires`-inference
+fence is LIFTED; the last fenced feature gap inside implemented-CEP is
+closed** (right after D-163's oracle patch). Mechanism: every Allen op
+carries a PARAM-BLIND CONSTANT interval (mvel getInterval —
+coincides/starts/startedby [0,0]; meets/overlappedby/finishes [0,MAX];
+metby/overlaps/includes/finishedby [MIN,0]; during [1,MAX]) fed into
+the certified D-109 STP matrix; every finite Allen reach is ZERO;
+deadline = endTS + reach + 1; only `during` leaks (both sides, the
+after[lo>0]-class negative row-max); matrices are PER-RULE (cross-rule
+chains never compose — mispredict-then-verified), in-rule chains sum.
+Oracle-pinned by the 124-cell predictions-first reach ladder
+(`probes_pending/cep/e_allen/{gen,check}_allen_ladder.py` — ALL
+PREDICTED, then 124/124 engine-vs-oracle post-port). Port = one
+else-branch at the D-120 edge-emission gate (constants into certified
+machinery) + the fuzz_cep explicit-@expires Allen gate lifted. The 17
+`xf_cep_e_*` witnesses GRADUATED (+`expect_inert`); 9
+`pr_cep_allen_inf_*` reach pins. Gates: corpus **11/1084/326**
+byte-identical, lint **1509/0/0**, cargo 9, bindings 72; fence-lifted
+fuzz_cep 313/941/943/945 ×400 clean except `cf313x346` — bisected
+PRE-EXISTING (61f4281 A/B identical; during infers NEVER both trees):
+a temporal-join firing-choice latent newly REACHED by the lifted
+stream, QUARANTINED to the item-1b tail ledger. Main-axis analytically
+inert (gen.rs emits no temporal ops). **NEXT is Bryan's call — no
+active slab.** Deferred: D-080 TMS envelope, class-3 re-entrant churn,
+window:length (never built), the item-1b tj-tail latents
+(`cf933x385`, `cf313x346`), the Allen-beyond-Drools enhancement
+(docs/allen-beyond-drools.md, spec-driven, post-faithfulness).
 Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
@@ -8725,3 +8725,60 @@ FEATURES.md accumulate row updated; README provenance notes the
 asterisk. The D-148 "next oracle bump" contingency is RETIRED — the
 graduation is done; a future real version bump remains its own
 re-certification arc if ever wanted for other reasons.
+
+## D-164 — Allen `@expires` INFERENCE: the D-120 fence LIFTED (reach ladder 124/124, constant-interval edges ported)
+
+DATE: 2026-07-11, Bryan-directed ("let's do the Allen inference arc").
+The reach VALUES D-119 left unpinned are now oracle-pinned and ported;
+the last fenced FEATURE gap inside implemented-CEP is closed.
+
+MECHANISM (sources-hypothesized, oracle-verified cell by cell): every
+Allen op carries a PARAM-BLIND CONSTANT interval in Drools' mvel
+EvaluatorDefinitions' `getInterval()` — params (dev/min/max) are used
+for MATCHING only and never reach inference:
+  coincides/starts/startedby [0,0] · meets/overlappedby/finishes
+  [0,MAX] · metby/overlaps/includes/finishedby [MIN,0] · during
+  [1,MAX].
+Fed into the certified D-109 STP machinery as edges (anchor→self)=H
+iff H<MAX, (self→anchor)=−L iff L>MIN, the closure reproduces the
+D-119 never/finite classification EXACTLY — including `during` leaking
+BOTH sides (its −1 backward row-max is the after[lo>0]-class negative
+⇒ NEVER) — and the deadline stays endTS + reach + 1 (every finite
+Allen reach is ZERO). Two composition facts pinned by mispredict-
+then-verify: the dependency matrix is PER-RULE (cross-rule chains do
+NOT compose — the ladder's one first-run mispredict), while IN-RULE
+chains SUM through the closure (coincides 0 + after[0,100] ⇒ reach
+100); a NEVER-marking rule overwrites another rule's finite reach for
+the same type (the D-109 overwrite, re-confirmed).
+
+THE LADDER: `probes_pending/cep/e_allen/gen_allen_ladder.py` +
+`check_allen_ladder.py` — 124 predictions-first cells (13 ops × both
+positions × dur {0,50} × exact deadline boundary pairs for finite /
+far-advance for never; 8 param variants incl. the after[3,9] param-FED
+control; 3 composition shapes): **ALL PREDICTED** against the oracle,
+then **124/124 engine-vs-oracle** after the port.
+
+PORT (engine.rs, the D-120 fence site): the `matches!(op, After |
+Before)` edge-emission gate gains the else-branch pushing each Allen
+op's constant edges + temporal_pos_type registrations (positives and
+the D-132/D-135 phantom slots alike). No closure/deadline/reaper
+changes — constants into certified machinery. `tools/fuzz_cep.py`'s
+explicit-@expires Allen gate LIFTED (un-annotated types draw freely
+under Allen ops).
+
+SCENARIOS: the 17 `xf_cep_e_*` witnesses GRADUATED to regressions/;
+9 reach pins added (`pr_cep_allen_inf_*`: both coincides positions,
+the meets asymmetry pair, the during leak, param-blindness, in-rule
+chain sum, cross-rule non-composition, the mix-never overwrite —
+facts-only probes, `expect_inert`).
+
+GATES: corpus **11/1084/326** byte-identical (probes 1075→1084, regressions
+309→326), lint **1509 live/0/0**, cargo 9, bindings **72**; fence-lifted
+fuzz_cep 313/941/943/945 ×400 = 0-div except ONE seed-313 flag, cf313x346 — bisected PRE-EXISTING (fails identically on a 61f4281 worktree; its during-rule infers NEVER both trees) = a temporal-join firing-choice latent newly REACHED by the lifted draw stream, quarantined to xfail/ with the item-1b tail ledger; expop/notpop sweeps not run — the change surface is @expires reaping of un-annotated Allen types, which the expop/notpop generators never emit; main-axis
+untouched by construction (gen.rs emits no temporal ops) —
+analytically inert (gen.rs emits no temporal ops; the corpus byte-identity covers the compile path).
+
+The Bryan-noted post-faithfulness enhancement (Allen algebra BEYOND
+Drools — coherent inference where Drools is incoherent, e.g. the
+during leak and the param-blind intervals) remains a roadmap item
+(docs/allen-beyond-drools.md), now with the faithful baseline landed.

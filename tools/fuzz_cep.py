@@ -182,15 +182,13 @@ class Gen:
         # for normal runs — temporal joins are core coverage.
         no_temporal = bool(os.environ.get("CEP_NO_TEMPORAL"))
         # temporal-join rule(s): after/before (D-101) OR a NEW Allen op
-        # (item E). FENCE (D-120): Allen ops are drawn ONLY on types with an
-        # EXPLICIT @expires — an un-annotated type under a new Allen op infers
-        # NEVER in Seine vs FINITE in Drools (the xf_cep_e_* witnesses), so
-        # fuzzing it would re-flag a known, filed divergence. after/before
-        # keep full D-109 inference and run on any type.
-        explicit_types = [t for t in self.etypes if self.type_expiry.get(t) is not None]
+        # (item E). The D-120 explicit-@expires fence is LIFTED (D-164):
+        # Allen ops now emit their constant interval edges into the STP
+        # matrix (the 124-cell reach ladder), so un-annotated types under
+        # Allen ops infer exactly Drools' offsets and draw freely.
         for _ in range(0 if no_temporal else r.randint(1, 2)):
-            if explicit_types and r.random() < 0.35:
-                a, b = r.choice(explicit_types), r.choice(explicit_types)
+            if r.random() < 0.35:
+                a, b = r.choice(self.etypes), r.choice(self.etypes)
                 self.temporal_types.update((a, b))
                 self.allen_types.update((a, b))
                 pred = self.allen_pred()

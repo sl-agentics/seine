@@ -1,0 +1,62 @@
+{
+ "name": "pr_cep_allen_inf_coincides_p7_A_d50_gone",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this coincides[7ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 0,
+    "dur": 50
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "expect_inert": true,
+ "comment": "D-164 Allen @expires-inference reach pin: coincides[7ms] reaps IDENTICALLY to bare coincides \u2014 Drools ignores params in getInterval (param-blind). Facts-only probe (no join partner \u21d2 deliberately inert firings)."
+}

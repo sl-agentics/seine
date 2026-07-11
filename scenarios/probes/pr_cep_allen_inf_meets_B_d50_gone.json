@@ -1,5 +1,5 @@
 {
- "name": "xf_cep_e_ic_meets_keepB",
+ "name": "pr_cep_allen_inf_meets_B_d50_gone",
  "types": [
   {
    "name": "A",
@@ -51,12 +51,12 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 100000
+     "ms": 51
     }
    ],
    "facts": []
   }
  ],
- "open_divergence": true,
- "_finding": "CEP E2 item E FENCE (D-120): the Allen op `meets` @expires INFERENCE is fenced this slab. Seine emits NO STP edge for the new Allen ops, so an un-annotated event type referenced only via `meets` infers NEVER; Drools infers a FINITE reach for this op/position and expires the event. engine: event PERSISTS after the far advance ; oracle: event EXPIRED. The matching PREDICATE is certified byte-identical (pr_cep_e_meets* fire probes); only the inference reach is fenced. Lift = the beyond-Drools / full-inference follow-on (docs/allen-beyond-drools.md)."
+ "expect_inert": true,
+ "comment": "D-164 Allen @expires-inference reach pin: meets subject reaps at endTS+1 (the asymmetry pair with _A_far). Facts-only probe (no join partner \u21d2 deliberately inert firings)."
 }

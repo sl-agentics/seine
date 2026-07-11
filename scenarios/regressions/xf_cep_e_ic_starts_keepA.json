@@ -1,0 +1,62 @@
+{
+ "name": "xf_cep_e_ic_starts_keepA",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this starts $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 0,
+    "dur": 50
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "comment": "CEP E2 item E FENCE (D-120): the Allen op `starts` @expires INFERENCE is fenced this slab. Seine emits NO STP edge for the new Allen ops, so an un-annotated event type referenced only via `starts` infers NEVER; Drools infers a FINITE reach for this op/position and expires the event. engine: event PERSISTS after the far advance ; oracle: event EXPIRED. The matching PREDICATE is certified byte-identical (pr_cep_e_starts* fire probes); only the inference reach is fenced. Lift = the beyond-Drools / full-inference follow-on (docs/allen-beyond-drools.md). \u21d2 D-164 GRADUATED: the Allen @expires-inference fence is LIFTED \u2014 the 11 Allen ops emit their param-blind constant interval edges (mvel getInterval(), oracle-verified by the 124-cell reach ladder, probes_pending/cep/e_allen/gen_allen_ladder.py) into the certified D-109 STP matrix; deadline = endTS + reach + 1. This witness now pins the converged reaping as a regression.",
+ "expect_inert": true
+}

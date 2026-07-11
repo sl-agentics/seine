@@ -1,0 +1,62 @@
+{
+ "name": "pr_cep_allen_inf_during_B_d50_far",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this during $a) then end\n",
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "ts": 0,
+    "dur": 50
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "expect_inert": true,
+ "comment": "D-164 Allen @expires-inference reach pin: during leaks BOTH sides (interval [1,MAX]: backward row-max \u22121 \u21d2 NEVER, the after[lo>0]-class leak). Facts-only probe (no join partner \u21d2 deliberately inert firings)."
+}
