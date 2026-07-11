@@ -4,126 +4,111 @@ A Rust reimplementation of a **bounded subset** of the Drools DRL
 forward-chaining rule semantics, proven faithful by **differential testing
 against real Drools** (pinned: **9.44.0.Final**) as a live oracle.
 
-> Status: Phases 0–2 complete, plus the Phase-3 stretch items
-> `matches`/`contains`/`in`, `not`/`exists` and `accumulate`/`collect`
-> with the built-in functions (custom accumulate functions not
-> started). Curated corpus (360 scenarios, incl. 137 named fuzz
-> regressions) at 100% with NO subset wall (mutation, 3-pattern rules and
-> CEs mix freely). The engine core is a behavioral port of the PHREAK
-> node algorithm (`engine/src/phreak.rs`) — staging sets, beta memories
-> with child-list cursor threading, existential blocker lists with
-> comparison (range) indexes, property-miss reAdd, and agenda-item
-> lifecycle incl. queue-on-unlink, each pinned by probe scenarios. See
-> `DECISIONS.md` (D-001…D-037) for every oracle-pinned semantic.
+> **Status: v0.4.1 on PyPI** (`pip install seine-rs`, import `seine`).
+> The certified corpus is **11 baseline / 1,075 probe / 302 regression
+> scenarios, byte-identical against real Drools** across joins, node
+> sharing, property reactivity, `not`/`exists` (incl. nested CE groups),
+> `accumulate`/`collect`/`groupby`, recursive + pull queries, truth
+> maintenance with a queryable justification graph, agenda groups,
+> deterministic CEP (point + interval events, `window:time`, entry
+> points, the full Allen algebra) — and the *order* of every firing, down
+> to graft-derived replays of Drools' internal propagation. The coverage
+> matrix lives in `FEATURES.md`; every semantic is pinned by an
+> oracle-probe D-entry in `DECISIONS.md`.
 
 ## What this is
 
 - `engine/` — `seine-engine`: the Rust forward-chaining engine (arena-backed,
-  id-based, columnar-friendly working memory from the first commit).
-- `harness/` — `seine-harness`: Rust scenario runner + comparator.
+  id-based, columnar working memory; a behavioral port of the PHREAK
+  node algorithm plus a deterministic pseudo-clock CEP runtime).
+- `harness/` — `seine-harness`: Rust scenario runner + comparator + the
+  main-axis fuzz generator.
 - `oracle/` — Java reference runner: loads the same scenario, runs it through
-  real Drools 9.44.0.Final, emits the same canonical result JSON.
-- `scenarios/` — the test corpus (curated golden-master scenarios; fuzz
-  generators arrive in Phases 1–2).
+  real Drools 9.44.0.Final, emits the same canonical result JSON (plus
+  reflection-graft dump instruments used during recon).
+- `scenarios/` — the tiered corpus: `baseline/` (adapted Drools-suite
+  spec tests), `probes/` (D-entry pins), `regressions/` (graduated fuzz
+  finds), `xfail/` (filed open divergences + quarantines, lint-enforced).
+- `bindings/` — the Python package (`pip install seine-rs`): Arrow
+  tables in, WM-delta + firing audit out; `@seine.fact` classes and a
+  Rule builder that compile to DRL text so the differential guarantees
+  cover Python-authored rules verbatim.
+- `tools/` — fuzz generators and the executable order-model specs
+  (`model_check_*.py`) that every firing-order port is validated
+  against before it lands.
 
 Equivalence bar: identical **final fact set** AND identical **ordered firing
 log** for every in-subset program.
 
-## Supported subset (target; grows by phase)
+## The certified surface
 
-- Phase 1: single-pattern rules; typed fields (`i64`, `f64`, `String`, `bool`);
-  operators `== != < <= > >=`; variable/field bindings; `insert` on the RHS;
-  `salience`; `no-loop`; oracle-pinned conflict resolution.
-- Phase 2: multi-pattern joins on bound variables (up to 3 patterns,
-  self-joins included); `update`/`modify`/`delete` with oracle-pinned
-  re-evaluation and re-firing semantics (PHREAK property reactivity,
-  staging batches, eager/lazy evaluation windows, beta-memory child
-  sync-walks, and agenda-item lifecycle — see `DECISIONS.md`
-  D-013…D-028). The former mutation/3-pattern subset wall (D-017) is
-  lifted.
-- Phase 3 (stretch, landed): operators `matches` (full-string
-  java.util.regex semantics over a tame regex subset: literals, `.`,
-  classes with ranges/negation, groups, `|`, `* + ?`), `contains`
-  (String substring), `in`/`not in` (literal lists) — String fields only
-  for matches/contains, literal-only operands (D-030); `not`/`exists`
-  conditional elements, including first-position CEs (matched on
-  `InitialFact`), constrained CEs with hash- or range-indexed blocker
-  search, and oracle-pinned cancellation/refire lifecycle (D-031/D-032).
-  Bindings inside CE patterns are rejected; the type name `InitialFact`
-  is reserved. Node sharing is modeled with a TRUE shared prefix trie
-  (D-037): rules with structurally equal pattern prefixes — identity
-  includes the bound-field SET and the names of any variables referenced
-  in constraints (D-036/D-037) — share one node instance that evaluates
-  once per agenda window; the first-built sink receives each batch
-  preserved, later sinks reversed (identical-LHS rules fire their
-  activations in opposite orders, faithfully). No sharing wall remains.
-- Phase 3b landed: `accumulate` (sum/count/average/min/max) + `from collect`
-  with bit-exact float op sequencing (D-038..D-041). One documented-open
-  order corner (D-042, scenarios/xfail/).
-- Salience expressions landed (D-043): computed salience over bindings with
-  the full dynamic-agenda lifecycle, certified zero divergences over 5 seeds.
-- Python bindings, Layer 1 (D-044): `pip`-able `seine` module — Arrow
-  tables in (polars/pyarrow zero-copy), one-shot sessions, WM-delta +
-  firing-audit results, observer callbacks. The boundary adds zero
-  semantics (bit-exact marshaling, loud null/type rejection, native-
-  parity tests).
-- Python bindings, Layer 2 (D-045): Pythonic authoring — @seine.fact
-  classes and a Rule builder that COMPILE TO DRL TEXT, so the
-  differential guarantees cover Python-authored rules verbatim; every
-  certified wall is a definition-time CompileError.
-- Multi-fire certified (D-046): insert -> fire -> insert -> fire on one
-  session (epoch scenarios, 5-seed campaign clean); sessions are no
-  longer one-shot and every fire() returns its own WM delta.
-- External update/delete by handle certified (D-047): the full WM
-  lifecycle crosses the Python boundary (session.update/delete between
-  fires, changed-fields property masks, action-ordered k=1 windows).
-- Row-object sugar + CI (D-048): lists of @fact instances/dicts/
-  dataclass-or-Pydantic objects ingest directly; `pip install seine-rs`
-  (import stays `seine`); GitHub Actions runs the differential gate and
-  builds wheels.
-- DRL queries, Phase Q0 (D-049..D-053): non-recursive queries with typed
-  params and unification (`Person(age == $a)` called bound or unbound),
-  certified against `getQueryResults` including exact row order — which
-  required reproducing Drools' TupleIndexHashTable slot layout (JDK
-  supplemental hash, accessor-sort extractor indexes) and PHREAK's LIFO
-  stage reversal. Insert-only programs; scenario `"queries"` +
-  result-`"queries"` sections in the harness.
-- RECURSIVE queries, Phase Q1 (D-054/D-055): `or`-branches, positional
-  patterns (`Location($x, $y;)`), query calls, and self-recursion — the
-  documented `isContainedIn` transitive closure runs verbatim with exact
-  row order, pinned by replicating PHREAK's query stack machine (shared
-  branch staging pools, LIFO branch frames, resume splicing, first-wins
-  arg threading). Certified shape: base-first 2-branch self-recursion
-  over acyclic data; left recursion, mutual recursion, 3-branch
-  recursion and cyclic data are compile-rejected or generator-excluded
-  (Drools hangs on cycles — no tabling).
-- `?query` pull CEs in rules, Phase Q2 (D-056..D-058): queries invoked
-  as rule conditions — one firing per result row, lazy pull at the
-  rule's agenda window, args flowing both ways (bound args filter
-  inside the callee, fresh vars bind per row for later patterns and the
-  RHS), the QueryArgs match element, all-unbound-args node sharing, and
-  the stateful query-network drain windows (queries are agenda items in
-  Drools once a CE arms them). The push (reactive) form and
-  query+mutation stay walled. `demo/eight_puzzle.py` is the payoff: the
-  8-puzzle solved by a recursive `reach` query (depth bounded through a
-  `Dec(d, d-1)` fact chain — no arithmetic in the subset) with forward
-  Step rules pulling `?reach(...)` per candidate move to extract the
-  solution path; the frozen instance is corpus-certified
-  (scenarios/demo/eight_puzzle.json).
+`FEATURES.md` is the authoritative coverage matrix (implemented /
+roadmap / can't / won't, one row per Drools feature with its pins).
+The headline areas, each differentially certified:
+
+- **Core matching** — typed scalar fields, the full comparison operator
+  set with cross-type promotion, `matches`/`contains`/`in`, inline
+  `&&`/`||`/`!()` groups, bindings, multi-pattern joins and self-joins,
+  TRUE shared-prefix node sharing, property reactivity, `no-loop`,
+  static + expression `salience`, deterministic conflict resolution.
+- **Conditional elements** — `not`/`exists` anywhere in the LHS (blocker
+  model, range indexes), nested `not(…and…)`/`exists(…or…)` RIA
+  subnetworks, `or` with subrule expansion, InitialFact semantics.
+- **Aggregation** — `accumulate` (sum/count/average/min/max, bit-exact
+  float sequencing), `from collect`, `collectList`/`collectSet`,
+  leading-position `groupby`.
+- **Queries** — non-recursive + recursive (transitive closure), `or`
+  bodies, positional patterns, `?query` pull CEs in rules, queries
+  across mutation epochs, exact `getQueryResults` row order.
+- **Truth maintenance** — `insertLogical` with value-equality keys,
+  cascading retracts, and a **queryable justification graph**
+  (`why(fact)` — the why-engine substrate).
+- **Working-memory lifecycle** — multi-fire sessions, external
+  update/delete by handle with property masks, `Engine::reset()`,
+  agenda groups + focus stack.
+- **Deterministic CEP** — `@role(event)` point + `@duration` interval
+  events on a pseudo-clock (`advance()`), `after/before[lo,hi]` and the
+  full Allen predicate algebra, `@expires` + inference (STP closure),
+  `window:time`, named entry points, event mutation re-propagation,
+  expiration×TMS composition — with **no wall clock anywhere**: same
+  inputs, same firings, every run.
+- **Firing-order fidelity** — beyond set-equality, the *order* of every
+  activation is certified: per-arrival temporal flush models and four
+  mechanical "shadows" replaying Drools' internal propagation
+  (right-memory list order, staged backlogs, link-counter queue
+  economy), each validated 0-divergence at population scale (tens of
+  thousands of oracle scenarios) before its port landed.
+- **Data types beyond Drools** — opt-in SQL three-valued nulls and
+  exact `decimal(p,s)` (i128 fixed-point), certified against
+  **DuckDB** as the ecosystem oracle (a deliberate, documented
+  deviation from Java semantics).
+- **Python bindings** — Arrow/polars zero-copy in, WM-delta + firing
+  audit out, Pythonic rule authoring that compiles to DRL text, so the
+  differential guarantee covers Python-authored rules verbatim.
+
+One intentional divergence is documented and upstreamed: the Drools
+min/max stale-extremum defect (apache/incubator-kie-issues#2366) —
+Seine computes the correct value; the fix was merged upstream
+(kie-drools#6796) and graduates here at the next oracle bump.
 
 ## Explicit non-goals (hard walls)
 
-- MVEL dialect (only the minimal Java-like expression subset above).
-- DMN, CEP / temporal operators, complex event processing.
-- Backward chaining beyond the Phase-Q2 pull subset (no PUSH/reactive
-  query CEs, no negation-as-failure, no cut, no tabling — cyclic
-  recursion data hangs real Drools and is walled), truth maintenance
-  beyond Phase-2 mutation needs; query+mutation interplay is walled
-  (D-051/D-057).
-- Workbench / KIE tooling / full DRL6 grammar / decision tables / templates.
-- Persistence, marshalling, session clustering, multithreaded firing.
-- Beyond-RAM / disk-backed working memory (the columnar id-based layout keeps
-  it *reachable*; building it is out of scope).
+The full ledger with per-row rationale is `FEATURES.md` §3 (can't) and
+§4 (won't). The short version:
+
+- Embedded Java/MVEL: no expression interpreter, no `eval`, no user
+  functions or custom accumulate functions — the closed constraint
+  grammar is the boundary of the product.
+- Object-graph facts: no nested property access, collections, OOPath,
+  or class-model matching — facts are flat scalar arena rows.
+- Wall-clock behavior: no timers/calendars, no realtime session clock,
+  no `fireUntilHalt` live streams — CEP runs entirely on the
+  deterministic pseudo-clock.
+- Multithreaded evaluation: **single-threaded determinism is the
+  product**; same inputs → same firing log, byte-for-byte.
+- KIE platform, BPM/ruleflow, DMN/decision tables, persistence,
+  marshalling, listeners-as-API, alternate engine modes/config knobs —
+  one certified semantics, no configuration matrix.
 - Anything requiring network calls or external state at rule-fire time.
 
 ## Running the harness
@@ -132,17 +117,21 @@ Prereqs: Rust stable, JDK 17+, Maven with access to Maven Central (Drools
 9.44.0.Final and transitives).
 
 ```sh
-make diff          # run every curated scenario through both engines and compare
+make diff          # every corpus scenario through both engines, byte-compared
 make test          # pure-Rust unit + characterization tests (no JVM)
 make fuzz          # 10k-case differential fuzz (SEED=n CASES=n to vary)
+make lint-probes   # probe liveness lint (fail loud, never pass silent)
 make oracle        # build the Java oracle runner (once)
 ```
 
-The fuzzer is seeded and deterministic (case k of seed s is always the same
-program). Divergent cases are saved to `scenarios/failures/` automatically;
-every resolved divergence graduates to a named regression scenario in
-`scenarios/regressions/` (137 of them — each one pinned a real PHREAK
-semantic documented in `DECISIONS.md`).
+The fuzzers are seeded and deterministic (case k of seed s is always the
+same program); `tools/fuzz_cep.py` and the `tools/fuzz_*order*.py`
+population generators cover the CEP and firing-order axes. Divergent
+cases are saved to `scenarios/failures/` automatically; every resolved
+divergence graduates to a named regression scenario in
+`scenarios/regressions/` (302 of them — each one pinned a real PHREAK
+semantic documented in `DECISIONS.md`), and filed open divergences are
+quarantined in `scenarios/xfail/` with their findings.
 
 ## Provenance & licensing
 
@@ -176,12 +165,16 @@ maturin develop --release -m bindings/Cargo.toml
 pytest bindings/tests/
 ```
 
-Engine changes additionally run the fuzz campaign before merging
-(`cargo run -p seine-harness -- fuzz 10000 <seed>` over seeds
-42/7/123/777/999 — zero divergences to completion; see DECISIONS.md for
-the certification records). Semantics are pinned probe-first: never
-implement a Drools behavior from intuition — write a scenario, run it
-through the oracle, record the pin as a D-entry, then implement.
+Engine changes additionally run the fuzz campaigns before merging
+(main-axis `cargo run -p seine-harness -- fuzz 10000 <seed>` plus the
+CEP and order-population generators under `tools/` — zero new
+divergences on both the changed tree and an A/B baseline worktree; see
+DECISIONS.md for the certification records). Semantics are pinned
+probe-first: never implement a Drools behavior from intuition — write a
+scenario, run it through the oracle, record the pin as a D-entry, then
+implement. Firing-order ports go further: an executable Python model
+(`tools/model_check_*.py`) must reach zero divergence against banked +
+fresh oracle populations before the Rust port begins.
 CI mirrors gates 1–3 and builds `seine-rs` wheels for
 linux-x86_64 / macos-arm64 / macos-x86_64 / windows-x86_64 plus an
 sdist.
