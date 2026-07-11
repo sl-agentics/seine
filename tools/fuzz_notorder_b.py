@@ -29,6 +29,12 @@ staggered ts (partial expiry), DUE-ON-ARRIVAL blockers (nonneg-past deadline
 (inert — bare mask), pure-P epochs, and action-interleaved inserts. Never
 touches an explicitly-deleted handle; never updates an expired one (oracle
 NPE, D-151 note).
+
+SEINE_NOTPOP_PLAIN=1 (D-158 arc): the cf313x4 PLAIN-fact blocker family —
+`not D() P()` with D a plain type in a STREAM session, driven explicitly
+and/or logically (insertLogical from an @expires event justifier). See
+gen_plain's docstring for the determinism constraints (unique tags; no
+due-on-arrival justifiers; prior-epoch-only E1 touches).
 """
 import json, os, sys, random, subprocess
 
@@ -208,6 +214,135 @@ def gen_full(r, name):
     return {"name": name, "types": TYPES, "drl": DRL, "facts": facts, "epochs": epochs}
 
 
+PTYPES = [
+    {"name": "E1", "fields": [{"name": "ts", "type": "i64"},
+                              {"name": "tag", "type": "String"}],
+     "event": {"timestamp": "ts", "expires_ms": 100}},
+    {"name": "P", "fields": [{"name": "v", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "tag", "type": "String"}]},
+]
+PDRL_J = ("rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\n"
+          "rule NE when not D() P() then end\n")
+PDRL = "rule NE when not D() P() then end\n"
+
+
+def gen_plain(r, name):
+    """SEINE_NOTPOP_PLAIN=1 — the cf313x4 PLAIN-fact blocker family: `not D()
+    P()` where D is a PLAIN type inside a STREAM session (event types declared
+    keep the session STREAM either way). Two D drives, mixable per scenario:
+      explicit: D via explicit action-inserts / deletes;
+      logical (has_j): `J: E1($t:tag) => insertLogical(new D($t))` with UNIQUE
+        tags (no shared justifications — the TMS envelope stays out of scope);
+        a D dies with its justifier (expiry at quiescence / explicit E1 delete
+        at position) or on tag-update churn (J re-fires: new-D ins BEFORE
+        old-D retract, the bf_full graft order).
+    gidx bookkeeping: logical D inserts consume nth_inserted indices; unique
+    tags make the count DETERMINISTIC (one J fire per E1 insert + one per E1
+    tag-update), added at each fire boundary. To keep it deterministic the
+    generator (a) never inserts a due-on-arrival E1 (deadline always > clock
+    at insert), (b) only tag-updates / deletes E1s from PRIOR epochs (a
+    same-epoch touch would coalesce with the pending J match), (c) at most
+    one tag-update per E1 per epoch."""
+    has_j = r.random() < 0.6
+    clock = [0]
+    gidx = [0]
+    nextv = [1]
+    nexttag = [1]
+    p_live = {}     # v -> insertion idx
+    e1_live = {}    # idx -> {"dl": deadline, "epoch": born-epoch}
+    d_live = {}     # idx -> True (explicit D's only)
+    pend_j = [0]    # J fires pending at the next fire boundary
+    facts = []
+
+    def mk_p(into):
+        v = nextv[0]; nextv[0] += 1
+        into.append({"type": "P", "fields": {"v": v}})
+        p_live[v] = gidx[0]; gidx[0] += 1
+
+    def mk_e1(into, epoch_no):
+        # deadline strictly future at insert: ts + 101 > clock
+        ts = max(0, clock[0] - r.randint(0, 90)) if r.random() < 0.4 \
+            else clock[0] + r.randint(0, 30)
+        tag = f"t{nexttag[0]}"; nexttag[0] += 1
+        into.append({"type": "E1", "fields": {"ts": ts, "tag": tag}})
+        e1_live[gidx[0]] = {"dl": ts + 100 + 1, "epoch": epoch_no}
+        gidx[0] += 1; pend_j[0] += 1
+
+    def mk_d(into):
+        tag = f"t{nexttag[0]}"; nexttag[0] += 1
+        into.append({"type": "D", "fields": {"tag": tag}})
+        d_live[gidx[0]] = True; gidx[0] += 1
+
+    slots = ["p"] * r.randint(1, 3)
+    if has_j:
+        slots += ["e"] * r.choice([0, 1, 1, 2])
+    if r.random() < 0.25:
+        slots += ["d"]
+    r.shuffle(slots)
+    for s in slots:
+        {"p": mk_p, "e": lambda i: mk_e1(i, 0), "d": mk_d}[s](facts)
+    epochs = []
+    n_ep = r.randint(2, 5)
+    for ep_no in range(1, n_ep + 1):
+        gidx[0] += pend_j[0]; pend_j[0] = 0   # prior boundary's J fires
+        actions = []
+        upd_this_ep = set()
+        for _ in range(r.randint(0, 5)):
+            op = r.choice(["updp", "updp", "delp", "insp", "inse", "upde",
+                           "dele", "insd", "deld", "adv", "adv"])
+            if op == "updp" and p_live:
+                v = r.choice(list(p_live))
+                actions.append({"op": "update", "target": p_live[v],
+                                "fields": {"v": v}})
+            elif op == "delp" and len(p_live) > 2 and r.random() < 0.5:
+                v = r.choice(list(p_live))
+                actions.append({"op": "delete", "target": p_live.pop(v)})
+            elif op == "insp":
+                mk_p(actions); actions[-1]["op"] = "insert"
+            elif op == "inse" and has_j:
+                mk_e1(actions, ep_no); actions[-1]["op"] = "insert"
+            elif op == "upde" and has_j:
+                ok = [h for h, m in e1_live.items()
+                      if m["dl"] > clock[0] and m["epoch"] < ep_no
+                      and h not in upd_this_ep]
+                if ok:
+                    h = r.choice(ok); upd_this_ep.add(h)
+                    tag = f"t{nexttag[0]}"; nexttag[0] += 1
+                    actions.append({"op": "update", "target": h,
+                                    "fields": {"tag": tag}})
+                    pend_j[0] += 1
+            elif op == "dele" and has_j:
+                ok = [h for h, m in e1_live.items()
+                      if m["dl"] > clock[0] and m["epoch"] < ep_no
+                      and h not in upd_this_ep]
+                if ok:
+                    h = r.choice(ok); del e1_live[h]
+                    actions.append({"op": "delete", "target": h})
+            elif op == "insd" and r.random() < 0.5:
+                mk_d(actions); actions[-1]["op"] = "insert"
+            elif op == "deld" and d_live:
+                h = r.choice(list(d_live)); del d_live[h]
+                actions.append({"op": "delete", "target": h})
+            elif op == "adv":
+                ms = r.randint(40, 250)
+                clock[0] += ms
+                for h in [h for h, m in e1_live.items() if m["dl"] <= clock[0]]:
+                    del e1_live[h]
+                actions.append({"op": "advance", "ms": ms})
+        efacts = []
+        eslots = ["p"] * r.randint(0, 3)
+        if has_j:
+            eslots += ["e"] * r.choice([0, 0, 1])
+        if r.random() < 0.15:
+            eslots += ["d"]
+        r.shuffle(eslots)
+        for s in eslots:
+            {"p": mk_p, "e": lambda i: mk_e1(i, ep_no), "d": mk_d}[s](efacts)
+        epochs.append({"actions": actions, "facts": efacts})
+    return {"name": name, "types": PTYPES,
+            "drl": PDRL_J if has_j else PDRL, "facts": facts, "epochs": epochs}
+
+
 def order_of(result):
     return [next((m["fields"]["v"] for m in f["matches"] if m["type"] == "P"), None)
             for f in result["firings"]]
@@ -216,7 +351,12 @@ def order_of(result):
 def main():
     n = int(sys.argv[1]); seed = int(sys.argv[2])
     r = random.Random(seed)
-    g = gen_full if os.environ.get("SEINE_NOTPOP_FULL") else gen
+    if os.environ.get("SEINE_NOTPOP_PLAIN"):
+        g = gen_plain
+    elif os.environ.get("SEINE_NOTPOP_FULL"):
+        g = gen_full
+    else:
+        g = gen
     made = []
     for i in range(n):
         s = g(r, f"nb{seed}x{i}")
@@ -236,7 +376,8 @@ def main():
     # keep only clean multi-P unblock batches (>=2 fired P's) — the orderable ones
     pop = [{"scenario": s, "order": byname[s["name"]]}
            for _, s in made if s["name"] in byname and len([v for v in byname[s["name"]] if v is not None]) >= 2]
-    outp = os.path.join(os.path.dirname(TMP), f"notpop_b_{seed}.json")
+    stem = "notpop_plain" if os.environ.get("SEINE_NOTPOP_PLAIN") else "notpop_b"
+    outp = os.path.join(os.path.dirname(TMP), f"{stem}_{seed}.json")
     json.dump(pop, open(outp, "w"))
     print(f"captured {len(pop)} orderable scenarios (of {len(made)}) -> {outp}")
 

@@ -409,6 +409,266 @@ def predict_flush(scn):
     return fired
 
 
+def predict_pflush(scn):
+    """D-158: the PLAIN-fact blocker machine (`not D() P()`, D plain, STREAM
+    session) — the cf313x4 family. Graft-derived (BfDump on the pnb_* battery,
+    6 dumps): the same join-staging skeleton as predict_flush with the plain
+    deltas:
+      - a plain-D right-INSERT stages until the next eval (no per-arrival
+        force-flush — bf_expdel [9]->[10]: the block lands at the fire-loop
+        eval, cancelling a not-yet-fired P match);
+      - a plain-D right-DELETE (explicit) evals AT its queue position
+        (bf_expdel [32]->[33]);
+      - a logical D dies with its justifier: E1 expiry (quiescence retract,
+        deadline order), explicit E1 delete (at position), or tag-update
+        CHURN (J re-fires: new-D insert BEFORE old-D retract — bf_full
+        [38]->[40] — so the not never transiently releases; the blocked left
+        HANDS OFF to the new blocker);
+      - a bare-P UPDATE is an immediate rtm move-to-tail at its exec position
+        when flushed, a no-op while staged (bf_full [52] vs bf_no_churn);
+      - an eval drains staged P's rtm-append in arrival order; the release
+        (blocker count -> 0) drains first, then emits reverse(rtm)
+        (bf_expdel MATCH order; bf_triple / bf_multiepoch compose all of it);
+      - while BLOCKED, P-side staging alone never evals (bf_no_churn: staged
+        P2 survives three epochs of live agenda work); while UNBLOCKED the
+        fire-loop eval flushes + emits staged P's in arrival order.
+    The agenda is ONE FIFO of items — J fires and NE emissions sequence by
+    creation position; a re-block cancels queued unfired NE items."""
+    exp = next((t["event"]["expires_ms"] for t in scn.get("types", [])
+                if t["name"] == "E1" and "event" in t), 100)
+    trace = os.environ.get("SEINE_PFLUSH_TRACE")
+
+    def tr(msg):
+        if trace:
+            print(f"    | {msg}")
+    vof = {}                     # global idx -> P value
+    staged, rtm, fired = [], [], []
+    agenda = []                  # [("ne", v) | ("j", kind, e1_uid)] FIFO
+    e1 = {}                      # uid -> {"dl": deadline, "d": d_uid or None}
+    d_alive = set()              # live D uids (explicit + logical)
+    d_of_idx = {}                # global idx -> D uid (explicit targets)
+    d_staged = []                # pending not-side ops [("ins"|"del", d_uid)]
+    pending_exp = []             # E1 uids registered for quiescence retract
+    if_propagated = [False]
+    if_blocked = [False]
+    smem_init = [False]
+    next_d = [10**6]
+    idx = [0]
+    clock = [0]
+
+    exec_queued = [False]
+
+    def cancel_ne():
+        agenda[:] = [it for it in agenda if it[0] != "ne"]
+
+    def join_left_ins():
+        """The (re-)released left propagates into the join: drain staged
+        right-ins (reversed-append into rtm) and emit — staged children in
+        arrival order, then the pre-drain rtm reversed. NOTE reversed(pre_rtm
+        ++ reversed(staged)) == staged ++ reversed(pre_rtm): flush-then-
+        reverse and staged-children-first are the same rule."""
+        pre_rtm = list(rtm)
+        rtm.extend(reversed(staged))
+        emitted = list(staged) + list(reversed(pre_rtm))
+        staged.clear()
+        return emitted
+
+    def eval_ne(fire_loop=False):
+        """A network eval over the not's staged right-ops, processed
+        SEQUENTIALLY in ARRIVAL order with TRANSIENT releases: blocker count
+        1->0 releases the left INTO the join (the join drains staged P's and
+        emits); a later ins in the same batch RE-BLOCKS — the drain persists,
+        the unfired emissions cancel (bf_full: sync TMS del-then-queued-ins
+        churn flushes [P2]; nb4001x67/x85: a second live blocker absorbs the
+        del, so the join never drains). A quiescence expiry retract is the
+        same eval with a single del op."""
+        pending = []                         # this eval's uncommitted emissions
+        left_at_start = if_propagated[0] and not if_blocked[0]
+        # lazy smem init: the FIRST-ever eval drains the join's staged rights
+        # into rtm even while blocked (nb4001x119 [3,4|1,2] / x144 [2,1])
+        if not smem_init[0]:
+            smem_init[0] = True
+            rtm.extend(reversed(staged))
+            staged.clear()
+        for kind, d in d_staged:
+            if kind == "ins":
+                d_alive.add(d)
+                if if_propagated[0] and not if_blocked[0]:
+                    if_blocked[0] = True     # (re-)block: children die
+                    pending.clear()
+                    cancel_ne()
+            else:
+                d_alive.discard(d)
+                if not d_alive and if_propagated[0] and if_blocked[0]:
+                    if_blocked[0] = False    # release (maybe transient)
+                    pending.extend(join_left_ins())
+        d_staged.clear()
+        # the join is visited by this segment eval iff its LEFT was populated
+        # when the eval began (delta-linked) — it drains its right staging
+        # even when the not blocked mid-eval (bf_x7 [45]: rtm gains the whole
+        # batch child-less; nb4001x145 [12|10,11]); a blocked-at-start eval
+        # leaves the backlog staged (nb4001x85/x54)
+        if left_at_start and staged:
+            rtm.extend(reversed(staged))
+            if not if_blocked[0]:
+                pending.extend(staged)       # still linked: ordinary children
+            staged.clear()
+        # the IF's own staged left-ins — first fire-loop eval only
+        if fire_loop and not if_propagated[0]:
+            if_propagated[0] = True
+            if_blocked[0] = bool(d_alive)
+            if not if_blocked[0]:
+                pending.extend(join_left_ins())
+        agenda.extend(("ne", v) for v in pending)
+        tr(f"eval(fl={fire_loop}) rtm={rtm} blocked={if_blocked[0]} "
+           f"agenda={agenda}")
+
+    def churn(uid):
+        """One J fire for E1 uid: insertLogical(new D) — and on a re-fire the
+        old D's TMS retract. ARRIVAL ORDER at the not: the TMS WM-DELETE is
+        SYNCHRONOUS at the fire while the RHS insertLogical is QUEUED and
+        stages at the post-RHS flush — the del arrives FIRST (bf_full [40]
+        stages del[D(z)] with ins[] still empty; [43] adds the ins)."""
+        nd = next_d[0]; next_d[0] += 1
+        old = e1[uid]["d"]
+        if old is not None:
+            stage_d_del(old)         # a D-DELETE staging queues the executor
+        d_staged.append(("ins", nd))
+        if if_propagated[0] and not if_blocked[0]:
+            exec_queued[0] = True    # a right-ins while LINKED evaluates (and
+                                     # blocks) before later arrivals (nb4103x160)
+        e1[uid]["d"] = nd
+        idx[0] += 1              # the logical D consumes an nth_inserted slot
+
+    def drain_agenda():
+        while agenda:
+            it = agenda.pop(0)
+            if it[0] == "ne":
+                fired.append(it[1])
+            else:
+                _, kind, uid = it
+                if uid in e1:
+                    churn(uid)   # "ins" first fire and "refire" both churn
+                # mid-drain eval: a del-bearing churn (bf_full), or any D
+                # staging while NE still has queued items (the executor
+                # evaluates the network before firing its next item)
+                if d_staged and (exec_queued[0]
+                                 or any(x[0] == "ne" for x in agenda)):
+                    eval_ne()
+                    exec_queued[0] = False
+
+    def entry_insert(f):
+        if f["type"] == "P":
+            v = f["fields"]["v"]; vof[idx[0]] = v
+            staged.append(v)
+            if if_propagated[0] and not if_blocked[0]:
+                exec_queued[0] = True        # linked: a P-ins queues the eval
+        elif f["type"] == "E1":
+            uid = idx[0]
+            e1[uid] = {"dl": f["fields"]["ts"] + exp + 1, "d": None}
+            agenda.append(("j", "ins", uid))
+        else:                                # explicit plain D: stages only —
+            d = next_d[0]; next_d[0] += 1    # a pure right-INS on a blocked
+            d_of_idx[idx[0]] = d             # not notifies nothing (x8/x54);
+            d_staged.append(("ins", d))      # while unblocked the drain's
+            if if_propagated[0] and not if_blocked[0]:
+                exec_queued[0] = True        # queued-items eval blocks it
+        idx[0] += 1
+
+    def stage_d_del(d):
+        """A D retract reaching the not: if the D's INSERT is still sitting
+        unprocessed in the staging, the delete ANNIHILATES it (TupleSets
+        addDelete on a staged insert — nb4001x139/x91: an ins+del pair inside
+        one staging window never blocks, never releases); else it stages a
+        del and queues the executor."""
+        if ("ins", d) in d_staged:
+            d_staged.remove(("ins", d))
+            d_alive.discard(d)
+            return False
+        d_staged.append(("del", d))
+        exec_queued[0] = True
+        return True
+
+    def entry_update(a):
+        tgt = a["target"]
+        if tgt in vof:                       # bare-P: reorder-only, immediate
+            v = vof[tgt]
+            if v in rtm:
+                rtm.remove(v); rtm.append(v)
+        elif tgt in e1 and "tag" in a.get("fields", {}):
+            agenda.append(("j", "refire", tgt))
+
+    def entry_delete(a):
+        tgt = a["target"]
+        if tgt in vof:
+            v = vof[tgt]
+            if v in staged:
+                staged.remove(v)
+            elif v in rtm:
+                rtm.remove(v)
+            agenda[:] = [it for it in agenda if it != ("ne", v)]
+        elif tgt in d_of_idx:                # explicit D delete
+            stage_d_del(d_of_idx.pop(tgt))
+        elif tgt in e1:                      # explicit E1: J-match cancel ->
+            meta = e1.pop(tgt)               # TMS D retract staging + queue
+            if tgt in pending_exp:
+                pending_exp.remove(tgt)
+            if meta["d"] is not None:
+                stage_d_del(meta["d"])
+
+    def entry_advance(ms):
+        clock[0] += ms
+        due = sorted((m["dl"], u) for u, m in e1.items()
+                     if m["dl"] <= clock[0] and u not in pending_exp)
+        pending_exp.extend(u for _, u in due)
+
+    def quiescence_retract(u):
+        """flushExpirations: the E1 retract cascades to its logical D — one
+        single-del eval (an absorbed 2->1 never touches the join). An
+        annihilated still-staged ins needs no eval."""
+        meta = e1.pop(u)
+        if meta["d"] is not None and stage_d_del(meta["d"]):
+            eval_ne()
+            exec_queued[0] = False
+
+    def fire_all():
+        if (exec_queued[0] or not if_propagated[0]
+                or any(x[0] == "ne" for x in agenda)):
+            eval_ne(fire_loop=True)
+            exec_queued[0] = False
+        drain_agenda()
+        # QUIESCENCE: flushExpirations — narrow per-retract cascades in
+        # deadline order, firing between retracts
+        for u in list(pending_exp):
+            if u not in e1:
+                continue
+            quiescence_retract(u)
+            drain_agenda()
+        pending_exp.clear()
+        if exec_queued[0]:                   # e.g. a churn-del staged by the
+            eval_ne(fire_loop=True)          # last drain with nothing queued
+            exec_queued[0] = False           # behind it
+            drain_agenda()
+
+    for f in scn["facts"]:
+        entry_insert(f)
+    fire_all()
+    for ep in scn["epochs"]:
+        for a in ep["actions"]:
+            if a["op"] == "update":
+                entry_update(a)
+            elif a["op"] == "insert":
+                entry_insert(a)
+            elif a["op"] == "delete":
+                entry_delete(a)
+            elif a["op"] == "advance":
+                entry_advance(a["ms"])
+        for f in ep["facts"]:
+            entry_insert(f)
+        fire_all()
+    return fired
+
+
 def predict(scn, model="seg"):
     if model == "d140":
         return predict_d140(scn)
@@ -416,6 +676,8 @@ def predict(scn, model="seg"):
         return predict_seg2(scn)
     if model == "flush":
         return predict_flush(scn)
+    if model == "pflush":
+        return predict_pflush(scn)
     return predict_seg(scn)
 
 

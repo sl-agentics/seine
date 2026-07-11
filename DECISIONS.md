@@ -11,20 +11,25 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-156 — **the tj pair-order family is
-CLOSED** (recon + spec + port in one day; see D-156). The self-join
-arrival's phase-membership fix landed in `flush_ins_delta`, scoped to the
-D-136 shared divert. Gates: corpus 11/**1044**/**294** byte-identical (+9
-`pr_cep_tjo_self_*`, witness graduated), lint **1437**, cargo 9, bindings
-72 (pre-port run; no python change), population 250/250, fuzz 613 ×400
-0-div. Spec: `SEINE_TJO_SELF=1 model_shared_tjo.py fuzz` (0-div/1,000).
-A2 (D-154/155) also closed this session. Item-1b remaining: plain-not
-cf313x4 ONLY — **CLEAN-CONTEXT HANDOFF READY:
-`~/.claude/plans/plain-not-handoff.md`** (witness regen via seed 313 —
-note D-157 widened it; the D-155 per-entry-flush overlap check; the
-main-axis blast-radius warning — plain nots ARE gen.rs-reachable, unlike
-every prior item-1b family); the update fence is LIFTED by default (D-157; seeds 42/401/719/902 x400 0-div).
-Fenced-by-nature: D-134 §6, fz_42_84. `git log --oneline -20` for HEAD._
+_Last updated: 2026-07-10, D-158 SPEC CHECKPOINT — **the plain-not
+(cf313x4) mechanism is CRACKED and population-validated**; the ENGINE PORT
+is the active step (PnShadow, port plan in D-158). Seed-313 regen = exactly
+cf313x4 (order-only, expiry-unblock re-fire pair). Spec:
+`SEINE_NOTPOP_PLAIN=1 tools/fuzz_notorder_b.py` + `model_check_notorder_b.py
+MODEL=pflush` — **0-div on 1,667 scenarios** (419 banked + 467 first-round
++ **781/781 FROZEN-model fresh out-of-sample**, seeds 4201-4204); 21-probe
+pnb battery + 7 BfDump dumps reproduced. Engine baseline 21/200 divergent
+(the port target). Six mechanism deltas vs the D-150 event machine —
+sequential TRANSIENT releases (sync-TMS-del-before-queued-ins churn),
+absorbed 2->1 never drains, lazy smem-init drain, staged-ins annihilation,
+linked-only ins-queueing, explicit-D deletes eval at FIRE not at position —
+all in the D-158 entry. ⚠ PORT blast radius: plain nots ARE
+main-axis-reachable; the STREAM-session gate is the structural protection;
+gen.rs fuzz BOTH trees is a MANDATORY port gate. Recon scratch:
+`$CLAUDE_JOB_DIR/tmp` (pnb_*/bf_*.txt); prior handoff
+`~/.claude/plans/plain-not-handoff.md` (consumed). Item-1b remaining:
+this port, then CLOSED. Fenced-by-nature: D-134 §6, fz_42_84.
+`git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -8126,3 +8131,84 @@ Every family it guarded is closed (D-141, D-143..153, D-154/155, D-156).
 `fuzz_cep.py` now always draws updates of temporal-join event types; the
 `SEINE_WINUPD_FULL` env gate is gone. Verified: seeds 42/401/719/902 x400
 = 0 divergences fence-lifted-by-default.
+
+## D-158 — plain-not firing order (cf313x4): mechanism CRACKED + spec 0-div at population scale
+
+The LAST item-1b tail: `not D() P()` where D is a PLAIN (non-event) type
+inside a STREAM session. Seed-313 regen post-D-157 = exactly ONE divergence
+(cf313x4 itself, no fresh siblings); order-only (engine [P2,P1] vs oracle
+[P1,P2] on the expiry-unblock re-fire); D-155 per-entry-flush overlap ruled
+out (no multi-op-per-handle epochs; the W3 accumulate has zero E0 facts).
+Bisect skipped: the family is historically documented pre-existing (the
+D-140-era fence-lifted recon).
+
+RECON (probe-first): 21-variant pnb_* battery (2x2s over churn / P-update /
+unblock-path / session-type) + 7 BfDump graft dumps (bf_{full,no_churn,
+expdel,multiepoch,triple,x7} + battery reruns). Hand-derivation flip-flopped
+twice (H=rtm-move-to-tail+reverse died on expdel and triple) ⇒ graft per
+doctrine. KEY DUMPS: bf_full [52] (bare-P update = immediate rtm
+move-to-tail at its queue position), [59-62] (release = flush staged then
+reverse rtm), [38]->[40] (the churn's WM-DELETE is SYNCHRONOUS while the
+RHS insertLogical is QUEUED ⇒ del reaches the not FIRST); bf_x7 [45] (an
+eval with the left present at START drains the whole staged batch AS-STORED
+newest-first, child-less if the not blocked mid-eval), [53] (blocked-P
+update repositions rtm).
+
+THE MECHANISM (predict_pflush, model_check_notorder_b.py MODEL=pflush —
+the same rtm/staged carrier as D-150 with SIX plain-family deltas):
+1. plain ops (P and D alike) STAGE until a network eval — no per-arrival
+   force-flush (that is EVENT machinery);
+2. the executor evaluates at a fire loop iff QUEUED: a D-DELETE staging
+   queues (explicit delete, E1-delete TMS cascade, or churn); a D-INSERT
+   or P-INSERT queues only while the segment is LINKED (left present);
+   a pure D-ins while blocked queues NOTHING ⇒ multi-epoch staged backlogs;
+3. lazy smem init: the FIRST-ever eval drains staged rights into rtm even
+   while blocked (nb4001x119/x144);
+4. an eval processes the not's staged D ops SEQUENTIALLY in arrival order
+   with TRANSIENT releases: count 1->0 releases the left INTO the join —
+   the join drains staged P's (reversed-append into rtm) and emits
+   [staged-children arrival-order ++ reversed(pre-drain rtm)] (== reversed
+   (post-drain rtm) — the two formulations are algebraically identical);
+   a later ins in the same batch RE-BLOCKS: unfired emissions cancel, the
+   DRAIN persists (bf_full's churn flush). Count 2->1 is ABSORBED — the
+   join is untouched (nb4001x85/x54/x67: a second live blocker prevents
+   the flush);
+5. TMS churn arrival order = del-then-ins (sync WM-DELETE vs queued
+   insertLogical) ⇒ a single-blocker churn transiently drains; staged-ins
+   ANNIHILATION: a D delete reaching a still-unprocessed staged ins removes
+   it — the not never sees either (nb4001x139/x91); a D-ins landing while
+   LINKED queues the eval that blocks before later arrivals (nb4103x160);
+6. quiescence expiry retracts (deadline order) are each their own
+   single-del eval — absorbed ones never drain the join; explicit deletes
+   stage and evaluate at the FIRE loop, after later same-epoch entries
+   (nb4001x74: the epoch-fact P joins the release batch), NOT at their
+   queue position (the event-family E0 rule does not carry over).
+Bare-P update: immediate move-to-tail iff flushed into rtm, no-op while
+staged, never queues/re-fires (unchanged from D-150 piece 4).
+
+VALIDATION: tools/fuzz_notorder_b.py SEINE_NOTPOP_PLAIN=1 (explicit-D and
+logical-D via `J: E1($t:tag) => insertLogical(new D($t))` modes; unique
+tags keep nth_inserted indices deterministic — one J fire per E1 insert +
+one per tag-update; liveness + prior-epoch-touch constraints in the
+docstring). Model 0-div on **1,667 scenarios**: banked 4001/4002/4003
+(419), first out-of-sample 4101-4103 (467; two rule fixes consumed this
+round — the annihilation-vs-quiescence split and the linked-D-ins queue),
+then FROZEN-model validation on 4201-4204 = **781/781 fresh out-of-sample
+0-div**. Engine baseline on the 4001 population: 21/200 divergent (the
+port target). Session-type control: pnb_plain_sess/pnb_plain_noupd agree
+(non-stream sessions unaffected — the fix gates on STREAM).
+
+SCOPE EXCLUSIONS (generator-enforced; the port gate must respect them):
+shared TMS justifications (equal tags), due-on-arrival justifiers,
+same-epoch E1 touches (coalescing corner), RHS-inserted P's. These fall
+to FIFO/HEAD behavior at the port gate, not to the shadow.
+
+PORT PLAN (gate-pending): `PnShadow` beside BfShadow — same emit_rank/
+gated-pick plumbing; P hooks at external ops; D hooks at the WM level
+regardless of provenance (external, RHS-logical, TMS-retract, expiry
+cascade) with churn order imposed del-first per spec; compile gate =
+[InitialFact, non-temporal NOT over a PLAIN type, bare positive non-event
+P] + STREAM session + BfShadow-style static exclusions. ⚠ blast radius:
+plain nots ARE main-axis-reachable — the STREAM-session gate is the
+structural protection; main-axis gen.rs fuzz on BOTH trees is a mandatory
+port gate (unlike every prior item-1b family).
