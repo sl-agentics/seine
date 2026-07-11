@@ -1,0 +1,132 @@
+{
+ "name": "xf_cep_ex_order_widen_exposed",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists D(tag == \"x\") P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "x"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z"
+     }
+    },
+    {
+     "op": "delete",
+     "target": 4
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "x"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "OPEN (D-161, the widen-exposed order case): pre-widen this PASSED by mechanism-luck - the eager per-arrival flush satisfied at the first D#x's insert and drained the P backlog in the oracle's arrival order; that D is annihilated by its same-epoch delete under the D-161 lazy staging (correctly - the D-159 semantics), so the satisfy moves to the fire eval whose drain order is the OPEN ex8/D-162 family bug (newest-first vs oracle arrival-FIFO: engine [4,..] vs oracle [1,..], ORDER-only). Closes with xf_cep_ex_backlog_order."
+}

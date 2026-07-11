@@ -1,0 +1,89 @@
+{
+ "name": "pr_cep_ex_lazy_churn_fired",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists D(tag == \"x\") P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 3
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "tag": "z"
+     }
+    },
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "tag": "x"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-161: an out-and-back alpha update of a PLAIN exists-witness (x->z->x in one epoch) with FIRED P's COALESCES - net/final-state semantics, no re-fire (3 firings). Plain-exists witness ops are net-wise across every provenance; the sequential-transient model is plain-NOT-only (D-158)."
+}

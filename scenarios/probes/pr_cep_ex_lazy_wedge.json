@@ -1,0 +1,91 @@
+{
+ "name": "pr_cep_ex_lazy_wedge",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists D(tag == \"x\") P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z"
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-161 (THE WEDGE, fixed by widening the D-159 plain stash to Kind::Exists): the same out-and-back churn with UNFIRED same-epoch P's around it. Pre-widen, P3's per-arrival flush SPLIT the ph=1 del+ins re-entry pair (the dstash hid the del, the visible ins evaluated alone) and the exists child died PERMANENTLY - engine fired 1 vs oracle 3. With the witness ins stashed through mid-epoch flushes the pair reaches the fire eval intact and nets (D-081 machinery)."
+}

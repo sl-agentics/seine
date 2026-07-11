@@ -11,35 +11,36 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-160 — **the D-155 per-entry-flush
-residual is CLOSED; the ACCUMULATE family has NO open divergence** (and
-D-159 closed the plain-not annihilation the same day — every
-mechanical-shadow-era slab D-150..D-160 is now landed, corpus
-byte-identical throughout). D-160 = per-entry incremental acc drain:
-external upd/del of EVENT-TYPED acc sources queue as `acc_pending`
-entries (`AccEntry::{Upd(mask),Del}`, the D-154/155 winacc queue
-generalized to ALL acc nodes) executing FIFO at the fire drain against
-EPOCH-FINAL fields (`alpha_passes_fields` — liveness split out) with
-ENTRY-ORDER aliveness; a Del that annihilates a drain-staged ins
-force-re-emits every left (`s_left.add_upd` → Phase D/G). Gate =
-source-type EVENTED (probe-settled: plain sources batch-annihilate on
-the oracle in BOTH session modes — ap1/ap1b pins; evented ins+del
-already agreed via the insert force-flush — ap2 pin; inserts never
-queue). 3 witnesses GRADUATED (`xf_cep_acc_updel_flush_{plain,win}`,
-`xf_cep_acc_multiupd_plain`) + ap9 k=2 fixed; +5 `pr_cep_acc_drain_*`
-pins. Gates: corpus **11/1065/299** byte-identical, lint **1463**,
-cargo 9, bindings 72, winacc soup ×11 seeds (901-909 + fresh 911/913)
-fixed **4,275/4,275** vs base **30 fail** on the same files ⇒ **+30/0**,
-spec **4,125/4,125 0-div**, fuzz_cep 401/423/719/811/313/927/929 ×400
-BOTH trees 0-div, notpop/expop FULL 600+600 (fresh 890/891), main-axis
-42/123/7 ×10k BOTH trees identical flagged sets. **NEXT is Bryan's call
-— no active slab.** Candidates (deferred): D-093 min/max quarantine
-graduation (awaits the oracle bump, D-148 protocol), D-080 TMS envelope,
-plain-EXISTS lazy-staging (probe-first, own population), the Allen
-@expires-inference fence (17 `xf_cep_e_*`, D-120 — needs STP-edge
-emission design), the class-3 re-entrant RHS exists churn
-(`xf_cep_c_del_churn_exists_rule`, not fuzz-reachable).
-Fenced-by-nature: D-134 §6 PriorityQueue ties, fz_42_84 identity-hash.
+_Last updated: 2026-07-10 (late), post-D-161 — **the plain-EXISTS WEDGE
+is CLOSED; the satisfy-ORDER family is FILED with a ready handoff**
+(D-159 annihilation + D-160 acc drain landed earlier the same day).
+D-161 = the D-159 stash gate widened `Kind::Not` → `Kind::Not |
+Kind::Exists` (plain-typed witnesses stage lazily through mid-epoch
+flushes): fixes the PERMANENT-SILENCE wedge (a mid-epoch flush split
+the ph=1 del+ins re-entry pair — the exists child died forever; ex2/ex2b
+pins) and locks the net/final-state witness semantics (5
+`pr_cep_ex_lazy_*` pins: explicit/update/TMS churn all COALESCE, every
+provenance, both session modes). NEW population axis
+`SEINE_EXPOP_PLAIN=1 tools/fuzz_existsorder.py` (bare/cons/logical
+drives): base 205/900 divergences → widened 200 = **+6/1-exposure**
+(the exposure = ex5001x5, previously passing by mechanism-luck, now
+routed into the FILED order family). Gates: corpus **11/1070/299**
+byte-identical (churn pin + w-ladder HELD), lint **1468**, cargo 9,
+bindings 72, expop/notpop FULL 600+600 + notpop-PLAIN 400 (the D-159
+surface holds), fuzz_cep 313/907/911 ×400 both trees 0-div, main-axis
+both trees identical sets. **NEXT (handoff ready):
+`~/.claude/plans/plain-exists-order-handoff.md`** — D-162, the
+plain-exists satisfy EMISSION-ORDER spec arc (~200/900: engine drains
+satisfy batches newest-first vs oracle arrival-FIFO, incl. INITIAL-fire
+batches; ~20/seed re-satisfy SET-compounds): predict_pexists →
+population 0-div → Bryan gate → port. Witnesses
+`xf_cep_ex_{backlog_order,plain_order_set,order_widen_exposed}`.
+ALSO quarantined: `cf933x385` (fresh fuzz_cep seed 933, BOTH trees —
+a pre-existing event-not ORDER latent in a salience/temporal/acc rule
+MIX; BfShadow-composition recon when scheduled). Other deferred: D-093
+quarantine graduation (oracle bump, D-148), D-080 TMS envelope, Allen
+@expires fence (17 `xf_cep_e_*`), class-3 re-entrant churn.
+Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
@@ -49,24 +50,26 @@ Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
 **Git:** on `main`, **PUSHED through D-156** (`origin/main` at `5483b47`;
 Bryan holds every push; branch-only, NO tags). UNPUSHED: the D-157 →
-D-160 span (b9dc98e D-157 fence-lift / 8aa90ed + 8e5a02b handoff pointers
-/ 5648a71 D-158 spec / 3b2aa52 D-158 port / 7d53106 D-159 annihilation /
-the D-160 acc-drain commit). ⚠ **NO `v*` TAGS until a PyPI release is
+D-161 span (b9dc98e D-157 / 8aa90ed + 8e5a02b pointers / 5648a71 D-158
+spec / 3b2aa52 D-158 port / 7d53106 D-159 / 6cca187 D-160 / the D-161
+exists-widen commit). ⚠ **NO `v*` TAGS until a PyPI release is
 intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
 `pypi` environment has NO protection rules (gh-verified): a new tag
 publishes `seine-rs` with no manual gate. Arc history: the D-entries
 below (D-136 shared-tjo → D-137/138/139 item-C → D-140 not-order →
 D-141 tj-ts → D-143..D-153 the mechanical shadows → D-154/155 A2 winacc
-→ D-156 tj pair-order → D-158/159 plain-not → D-160 acc drain).
+→ D-156 tj pair-order → D-158/159 plain-not → D-160 acc drain → D-161
+plain-exists wedge).
 
-**Gates (green @ the D-160 commit):** baseline 11 / probes **1065** /
-regressions **299** byte-identical / lint **1463 live·0 ghost·0 inert** /
+**Gates (green @ the D-161 commit):** baseline 11 / probes **1070** /
+regressions **299** byte-identical / lint **1468 live·0 ghost·0 inert** /
 9 Rust suites / bindings pytest 72. Verify: `make diff` ·
 `make lint-probes` · `cargo test`. Specs stay executable: plain-not
 `SEINE_NOTPOP_PLAIN=1 tools/fuzz_notorder_b.py <n> <seed>` +
 `tools/model_check_notorder_b.py <pop> pflush`; event-not MODEL=flush;
-winacc/acc-drain `tools/model_check_winacc.py <popdir>` (regenerate via
-`tools/fuzz_winacc.py`; battery via `tools/gen_winacc_probes.py`).
+winacc/acc-drain `tools/model_check_winacc.py <popdir>`; plain-exists
+populations `SEINE_EXPOP_PLAIN=1 tools/fuzz_existsorder.py <n> <seed>`
+(seeds 5001-5003 banked; the D-162 model is NOT yet written).
 **Red on resume ⇒ drift — investigate before building.**
 
 **Landed (background — log has detail):** v0.4.0 CEP E1 + reset + agenda groups
@@ -8442,3 +8445,78 @@ RHS modifies of acc sources stay immediate (fuzz-unreachable for
 windowed; certified for plain). The accumulate family now has NO open
 divergence; every 2026-07 mechanical-shadow-era slab (D-150..D-160) is
 closed with the corpus byte-identical throughout.
+
+## D-161 — plain-EXISTS lazy staging: the wedge CLOSED, the order family FILED
+
+Bryan-directed slab ("plain-EXISTS lazy staging next") — the D-159 scope
+note's follow-on. NOTHING was filed going in (one coalescing pin + one
+0-0 scope probe); the recon opened the largest un-filed family since the
+shadow arc: a NEW population axis (`SEINE_EXPOP_PLAIN=1
+tools/fuzz_existsorder.py` — gen_plain: bare / constrained (update-churn
+axis) / TMS-logical witness drives, gen_plain-style determinism
+bookkeeping) measures **205/900 divergences** at seeds 5001-5003.
+
+RECON (12-probe exlazy battery, predictions written first,
+`$CLAUDE_JOB_DIR/tmp/exlazy/`): plain-exists witness ops are
+NET/FINAL-STATE-wise in EVERY provenance — explicit del+ins churn,
+update out-and-back with fired P's (3 firings, no re-fire), TMS
+logical-witness churn (satisfied exactly once through a justifier
+tag-update), non-stream sessions. The sequential-transient model is
+plain-NOT-only; the D-159 handoff's "ins-first/net" exists hypothesis is
+CONFIRMED. Two engine defects found:
+
+1. **THE WEDGE (SET, permanent silence — FIXED this slab):** an
+   out-and-back alpha update of a plain witness with a P-insert FLUSH
+   between the churn and the fire. The per-arrival flush SPLIT the ph=1
+   del+ins re-entry pair — the dstash hid the pre-tail del while the
+   visible ins evaluated alone — and the exists child died PERMANENTLY
+   (ex2: engine 1 vs oracle 3; ex2b: the NEXT epoch's P also never
+   fires, engine 1 vs oracle 4). Coherence checks: ex1 (no flush after
+   the churn) and ex10 (non-stream, no flushes at all) both pass — the
+   mid-epoch flush IS the axis, not session mode.
+   FIX: widen the D-159 plain stash gate from `Kind::Not` to
+   `Kind::Not | Kind::Exists` (one line + comments) — the plain witness
+   ins stays staged through mid-epoch flushes, the pair reaches the
+   fire eval intact, and the certified D-081 net machinery handles it.
+2. **The satisfy EMISSION-ORDER family (FILED, → D-162):** satisfy
+   batches drain newest-first-ish on the engine vs arrival-FIFO on the
+   oracle — including INITIAL-fire batches whenever P's precede the
+   witness in the facts. ~200/900 population scenarios (~20/seed with
+   re-satisfy SET-compounds on top: x75 under-fires 6 vs 8). Witnesses:
+   `xf_cep_ex_backlog_order` (the clean 5-P backlog cell),
+   `xf_cep_ex_plain_order_set` (order + re-satisfy compound),
+   `xf_cep_ex_order_widen_exposed` (passed pre-widen by MECHANISM LUCK —
+   the eager flush-satisfy happened to drain arrival-order; its first
+   witness now correctly annihilates in staging and the satisfy routes
+   through the fire-eval drain, exposing the order bug: ORDER-only).
+   Handoff: `~/.claude/plans/plain-exists-order-handoff.md` — a
+   D-158-style spec arc (predict_pexists; starting hypothesis =
+   arrival-FIFO emission from the all-staged unlinked backlog), 0-div
+   at population scale, then Bryan's gate for the port.
+
+GATES (all green; A/B base = a `6cca187` pre-widen worktree):
+- populations (the SAME files both trees): base **205** fail → widened
+  **200** = **+6 fixed / 1 exposure** (ex5001x5, classified above —
+  moved INTO the already-filed order family, not a new mechanism).
+- corpus `make diff` **11/1070/299 byte-identical** (+5
+  `pr_cep_ex_lazy_{churn_fired,wedge,wedge_next_epoch,tms_churn,
+  churn_nonstream}` pins; `pr_cep_c_exists_churn_plain` and the
+  w1-w6 event ladder HELD under the widen), lint **1468 live/0/0**,
+  cargo 9 suites, bindings pytest **72**.
+- event surfaces: expop FULL 600/600 (seed 893), notpop FULL 600/600
+  (seed 894), notpop PLAIN 400/400 (seed 4405 — the D-159 surface holds
+  under the widen).
+- fuzz_cep ×400 BOTH trees: 313/907/911 = 0-div; fresh seed 933 flagged
+  `cf933x385` on BOTH trees IDENTICALLY — a PRE-EXISTING order latent in
+  `not E1() P()` (EVENT blocker, BfShadow domain) inside a 5-type
+  salience mix with temporal joins + windowed accs; quarantined to
+  xfail/ with a finding (BfShadow-composition recon when scheduled; NOT
+  this family).
+- main-axis 42/123/7 ×10k BOTH trees: identical flagged sets (the known
+  3/2/4; artifacts cleaned).
+
+SCOPE. Event-typed exists witnesses keep D-102 flush visibility (the
+w-ladder). The order family is deliberately NOT chased here — it needs
+its own validated emission model (the exposure case makes the ordering
+explicit: land the SET fix, spec the ORDER). Next slab = D-162 per the
+handoff.

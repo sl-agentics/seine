@@ -1,0 +1,83 @@
+{
+ "name": "pr_cep_ex_lazy_tms_churn",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule R when exists D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 0,
+      "tag": "t1"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "t2"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-161: TMS logical-witness churn - an E1 tag-update re-fires J (insertLogical new-D + TMS retract of the old D, del-then-ins arrival). At a plain exists this COALESCES (R satisfied exactly once through the churn) - same net semantics as explicit churn (c_exists_churn_plain)."
+}

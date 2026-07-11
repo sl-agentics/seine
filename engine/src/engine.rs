@@ -5213,9 +5213,17 @@ impl Engine {
                 // a same-window del ANNIHILATES it in staging (the eager
                 // block re-fired the whole join memory at the release).
                 // EVENT blockers keep the certified D-102 visibility ("E1
-                // blocks E2 at the fire-1 flush"). Kind::Not ONLY: plain-
-                // EXISTS churn is pinned COALESCING (c_exists_churn_plain).
-                if matches!(t.node.kind, phreak::Kind::Not)
+                // blocks E2 at the fire-1 flush").
+                // D-161 widens the gate to Kind::Exists (the follow-on the
+                // D-159 scope note anticipated; own population, seeds
+                // 5001-5003 = 205/900 base divergences): a plain witness
+                // ins left visible to a mid-epoch flush SPLITS from its
+                // dstash-hidden ph=1 del twin — the update-churn WEDGE
+                // (the exists child dies permanently, ex2/ex2b) — and a
+                // flush-time first-satisfy drains the P backlog
+                // newest-first where the fire-eval drain is arrival-FIFO
+                // (ex8). Churn stays COALESCING (c_exists_churn_plain).
+                if matches!(t.node.kind, phreak::Kind::Not | phreak::Kind::Exists)
                     && !self
                         .event_specs
                         .contains_key(&self.rules[t.env.0].patterns[t.env.1].type_id)

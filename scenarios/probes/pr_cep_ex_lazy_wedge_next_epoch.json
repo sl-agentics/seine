@@ -1,0 +1,102 @@
+{
+ "name": "pr_cep_ex_lazy_wedge_next_epoch",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists D(tag == \"x\") P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z"
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-161: the wedge persistence probe - a NEXT-epoch P4 after the churn. Pre-widen the node stayed silent forever (engine 1 vs oracle 4); the stash widening restores it (4 firings)."
+}

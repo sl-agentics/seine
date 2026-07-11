@@ -1,0 +1,186 @@
+{
+ "name": "cf933x385",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 salience 15 when $a : E1(tag == \"z\") $b : E0(this before[0ms,50ms] $a) then end\nrule TJ1 salience 3 when $a : E1() $b : E1(this finishedby $a) then end\nrule W2 salience 1 when accumulate( E0(tag == \"y\", $t : ts); $c : sum($t) ) then end\nrule W3 when accumulate( E1(tag == \"z\", $t : ts) over window:time(150ms); $c : sum($t) ) then end\nrule J4 when $e : E0($t : tag) then insertLogical(new D($t)); end\nrule RD5 salience 7 when D() then end\nrule ND6 salience -6 when not D() P() then end\nrule G7 salience 10 when P(v == 2) then insert(new P3(3)); end\nrule C8 salience 5 when P3() then end\nrule NE9 salience 2 when not E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 28,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 17,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 29,
+    "tag": "x",
+    "dur": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "ts": 11
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 123,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 117,
+      "tag": "y",
+      "dur": 0
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 300
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "OPEN (flushed by fresh fuzz_cep seed 933 during the D-161 battery; PRE-EXISTING - fails identically on the pre-widen base 6cca187): an ORDER-only divergence (firing[15]: NE9 emits P2 vs oracle P1) on `NE9: not E1() P()` (EVENT blocker - the BfShadow's domain) inside a 5-type salience mix with temporal joins (before/finishedby), a windowed + plain accumulate, and a second plain-not rule. The BfShadow's emit_rank does not reproduce this composition; the single-rule notpop scaffolds cannot reach it (rule MIXES + salience). NOT the D-162 plain-exists family and NOT touched by the D-161 widen (both trees identical). Recon fresh when scheduled: minimize first (tools/minimize.py), then decide BfShadow-extension vs fence."
+}

@@ -183,6 +183,127 @@ def gen_full(r, name):
     return {"name": name, "types": TYPES, "drl": DRL, "facts": facts, "epochs": epochs}
 
 
+PTYPES = [
+    {"name": "E1", "fields": [{"name": "ts", "type": "i64"},
+                              {"name": "tag", "type": "String"}],
+     "event": {"timestamp": "ts", "expires_ms": 100}},
+    {"name": "P", "fields": [{"name": "v", "type": "i64"}]},
+    {"name": "D", "fields": [{"name": "tag", "type": "String"}]},
+]
+PDRL_BARE = "rule R when exists D() P() then end\n"
+PDRL_CONS = 'rule R when exists D(tag == "x") P() then end\n'
+PDRL_J = ('rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\n'
+          "rule R when exists D() P() then end\n")
+
+
+def gen_plain(r, name):
+    """SEINE_EXPOP_PLAIN=1 (D-161): the PLAIN-witness family — `exists D()
+    P()` with D a PLAIN type in a STREAM session (E1 declared keeps the
+    session STREAM; inserted only under the TMS drive). Three rule drives:
+      bare:    explicit D ins/del churn only (alpha can't exit by update);
+      cons:    D(tag=="x") — enables the UPDATE-CHURN axis (out-and-back /
+               exit-only / admit-only witness updates: the ex2 wedge family);
+      logical: J: E1($t:tag) => insertLogical(new D($t)) with UNIQUE tags
+               (bare R; D dies with its justifier — explicit E1 delete at
+               position or tag-update churn; no advances ⇒ no expiry axis,
+               plain witnesses never expire).
+    gidx bookkeeping mirrors fuzz_notorder_b.gen_plain: logical D inserts
+    consume nth_inserted slots at fire boundaries (unique tags ⇒ one J fire
+    per E1 insert + one per tag-update); E1s are only touched from PRIOR
+    epochs, at most once per epoch."""
+    drive = r.choice(["bare", "cons", "cons", "logical"])
+    gidx = [0]
+    nextv = [1]
+    nexttag = [1]
+    p_live = {}     # v -> insertion idx
+    d_live = {}     # idx -> current tag (explicit D's only)
+    e1_live = {}    # idx -> born-epoch
+    pend_j = [0]
+    facts = []
+
+    def mk_p(into):
+        v = nextv[0]; nextv[0] += 1
+        into.append({"type": "P", "fields": {"v": v}})
+        p_live[v] = gidx[0]; gidx[0] += 1
+
+    def mk_d(into, tag=None):
+        t = tag if tag is not None else \
+            (r.choice(["x", "z"]) if drive == "cons" else f"t{nexttag[0]}")
+        if t.startswith("t"):
+            nexttag[0] += 1
+        into.append({"type": "D", "fields": {"tag": t}})
+        d_live[gidx[0]] = t; gidx[0] += 1
+
+    def mk_e1(into, epoch_no):
+        tag = f"t{nexttag[0]}"; nexttag[0] += 1
+        into.append({"type": "E1", "fields": {"ts": 0, "tag": tag}})
+        e1_live[gidx[0]] = epoch_no
+        gidx[0] += 1; pend_j[0] += 1
+
+    slots = ["p"] * r.randint(1, 3)
+    if drive != "logical" and r.random() < 0.55:
+        slots += ["d"]
+    if drive == "logical":
+        slots += ["e"] * r.choice([0, 1, 1])
+    r.shuffle(slots)
+    for s in slots:
+        {"p": mk_p, "d": mk_d, "e": lambda i: mk_e1(i, 0)}[s](facts)
+    epochs = []
+    for ep_no in range(1, r.randint(2, 5) + 1):
+        gidx[0] += pend_j[0]; pend_j[0] = 0
+        actions = []
+        upd_this_ep = set()
+        for _ in range(r.randint(0, 5)):
+            op = r.choice(["insp", "delp", "updp", "insd", "deld", "updd",
+                           "updd", "inse", "upde", "dele"])
+            if op == "insp":
+                mk_p(actions); actions[-1]["op"] = "insert"
+            elif op == "delp" and len(p_live) > 1 and r.random() < 0.5:
+                v = r.choice(list(p_live))
+                actions.append({"op": "delete", "target": p_live.pop(v)})
+            elif op == "updp" and p_live:
+                v = r.choice(list(p_live))
+                actions.append({"op": "update", "target": p_live[v],
+                                "fields": {"v": v}})
+            elif op == "insd" and drive != "logical" and r.random() < 0.6:
+                mk_d(actions); actions[-1]["op"] = "insert"
+            elif op == "deld" and d_live:
+                h = r.choice(list(d_live)); del d_live[h]
+                actions.append({"op": "delete", "target": h})
+            elif op == "updd" and drive == "cons" and d_live:
+                h = r.choice(list(d_live))
+                t = r.choice(["x", "z"])
+                d_live[h] = t
+                actions.append({"op": "update", "target": h,
+                                "fields": {"tag": t}})
+            elif op == "inse" and drive == "logical":
+                mk_e1(actions, ep_no); actions[-1]["op"] = "insert"
+            elif op == "upde" and drive == "logical":
+                ok = [h for h, born in e1_live.items()
+                      if born < ep_no and h not in upd_this_ep]
+                if ok:
+                    h = r.choice(ok); upd_this_ep.add(h)
+                    tag = f"t{nexttag[0]}"; nexttag[0] += 1
+                    actions.append({"op": "update", "target": h,
+                                    "fields": {"tag": tag}})
+                    pend_j[0] += 1
+            elif op == "dele" and drive == "logical":
+                ok = [h for h, born in e1_live.items()
+                      if born < ep_no and h not in upd_this_ep]
+                if ok:
+                    h = r.choice(ok); del e1_live[h]
+                    actions.append({"op": "delete", "target": h})
+        efacts = []
+        for _ in range(r.randint(0, 3)):
+            mk_p(efacts)
+        if drive != "logical" and r.random() < 0.2:
+            mk_d(efacts)
+        epochs.append({"actions": actions, "facts": efacts})
+    drl = {"bare": PDRL_BARE, "cons": PDRL_CONS, "logical": PDRL_J}[drive]
+    return {"name": name, "types": PTYPES, "drl": drl,
+            "facts": facts, "epochs": epochs}
+
+
 def order_of(result):
     return [next((m["fields"]["v"] for m in f["matches"] if m["type"] == "P"), None)
             for f in result["firings"]]
@@ -191,7 +312,12 @@ def order_of(result):
 def main():
     n = int(sys.argv[1]); seed = int(sys.argv[2])
     r = random.Random(seed)
-    g = gen_full if os.environ.get("SEINE_EXPOP_FULL") else gen
+    if os.environ.get("SEINE_EXPOP_PLAIN"):
+        g = gen_plain
+    elif os.environ.get("SEINE_EXPOP_FULL"):
+        g = gen_full
+    else:
+        g = gen
     made = []
     for i in range(n):
         s = g(r, f"ex{seed}x{i}")
