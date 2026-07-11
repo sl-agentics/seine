@@ -1,0 +1,137 @@
+{
+ "name": "pr_cep_px_coalesce_logical",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule R when exists D() P() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0,
+    "tag": "t1"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 0,
+      "tag": "t2"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 0,
+      "tag": "t3"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 8
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 10
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "comment": "D-162 pin (ex5001x170): TMS cascade retracts (an E1 delete killing its insertLogical'd D) carry NO signal \u2014 an unobserved unsatisfy COALESCES with a same-window logical re-ins (net no-transition at the eval: witness handover, no re-fire, ever). The J-drive churn epochs fire nothing."
+}

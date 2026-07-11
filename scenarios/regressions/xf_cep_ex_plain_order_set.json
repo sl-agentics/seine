@@ -1,0 +1,122 @@
+{
+ "name": "xf_cep_ex_plain_order_set",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "tag": "t1"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 2
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t2"
+     }
+    }
+   ]
+  }
+ ],
+ "comment": "OPEN (D-161 recon): population exemplar of the order family's SET compound - initial satisfy fires [3,...] vs oracle [1,...] (order) AND the ep2 re-satisfy under-fires (engine 6 vs oracle 8 total; a delete-unsatisfy then D-reinsert re-satisfy epoch). Same D-162 family as xf_cep_ex_backlog_order. \u21d2 D-162 GRADUATED: the ENGINE PORT LANDED (quiescence eval + PxShadow \u2014 see xf_cep_ex_backlog_order). The ep1 delete now evaluates at ITS boundary (the exists child dies; the same-epoch staged P activations cancel) and the ep2 re-satisfy re-fires the WHOLE join memory in the machine order [6,4,5,1,3] \u2014 the 6-vs-8 SET compound and the initial-fire order both pin here."
+}

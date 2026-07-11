@@ -1,5 +1,5 @@
 {
- "name": "xf_cep_ex_plain_order_set",
+ "name": "pr_cep_px_wm_drain_order",
  "types": [
   {
    "name": "E1",
@@ -37,7 +37,7 @@
    ]
   }
  ],
- "drl": "rule R when exists D() P() then end\n",
+ "drl": "rule R when exists D(tag == \"x\") P() then end\n",
  "facts": [
   {
    "type": "P",
@@ -52,12 +52,6 @@
    }
   },
   {
-   "type": "D",
-   "fields": {
-    "tag": "t1"
-   }
-  },
-  {
    "type": "P",
    "fields": {
     "v": 3
@@ -68,56 +62,49 @@
   {
    "actions": [
     {
-     "type": "P",
+     "type": "D",
      "fields": {
-      "v": 4
+      "tag": "x"
      },
      "op": "insert"
     },
     {
-     "op": "delete",
-     "target": 2
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "v": 3
+     }
     },
     {
-     "op": "update",
-     "target": 1,
+     "op": "delete",
+     "target": 3
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
      "fields": {
-      "v": 2
+      "v": 4
      }
     },
     {
      "type": "P",
      "fields": {
       "v": 5
-     },
-     "op": "insert"
-    }
-   ],
-   "facts": []
-  },
-  {
-   "actions": [
-    {
-     "op": "delete",
-     "target": 1
-    }
-   ],
-   "facts": [
-    {
-     "type": "P",
-     "fields": {
-      "v": 6
      }
     },
     {
      "type": "D",
      "fields": {
-      "tag": "t2"
+      "tag": "x"
      }
     }
    ]
   }
  ],
- "open_divergence": true,
- "_finding": "OPEN (D-161 recon): population exemplar of the order family's SET compound - initial satisfy fires [3,...] vs oracle [1,...] (order) AND the ep2 re-satisfy under-fires (engine 6 vs oracle 8 total; a delete-unsatisfy then D-reinsert re-satisfy epoch). Same D-162 family as xf_cep_ex_backlog_order."
+ "comment": "D-162 pin (ex5003x280): an explicit witness delete's WM signal runs a BLOCKED boundary eval that still drains the join staging into rtm (reversed-append) \u2014 the later first-satisfy emits staged-arrival ++ reversed(rtm) = [4,5,1,2,3], NOT insertion order."
 }

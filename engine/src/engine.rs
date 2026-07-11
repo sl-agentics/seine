@@ -401,6 +401,12 @@ struct CompiledRule {
     /// `None` everywhere else — in particular in NON-stream sessions, where
     /// the plain-not order is main-axis-certified and stays untouched.
     pn_pos: Option<usize>,
+    /// D-162: `Some(tuple_pos)` iff this rule is the modeled non-temporal
+    /// `exists <PLAIN>() P()` shape in a STREAM session — the plain-witness
+    /// satisfy-order family. The gated pick follows the PxShadow's emitted
+    /// order; `None` ⇒ plain FIFO, untouched (non-stream plain-exists is
+    /// main-axis-certified).
+    px_pos: Option<usize>,
 }
 
 /// Compiled rule salience (D-043). Dynamic expressions evaluate per
@@ -1144,6 +1150,298 @@ impl PnShadow {
     }
 }
 
+/// D-162: the mechanical flush shadow for the gated PLAIN-witness exists
+/// (`exists <PLAIN>() P()` / `exists <PLAIN>(alpha) P()` in a STREAM
+/// session — the fourth shadow). A Rust replay of the validated spec
+/// `predict_pexists` (tools/model_check_exists.py EMODEL=pexists, 0-div
+/// on 1,800 oracle scenarios, seeds 5001-5006): the pflush join skeleton
+/// with the EXISTS polarity, the D-161 NET witness semantics, and a
+/// link-counter queue economy. The gated pick follows `emit_rank`.
+///
+///  - P machinery is PnShadow verbatim (same downstream join): inserts
+///    stage arrival-order; a bare-P update is an immediate rtm
+///    move-to-tail when in rtm (no-op staged); a delete annihilates its
+///    staged insert or leaves rtm and cancels its queued activation.
+///  - Witness (D) ops stage and apply as ONE NET batch per eval — only
+///    the net 0->1 / 1->0 transition satisfies (join_left_ins =
+///    staged-arrival ++ reversed(rtm); NO refraction — a re-satisfy
+///    re-emits the whole memory) or unsatisfies (children die, queued
+///    activations cancel). Every eval drains staged P's into rtm
+///    (reversed-append), emitting them iff THROUGH after the net step.
+///  - Deletes are SYNC at entry (explicit + TMS cascade move the link
+///    counter, annihilating still-staged inses); alpha-exit UPDATES of a
+///    processed D are DEFERRED (staged del, NO counter move — the D-155
+///    principle), of a still-staged ins a sync annihilation; alpha-admit
+///    stages a fresh ins. The shadow tracks per-fact alpha state itself.
+///  - Queue signals: LINK (a D-ins taking the counter 0->1 with the join
+///    populated; a P-ins while the counter > 0) — DEQUEUED by any sync
+///    counter 1->0 (segment delink); WM (explicit D deletes only, even
+///    annihilating ones) — never dequeued. TMS cascade dels are silent.
+///  - Evals run iff queued: pre-fire, mid-drain (a D event in-fire with
+///    the executor queued or NE items pending), and the QUIESCENCE eval
+///    (staged witness ops left at the agenda-empty point — where a
+///    cross-boundary unsatisfy is observed; a same-window del+ins pair
+///    has already coalesced net-wise). The IF left stays staged until
+///    the first fire-loop eval.
+struct PxShadow {
+    d_tid: TypeId,
+    d_ep: u32,
+    p_tid: TypeId,
+    p_ep: u32,
+    rtm: Vec<FactId>,
+    staged: Vec<FactId>,
+    /// Pending witness ops in ARRIVAL order: (is_insert, id, rhs stamp).
+    /// Applied as a NET batch at the eval; the stamp orders churn
+    /// canonicalization only (a same-RHS epilogue retract hops before
+    /// that RHS's own staged inses).
+    d_staged: Vec<(bool, FactId, u64)>,
+    /// PROCESSED live witnesses (the exists right memory, net).
+    d_alive: Vec<FactId>,
+    /// The exists link counter: |d_alive| + staged inses - sync dels.
+    /// A sync 1->0 dequeues the LINK-class signal (segment delink).
+    counter: i32,
+    /// Per-fact alpha state (last seen) for classifying witness updates
+    /// (exit-of-staged = annihilation; exit-of-processed = deferred del;
+    /// admit = fresh ins).
+    alpha_state: HashMap<FactId, bool>,
+    if_propagated: bool,
+    if_blocked: bool,
+    exec_link: bool,
+    exec_wm: bool,
+    /// Predicted emission order for the current fire cycle.
+    q: Vec<FactId>,
+    emit_rank: HashMap<FactId, usize>,
+}
+
+impl PxShadow {
+    fn new(d_tid: TypeId, d_ep: u32, p_tid: TypeId, p_ep: u32) -> Self {
+        PxShadow {
+            d_tid,
+            d_ep,
+            p_tid,
+            p_ep,
+            rtm: Vec::new(),
+            staged: Vec::new(),
+            d_staged: Vec::new(),
+            d_alive: Vec::new(),
+            counter: 0,
+            alpha_state: HashMap::new(),
+            if_propagated: false,
+            if_blocked: true, // exists polarity: blocked while NO witness
+            exec_link: false,
+            exec_wm: false,
+            q: Vec::new(),
+            emit_rank: HashMap::new(),
+        }
+    }
+
+    fn rerank(&mut self) {
+        self.emit_rank = self.q.iter().enumerate().map(|(i, &f)| (f, i)).collect();
+    }
+
+    fn queued(&self) -> bool {
+        self.exec_link || self.exec_wm
+    }
+
+    fn consume(&mut self) {
+        self.exec_link = false;
+        self.exec_wm = false;
+    }
+
+    /// A sync counter decrement; 1->0 dequeues the link-class signal.
+    fn counter_dec(&mut self) {
+        self.counter -= 1;
+        if self.counter == 0 {
+            self.exec_link = false;
+        }
+    }
+
+    /// The satisfy left-ins into the join: emit staged-arrival ++
+    /// reversed(pre-rtm) (algebraically reversed(post-drain rtm)).
+    fn join_left_ins(&mut self, pending: &mut Vec<FactId>) {
+        let pre: Vec<FactId> = self.rtm.iter().rev().copied().collect();
+        self.rtm.extend(self.staged.iter().rev().copied());
+        pending.extend(self.staged.iter().copied());
+        self.staged.clear();
+        pending.extend(pre);
+    }
+
+    /// One network eval: the NET witness step, then the join right-drain,
+    /// then the IF's own staged left-ins (first fire-loop eval only).
+    fn eval(&mut self, fire_loop: bool) {
+        let mut pending: Vec<FactId> = Vec::new();
+        let was = !self.d_alive.is_empty();
+        for (is_ins, d, _) in std::mem::take(&mut self.d_staged) {
+            if is_ins {
+                self.d_alive.push(d);
+            } else {
+                self.d_alive.retain(|&x| x != d);
+            }
+        }
+        self.counter = self.d_alive.len() as i32;
+        let now = !self.d_alive.is_empty();
+        if self.if_propagated {
+            if was && !now && !self.if_blocked {
+                self.if_blocked = true; // unsatisfy: children die
+                self.q.clear(); // matchCancelled for queued
+            } else if !was && now && self.if_blocked {
+                self.if_blocked = false; // satisfy: left-ins into the join
+                self.join_left_ins(&mut pending);
+            }
+        }
+        // the join drains its staged rights at EVERY eval (a blocked eval
+        // still moves the backlog into rtm); children emit iff THROUGH
+        // after the net step
+        if !self.staged.is_empty() {
+            self.rtm.extend(self.staged.iter().rev().copied());
+            if self.if_propagated && !self.if_blocked {
+                pending.extend(self.staged.iter().copied());
+            }
+            self.staged.clear();
+        }
+        if fire_loop && !self.if_propagated {
+            self.if_propagated = true;
+            self.if_blocked = !now;
+            if !self.if_blocked {
+                self.join_left_ins(&mut pending);
+            }
+        }
+        self.q.extend(pending);
+        self.rerank();
+    }
+
+    fn on_p_insert(&mut self, id: FactId) {
+        self.staged.push(id);
+        if self.counter > 0 {
+            self.exec_link = true; // staging notifies while linked
+        }
+    }
+
+    fn on_p_update(&mut self, id: FactId) {
+        if let Some(pos) = self.rtm.iter().position(|&p| p == id) {
+            self.rtm.remove(pos);
+            self.rtm.push(id);
+        }
+    }
+
+    fn on_p_delete(&mut self, id: FactId) {
+        if let Some(pos) = self.staged.iter().position(|&p| p == id) {
+            self.staged.remove(pos); // addDelete annihilates staged ins
+        } else if let Some(pos) = self.rtm.iter().position(|&p| p == id) {
+            self.rtm.remove(pos);
+        }
+        self.q.retain(|&p| p != id); // matchCancelled
+        self.rerank();
+    }
+
+    /// Stage a witness ins (alpha already passed by the caller); a
+    /// counter 0->1 with the join populated is the satisfy-link.
+    fn stage_d_ins(&mut self, id: FactId, seq: u64) {
+        self.d_staged.push((true, id, seq));
+        self.counter += 1;
+        if self.counter == 1 && (!self.staged.is_empty() || !self.rtm.is_empty()) {
+            self.exec_link = true;
+        }
+    }
+
+    /// A witness reaching the WM (any provenance). `has_ne` = the rule
+    /// has queued unfired activations (the executor evaluates before its
+    /// next item when witness ops are staged).
+    fn on_d_insert(&mut self, id: FactId, alpha: bool, in_fire: bool, has_ne: bool, seq: u64) {
+        self.alpha_state.insert(id, alpha);
+        if !alpha {
+            return;
+        }
+        self.stage_d_ins(id, seq);
+        if in_fire && !self.d_staged.is_empty() && (self.queued() || has_ne) {
+            self.eval(true);
+            self.consume();
+        }
+    }
+
+    /// A witness leaving the WM. SYNC: annihilates a still-staged ins or
+    /// stages a del, moving the counter at entry (1->0 dequeues LINK
+    /// signals). `explicit` (a direct session.delete of this handle)
+    /// additionally carries the WM signal; TMS cascades are silent.
+    /// `churn` hops the del before the same-RHS trailing staged inses.
+    fn on_d_delete(
+        &mut self,
+        id: FactId,
+        explicit: bool,
+        in_fire: bool,
+        has_ne: bool,
+        churn: bool,
+        seq: u64,
+    ) {
+        let was_alpha = self.alpha_state.remove(&id).unwrap_or(false);
+        if !was_alpha {
+            return;
+        }
+        if let Some(pos) = self.d_staged.iter().position(|e| e.0 && e.1 == id) {
+            self.d_staged.remove(pos);
+            self.counter_dec();
+        } else {
+            let mut at = self.d_staged.len();
+            if churn {
+                while at > 0 && self.d_staged[at - 1].0 && self.d_staged[at - 1].2 == seq {
+                    at -= 1;
+                }
+            }
+            self.d_staged.insert(at, (false, id, seq));
+            self.counter_dec();
+        }
+        if explicit {
+            self.exec_wm = true;
+        }
+        if in_fire && !self.d_staged.is_empty() && (self.queued() || has_ne) {
+            self.eval(true);
+            self.consume();
+        }
+    }
+
+    /// An external witness update, classified against the tracked alpha
+    /// state: exit-of-staged = staging-level annihilation (counter moves,
+    /// no signal); exit-of-processed = DEFERRED del (no counter move);
+    /// admit = a fresh staged ins; no-change = inert (bare witness mask).
+    fn on_d_update(&mut self, id: FactId, alpha_now: bool, seq: u64) {
+        let was = self.alpha_state.insert(id, alpha_now).unwrap_or(false);
+        if was && !alpha_now {
+            if let Some(pos) = self.d_staged.iter().position(|e| e.0 && e.1 == id) {
+                self.d_staged.remove(pos);
+                self.counter_dec();
+            } else if self.d_alive.contains(&id) {
+                self.d_staged.push((false, id, seq));
+            }
+        } else if !was && alpha_now {
+            self.stage_d_ins(id, seq);
+        }
+    }
+
+    /// fireAllRules analog: the fire-loop eval iff QUEUED.
+    fn pre_fire(&mut self) {
+        if self.queued() {
+            self.eval(true);
+        }
+        self.consume();
+    }
+
+    /// The agenda-quiescence eval: staged witness ops left unprocessed at
+    /// the window's end evaluate now even with nothing queued — where a
+    /// cross-boundary unsatisfy is observed.
+    fn quiescence(&mut self) {
+        if !self.d_staged.is_empty() {
+            self.eval(true);
+            self.consume();
+        }
+    }
+
+    /// Fire boundary: the cycle's prediction is consumed.
+    fn post_fire(&mut self) {
+        self.q.clear();
+        self.emit_rank.clear();
+    }
+}
+
 use crate::phreak::{self, Origin, Staged, Tup};
 
 /// TMS equality-key value: Value with Java-equals semantics for doubles
@@ -1671,6 +1969,11 @@ struct RuleNet {
     /// D-158: the mechanical flush shadow for a gated `not <PLAIN>() P()`
     /// rule in a STREAM session with bare patterns (the cf313x4 family).
     pn: Option<PnShadow>,
+    /// D-162: the mechanical flush shadow for a gated `exists <PLAIN>() P()`
+    /// rule in a STREAM session (the plain-exists satisfy-order family).
+    /// The witness pattern may carry ALPHA-only constraints (the cons
+    /// drive); the P pattern must be bare.
+    px: Option<PxShadow>,
 }
 
 impl RuleNet {
@@ -1886,6 +2189,10 @@ pub struct Engine {
     /// bumped at each execute_rhs (and each external-phase D event, so a
     /// stale backlog ins can never alias a live RHS).
     pn_seq: u64,
+    /// D-162: the handle currently being session.delete'd (explicit
+    /// provenance for the px shadow's WM signal) — cascaded TMS retracts
+    /// inside the same delete are NOT it.
+    px_explicit_victim: Option<FactId>,
     /// D-158: set around execute_rhs's stale-key TMS retract epilogue — the
     /// ONE site whose WM deletes are churn-class: the spec order there is
     /// del-BEFORE-this-RHS's-inses (Drools' synchronous WM-DELETE vs queued
@@ -2038,6 +2345,7 @@ impl Engine {
             in_stream_flush: false,
             in_fire_loop: false,
             pn_seq: 0,
+            px_explicit_victim: None,
             pn_churn_ctx: false,
             fire_no: 0,
             flush_trigger_tid: None,
@@ -2522,6 +2830,75 @@ impl Engine {
                     None => None,
                 }
             };
+            // D-162: the plain-EXISTS shadow's static exclusions — the pn
+            // set, except the WITNESS may carry ALPHA-only constraints (the
+            // cons drive `D(tag=="x")`: the shadow re-evaluates the alpha
+            // per witness op via alpha_passes_fields) and RHS
+            // Insert/InsertLogical of the WITNESS type is allowed (the
+            // logical J-drive; shared justifications are WM-visible at the
+            // hook). The P pattern must stay bare (mask-empty reorder
+            // semantics).
+            let px = {
+                let r = &self.rules[ri];
+                match r.px_pos {
+                    Some(_) => {
+                        let d = &r.patterns[1];
+                        let p = &r.patterns[2];
+                        let d_alpha_only = d.bind_fields == 0
+                            && d.cmps.iter().all(|c| match &c.test {
+                                Test::IsNull { .. } | Test::Unknown => true,
+                                Test::Matches(_) | Test::Contains(_) => true,
+                                Test::Cmp { rhs: Src::Lit(_), .. } => true,
+                                Test::Cmp { rhs: Src::Field(ti, _), .. } => {
+                                    Some(*ti) == d.tpos
+                                }
+                                Test::Group { cross_var, .. } => !*cross_var,
+                                _ => false,
+                            });
+                        let p_bare = p.cmps.is_empty() && p.bind_fields == 0;
+                        let distinct =
+                            d.type_id != p.type_id || d.entry_point != p.entry_point;
+                        let p_plain = !self.event_specs.contains_key(&p.type_id);
+                        let gated = [d.type_id, p.type_id];
+                        let rhs_bad = self.rules.iter().any(|rr| {
+                            rr.actions.iter().any(|a| match a {
+                                CompiledAction::Insert { type_id, .. }
+                                | CompiledAction::InsertLogical { type_id, .. } => {
+                                    *type_id == p.type_id
+                                }
+                                CompiledAction::Set { pos, .. }
+                                | CompiledAction::Update { pos }
+                                | CompiledAction::Delete { pos } => rr
+                                    .patterns
+                                    .iter()
+                                    .find(|q| q.tpos == Some(*pos))
+                                    .is_some_and(|q| gated.contains(&q.type_id)),
+                                CompiledAction::SetFocus { .. } => false,
+                            })
+                        });
+                        let windowed = self.rules.iter().any(|rr| {
+                            rr.patterns.iter().any(|q| {
+                                q.acc
+                                    .as_ref()
+                                    .is_some_and(|a| a.window_time.is_some())
+                                    && gated.contains(&q.type_id)
+                            })
+                        });
+                        if d_alpha_only && p_bare && distinct && p_plain && !rhs_bad && !windowed
+                        {
+                            Some(PxShadow::new(
+                                d.type_id,
+                                d.entry_point,
+                                p.type_id,
+                                p.entry_point,
+                            ))
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
+                }
+            };
             self.nets.push(RuleNet {
                 s0: vec![Staged::default()],
                 lia,
@@ -2538,6 +2915,7 @@ impl Engine {
                 bf,
                 ex,
                 pn,
+                px,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -4031,7 +4409,18 @@ impl Engine {
             && patterns[2].ce == CeKind::Positive
             && !self.event_specs.is_empty();
         let pn_pos = is_pn.then(|| patterns[2].tpos).flatten();
-        Ok(CompiledRule { def, patterns, actions, salience, dep_queries, not_order_pos, order_exists, pn_pos })
+        // D-162: the PLAIN-witness exists sibling — `exists <PLAIN>() P()` in
+        // a STREAM session (the satisfy EMISSION-ORDER family, seeds
+        // 5001-5006). Non-stream plain-exists order is main-axis-certified:
+        // `px_pos` stays None there and the pick is byte-identical FIFO.
+        let is_px = patterns.len() == 3
+            && patterns[1].ce == CeKind::Exists
+            && !patterns[1].cmps.iter().any(|c| matches!(c.test, Test::Temporal { .. }))
+            && !self.event_specs.contains_key(&patterns[1].type_id)
+            && patterns[2].ce == CeKind::Positive
+            && !self.event_specs.is_empty();
+        let px_pos = is_px.then(|| patterns[2].tpos).flatten();
+        Ok(CompiledRule { def, patterns, actions, salience, dep_queries, not_order_pos, order_exists, pn_pos, px_pos })
     }
 
     fn compile_arg(
@@ -4243,6 +4632,7 @@ impl Engine {
         self.in_stream_flush = false;
         self.in_fire_loop = false;
         self.pn_seq = 0;
+        self.px_explicit_victim = None;
         self.pn_churn_ctx = false;
         self.flush_trigger_tid = None;
         self.ever_linked.clear();
@@ -4573,6 +4963,12 @@ impl Engine {
                     pn.on_p_insert(id);
                 }
             }
+            // D-162: the plain-exists shadow's P side (same discipline).
+            if let Some(px) = net.px.as_mut() {
+                if px.p_tid == tid && px.p_ep == ep {
+                    px.on_p_insert(id);
+                }
+            }
         }
     }
 
@@ -4602,6 +4998,23 @@ impl Engine {
                 }
             }
         }
+        // D-162: the plain-exists shadow — bare-P move-to-tail, and the
+        // WITNESS update classified against the shadow's tracked alpha
+        // state (exit-of-staged annihilates; exit-of-processed defers;
+        // admit stages a fresh ins). Index loop: the alpha re-evaluation
+        // borrows self.
+        if self.nets.iter().any(|n| n.px.is_some()) {
+            for ri in 0..self.nets.len() {
+                let Some(px) = self.nets[ri].px.as_ref() else { continue };
+                if px.p_tid == tid && px.p_ep == ep {
+                    self.nets[ri].px.as_mut().unwrap().on_p_update(id);
+                } else if px.d_tid == tid && px.d_ep == ep {
+                    let alpha_now = self.alpha_passes_fields(ri, 1, id);
+                    let seq = self.pn_seq;
+                    self.nets[ri].px.as_mut().unwrap().on_d_update(id, alpha_now, seq);
+                }
+            }
+        }
     }
 
     /// D-151: an external explicit delete steps the shadows at its queue
@@ -4628,6 +5041,13 @@ impl Engine {
             if let Some(pn) = net.pn.as_mut() {
                 if pn.p_tid == tid && pn.p_ep == ep {
                     pn.on_p_delete(id);
+                }
+            }
+            // D-162: P only — witness deletes reach the px shadow at the WM
+            // level (px_on_wm_delete), where explicit provenance is flagged.
+            if let Some(px) = net.px.as_mut() {
+                if px.p_tid == tid && px.p_ep == ep {
+                    px.on_p_delete(id);
                 }
             }
         }
@@ -4678,6 +5098,67 @@ impl Engine {
                 if pn.d_tid == tid && pn.d_ep == ep {
                     pn.on_d_delete(f, in_fire, churn, seq);
                 }
+            }
+        }
+    }
+
+    /// D-162: a witness-typed fact reaching the WM (any provenance —
+    /// external op, RHS insertLogical, pending-belief unstage) steps every
+    /// plain-exists shadow whose witness type matches, with the alpha
+    /// re-evaluated against the LIVE fields (the cons drive). `has_ne`
+    /// (queued unfired activations) feeds the mid-drain eval condition.
+    fn px_on_wm_insert(&mut self, f: FactId) {
+        if self.nets.iter().all(|n| n.px.is_none()) {
+            return;
+        }
+        let tid = self.store.fact_type(f);
+        let ep = self.fact_ep(f);
+        let in_fire = self.in_fire_loop;
+        if !in_fire {
+            self.pn_seq += 1;
+        }
+        let seq = self.pn_seq;
+        for ri in 0..self.nets.len() {
+            let Some(px) = self.nets[ri].px.as_ref() else { continue };
+            if px.d_tid == tid && px.d_ep == ep {
+                let alpha = self.alpha_passes_fields(ri, 1, f);
+                let has_ne = !self.nets[ri].queue.is_empty();
+                self.nets[ri]
+                    .px
+                    .as_mut()
+                    .unwrap()
+                    .on_d_insert(f, alpha, in_fire, has_ne, seq);
+            }
+        }
+    }
+
+    /// D-162: a witness-typed fact leaving the WM. `explicit` iff this
+    /// handle is the direct session.delete victim (the WM signal); TMS
+    /// cascades and expiry stay silent — an unobserved unsatisfy coalesces
+    /// until the quiescence eval. `pn_churn_ctx` hops an epilogue retract
+    /// before its own RHS's staged inses (shared with the pn shadow).
+    fn px_on_wm_delete(&mut self, f: FactId) {
+        if self.nets.iter().all(|n| n.px.is_none()) {
+            return;
+        }
+        let tid = self.store.fact_type(f);
+        let ep = self.fact_ep(f);
+        let in_fire = self.in_fire_loop;
+        let churn = self.pn_churn_ctx;
+        let explicit = self.px_explicit_victim == Some(f);
+        if !in_fire {
+            self.pn_seq += 1;
+        }
+        let seq = self.pn_seq;
+        for ri in 0..self.nets.len() {
+            let Some(px) = self.nets[ri].px.as_ref() else { continue };
+            if px.d_tid == tid && px.d_ep == ep {
+                let has_ne = !self.nets[ri].queue.is_empty();
+                self.nets[ri]
+                    .px
+                    .as_mut()
+                    .unwrap()
+                    .on_d_delete(f, explicit, in_fire, has_ne, churn, seq);
             }
         }
     }
@@ -5790,7 +6271,13 @@ impl Engine {
                         && !matches!(pat.sub, SubRole::Outer { .. })
                         && pat.acc.is_some()
                 });
+            // D-162: mark the explicit victim for the px shadow's WM signal
+            // (cascaded TMS retracts inside this delete are NOT explicit).
+            if !self.in_expiration_drain {
+                self.px_explicit_victim = Some(victim);
+            }
             self.on_delete_ex(victim, None, defer_acc);
+            self.px_explicit_victim = None;
             if defer_acc {
                 self.acc_pending.push((victim, AccEntry::Del));
             }
@@ -5920,6 +6407,12 @@ impl Engine {
             if let Some(pn) = net.pn.as_mut() {
                 pn.pre_fire(has_items);
             }
+            // D-162: the plain-exists shadow's fire-loop eval iff QUEUED
+            // (the spec's fire_all pre-drain step — no has_items, no
+            // unconditional first eval: a pure-P backlog stays staged).
+            if let Some(px) = net.px.as_mut() {
+                px.pre_fire();
+            }
         }
         self.in_fire_loop = true; // D-158: mid-loop D events eval immediately
         let mut firings = Vec::new();
@@ -5951,10 +6444,33 @@ impl Engine {
                     // PnShadow's emitted order (extended mid-cycle by
                     // in-fire churn/quiescence evals). No shadow (static
                     // exclusions) or unranked facts ⇒ plain FIFO.
-                    None => match self.rules[ri].pn_pos {
-                        None => 0,
-                        Some(pos) => {
+                    None => match (self.rules[ri].pn_pos, self.rules[ri].px_pos) {
+                        (None, None) => 0,
+                        (Some(pos), _) => {
                             let rank = self.nets[ri].pn.as_ref().map(|b| &b.emit_rank);
+                            self.nets[ri]
+                                .queue
+                                .iter()
+                                .enumerate()
+                                .min_by_key(|(i, a)| {
+                                    let r = a
+                                        .t
+                                        .get(pos)
+                                        .and_then(|f| rank.and_then(|m| m.get(f)))
+                                        .copied()
+                                        .unwrap_or(usize::MAX);
+                                    (r, *i)
+                                })
+                                .map(|(i, _)| i)
+                                .unwrap_or(0)
+                        }
+                        (None, Some(pos)) => {
+                            // D-162: the plain-exists gated pick — rank by
+                            // the PxShadow's emitted order (extended
+                            // mid-cycle by in-fire witness evals and the
+                            // quiescence eval). No shadow (static
+                            // exclusions) or unranked facts ⇒ plain FIFO.
+                            let rank = self.nets[ri].px.as_ref().map(|b| &b.emit_rank);
                             self.nets[ri]
                                 .queue
                                 .iter()
@@ -6108,6 +6624,9 @@ impl Engine {
             }
             if let Some(pn) = net.pn.as_mut() {
                 pn.post_fire();
+            }
+            if let Some(px) = net.px.as_mut() {
+                px.post_fire();
             }
         }
         self.fire_no += 1; // D-102 cycle-4: fire boundary — between-fire inserts stamp the NEXT fire
@@ -6463,6 +6982,48 @@ impl Engine {
                     }
                     continue;
                 }
+                // D-162 QUIESCENCE (the flushExpirations slot): staged
+                // witness ops at a PLAIN-witnessed non-temporal EXISTS node
+                // in a STREAM session evaluate at the window's end even with
+                // the rule's item clean — a cross-boundary unsatisfy is
+                // OBSERVED here (the exists child dies; the next window's
+                // re-satisfy then re-fires the whole join memory — spec
+                // predict_pexists, ex5001x75/x129), while a same-window
+                // del+ins pair has already coalesced in one eval (witness
+                // handover, no re-fire — x170/x79). Without this the leaked
+                // del batches with a LATER window's ins: the D-161 stash
+                // hides it from mid-epoch flushes whose evals clear the
+                // dirty flag, so the boundary pop held it (the x75 6-vs-8
+                // under-fire). The px shadows run their own quiescence eval
+                // first so the rescan's picks are ranked.
+                if !self.event_specs.is_empty() {
+                    for net in self.nets.iter_mut() {
+                        if let Some(px) = net.px.as_mut() {
+                            px.quiescence();
+                        }
+                    }
+                    let mut requeued = false;
+                    for ri in 0..self.nets.len() {
+                        let needs = self.nets[ri].path.iter().any(|&ni| {
+                            let t = &self.trie[ni];
+                            t.node.kind == phreak::Kind::Exists
+                                && !t.node.temporal
+                                && !t.node.s_right.is_empty()
+                                && !self.event_specs.contains_key(
+                                    &self.rules[t.env.0].patterns[t.env.1].type_id,
+                                )
+                        });
+                        if needs && !(self.nets[ri].queued && self.nets[ri].dirty) {
+                            self.nets[ri].queued = true;
+                            self.nets[ri].dirty = true;
+                            self.nets[ri].dirty_stamp = self.stage_seq;
+                            requeued = true;
+                        }
+                    }
+                    if requeued {
+                        continue;
+                    }
+                }
                 return None;
             };
             if is_query {
@@ -6522,6 +7083,7 @@ impl Engine {
     /// transiently links the path and QUEUES its items (D-037/fz_7_2122).
     fn on_insert(&mut self, f: FactId, origin: Origin) {
         self.pn_on_wm_insert(f); // D-158: plain-not blocker shadows
+        self.px_on_wm_insert(f); // D-162: plain-exists witness shadows
         self.mark_queries_pending();
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
@@ -6829,6 +7391,7 @@ impl Engine {
 
     fn on_delete_ex(&mut self, f: FactId, origin: Origin, defer_acc: bool) {
         self.pn_on_wm_delete(f); // D-158: plain-not blocker shadows
+        self.px_on_wm_delete(f); // D-162: plain-exists witness shadows
         self.mark_queries_pending();
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {

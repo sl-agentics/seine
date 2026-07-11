@@ -11,36 +11,41 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10 (late), post-D-162 SPEC — **the plain-EXISTS
-satisfy EMISSION-ORDER mechanism is CRACKED; the spec is 0-div on ALL
-1,800 population scenarios; the ENGINE PORT PENDS BRYAN'S GATE.**
-Report: `~/.claude/plans/plain-exists-order-report.md` (mechanism +
-discriminator table + port approaches). Spec = `predict_pexists`
-(`tools/model_check_exists.py`, EMODEL=pexists): the pflush join
-skeleton (staged-arrival ++ reversed(rtm) emissions, per-eval
-reversed-append drains, move-to-tail updates, NO refraction — a
-re-satisfy re-emits the whole memory = the x75 SET-compound) × exists
-polarity × D-161 NET witness semantics × a link-counter queue economy
-(deletes SYNC / updates DEFERRED; LINK signals dequeue on sync 1→0;
-explicit-D-delete WM signals persist; TMS cascade dels silent; evals
-iff queued + a QUIESCENCE eval observes cross-boundary unsatisfies).
-Validation: banked 656/656 (5001-5003) + fresh 660/660 (5004-5006,
-zero refit) + FULL-COVERAGE oracle sweeps **1,800/1,800** (no
-firing-count filter); EMODEL=flush regression 60/60; lint 1468/0/0.
-ENGINE untouched at `d400c56` (defect: order + x75-class refraction
-under-fires; 200/900 banked fails stand). **NEXT: Bryan reads the
-report → gate → the PORT session** (fix the plain-exists fire-eval
-satisfy drain: full-memory re-emission + machine order; a pick shadow
-alone cannot fix the SET class — see report §Port approach; gates
-listed there incl. corpus 11/1070/299 + 3 xfail graduations +
-populations both trees + fuzz_cep/main-axis both trees).
-Populations: `EXPOP_TMP=$CLAUDE_JOB_DIR/tmp/explain SEINE_EXPOP_PLAIN=1
-tools/fuzz_existsorder.py 300 <5001-5006>` (deterministic; banked in
-job 577ad61a tmp). ALSO quarantined (D-161): `cf933x385` (pre-existing
-event-not ORDER latent in a salience/temporal/acc MIX;
-BfShadow-composition recon when scheduled). Other deferred: D-093
-quarantine graduation (oracle bump, D-148), D-080 TMS envelope, Allen
-@expires fence (17 `xf_cep_e_*`), class-3 re-entrant churn.
+_Last updated: 2026-07-11, post-D-162 PORT — **the plain-EXISTS
+satisfy-order family is CLOSED** (spec arc 2026-07-10 `5c15f80`; Bryan
+cleared the gate; port landed same-day-after). Port = TWO gated pieces
+(PLAIN-witnessed non-temporal `Kind::Exists`, STREAM sessions):
+(1) the QUIESCENCE step — `next_activation`'s quiescence chain
+re-queues rules whose gated exists node holds staged witness ops at the
+window's end (the flushExpirations slot; the x75 6-vs-8 root was a
+staged witness DEL leaking across its boundary — dstash-hidden from a
+mid-epoch flush whose eval wiped the dirty flag — then BATCHING with
+the next window's ins into a no-transition witness handover; the wiped
+flag is otherwise LOAD-BEARING: it is what coalesces same-window
+del+ins pairs, x170/x79); (2) **PxShadow** — the FOURTH mechanical
+shadow (`predict_pexists` in Rust): NET witness batches, link-counter
+queue economy (sync deletes / deferred updates; sync 1→0 dequeues LINK
+signals; explicit witness deletes carry a sticky WM signal
+(`px_explicit_victim`); TMS cascades silent), alpha-tracked witness
+updates (the cons drive — `alpha_passes_fields` per op), evals iff
+queued + its own quiescence eval, `join_left_ins` = staged-arrival ++
+reversed(rtm), NO refraction. Gate `px_pos` [IF, EXISTS over PLAIN,
+positive P] + STREAM; PnShadow-style exclusions EXCEPT alpha-only
+witness cmps + RHS Insert/InsertLogical of the WITNESS type allowed
+(the logical J-drive); P bare. Spec: `EMODEL=pexists
+tools/model_check_exists.py` (0-div on 2,010 banked+fresh, seeds
+5001-5007). GATES: populations FIXED **2,100/2,100** vs BASE
+fails **479/2,100** — 68+67+65 banked (EXACTLY the D-161 fixedfails counts) + 74+60+72+73 fresh ⇒ **+479 fixed / 0 regressed** (A/B worktree at `d400c56`); corpus **11/1075/302**
+byte-identical (+5 `pr_cep_px_*` pins; 3 xfails GRADUATED:
+`xf_cep_ex_{backlog_order,plain_order_set,order_widen_exposed}`); lint
+**1476**; cargo 9; bindings 72; expop FULL 600/600 (896) + notpop FULL
+600/600 (897) + notpop PLAIN 400/400 (4406); D-152 banked event-exists
+60/60; fuzz_cep 313/907/911/933 ×400 both trees (0-div; 933 =
+`cf933x385` both, the quarantined pre-existing latent); main-axis
+42/123/7 ×10k both trees identical flagged sets — 3/2/4, the known 9 pre-existing latents (fz_42_{258,6358,7682}, fz_123_{763,1589}, fz_7_{776,1936,2990,3185}); artifacts cleaned. **NEXT is Bryan's call — no
+active slab.** Deferred: D-093 quarantine graduation (oracle bump,
+D-148), D-080 TMS envelope, Allen @expires fence (17 `xf_cep_e_*`),
+class-3 re-entrant churn, the `cf933x385` BfShadow-composition recon.
 Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
@@ -53,7 +58,7 @@ Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 Bryan holds every push; branch-only, NO tags). UNPUSHED: the D-157 →
 D-162 span (b9dc98e D-157 / 8aa90ed + 8e5a02b pointers / 5648a71 D-158
 spec / 3b2aa52 D-158 port / 7d53106 D-159 / 6cca187 D-160 / d400c56
-D-161 exists-widen / the D-162 pexists SPEC commit). ⚠ **NO `v*` TAGS until a PyPI release is
+D-161 exists-widen / 5c15f80 D-162 spec / the D-162 PORT commit). ⚠ **NO `v*` TAGS until a PyPI release is
 intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
 `pypi` environment has NO protection rules (gh-verified): a new tag
 publishes `seine-rs` with no manual gate. Arc history: the D-entries
@@ -70,8 +75,8 @@ regressions **299** byte-identical / lint **1468 live·0 ghost·0 inert** /
 `tools/model_check_notorder_b.py <pop> pflush`; event-not MODEL=flush;
 winacc/acc-drain `tools/model_check_winacc.py <popdir>`; plain-exists
 populations `SEINE_EXPOP_PLAIN=1 tools/fuzz_existsorder.py <n> <seed>`
-+ `EMODEL=pexists tools/model_check_exists.py <pop>` (seeds 5001-5006
-banked in job 577ad61a tmp; the D-162 spec, 1,800/1,800).
++ `EMODEL=pexists tools/model_check_exists.py <pop>` (seeds 5001-5007
+banked in job 577ad61a tmp; the D-162 spec, PORTED).
 **Red on resume ⇒ drift — investigate before building.**
 
 **Landed (background — log has detail):** v0.4.0 CEP E1 + reset + agenda groups
@@ -8589,3 +8594,88 @@ filed until the port lands. Coverage caveats for the port session: the
 generator never reaches zero live P's (satisfy-link's join-populated
 corner untested — hand-probe at port time); ex5001x5-class mechanism-
 luck shapes need the A/B, not just the model.
+
+## D-162 (PORT) — plain-EXISTS satisfy order LANDED: the quiescence eval + PxShadow; the family is CLOSED
+
+DATE: 2026-07-11. Bryan cleared the gate on the D-162 spec report
+(`~/.claude/plans/plain-exists-order-report.md`); this is the engine port,
+D-158 discipline (shadow + scoped eval fix, full battery, A/B at the
+D-161 commit `d400c56`).
+
+THE TWO PIECES (both gated to the family: PLAIN-witnessed non-temporal
+`Kind::Exists` in a STREAM session):
+
+1. **The QUIESCENCE step (the SET fix)** — `next_activation`'s
+   agenda-quiescence chain (the flushExpirations slot, after
+   `drain_pending_expirations`/`exp_deferred`) re-queues (queued+dirty)
+   any rule whose gated exists node holds staged witness ops at the
+   window's end; the rescan pop then evaluates them. ROOT (x75 trace):
+   a staged plain-witness DEL survived its own boundary — the unlink
+   transition queued+dirtied the rule, but a later same-epoch flush hid
+   the del in the dstash and its eval cleared the dirty flag
+   (evaluateNetwork -> setDirty(false)), so the boundary pop held a
+   queued-but-clean item (the faithful D-084/D-091 hold) and the del
+   BATCHED with the NEXT window's witness ins into one eval = witness
+   HANDOVER (the exists child never died; no re-fire; the same-epoch
+   staged-P activations never cancelled: the 6-vs-8 under-fire). The
+   engine's wiped-flag hold is otherwise LOAD-BEARING (it is what
+   coalesces a same-window del+ins arriving around mid-drain churns —
+   x170/x79 — matching Drools); only the WINDOW-END leak is wrong, and
+   the quiescence step is exactly the spec's quiescence eval. A pick
+   shadow could never fix this class (missing/extra activations).
+2. **PxShadow (the ORDER fix)** — the fourth mechanical shadow: the
+   validated `predict_pexists` machine in Rust (engine.rs), stepped at
+   the WM hooks (P side external ins/upd/del; witness side WM-level
+   ins/del for ALL provenances + external update), with the NET witness
+   batch, the link-counter queue economy (sync deletes / deferred
+   updates; a sync 1->0 dequeues LINK signals; explicit witness deletes
+   carry a never-dequeued WM signal; TMS cascades silent), pre-fire
+   eval iff queued, mid-drain evals (in-fire witness events with the
+   executor queued or NE items pending), its own quiescence eval, and
+   `join_left_ins` emissions (staged-arrival ++ reversed(rtm), NO
+   refraction). The gated static pick ranks by `emit_rank` (unranked ⇒
+   FIFO). Gate `px_pos` = [InitialFact, non-temporal EXISTS over a
+   PLAIN type, positive P] + STREAM; build exclusions = the PnShadow
+   set EXCEPT the witness may carry ALPHA-only constraints (the cons
+   drive — the shadow re-evaluates `alpha_passes_fields` per witness op
+   and tracks per-fact alpha state for update classification) and RHS
+   Insert/InsertLogical of the WITNESS type is allowed (the logical
+   J-drive). P must be bare. Explicit-delete provenance = a
+   `px_explicit_victim` stamp in `delete_fact` (cascaded TMS retracts
+   inside the same delete are NOT explicit); churn canonicalization
+   reuses the pn epilogue hop (`pn_churn_ctx`/`pn_seq`).
+
+PIECES: engine.rs — PxShadow struct + `CompiledRule.px_pos` +
+`RuleNet.px` + build gate + WM/external hooks + `px_explicit_victim` +
+pre/post_fire + the quiescence step + the gated pick branch. Scenarios:
+3 xfail witnesses GRADUATED to regressions/
+(`xf_cep_ex_{backlog_order,plain_order_set,order_widen_exposed}`) + 5
+mechanism pins `pr_cep_px_{refire_explicit_del,coalesce_logical,
+alpha_annih_fifo,wm_drain_order,quiesce_cascade}` (population
+discriminators x129/x170/x88/x280/x130).
+
+GATES (all green; A/B base = the `d400c56` worktree, oracle target
+symlinked — a fresh worktree lacks the gitignored oracle build):
+- populations (the SAME files both trees): FIXED **2,100/2,100** (seeds
+  5001-5007 — 5007 generated fresh POST-port) vs BASE fails **479/2,100** — 68+67+65 banked (EXACTLY the D-161 fixedfails counts) + 74+60+72+73 fresh ⇒ **+479 fixed / 0 regressed**;
+  spec `EMODEL=pexists` ALL-MATCH on every banked capture incl. fresh
+  5007 (210).
+- corpus `make diff` **11/1075/302 byte-identical** (+5 pins, +3
+  graduations), lint **1476 live/0/0**, cargo 9 suites, bindings
+  pytest **72**.
+- sweeps (fresh seeds): expop FULL 600/600 (896), notpop FULL 600/600
+  (897), notpop PLAIN 400/400 (4406) — the D-152/D-158/D-159 surfaces
+  hold under the port.
+- fuzz_cep ×400 BOTH trees: 313/907/911 = 0-div; 933 = exactly
+  `cf933x385` on both (the D-161-quarantined pre-existing event-not mix
+  latent, untouched).
+- main-axis 42/123/7 ×10k BOTH trees: identical flagged sets — 3/2/4, the known 9 pre-existing latents (fz_42_{258,6358,7682}, fz_123_{763,1589}, fz_7_{776,1936,2990,3185}); artifacts cleaned.
+
+SCOPE. Event-typed exists keeps the D-152 ExShadow machinery; plain-not
+keeps D-158/D-159 (notpop-plain 400/400 under the port); non-stream
+plain-exists is main-axis-certified and untouched (`px_pos` None, the
+quiescence step gates on `!event_specs.is_empty()`). The quiescence
+step is FAMILY-WIDE (not shadow-gated): staged witness ops at gated
+nodes always evaluate by their window's end — fuzz_cep composites and
+the corpus verify the non-shadowed shapes. Coverage caveats from the
+spec stand: zero-live-P satisfy-link corner untested by the generator.

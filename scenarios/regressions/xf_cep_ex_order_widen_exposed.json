@@ -127,6 +127,5 @@
    ]
   }
  ],
- "open_divergence": true,
- "_finding": "OPEN (D-161, the widen-exposed order case): pre-widen this PASSED by mechanism-luck - the eager per-arrival flush satisfied at the first D#x's insert and drained the P backlog in the oracle's arrival order; that D is annihilated by its same-epoch delete under the D-161 lazy staging (correctly - the D-159 semantics), so the satisfy moves to the fire eval whose drain order is the OPEN ex8/D-162 family bug (newest-first vs oracle arrival-FIFO: engine [4,..] vs oracle [1,..], ORDER-only). Closes with xf_cep_ex_backlog_order."
+ "comment": "OPEN (D-161, the widen-exposed order case): pre-widen this PASSED by mechanism-luck - the eager per-arrival flush satisfied at the first D#x's insert and drained the P backlog in the oracle's arrival order; that D is annihilated by its same-epoch delete under the D-161 lazy staging (correctly - the D-159 semantics), so the satisfy moves to the fire eval whose drain order is the OPEN ex8/D-162 family bug (newest-first vs oracle arrival-FIFO: engine [4,..] vs oracle [1,..], ORDER-only). Closes with xf_cep_ex_backlog_order. \u21d2 D-162 GRADUATED: the ENGINE PORT LANDED (quiescence eval + PxShadow \u2014 see xf_cep_ex_backlog_order). The D-161-exposed fire-eval satisfy drain now emits the machine order (the annihilated first witness leaves the staged batch intact; the surviving satisfy emits staged-arrival ++ reversed(rtm))."
 }

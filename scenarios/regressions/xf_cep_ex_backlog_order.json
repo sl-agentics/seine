@@ -1,0 +1,99 @@
+{
+ "name": "xf_cep_ex_backlog_order",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "w"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    }
+   ]
+  }
+ ],
+ "comment": "OPEN (D-161 recon, pre-existing and PRE-WIDEN-identical): the plain-exists SATISFY EMISSION ORDER family - a first satisfaction over a multi-epoch P backlog fires arrival-FIFO on the oracle ([1,2,3,4,5]) but newest-first-ish on the engine. The dominant plain-exists divergence: ~200/900 population scenarios (seeds 5001-5003, SEINE_EXPOP_PLAIN=1 tools/fuzz_existsorder.py), including INITIAL-fire batches whenever P's precede the witness (ex5001x75's firing[0]). Mixed ORDER + re-satisfy SET compounds (~20/68 with count diffs on seed 5001). Fix class: the plain-exists emission model (the pflush join_left_ins analog - staged-arrival-order emission), a D-162 spec arc with the populations already banked. \u21d2 D-162 GRADUATED: the ENGINE PORT LANDED \u2014 the plain-exists quiescence eval (next_activation's flushExpirations slot processes staged witness ops at the window's end) + the mechanical PxShadow (engine.rs: the predict_pexists machine \u2014 NET witness batches, link-counter queue economy with sync deletes / deferred updates, staged-arrival ++ reversed(rtm) emissions, no refraction) rank the gated picks. Spec EMODEL=pexists 0-div on 1,800 (seeds 5001-5006). This witness now PINS the arrival-FIFO backlog satisfy as a regression."
+}

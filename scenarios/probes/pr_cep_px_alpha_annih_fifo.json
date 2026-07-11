@@ -1,0 +1,177 @@
+{
+ "name": "pr_cep_px_alpha_annih_fifo",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when exists D(tag == \"x\") P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     },
+     "op": "insert"
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "x"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 4,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 7
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 8
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 9
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 10
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 4,
+     "fields": {
+      "tag": "x"
+     }
+    },
+    {
+     "op": "update",
+     "target": 9,
+     "fields": {
+      "v": 9
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 11
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 12
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 13
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 14
+     }
+    }
+   ]
+  }
+ ],
+ "comment": "D-162 pin (ex5002x88): an alpha-EXIT UPDATE of a STILL-STAGED witness ins is a staging-level annihilation that also DEQUEUES the satisfy-link signal (segment delink) \u2014 no eval runs, the P backlog stays staged across epochs, and the eventual alpha-ADMIT satisfy emits pure arrival-FIFO [1..14]."
+}
