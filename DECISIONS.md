@@ -11,31 +11,33 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11, post-D-166 — **the tj-tail UPDATE-RECENCY
-family is PORTED and CLOSED: cf313x346 + cf933x385 GRADUATED** (Bryan
-gated the D-165 plan; D-166 executed it Python-first). Spec =
-model_join_flush.py v3 `usimulate`/`fuzzu` (0-div on 2,000/2,000 vs the
-oracle): insert-stamped match ts; root updates inert; non-root update =
-tail re-add + child upds staged with the SAME prepend/once-reversal as
-inserts; per-action FIFO batches; double-touch fires once. Engine =
-four gated pieces: chronological `refresh_left_seq` at the temporal
-reorder (phreak `do_join_node`); the D-125 per-arrival stream flush for
-EVENT-type updates; trigger-scoped k1 upd stash (9-field snapshot);
-BfShadow q-hoist on P-update + the D-150 `windowed` shadow-exclusion
-LIFT. Engine 0/2,000 on the population; corpus **11/1084/328**
-byte-identical; lint **1536/0/0**; cargo 9; bindings 72; fuzz_cep
-4 seeds ×400 = 0; notpop/expop fresh (590/210/600/293) engine-0 AND
-all four model specs MATCH. NEW: the `SEINE_TJUPD=1` update-heavy
-fuzz_cep axis (flag-off stream byte-identical) — its RESIDUAL LEDGER =
-6 pre-existing adjacent latents quarantined to xfail/ (cf6001x245,
-cf6001x384 ⚠ SET-class, cf6002x359 = the known D-117 hang witness,
-cf6003x274, cf6004x233/cf6005x208 self-PAIR choice) — **NEXT candidate:
-that ledger** (minimize-first, the D-165/166 method: keyed minimizer →
-u-ladder probes → model → gated port). Other deferred: D-080 TMS
-envelope, class-3 re-entrant churn, window:length (never built),
-Allen-beyond-Drools (docs/allen-beyond-drools.md). Prior slabs: D-165
-recon (docs/tj-tail-update-recency-mechanism.md), D-164 Allen
-inference. Fenced-by-nature: D-134 §6 ties, fz_42_84.
+_Last updated: 2026-07-11 late, post-D-167 — **the TJUPD residual
+ledger: all SIX mechanisms cracked in one recon slab; the SET fix is
+VALIDATED and awaiting the gate** (no engine change landed; the
+six-line fix is reverted, diff verbatim in
+`docs/tjupd-ledger-mechanisms.md`). (1) SET cf6001x384: a stale staged
+UPD on an UNLINKED temporal join fails the D-125 eligibility gate →
+childless self_drain_delta → the pair is permanently lost across the
+unlink/relink; fix = the self-drain fallback also requires empty upd
+staging; with it in-tree the minimal + FULL case graduate and EVERY
+gate is green (corpus/tjt/mju/fuzz_cep ×4/TJUPD ×3/cargo). (2) ORDER
+×4 (cf6001x245/6003x274/6004x233/6005x208): ONE family, the
+anchored/self-join MODIFY composition — spec model_tjupd_v4 (98.4% on
+1,200; entry scans pre-move memory, exit cancels, A' reversed
+child-list refires tag-gated, $b listen-all refires + always
+tail-re-add post-scan, anchor left-re-add, dedup-keep-first); residual
+= the same-fact double-touch queue-position sub-rule (D-106-adjacent),
+port blocked on 0-div per doctrine. (3) HANG cf6002x359 = the known
+D-117 spin, minimized to 4 facts (tju_359_spin_min). Batteries:
+`probes_pending/cep/tj_upd/` (17 files). All six stay QUARANTINED,
+findings sharpened. **NEXT: Bryan's gate — (a) land the SET fix
+(evidence complete); (b) close the v4 residual → port the ORDER
+family; (c) the spin root-cause slab (checker-first, ⚠ D-106).**
+Gates this slab: corpus **11/1084/328** byte-identical, lint
+**1553/0/0**, cargo 9. Prior: D-166 update-recency port (cf313x346 +
+cf933x385 graduated), D-165 recon. Other deferred: D-080 TMS envelope,
+class-3 re-entrant churn, window:length (never built),
+Allen-beyond-Drools. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
@@ -8893,3 +8895,61 @@ the 6 ledger names; notpop event 590 + plain 210 + expop 600 + plain
 model specs ALL MATCH (flush/pflush/EMODEL=flush/pexists); mju
 population 0/2,000. Main-axis analytically inert (every change gates
 on temporal nodes / event types / event-session flushes).
+## D-167 — the SEINE_TJUPD residual ledger: all six mechanisms cracked; the SET fix validated (recon; ports Bryan-gated) (2026-07-11)
+
+RECON (no engine change lands in this slab — the validated SET fix is
+REVERTED pending the gate). All six D-166 ledger cases re-verified
+pre-existing on a cb7d443 (pre-port) worktree A/B — none is a D-166
+regression. Full report: `docs/tjupd-ledger-mechanisms.md`; batteries +
+the v4 model: `probes_pending/cep/tj_upd/` (6 minimals + s/r/m ladder
+cells, 17 files).
+
+THREE mechanisms:
+1. **SET (cf6001x384)** — trace-pinned: a stale staged UPD on an
+   UNLINKED temporal join fails the D-125 per-arrival eligibility gate
+   (clean-insert-only), the arrival falls to the childless
+   `self_drain_delta`, and the pair is PERMANENTLY lost across the
+   unlink/relink (the relink eval never re-derives from memories).
+   SIX-LINE FIX validated in recon (self-drain fallback additionally
+   requires empty upd staging — mixed staging stays for the eval):
+   minimal + m4_split + the FULL case (19/19) graduate; corpus
+   11/1084/328 byte-identical; tjt 26/26; mju 0/200; fuzz_cep
+   313/941/943/945 ×400 = 0; SEINE_TJUPD 6001-6003 ×400 = only the
+   known ORDER/hang names (the SET name gone); cargo green. Fix
+   reverted; re-apply per the report diff on the gate.
+2. **ORDER (cf6001x245/6003x274/6004x233/6005x208)** — one family: the
+   anchored/self-join MODIFY composition. Spec = model_tjupd_v4 (built
+   on the certified D-125 Node + D-156 arrival): alpha ENTRY scans the
+   PRE-move memory; EXIT kills + CANCELS same-epoch pending fires;
+   in-place anchor updates A'-refire the anchor's children in REVERSED
+   child-list order (list APPENDS on creation, MOVES-TO-END on refire),
+   gated by the $a watch mask ({tag}; ts-only is $a-deaf); $b hears
+   every update (listen-all): refires (ltm-scan + prepend) and ALWAYS
+   re-adds to the memory tail (phase C, post-scan; r-ladder: a single
+   value-identical update coincidentally restores insertion order —
+   only doubles expose it); a surviving anchor also tail-re-adds in
+   the LEFT memory on tag-touch; per-epoch dedup keeps first position.
+   VALIDATED 1,181/1,200 (98.4%, seeds 11/21/31). RESIDUAL (named):
+   the same-fact double-touch QUEUE-POSITION sub-rule (u5-chains keep
+   FIRST position; self-join re-entries move the refire BEHIND the
+   entry) — D-106-adjacent; needs its own discriminator ladder before
+   any port. No engine change for this family (doctrine: model 0-div
+   first).
+3. **HANG (cf6002x359)** — the KNOWN D-117-guarded executor re-add
+   spin, minimized to 4 facts (tju_359_spin_min: delete-of-just-
+   expired + fresh matching pair in one epoch). Own checker-first arc;
+   ⚠ D-106 caveat.
+
+METHOD: the keyed minimizer again (plus an errored-keyed variant for
+the hang case — minimize-through-a-spin works, ~18s/diverging-variant);
+the s/r/m ladders; the v4 model iterated 68%→30%→25%→3%→2% with a
+knob grid at each plateau; the r1-vs-r3 trap (a single update
+coincidentally order-neutral) caught by the model, not by hand.
+
+Deliverable order for the gate: (a) land the SET fix (evidence
+complete); (b) close the v4 residual then port the ORDER family;
+(c) the spin root-cause slab.
+
+GATES this slab (recon artifacts only): corpus 11/1084/328
+byte-identical, lint green over the new battery, cargo 9, xfail
+findings sharpened, minimals + model committed.

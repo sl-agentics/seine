@@ -186,5 +186,5 @@
   }
  ],
  "open_divergence": true,
- "_finding": "D-166 residual ledger (SEINE_TJUPD axis, update-heavy fuzz_cep): ORDER/choice (TJ1 E0-self-join fires the SAME fact as both operands engine-side vs a distinct partner oracle-side). PRE-EXISTING. The D-166 join/not cells are CLOSED (mju 0/2000); these are adjacent sub-seams flushed by the new axis - recon when scheduled."
+ "_finding": "D-166 residual ledger (SEINE_TJUPD axis, update-heavy fuzz_cep): ORDER/choice (TJ1 E0-self-join fires the SAME fact as both operands engine-side vs a distinct partner oracle-side). PRE-EXISTING. The D-166 join/not cells are CLOSED (mju 0/2000); these are adjacent sub-seams flushed by the new axis - recon when scheduled. || MECHANISM CRACKED (D-167): self-join modify-order family (the purest minimal, tju_233_min \u2014 no entry points: 2 facts, one alpha-entry update). See cf6003x274."
 }

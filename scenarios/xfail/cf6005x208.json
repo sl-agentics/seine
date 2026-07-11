@@ -189,5 +189,5 @@
   }
  ],
  "open_divergence": true,
- "_finding": "D-166 residual ledger (SEINE_TJUPD axis, update-heavy fuzz_cep): ORDER/choice (TJ0 E2-self-join, same self-pair signature as cf6004x233). PRE-EXISTING. The D-166 join/not cells are CLOSED (mju 0/2000); these are adjacent sub-seams flushed by the new axis - recon when scheduled."
+ "_finding": "D-166 residual ledger (SEINE_TJUPD axis, update-heavy fuzz_cep): ORDER/choice (TJ0 E2-self-join, same self-pair signature as cf6004x233). PRE-EXISTING. The D-166 join/not cells are CLOSED (mju 0/2000); these are adjacent sub-seams flushed by the new axis - recon when scheduled. || MECHANISM CRACKED (D-167): self-join modify-order family (two-anchor ts-tie variant, tju_208_min). See cf6003x274."
 }

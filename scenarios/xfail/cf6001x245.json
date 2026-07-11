@@ -194,5 +194,5 @@
   }
  ],
  "open_divergence": true,
- "_finding": "D-166 residual ledger (SEINE_TJUPD axis, update-heavy fuzz_cep): ORDER (TJ1 partner choice, firing[4]): E0(153,z) joins E1(29,z) engine vs E1(26,x) oracle in an update-heavy composite. PRE-EXISTING (identical on the pre-port base bank). The D-166 join/not cells are CLOSED (mju 0/2000); these are adjacent sub-seams flushed by the new axis - recon when scheduled."
+ "_finding": "D-166 residual ledger (SEINE_TJUPD axis, update-heavy fuzz_cep): ORDER (TJ1 partner choice, firing[4]): E0(153,z) joins E1(29,z) engine vs E1(26,x) oracle in an update-heavy composite. PRE-EXISTING (identical on the pre-port base bank). The D-166 join/not cells are CLOSED (mju 0/2000); these are adjacent sub-seams flushed by the new axis - recon when scheduled. || MECHANISM CRACKED (D-167): the right-memory recency family \u2014 every update moves the $b tuple to the memory tail; TWO value-identical updates expose it (one coincidentally restores insertion order, tju_r1 control). Minimal tju_245_min; spec = model_tjupd_v4 (98.4%, residual = the double-touch queue sub-rule). Port pends the v4 0-div close-out + Bryan gate."
 }
