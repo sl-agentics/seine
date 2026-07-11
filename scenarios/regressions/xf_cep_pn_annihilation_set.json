@@ -1,0 +1,103 @@
+{
+ "name": "xf_cep_pn_annihilation_set",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t1"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 6
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-158 residual -> D-159 FIXED (graduated): a same-epoch explicit plain-D insert+delete pair over `not D() P()` in a STREAM session. Drools stages plain not-blocker ops until a network eval - TupleSets addDelete ANNIHILATES the still-staged insert, so the not never blocks and nothing re-fires (6 firings). The engine used to stream-flush the D insert per-arrival (block at the insert, release at the fire) and re-fired the whole join memory (12). Fix: stream_flush_ex's stash loop hides staged right-ins at PLAIN-typed Kind::Not nodes (event blockers keep the certified D-102 visibility); the staged ins then meets the deferred del at the fire eval and Staged::add_del annihilates natively. Spec: predict_pflush (unchanged - it already predicted this cell)."
+}

@@ -11,60 +11,63 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, post-D-158 PORT — **the plain-not (cf313x4)
-family is CLOSED; ⇒ ITEM-1B IS DONE** (every family landed: D-141 tj-ts,
-D-143..153 existential order, D-154/155 A2 winacc, D-156 tj pair-order,
-D-158 plain-not). PnShadow (the third mechanical shadow) landed: WM-level
-D hooks (TMS/logical/expiry provenances), online mid-cycle evals extending
-`emit_rank`, churn canonicalization (`pn_seq`/`pn_churn_ctx` — the
-epilogue's stale-key del hops before same-RHS inses per the sync-del/
-queued-ins spec order). Spec: `SEINE_NOTPOP_PLAIN=1 fuzz_notorder_b.py` +
-`MODEL=pflush` — 0-div on 1,667 (781 frozen out-of-sample). Gates: corpus
-**11/1056/295** byte-identical (+12 `pr_cep_pn_*`, cf313x4 graduated),
-lint **1450**, cargo 9, bindings 72, plain populations A/B **+327 fixed /
-0 regressed** (residual 37/3,100 = ALL SET-level pre-existing, ONE family,
-filed `xf_cep_pn_annihilation_set`: per-arrival plain-blocker flush vs
-Drools' lazy staging — same-window ins+del should annihilate; follow-on =
-defer plain not-blocker staging to the fire eval), fuzz_cep 313/907/911
-×400 = 0-div (base: 313=1, causation), notpop/expop FULL sweeps 600+600
-0-fail, main-axis gen.rs 42/123/7 ×10k BOTH trees identical sets.
-**NEXT (Bryan-directed, HANDOFF READY):
-`~/.claude/plans/annihilation-handoff.md`** — close the D-158
-annihilation residual by lazy-staging PLAIN not-blocker right-inserts in
-`stream_flush_ex` (the recon is DONE and in the handoff: exact stash-loop
-fix site ~5059 + gate design, Kind::Not + plain-typed right ONLY —
-plain-EXISTS is explicitly out (the `pr_cep_c_exists_churn_plain`
-coalescing pin), the w-ladder is event-typed/untouched, temporal nots
-structurally excluded; probe battery + the FULL intense gate battery with
-expected numbers enumerated; watch the q1/q2/q4 D-106-caveat pins and the
-D-102 18%-blast-radius precedent). Fenced-by-nature: D-134 §6, fz_42_84.
-Deferred slabs: D-093 min/max quarantine (oracle bump, D-148), D-080 TMS
-envelope, the D-155 per-entry-flush SET residual (sibling mismatch,
-different mechanism — NOT closed by the annihilation slab).
-`git log --oneline -20` for HEAD._
+_Last updated: 2026-07-10, post-D-159 — **the D-158 annihilation residual
+is CLOSED; the plain-not family has NO open divergence** (item-1b stays
+fully done: D-141 tj-ts, D-143..153 existential order, D-154/155 A2
+winacc, D-156 tj pair-order, D-158 plain-not order, D-159 plain-blocker
+lazy staging). Fix = ONE gated stash branch in `stream_flush_ex`'s
+non-Join arm (engine.rs ~5059, ~19 lines): a `Kind::Not` node with a
+PLAIN-typed blocker stashes ALL staged right-ins for the flush walk
+(Drools force-flushes only EVENT inserts — plain ops stage until an
+eval), so a same-window ins+del pair meets at the fire eval and
+`Staged::add_del` annihilates natively; event blockers keep D-102
+visibility; `touched_node` untouched (handoff option A — zero order
+drift measured). Witness `xf_cep_pn_annihilation_set` GRADUATED (12→6
+firings); +4 `pr_cep_pn_annih_*` pins. Probe battery 11/11 predictions
+correct (incl. the generator-excluded same-epoch-TMS cell — agrees with
+pflush, NO spec gap; plain-EXISTS scope probe recorded 0-0, widening
+stays out per the coalescing pin). Gates: corpus **11/1060/296**
+byte-identical, lint **1455**, cargo 9, bindings 72, plain populations
+**4,000/4,000** on the fixed tree vs base failing **exactly the 37** + 9
+on fresh seeds 4401-4403 ⇒ **+46/0**, pflush **ALL MATCH ×13
+populations** (1,667 regeneration-identical + 503 fresh), notpop-FULL
+600 + flush-model 309/309, expop-FULL 600, fuzz_cep 313/907/911/921/923
+×400 BOTH trees 0-div, main-axis 42/123/7 ×10k BOTH trees identical
+flagged sets, early-warning pins 36/36 by name (q1/q2/q4 caveat region
+untouched). **NEXT is Bryan's call — no active slab.** Candidates
+(deferred): D-093 min/max quarantine graduation (awaits the oracle bump,
+D-148 protocol), D-080 TMS envelope, the D-155 per-entry-flush SET
+residual (`xf_cep_acc_updel_flush_{plain,win}`,
+`xf_cep_acc_multiupd_plain` — per-entry incremental drain at accumulate
+nodes, different mechanism), plain-EXISTS lazy-staging (probe-first, own
+population). Fenced-by-nature: D-134 §6 PriorityQueue ties, fz_42_84
+identity-hash. `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **PUSHED through D-155** (`origin/main` at `740451b`;
-Bryan cleared the push 2026-07-10; branch-only, NO tags — the D-143..D-155
-span landed in one push). ⚠ **NO `v*` TAGS until a PyPI release is
-intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
-`pypi` environment has NO protection rules (gh-verified): a new tag
-publishes `seine-rs` with no manual gate. Arc history: the D-entries below
-(D-136 shared-tjo → D-137/138/139 item-C → D-140 not-order → D-141 tj-ts →
-D-143..D-153 the mechanical shadows → D-154/155 A2 winacc).
+**Git:** on `main`, **PUSHED through D-156** (`origin/main` at `5483b47`;
+Bryan holds every push; branch-only, NO tags). UNPUSHED: the D-157 →
+D-159 span (b9dc98e D-157 fence-lift / 8aa90ed + 8e5a02b handoff pointers
+/ 5648a71 D-158 spec / 3b2aa52 D-158 port / the D-159 annihilation
+commit). ⚠ **NO `v*` TAGS until a PyPI release is intended** — `ci.yml`'s
+`release`/`publish-pypi` fire on tag push and the `pypi` environment has
+NO protection rules (gh-verified): a new tag publishes `seine-rs` with no
+manual gate. Arc history: the D-entries below (D-136 shared-tjo →
+D-137/138/139 item-C → D-140 not-order → D-141 tj-ts → D-143..D-153 the
+mechanical shadows → D-154/155 A2 winacc → D-156 tj pair-order →
+D-158/159 plain-not).
 
-**Gates (green @ `740451b`):** baseline 11 / probes **1035** / regressions
-**293** byte-identical / lint **1427 live·0 ghost·0 inert** / 9 Rust suites
-/ bindings pytest 72 / winacc: battery 30/30, witnesses 5/5, soup
-3,312/3,335 (the 23 = the filed per-entry-flush residual), A/B vs pre-port
-base +1,985/0 / `SEINE_WINUPD_FULL=1` fuzz_cep 401/423/719/811 ×400 0-div.
-Verify: `make diff` · `make lint-probes` · `cargo test` · winacc spec:
-`python3 tools/model_check_winacc.py <popdir>` (populations regenerate via
-`tools/fuzz_winacc.py <n> <seed>`; battery via `tools/gen_winacc_probes.py`).
+**Gates (green @ the D-159 commit):** baseline 11 / probes **1060** /
+regressions **296** byte-identical / lint **1455 live·0 ghost·0 inert** /
+9 Rust suites / bindings pytest 72. Verify: `make diff` ·
+`make lint-probes` · `cargo test`. Specs stay executable: plain-not
+`SEINE_NOTPOP_PLAIN=1 tools/fuzz_notorder_b.py <n> <seed>` +
+`tools/model_check_notorder_b.py <pop> pflush`; event-not MODEL=flush;
+winacc `tools/model_check_winacc.py <popdir>` (regenerate via
+`tools/fuzz_winacc.py`; battery via `tools/gen_winacc_probes.py`).
 **Red on resume ⇒ drift — investigate before building.**
 
 **Landed (background — log has detail):** v0.4.0 CEP E1 + reset + agenda groups
@@ -8281,3 +8284,77 @@ tj-ts, D-143..153 existential order, D-154/155 A2 winacc, D-156 tj
 pair-order, D-158 plain-not) is landed. Remaining CEP latents are the
 fenced-by-nature pair (D-134 §6 PriorityQueue ties, fz_42_84
 identity-hash) + the two filed per-entry-flush/annihilation SET residuals.
+
+## D-159 — plain-blocker lazy staging: the annihilation residual is CLOSED
+
+The D-158 residual (filed `xf_cep_pn_annihilation_set`): the engine
+stream-flushed PLAIN not-blocker right-INSERTS per-arrival while Drools
+stages plain ops lazily until a network eval — SET-visible exactly when a
+same-staging-window explicit D ins+del pair should ANNIHILATE (TupleSets
+addDelete cancels the still-staged insert: the not never blocks, nothing
+re-fires; the engine blocked at the ins flush and the deferred del's
+release re-fired the whole join memory). The mechanism was SETTLED by the
+D-158 graft arc (`predict_pflush` already predicted every cell); this slab
+was probe → port → gates only, per the handoff
+(`~/.claude/plans/annihilation-handoff.md`).
+
+FIX (engine.rs `stream_flush_ex` stash loop, the non-Join branch): a
+`Kind::Not` node whose blocker pattern type is PLAIN
+(`!event_specs.contains_key(patterns[env.1].type_id)`) stashes ALL staged
+right-ins for the flush walk — the certified restore loop puts them back
+and keeps the rule queued+dirty; the staged ins then meets the deferred
+del at the fire eval where `Staged::add_del` annihilates natively. EVENT
+blockers keep the certified D-102 visibility (an event insert force-flushes
+its own eval in Drools — "E1 blocks E2 at the fire-1 flush"). Kind::Not
+ONLY (plain-EXISTS churn is pinned COALESCING,
+`pr_cep_c_exists_churn_plain`); temporal nots are structurally excluded
+(temporal constraints require event types). `touched_node` stays computed
+pre-stash (handoff option A): the D-arrival flush still queues a
+mostly-empty eval — corpus + populations show ZERO order drift, so no
+recompute was needed. ~19 gated lines.
+
+PROBE BATTERY (oracle-first, predictions written before running —
+`$CLAUDE_JOB_DIR/tmp/annih/`, predictions.md): 11 probes, 11/11 correct.
+Discriminators an1_insdel (engine 12 vs oracle 6) and an9_insdel_mixed
+(14 vs 8) failed pre-port exactly as predicted and pass post-port; 9
+controls (same-window del→ins transient-cancel ×2, cross-epoch pair split
+×2, second-blocker absorbed ×2, mid-epoch ins with queued P's, TMS
+same-epoch cell, plain-exists scope) pass on BOTH sides throughout. The
+generator-excluded TMS cell (an7: E1 inserted+deleted in one epoch — J's
+match cancels at the delete, no logical D ever exists) agrees with
+predict_pflush: NO spec gap. SCOPE record (an8): a same-window plain-D
+ins+del pair at a plain EXISTS fires nothing on either side (consistent
+with lazy annihilation there too, but the shape cannot distinguish it from
+eager-satisfy-then-retract-before-fire; engine==oracle ⇒ no action —
+widening stays a separate probe-first question, out of this slab).
+
+GATES (ALL green; A/B base = a `3b2aa52` worktree with the oracle symlink):
+- corpus `make diff` **11/1060/296 byte-identical** (+4 pins
+  `pr_cep_pn_annih_{insdel_mixed,crossepoch,delins,absorbed}`; the witness
+  GRADUATED to regressions/), lint **1455 live/0/0**, cargo 9 suites,
+  bindings pytest **72** (.so restored).
+- plain populations (regenerated, 13 seeds — baseline 10 regeneration-
+  identical to D-158's: 1,667 orderable): FIXED tree **4,000/4,000**
+  engine-vs-oracle; BASE tree fails **exactly the handoff's 37**
+  (2/7/3/6/4/2/3/2/5/3 by seed) + **9** on the fresh out-of-sample seeds
+  4401-4403 (2/5/2) ⇒ **+46 fixed / 0 regressed**. pflush model: **ALL
+  MATCH on all 13 populations** (1,667 + 503 fresh — the oracle-side spec
+  is untouched by the engine fix, incl. nb4001x91/x139, the spec's own
+  annihilation citations).
+- event-family sweeps unperturbed: notpop FULL 600 seed 888 diff 0-fail +
+  MODEL=flush 309/309; expop FULL 600 seed 889 diff 0-fail.
+- fuzz_cep ×400 BOTH trees: seeds 313/907/911 + fresh 921/923 = **0
+  divergences everywhere** (blast radius only — fuzz_cep's mutation
+  targets are event-typed and cannot reach the family).
+- main-axis gen.rs 42/123/7 ×10k BOTH trees: **identical flagged name
+  sets** (42→{fz_42_258,6358,7682}, 123→{fz_123_763,1589},
+  7→{fz_7_776,1936,2990,3185} — the known pre-existing latents; artifacts
+  cleaned post-comparison).
+- early-warning pins re-diffed explicitly BY NAME: **36/36** (the
+  q1/q2/q4 D-106-caveat region untouched, a6/a7*-cascades, ep7*,
+  c_upd_tms, 53/721 arrivals, c_exists_churn_plain, all 12 pr_cep_pn_*,
+  the w1-w6 ladder).
+
+The PnShadow is untouched (it models Drools, not engine internals). The
+D-155 per-entry-flush accumulate residual is a DIFFERENT mechanism and
+stays filed. With this, **the plain-not family has NO open divergence**.

@@ -1,0 +1,108 @@
+{
+ "name": "pr_cep_pn_annih_crossepoch",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t1"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 6
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-159 CONTROL (the pair split across staging windows): plain-D ins in ep1 (lazy block at the fire eval - nothing fired cancels), del in ep2 (release re-fires the whole join memory, 12 total). No annihilation across windows - the ins materialized at ep1's eval. Pins the fix's scope: only SAME-window pairs annihilate."
+}

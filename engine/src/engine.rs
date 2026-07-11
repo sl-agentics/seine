@@ -5057,7 +5057,24 @@ impl Engine {
             let sr_dtail = t.node.s_right.del.split_off(ddr);
             dstash.push((s0_dtail, sl_dtail, sr_dtail));
             if !matches!(t.node.kind, phreak::Kind::Join) {
-                stash.push((Vec::new(), Vec::new(), Vec::new()));
+                // D-159: a PLAIN (non-event) blocker at a not node stages
+                // lazily — Drools force-flushes only EVENT inserts, so a
+                // plain-D right-ins must not block at this arrival's flush:
+                // a same-window del ANNIHILATES it in staging (the eager
+                // block re-fired the whole join memory at the release).
+                // EVENT blockers keep the certified D-102 visibility ("E1
+                // blocks E2 at the fire-1 flush"). Kind::Not ONLY: plain-
+                // EXISTS churn is pinned COALESCING (c_exists_churn_plain).
+                if matches!(t.node.kind, phreak::Kind::Not)
+                    && !self
+                        .event_specs
+                        .contains_key(&self.rules[t.env.0].patterns[t.env.1].type_id)
+                {
+                    let sr_all = std::mem::take(&mut t.node.s_right.ins);
+                    stash.push((sr_all, Vec::new(), Vec::new()));
+                } else {
+                    stash.push((Vec::new(), Vec::new(), Vec::new()));
+                }
                 continue;
             }
             if t.node.temporal {

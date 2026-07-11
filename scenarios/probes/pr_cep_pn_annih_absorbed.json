@@ -1,0 +1,115 @@
+{
+ "name": "pr_cep_pn_annih_absorbed",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t0"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t1"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 7
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-159 CONTROL (absorbed pair): with a live blocker D_a already materialized (lazy block at ep1), a same-epoch ins D_b + del D_b pair in ep2 annihilates in staging and D_a absorbs everything - no release, no re-fire (6 firings from before the block)."
+}

@@ -1,0 +1,117 @@
+{
+ "name": "pr_cep_pn_annih_insdel_mixed",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 7
+     },
+     "op": "insert"
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t1"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 7
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 8
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-159 (the annihilate cell): a same-epoch explicit plain-D insert+delete pair over `not D() P()` ANNIHILATES in staging (TupleSets addDelete on a still-staged insert) - the not never blocks; same-window P's inserted around the pair stage through it and fire normally (8 firings: 6 prior + P7,P8). The eager per-arrival flush used to fire 14 (P7 retracted at the D-ins flush, then the deferred del released and re-fired the whole join memory). Engine: the plain-not stash gate defers the blocker ins to the fire eval where Staged::add_del cancels it."
+}

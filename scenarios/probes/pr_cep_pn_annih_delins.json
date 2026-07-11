@@ -1,5 +1,5 @@
 {
- "name": "xf_cep_pn_annihilation_set",
+ "name": "pr_cep_pn_annih_delins",
  "types": [
   {
    "name": "E1",
@@ -90,15 +90,26 @@
       "tag": "t1"
      },
      "op": "insert"
-    },
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
     {
      "op": "delete",
      "target": 6
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t2"
+     },
+     "op": "insert"
     }
    ],
    "facts": []
   }
  ],
- "open_divergence": true,
- "_finding": "OPEN residual (D-158, pre-existing \u2014 fails identically on the pre-port base; SET-level, so outside the PnShadow reorder port): a same-epoch explicit plain-D insert+delete pair over `not D() P()` in a STREAM session. Drools stages the pair on the not until an eval \u2014 addDelete ANNIHILATES the staged insert, so the not never blocks and nothing re-fires (6 firings). The engine stream-flushes the D insert per-arrival (blocks at the insert, releases at the delete) and re-fires the whole join memory (12 firings). Fix class: defer plain not-blocker staging to the fire eval (the lazy plain staging Drools uses) \u2014 a follow-on semantic port, not a pick reorder. 37/3,100 population scenarios (all SET, all pre-existing) share this family."
+ "_finding": "D-159 (the del->ins transient cell): after a lazy block (ep1 ins D_a), a same-epoch del D_a + ins D_b pair processes SEQUENTIALLY at the fire eval - the del releases (transient), the later ins RE-BLOCKS and the pending unfired emissions CANCEL (predict_pflush eval_ne): 6 firings, no re-fire. The blocked left hands off between blockers with nothing visible."
 }
