@@ -1931,6 +1931,11 @@ struct RuleNet {
     /// unstaged peer stages an UPDATE (hasNodeMemory(RTN) is false), so
     /// a kind-preserved re-insert must not re-activate.
     peer_live: HashSet<Tup>,
+    /// D-170 (T6 movability): queued activations staged by a TAG-class
+    /// update of the recorded fact this epoch — a later alpha-entry of
+    /// the SAME fact relocates them behind its fresh inserts. Cleared
+    /// at the fire boundary.
+    act_movable: HashMap<Tup, FactId>,
     queue: Vec<Act>,
     /// STICKY RuleAgendaItem salience (D-043/fz_27182_862): dynamic
     /// items keep their last value across empty->removed->relinked
@@ -2213,6 +2218,14 @@ pub struct Engine {
     pn_churn_ctx: bool,
     fire_no: u64,
     flush_trigger_tid: Option<TypeId>,
+    /// D-170 (T6): the in-flight EXTERNAL event-update trigger —
+    /// (fact, written mask, type). Drives emission movability and the
+    /// relocation gate at the terminal consume; None outside the
+    /// per-action update flush.
+    tj_trigger: Option<(FactId, u64, TypeId)>,
+    /// D-170: rules whose pattern-0 alpha the trigger fact ENTERED
+    /// (stage 1) during this update — the relocation gate.
+    tj_entered: Vec<usize>,
     ever_linked: Vec<bool>,
     stage_seq: u64,
     /// D-106: the agenda focus stack. Empty = MAIN focused. Rules
@@ -2362,6 +2375,8 @@ impl Engine {
             pn_churn_ctx: false,
             fire_no: 0,
             flush_trigger_tid: None,
+            tj_trigger: None,
+            tj_entered: Vec::new(),
             ever_linked: Vec::new(),
             stage_seq: 0,
             focus_stack: Vec::new(),
@@ -2924,6 +2939,7 @@ impl Engine {
                 path,
                 term_pending: Staged::default(),
                 peer_live: HashSet::new(),
+                act_movable: HashMap::new(),
                 queue: Vec::new(),
                 item_sal: 0,
                 act_num: HashMap::new(),
@@ -4794,6 +4810,10 @@ impl Engine {
             // mechanical shadows pin it).
             if self.event_specs.contains_key(&tid) {
                 let pre = self.stage_snapshot();
+                // D-170 (T6): expose the trigger to the flush's terminal
+                // consumes — movability marking + the relocation gate.
+                self.tj_trigger = Some((id, mask, tid));
+                self.tj_entered.clear();
                 self.on_update(id, mask, None);
                 for net in self.nets.iter_mut() {
                     net.s0_close_window();
@@ -4801,6 +4821,8 @@ impl Engine {
                 self.flush_trigger_tid = Some(tid);
                 self.stream_flush(&pre);
                 self.flush_trigger_tid = None;
+                self.tj_trigger = None;
+                self.tj_entered.clear();
             } else {
                 self.on_update(id, mask, None);
                 for net in self.nets.iter_mut() {
@@ -6728,6 +6750,18 @@ impl Engine {
                 px.post_fire();
             }
         }
+        // D-170 (T6): the fire boundary closes the movability/self-slot
+        // epoch — clear queued-activation movability and re-snapshot
+        // every temporal join's right-memory order.
+        for net in self.nets.iter_mut() {
+            net.act_movable.clear();
+        }
+        for ni in 0..self.trie.len() {
+            if self.trie[ni].node.temporal {
+                let floor = self.stage_seq;
+                self.trie[ni].node.epoch_reset(floor);
+            }
+        }
         self.fire_no += 1; // D-102 cycle-4: fire boundary — between-fire inserts stamp the NEXT fire
         Ok(firings)
     }
@@ -7292,6 +7326,17 @@ impl Engine {
             }
             if stage == 1 {
                 self.lias[li].active.insert(f);
+                // D-170 (T6): the trigger fact alpha-ENTERED a pattern-0
+                // alpha — the rules fed by this LIA become relocation-
+                // eligible for this trigger (entry-of-f).
+                if self.tj_trigger.is_some_and(|(tf, _, _)| tf == f) && pos == 0 {
+                    for c in 0..self.lias[li].children.len() {
+                        let ri2 = self.trie[self.lias[li].children[c]].env.0;
+                        if !self.tj_entered.contains(&ri2) {
+                            self.tj_entered.push(ri2);
+                        }
+                    }
+                }
             } else if stage == 2 {
                 self.lias[li].active.remove(&f);
             }
@@ -7332,7 +7377,19 @@ impl Engine {
                         self.trie[c].s0_in.add_ins(f, origin)
                     }
                     2 => self.trie[c].s0_in.add_del(f, origin),
-                    _ => self.trie[c].s0_in.add_upd(f, origin),
+                    _ => {
+                        if self.trie[c].node.temporal {
+                            self.stage_seq += 1;
+                            let s = self.stage_seq;
+                            if !self.trie[c].s0_in.upd.iter().any(|(x, _, _)| *x == f) {
+                                self.trie[c].node.upd_lsseq.insert(vec![f], s);
+                            }
+                            if self.rules[self.trie[c].env.0].patterns.len() == 2 {
+                                self.trie[c].node.pending_lmoves.push((vec![f], s));
+                            }
+                        }
+                        self.trie[c].s0_in.add_upd(f, origin)
+                    }
                 }
             }
             self.note_link_effects_ex(&mut was, Some(f));
@@ -7454,7 +7511,49 @@ impl Engine {
                         pat.listen_mask
                     };
                     if mask == u64::MAX || eff_mask & mask != 0 || temporal_refire {
-                        self.trie[ni].node.s_right.add_upd(f, origin);
+                        // D-170 (T6): a TAG-CLASS update — the trigger fact's
+                        // type is the anchor (pattern-0) type and the written
+                        // mask intersects the anchor's watch mask — stages
+                        // ph=6: its child refires are MOVABLE (relocated by a
+                        // later same-fact alpha-entry) and its memory move is
+                        // invisible to the fact's own entry scan (self-slot).
+                        // ts-only updates stage the anchored default.
+                        let pat0 = &self.rules[ri].patterns[0];
+                        let tagc = temporal_refire
+                            && pat0.type_id == ftype
+                            && (mask == u64::MAX || pat0.listen_mask & mask != 0);
+                        // stamp keeps the FIRST staging's arrival (TupleSets
+                        // keep-first: a deduped re-touch replays at the
+                        // original action's slot — en3)
+                        if self.trie[ni].node.temporal
+                            && !self.trie[ni]
+                                .node
+                                .s_right
+                                .upd
+                                .iter()
+                                .any(|(x, _, _)| *x == f)
+                        {
+                            self.stage_seq += 1;
+                            let s = self.stage_seq;
+                            self.trie[ni].node.upd_rsseq.insert(f, s);
+                        }
+                        // D-170 (T6, 2-pattern temporal): record ONE pending
+                        // memory-move per update ACTION (dedup-proof — a
+                        // re-touch of a staged upd appends another move,
+                        // tu11x95); the replay applies them at their stamps
+                        // so they interleave with staged inserts (tu11x92).
+                        if self.trie[ni].node.temporal
+                            && self.rules[ri].patterns.len() == 2
+                        {
+                            self.stage_seq += 1;
+                            let s = self.stage_seq;
+                            self.trie[ni].node.pending_rmoves.push((f, tagc, s));
+                        }
+                        if tagc {
+                            self.trie[ni].node.s_right.add_upd_ph(f, origin, 6);
+                        } else {
+                            self.trie[ni].node.s_right.add_upd(f, origin);
+                        }
                     } else {
                         // mask miss: immediate right-memory reAdd, no
                         // staging (fz_42_4359). Not nodes use the
@@ -8000,25 +8099,18 @@ impl Engine {
             self.tms_on_terminal_del(ri, t);
             self.tms_parked_del(ri, t);
         }
-        for (t, o, _) in src.upd.iter() {
-            if self.nets[ri].queue.iter().any(|a| a.t == *t) {
-                continue; // queued: keep position AND salience (se3)
-            }
-            if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
-                continue;
-            }
-            self.tms_unpark_upd(ri, t);
-            // fired activation re-added: salience RE-EVALUATED (D-043)
-            self.push_activation(ri, t.clone());
-        }
-        for (t, o, _) in src.ins.iter() {
-            if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
-                continue;
-            }
-            if self.tms_parked_ins(ri, t) {
-                continue;
-            }
-            self.push_activation(ri, t.clone());
+        // D-170 (T6): an eval whose external trigger alpha-ENTERED this
+        // rule's anchor consumes INSERTS before UPDATES (the model's
+        // phase A-then-B: fresh refires land BEHIND the entry's ins
+        // batch — tv1/vi3/dt3/ex10); every other eval keeps the
+        // certified updates-then-inserts consume.
+        let entry_eval = self.tj_trigger.is_some() && self.tj_entered.contains(&ri);
+        if entry_eval {
+            self.consume_term_ins(ri, &src, no_loop, parent);
+            self.consume_term_upds(ri, &src, no_loop, parent);
+        } else {
+            self.consume_term_upds(ri, &src, no_loop, parent);
+            self.consume_term_ins(ri, &src, no_loop, parent);
         }
         self.nets[ri].dirty = false; // evaluateNetwork -> setDirty(false)
     }
@@ -8839,6 +8931,95 @@ impl Engine {
 
     /// Enqueue an activation with salience computed NOW (activation
     /// creation / fired-re-add; queued restages never reach here — se3).
+    /// Terminal consume, UPDATE list (head-first). D-170 adds the T6
+    /// relocation: during an entry-of-f eval, a queued activation staged
+    /// MOVABLE by the same fact re-queues at the tail (behind the ins
+    /// batch this eval already pushed) in re-emission order; everything
+    /// else keeps position AND salience (se3; the u5 keep-first).
+    fn consume_term_upds(
+        &mut self,
+        ri: usize,
+        src: &phreak::Staged<Tup>,
+        no_loop: bool,
+        parent: usize,
+    ) {
+        let mut reloc: Vec<Tup> = Vec::new();
+        for (t, o, _) in src.upd.iter() {
+            if self.nets[ri].queue.iter().any(|a| a.t == *t) {
+                if let Some((tf, _, _)) = self.tj_trigger {
+                    if self.tj_entered.contains(&ri)
+                        && self.nets[ri].act_movable.get(t) == Some(&tf)
+                    {
+                        reloc.push(t.clone());
+                    }
+                }
+                continue;
+            }
+            if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
+                continue;
+            }
+            self.tms_unpark_upd(ri, t);
+            // fired activation re-added: salience RE-EVALUATED (D-043)
+            self.push_activation(ri, t.clone());
+            self.tj_mark_movable(ri, t);
+        }
+        for t in reloc {
+            let pre = self.queue_top_sal(ri).unwrap_or(0);
+            self.nets[ri].queue.retain(|a| a.t != t);
+            self.update_item_salience(ri, pre);
+            self.push_activation(ri, t.clone());
+            self.tj_mark_movable(ri, &t);
+        }
+    }
+
+    /// Terminal consume, INSERT list (head-first).
+    fn consume_term_ins(
+        &mut self,
+        ri: usize,
+        src: &phreak::Staged<Tup>,
+        no_loop: bool,
+        parent: usize,
+    ) {
+        for (t, o, _) in src.ins.iter() {
+            if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
+                continue;
+            }
+            if self.tms_parked_ins(ri, t) {
+                continue;
+            }
+            self.push_activation(ri, t.clone());
+        }
+    }
+
+    /// D-170 (T6): mark a just-queued activation MOVABLE when the
+    /// in-flight external trigger is a TAG-CLASS update of the tuple's
+    /// temporal-side fact on a 2-pattern temporal-positive join — a
+    /// later alpha-entry of the same fact relocates it. ts-only
+    /// triggers (and everything outside the tj shape) stay anchored.
+    fn tj_mark_movable(&mut self, ri: usize, t: &Tup) {
+        let Some((tf, mask, _)) = self.tj_trigger else { return };
+        if t.last() != Some(&tf) {
+            return;
+        }
+        let pats = &self.rules[ri].patterns;
+        if pats.len() != 2 || pats[1].ce != CeKind::Positive {
+            return;
+        }
+        let node_temporal = self.nets[ri]
+            .path
+            .first()
+            .is_some_and(|&ni| self.trie[ni].node.temporal);
+        if !node_temporal {
+            return;
+        }
+        let pat0 = &pats[0];
+        let tagc = pat0.type_id == self.store.fact_type(tf)
+            && (mask == u64::MAX || pat0.listen_mask & mask != 0);
+        if tagc {
+            self.nets[ri].act_movable.insert(t.clone(), tf);
+        }
+    }
+
     fn push_activation(&mut self, ri: usize, t: Tup) {
         let sal = self.eval_salience(ri, &t);
         let seq = match self.nets[ri].act_num.get(&t) {
@@ -9779,6 +9960,9 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
     }
     fn in_flush(&self) -> bool {
         self.flush
+    }
+    fn two_pattern(&self) -> bool {
+        self.rule.patterns.len() == 2
     }
     fn is_expired(&self, f: FactId) -> bool {
         // D-134 (§3B): a not-release join sees partners that were alive at the

@@ -1,0 +1,197 @@
+{
+ "name": "cf6001x245",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 200
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 salience 10 when $a : E0(tag == \"x\") from entry-point \"S1\" $b : E0(this overlappedby[5ms] $a) from entry-point \"S1\" then end\nrule TJ1 when $a : E0(tag == \"z\") from entry-point \"S1\" $b : E1(this before[50ms,150ms] $a) then end\nrule W2 when accumulate( E0(tag == \"z\") from entry-point \"S1\"; $c : count() ) then end\nrule J3 when $e : E0($t : tag) from entry-point \"S1\" then insertLogical(new D($t)); end\nrule RD4 salience 8 when D() then end\nrule ND5 salience 3 when not D() P() then end\nrule G6 salience 18 when P(v == 2) then insert(new P3(3)); end\nrule C7 salience -2 when P3() then end\nrule NE8 salience 8 when not E1() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 26,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 5,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 29,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 9,
+    "tag": "x"
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    },
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 128,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 114,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "x"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 153,
+      "tag": "z"
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 180,
+      "tag": "x"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "reset"
+    },
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 115,
+      "tag": "x"
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-166 residual ledger (SEINE_TJUPD axis, update-heavy fuzz_cep): ORDER (TJ1 partner choice, firing[4]): E0(153,z) joins E1(29,z) engine vs E1(26,x) oracle in an update-heavy composite. PRE-EXISTING (identical on the pre-port base bank). The D-166 join/not cells are CLOSED (mju 0/2000); these are adjacent sub-seams flushed by the new axis - recon when scheduled. || MECHANISM CRACKED (D-167): the right-memory recency family \u2014 every update moves the $b tuple to the memory tail; TWO value-identical updates expose it (one coincidentally restores insertion order, tju_r1 control). Minimal tju_245_min; spec = model_tjupd_v4 (98.4%, residual = the double-touch queue sub-rule). Port pends the v4 0-div close-out + Bryan gate. || GRADUATED by the D-170 ORDER-family engine port (T6 replay: per-action stamp-ordered op replay for upd-carrying temporal 2-pattern batches, movability/relocation at the terminal, entry self-slot view, A'/child-list refires; population A/B 719 fixed / 0 regressed on 2,200). Mechanism D-167 \u00a72 + D-169 T6; report docs/tjupd-ledger-mechanisms.md."
+}

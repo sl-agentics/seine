@@ -17,7 +17,7 @@
 //!   re-appends an unqueued (fired) one; no-loop blocks re-activation when
 //!   the propagation origin is the rule itself.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::store::{FactId, Value};
 
@@ -323,6 +323,28 @@ pub struct Node {
     /// `model_shared_tjo.py`, 0-div). Empty on every non-shared / non-
     /// temporal node (byte-identical path).
     pub tj_epoch: Vec<(Tup, Origin, u8)>,
+    /// D-170 (T6 self-slot, temporal joins): right-memory order at the
+    /// last fire boundary + this epoch's move/insert log. An entry scan
+    /// replays these to place the ENTERING fact at its pre-epoch slot
+    /// when its same-epoch moves were tag-class (model_tjupd_v4 T6-4).
+    pub epoch_rights0: Vec<FactId>,
+    /// (fact, op): 0 = ts-class move, 1 = tag-class move, 2 = insert.
+    pub epoch_rlog: Vec<(FactId, u8)>,
+    /// Facts tag-class-moved this epoch (self-slot candidates).
+    pub self_dirty: HashSet<FactId>,
+    /// D-170: arrival stamps for staged UPDATES (ins stamps live in
+    /// left_sseq/right_sseq) — the mixed-batch replay orders ops by them.
+    pub upd_rsseq: HashMap<FactId, u64>,
+    pub upd_lsseq: HashMap<Tup, u64>,
+    /// D-170: PENDING memory-move ops, one per update ACTION (stamped;
+    /// dedup-proof — a re-touch of a staged upd appends another move,
+    /// tu11x95), applied by the replay in global stamp order so they
+    /// interleave correctly with still-staged inserts (tu11x92).
+    pub pending_rmoves: Vec<(FactId, bool, u64)>,
+    pub pending_lmoves: Vec<(Tup, u64)>,
+    /// Stamps below this belong to PRIOR epochs (their moves apply
+    /// silently — no epoch log / self-slot marking).
+    pub epoch_floor: u64,
 }
 
 impl Node {
@@ -395,7 +417,65 @@ impl Node {
             new_deferrals: Vec::new(),
             pending_release: Vec::new(),
             tj_epoch: Vec::new(),
+            epoch_rights0: Vec::new(),
+            epoch_rlog: Vec::new(),
+            self_dirty: HashSet::new(),
+            upd_rsseq: HashMap::new(),
+            upd_lsseq: HashMap::new(),
+            pending_rmoves: Vec::new(),
+            pending_lmoves: Vec::new(),
+            epoch_floor: 0,
         }
+    }
+
+    /// D-170 (T6 self-slot): reset the per-epoch right-memory order
+    /// bookkeeping at the fire boundary — the NEXT epoch's entry scans
+    /// replay from this snapshot.
+    pub fn epoch_reset(&mut self, floor: u64) {
+        self.epoch_rights0 = self.rights.iter().map(|(f, _)| *f).collect();
+        self.epoch_rlog.clear();
+        self.self_dirty.clear();
+        self.epoch_floor = floor;
+        // upd stamps and pending moves are NOT cleared: an unlinked
+        // node's staged upds survive fire boundaries and keep their
+        // per-action arrival order (tju_r3 / tu11x95).
+    }
+
+    /// D-170 (T6-4): the entry scan's right-memory VIEW for the entering
+    /// fact `f` — the epoch-start order with this epoch's move/insert log
+    /// replayed, SKIPPING f's tag-class moves (they are invisible to f's
+    /// own scan; ts-only moves and every other fact's moves replay).
+    /// None when f is clean this epoch (use the live order).
+    pub fn scan_rights_view(&self, f: FactId) -> Option<Vec<FactId>> {
+        if !self.self_dirty.contains(&f) {
+            return None;
+        }
+        let cur: std::collections::HashSet<FactId> =
+            self.rights.iter().map(|(x, _)| *x).collect();
+        let mut order = self.epoch_rights0.clone();
+        for (g, op) in &self.epoch_rlog {
+            match op {
+                2 => {
+                    if !order.contains(g) {
+                        order.push(*g);
+                    }
+                }
+                1 if *g == f => {}
+                _ => {
+                    if let Some(i) = order.iter().position(|x| x == g) {
+                        order.remove(i);
+                        order.push(*g);
+                    }
+                }
+            }
+        }
+        order.retain(|x| cur.contains(x));
+        for (x, _) in &self.rights {
+            if !order.contains(x) {
+                order.push(*x);
+            }
+        }
+        Some(order)
     }
 
     /// Accumulate-node memory accessors (D-038): the engine-side
@@ -915,6 +995,11 @@ pub trait JoinEnv {
     fn in_flush(&self) -> bool {
         false
     }
+    /// D-170 (T6): TRUE when the owning rule is the 2-pattern shape the
+    /// mixed-batch replay is certified for (model_tjupd_v4's world).
+    fn two_pattern(&self) -> bool {
+        false
+    }
     /// Full constraint test (live values) for extending `l` with `f`.
     fn allowed(&self, node: usize, l: &Tup, f: FactId) -> bool;
     /// Index key of the LEFT side (binding-source values), live.
@@ -984,6 +1069,26 @@ impl<'a> Out<'a> {
     /// deleteChildLeftTuple: a never-consumed pending INSERT cancels at
     /// the first sink but still reaches the peers as a NORMALIZED delete
     /// (fz_123_2748); a pending UPDATE is unstaged before the delete.
+    /// D-170 (T6): the A' refire's emission — prepends AND STEALS an
+    /// already-staged upd from this eval's earlier ($b-refire) pass, so
+    /// the A' block owns the consume slot for shared pairs (dt4/int2/
+    /// ip1: the self-pair fires in the A' block). Ins-staged absorb.
+    pub(crate) fn child_upd_front(&mut self, t: Tup, o: Origin, ph: u8) {
+        if self.pending.remove_ins(&t) {
+            self.trg.peer_upd.push(t.clone());
+            self.trg.add_ins_ph(t, o, ph);
+            return;
+        }
+        self.pending.remove_upd(&t);
+        self.trg.remove_upd(&t);
+        if self.trg.ins.iter().any(|(x, _, _)| *x == t)
+            || self.trg.del.iter().any(|(x, _, _)| *x == t)
+        {
+            return;
+        }
+        self.trg.upd.insert(0, (t, o, ph));
+    }
+
     pub(crate) fn child_del(&mut self, t: Tup, o: Origin) {
         if self.pending.remove_ins(&t) {
             self.trg.norm_del.push((t, o, 0));
@@ -1024,6 +1129,235 @@ pub fn do_node<E: JoinEnv>(
 }
 
 /// PhreakJoinNode.doNode phase order.
+/// D-170 (T6): the MIXED-batch replay for a temporal 2-pattern join —
+/// a batch carrying staged UPDATES (per-action evals of tag/ts writes,
+/// and unlinked accumulations across actions) replays its ops in
+/// ARRIVAL-STAMP order, each op with the model_tjupd_v4 semantics:
+///   LIns  = anchor entry/fill: memory append, then scan the CURRENT
+///           right memory (scan_rights_view supplies the self-slot);
+///   RIns  = right arrival: memory append, partners in LEFT-memory order;
+///   RUpd  = $b refire: tail move (epoch-logged by class) + children
+///           refired anchors-in-memory-order, childlist move-on-refire;
+///   LUpd  = A' refire: left tail move + lseq refresh + children in
+///           child-list order via the steal-prepend (phase A slot).
+/// Deletes were processed by the caller (matchCancelled first); clean
+/// insert-only batches never come here (the certified D-125/D-156 arms).
+fn temporal_upd_replay<E: JoinEnv>(
+    env: &E,
+    node_idx: usize,
+    node: &mut Node,
+    sl: &Staged<Tup>,
+    sr: &Staged<FactId>,
+    out: &mut Out<'_>,
+) {
+    enum Op {
+        RIns(FactId, Origin),
+        RUpd(FactId, Origin),
+        LIns(Tup, Origin),
+        LUpd(Tup, Origin),
+        RMove(FactId, bool, bool),
+        LMove(Tup, u64),
+    }
+    let mut ops: Vec<(u64, usize, Op)> = Vec::new();
+    for (f, o, ph) in sr.ins.iter() {
+        if *ph == 1 {
+            continue; // re-entries keep the certified late pass below
+        }
+        let s = node.right_sseq.get(f).copied().unwrap_or(0);
+        ops.push((s, ops.len(), Op::RIns(*f, *o)));
+    }
+    for (f, o, _) in sr.upd.iter() {
+        let s = node.upd_rsseq.get(f).copied().unwrap_or(0);
+        ops.push((s, ops.len(), Op::RUpd(*f, *o)));
+    }
+    for (l, o, _) in sl.ins.iter() {
+        let s = node.left_sseq.get(l).copied().unwrap_or(0);
+        ops.push((s, ops.len(), Op::LIns(l.clone(), *o)));
+    }
+    for (l, o, _) in sl.upd.iter() {
+        let s = node.upd_lsseq.get(l).copied().unwrap_or(0);
+        ops.push((s, ops.len(), Op::LUpd(l.clone(), *o)));
+    }
+    for (f, tagc, s) in std::mem::take(&mut node.pending_rmoves) {
+        // prior-epoch moves (at or below the floor — the floor IS the
+        // last pre-fire stamp) apply silently: they are pre-epoch state
+        // to this epoch's self-slot view.
+        let log = s > node.epoch_floor;
+        ops.push((s, ops.len(), Op::RMove(f, tagc && log, log)));
+    }
+    for (l, s) in std::mem::take(&mut node.pending_lmoves) {
+        ops.push((s, ops.len(), Op::LMove(l, s)));
+    }
+    ops.sort_by_key(|(s, i, _)| (*s, *i));
+    if std::env::var("SEINE_TRACE").is_ok() {
+        let names: Vec<String> = ops
+            .iter()
+            .map(|(s, _, op)| match op {
+                Op::RIns(f, _) => format!("RIns({f:?})@{s}"),
+                Op::RUpd(f, _) => format!("RUpd({f:?})@{s}"),
+                Op::LIns(l, _) => format!("LIns({l:?})@{s}"),
+                Op::LUpd(l, _) => format!("LUpd({l:?})@{s}"),
+                Op::RMove(f, t, _) => format!("RMove({f:?},{t})@{s}"),
+                Op::LMove(l, _) => format!("LMove({l:?})@{s}"),
+            })
+            .collect();
+        eprintln!("  replay ops: {}", names.join(" "));
+    }
+    for (_, _, op) in ops {
+        // Each op emits into its OWN staging (the op's single certified
+        // prepend-reversal), then the block APPENDS to the eval's trg —
+        // ops compose FIFO (the model's per-action buffer), unlike the
+        // arm walk's global LIFO. An A' (LUpd) block STEALS its dup keys
+        // from earlier blocks (the phase-A slot); other dups keep first
+        // (ins absorb / u5).
+        let mut op_trg: Staged<Tup> = Staged::default();
+        let mut steal = false;
+        {
+            let mut op_out = Out { trg: &mut op_trg, pending: out.pending };
+            match op {
+                Op::LIns(l, o) => {
+                    // a RE-ENTRY must not inherit its exited era's lseq —
+                    // the memory append is a fresh arrival (tu11x197)
+                    node.refresh_left_seq(&l);
+                    node.left_fire.insert(l.clone(), env.fire_no());
+                    let lkey = env.key_of_left(node_idx, &l);
+                    node.lefts.push((l.clone(), lkey));
+                    let view = match l.as_slice() {
+                        [f] => node.scan_rights_view(*f),
+                        _ => None,
+                    };
+                    let scan: Vec<FactId> = view
+                        .unwrap_or_else(|| node.rights.iter().map(|(f, _)| *f).collect());
+                    for f in scan {
+                        if env.is_expired(f) {
+                            continue;
+                        }
+                        if env.allowed(node_idx, &l, f) {
+                            let t = node.create_child(&l, f, None, None);
+                            op_out.child_ins(t, o, 0);
+                        }
+                    }
+                }
+                Op::RIns(f, o) => {
+                    let rkey = env.key_of_right(node_idx, f);
+                    node.rights.push((f, rkey));
+                    let partners: Vec<Tup> =
+                        node.lefts.iter().map(|(l, _)| l.clone()).collect();
+                    for l in partners {
+                        if l.iter().any(|x| env.is_expired(*x)) {
+                            continue;
+                        }
+                        if env.allowed(node_idx, &l, f) {
+                            let t = node.create_child(&l, f, None, None);
+                            op_out.child_ins(t, o, 1);
+                        }
+                    }
+                }
+                Op::RMove(f, tagc, log) => {
+                    // one memory-move per update ACTION (dedup-proof) at
+                    // its own stamp — interleaves with staged inserts
+                    // (tu11x92/x95). Prior-epoch moves apply silently.
+                    if let Some(i) = node.rights.iter().position(|(x, _)| *x == f) {
+                        node.rights.remove(i);
+                        node.rights.push((f, env.key_of_right(node_idx, f)));
+                        if log {
+                            node.epoch_rlog.push((f, if tagc { 1 } else { 0 }));
+                        }
+                        if tagc {
+                            node.self_dirty.insert(f);
+                        }
+                    }
+                }
+                Op::LMove(l, stamp) => {
+                    if let Some(i) = node.lefts.iter().position(|(x, _)| *x == l) {
+                        node.lefts.remove(i);
+                        node.lefts.push((l.clone(), env.key_of_left(node_idx, &l)));
+                        node.refresh_left_seq(&l);
+                        // the anchor's tag-touch move jumps sseq ERAS too —
+                        // the rel_arrival partner sort orders by (sseq, lseq)
+                        // and a stale era pins the anchor early (tu21x20)
+                        node.left_sseq.insert(l.clone(), stamp);
+                    }
+                }
+                Op::RUpd(f, o) => {
+                    // pure refire — the memory moves are RMove ops.
+                    let ids: Vec<usize> =
+                        node.by_right.get(&f).cloned().unwrap_or_default();
+                    let mut by_pos: Vec<(usize, usize)> = ids
+                        .iter()
+                        .copied()
+                        .filter(|&c| !node.children[c].dead)
+                        .map(|c| {
+                            let p = node
+                                .lefts
+                                .iter()
+                                .position(|(l, _)| *l == node.children[c].left)
+                                .unwrap_or(usize::MAX);
+                            (p, c)
+                        })
+                        .collect();
+                    by_pos.sort_by_key(|(p, _)| *p);
+                    for (_, c) in by_pos {
+                        op_out.child_upd(node.children[c].tuple.clone(), o, 2);
+                        node.re_add_left(c);
+                    }
+                }
+                Op::LUpd(l, o) => {
+                    steal = true;
+                    // pure A' refire — the memory moves are LMove ops.
+                    let ids: Vec<usize> = node.by_left.get(&l).cloned().unwrap_or_default();
+                    for c in ids {
+                        if !node.children[c].dead {
+                            op_out.child_upd(node.children[c].tuple.clone(), o, 2);
+                            node.re_add_right(c);
+                        }
+                    }
+                }
+            }
+        }
+        // merge the op block FIFO into the eval's trg
+        out.trg.peer_upd.extend(op_trg.peer_upd);
+        for (t, o, ph) in op_trg.ins {
+            if out.trg.ins.iter().any(|(x, _, _)| *x == t)
+                || out.trg.upd.iter().any(|(x, _, _)| *x == t)
+            {
+                continue;
+            }
+            out.trg.ins.push((t, o, ph));
+        }
+        for (t, o, ph) in op_trg.upd {
+            if out.trg.ins.iter().any(|(x, _, _)| *x == t)
+                || out.trg.del.iter().any(|(x, _, _)| *x == t)
+            {
+                continue;
+            }
+            if let Some(i) = out.trg.upd.iter().position(|(x, _, _)| *x == t) {
+                if !steal {
+                    continue; // keep first (u5)
+                }
+                out.trg.upd.remove(i); // A' steals the slot
+            }
+            out.trg.upd.push((t, o, ph));
+        }
+    }
+    // UPDATE-ENTRY right re-inserts (ph=1): the certified late pass.
+    for (f, o, ph) in sr.ins.iter() {
+        if *ph != 1 {
+            continue;
+        }
+        let rkey = env.key_of_right(node_idx, *f);
+        node.rights.push((*f, rkey.clone()));
+        let mut lefts = node.lefts_bucket(rkey.as_ref());
+        lefts.sort_by_key(|l| std::cmp::Reverse(node.left_seq(l)));
+        for l in lefts {
+            if env.allowed(node_idx, &l, *f) {
+                let t = node.create_child(&l, *f, None, None);
+                out.child_ins(t, *o, 1);
+            }
+        }
+    }
+}
+
 fn do_join_node<E: JoinEnv>(
     env: &E,
     node_idx: usize,
@@ -1067,11 +1401,67 @@ fn do_join_node<E: JoinEnv>(
             }
         }
     }
+    // D-170 (T6, temporal 2-pattern): a batch carrying staged UPDATES
+    // takes the arrival-ordered replay instead of the kind-grouped arm
+    // walk (per-action evals + unlinked cross-action accumulations —
+    // the model_tjupd_v4-certified world). Deletes were processed above.
+    if node.temporal
+        && !node.eq_indexed()
+        && env.two_pattern()
+        && (!sr.upd.is_empty() || !sl.upd.is_empty())
+    {
+        temporal_upd_replay(env, node_idx, node, &sl, &sr, out);
+        if trace {
+            eprintln!(
+                "  (replay) trg ins={:?} upd={:?} del={:?}",
+                out.trg.ins, out.trg.upd, out.trg.del
+            );
+            eprintln!("  rights={:?} lefts={:?}", node.rights, node.lefts);
+        }
+        return;
+    }
+
+    // D-170 (T6, temporal): snapshot each updated anchor's child list
+    // BEFORE any right-side processing moves entries within it (the
+    // reorder block's re_add_left included) — the A' iterates the
+    // phase-A child list (ip1: (A,N) leads even though the $b side
+    // moved the self-pair).
+    let aprime_ids: Vec<(Tup, Vec<usize>)> = if node.temporal && !node.eq_indexed() {
+        sl.upd
+            .iter()
+            .map(|(l, _, _)| (l.clone(), node.by_left.get(l).cloned().unwrap_or_default()))
+            .collect()
+    } else {
+        Vec::new()
+    };
+
     // --- reorder right memory: re-key + move to END; children reAddLeft ---
-    for (f, _, _) in &sr.upd {
+    // D-170 (T6, temporal): a DEFERRED multi-update batch (an unlinked
+    // join accumulating staged upds across actions) applies its memory
+    // moves in ACTION order = the staged prepend-list REVERSED (tju_r3:
+    // two value-identical updates restore insertion order). Non-temporal
+    // nodes keep the certified list order; per-action singleton batches
+    // are identical either way.
+    let sr_upd_ordered: Vec<&(FactId, Origin, u8)> = if node.temporal {
+        sr.upd.iter().rev().collect()
+    } else {
+        sr.upd.iter().collect()
+    };
+    for (f, _, ph) in sr_upd_ordered {
         if let Some(i) = node.rights.iter().position(|(x, _)| x == f) {
             node.rights.remove(i);
             node.rights.push((*f, env.key_of_right(node_idx, *f)));
+            // D-170 (T6): log the move for the self-slot replay; ph=6
+            // marks a TAG-class update (the anchor-watched field was
+            // written — staged by on_update), invisible to the fact's
+            // own later entry scan.
+            if node.temporal {
+                let tagc = *ph == 6;
+                node.epoch_rlog.push((*f, if tagc { 1 } else { 0 }));
+                if tagc {
+                    node.self_dirty.insert(*f);
+                }
+            }
         }
         if let Some(ids) = node.by_right.get(f).cloned() {
             for c in ids {
@@ -1114,6 +1504,34 @@ fn do_join_node<E: JoinEnv>(
     // --- right updates ---
     for (f, o, _) in &sr.upd {
         if node.lefts.is_empty() {
+            continue;
+        }
+        // D-170 (T6, temporal): a temporal match is ts0-frozen, so a
+        // right update can never change the match set — it is a PURE
+        // REFIRE of the live children, anchors in LEFT-memory order
+        // (rendered reversed by the trg prepend, the model's ltm-scan
+        // + prepend), each child moved to its left parent's list END
+        // (re_add_left, the model's childlist move-on-refire).
+        if node.temporal && !node.eq_indexed() {
+            let ids: Vec<usize> = node.by_right.get(f).cloned().unwrap_or_default();
+            let mut by_pos: Vec<(usize, usize)> = ids
+                .iter()
+                .copied()
+                .filter(|&c| !node.children[c].dead)
+                .map(|c| {
+                    let p = node
+                        .lefts
+                        .iter()
+                        .position(|(l, _)| *l == node.children[c].left)
+                        .unwrap_or(usize::MAX);
+                    (p, c)
+                })
+                .collect();
+            by_pos.sort_by_key(|(p, _)| *p);
+            for (_, c) in by_pos {
+                out.child_upd(node.children[c].tuple.clone(), *o, 2);
+                node.re_add_left(c);
+            }
             continue;
         }
         let rkey = node.rights.iter().find(|(x, _)| x == f).and_then(|(_, k)| k.clone());
@@ -1194,6 +1612,27 @@ fn do_join_node<E: JoinEnv>(
     for (l, o, _) in &sl.upd {
         if !node.lefts.iter().any(|(x, _)| x == l) {
             continue; // was removed (invalid prefix upstream)
+        }
+        // D-170 (T6, temporal): the A' refire — an anchor's in-place
+        // update refires its own live children in child-list order via
+        // the STEAL-PREPEND (child_upd_front): the A' block lands ahead
+        // of this eval's $b-refire block at the consume, owning shared
+        // pairs' slots, each block internally reversed (the model's
+        // phase A-then-B with reversed-childlist emission). Match set
+        // ts0-invariant, so pure refire.
+        if node.temporal && !node.eq_indexed() {
+            let ids: Vec<usize> = aprime_ids
+                .iter()
+                .find(|(x, _)| x == l)
+                .map(|(_, v)| v.clone())
+                .unwrap_or_default();
+            for c in ids {
+                if !node.children[c].dead {
+                    out.child_upd_front(node.children[c].tuple.clone(), *o, 2);
+                    node.re_add_right(c);
+                }
+            }
+            continue;
         }
         let lkey = node.left_key(l).cloned();
         let bucket = node.rights_bucket(lkey.as_ref());
@@ -1356,6 +1795,20 @@ fn do_join_node<E: JoinEnv>(
                         out.child_ins(t, origin, 0);
                     }
                 }
+                // D-170 (T6): the arriving anchor's CHILD LIST orders
+                // [scan children..., self-pair] — the model appends the
+                // left-scan pairs (its left_insert) before the self
+                // (its right_insert), while the arm walk above created
+                // the self first. Emission order stays certified; only
+                // the by_left slot moves (the A' iterates it — dt4/ip1).
+                if let Some(ids) = node.by_left.get(l_f).cloned() {
+                    if let Some(&selfc) = ids
+                        .iter()
+                        .find(|&&c| !node.children[c].dead && node.children[c].right == Some(*fid))
+                    {
+                        node.re_add_left(selfc);
+                    }
+                }
             }
         } else {
         if node.shared {
@@ -1419,7 +1872,18 @@ fn do_join_node<E: JoinEnv>(
             }
         }
         for (l, o, _) in &sl.ins {
-            for f in &pre_rights {
+            // D-170 (T6-4): a single-fact left ENTERING the join scans a
+            // VIEW that places the fact ITSELF at its pre-epoch slot when
+            // its same-epoch moves were tag-class (its own eval's move
+            // included — the log above already recorded it).
+            let view: Option<Vec<FactId>> = match l.as_slice() {
+                [f] => node.scan_rights_view(*f).map(|v| {
+                    v.into_iter().filter(|x| pre_rights.contains(x)).collect()
+                }),
+                _ => None,
+            };
+            let scan: &[FactId] = view.as_deref().unwrap_or(&pre_rights);
+            for f in scan {
                 if env.is_expired(*f) {
                     continue; // D-102: corpse rights make no NEW pairs
                 }

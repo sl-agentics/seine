@@ -1,0 +1,134 @@
+{
+ "name": "tu51x80",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule RJ when $a : E1(tag == \"z\") $b : E0(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 62,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 84,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 113,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z"
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "ts": 66
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y",
+      "ts": 22
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 72,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "ts": 118
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z",
+      "ts": 76
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-170 residual (pre-existing, A/B-identical on the pre-port tree): SET loss 2-vs-4 \u2014 an RJ anchor EXITS (rule unlinks), then RE-ENTERS in a later epoch; the re-entry's pairs never materialize (the clean-entry cascade fills without pairing and no pop eval re-derives). D-125-relink family, kin of the D-168 SET fix; own recon slab."
+}

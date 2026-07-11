@@ -1,0 +1,149 @@
+{
+ "name": "tu51x187",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule RJ when $a : E1(tag == \"z\") $b : E0(this before[0ms,200ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 119,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 118,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 84,
+    "tag": "y"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "y",
+      "ts": 5
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 73,
+      "tag": "y"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 86,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 85,
+      "tag": "y"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 103,
+      "tag": "y"
+     }
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-170 residual (pre-existing, A/B-identical on the pre-port tree): SET loss 2-vs-8, same exit/re-enter-while-unlinked family as tu51x80."
+}

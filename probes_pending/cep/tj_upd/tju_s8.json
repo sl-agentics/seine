@@ -50,6 +50,5 @@
    "facts": []
   }
  ],
- "open_divergence": true,
- "_finding": "D-167 s-ladder: alpha-entry when the updated fact was inserted BEFORE its partner \u2014 oracle fires partner-first (pre-move scan)."
+ "_finding": "D-167 s-ladder: alpha-entry when the updated fact was inserted BEFORE its partner \u2014 oracle fires partner-first (pre-move scan). || GRADUATED by the D-170 ORDER-family engine port (T6 replay: per-action stamp-ordered op replay for upd-carrying temporal 2-pattern batches, movability/relocation at the terminal, entry self-slot view, A'/child-list refires; population A/B 719 fixed / 0 regressed on 2,200). Mechanism D-167 \u00a72 + D-169 T6; report docs/tjupd-ledger-mechanisms.md."
 }

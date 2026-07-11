@@ -11,36 +11,38 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11 late, post-D-169 — **the v4 double-touch
-residual is CLOSED: model_tjupd_v4 is 0-div on 2,200/2,200** (bank
-seeds 11/21/31 — all 18 D-167 divergers green — + fresh 41/51/61
-×400; NO engine change this slab). The T6 sub-rules (5-round 31-cell
-ladder `probes_pending/cep/tj_upd/ladder_dt*.py`, cells graduated to
-`tjdt_*` — 17 open_divergence ORDER pins + 13 live controls):
-tag-writing actions stage MOVABLE upd emissions (ts-only = anchored);
-a later alpha-ENTRY of the SAME fact relocates its movable emissions
-behind the entry's ins batch (u5 keep-first = the different-facts
-case); moves immediate post-scan; the entry scan sees ITSELF at its
-pre-epoch slot under tag-class moves (ts moves visible). ⚠ one
-JVM-flaky boundary documented (ex9, exit-move vs different-fact entry
-scan, 16:2 majority-encoded, excluded from the battery — fz_42_84
-class). **⇒ the ORDER-family ENGINE PORT (cf6001x245/6003x274/
-6004x233/6005x208) is doctrine-UNBLOCKED and awaits Bryan's gate**;
-seam map = D-167 §2 + T6 delta (report §2
-`docs/tjupd-ledger-mechanisms.md`). REMAINING TJUPD ledger otherwise:
-HANG cf6002x359 = the known D-117 spin, minimized to 4 facts
-(tju_359_spin_min). Prior slab (D-168, PUSHED): the SET fix landed
-(cf6001x384 → regressions/, corpus 11/1084/**329**); mju spec default
-repaired (RUPD_ORDER oppmem). **NEXT: Bryan's gate — (b2) the ORDER
-port (spec ready, ⚠ D-106 adjacency); (c) the spin root-cause slab
-(checker-first, ⚠ D-106) — handoff at
-`~/.claude/plans/tjupd-ledger-handoff.md` (deliverables (a) DONE,
-(b1) DONE).** Gates this slab: ladder 31/31, fuzz 2,200/2,200, lint
-**1584/0/0** (+30 battery), corpus **11/1084/329** byte-identical
-(engine untouched). Other deferred: D-080 TMS envelope, class-3
-re-entrant churn, window:length (never built), Allen-beyond-Drools.
-Fenced-by-nature: D-134 §6 ties, fz_42_84. `git log --oneline -20`
-for HEAD._
+_Last updated: 2026-07-11 late, post-D-170 — **the ORDER-family
+ENGINE PORT IS LANDED (Bryan-gated): the whole SEINE_TJUPD ORDER
+family is closed** — cf6001x245/cf6003x274/cf6004x233/cf6005x208
+GRADUATED to regressions/ (corpus **11/1084/333** byte-identical);
+population A/B **+719 fixed / 0 regressed** on 2,200; the TJUPD axis
+6001-6005 now flags ONLY cf6002x359 (the D-117 spin). The port
+(D-170, all temporal-join-scoped, plain sessions untouched): the T6
+REPLAY (`phreak.rs temporal_upd_replay` — upd-carrying temporal
+2-pattern batches replay ops in arrival-stamp order with per-op FIFO
+block composition), per-ACTION pending memory-moves (dedup-proof,
+prior-epoch floor), the self-slot entry-scan view
+(`scan_rights_view`), terminal movability+relocation with ins-first
+consume for entry evals (`consume_term_*`, act_movable, tj_trigger —
+QUEUE content only, the pick/halt untouched ⚠ D-106), and the A'
+child-list discipline (AB self-pair slot, pre-move snapshot, ph=6
+tag-class staging). Fast battery 75/75 (incl. tj_tail 25/25 — D-166
+intact). NEW residual ledger (pre-existing, A/B-proven on the
+pre-port tree, quarantined in probes_pending/cep/tj_upd/):
+tu51x80/tu51x187 = SET losses in an exit→unlinked→re-enter relink
+shape (the relink eval never re-derives — kin of the D-168 SET
+family) + tu51x207 (a 3-touch ORDER compound). **NEXT: Bryan's gate —
+(c) the cf6002x359 spin root-cause slab (checker-first, ⚠⚠ D-106;
+witness tju_359_spin_min, 4 facts) and/or the tu51x relink-SET recon
+— handoff `~/.claude/plans/tjupd-ledger-handoff.md` ((a)(b) DONE).**
+Gates this slab: corpus 11/1084/333, lint **1591/0/0**, cargo 9,
+bindings 72, fuzz_cep ×4 = 0, TJUPD ×5 = only the spin, tjt 25/25,
+mju 0/200 + 200/200, notpop/expop fresh engine-clean. Prior: D-169
+T6 spec (0-div 2,200), D-168 SET fix + mju default repair (PUSHED
+through D-168 at `374e309`). Other deferred: D-080 TMS envelope,
+class-3 re-entrant churn, window:length (never built),
+Allen-beyond-Drools. Fenced-by-nature: D-134 §6 ties, fz_42_84.
+`git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -48,8 +50,8 @@ NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
 **Git:** on `main`; `origin/main` at `374e309` (D-168, Bryan-directed
-push 2026-07-11) — UNPUSHED local: the D-169 commit (Bryan holds every
-push).
+push 2026-07-11) — UNPUSHED local: `3a00e53` (D-169) + the D-170
+commit (Bryan holds every push).
 **RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
 on `2a482e8`, the ci.yml release pipeline all-green incl. the
 differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
@@ -9077,3 +9079,78 @@ doctrine-unblocked (spec 0-div); seam map = D-167 §2 + the T6 delta
 and the self-slot scan; engine seams: alpha-entry pre-move scan, A'
 reversed child-list, the D-166 lseq refresh on the mask-miss path,
 anchor left-re-add). ⚠ D-106 adjacency stands. (c) the spin arc.
+## D-170 — the ORDER-family ENGINE PORT: cf6001x245/6003x274/6004x233/6005x208 GRADUATED; population 719 fixed / 0 regressed (2026-07-11)
+
+Bryan gated (b2) post-D-169. The T6 spec is now IN THE ENGINE; the
+whole SEINE_TJUPD ORDER family is closed. Fuzz-driven port: fast
+battery (75 cells incl. the 4 FULL witnesses) after every piece, the
+2,200-case model population as the wide loop, corpus as the guard.
+
+THE PIECES (all scoped to temporal joins; plain sessions untouched):
+1. **The T6 REPLAY** (`phreak.rs temporal_upd_replay`): an eval batch
+   carrying staged UPDATES on a temporal 2-PATTERN join (per-action
+   update evals + unlinked cross-action accumulations) replays its ops
+   in ARRIVAL-STAMP order — LIns (entry: memory append + CURRENT-
+   memory scan via the self-slot view), RIns (partners in left-memory
+   order), RUpd/LUpd (pure refires: anchors-in-memory-order / child-
+   list order via a cross-op STEAL), RMove/LMove (the per-ACTION
+   memory moves). Each op's block composes FIFO into the eval's trg
+   (per-op local staging + merge — the model's per-action buffer),
+   with ins-absorb / keep-first / A'-steal dedup. Clean insert-only
+   batches keep the certified D-125/D-156 arms untouched.
+2. **PENDING MOVES** (`Node.pending_{r,l}moves`): every tag/ts update
+   ACTION records ONE stamped memory-move at staging (dedup-proof — a
+   re-touch of a staged upd appends another move, tu11x95), applied by
+   the replay at its stamp so moves interleave correctly with
+   still-staged inserts (tu11x92). Prior-epoch pendings (stamp ≤ the
+   fire-boundary floor) apply silently. LMove refreshes lseq AND jumps
+   the left_sseq era (tu21x20); the replay's LIns re-stamps a
+   re-entering left freshly (tu11x197).
+3. **SELF-SLOT VIEW** (`Node.scan_rights_view` + the per-epoch
+   rights0/rlog/self_dirty bookkeeping, reset at fire_all): an entry's
+   scan sees the entering fact at its pre-epoch slot under tag-class
+   moves (T6-4); the epoch floor is the last pre-fire stamp (strict >).
+4. **TERMINAL relocation + consume order** (`engine.rs`
+   consume_term_{upds,ins} + tj_mark_movable + RuleNet.act_movable +
+   the tj_trigger/tj_entered context set by update_fact): an eval
+   whose trigger alpha-ENTERED the rule's anchor consumes INS before
+   UPDS (the model's phase A-then-B) and relocates queued MOVABLE
+   activations (staged by a tag-writing action of the same fact)
+   behind the entry's ins batch; everything else keeps the certified
+   updates-then-inserts consume and keep-first (u5/dup1). ⚠ D-106:
+   these touch the QUEUE's content order only — the pick, halt and
+   executor logic are untouched.
+5. **A' child-list discipline**: the AB-arrival walk re-slots the
+   self-pair to the END of the arriving anchor's by_left list (the
+   model's scan-children-then-self creation order; emissions
+   unchanged); the A' snapshot is taken before the right-side
+   re_add_left moves (ip1); tag-class staging is marked ph=6 by
+   on_update (anchor-type + anchor-listen∩mask).
+
+EVIDENCE-DRIVEN ITERATIONS (each caught by the battery/population,
+several by ONE cell): the same-action relocation overreach (dt4/int2/
+ip1), the non-entry relocation overreach (tu11x84), the LIFO block
+composition (en3/en4/int2), the eager-move-vs-staged-insert interleave
+(tu11x92 vs x95 — resolved by the pending-move ops), the stamp
+keep-first on dedup (en3), the epoch-floor off-by-one (tu51x131), the
+stale re-entry lseq (tu11x197), the anchor sseq era (tu21x20).
+
+RESULTS: fast battery **75/75** (30 tjdt ladder cells, ALL tju
+minimals/ladders incl. r3/s4/s8, tj_tail 25/25, the 4 FULL cf*
+witnesses); population **2,197/2,200** — the 3 residuals are
+A/B-PROVEN PRE-EXISTING on the pre-port tree (quarantined:
+tu51x80/tu51x187 = SET losses in an exit→unlinked→re-enter RJ shape,
+the relink-eval never re-derives — kin of the D-168 SET family, own
+recon slab; tu51x207 = a 3-touch ORDER compound) ⇒ **+719 fixed /
+0 regressed**. GATES: corpus **11/1084/333** byte-identical (the 4
+witnesses GRADUATED to regressions/); tjt 25/25; mju model 0/200 +
+engine 200/200; fuzz_cep 313/941/943/945 ×400 = 0; **SEINE_TJUPD
+6001/6003/6004/6005 ×400 = 0 divergences** (the ORDER names GONE) +
+6002 = only cf6002x359 (the D-117 spin); notpop/expop fresh
+populations engine-clean; cargo 9; lint **1591/0/0** (21 battery
+cells flipped live with GRADUATED findings; 3 residuals quarantined);
+bindings 72 (fresh --release .so).
+
+REMAINING TJUPD ledger: cf6002x359 (the D-117 spin — deliverable (c),
+checker-first, ⚠ D-106) + the new tu51x ledger (the relink SET family
+recon). The tju_359_spin_min stays open_divergence.

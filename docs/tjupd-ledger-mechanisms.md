@@ -120,16 +120,19 @@ halt-model caveat applies to any fix attempt.
 
 ## Status
 
-_Updated at D-169._ The five ORDER/hang cf* stay QUARANTINED with
-sharpened `_finding`s. Deliverables, in order of value:
-1. ✅ the SET fix — **LANDED (D-168)**: cf6001x384 graduated to
-   regressions/, tju_384_min + tju_m4_split live pins, all gates
-   green (corpus 11/1084/329, TJUPD 6001-6005 = only the ORDER/hang
-   names);
-2. the ORDER-family port — **spec residual CLOSED (D-169): model
-   0-div on 2,200/2,200** (T6 double-touch sub-rules, §2 above; the
-   31-cell ladder graduated to tjdt_* — 17 order pins + 13 controls).
-   The engine composition spans alpha-entry staging, A′ refires,
-   child-list order, the left-memory re-add, and the T6 movability/
-   relocation/self-slot — **the port awaits the Bryan gate**;
-3. the spin root-cause arc (own slab, checker-first, D-106 caveat).
+_Updated at D-170._ Deliverables:
+1. ✅ the SET fix — **LANDED (D-168)**: cf6001x384 graduated;
+2. ✅ the ORDER family — **spec closed (D-169, 0-div on 2,200) and
+   ENGINE-PORTED (D-170)**: cf6001x245/cf6003x274/cf6004x233/
+   cf6005x208 GRADUATED to regressions/ (corpus 11/1084/333); the
+   port = the T6 replay (stamp-ordered per-action op replay for
+   upd-carrying temporal 2-pattern batches) + pending per-action
+   moves + the self-slot view + terminal movability/relocation with
+   entry-eval ins-first consume + the A' child-list discipline.
+   Population A/B: **+719 fixed / 0 regressed**; the TJUPD axis
+   6001-6005 now flags ONLY cf6002x359. Three pre-existing residuals
+   quarantined (tu51x80/x187 = SET losses in the exit→unlinked→
+   re-enter relink shape — kin of the §1 family, own recon; tu51x207
+   = a 3-touch ORDER compound);
+3. the spin root-cause arc — cf6002x359 / tju_359_spin_min, the LAST
+   open TJUPD item (own slab, checker-first, D-106 caveat).

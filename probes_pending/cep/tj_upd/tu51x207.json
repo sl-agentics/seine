@@ -1,0 +1,124 @@
+{
+ "name": "tu51x207",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule SJ when $a : E0(tag == \"z\") $b : E0(this before[0ms,200ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 57,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 116,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 86,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 78,
+    "tag": "y"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z",
+      "ts": 75
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 63,
+      "tag": "y"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 74,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z",
+      "ts": 118
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "ts": 18
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-170 residual (pre-existing: fails on the pre-port tree too): ORDER-only, a 3-touch anchor composition (VI+entry, entry re-touch, ts-move) \u2014 the last unported sub-seam of the update-axis; recon with the tu51x80 slab."
+}
