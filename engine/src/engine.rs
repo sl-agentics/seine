@@ -5786,7 +5786,31 @@ impl Engine {
             // earlier actions (expirations, D-101 a3) batch to the
             // FIRE; only the trigger's own del effects flush
             let dd0 = t.s0_in.del.len() - p.3.min(t.s0_in.del.len());
-            let s0_dtail = t.s0_in.del.split_off(dd0);
+            let mut s0_dtail = t.s0_in.del.split_off(dd0);
+            // D-171 (relink out-and-back): a pre-existing s0-del whose
+            // fact RE-ENTERS in THIS flush (a fresh same-fact s0-ins)
+            // stays VISIBLE — the eval then processes del-then-ins in
+            // stage order (Drools' relink drain kills the OLD tuple
+            // objects before the fresh pairs derive). Stashed, the del
+            // drains at the next fire AFTER the re-entry eval, and —
+            // the engine kills by VALUE where Drools kills by tuple
+            // OBJECT identity — destroys the re-created children
+            // (tu51x80/tu51x187: the relink SET losses).
+            let fresh_ins = t.s0_in.ins.len() - p.0.min(t.s0_in.ins.len());
+            if fresh_ins > 0 && !s0_dtail.is_empty() {
+                let fresh: Vec<FactId> =
+                    t.s0_in.ins[..fresh_ins].iter().map(|(f, _, _)| *f).collect();
+                let mut keep: Vec<(FactId, Origin, u8)> = Vec::new();
+                s0_dtail.retain(|e| {
+                    if fresh.contains(&e.0) {
+                        keep.push(e.clone());
+                        false
+                    } else {
+                        true
+                    }
+                });
+                t.s0_in.del.extend(keep);
+            }
             let ddl = t.node.s_left.del.len() - p.4.min(t.node.s_left.del.len());
             let sl_dtail = t.node.s_left.del.split_off(ddl);
             let ddr = t.node.s_right.del.len() - p.5.min(t.node.s_right.del.len());

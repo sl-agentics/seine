@@ -30,27 +30,27 @@ tag-class staging). Fast battery 75/75 (incl. tj_tail 25/25 — D-166
 intact). NEW residual ledger (pre-existing, A/B-proven on the
 pre-port tree, quarantined in probes_pending/cep/tj_upd/):
 tu51x80/tu51x187 = SET losses in an exit→unlinked→re-enter relink
-shape + tu51x207 (a 3-touch ORDER compound). **⇒ D-171 (this slab):
-the relink-SET mechanism is CRACKED and the fix VALIDATED-then-
-REVERTED (recon; diff verbatim in docs/tjupd-ledger-mechanisms.md §4,
-~15 flush-layer lines, D-106-clean):** the exit's s0-del outlives the
-unlink (dels aren't flush-touch; unlinked evals don't fold s0), the
-dstash hides it from the relink eval, and its post-re-entry drain
-value-kills the re-created pairs — Drools' relink drain does
-del-then-ins by stage order on tuple OBJECTS. Ladder
-`probes_pending/cep/tj_upd/tju_relink_*` (min/sameepoch/gap
-open_divergence + nobacklog live control); with the fix in-tree ALL
-five family witnesses pass, corpus 11/1084/333 byte-identical, fast
-battery 71/71, population 2,199/2,200 (only tu51x207 left), fuzz 313
-+ TJUPD 6001 = 0, cargo 9. `tools/minimize_keyed.py` now COMMITTED.
-**NEXT: Bryan's gate — (d) land the relink-SET fix (evidence
-complete); (c) the cf6002x359 spin root-cause slab (checker-first,
-⚠⚠ D-106; witness tju_359_spin_min); tu51x207's ORDER-compound recon
-— handoff `~/.claude/plans/tjupd-ledger-handoff.md` ((a)(b) DONE).**
-Gates at D-170 (all standing): corpus 11/1084/333, lint 1591/0/0 →
-**1595/0/0** with the D-171 pins, cargo 9, bindings 72, fuzz_cep ×4 =
-0, TJUPD ×5 = only the spin, tjt 25/25, mju 0/200 + 200/200,
-notpop/expop fresh engine-clean. Prior: D-169 T6 spec, D-168 SET fix
+shape + tu51x207 (a 3-touch ORDER compound). **⇒ D-171 cracked the
+relink-SET mechanism; D-172 (this slab) LANDED the fix (Bryan-gated)
+and logged ⚖ THE IDENTITY-MODEL LAW (Bryan's ruling): the engine
+kills by VALUE; Drools kills by tuple OBJECT identity — deferred
+deletes reaching across a same-value re-creation are THIS law; check
+the del's deferral path first (full statement atop
+docs/tjupd-ledger-mechanisms.md + the workflow memory's doctrine
+list).** The fix: stream_flush_ex's dstash exempts an s0-del whose
+fact re-enters in the same flush (del-then-ins in stage order —
+Drools' relink drain; ~15 flush-layer lines, executor untouched,
+D-106-clean). tju_relink_{min,sameepoch,gap} + tu51x80/x187 are LIVE
+pins (+ the nobacklog control); the battery's open ledger is now
+EXACTLY tju_359_spin_min + tu51x207. **NEXT: Bryan's gate — (c) the
+cf6002x359 spin root-cause slab (checker-first, ⚠⚠ D-106; witness
+tju_359_spin_min, 4 facts); tu51x207's ORDER-compound recon
+(smallest) — handoff `~/.claude/plans/tjupd-ledger-handoff.md`
+((a)(b)(d) DONE).** Gates this slab: corpus **11/1084/333**
+byte-identical, population 2,199/2,200 (only tu51x207), fuzz_cep ×4
+= 0, TJUPD 6001-6005 = only the spin, tjt 25/25, mju 0/200 +
+200/200, notpop/expop fresh engine-clean, cargo 9, lint **1595/0/0**,
+bindings 72. Prior: D-170 ORDER port, D-169 T6 spec, D-168 SET fix
 (PUSHED through D-170 at `8f2cfb6`). Other deferred: D-080 TMS
 envelope, class-3 re-entrant churn, window:length (never built),
 Allen-beyond-Drools. Fenced-by-nature: D-134 §6 ties, fz_42_84.
@@ -9214,3 +9214,50 @@ NEXT (Bryan gates): (d) land the relink-SET fix (evidence complete —
 re-apply §4's diff, graduate the 5 witnesses + flip _nobacklog
 stays-live, full battery); (c) the cf6002x359 spin arc (checker-first,
 ⚠⚠ D-106); tu51x207's ORDER compound recon (smallest).
+## D-172 — the relink-SET fix LANDED; ⚖ THE IDENTITY-MODEL LAW logged (2026-07-11)
+
+Bryan gated deliverable (d) and ruled the D-171 distillation a
+STANDING BEHAVIORAL LAW. Both land in this slab.
+
+⚖ **THE IDENTITY-MODEL LAW (Bryan's ruling): the engine kills by
+VALUE; Drools kills by tuple OBJECT identity.** A re-created
+same-composition tuple is a NEW object in Drools that earlier-staged
+deletes cannot touch; the engine's value-keyed children/queue/staging
+let a DEFERRED delete reach across a re-creation and kill fresh
+state. The two models coincide exactly while processing order
+preserves del-before-recreate — every divergence in this class is an
+ORDERING deferral made lethal by value-keying, and the faithful fix
+restores the STAGE ORDER (as this slab's fix does), not bolted-on
+identity. Known instances: the Staged no-fold rule (c13) and the
+D-171 relink SET loss. TRIAGE RULE: a SET loss whose trace shows a
+deferred del draining after a same-value re-creation is THIS law —
+check the del's deferral path (dstash / unlinked staging / fire
+batching) first. Expect it to explain future finds wherever deletes
+defer: TMS retraction cascades, expiration drains, halt-model
+re-adds. Full statement at the top of
+`docs/tjupd-ledger-mechanisms.md`; also in the workflow memory's
+doctrine list beside the uniform-fold signature.
+
+ENGINE (the D-171 §4 diff, applied verbatim + the law cited in the
+comment): `stream_flush_ex`'s dstash exempts an s0-del whose fact
+RE-ENTERS in the same flush (a fresh same-fact s0-ins) — the eval
+processes del-then-ins in stage order, Drools' relink drain.
+Flush-layer only; the executor/halt machinery untouched (D-106-clean).
+
+SCENARIOS: tju_relink_{min,sameepoch,gap} + tu51x80 + tu51x187
+flipped to LIVE pins (GRADUATED findings); tju_relink_nobacklog stays
+the live control. The battery's open ledger is now EXACTLY
+tju_359_spin_min (the D-117 spin) + tu51x207 (the 3-touch ORDER
+compound).
+
+GATES (all green): the 10-witness family sweep PASS; corpus
+**11/1084/333** byte-identical; population 2,199/2,200 (only
+tu51x207); fuzz_cep 313/941/943/945 ×400 = 0; SEINE_TJUPD
+6001/6003/6004/6005 ×400 = 0 + 6002 = only cf6002x359; tjt 25/25;
+mju model 0/200 + engine 200/200; notpop/expop fresh populations
+engine-clean; cargo 9; lint **1595/0/0**; bindings 72 (fresh
+--release .so).
+
+NEXT (Bryan gates): (c) the cf6002x359 spin root-cause slab — THE
+LAST OPEN TJUPD ITEM but one (checker-first, ⚠⚠ D-106); tu51x207's
+ORDER-compound recon (smallest).

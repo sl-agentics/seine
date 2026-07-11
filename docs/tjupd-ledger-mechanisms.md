@@ -6,6 +6,30 @@ reproduced on HEAD and re-verified pre-existing on a `cb7d443`
 Batteries: `probes_pending/cep/tj_upd/` (minimals + s/r/m ladder cells
 + controls); model: `probes_pending/cep/tj_upd/model_tjupd_v4.py`._
 
+## ⚖ STANDING BEHAVIORAL LAW (Bryan, D-172): THE IDENTITY MODEL
+
+**The engine kills by VALUE; Drools kills by tuple OBJECT identity.**
+Drools' tuple lifecycle is object-scoped: a staged delete retracts the
+specific LeftTuple/child objects it was staged against, and a
+re-created tuple with an identical fact composition is a NEW object
+that earlier-staged deletes cannot touch. The engine's children,
+queue, and staging are value-keyed (`Tup = Vec<FactId>`), so ANY
+delete whose processing is DEFERRED past a same-value re-creation
+over-reaches and kills fresh state. The two models coincide exactly
+as long as processing ORDER preserves del-before-recreate — every
+divergence in this class is therefore an ORDERING deferral made
+lethal by value-keying, and the faithful fix is to restore the stage
+order (as D-172 does), not to bolt on identity.
+
+Known instances: the `Staged` no-fold rule (c13 — del+ins never fold
+because the re-created child is a NEW object) and the D-171 relink
+SET loss (§4). TRIAGE RULE: a SET loss whose trace shows a deferred
+del draining after a same-value re-creation is THIS law — check the
+del's deferral path (dstash / unlinked staging / fire batching)
+before hypothesizing anything else. Expect it to explain future
+finds wherever deletes defer: TMS retraction cascades, expiration
+drains, halt-model re-adds.
+
 ## The ledger resolves into THREE mechanisms
 
 ### 1. SET family — cf6001x384 (the correctness gap): a stale staged
@@ -192,11 +216,12 @@ untouched (the fix is flush-layer — D-106-clean).
 
 ## Status
 
-_Updated at D-171._ Deliverables:
-0. the RELINK-SET family (§4) — **mechanism CRACKED, fix validated in
-   recon and REVERTED — awaiting the Bryan gate** (tu51x80/x187 +
-   the tju_relink_* ladder; tu51x207 stays the one open ORDER
-   compound, recon when scheduled);
+_Updated at D-172._ Deliverables:
+0. ✅ the RELINK-SET family (§4) — **LANDED (D-172)**: the dstash
+   relink exemption is in-tree; tu51x80/x187 + the tju_relink_*
+   ladder are live pins. The IDENTITY-MODEL LAW (top of this doc) is
+   the standing distillation. tu51x207 stays the one open ORDER
+   compound (recon when scheduled);
 1. ✅ the SET fix — **LANDED (D-168)**: cf6001x384 graduated;
 2. ✅ the ORDER family — **spec closed (D-169, 0-div on 2,200) and
    ENGINE-PORTED (D-170)**: cf6001x245/cf6003x274/cf6004x233/
