@@ -54,11 +54,10 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **PUSHED through D-156** (`origin/main` at `5483b47`;
-Bryan holds every push; branch-only, NO tags). UNPUSHED: the D-157 →
-D-162 span (b9dc98e D-157 / 8aa90ed + 8e5a02b pointers / 5648a71 D-158
-spec / 3b2aa52 D-158 port / 7d53106 D-159 / 6cca187 D-160 / d400c56
-D-161 exists-widen / 5c15f80 D-162 spec / the D-162 PORT commit). ⚠ **NO `v*` TAGS until a PyPI release is
+**Git:** on `main`, **PUSHED through the D-162 PORT** (`origin/main` at
+`74583aa`, cleared by Bryan 2026-07-11; branch-only, NO tags — remote
+tag refs verified unchanged). Nothing code-bearing unpushed (this
+push-note commit rides the next authorized push). ⚠ **NO `v*` TAGS until a PyPI release is
 intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
 `pypi` environment has NO protection rules (gh-verified): a new tag
 publishes `seine-rs` with no manual gate. Arc history: the D-entries
