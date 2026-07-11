@@ -1,0 +1,76 @@
+{
+ "name": "ex4_reentry_scan_same_epoch",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule SJ when $a : E0(tag == \"z\") $b : E0(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 15,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 25,
+    "tag": "y"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z"
+     }
+    },
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-169 double-touch ladder pin (ORDER family, D-167 \u00a72): the oracle order is pinned by probes_pending/cep/tj_upd/ladder_dt*.py (T6 sub-rules; spec model_tjupd_v4 0-div on 2,200/2,200, seeds 11/21/31/41/51/61). Engine diverges PENDING the ORDER-family port (Bryan-gated); PRE-EXISTING v4-base order, not a regression."
+}

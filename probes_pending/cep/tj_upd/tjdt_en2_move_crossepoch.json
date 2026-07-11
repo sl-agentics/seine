@@ -1,0 +1,80 @@
+{
+ "name": "en2_move_crossepoch",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule SJ when $a : E0(tag == \"z\") $b : E0(this before[0ms,100ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 15,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 22,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 30,
+    "tag": "y"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "ts": 19
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-169 double-touch ladder CONTROL: engine already matches the T6-pinned oracle order (see ladder_dt*.py and the module docstring of model_tjupd_v4.py)."
+}

@@ -11,47 +11,45 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11 late, post-D-168 — **the TJUPD SET fix is
-LANDED** (Bryan-gated deliverable (a) of the D-167 ledger): the
-six-line `stream_flush_ex` self-drain guard is in-tree (the childless
-self-drain fallback now requires empty upd staging — a stale staged
-UPD on an UNLINKED temporal join no longer starves the D-125 flush
-and loses the pair across unlink/relink); cf6001x384 GRADUATED to
-regressions/ (**329**), tju_384_min + tju_m4_split are live pins.
-ALSO D-168: the mju executable spec's committed default REPAIRED
-(model_join_flush.py RUPD_ORDER childlist→oppmem — the D-166 grid
-winner; the committed loser scored 79% on mju42; grid argv wired;
-re-certified 0/200 ×2 seeds; the D-166 0/2,000 claim was real, the
-default just didn't match the validated config). REMAINING TJUPD
-ledger (quarantined, findings sharp): (1) ORDER ×4 (cf6001x245/
-6003x274/6004x233/6005x208): ONE family, the anchored/self-join
-MODIFY composition — spec model_tjupd_v4 (98.4% on 1,200; entry scans
-pre-move memory, exit cancels, A' reversed child-list refires
-tag-gated, $b listen-all refires + always tail-re-add post-scan,
-anchor left-re-add, dedup-keep-first); residual = the same-fact
-double-touch queue-position sub-rule (D-106-adjacent), port blocked
-on 0-div per doctrine. (2) HANG cf6002x359 = the known D-117 spin,
-minimized to 4 facts (tju_359_spin_min). Batteries:
-`probes_pending/cep/tj_upd/` (17 files). **NEXT: Bryan's gate —
-(b) close the v4 double-touch residual → port the ORDER family;
-(c) the spin root-cause slab (checker-first, ⚠ D-106) — handoff at
-`~/.claude/plans/tjupd-ledger-handoff.md` (deliverable (a) DONE).**
-Gates this slab: corpus **11/1084/329** byte-identical, lint
-**1554/0/0**, cargo 9, bindings 72, fuzz_cep ×4 = 0, TJUPD 6001-6005
-= only the 5 known residual names, shadow populations engine 0-div +
-specs ALL MATCH. Prior: D-167 ledger recon, D-166 update-recency
-port. Other deferred: D-080 TMS envelope, class-3 re-entrant churn,
-window:length (never built), Allen-beyond-Drools. Fenced-by-nature:
-D-134 §6 ties, fz_42_84. `git log --oneline -20` for HEAD._
+_Last updated: 2026-07-11 late, post-D-169 — **the v4 double-touch
+residual is CLOSED: model_tjupd_v4 is 0-div on 2,200/2,200** (bank
+seeds 11/21/31 — all 18 D-167 divergers green — + fresh 41/51/61
+×400; NO engine change this slab). The T6 sub-rules (5-round 31-cell
+ladder `probes_pending/cep/tj_upd/ladder_dt*.py`, cells graduated to
+`tjdt_*` — 17 open_divergence ORDER pins + 13 live controls):
+tag-writing actions stage MOVABLE upd emissions (ts-only = anchored);
+a later alpha-ENTRY of the SAME fact relocates its movable emissions
+behind the entry's ins batch (u5 keep-first = the different-facts
+case); moves immediate post-scan; the entry scan sees ITSELF at its
+pre-epoch slot under tag-class moves (ts moves visible). ⚠ one
+JVM-flaky boundary documented (ex9, exit-move vs different-fact entry
+scan, 16:2 majority-encoded, excluded from the battery — fz_42_84
+class). **⇒ the ORDER-family ENGINE PORT (cf6001x245/6003x274/
+6004x233/6005x208) is doctrine-UNBLOCKED and awaits Bryan's gate**;
+seam map = D-167 §2 + T6 delta (report §2
+`docs/tjupd-ledger-mechanisms.md`). REMAINING TJUPD ledger otherwise:
+HANG cf6002x359 = the known D-117 spin, minimized to 4 facts
+(tju_359_spin_min). Prior slab (D-168, PUSHED): the SET fix landed
+(cf6001x384 → regressions/, corpus 11/1084/**329**); mju spec default
+repaired (RUPD_ORDER oppmem). **NEXT: Bryan's gate — (b2) the ORDER
+port (spec ready, ⚠ D-106 adjacency); (c) the spin root-cause slab
+(checker-first, ⚠ D-106) — handoff at
+`~/.claude/plans/tjupd-ledger-handoff.md` (deliverables (a) DONE,
+(b1) DONE).** Gates this slab: ladder 31/31, fuzz 2,200/2,200, lint
+**1584/0/0** (+30 battery), corpus **11/1084/329** byte-identical
+(engine untouched). Other deferred: D-080 TMS envelope, class-3
+re-entrant churn, window:length (never built), Allen-beyond-Drools.
+Fenced-by-nature: D-134 §6 ties, fz_42_84. `git log --oneline -20`
+for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`; `origin/main` at `80ecc6b` — UNPUSHED local:
-`8697dc2` (D-167) + `c62d437` (handoff pointer) + the D-168 commit
-(Bryan holds every push).
+**Git:** on `main`; `origin/main` at `374e309` (D-168, Bryan-directed
+push 2026-07-11) — UNPUSHED local: the D-169 commit (Bryan holds every
+push).
 **RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
 on `2a482e8`, the ci.yml release pipeline all-green incl. the
 differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
@@ -9014,3 +9012,68 @@ double-touch residual → port the ORDER family (cf6001x245/6003x274/
 6004x233/6005x208); (c) the cf6002x359 spin root-cause arc
 (checker-first, ⚠ D-106). Handoff:
 `~/.claude/plans/tjupd-ledger-handoff.md` (deliverable (a) DONE).
+## D-169 — the double-touch residual CLOSED: model_tjupd_v4 0-div on 2,200/2,200; the ORDER-family port is UNBLOCKED (recon/spec; port Bryan-gated) (2026-07-11)
+
+Bryan directed deliverable (b) step 1 (post-D-168 push). NO engine
+change — this slab is the discriminator-ladder arc the D-167 handoff
+prescribed, executed predictions-first per doctrine.
+
+THE LADDER (5 rounds, 31 cells, all oracle-2×-stable except the one
+documented flake; `probes_pending/cep/tj_upd/ladder_dt{,2,3,4,5}.py`):
+round 1 (13 cells: the handoff's 4×2 core + 3-action interposers that
+the 2-action fuzz generator cannot reach + move-visibility cells)
+REFUTED both naive theories — the four residual-bank shapes moved
+while int1/int2/dt4 kept first and en1/en3 saw immediate moves; round
+2 (6) split exit-vs-plain move timing and pinned drain-at-reentry;
+round 3 (5) killed value-identicalness as the key (ts-VI is fully
+immediate — the written FIELD is the discriminator) and exposed the
+insert-scan/modify-scan split; round 4 (4) pinned the tag-write
+movability class (both-write defers with tag; in-place keeps; DR1's
+oracle = the predicted drain-at-reentry order exactly); round 5 (3)
+pinned the self-slot mid-batch and by-fact scoping. Hand-replays of
+bank cells (tu21x329, tu21x244) matched the oracle verbatim before
+encoding.
+
+T6 SUB-RULES (full statement in the model docstring; report §2):
+(1) MOVABILITY — upd emissions staged by TAG-writing actions (noop
+y→y, both-fields, in-place z→z, exit z→y) are movable-by-f; ts-only
+actions stage anchored emissions. (2) RELOCATION — re-emitting a
+movable emission during a LATER alpha-ENTRY of the SAME fact moves it
+behind the entry's ins batch; anchored/different-fact/same-action/
+non-entry re-emissions keep first (u5 was the different-facts case all
+along); ins-staged absorb (the x126 self-pair). (3) MOVES are
+immediate post-scan for every class. (4) SELF-SLOT — an entry's scan
+sees the entering fact itself at its pre-epoch slot when its
+same-epoch moves were tag-class (exits included: x56/x227/dt2b/x145),
+at its moved slot after ts-only moves (en3).
+
+TWO ENCODING ITERATIONS, each caught by evidence: a same-ACTION
+relocation overreach (dt4/int2/ip1 — A'-then-phase-B must keep first;
+fixed with an action counter) and a non-entry relocation overreach
+(tu11x84, a NEW diverger the first encoding created: in-place
+re-touches keep first; fixed by requiring the relocating action be an
+alpha-ENTRY). Final: ladder 31/31, the 17 buggy-run divergers 17/17,
+and **fuzz 0-div on 2,200/2,200 — bank seeds 11/21/31 (the 18 D-167
+divergers all green) + fresh out-of-sample 41/51/61 ×400 each**.
+
+⚠ ORACLE FLAKE (documented, quarantined, NOT chased — the fz_42_84
+class): the exit-move's visibility to a later same-epoch
+DIFFERENT-fact entry scan is JVM-nondeterministic (cell ex9: 16 moved
+/ 2 unmoved across JVM instances, each internally consistent; the two
+unmoved runs were one python session's pair). The model encodes the
+moved majority; ex9 is deliberately NOT in the battery. Related: the
+D-167 seed-11 tally was 6 divergers, today's deterministic count is 5
+— consistent with one flaky cell in this same boundary.
+
+SCENARIOS: the 30 stable ladder cells graduated into the battery as
+`probes_pending/cep/tj_upd/tjdt_*.json` — 17 open_divergence ORDER
+pins (engine still on v4-base order pending the port) + 13 live
+controls. Lint **1584/0/0**. Corpus untouched (no engine change);
+make diff 11/1084/329 byte-identical re-verified.
+
+NEXT (Bryan gates): (b2) the ORDER-family ENGINE PORT — now
+doctrine-unblocked (spec 0-div); seam map = D-167 §2 + the T6 delta
+(per-arrival update flush must reproduce movability, entry-relocation,
+and the self-slot scan; engine seams: alpha-entry pre-move scan, A'
+reversed child-list, the D-166 lseq refresh on the mask-miss path,
+anchor left-re-add). ⚠ D-106 adjacency stands. (c) the spin arc.

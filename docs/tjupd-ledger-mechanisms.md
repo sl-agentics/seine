@@ -72,13 +72,40 @@ a 3-knob grid over live-oracle populations:
   fire boundary.
 
 **Validation: 1,181 / 1,200 (~98.4%)** across three seeds (200+400+400,
-6/9/4 divergences). The residual is ONE named sub-rule: the queue
-position of a **same-fact double-touch within one epoch** (u5-style
-chains keep FIRST position; x199-style self-join re-entries move the
-refire BEHIND the entry) — agenda-queue territory adjacent to the
-D-106 caveat; needs its own discriminator ladder before the engine
-port. **No engine change for this family yet** (model must reach 0-div
-first, per doctrine).
+6/9/4 divergences). The residual was ONE named sub-rule: the queue
+position of a **same-fact double-touch within one epoch**.
+
+**⇒ RESIDUAL CLOSED (D-169): spec 0-div on 2,200/2,200** (bank seeds
+11/21/31 + fresh 41/51/61, 200+400×5), via a 5-round 31-cell
+discriminator ladder (`probes_pending/cep/tj_upd/ladder_dt*.py`; cells
+graduated to `tjdt_*.json` — 17 open_divergence order pins + 13 live
+controls). The T6 sub-rules (full statement in the model docstring):
+
+- **Emission movability**: an upd emission staged by a TAG-writing
+  action (noop y→y, both-fields, in-place z→z, exit z→y) is
+  MOVABLE-by-f; ts-only actions stage ANCHORED emissions.
+- **Relocation**: re-emitting a movable emission during a LATER
+  alpha-ENTRY of the SAME fact moves it to the current position
+  (behind the entry's ins batch). Anchored / different-fact /
+  same-action / non-entry re-emissions keep their first position (the
+  u5 keep-first discipline — u5 was different-facts all along);
+  ins-staged emissions absorb re-touches.
+- **Self-slot**: an entry's scan sees the entering fact ITSELF at its
+  pre-epoch slot when its same-epoch moves were tag-class (exits
+  included), at its moved slot after ts-only moves; other facts always
+  at current positions. Moves are otherwise immediate post-scan, every
+  class (the D-167 "phase C" statement stands).
+- ⚠ **Oracle flake** (fz_42_84 class, quarantine-and-document): the
+  exit-move's visibility to a later same-epoch DIFFERENT-fact entry
+  scan is JVM-nondeterministic (cell ex9: 16 moved / 2 unmoved across
+  JVM instances, each internally consistent). The model encodes the
+  moved majority; ex9 is deliberately NOT in the battery.
+
+**Engine port (NOW UNBLOCKED, Bryan gate pending)** — the D-167 seam
+map stands (alpha-entry pre-move scan / A' reversed child-list /
+lseq-refresh on the mask-miss path / anchor left-re-add), plus the T6
+delta: the per-arrival update flush must reproduce movability +
+entry-relocation + the self-slot scan.
 
 ### 3. HANG witness — cf6002x359: the D-117-guarded executor spin,
 ### now with a 4-fact minimal
@@ -93,14 +120,16 @@ halt-model caveat applies to any fix attempt.
 
 ## Status
 
-_Updated at D-168._ The five ORDER/hang cf* stay QUARANTINED with
+_Updated at D-169._ The five ORDER/hang cf* stay QUARANTINED with
 sharpened `_finding`s. Deliverables, in order of value:
 1. ✅ the SET fix — **LANDED (D-168)**: cf6001x384 graduated to
    regressions/, tju_384_min + tju_m4_split live pins, all gates
    green (corpus 11/1084/329, TJUPD 6001-6005 = only the ORDER/hang
    names);
-2. the ORDER-family port (blocked on closing the ~1.6% model residual:
-   the double-touch queue ladder, then the engine composition — the
-   engine work spans alpha-entry staging, A′ refires, child-list
-   order, and the left-memory re-add);
+2. the ORDER-family port — **spec residual CLOSED (D-169): model
+   0-div on 2,200/2,200** (T6 double-touch sub-rules, §2 above; the
+   31-cell ladder graduated to tjdt_* — 17 order pins + 13 controls).
+   The engine composition spans alpha-entry staging, A′ refires,
+   child-list order, the left-memory re-add, and the T6 movability/
+   relocation/self-slot — **the port awaits the Bryan gate**;
 3. the spin root-cause arc (own slab, checker-first, D-106 caveat).
