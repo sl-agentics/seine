@@ -11,33 +11,34 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10 (late), post-D-161 — **the plain-EXISTS WEDGE
-is CLOSED; the satisfy-ORDER family is FILED with a ready handoff**
-(D-159 annihilation + D-160 acc drain landed earlier the same day).
-D-161 = the D-159 stash gate widened `Kind::Not` → `Kind::Not |
-Kind::Exists` (plain-typed witnesses stage lazily through mid-epoch
-flushes): fixes the PERMANENT-SILENCE wedge (a mid-epoch flush split
-the ph=1 del+ins re-entry pair — the exists child died forever; ex2/ex2b
-pins) and locks the net/final-state witness semantics (5
-`pr_cep_ex_lazy_*` pins: explicit/update/TMS churn all COALESCE, every
-provenance, both session modes). NEW population axis
-`SEINE_EXPOP_PLAIN=1 tools/fuzz_existsorder.py` (bare/cons/logical
-drives): base 205/900 divergences → widened 200 = **+6/1-exposure**
-(the exposure = ex5001x5, previously passing by mechanism-luck, now
-routed into the FILED order family). Gates: corpus **11/1070/299**
-byte-identical (churn pin + w-ladder HELD), lint **1468**, cargo 9,
-bindings 72, expop/notpop FULL 600+600 + notpop-PLAIN 400 (the D-159
-surface holds), fuzz_cep 313/907/911 ×400 both trees 0-div, main-axis
-both trees identical sets. **NEXT (handoff ready):
-`~/.claude/plans/plain-exists-order-handoff.md`** — D-162, the
-plain-exists satisfy EMISSION-ORDER spec arc (~200/900: engine drains
-satisfy batches newest-first vs oracle arrival-FIFO, incl. INITIAL-fire
-batches; ~20/seed re-satisfy SET-compounds): predict_pexists →
-population 0-div → Bryan gate → port. Witnesses
-`xf_cep_ex_{backlog_order,plain_order_set,order_widen_exposed}`.
-ALSO quarantined: `cf933x385` (fresh fuzz_cep seed 933, BOTH trees —
-a pre-existing event-not ORDER latent in a salience/temporal/acc rule
-MIX; BfShadow-composition recon when scheduled). Other deferred: D-093
+_Last updated: 2026-07-10 (late), post-D-162 SPEC — **the plain-EXISTS
+satisfy EMISSION-ORDER mechanism is CRACKED; the spec is 0-div on ALL
+1,800 population scenarios; the ENGINE PORT PENDS BRYAN'S GATE.**
+Report: `~/.claude/plans/plain-exists-order-report.md` (mechanism +
+discriminator table + port approaches). Spec = `predict_pexists`
+(`tools/model_check_exists.py`, EMODEL=pexists): the pflush join
+skeleton (staged-arrival ++ reversed(rtm) emissions, per-eval
+reversed-append drains, move-to-tail updates, NO refraction — a
+re-satisfy re-emits the whole memory = the x75 SET-compound) × exists
+polarity × D-161 NET witness semantics × a link-counter queue economy
+(deletes SYNC / updates DEFERRED; LINK signals dequeue on sync 1→0;
+explicit-D-delete WM signals persist; TMS cascade dels silent; evals
+iff queued + a QUIESCENCE eval observes cross-boundary unsatisfies).
+Validation: banked 656/656 (5001-5003) + fresh 660/660 (5004-5006,
+zero refit) + FULL-COVERAGE oracle sweeps **1,800/1,800** (no
+firing-count filter); EMODEL=flush regression 60/60; lint 1468/0/0.
+ENGINE untouched at `d400c56` (defect: order + x75-class refraction
+under-fires; 200/900 banked fails stand). **NEXT: Bryan reads the
+report → gate → the PORT session** (fix the plain-exists fire-eval
+satisfy drain: full-memory re-emission + machine order; a pick shadow
+alone cannot fix the SET class — see report §Port approach; gates
+listed there incl. corpus 11/1070/299 + 3 xfail graduations +
+populations both trees + fuzz_cep/main-axis both trees).
+Populations: `EXPOP_TMP=$CLAUDE_JOB_DIR/tmp/explain SEINE_EXPOP_PLAIN=1
+tools/fuzz_existsorder.py 300 <5001-5006>` (deterministic; banked in
+job 577ad61a tmp). ALSO quarantined (D-161): `cf933x385` (pre-existing
+event-not ORDER latent in a salience/temporal/acc MIX;
+BfShadow-composition recon when scheduled). Other deferred: D-093
 quarantine graduation (oracle bump, D-148), D-080 TMS envelope, Allen
 @expires fence (17 `xf_cep_e_*`), class-3 re-entrant churn.
 Fenced-by-nature: D-134 §6 ties, fz_42_84.
@@ -50,9 +51,9 @@ Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
 **Git:** on `main`, **PUSHED through D-156** (`origin/main` at `5483b47`;
 Bryan holds every push; branch-only, NO tags). UNPUSHED: the D-157 →
-D-161 span (b9dc98e D-157 / 8aa90ed + 8e5a02b pointers / 5648a71 D-158
-spec / 3b2aa52 D-158 port / 7d53106 D-159 / 6cca187 D-160 / the D-161
-exists-widen commit). ⚠ **NO `v*` TAGS until a PyPI release is
+D-162 span (b9dc98e D-157 / 8aa90ed + 8e5a02b pointers / 5648a71 D-158
+spec / 3b2aa52 D-158 port / 7d53106 D-159 / 6cca187 D-160 / d400c56
+D-161 exists-widen / the D-162 pexists SPEC commit). ⚠ **NO `v*` TAGS until a PyPI release is
 intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
 `pypi` environment has NO protection rules (gh-verified): a new tag
 publishes `seine-rs` with no manual gate. Arc history: the D-entries
@@ -69,7 +70,8 @@ regressions **299** byte-identical / lint **1468 live·0 ghost·0 inert** /
 `tools/model_check_notorder_b.py <pop> pflush`; event-not MODEL=flush;
 winacc/acc-drain `tools/model_check_winacc.py <popdir>`; plain-exists
 populations `SEINE_EXPOP_PLAIN=1 tools/fuzz_existsorder.py <n> <seed>`
-(seeds 5001-5003 banked; the D-162 model is NOT yet written).
++ `EMODEL=pexists tools/model_check_exists.py <pop>` (seeds 5001-5006
+banked in job 577ad61a tmp; the D-162 spec, 1,800/1,800).
 **Red on resume ⇒ drift — investigate before building.**
 
 **Landed (background — log has detail):** v0.4.0 CEP E1 + reset + agenda groups
@@ -8520,3 +8522,70 @@ w-ladder). The order family is deliberately NOT chased here — it needs
 its own validated emission model (the exposure case makes the ordering
 explicit: land the SET fix, spec the ORDER). Next slab = D-162 per the
 handoff.
+
+## D-162 — plain-EXISTS satisfy EMISSION-ORDER: mechanism CRACKED, spec 0-div on 1,800 (port gate-pending)
+
+DATE: 2026-07-10 (late). The D-161 handoff (`~/.claude/plans/
+plain-exists-order-handoff.md`) executed as a D-158-style spec arc.
+Report for the gate: `~/.claude/plans/plain-exists-order-report.md`.
+
+THE MECHANISM (banked-population-derived; discriminators ex5001x{75,79,
+88,103,106,125,129,130,170,248}, ex5003x280 — full table in the report):
+`predict_pexists` (tools/model_check_exists.py, EMODEL=pexists) = the
+D-158 pflush join skeleton (P-ins stage arrival-order; bare-P update =
+immediate rtm move-to-tail iff in rtm; P-delete annihilates staged /
+leaves rtm + cancels its activation; every eval drains staged rights
+reversed-append into rtm, emitting them arrival-order iff THROUGH;
+satisfy emission = join_left_ins = staged-arrival ++ reversed(pre-rtm))
+× the EXISTS polarity × the D-161 NET witness semantics (staged D ops
+apply as ONE net batch per eval; only the net 0→1/1→0 transition fires/
+kills) × a link-counter queue economy:
+- deletes SYNC / updates DEFERRED (the D-155 principle recurs): explicit
+  D-deletes and TMS cascade retracts move the exists link counter at
+  entry (annihilating still-staged inses outright); an alpha-EXIT update
+  of a processed D stages its del with NO counter move (x125), while an
+  alpha-exit of a still-staged ins is a staging-level annihilation
+  (x88); alpha-admit stages a fresh ins;
+- queue signals in TWO classes: LINK (D-ins counter 0→1 with the join
+  populated = satisfy-link; P-ins while counter>0) — DEQUEUED by any
+  sync counter 1→0 (segment delink; x88/x79); WM (explicit D-deletes
+  only, even annihilating ones — x280/x248) — never dequeued; TMS
+  cascade dels carry NO signal (x170 coalesces forever);
+- evals run iff queued (fire-loop + mid-drain: the executor re-evaluates
+  before its next item when witness ops are staged — the logical drive's
+  first satisfaction lands there); the IF left stays STAGED till the
+  first fire-loop eval;
+- QUIESCENCE eval: staged witness ops unprocessed at the window's end
+  evaluate even unqueued — a CROSS-boundary unsatisfy is observed there
+  (x276/x56) while a same-window del+ins pair has already coalesced
+  mid-drain (x170/x79).
+- NO REFRACTION: a re-satisfy re-emits the WHOLE right memory — the x75
+  SET-compound (engine 6 vs oracle 8) is this machine, not a separate
+  sub-mechanism. FIFO backlogs (xf_cep_ex_backlog_order) = the machine
+  when nothing ever queued an eval; newest-drain-batch-first shapes
+  (x248/x280) = the same machine when WM signals ran blocked evals.
+
+VALIDATION (all green): banked-format checks 656/656 (5001-5003) +
+660/660 FRESH out-of-sample (5004-5006; ZERO refit after seed 5001 —
+5002-5006 matched as-derived); FULL-COVERAGE oracle sweeps (no
+firing-count filter, incl. the 244+240 sub-2-firing shapes) **1,800/
+1,800 ALL MATCH**; EMODEL=flush (D-152 event spec, same file)
+regression 60/60; `make lint-probes` 1468/0/0. Populations regenerate
+deterministically: `EXPOP_TMP=<tmp>/explain SEINE_EXPOP_PLAIN=1
+tools/fuzz_existsorder.py 300 <seed>`.
+
+ENGINE DEFECT (unchanged at `d400c56`, 200/900 banked fails): (1) ORDER
+— the fire-eval satisfy drain emits newest-first-ish instead of the
+machine order; (2) SET — cross-window re-satisfies under-fire (x75
+6-vs-8): the engine refracts where the oracle re-creates every child. A
+pick-reorder shadow alone CANNOT fix class 2; the eval path must re-emit
+the full memory (port approaches + gates in the report).
+
+STATUS: **SPEC ONLY — engine untouched; Bryan's gate pends for the
+port.** Corpus untouched this slab (diff green at session start, no
+engine/probe changes; lint re-run green). The 3 xfail witnesses
+(`xf_cep_ex_{backlog_order,plain_order_set,order_widen_exposed}`) stay
+filed until the port lands. Coverage caveats for the port session: the
+generator never reaches zero live P's (satisfy-link's join-populated
+corner untested — hand-probe at port time); ex5001x5-class mechanism-
+luck shapes need the A/B, not just the model.

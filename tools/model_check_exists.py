@@ -248,11 +248,295 @@ def predict_flush(scn):
     return fired
 
 
+def predict_pexists(scn):
+    """D-162: the PLAIN-witness exists machine (`exists D() P()` / `exists
+    D(tag=="x") P()` / the logical J-drive, D PLAIN, STREAM session) — the
+    fuzz_existsorder.py SEINE_EXPOP_PLAIN family. The pflush (D-158) plain-
+    staging join skeleton with the EXISTS polarity, the D-161 NET witness
+    semantics, and a graft-consistent LINK-COUNTER queue economy. Derived
+    from the banked populations (existspop_5001-5003; discriminators
+    ex5001x{75,79,88,103,106,125,129,130,170,248}, ex5003x280):
+
+    JOIN MACHINERY (pflush verbatim — the downstream join is the same node):
+      - a P-INSERT stages in arrival order; a bare-P UPDATE is an immediate
+        rtm move-to-tail when in rtm, a no-op while staged; a P-DELETE
+        annihilates its staged insert or leaves rtm at its entry position
+        and cancels its queued activation;
+      - every eval drains the staged rights (reversed-append into rtm) and
+        emits them (arrival order) iff the rule is THROUGH after the net
+        witness step; the satisfy emission is join_left_ins = staged-arrival
+        ++ reversed(pre-rtm) — algebraically reversed(post-drain rtm)
+        (ex5001x75 [6,4,5,1,3]; ex5001x106 [8,9,10,5,6,7,3,4,1,2]); NO
+        refraction: a re-satisfy re-fires the whole right memory (x75 8-vs-6).
+
+    EXISTS SIDE (net + counter):
+      - witness (D) ops STAGE until an eval; the eval applies them as ONE
+        NET batch (D-161 pins: churn coalesces in every provenance); only
+        the NET 0->1 / 1->0 transition satisfies/unsatisfies (ex5001x79/
+        x170: a cascade-del + same-window logical re-ins nets to NO
+        transition => no re-fire, the through-drain still emits fresh P's);
+      - DELETES are SYNCHRONOUS at entry: an explicit D-delete and a TMS
+        cascade retract (E1 delete / J-churn old-D) move the link COUNTER
+        immediately (annihilating a still-staged ins outright); UPDATES are
+        DEFERRED: an alpha-exit (x->z) of a PROCESSED D stages a del with
+        NO counter move (the D-155 update-deferral principle; ex5001x125:
+        a P staged after the exit-update still queues), while an alpha-exit
+        of a STILL-STAGED ins is a staging-level annihilation (counter
+        moves; ex5002x88 stays pure-FIFO); an alpha-admit (z->x) stages a
+        fresh ins (counter++);
+      - QUEUE SIGNALS, two classes. LINK signals: a D-ins taking the
+        counter 0->1 with the join populated (satisfy-link), or a P-ins
+        staging while the counter is >0. A sync counter 1->0 DEQUEUES all
+        pending link signals (segment delink — x88, x79). WM signals:
+        EXPLICIT deletes only — a D-delete (even one that annihilates:
+        x280/x248 drain on the boundary eval) or a P-delete of an
+        rtm-RESIDENT tuple (x130) — never dequeued. TMS cascade deletes
+        carry NO signal (x170: an unobserved unsatisfy coalesces forever);
+      - the eval runs iff queued (fire-loop and mid-drain alike; the
+        executor re-evaluates before each next item when witness ops are
+        staged); the IF left is itself STAGED until the first fire-loop
+        eval (the first satisfaction emits there — a pure-P backlog with no
+        queued eval accumulates staged across epochs and a later satisfy
+        emits it in pure arrival order: ex5001x103 [2..7] over 3 epochs);
+      - logical drive: J fires interleave in the ONE agenda FIFO; a churn
+        stages the old-D TMS del (sync) then the new-D ins; an explicit E1
+        delete cascades its D's TMS del at entry; no advances => no expiry.
+    Validated 0-div against existspop_5001-5003 (banked) + fresh seeds;
+    the spec for the D-162 engine port."""
+    trace = os.environ.get("SEINE_PEXISTS_TRACE")
+
+    def tr(msg):
+        if trace:
+            print(f"    | {msg}")
+    vof = {}                     # global idx -> P value
+    staged, rtm, fired = [], [], []
+    agenda = []                  # [("ne", v) | ("j", kind, e1_uid)] FIFO
+    e1 = {}                      # uid -> {"d": d_uid or None}
+    d_tag = {}                   # d_uid -> current tag (explicit D's)
+    d_of_idx = {}                # global idx -> d_uid (explicit D targets)
+    d_alive = set()              # PROCESSED live witnesses (exists memory)
+    d_staged = []                # pending exists-side ops [("ins"|"del", d_uid)]
+    counter = [0]                # the exists link counter: |d_alive| +
+                                 # staged ins - SYNC dels (deferred-update
+                                 # dels do NOT move it)
+    if_propagated = [False]
+    if_blocked = [True]          # exists polarity: blocked while NO witness
+    next_d = [10**6]
+    idx = [0]
+    exec_link = [False]          # link-class signal: dequeued on sync 1->0
+    exec_wm = [False]            # WM-class signal: explicit deletes, sticky
+    cons = 'tag == "x"' in scn["drl"]
+
+    def alpha(t):
+        return (t == "x") if cons else True
+
+    def queued():
+        return exec_link[0] or exec_wm[0]
+
+    def consume():
+        exec_link[0] = False
+        exec_wm[0] = False
+
+    def cancel_ne():
+        agenda[:] = [it for it in agenda if it[0] != "ne"]
+
+    def join_left_ins():
+        pre_rtm = list(rtm)
+        rtm.extend(reversed(staged))
+        emitted = list(staged) + list(reversed(pre_rtm))
+        staged.clear()
+        return emitted
+
+    def counter_dec():
+        counter[0] -= 1
+        if counter[0] == 0:
+            exec_link[0] = False             # segment delink: dequeue
+
+    def stage_d_ins(d):
+        d_staged.append(("ins", d))
+        counter[0] += 1
+        if counter[0] == 1 and (staged or rtm):
+            exec_link[0] = True              # satisfy-link completes the segment
+
+    def stage_d_del_sync(d, wm):
+        """A SYNCHRONOUS witness retract (explicit D delete / TMS cascade):
+        annihilates a still-staged ins outright, moves the counter at entry
+        (1->0 dequeues link signals); an EXPLICIT delete additionally
+        carries its WM eval signal."""
+        if ("ins", d) in d_staged:
+            d_staged.remove(("ins", d))
+        else:
+            d_staged.append(("del", d))
+        counter_dec()
+        if wm:
+            exec_wm[0] = True
+
+    def stage_d_del_deferred(d):
+        """An alpha-EXIT UPDATE of a processed D: the retract is deferred
+        to the eval (D-155 update-deferral) — no counter move, no signal."""
+        d_staged.append(("del", d))
+
+    def eval_ne(fire_loop=False):
+        pending = []
+        # NET witness step: apply the staged D ops as one batch (D-161)
+        was = bool(d_alive)
+        net = set(d_alive)
+        for kind, d in d_staged:
+            (net.add if kind == "ins" else net.discard)(d)
+        d_alive.clear(); d_alive.update(net)
+        d_staged.clear()
+        counter[0] = len(d_alive)
+        now = bool(d_alive)
+        if if_propagated[0]:
+            if was and not now and not if_blocked[0]:
+                if_blocked[0] = True         # unsatisfy: children die
+                cancel_ne()
+            elif not was and now and if_blocked[0]:
+                if_blocked[0] = False        # satisfy: left-ins into the join
+                pending.extend(join_left_ins())
+        # join right-drain: every eval moves the staged P's into rtm
+        # (reversed-append); children emit iff THROUGH after the net step
+        if staged:
+            rtm.extend(reversed(staged))
+            if if_propagated[0] and not if_blocked[0]:
+                pending.extend(staged)
+            staged.clear()
+        # the IF's own staged left-ins — first fire-loop eval only
+        if fire_loop and not if_propagated[0]:
+            if_propagated[0] = True
+            if_blocked[0] = not now
+            if not if_blocked[0]:
+                pending.extend(join_left_ins())
+        agenda.extend(("ne", v) for v in pending)
+        tr(f"eval(fl={fire_loop}) was={was} now={now} rtm={rtm} "
+           f"staged={staged} blocked={if_blocked[0]} agenda={agenda}")
+
+    def churn(uid):
+        """One J fire for E1 uid: the TMS WM-DELETE of the old D is
+        synchronous at the fire, the RHS insertLogical stages after it."""
+        nd = next_d[0]; next_d[0] += 1
+        old = e1[uid]["d"]
+        if old is not None:
+            stage_d_del_sync(old, wm=False)
+        stage_d_ins(nd)
+        e1[uid]["d"] = nd
+        idx[0] += 1              # the logical D consumes an nth_inserted slot
+
+    def drain_agenda():
+        while agenda:
+            it = agenda.pop(0)
+            if it[0] == "ne":
+                fired.append(it[1])
+            else:
+                _, kind, uid = it
+                if uid in e1:
+                    churn(uid)
+                # mid-drain eval: the executor re-evaluates the network
+                # before its next item when witness ops are staged
+                if d_staged and (queued()
+                                 or any(x[0] == "ne" for x in agenda)):
+                    eval_ne(fire_loop=True)
+                    consume()
+
+    def entry_insert(f):
+        if f["type"] == "P":
+            v = f["fields"]["v"]; vof[idx[0]] = v
+            staged.append(v)
+            if counter[0] > 0:
+                exec_link[0] = True          # staging notifies while linked
+        elif f["type"] == "E1":
+            e1[idx[0]] = {"d": None}
+            agenda.append(("j", "ins", idx[0]))
+        else:                                # explicit plain D
+            d = next_d[0]; next_d[0] += 1
+            d_of_idx[idx[0]] = d
+            d_tag[d] = f["fields"]["tag"]
+            if alpha(d_tag[d]):
+                stage_d_ins(d)
+        idx[0] += 1
+
+    def entry_update(a):
+        tgt = a["target"]
+        if tgt in vof:                       # bare-P: reorder-only, immediate
+            v = vof[tgt]
+            if v in rtm:
+                rtm.remove(v); rtm.append(v)
+        elif tgt in d_of_idx:                # explicit D tag update (cons)
+            d = d_of_idx[tgt]
+            old, new = d_tag[d], a["fields"]["tag"]
+            d_tag[d] = new
+            if alpha(old) and not alpha(new):
+                if ("ins", d) in d_staged:   # alpha-exit of a STAGED ins:
+                    d_staged.remove(("ins", d))  # staging-level annihilation
+                    counter_dec()            # (counter moves, no signal)
+                else:
+                    stage_d_del_deferred(d)  # processed D: deferred retract
+            elif not alpha(old) and alpha(new):
+                stage_d_ins(d)               # alpha-admit: a fresh ins
+        elif tgt in e1 and "tag" in a.get("fields", {}):
+            agenda.append(("j", "refire", tgt))
+
+    def entry_delete(a):
+        tgt = a["target"]
+        if tgt in vof:
+            v = vof[tgt]
+            if v in staged:
+                staged.remove(v)
+            elif v in rtm:
+                rtm.remove(v)
+            agenda[:] = [it for it in agenda if it != ("ne", v)]
+        elif tgt in d_of_idx:                # explicit D delete
+            d = d_of_idx.pop(tgt)
+            if alpha(d_tag[d]) and (("ins", d) in d_staged or d in d_alive):
+                stage_d_del_sync(d, wm=True)
+            d_tag.pop(d, None)
+        elif tgt in e1:                      # explicit E1: J-match cancel ->
+            meta = e1.pop(tgt)               # TMS cascade retract (no signal)
+            if meta["d"] is not None:
+                stage_d_del_sync(meta["d"], wm=False)
+
+    def fire_all():
+        if queued():
+            eval_ne(fire_loop=True)
+            consume()
+        drain_agenda()
+        # QUIESCENCE: staged witness ops left unprocessed at the window's
+        # end evaluate now even with nothing queued — an unsatisfy crossing
+        # a fire boundary is OBSERVED here (ex5003x276/ex5002x56: the next
+        # window's re-ins then re-fires the memory), while a same-window
+        # del+ins pair has already coalesced at the mid-drain eval
+        # (ex5001x170/x79)
+        if d_staged:
+            eval_ne(fire_loop=True)
+            consume()
+            drain_agenda()
+
+    for f in scn["facts"]:
+        entry_insert(f)
+    tr("== fire 0 ==")
+    fire_all()
+    for i, ep in enumerate(scn["epochs"]):
+        for a in ep["actions"]:
+            if a["op"] == "update":
+                entry_update(a)
+            elif a["op"] == "insert":
+                entry_insert(a)
+            elif a["op"] == "delete":
+                entry_delete(a)
+        for f in ep["facts"]:
+            entry_insert(f)
+        tr(f"== fire {i+1} == staged={staged} d_staged={d_staged} "
+           f"q={queued()} c={counter[0]} fired={fired}")
+        fire_all()
+    return fired
+
 def predict(scn, model=None):
     import os as _os
     model = model or _os.environ.get("EMODEL", "epoch")
     if model == "flush":
         return predict_flush(scn)
+    if model == "pexists":
+        return predict_pexists(scn)
     seg = [0]
     epoch = [0]       # fire-boundary (scenario epoch) index
     gidx = {}; ins_seg = {}; upd_seg = {}; upd_app = {}; is_upd = {}
