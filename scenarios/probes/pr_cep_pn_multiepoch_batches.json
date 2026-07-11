@@ -1,0 +1,168 @@
+{
+ "name": "pr_cep_pn_multiepoch_batches",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 200,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 when $a : E1() $b : E1(this finishes $a) then end\nrule TJ1 salience 7 when $a : E2() $b : E1(this after[0ms,150ms] $a) then end\nrule CH2 when $a : E0() $b : E1(this before[0ms,50ms] $a) $c : E2(this before[0ms,50ms] $b) then end\nrule W3 when accumulate( E0(tag == \"y\", $t : ts) over window:time(200ms); $c : sum($t) ) then end\nrule J4 when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule RD5 salience 4 when D() then end\nrule ND6 salience 4 when not D() P() then end\nrule G7 salience 17 when P(v == 2) then insert(new P3(3)); end\nrule C8 salience 5 when P3() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 35,
+    "tag": "z",
+    "dur": 50
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-158: flush batches append newest-arrival-first per batch; a later-epoch staged P joins the release as a child ahead of the reversed rtm."
+}

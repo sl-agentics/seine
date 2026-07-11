@@ -1,0 +1,131 @@
+{
+ "name": "pr_cep_pn_multi_blocker",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t1"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t2"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 2
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 7
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-158: staggered explicit multi-blocker deletes \u2014 the 2->1 del is absorbed (no drain), the 1->0 release emits both accumulated batches arrival-flat."
+}

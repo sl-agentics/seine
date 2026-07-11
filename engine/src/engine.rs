@@ -395,6 +395,12 @@ struct CompiledRule {
     /// (`not_order_key`) unconditionally — NOT the P-first SEGMENT branch (which
     /// is a `not`-only phenomenon, D-151: now the mechanical BfShadow).
     order_exists: bool,
+    /// D-158: `Some(tuple_pos)` iff this rule is the modeled non-temporal
+    /// `not <PLAIN>() P()` shape INSIDE A STREAM SESSION (the cf313x4
+    /// family) — the gated pick then follows the PnShadow's emitted order.
+    /// `None` everywhere else — in particular in NON-stream sessions, where
+    /// the plain-not order is main-axis-certified and stays untouched.
+    pn_pos: Option<usize>,
 }
 
 /// Compiled rule salience (D-043). Dynamic expressions evaluate per
@@ -907,6 +913,228 @@ impl ExShadow {
         self.q_floor = 0;
         self.exec_queued = false;
         self.emit_rank = self.q.iter().enumerate().map(|(i, &f)| (f, i)).collect();
+    }
+
+    /// Fire boundary: the cycle's prediction is consumed.
+    fn post_fire(&mut self) {
+        self.q.clear();
+        self.emit_rank.clear();
+    }
+}
+
+/// D-158: the mechanical flush shadow for one gated `not <PLAIN>() P()`
+/// rule in a STREAM session — the plain-blocker sibling of `BfShadow`, the
+/// engine port of `tools/model_check_notorder_b.py MODEL=pflush` (derived
+/// from the BfDump pnb_* graft battery; 0-div on 1,667 oracle scenarios,
+/// 781 of them frozen-model out-of-sample). Same rtm/staged carrier and
+/// emit_rank pick plumbing; SIX deltas vs the event machine:
+///   1. plain ops (P and D alike) STAGE until a network eval — no
+///      per-arrival force-flush (that is EVENT machinery);
+///   2. the executor evaluates iff QUEUED: a D-DELETE staging queues (any
+///      provenance); a D-INSERT or P-INSERT queues only while the left is
+///      present (linked); a pure D-ins while blocked queues NOTHING ⇒
+///      multi-epoch staged backlogs;
+///   3. lazy smem init: the FIRST-ever eval drains staged rights into rtm
+///      even while blocked;
+///   4. the not consumes its staged D ops SEQUENTIALLY in arrival order
+///      with TRANSIENT releases: count 1->0 releases the left INTO the
+///      join (drain + emit staged-children ++ reversed(pre-rtm)); a later
+///      ins RE-BLOCKS — unfired emissions cancel, the DRAIN persists;
+///      2->1 is ABSORBED, the join untouched;
+///   5. staged-ins ANNIHILATION: a D delete reaching a still-unprocessed
+///      staged ins removes it — the not never sees either;
+///   6. D events reach the shadow at the WM level regardless of provenance
+///      (external ops, RHS/logical inserts, TMS retracts, expiry
+///      cascades) — the shadow needs NO deadline model of its own; the
+///      engine's real expiry/TMS machinery already delivers deletes in
+///      deadline order. In-fire D events run their eval immediately when
+///      queued (churn / quiescence-retract semantics); external-phase ones
+///      wait for the pre_fire eval.
+struct PnShadow {
+    d_tid: TypeId,
+    d_ep: u32,
+    p_tid: TypeId,
+    p_ep: u32,
+    rtm: Vec<FactId>,
+    staged: Vec<FactId>,
+    /// Pending not-side ops in ARRIVAL order: (is_insert, id, rhs stamp).
+    /// The stamp exists for churn canonicalization only — a same-RHS
+    /// epilogue retract hops before that RHS's own staged inses.
+    d_staged: Vec<(bool, FactId, u64)>,
+    d_alive: Vec<FactId>,
+    if_propagated: bool,
+    if_blocked: bool,
+    smem_init: bool,
+    exec_queued: bool,
+    /// Predicted emission order for the current fire cycle.
+    q: Vec<FactId>,
+    /// FactId -> rank in `q` (consumed by the gated pick; cleared at the
+    /// fire boundary). Rebuilt after every q mutation — in-fire D events
+    /// extend the prediction mid-cycle.
+    emit_rank: HashMap<FactId, usize>,
+}
+
+impl PnShadow {
+    fn new(d_tid: TypeId, d_ep: u32, p_tid: TypeId, p_ep: u32) -> Self {
+        PnShadow {
+            d_tid,
+            d_ep,
+            p_tid,
+            p_ep,
+            rtm: Vec::new(),
+            staged: Vec::new(),
+            d_staged: Vec::new(),
+            d_alive: Vec::new(),
+            if_propagated: false,
+            if_blocked: false,
+            smem_init: false,
+            exec_queued: false,
+            q: Vec::new(),
+            emit_rank: HashMap::new(),
+        }
+    }
+
+    fn rerank(&mut self) {
+        self.emit_rank = self.q.iter().enumerate().map(|(i, &f)| (f, i)).collect();
+    }
+
+    /// The (re-)released left propagates into the join: drain staged
+    /// right-ins (reversed-append into rtm) and emit — staged children in
+    /// arrival order, then the pre-drain rtm reversed (algebraically ==
+    /// reversed(post-drain rtm)).
+    fn join_left_ins(&mut self, pending: &mut Vec<FactId>) {
+        let pre: Vec<FactId> = self.rtm.iter().rev().copied().collect();
+        self.rtm.extend(self.staged.iter().rev().copied());
+        pending.extend(self.staged.iter().copied());
+        self.staged.clear();
+        pending.extend(pre);
+    }
+
+    /// One network eval over the staged not-side ops (see the struct doc).
+    fn eval(&mut self, fire_loop: bool) {
+        let mut pending: Vec<FactId> = Vec::new();
+        let left_at_start = self.if_propagated && !self.if_blocked;
+        if !self.smem_init {
+            self.smem_init = true;
+            self.rtm.extend(self.staged.iter().rev().copied());
+            self.staged.clear();
+        }
+        for (is_ins, d, _) in std::mem::take(&mut self.d_staged) {
+            if is_ins {
+                self.d_alive.push(d);
+                if self.if_propagated && !self.if_blocked {
+                    self.if_blocked = true; // (re-)block: children die
+                    pending.clear();
+                    self.q.clear(); // matchCancelled for queued
+                }
+            } else {
+                self.d_alive.retain(|&x| x != d);
+                if self.d_alive.is_empty() && self.if_propagated && self.if_blocked {
+                    self.if_blocked = false; // release (maybe transient)
+                    self.join_left_ins(&mut pending);
+                }
+            }
+        }
+        // the join is visited by this segment eval iff its LEFT was
+        // populated when the eval began — it drains its right staging even
+        // when the not blocked mid-eval (child-less then); a
+        // blocked-at-start eval leaves the backlog staged
+        if left_at_start && !self.staged.is_empty() {
+            self.rtm.extend(self.staged.iter().rev().copied());
+            if !self.if_blocked {
+                pending.extend(self.staged.iter().copied());
+            }
+            self.staged.clear();
+        }
+        // the IF's own staged left-ins — first fire-loop eval only
+        if fire_loop && !self.if_propagated {
+            self.if_propagated = true;
+            self.if_blocked = !self.d_alive.is_empty();
+            if !self.if_blocked {
+                self.join_left_ins(&mut pending);
+            }
+        }
+        self.q.extend(pending);
+        self.rerank();
+    }
+
+    fn on_p_insert(&mut self, id: FactId) {
+        self.staged.push(id);
+        if self.if_propagated && !self.if_blocked {
+            self.exec_queued = true;
+        }
+    }
+
+    /// Bare-P external update: immediate rtm move-to-tail at its queue
+    /// position when flushed; still-staged ⇒ total no-op.
+    fn on_p_update(&mut self, id: FactId) {
+        if let Some(pos) = self.rtm.iter().position(|&p| p == id) {
+            self.rtm.remove(pos);
+            self.rtm.push(id);
+        }
+    }
+
+    fn on_p_delete(&mut self, id: FactId) {
+        if let Some(pos) = self.staged.iter().position(|&p| p == id) {
+            self.staged.remove(pos); // addDelete annihilates staged ins
+        } else if let Some(pos) = self.rtm.iter().position(|&p| p == id) {
+            self.rtm.remove(pos);
+        }
+        self.q.retain(|&p| p != id); // matchCancelled
+        self.rerank();
+    }
+
+    /// A D reaching the WM (any provenance). `in_fire` runs the eval
+    /// immediately when queued (mid-fire staging is processed by the hot
+    /// executor); external-phase events wait for pre_fire.
+    fn on_d_insert(&mut self, id: FactId, in_fire: bool, seq: u64) {
+        self.d_staged.push((true, id, seq));
+        if self.if_propagated && !self.if_blocked {
+            self.exec_queued = true;
+        }
+        if in_fire && self.exec_queued {
+            self.eval(false);
+            self.exec_queued = false;
+        }
+    }
+
+    /// A D leaving the WM (explicit delete, TMS retract, expiry cascade).
+    /// A still-staged ins ANNIHILATES; else the del stages and queues —
+    /// and evaluates immediately in-fire (churn / quiescence retract).
+    /// `churn` = the execute_rhs stale-key epilogue: the spec arrival order
+    /// there is del-BEFORE-this-RHS's-inses (Drools' TMS WM-DELETE is
+    /// synchronous at the fire while insertLogical is queued — bf_full
+    /// [38]->[43]), so the del hops before the trailing same-`seq` staged
+    /// inses; every other provenance appends in arrival order.
+    fn on_d_delete(&mut self, id: FactId, in_fire: bool, churn: bool, seq: u64) {
+        if let Some(pos) = self.d_staged.iter().position(|e| e.0 && e.1 == id) {
+            self.d_staged.remove(pos);
+            self.d_alive.retain(|&x| x != id);
+            return;
+        }
+        let mut at = self.d_staged.len();
+        if churn {
+            while at > 0 && self.d_staged[at - 1].0 && self.d_staged[at - 1].2 == seq {
+                at -= 1;
+            }
+        }
+        self.d_staged.insert(at, (false, id, seq));
+        self.exec_queued = true;
+        if in_fire {
+            self.eval(false);
+            self.exec_queued = false;
+        }
+    }
+
+    /// fireAllRules analog: the fire-loop eval if the executor was queued
+    /// (a D-del staging, a linked P/D-ins, pending agenda items, or the
+    /// first-ever fire). Quiescence needs no simulation here — expiry
+    /// cascades arrive as in-fire WM deletes.
+    fn pre_fire(&mut self, has_items: bool) {
+        if self.exec_queued || !self.if_propagated || has_items {
+            self.eval(true);
+        }
+        self.exec_queued = false;
     }
 
     /// Fire boundary: the cycle's prediction is consumed.
@@ -1440,6 +1668,9 @@ struct RuleNet {
     /// the retired D-144/D-147 key models (re-fire epoch key + regime-2
     /// segment split — per-regime shadows of this machinery).
     ex: Option<ExShadow>,
+    /// D-158: the mechanical flush shadow for a gated `not <PLAIN>() P()`
+    /// rule in a STREAM session with bare patterns (the cf313x4 family).
+    pn: Option<PnShadow>,
 }
 
 impl RuleNet {
@@ -1630,6 +1861,19 @@ pub struct Engine {
     acc_nodes: Vec<(usize, TypeId, Option<i64>)>,
     in_expiration_drain: bool,
     in_stream_flush: bool,
+    /// D-158: inside fire_all's activation loop — PnShadow D events arriving
+    /// here (TMS churns, expiry cascades) evaluate immediately when queued;
+    /// external-phase ones wait for the boundary eval.
+    in_fire_loop: bool,
+    /// D-158: RHS-execution stamp for PnShadow churn canonicalization —
+    /// bumped at each execute_rhs (and each external-phase D event, so a
+    /// stale backlog ins can never alias a live RHS).
+    pn_seq: u64,
+    /// D-158: set around execute_rhs's stale-key TMS retract epilogue — the
+    /// ONE site whose WM deletes are churn-class: the spec order there is
+    /// del-BEFORE-this-RHS's-inses (Drools' synchronous WM-DELETE vs queued
+    /// insertLogical), while the engine retracts in the epilogue (after).
+    pn_churn_ctx: bool,
     fire_no: u64,
     flush_trigger_tid: Option<TypeId>,
     ever_linked: Vec<bool>,
@@ -1775,6 +2019,9 @@ impl Engine {
             acc_nodes: Vec::new(),
             in_expiration_drain: false,
             in_stream_flush: false,
+            in_fire_loop: false,
+            pn_seq: 0,
+            pn_churn_ctx: false,
             fire_no: 0,
             flush_trigger_tid: None,
             ever_linked: Vec::new(),
@@ -2192,6 +2439,72 @@ impl Engine {
                     _ => (None, None),
                 }
             };
+            // D-158: the PLAIN-blocker shadow. Static exclusions mirror the
+            // BfShadow set with ONE deliberate difference: RHS Insert /
+            // InsertLogical of the BLOCKER type is ALLOWED — logical D's
+            // justified by expiring events ARE the validated mechanism (the
+            // shadow sees them as WM events, TMS retracts included; shared
+            // justifications are WM-invisible on both sides). Excluded ⇒ no
+            // shadow ⇒ the pick stays plain FIFO:
+            //   - non-bare patterns (constraints or bindings on N/P);
+            //   - same blocker/P classification;
+            //   - an event-typed P (expires outside the shadow's stream);
+            //   - any RHS Insert/InsertLogical of the P type, or any RHS
+            //     Set/Update/Delete touching EITHER gated type (mid-fire
+            //     mutations the spec never validated);
+            //   - a windowed accumulate over either gated type.
+            let pn = {
+                let r = &self.rules[ri];
+                match r.pn_pos {
+                    Some(_) => {
+                        let n = &r.patterns[1];
+                        let p = &r.patterns[2];
+                        let bare = n.cmps.is_empty()
+                            && n.bind_fields == 0
+                            && p.cmps.is_empty()
+                            && p.bind_fields == 0;
+                        let distinct =
+                            n.type_id != p.type_id || n.entry_point != p.entry_point;
+                        let p_plain = !self.event_specs.contains_key(&p.type_id);
+                        let gated = [n.type_id, p.type_id];
+                        let rhs_bad = self.rules.iter().any(|rr| {
+                            rr.actions.iter().any(|a| match a {
+                                CompiledAction::Insert { type_id, .. }
+                                | CompiledAction::InsertLogical { type_id, .. } => {
+                                    *type_id == p.type_id
+                                }
+                                CompiledAction::Set { pos, .. }
+                                | CompiledAction::Update { pos }
+                                | CompiledAction::Delete { pos } => rr
+                                    .patterns
+                                    .iter()
+                                    .find(|q| q.tpos == Some(*pos))
+                                    .is_some_and(|q| gated.contains(&q.type_id)),
+                                CompiledAction::SetFocus { .. } => false,
+                            })
+                        });
+                        let windowed = self.rules.iter().any(|rr| {
+                            rr.patterns.iter().any(|q| {
+                                q.acc
+                                    .as_ref()
+                                    .is_some_and(|a| a.window_time.is_some())
+                                    && gated.contains(&q.type_id)
+                            })
+                        });
+                        if bare && distinct && p_plain && !rhs_bad && !windowed {
+                            Some(PnShadow::new(
+                                n.type_id,
+                                n.entry_point,
+                                p.type_id,
+                                p.entry_point,
+                            ))
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
+                }
+            };
             self.nets.push(RuleNet {
                 s0: vec![Staged::default()],
                 lia,
@@ -2207,6 +2520,7 @@ impl Engine {
                 dirty_stamp: 0,
                 bf,
                 ex,
+                pn,
             });
         }
         // LEVEL-1 COLLECT gates (D-040, corrected by the mg1..mg8
@@ -3689,7 +4003,18 @@ impl Engine {
             && patterns[2].ce == CeKind::Positive;
         let not_order_pos = (is_not || is_exists).then(|| patterns[2].tpos).flatten();
         let order_exists = is_exists;
-        Ok(CompiledRule { def, patterns, actions, salience, dep_queries, not_order_pos, order_exists })
+        // D-158: the PLAIN-blocker sibling — `not <PLAIN>() P()` in a STREAM
+        // session (event types declared ⇒ the runners build STREAM). The
+        // non-stream plain-not order is main-axis-certified: `pn_pos` stays
+        // None there and the pick is byte-identical FIFO.
+        let is_pn = patterns.len() == 3
+            && patterns[1].ce == CeKind::Not
+            && !patterns[1].cmps.iter().any(|c| matches!(c.test, Test::Temporal { .. }))
+            && !self.event_specs.contains_key(&patterns[1].type_id)
+            && patterns[2].ce == CeKind::Positive
+            && !self.event_specs.is_empty();
+        let pn_pos = is_pn.then(|| patterns[2].tpos).flatten();
+        Ok(CompiledRule { def, patterns, actions, salience, dep_queries, not_order_pos, order_exists, pn_pos })
     }
 
     fn compile_arg(
@@ -3899,6 +4224,9 @@ impl Engine {
         self.fire_seq = 0;
         self.in_expiration_drain = false;
         self.in_stream_flush = false;
+        self.in_fire_loop = false;
+        self.pn_seq = 0;
+        self.pn_churn_ctx = false;
         self.flush_trigger_tid = None;
         self.ever_linked.clear();
         self.focus_stack.clear();
@@ -4220,6 +4548,14 @@ impl Engine {
                     ex.on_p_insert(id);
                 }
             }
+            // D-158: the plain-blocker shadow's P side (external only — the
+            // gate excludes RHS-touched P types). D events reach it at the
+            // WM level (on_insert/on_delete) instead.
+            if let Some(pn) = net.pn.as_mut() {
+                if pn.p_tid == tid && pn.p_ep == ep {
+                    pn.on_p_insert(id);
+                }
+            }
         }
     }
 
@@ -4243,6 +4579,11 @@ impl Engine {
                     ex.on_p_update(id);
                 }
             }
+            if let Some(pn) = net.pn.as_mut() {
+                if pn.p_tid == tid && pn.p_ep == ep {
+                    pn.on_p_update(id);
+                }
+            }
         }
     }
 
@@ -4263,6 +4604,62 @@ impl Engine {
             if let Some(ex) = net.ex.as_mut() {
                 if (ex.e1_tid == tid && ex.e1_ep == ep) || (ex.p_tid == tid && ex.p_ep == ep) {
                     ex.on_delete(id);
+                }
+            }
+            // D-158: P only — an external D delete reaches the pn shadow via
+            // the WM-level on_delete hook (single site for all provenances).
+            if let Some(pn) = net.pn.as_mut() {
+                if pn.p_tid == tid && pn.p_ep == ep {
+                    pn.on_p_delete(id);
+                }
+            }
+        }
+    }
+
+    /// D-158: a fact reaching the WM (any provenance — external op, RHS
+    /// insert, insertLogical, pending-belief unstage) steps every plain-not
+    /// shadow whose BLOCKER type matches. External-phase events take a
+    /// fresh stamp so a stale backlog ins can never alias a live RHS.
+    fn pn_on_wm_insert(&mut self, f: FactId) {
+        if self.nets.iter().all(|n| n.pn.is_none()) {
+            return;
+        }
+        let tid = self.store.fact_type(f);
+        let ep = self.fact_ep(f);
+        let in_fire = self.in_fire_loop;
+        if !in_fire {
+            self.pn_seq += 1;
+        }
+        let seq = self.pn_seq;
+        for net in self.nets.iter_mut() {
+            if let Some(pn) = net.pn.as_mut() {
+                if pn.d_tid == tid && pn.d_ep == ep {
+                    pn.on_d_insert(f, in_fire, seq);
+                }
+            }
+        }
+    }
+
+    /// D-158: a fact leaving the WM (explicit delete, TMS retract, expiry
+    /// cascade) steps every plain-not shadow whose BLOCKER type matches.
+    /// `pn_churn_ctx` marks the execute_rhs stale-key epilogue — the one
+    /// churn-class site (del hops before this RHS's staged inses).
+    fn pn_on_wm_delete(&mut self, f: FactId) {
+        if self.nets.iter().all(|n| n.pn.is_none()) {
+            return;
+        }
+        let tid = self.store.fact_type(f);
+        let ep = self.fact_ep(f);
+        let in_fire = self.in_fire_loop;
+        let churn = self.pn_churn_ctx;
+        if !in_fire {
+            self.pn_seq += 1;
+        }
+        let seq = self.pn_seq;
+        for net in self.nets.iter_mut() {
+            if let Some(pn) = net.pn.as_mut() {
+                if pn.d_tid == tid && pn.d_ep == ep {
+                    pn.on_d_delete(f, in_fire, churn, seq);
                 }
             }
         }
@@ -5252,6 +5649,7 @@ impl Engine {
     }
 
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
+        self.in_fire_loop = false; // D-158: defensive (an errored prior fire)
         // D-081: slot memory does not survive a fire boundary —
         // same-window out-and-back restores the original slot
         // (fz_7_5801), but re-entries after an intervening
@@ -5313,14 +5711,22 @@ impl Engine {
         // D-151/D-152: step every mechanical flush shadow to its fire
         // boundary (fire-loop eval if queued, then quiescence expirations)
         // and rank the predicted emission for the gated picks below.
-        for net in self.nets.iter_mut() {
+        // D-158: the plain-not shadow's boundary eval also runs when the
+        // rule has queued items (the executor evaluates before firing).
+        for ri in 0..self.nets.len() {
+            let has_items = !self.nets[ri].queue.is_empty();
+            let net = &mut self.nets[ri];
             if let Some(bf) = net.bf.as_mut() {
                 bf.pre_fire();
             }
             if let Some(ex) = net.ex.as_mut() {
                 ex.pre_fire();
             }
+            if let Some(pn) = net.pn.as_mut() {
+                pn.pre_fire(has_items);
+            }
         }
+        self.in_fire_loop = true; // D-158: mid-loop D events eval immediately
         let mut firings = Vec::new();
         let mut last_fired: Option<usize> = None;
         while let Some(ri) = self.next_activation(last_fired) {
@@ -5346,7 +5752,31 @@ impl Engine {
                 // for a singleton queue; every non-gated (incl.
                 // PLAIN-blocker) rule stays byte-identical FIFO.
                 EngineSalience::Static(_) => match self.rules[ri].not_order_pos {
-                    None => 0,
+                    // D-158: the plain-blocker gated pick — rank by the
+                    // PnShadow's emitted order (extended mid-cycle by
+                    // in-fire churn/quiescence evals). No shadow (static
+                    // exclusions) or unranked facts ⇒ plain FIFO.
+                    None => match self.rules[ri].pn_pos {
+                        None => 0,
+                        Some(pos) => {
+                            let rank = self.nets[ri].pn.as_ref().map(|b| &b.emit_rank);
+                            self.nets[ri]
+                                .queue
+                                .iter()
+                                .enumerate()
+                                .min_by_key(|(i, a)| {
+                                    let r = a
+                                        .t
+                                        .get(pos)
+                                        .and_then(|f| rank.and_then(|m| m.get(f)))
+                                        .copied()
+                                        .unwrap_or(usize::MAX);
+                                    (r, *i)
+                                })
+                                .map(|(i, _)| i)
+                                .unwrap_or(0)
+                        }
+                    },
                     Some(pos) => {
                         let exists = self.rules[ri].order_exists;
                         let q = &self.nets[ri].queue;
@@ -5459,6 +5889,7 @@ impl Engine {
                 .collect();
             firings.push(Firing { rule: self.rules[ri].def.name.clone(), matches });
         }
+        self.in_fire_loop = false; // D-158
         if let Some(e) = self.pending_err.take() {
             return Err(EngineError(e));
         }
@@ -5479,6 +5910,9 @@ impl Engine {
             }
             if let Some(ex) = net.ex.as_mut() {
                 ex.post_fire();
+            }
+            if let Some(pn) = net.pn.as_mut() {
+                pn.post_fire();
             }
         }
         self.fire_no += 1; // D-102 cycle-4: fire boundary — between-fire inserts stamp the NEXT fire
@@ -5892,6 +6326,7 @@ impl Engine {
     /// link (e.g. a not node re-linking before a later join unlinks)
     /// transiently links the path and QUEUES its items (D-037/fz_7_2122).
     fn on_insert(&mut self, f: FactId, origin: Origin) {
+        self.pn_on_wm_insert(f); // D-158: plain-not blocker shadows
         self.mark_queries_pending();
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
@@ -6178,6 +6613,7 @@ impl Engine {
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
+        self.pn_on_wm_delete(f); // D-158: plain-not blocker shadows
         self.mark_queries_pending();
         let mut was: Vec<bool> = (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         for li in 0..self.lias.len() {
@@ -7649,6 +8085,7 @@ impl Engine {
     }
 
     fn execute_rhs(&mut self, ri: usize, tuple: &[FactId]) -> Result<(), EngineError> {
+        self.pn_seq += 1; // D-158: one stamp per RHS execution
         // D-076 refire-supersede prologue: snapshot this activation's
         // prior support keys; deps not re-established by THIS firing are
         // removed in the epilogue (fz_7777_112/74, dump-c).
@@ -7791,12 +8228,17 @@ impl Engine {
                     }
                 }
             }
+            // D-158: these WM deletes are the CHURN class — a re-fire's
+            // stale-key retract, which Drools stages synchronously BEFORE
+            // the re-fire's queued insertLogical reaches the not.
+            self.pn_churn_ctx = true;
             for jf in to_retract {
                 if self.store.is_alive(jf) {
                     self.store.kill(jf);
                     self.on_delete(jf, None);
                 }
             }
+            self.pn_churn_ctx = false;
         }
         self.tms.firing_keys.clear();
         self.tms.current_act = None;

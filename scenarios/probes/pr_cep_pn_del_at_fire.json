@@ -1,0 +1,213 @@
+{
+ "name": "pr_cep_pn_del_at_fire",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "tag": "t1"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 7
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 8
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t2"
+     },
+     "op": "insert"
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 1,
+      "tag": "t3"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 9
+     }
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t4"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 10
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 11
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 10,
+     "fields": {
+      "tag": "t5"
+     }
+    },
+    {
+     "op": "advance",
+     "ms": 153
+    },
+    {
+     "op": "delete",
+     "target": 9
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t6"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 12
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 13
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 14
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-158: an explicit plain-D delete evaluates at the FIRE loop, after later same-epoch entries \u2014 the epoch-fact P joins the release children batch."
+}

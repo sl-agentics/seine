@@ -1,0 +1,122 @@
+{
+ "name": "pr_cep_pn_smem_init",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "D",
+   "fields": {
+    "tag": "t1"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 1,
+    "tag": "t2"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 17,
+      "tag": "t3"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 0
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 20,
+      "tag": "t4"
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 0,
+      "tag": "t5"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 247
+    },
+    {
+     "op": "advance",
+     "ms": 223
+    },
+    {
+     "op": "advance",
+     "ms": 148
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-158: lazy smem init \u2014 the FIRST-ever eval drains the staged P into rtm even while blocked, so the release fires it via reverse(rtm), after the staged child."
+}

@@ -1,0 +1,159 @@
+{
+ "name": "pr_cep_pn_absorbed_quiesce",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 20,
+    "tag": "t1"
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 139
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 150,
+      "tag": "t2"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 7
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 10,
+     "fields": {
+      "v": 7
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 8
+     },
+     "op": "insert"
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 134,
+      "tag": "t3"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "advance",
+     "ms": 199
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 9
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-158: absorbed quiescence retracts (blocker 2->1, deadline order) never touch the join \u2014 the staged backlog reaches the final release intact and emits arrival-flat."
+}

@@ -1,0 +1,191 @@
+{
+ "name": "pr_cep_pn_linked_ins_queue",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 30,
+    "tag": "t1"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 19,
+      "tag": "t2"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t3"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 4
+    },
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "tag": "t4"
+     }
+    },
+    {
+     "op": "advance",
+     "ms": 167
+    },
+    {
+     "op": "update",
+     "target": 5,
+     "fields": {
+      "v": 2
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    },
+    {
+     "op": "advance",
+     "ms": 68
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 237,
+      "tag": "t5"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 9
+    },
+    {
+     "op": "advance",
+     "ms": 145
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     },
+     "op": "insert"
+    },
+    {
+     "op": "advance",
+     "ms": 149
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-158: a churn D-ins landing while the not is LINKED queues the eval that blocks before later arrivals \u2014 the second release re-fires reverse(rtm) after the newly-staged children."
+}

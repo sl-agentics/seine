@@ -11,25 +11,27 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-10, D-158 SPEC CHECKPOINT — **the plain-not
-(cf313x4) mechanism is CRACKED and population-validated**; the ENGINE PORT
-is the active step (PnShadow, port plan in D-158). Seed-313 regen = exactly
-cf313x4 (order-only, expiry-unblock re-fire pair). Spec:
-`SEINE_NOTPOP_PLAIN=1 tools/fuzz_notorder_b.py` + `model_check_notorder_b.py
-MODEL=pflush` — **0-div on 1,667 scenarios** (419 banked + 467 first-round
-+ **781/781 FROZEN-model fresh out-of-sample**, seeds 4201-4204); 21-probe
-pnb battery + 7 BfDump dumps reproduced. Engine baseline 21/200 divergent
-(the port target). Six mechanism deltas vs the D-150 event machine —
-sequential TRANSIENT releases (sync-TMS-del-before-queued-ins churn),
-absorbed 2->1 never drains, lazy smem-init drain, staged-ins annihilation,
-linked-only ins-queueing, explicit-D deletes eval at FIRE not at position —
-all in the D-158 entry. ⚠ PORT blast radius: plain nots ARE
-main-axis-reachable; the STREAM-session gate is the structural protection;
-gen.rs fuzz BOTH trees is a MANDATORY port gate. Recon scratch:
-`$CLAUDE_JOB_DIR/tmp` (pnb_*/bf_*.txt); prior handoff
-`~/.claude/plans/plain-not-handoff.md` (consumed). Item-1b remaining:
-this port, then CLOSED. Fenced-by-nature: D-134 §6, fz_42_84.
-`git log --oneline -20` for HEAD._
+_Last updated: 2026-07-10, post-D-158 PORT — **the plain-not (cf313x4)
+family is CLOSED; ⇒ ITEM-1B IS DONE** (every family landed: D-141 tj-ts,
+D-143..153 existential order, D-154/155 A2 winacc, D-156 tj pair-order,
+D-158 plain-not). PnShadow (the third mechanical shadow) landed: WM-level
+D hooks (TMS/logical/expiry provenances), online mid-cycle evals extending
+`emit_rank`, churn canonicalization (`pn_seq`/`pn_churn_ctx` — the
+epilogue's stale-key del hops before same-RHS inses per the sync-del/
+queued-ins spec order). Spec: `SEINE_NOTPOP_PLAIN=1 fuzz_notorder_b.py` +
+`MODEL=pflush` — 0-div on 1,667 (781 frozen out-of-sample). Gates: corpus
+**11/1056/295** byte-identical (+12 `pr_cep_pn_*`, cf313x4 graduated),
+lint **1450**, cargo 9, bindings 72, plain populations A/B **+327 fixed /
+0 regressed** (residual 37/3,100 = ALL SET-level pre-existing, ONE family,
+filed `xf_cep_pn_annihilation_set`: per-arrival plain-blocker flush vs
+Drools' lazy staging — same-window ins+del should annihilate; follow-on =
+defer plain not-blocker staging to the fire eval), fuzz_cep 313/907/911
+×400 = 0-div (base: 313=1, causation), notpop/expop FULL sweeps 600+600
+0-fail, main-axis gen.rs 42/123/7 ×10k BOTH trees identical sets.
+Fenced-by-nature: D-134 §6, fz_42_84. Deferred slabs: D-093 min/max
+quarantine (oracle bump, D-148), D-080 TMS envelope, the two SET residuals
+(per-entry-flush D-155 + annihilation D-158). `git log --oneline -20`
+for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -8212,3 +8214,60 @@ P] + STREAM session + BfShadow-style static exclusions. ⚠ blast radius:
 plain nots ARE main-axis-reachable — the STREAM-session gate is the
 structural protection; main-axis gen.rs fuzz on BOTH trees is a mandatory
 port gate (unlike every prior item-1b family).
+
+## D-158 (port) — PnShadow LANDED: the plain-not order family is CLOSED; item-1b DONE
+
+The engine port of the D-158 spec, the mechanical-shadow pattern's third
+member (BfShadow D-151 / ExShadow D-152 / PnShadow): a per-gated-rule state
+machine ranking the static pick by `emit_rank`. THREE structural deltas vs
+its siblings:
+- **WM-level D hooks** (`pn_on_wm_insert/delete` inside `on_insert`/
+  `on_delete`): the blocker lifecycle is TMS-driven (logical inserts,
+  justification retracts, expiry cascades), so the shadow needs NO deadline
+  model of its own — the engine's real expiry/TMS machinery already
+  delivers D deletes in deadline order. P hooks stay at the external-op
+  sites (the gate excludes RHS-touched P types).
+- **Online mid-cycle evals**: `in_fire_loop` D events evaluate immediately
+  when queued (churn / quiescence-retract semantics) and EXTEND `emit_rank`
+  mid-cycle — the pick reads it live per pop. External-phase events wait
+  for the boundary eval (`pre_fire(has_items)`).
+- **Churn canonicalization** (`pn_seq` + `pn_churn_ctx`): the engine's
+  re-fire retracts stale TMS keys in execute_rhs's EPILOGUE (ins-then-del),
+  but Drools' WM-DELETE is synchronous at the fire while insertLogical is
+  queued (del-then-ins, bf_full [38]->[43]) — the epilogue's del hops
+  before the same-RHS staged inses, restoring the spec's transient-release
+  drain. Every other provenance appends in arrival order.
+Gate: `pn_pos` = [InitialFact, non-temporal NOT over a PLAIN type, positive
+P] AND `!event_specs.is_empty()` (STREAM only — the non-stream plain-not
+order is main-axis-certified and untouched); static exclusions mirror
+BfShadow's except RHS Insert/InsertLogical of the BLOCKER type is ALLOWED
+(the logical-justifier mechanism; shared justifications are WM-invisible on
+both sides, so the unique-tag spec constraint needs no gate).
+
+GATES (all green): corpus **11/1056/295 byte-identical** (`make diff`; +12
+`pr_cep_pn_*` pins, cf313x4 GRADUATED to regressions/), lint **1450**
+live/0/0, cargo 9 suites, bindings 72. Plain populations engine-vs-oracle:
+**+327 fixed / 0 regressed** (base 364 / ported 37 of 3,100; every residual
+SET-level AND pre-existing — classified case-by-case against the pre-port
+worktree). fuzz_cep 313/907/911 ×400 = **0 divergences** (base: 313 = 1,
+the witness — causation). Event-family sweeps unperturbed: notpop FULL 600
+engine-diff 0-fail + MODEL=flush 309/309; expop FULL 600 engine-diff
+0-fail. Main axis: gen.rs 42/123/7 ×10k BOTH trees — identical divergence
+sets (the pre-existing families; the pn path is analytically dead there:
+`event_specs` empty ⇒ `pn_pos` None ⇒ hooks early-return).
+
+RESIDUAL (pre-existing, filed `xf_cep_pn_annihilation_set`, open_divergence):
+the engine stream-flushes plain not-blocker INSERTS per-arrival, Drools
+stages them lazily until an eval — SET-visible when a same-window explicit
+D ins+del pair should ANNIHILATE (Drools: the not never blocks, nothing
+re-fires; engine: block-at-insert + release-at-delete re-fires the join
+memory). 37/3,100 population scenarios, all this family. Fix class = defer
+plain not-blocker staging to the fire eval — a follow-on semantic port,
+NOT a pick reorder (the shadow cannot remove real activations).
+fuzz_cep CANNOT reach it (its delete targets are event-typed only).
+
+**⇒ ITEM-1B IS CLOSED.** cf313x4 was the last tail; every family (D-141
+tj-ts, D-143..153 existential order, D-154/155 A2 winacc, D-156 tj
+pair-order, D-158 plain-not) is landed. Remaining CEP latents are the
+fenced-by-nature pair (D-134 §6 PriorityQueue ties, fz_42_84
+identity-hash) + the two filed per-entry-flush/annihilation SET residuals.

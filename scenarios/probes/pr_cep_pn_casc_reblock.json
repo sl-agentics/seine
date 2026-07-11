@@ -1,0 +1,227 @@
+{
+ "name": "pr_cep_pn_casc_reblock",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 19,
+    "tag": "t1"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     }
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t2"
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 23,
+      "tag": "t3"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 0,
+      "tag": "t4"
+     },
+     "op": "insert"
+    },
+    {
+     "op": "delete",
+     "target": 3
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 196
+    },
+    {
+     "op": "delete",
+     "target": 5
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 7
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 10,
+     "fields": {
+      "v": 5
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 8
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 9
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 10
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 11
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 12
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 13
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-158: an explicit E1-delete TMS cascade (del staged at entry, transient release drains mid-eval) re-blocked by a same-epoch explicit D + churn; the late release emits the un-flushed backlog as children then reverse(rtm)."
+}

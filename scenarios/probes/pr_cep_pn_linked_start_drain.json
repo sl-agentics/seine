@@ -1,0 +1,190 @@
+{
+ "name": "pr_cep_pn_linked_start_drain",
+ "types": [
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NE when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 3
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 1
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     },
+     "op": "insert"
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 5
+     }
+    },
+    {
+     "type": "D",
+     "fields": {
+      "tag": "t1"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 6
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 7
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 215
+    },
+    {
+     "op": "update",
+     "target": 6,
+     "fields": {
+      "v": 6
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 8
+     },
+     "op": "insert"
+    },
+    {
+     "op": "update",
+     "target": 8,
+     "fields": {
+      "v": 8
+     }
+    },
+    {
+     "op": "advance",
+     "ms": 137
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 9
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 10
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 11
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 5
+    },
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "v": 4
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 12
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-158: an eval whose LEFT was present at start drains the whole staged batch child-less even though the D-ins blocked mid-eval; two later blocked-P updates reposition within the flushed rtm."
+}
