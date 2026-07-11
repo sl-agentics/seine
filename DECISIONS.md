@@ -54,10 +54,11 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, **PUSHED through the D-162 PORT** (`origin/main` at
-`74583aa`, cleared by Bryan 2026-07-11; branch-only, NO tags — remote
-tag refs verified unchanged). Nothing code-bearing unpushed (this
-push-note commit rides the next authorized push). ⚠ **NO `v*` TAGS until a PyPI release is
+**Git:** on `main`, fully PUSHED (`origin/main` at `2a482e8`).
+**RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
+on `2a482e8`, the ci.yml release pipeline all-green incl. the
+differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
+sdist). The v*-tag⇒publish hazard note stands for FUTURE tags. ⚠ **NO `v*` TAGS until a PyPI release is
 intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
 `pypi` environment has NO protection rules (gh-verified): a new tag
 publishes `seine-rs` with no manual gate. Arc history: the D-entries
