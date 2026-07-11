@@ -33,11 +33,15 @@ fuzz_cep 313/941/943/945 ×400 clean except `cf313x346` — bisected
 PRE-EXISTING (61f4281 A/B identical; during infers NEVER both trees):
 a temporal-join firing-choice latent newly REACHED by the lifted
 stream, QUARANTINED to the item-1b tail ledger. Main-axis analytically
-inert (gen.rs emits no temporal ops). **NEXT is Bryan's call — no
-active slab.** Deferred: D-080 TMS envelope, class-3 re-entrant churn,
-window:length (never built), the item-1b tj-tail latents
-(`cf933x385`, `cf313x346`), the Allen-beyond-Drools enhancement
-(docs/allen-beyond-drools.md, spec-driven, post-faithfulness).
+inert (gen.rs emits no temporal ops). **NEXT (handoff ready):
+`~/.claude/plans/tj-tail-latents-handoff.md`** — D-165, the tj-tail
+latent ledger (cf933x385 + cf313x346: two pre-existing ORDER/CHOICE
+composition latents in salience'd rule mixes — BfShadow-composition /
+join-partner-choice recon; minimize first, both A/B bisects already
+done, witnesses are the stable artifacts). Other deferred: D-080 TMS
+envelope, class-3 re-entrant churn, window:length (never built), the
+Allen-beyond-Drools enhancement (docs/allen-beyond-drools.md,
+spec-driven, post-faithfulness).
 Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
