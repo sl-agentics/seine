@@ -1,5 +1,5 @@
 {
- "name": "hm1b_extdel_nowindow",
+ "name": "hm2b_rhsdel_interposer",
  "types": [
   {
    "name": "E0",
@@ -85,7 +85,7 @@
    ]
   }
  ],
- "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule R7 salience 7 when P() then end\nrule RL salience 1 when P() then end\n",
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule K salience 7 when $b : E2(ts == 0) P() then delete($b); end\nrule R6 salience 6 when P() then end\nrule RL salience 1 when P() then end\n",
  "facts": [
   {
    "type": "E1",
@@ -133,10 +133,6 @@
     {
      "op": "advance",
      "ms": 30
-    },
-    {
-     "op": "delete",
-     "target": 3
     }
    ],
    "facts": [
@@ -165,6 +161,5 @@
    ]
   }
  ],
- "_finding": "HALT ARC (hm1b): hm1 with advance 30 (clock 81 \u2014 E2(0) alive, UNMARKED; no advance->quiescence mark window). Oracle 3x: [TJ1, RN, R7, TJ1, RL] \u2014 identical to hm1 => the mark window does NOT gate the landing; stream external-delete teardowns land pre-pick regardless. Engine [TJ1, R7, TJ1, RL] (red, same landing defect). Completes the cause x window 2x2 with hm2b. FIX validated-then-REVERTED at D-177 (tms_eager_break stream explicit-delete k>=2 lift \u2014 external at the action; mark-window-independent): this cell PASSES under it; graduates at the landing.",
- "open_divergence": true
+ "_finding": "GRADUATED at D-178 (the D-177 landing \u2014 the LANDING-LAW fix is IN; engine==oracle): HALT ARC (hm2b): RHS-delete twin of hm1 on the identical template (K@7 `E2(ts==0) P() then delete($b)`, advance 30 so E2(0) is pairable; interposer R6@6). Oracle 3x: [TJ1, K, RN, R6, TJ1, RL] \u2014 RN fires straight after K, BEFORE the interposer => in STREAM a RHS delete's teardown lands at the deleting rule's fire, before the next pick. Engine [TJ1, K, R6, TJ1, RL] (drop deferred to the victim's pop eval; RN under-fires) \u2014 NEW red family member of the ledger divergence, same root cause. FIX validated-then-REVERTED at D-177 (tms_eager_break stream explicit-delete k>=2 lift \u2014 RHS at the firing): this cell PASSES under it; graduates at the landing."
 }

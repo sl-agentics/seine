@@ -1,5 +1,5 @@
 {
- "name": "tju_spin_deps_delpartner",
+ "name": "hm1b_extdel_nowindow",
  "types": [
   {
    "name": "E0",
@@ -85,7 +85,7 @@
    ]
   }
  ],
- "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule RL salience 1 when P() then end\n",
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule R7 salience 7 when P() then end\nrule RL salience 1 when P() then end\n",
  "facts": [
   {
    "type": "E1",
@@ -132,11 +132,11 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 50
+     "ms": 30
     },
     {
      "op": "delete",
-     "target": 2
+     "target": 3
     }
    ],
    "facts": [
@@ -165,6 +165,5 @@
    ]
   }
  ],
- "_finding": "D-176 OPEN LEDGER, finding CORRECTED AT D-177 (the original asserted 'Drools reopens the pick pre-fire' \u2014 FALSE; it pointed at the caveated D-106 executor for no reason; why the old text was wrong: the pinned output was UNDERDETERMINED \u2014 [TJ1,RN,TJ1,RL] is consistent with both pre-pick landing and reach-landing-plus-reopen, and one reading was written down as fact without a cell that could tell them apart (see the D-177 METHOD LAW: a pin is an interpretation of a probe; an underdetermined output is not a finding).) THE MECHANISM (D-177 LANDING LAW, interposer-discriminated hm1/hm1b): in a STREAM session an explicit delete's teardown lands at the delete's PROPAGATION, pre-pick \u2014 the delete kills the UNMARKED partner \u2014 the law keys on death cause, not the mark carrier; the executor never reopens a pick and the cf5x17 static return is CORRECT. Oracle 3x: [TJ1, RN, TJ1, RL]. Engine on HEAD defers the k>=2 teardown to the victim's pop eval and under-fires RN ([TJ1,TJ1,RL]). FIX validated-then-REVERTED at D-177 (tms_eager_break k=1 scope lifts for stream explicit deletes; diff verbatim in D-177): this pin PASSES under it. Graduates at the landing.",
- "open_divergence": true
+ "_finding": "GRADUATED at D-178 (the D-177 landing \u2014 the LANDING-LAW fix is IN; engine==oracle): HALT ARC (hm1b): hm1 with advance 30 (clock 81 \u2014 E2(0) alive, UNMARKED; no advance->quiescence mark window). Oracle 3x: [TJ1, RN, R7, TJ1, RL] \u2014 identical to hm1 => the mark window does NOT gate the landing; stream external-delete teardowns land pre-pick regardless. Engine [TJ1, R7, TJ1, RL] (red, same landing defect). Completes the cause x window 2x2 with hm2b. FIX validated-then-REVERTED at D-177 (tms_eager_break stream explicit-delete k>=2 lift \u2014 external at the action; mark-window-independent): this cell PASSES under it; graduates at the landing."
 }

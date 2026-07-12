@@ -7622,7 +7622,7 @@ impl Engine {
             // the drain walks every accumulate node of the type.
             self.acc_pending.push((f, AccEntry::Upd(mask)));
         }
-        self.tms_eager_break(f);
+        self.tms_eager_break(f, false);
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
@@ -7663,7 +7663,7 @@ impl Engine {
                 self.note_link_effects_ex(&mut was, Some(f));
             }
         }
-        self.tms_eager_break(f);
+        self.tms_eager_break(f, true);
     }
 
     /// Per-rule agenda effects after ONE node event:
@@ -9529,10 +9529,22 @@ impl Engine {
     /// actions cascade recursively, e7). CE- and beta-mediated breaks
     /// take the LAZY path at the justifier's terminal instead
     /// (tms_on_terminal_del — t11/t12/min_1310).
-    fn tms_eager_break(&mut self, f: FactId) {
+    fn tms_eager_break(&mut self, f: FactId, from_delete: bool) {
         if self.tms.by_act.is_empty() {
             return;
         }
+        // D-177 (the LANDING LAW): delete-sourced teardowns land by
+        // mode x cause. In a STREAM session an EXPLICIT delete's
+        // teardown lands at the delete's PROPAGATION for k>=2 acts too
+        // (external: at the action — hm1/hm1b + tju_spin_deps_
+        // {extdel,delpartner}; RHS: at the firing — hm2b), so the k=1
+        // scope below LIFTS. Expiration keeps its lazy row
+        // (in_expiration_drain; q1/q4/a7c), and update-sourced breaks
+        // (from_delete=false) keep the certified lazy path (unprobed
+        // on the staircase instrument).
+        let stream_del_land = from_delete
+            && !self.in_expiration_drain
+            && self.event_specs.contains_key(&self.store.fact_type(f));
         let broken: Vec<(usize, Tup)> = self
             .tms
             .by_act
@@ -9544,13 +9556,14 @@ impl Engine {
                 if self.tms.current_act.as_ref() == Some(&(*ri, tuple.clone())) {
                     return false;
                 }
-                // eager teardown reaches the terminal DIRECTLY only for
-                // k=1 justifiers (LIA->terminal); k>=2 tuples die via
-                // staged network propagation = the LAZY path
+                // In CLOUD, eager teardown reaches the terminal DIRECTLY
+                // only for k=1 justifiers (LIA->terminal); k>=2 tuples
+                // die via staged network propagation = the LAZY path
                 // (min3783: a witness fires on the transient between a
                 // join-justifier's tuple-fact delete and its item's
-                // evaluation, exactly like t11/t12).
-                if !self.nets[*ri].path.is_empty() {
+                // evaluation, exactly like t11/t12). Stream explicit
+                // deletes take the D-177 eager landing instead.
+                if !self.nets[*ri].path.is_empty() && !stream_del_land {
                     return false;
                 }
                 tuple.contains(&f) && {

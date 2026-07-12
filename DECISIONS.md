@@ -11,39 +11,40 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11 latest, post-D-177 — **THE HALT-MATRIX ARC
-OPENED AND CLOSED IN ONE MOVE (Bryan-gated): the interposer
-instrument proved there is NO pick-reopen in Drools; ⚖ THE LANDING
-LAW is the third standing law (delete teardowns land by MODE×CAUSE:
-stream ⇒ at the delete's propagation [external: action / RHS:
-firing]; cloud ⇒ victim's item-reach, D-076; expiration ⇒
-post-fire/quiescence; cf5x17's static return ~7234 CORRECT and
-UNTOUCHED)**. The D-176 residual's "Drools reopens the pick
-pre-fire" was a DEFECT (underdetermined output pinned as fact) —
-corrected in both pins; **⚖ METHOD LAW logged: a pin is an
+_Last updated: 2026-07-11 latest, post-D-178 — **THE D-177 FIX IS
+LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
+LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
+top): delete teardowns land by MODE×CAUSE — stream ⇒ at the delete's
+propagation (external: action / RHS: firing); cloud ⇒ victim's
+item-reach (D-076); expiration ⇒ post-fire/quiescence; **the
+executor NEVER reopens a committed pick** (cf5x17 confirmed; the
+static return ~7234 untouched; agenda_open ×19 byte-identical across
+3 measurements). ⚖ METHOD LAW (beside it): a pin is an
 interpretation of a probe; an underdetermined output is not a
-finding** (both laws: docs/tjupd-ledger-mechanisms.md top + D-177
-§3/§4). **THE FIX IS VALIDATED-THEN-REVERTED (D-177 §5 verbatim
-diff, Bryan's landing call pending):** tms_eager_break's k=1 scope
-lifts for stream explicit deletes (from_delete flag; one predicate,
-both delete paths; NOT the pick — the caveated region untouched,
-agenda_open ×19 byte-identical fixed-vs-reverted). Validation: full
-D-176 battery green (corpus/cargo/fuzz_cep ×4 = 0/TJUPD ×5 = 0/tjt
-25/tj_upd **66/66 both ledger fails FLIPPED**/mju/notpop+expop
-fresh/bindings 72); population 2,199/2,200 (the 1 = tu81x60,
-PRE-EXISTING, A/B'd byte-identical, filed). THIS TREE (fix
-reverted): corpus **11/1088/339** byte-identical (4 GRADUATED
-pr_halt_cloud_* pins = the law's cloud row), lint **1622/0/0**,
-cargo 9. **OPEN LEDGER: tju_spin_deps_{extdel,delpartner} +
-hm1/hm1b/hm2b (all PASS under the §5 fix — graduate at the D-177
-LANDING, checklist §7) · fe1 flag-eager pair (OWN ARC,
-probes_pending/flag_eager/ + ~/.claude/plans/flag-eager-pair-arc.md:
-engine pairs fresh right-insert with flag-expired left-memory
-partner, non-TMS) · tu81x60 (population latent, D-170/171 kin, own
-recon).** RESUME: Bryan's landing call on D-177 §5→§7. Prior arc
-D-168→D-176 all landed; D-117 guard stays as backstop.
-Fenced-by-nature: D-134 §6 ties, fz_42_84. `git log --oneline -20`
-for HEAD._
+finding (the D-176 residual's "Drools reopens the pick pre-fire" was
+this defect — corrected at D-177). THE FIX (D-177 §5, landed
+verbatim at D-178): `tms_eager_break(f, from_delete)` — the k≥2
+exclusion lifts for stream explicit deletes; one predicate, both
+delete paths via on_delete_ex; the pick machinery untouched.
+GRADUATED at D-178: tju_spin_deps_{extdel,delpartner} +
+hm1/hm1b/hm2b → regressions/ (**corpus 11/1088/344**
+byte-identical); probes_pending/halt/ EMPTY. Gates this slab: cargo
+9, lint **1622/0/0**, fuzz_cep ×4 = 0, **TJUPD ×5×400 = 0**, tjt
+25/25, tj_upd 64 + exactly tu81x60, mju 0/200, notpop 84 + expop 104
+fresh ALL MATCH (8031/8037), population 2,199/2,200 (the 1 =
+tu81x60, pre-existing, A/B'd, filed), bindings 72 (landed-tree
+release .so). **THE BATTERY'S OPEN LEDGER IS NOW EXACTLY:
+`fe1_fresh_right_flagged_left` (flag-eager pair — OWN ARC,
+probes_pending/flag_eager/ +
+`~/.claude/plans/flag-eager-pair-arc.md`: engine pairs a fresh
+right-insert with a flag-expired left-memory partner at a plain join
+in stream; non-TMS, no executor involvement) and `tu81x60`
+(population latent, D-170/171 exit→re-enter kin — own recon).**
+D-117 guard stays as backstop. **NEXT is Bryan's call** —
+candidates: the flag-eager arc, tu81x60 recon, D-080 TMS envelope,
+class-3 re-entrant churn, window:length, Allen-beyond-Drools. Prior:
+D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
+`git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -9695,3 +9696,39 @@ LANDING (on Bryan's go): (1) re-apply the §5 diff verbatim → rebuild; (2)
 rerun the §6 battery; (3) GRADUATE tju_spin_deps_{extdel,delpartner} +
 hm1/hm1b/hm2b → regressions//live pins; (4) rebuild bindings from the landed
 tree; (5) D-178 + CURRENT STATE + memory; commit UNPUSHED.
+
+## D-178 — the D-177 LANDING-LAW fix LANDED (Bryan-gated); the five graduated; the halt arc is CLOSED end-to-end (2026-07-11)
+
+Bryan's landing call on D-177. The §5 diff re-applied VERBATIM (git apply of
+the captured diff; stat-identical 21+/8−; comments cite D-177), rebuilt, and
+the §7 checklist executed.
+
+GRADUATIONS (the five, all → `scenarios/regressions/` live pins,
+open_divergence dropped, GRADUATED-prefixed findings):
+- `tju_spin_deps_extdel` + `tju_spin_deps_delpartner` (the D-176 ledger,
+  finding text already corrected at D-177) — **the last TJUPD-family ledger
+  items are CLOSED**.
+- `hm1_extdel_interposer` + `hm1b_extdel_nowindow` + `hm2b_rhsdel_interposer`
+  (the D-177 stream witnesses). `probes_pending/halt/` is now EMPTY and
+  removed.
+
+GATES (all green on the landed tree): corpus **11/1088/344** byte-identical;
+lint **1622/0/0**; cargo 9; fuzz_cep 313/941/943/945 ×400 = 0; **SEINE_TJUPD
+6001-6005 ×400 = 0**; tjt 25/25; tj_upd dir 64 pass + exactly the 1 expected
+open pin (tu81x60, 65 files); mju 0/200; notpop 84 + expop 104 fresh ALL
+MATCH (seeds 8031/8037); population 2,199/2,200 (seeds 11..111 — the 1 is
+the filed pre-existing tu81x60, same as validation); **agenda_open ×19
+byte-identical to the D-177 validated-fix captures** (D-106-clean, third
+measurement); bindings rebuilt from the LANDED tree, 72 passed (release
+.so ~4.6MB).
+
+STATE AFTER THIS SLAB: **the halt arc is closed end-to-end** — the landing
+law + method law standing (docs top), the executor untouched and re-certified
+(cf5x17 static return, agenda_open ×3 measurements), the whole
+spin_deps/halt-corner family engine==oracle. The battery's open ledger is
+EXACTLY: `fe1_fresh_right_flagged_left` (the flag-eager pair — OWN ARC,
+`~/.claude/plans/flag-eager-pair-arc.md`) and `tu81x60` (the population
+latent, D-170/171 exit→re-enter kin — own recon). The D-117 guard stays in
+as backstop. NEXT is Bryan's call — candidates: the flag-eager arc, the
+tu81x60 recon, D-080 TMS envelope, class-3 re-entrant churn, window:length,
+Allen-beyond-Drools.
