@@ -11,60 +11,51 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11 late, post-D-175 — **DELIVERABLE (c) IS
-CRACKED: the cf6002x359 / D-117 spin root cause is the TMS teardown
-CAUSE SPLIT, and the fix is VALIDATED-THEN-REVERTED awaiting Bryan's
-landing gate** (D-175 has the mechanism, the verbatim 2-hunk diff, the
-full green battery, and the landing checklist). The cycle: an external
-delete kills a fired tuple containing a still-expiration-marked fact
-inside the advance→quiescence mark window; the mark-keyed lazy route
-(tms_on_terminal_del / tms_eager_break) sends the teardown to
-exp_deferred, and the just-fired rule's post-fire drain hands it back
-to the same route forever. The checker (4 new oracle pins, 3×-stable):
-**lazy is the EXPIRATION cause only** — route lazy ⟺
-in_expiration_drain ∨ (marked member ∧ ALL members alive); a dead
-member on a flag-false report = external kill ⇒ EAGER (a7d extended
-into the mark window; q1/a7c preserved). Under the fix the witness
-reproduces the oracle's complete sequence in 27ms, the FULL
-cf6002x359 + the ORIGINAL hang-backlog scenario PASS, **SEINE_TJUPD
-6001-6005 ×400 = ZERO flags (the axis fully clean)**, corpus
-11/1084/333 byte-identical, population 2,200/2,200, agenda_open ×19
-byte-identical (worktree A/B), lint 1601/0/0, bindings 72, cargo 9,
-fuzz_cep ×4 = 0, tjt 25/25, mju 0/200, notpop/expop fresh clean.
-⚖ BOTH laws discriminated at the round-3 bar: identity-model killed
-in BOTH directions (c3 spins without its condition; c7 doesn't spin
-with it); dedup/side-effect precondition absent. BONUS:
-spin_deps_k1 = a previously-unknown latent D-117 family member (k=1,
-no temporal join) — spins on HEAD, byte-identical under the fix.
-RESIDUAL (new, filed, NOT this slab): the deps-carrying shapes
-terminate but under-fire RN post-fix (eager drop lands after the
-pick's D-101 static return; Drools reopens the pick — ⚠⚠ D-106 halt
-fine structure, cf5x17 certifies the opposite polarity; own arc).
-Tooling landed: SEINE_SPIN_GUARD override (verdict measured
-limit-independent: 100k==50M), minimize_keyed --errored (witness
-verified at local minimum), TMS drain debug lenses. New pins:
-tju_spin_{nodelete,nofresh,window_split,deps_expire} live;
-6 pre-fix spinners banked in scenarios/hang-backlog/ (README maps
-each to its landing disposition). tju_359_spin_min stays
-open_divergence until the landing. **NEXT: Bryan's gate — re-apply
-the D-175 §4 diff and run the §6 landing checklist.** Prior arc:
+_Last updated: 2026-07-11 late, post-D-176 — **THE D-175 SPIN FIX IS
+LANDED (Bryan-gated): deliverable (c) is CLOSED and THE WHOLE D-117
+HANG FAMILY IS CURED — the root cause is fixed, not just guarded.**
+The fix (2 predicate hunks, D-175 §4 verbatim): the TMS teardown
+CAUSE SPLIT — lazy ⟺ `in_expiration_drain` ∨ (marked member ∧ ALL
+members alive); a dead member on a flag-false report = external kill
+⇒ EAGER (a7d extended into the mark window; q1/a7c preserved).
+Graduated: tju_359_spin_min → live pin; cf6002x359 (ex-xfail) + the
+ORIGINAL pre_existing_temporal_delete_hang (ex-hang-backlog) +
+spin_c3/c4/c6 + spin_deps_k1 → regressions/ (corpus **11/1084/339**
+byte-identical); **scenarios/hang-backlog/ is EMPTY** (README maps
+dispositions); **SEINE_TJUPD 6001-6005 ×400 flags NOTHING**. Gates
+this slab: cargo 9, lint **1613/0/0** (exact count), fuzz_cep ×4 = 0,
+tjt 25/25, tj_upd 64+2-expected-fails, mju 0/200, notpop/expop fresh
+ALL MATCH (8011/8017), population CONTROL **2,200/2,200**,
+agenda_open ×19 byte-identical, bindings 72 (landed-tree .so).
+**THE BATTERY'S OPEN LEDGER IS NOW EXACTLY
+tju_spin_deps_{extdel,delpartner}** — the D-106 halt-fine-structure
+corner (post-fix: TERMINATE but one RN under-fire vs oracle
+[TJ1,RN,TJ1,RL] 3×-pinned; the eager dep-drop lands after the pick's
+D-101/cf5x17 static return; Drools reopens the pick pre-fire;
+cf5x17 certifies the OPPOSITE polarity for the pre-drain shape ⇒
+needs its own halt-matrix arc — ⚠⚠ D-106, do NOT hand-patch the
+pick). The D-117 guard STAYS IN (backstop; SEINE_SPIN_GUARD
+override + minimize_keyed --errored + TMS drain lenses landed at
+D-175). ⚖ Laws: identity-model killed BOTH directions on this
+family (c3/c7); dedup/side-effect precondition-absent — neither
+applies to the spin class. **NEXT is Bryan's call** — candidates:
+the halt-corner arc (the new ledger), D-080 TMS envelope, class-3
+re-entrant churn, window:length, Allen-beyond-Drools. Prior arc:
 D-168 SET fix → D-169 T6 spec → D-170 ORDER port → D-171/172
-relink-SET + ⚖ identity law → D-173/174 3-touch + ⚖ dedup law (all
-LANDED & PUSHED). Other deferred: D-080 TMS envelope, class-3
-re-entrant churn, window:length, Allen-beyond-Drools.
-Fenced-by-nature: D-134 §6 ties, fz_42_84. `git log --oneline -20`
-for HEAD._
+relink-SET + ⚖ identity law → D-173/174 3-touch + ⚖ dedup law →
+D-175 spin recon (all landed). Fenced-by-nature: D-134 §6 ties,
+fz_42_84. `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, PUSHED through the `b260ab4` reconcile (Bryan
-holds every push); the D-175 recon commit is UNPUSHED on top. Resume
-point: **Bryan's landing gate for the D-175 spin fix** — re-apply the
-§4 diff verbatim and run the §6 landing checklist (handoff
-`~/.claude/plans/tjupd-ledger-handoff.md`, updated post-D-175).
+**Git:** on `main`; PUSHED through `b260ab4` (Bryan holds every
+push); UNPUSHED on top: the D-175 recon commit (`e9a153d`) + the
+D-176 LANDING commit (this one). Resume point: NEXT is Bryan's call
+(the D-176 tail lists candidates; the open ledger =
+tju_spin_deps_{extdel,delpartner}, the halt-corner arc).
 **RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
 on `2a482e8`, the ci.yml release pipeline all-green incl. the
 differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
@@ -9515,3 +9506,53 @@ fuzz expected-names note (TJUPD axis = zero); (5) D-17x + CURRENT STATE +
 memory; commit UNPUSHED. The D-117 guard STAYS IN — the backstop for cycles
 not yet met (e.g. a hypothetical all-alive-marked act at its own justifier's
 post-fire drain, reachable in principle, no witness).
+
+## D-176 — the D-175 spin fix LANDED (Bryan-gated); THE WHOLE D-117 HANG FAMILY IS CURED; hang-backlog is EMPTY; the TJUPD axis flags NOTHING (2026-07-11)
+
+Bryan's landing call on D-175. The §4 diff re-applied VERBATIM (the two
+cause-split predicates in `tms_on_terminal_del` + `tms_eager_break`; comments
+now cite D-175/D-176), rebuilt, and the §6 checklist executed.
+
+GRADUATIONS:
+- `tju_359_spin_min` → LIVE pin (open_divergence dropped, GRADUATED finding).
+- `scenarios/xfail/cf6002x359.json` → `scenarios/regressions/` (the full fuzz
+  case; open_divergence dropped). Verified: NO mechanical name-suppression
+  consumed it — fuzz_cep.py has no xfail check (the Rust main-axis fuzz's
+  `scenarios/xfail/<name>` check concerns fz_* names only), so the move is
+  bookkeeping; the axis was already genuinely clean.
+- `scenarios/hang-backlog/pre_existing_temporal_delete_hang.json` (the
+  ORIGINAL D-116/D-117 repro) + `spin_c3_delpartner` + `spin_c4_noE1s` +
+  `spin_c6_noEP` + `spin_deps_k1` → `scenarios/regressions/` (all live,
+  engine==oracle).
+- `spin_deps_{extdel,delpartner}` → `probes_pending/cep/tj_upd/
+  tju_spin_deps_{extdel,delpartner}.json`, `open_divergence: true` — THE NEW
+  OPEN LEDGER of the battery: the D-106 halt-fine-structure corner (post-fix
+  they TERMINATE but under-fire RN; oracle ground truth [TJ1,RN,TJ1,RL]
+  pinned 3× in the files; cf5x17 certifies the opposite polarity for the
+  pre-drain shape — own halt-matrix arc required, the pick stays untouched).
+- `scenarios/hang-backlog/` is EMPTY (README rewritten: dispositions + the
+  dir's standing charter for future guard-caught cycles).
+
+GATES (all green on the landed tree): corpus **11/1084/339** byte-identical
+(6 graduates inside the tier); cargo 9; lint **1613 live / 0 ghosts / 0
+inert** (1605 + 6 regressions + 2 relocated ledger pins — exact); fuzz_cep
+313/941/943/945 ×400 = 0; **SEINE_TJUPD 6001-6005 ×400 = 0 — the axis flags
+NOTHING**; tjt 25/25; tj_upd dir 64 pass + exactly the 2 expected
+open-ledger fails (66 files); mju 0/200; notpop 118 + expop 139 fresh ALL
+MATCH (seeds 8011/8017); population CONTROL 2,200/2,200; agenda_open ×19
+byte-identical to the D-175 validated-fix outputs; bindings rebuilt from the
+LANDED tree, 72 passed (release .so, ~4.6MB).
+
+STATE AFTER THIS SLAB: **deliverable (c) is CLOSED — the E1-hardening
+non-termination root cause is fixed, not just guarded.** The D-117 guard
+STAYS IN as the backstop for cycles not yet met (the hypothetical
+all-alive-marked act at its own justifier's post-fire drain remains
+reachable in principle; no witness). The battery's open ledger is now
+EXACTLY the two halt-corner pins `tju_spin_deps_{extdel,delpartner}` — a
+VALUE divergence (one RN under-fire), not a hang, discriminated to the
+executor's pre-fire pick-reopening (⚠⚠ D-106; do not hand-patch).
+
+NEXT is Bryan's call. Candidates: the halt-corner arc (the new ledger; needs
+a D-106-style halt-matrix over the deps shapes + cf5x17 twins), or the other
+deferred items (D-080 TMS envelope, class-3 re-entrant churn, window:length,
+Allen-beyond-Drools).

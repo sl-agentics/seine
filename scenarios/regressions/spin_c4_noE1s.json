@@ -1,5 +1,5 @@
 {
- "name": "spin_deps_extdel",
+ "name": "spin_c4_noE1s",
  "types": [
   {
    "name": "E0",
@@ -85,22 +85,8 @@
    ]
   }
  ],
- "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule RL salience 1 when P() then end\n",
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2(this before[0ms,50ms] $a) then end\n",
  "facts": [
-  {
-   "type": "E1",
-   "fields": {
-    "ts": 13,
-    "tag": "z"
-   }
-  },
-  {
-   "type": "E1",
-   "fields": {
-    "ts": 21,
-    "tag": "x"
-   }
-  },
   {
    "type": "E0",
    "fields": {
@@ -136,7 +122,7 @@
     },
     {
      "op": "delete",
-     "target": 3
+     "target": 1
     }
    ],
    "facts": [
@@ -155,15 +141,9 @@
       "ts": 124,
       "tag": "x"
      }
-    },
-    {
-     "type": "P",
-     "fields": {
-      "v": 1
-     }
     }
    ]
   }
  ],
- "_finding": "D-175: the deps-carrying witness shape (insertLogical on TJ1 + not-D observer at salience 9). Oracle 3x: [TJ1, RN, TJ1, RL] \u2014 the belief drop lands EAGERLY at the delete's propagation, before any epoch-2 firing (the a7d cause split extends into the mark window). Pre-fix: SPINS (D-117 family). Post-fix: terminates but under-fires RN ([TJ1,TJ1,RL]) \u2014 the eager drop lands mid-pop-eval AFTER the pick committed to TJ1 (D-101/cf5x17 static return); Drools reopens the pick pre-fire. At landing this graduates to an OPEN_DIVERGENCE pin for that halt-fine-structure corner (D-106; needs its own arc \u2014 cf5x17 certifies the opposite polarity for the pre-drain shape)."
+ "_finding": "GRADUATED (D-176): D-175 spin-family cell \u2014 the E1s removed (delete retargeted): marks={E2(0)} alone sustained the cycle, proving the E1 deadlines were NOT load-bearing (D-167's minimizer could not drop facts below the delete's target index)."
 }

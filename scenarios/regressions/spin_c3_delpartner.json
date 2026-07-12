@@ -159,5 +159,5 @@
    ]
   }
  ],
- "_finding": "D-175: spin-family cell \u2014 delete the NEVER-EXPIRED partner E0(9) instead of the expired E2(0); the dead tuple still contains the marked E2(0) so the teardown routes lazy and the post-fire drain cycles. THE ROUND-3 KILL of the identity-model law in the necessity direction (no delete-of-just-expired, no same-value re-creation, phenomenon present). Spins pre-fix; passes engine==oracle with the D-175 cause-split fix (graduate to live pin at landing)."
+ "_finding": "GRADUATED (D-176): D-175 spin-family cell \u2014 delete the NEVER-EXPIRED partner E0(9); the dead tuple still contains the marked E2(0), so pre-fix the teardown routed lazy and the post-fire drain cycled. THE ROUND-3 KILL of the identity-model law in the necessity direction (no delete-of-just-expired, no same-value re-creation, phenomenon was present)."
 }

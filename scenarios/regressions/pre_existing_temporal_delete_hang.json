@@ -160,5 +160,5 @@
    ]
   }
  ],
- "_finding": "PRE-EXISTING (NOT item D) engine NON-TERMINATION: this temporal-join + delete + advance shape spins in next_activation/fire_all (engine.rs:4089/3935) \u2014 the fire limit cannot catch it. Bisected to HEAD (hangs on the pre-item-D engine, zero entry_point refs); flushed by the item-D EP fuzz which draws more temporal+delete combos. E1-HARDENING backlog (temporal+delete non-termination), same family as the temporal-join-order latents. Excluded from all gates/lint (scenarios/hang-backlog not globbed). DO NOT run through the gate \u2014 it hangs."
+ "_finding": "GRADUATED (D-176; ex-hang-backlog, flushed D-116, guarded D-117): the ORIGINAL engine non-termination repro \u2014 temporal-join + external-delete-in-mark-window + same-window re-fire (the c3 flavor: deletes an unmarked fact whose tuple PARTNER is marked). Cured by the D-175 teardown cause split; its insertLogical rule J3 was dead code (no E1 facts), so by_act was empty here too."
 }

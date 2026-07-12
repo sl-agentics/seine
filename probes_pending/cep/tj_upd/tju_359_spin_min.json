@@ -159,6 +159,5 @@
    ]
   }
  ],
- "open_divergence": true,
- "_finding": "D-167: 4-fact minimal of the D-117-guarded agenda spin (cf6002x359): advance-expires E2, same epoch DELETES the just-expired fact + inserts a fresh matching pair; the executor re-add cycle trips the 50M-step guard. The deferred E1-hardening root cause, now with a small witness (D-106 caveat applies)."
+ "_finding": "GRADUATED (D-176; was the D-117 spin, open since D-166/D-167): 4-fact minimal of cf6002x359 \u2014 advance-expires E2, same epoch DELETES the just-expired fact + inserts a fresh matching pair; the mark-only lazy route re-added the exp_deferred entry at the post-fire drain forever. Fixed by the D-175 teardown cause split (lazy = in_expiration_drain or marked-and-all-alive); engine reproduces the oracle's complete sequence byte-identically."
 }

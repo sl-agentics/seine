@@ -85,5 +85,5 @@
    ]
   }
  ],
- "_finding": "D-175: a previously-UNKNOWN latent D-117 family member \u2014 k=1 justifier (single-pattern rule, NO temporal join): advance marks E0(0), same epoch deletes it + inserts a fresh E0 so J1 re-fires mid-window; the tms_eager_break mark-route sends the dead-tuple teardown to exp_deferred and the post-fire drain cycles. Pre-fix: SPINS. Post-fix: PASSES byte-identical (oracle 3x [J1, RN, J1, RL]) \u2014 at k=1 the eager drop lands at DELETE-ACTION time, before the pick, so the full sequence reproduces. Graduate to LIVE pin at landing."
+ "_finding": "GRADUATED (D-176): the previously-unknown LATENT D-117 family member found in D-175 recon \u2014 k=1 justifier (single-pattern rule, NO temporal join): advance marks E0(0), same epoch deletes it + fresh E0 re-fires J1 mid-window; the tms_eager_break mark-route cycled pre-fix. Byte-identical under the cause split (oracle 3x: [J1, RN, J1, RL] \u2014 at k=1 the eager drop lands at DELETE-ACTION time, pre-pick)."
 }

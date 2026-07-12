@@ -1,5 +1,5 @@
 {
- "name": "spin_c6_noEP",
+ "name": "cf6002x359",
  "types": [
   {
    "name": "E0",
@@ -85,8 +85,14 @@
    ]
   }
  ],
- "drl": "rule TJ1 salience 5 when $a : E0() $b : E2(this before[0ms,50ms] $a) then end\n",
+ "drl": "rule TJ0 salience 7 when $a : E2() $b : E1(this during[50ms,80ms,0ms,80ms] $a) then end\nrule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2(this before[0ms,50ms] $a) then end\nrule J2 when $e : E0($t : tag) from entry-point \"S1\" then insertLogical(new D($t)); end\nrule RD3 salience 11 when D() then end\nrule ND4 salience 9 when not D() P() then end\nrule G5 salience 19 when P(v == 2) then insert(new P3(3)); end\nrule C6 salience -4 when P3() then end\nrule NE7 salience -1 when not E2() P() then end\n",
  "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
   {
    "type": "E1",
    "fields": {
@@ -107,6 +113,21 @@
     "ts": 9,
     "tag": "y",
     "dur": 80
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 10,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 24,
+    "tag": "z"
    }
   },
   {
@@ -123,9 +144,24 @@
     {
      "op": "advance",
      "ms": 51
+    },
+    {
+     "op": "update",
+     "target": 4,
+     "fields": {
+      "tag": "y"
+     }
     }
    ],
-   "facts": []
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 81,
+      "tag": "z"
+     }
+    }
+   ]
   },
   {
    "actions": [
@@ -145,7 +181,8 @@
       "ts": 128,
       "tag": "y",
       "dur": 0
-     }
+     },
+     "entry_point": "S1"
     },
     {
      "type": "E2",
@@ -157,5 +194,5 @@
    ]
   }
  ],
- "_finding": "D-175: spin-family cell \u2014 entry point dropped everywhere; the cycle is EP-independent. Spins pre-fix; passes with the D-175 fix (graduate at landing)."
+ "_finding": "GRADUATED (D-176; ex-xfail, the D-166 SEINE_TJUPD residual): the full fuzz case of the D-117-guarded spin, cured by the D-175 teardown cause split. Minimal: probes_pending/cep/tj_upd/tju_359_spin_min.json."
 }

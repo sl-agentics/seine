@@ -161,5 +161,5 @@
    ]
   }
  ],
- "_finding": "D-175: the LAZY control of the teardown cause split (a7c analog at a k=2 temporal justifier): the justifying tuple dies by EXPIRATION (no delete), so the D(z) belief survives through the same-window TJ1 re-fire (which re-justifies D(x)) and RN never fires. Oracle [TJ1,TJ1,RL] 3x-stable; engine byte-identical on both trees. Opposite polarity of spin_deps_extdel/delpartner (hang-backlog until the D-175 landing)."
+ "_finding": "D-175: the LAZY control of the teardown cause split (a7c analog at a k=2 temporal justifier): the justifying tuple dies by EXPIRATION (no delete), so the D(z) belief survives through the same-window TJ1 re-fire (which re-justifies D(x)) and RN never fires. Oracle [TJ1,TJ1,RL] 3x-stable; engine byte-identical on both trees. Opposite polarity of tju_spin_deps_{extdel,delpartner} (the open D-106 halt-corner ledger)."
 }

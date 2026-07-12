@@ -1,5 +1,5 @@
 {
- "name": "spin_c4_noE1s",
+ "name": "tju_spin_deps_extdel",
  "types": [
   {
    "name": "E0",
@@ -85,8 +85,22 @@
    ]
   }
  ],
- "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2(this before[0ms,50ms] $a) then end\n",
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule RL salience 1 when P() then end\n",
  "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 13,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 21,
+    "tag": "x"
+   }
+  },
   {
    "type": "E0",
    "fields": {
@@ -122,7 +136,7 @@
     },
     {
      "op": "delete",
-     "target": 1
+     "target": 3
     }
    ],
    "facts": [
@@ -141,9 +155,16 @@
       "ts": 124,
       "tag": "x"
      }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
     }
    ]
   }
  ],
- "_finding": "D-175: spin-family cell \u2014 the E1s removed (delete retargeted): marks={E2(0)} alone sustain the cycle, proving the E1 deadlines are NOT load-bearing (the D-167 minimizer could not drop them only because of its index-shift guard). Spins pre-fix; passes with the D-175 fix (graduate at landing)."
+ "_finding": "D-175/D-176 OPEN LEDGER (the D-106 halt-fine-structure corner): deps-carrying witness shape (insertLogical on TJ1 + not-D observer @9). Oracle 3x: [TJ1, RN, TJ1, RL] \u2014 the belief drop lands EAGERLY at the delete's propagation, before any epoch-2 firing. Post-D-176 the engine TERMINATES but under-fires RN ([TJ1,TJ1,RL]): the eager drop lands mid-pop-eval AFTER the pick committed to TJ1 (the D-101/cf5x17 static return); Drools reopens the pick pre-fire. cf5x17 certifies the OPPOSITE polarity for the pre-drain shape \u2014 needs its own halt-matrix arc (do NOT hand-patch the pick; \u26a0\u26a0 D-106).",
+ "open_divergence": true
 }

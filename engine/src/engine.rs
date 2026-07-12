@@ -9576,9 +9576,15 @@ impl Engine {
             // at the justifier's ITEM POP (salience/decl agenda order),
             // exactly like k>=2 walk-path teardowns. External deletes
             // keep the certified EAGER path (the a7d delete twin).
-            // ⚠ D-175: mark-only here is the k=1 flavor of the D-117
-            // re-add edge (spin_deps_k1) — same cause-split fix applies.
-            if act.1.iter().any(|x| self.tms.expiring.contains(x)) {
+            // D-175/D-176: same cause split as tms_on_terminal_del —
+            // lazy is the drain's own prunes or an all-alive scheduled
+            // act; a flag-false break with a DEAD member is an external
+            // delete inside the mark window and stays on the a7d eager
+            // path (spin_deps_k1 pin — the k=1 D-117 family flavor).
+            if self.in_expiration_drain
+                || (act.1.iter().any(|x| self.tms.expiring.contains(x))
+                    && act.1.iter().all(|x| self.store.is_alive(*x)))
+            {
                 if !self.tms.exp_deferred.iter().any(|(r, t)| (*r, t) == (act.0, &act.1)) {
                     self.tms.exp_deferred.push((act.0, act.1));
                 }
@@ -9610,10 +9616,20 @@ impl Engine {
         // item-pop path. This covers the DIRECT prune callers (queue
         // pruning during advance()'s deletes), which bypass the
         // eager-break scan's routing.
-        // ⚠ D-175: this mark-only check is the D-117 re-add edge — the
-        // validated cause-split fix (DECISIONS D-175 §4, Bryan-gated)
-        // scopes it to `in_expiration_drain || (marked && all-alive)`.
-        if tuple.iter().any(|f| self.tms.expiring.contains(f)) {
+        // D-175/D-176 (tju_359_spin_min / spin_deps_{extdel,delpartner}
+        // pins): lazy is the EXPIRATION cause only — the drain's own
+        // prunes (in_expiration_drain) and mid-fire consumes of a
+        // scheduled fact that is STILL ALIVE (q1). A flag-false report
+        // with a DEAD member means an external delete killed the tuple
+        // inside the mark window: Drools tears its beliefs down eagerly
+        // at the propagation (the a7d cause split, oracle-pinned 3x at
+        // both corners), and the pending expiration later no-ops on the
+        // dead handle. The old mark-only check re-added the entry the
+        // post-fire drain had just handed it — the D-117 re-add cycle.
+        if self.in_expiration_drain
+            || (tuple.iter().any(|f| self.tms.expiring.contains(f))
+                && tuple.iter().all(|f| self.store.is_alive(*f)))
+        {
             if !self.tms.exp_deferred.iter().any(|(r, t)| (*r, t) == (ri, tuple)) {
                 self.tms.exp_deferred.push((ri, tuple.clone()));
             }
