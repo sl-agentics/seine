@@ -166,3 +166,32 @@ class, the k0 mass) + the x73 class (lazy-lead-del foreign observer
 under-fire, undiagnosed). Invariants each step: corpus
 byte-identical, xfail drift tier, agenda_open ×19 receipts, full
 battery, populations vs model_sd (12×150 0-div).
+
+## P6 part 1 (D-201): the k0 fold/churn law + three composite lanes
+
+- **⚖ the k0 FOLD/CHURN law** (tms_churn_del_group, all four drain
+  sites): del-group rules force-evaluate before the drain's retract
+  — the cross-batch staging annihilation had blinded their nots to
+  the break; the un-break re-adds REVERSED (blocked-list prepend).
+  Lazy justifier: all del-group rules; eager: sink order (rj < l).
+  **The arc's single biggest mover: 197→101 alone** — the k0 ORDER
+  family and the lazy pick-order/set_break SET classes (x29/x52/
+  x114) were ONE mechanism.
+- The composite last-key RIDE (bit16 via survivors-at-push; flush +
+  post-fire exclude, drain[pop] only) — the x51 class.
+- The del-lane race widening (dead premise at insertLogical ⇒ bit2)
+  — the x98/x79 zombie windows.
+- The trail sweep (annihilation starves trail parked-del too;
+  re-add notpos-split: lead=insertion, trail=reversed) — x121.
+- CENSUS **197 → 84 (cumulative 599→84, −86.0%)**. At 84: 64
+  PERMANENT (d3/d5 no-amut runaways) + **20 fixable tails** (12 ORD
+  + 8 SET, no cluster > 4): 4× eager-ortwin-k0 twin match order
+  (sdp7001x97), 3× eager-trail-set_break-mf (sdp7002x119), 3×
+  lazy-trail-None SET (sdp6003x77), 2× eager-k0 ORD, 2×
+  lazy-trail-del SET (the x33 two-deleter pick corner), 6 singles.
+
+## Port order (post-D-201)
+
+~~P1→P2~~ (D-197) → ~~P4/P5~~ (D-198/D-199) → ~~P3~~ (D-200) →
+~~P6 part 1~~ (D-201) → the 20 tails or SLAB-COMPLETE (Bryan's
+call) → I-RD (Bryan's order).
