@@ -359,17 +359,45 @@ def simulate(facts, rules):
                 # dep EAGERLY (plain cascade — gt12: the obs never glimpses);
                 # a self-inflicted UPDATE-break defers (fz_42_2442's actual
                 # shape) — zombie + lazy/run-end drop.
-                if amut == "set_break" and not LK[lk_key]["zombie"]:
-                    LK[lk_key]["zombie"] = True
-                    if r.get("eager"):
-                        eager_pend[ri].append(lk_key)
-                    else:
-                        drops[ri].append(lk_key)
                 if amut == "set_break":
+                    was_zombie = LK[lk_key]["zombie"]
                     pmut[pval] = 1
                     if pval in prtm:              # join-rtm relocation (gt9);
                         prtm.remove(pval)         # not-ltm stays in place (gt10)
                         prtm.append(pval)
+                    # ⚖ eval-consumption landing (gt13/gt14 dumps + x51,
+                    # tmslens-results.md): the update-break's dep-teardown
+                    # lands at the justifier's next NETWORK EVAL. Mid-run
+                    # (revivable Ps remain) that eval precedes the next
+                    # firing — the loses-head landing nets the LK out
+                    # unseen; a LAST-firing break waits for the item's
+                    # next POP: strictly-higher observers fire on the
+                    # zombie, sub-salience observers never do (gt14).
+                    # tuples(ri) can't be the mid-run test — a live
+                    # breaking LK gates the guard — so: any pmut-unset P.
+                    # Lazy routing untouched (no dump evidence yet).
+                    survivors = any(not pmut.get(v) for v in P)
+                    if not was_zombie:            # pure lane (breaks=False)
+                        LK[lk_key]["zombie"] = True
+                        if r.get("eager") and survivors:
+                            eager_pend[ri].append(lk_key)
+                        else:
+                            drops[ri].append(lk_key)
+                    elif (r.get("eager") and r.get("mutfirst")
+                          and not survivors and lk_key in eager_pend[ri]):
+                        # composite (breaks=True + set_break) — MUTFIRST
+                        # ONLY (x51 vs the x26/x58/x71/x95 quartet): the
+                        # staged pair drains in RHS order, so ilfirst
+                        # lets the insert's not-break reach the tuple
+                        # FIRST (D-076 eager cascade at propagation — no
+                        # window), while mutfirst stages the update's
+                        # join-break first (lazy eval-consumption — the
+                        # last cycle's drop rides to the pop). Mid-cycle
+                        # drops stay at loses-head either way (the
+                        # suppress/revive machinery needs the LK dead
+                        # before the refire — sd_d* certified).
+                        eager_pend[ri].remove(lk_key)
+                        drops[ri].append(lk_key)
                 elif amut == "del":
                     P.remove(pval)
                     if pval in phys:

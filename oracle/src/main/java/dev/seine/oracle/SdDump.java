@@ -27,6 +27,16 @@ import java.util.TimeZone;
  * within-item member-order layer — replaces inference from firing
  * sequences. Diagnostic only; never part of the gate.
  *
+ * D-194 second lens (the TmsDump graft, re-created in-tree): at the
+ * same dump points, every WM handle's EqualityKey status
+ * (STATED/JUSTIFIED) + BeliefSet (size, staged WorkingMemoryAction,
+ * each LogicalDependency's justifier rule/tuple/liveness), the
+ * TMS-side equality-key map (belief presence without WM presence),
+ * and the session's pending PropagationEntry queue. TMS lines carry
+ * NO identity tags so cross-launch diffs are raw. The TMS object is
+ * only ever reached through an existing BeliefSet (or the factory
+ * AFTER a key was seen) — the instrument never creates the TMS.
+ *
  * Usage: java ... dev.seine.oracle.SdDump <scenario.json>
  */
 public final class SdDump {
@@ -52,6 +62,7 @@ public final class SdDump {
                 for (Object o : event.getMatch().getObjects()) sb.append(short_(o)).append(" | ");
                 System.out.println(sb);
                 dumpBetas(session);
+                dumpTms(session);
             }
         });
 
@@ -60,9 +71,11 @@ public final class SdDump {
         }
         System.out.println("== PRE-FIRE ==");
         dumpBetas(session);
+        dumpTms(session);
         session.fireAllRules(10_000);
         System.out.println("== FIRE-BOUNDARY ==");
         dumpBetas(session);
+        dumpTms(session);
         session.dispose();
     }
 
@@ -141,6 +154,175 @@ public final class SdDump {
 
     static Object callOrNull(Object o, String m) {
         try { return call(o, m); } catch (Exception e) { return null; }
+    }
+
+    // ---- the TMS lens (D-194): BeliefSet per firing; no identity tags ----
+
+    static void dumpTms(KieSession session) {
+        try {
+            java.util.ArrayList<Object> hs = new java.util.ArrayList<>(session.getFactHandles());
+            hs.sort((a, b) -> Long.compare(idOf(a), idOf(b)));
+            java.util.HashSet<Long> inWm = new java.util.HashSet<>();
+            boolean keySeen = false;
+            Object anyBs = null;
+            StringBuilder wb = new StringBuilder("  TMS wm:");
+            for (Object h : hs) {
+                Object o = callOrNull(h, "getObject");
+                if (o == null || o.getClass().getSimpleName().equals("InitialFactImpl")) continue;
+                long id = idOf(h);
+                inWm.add(id);
+                wb.append(" @").append(id).append('(').append(short_(o)).append(")key=");
+                Object key = callOrNull(h, "getEqualityKey");
+                if (key == null) { wb.append('-'); continue; }
+                keySeen = true;
+                wb.append(stTag(key));
+                Object bs = callOrNull(key, "getBeliefSet");
+                if (bs != null) { anyBs = bs; wb.append(beliefLabel(bs)); }
+            }
+            System.out.println(wb);
+
+            Object tms = null;
+            if (anyBs != null) {
+                Object bsys = callOrNull(anyBs, "getBeliefSystem");
+                if (bsys != null) tms = callOrNull(bsys, "getTruthMaintenanceSystem");
+            }
+            if (tms == null && keySeen) {
+                Object fac = Class.forName("org.drools.core.common.TruthMaintenanceSystemFactory")
+                        .getMethod("get").invoke(null);
+                Class<?> iwmep = Class.forName("org.drools.core.common.InternalWorkingMemoryEntryPoint");
+                for (Object ep : session.getEntryPoints()) {
+                    try { tms = call1(fac, "getOrCreateTruthMaintenanceSystem", ep, iwmep); } catch (Exception ignore) { }
+                    if (tms != null) break;
+                }
+            }
+            StringBuilder kb = new StringBuilder("  TMS keys:");
+            if (tms == null) kb.append(" -");
+            else {
+                java.util.ArrayList<Object> keys = new java.util.ArrayList<>(
+                        (java.util.Collection<?>) call(tms, "getEqualityKeys"));
+                keys.sort((a, b) -> Long.compare(idOf(callOrNull(a, "getFactHandle")),
+                                                 idOf(callOrNull(b, "getFactHandle"))));
+                for (Object key : keys) {
+                    kb.append(' ').append(stTag(key)).append(" fhs[");
+                    int cap = 0;
+                    for (Object n = callOrNull(key, "getFirst"); n != null && cap++ < 8;
+                            n = callOrNull(n, "getNext")) {
+                        long nid = idOf(n);
+                        kb.append('@').append(nid).append(inWm.contains(nid) ? "+" : "!");
+                    }
+                    kb.append(']');
+                    Object lfh = callOrNull(key, "getLogicalFactHandle");
+                    kb.append("lfh=").append(lfh == null ? "-" : "@" + idOf(lfh));
+                    Object bs = callOrNull(key, "getBeliefSet");
+                    if (bs != null) kb.append(beliefLabel(bs));
+                }
+            }
+            System.out.println(kb);
+
+            StringBuilder pb = new StringBuilder("  TMS pending:");
+            boolean any = false;
+            Object it = callOrNull(session, "getActionsIterator");
+            if (it instanceof java.util.Iterator) {
+                java.util.Iterator<?> i = (java.util.Iterator<?>) it;
+                while (i.hasNext()) {
+                    Object e = i.next();
+                    any = true;
+                    pb.append(' ').append(e.getClass().getSimpleName());
+                    Object h = fieldOrNull(e, "handle");
+                    if (h != null) pb.append('@').append(idOf(h));
+                    Object fr = callOrNull(e, "isFullyRetract");
+                    Object up = callOrNull(e, "isUpdate");
+                    if (fr != null || up != null) pb.append("[fr=").append(fr).append(",up=").append(up).append(']');
+                }
+            }
+            if (!any) pb.append(" -");
+            System.out.println(pb);
+        } catch (Throwable t) {
+            System.out.println("  TMS dump error: " + t);
+        }
+    }
+
+    /** "bs[n=SIZE wma=-|Cls]" + one dep{...} per LogicalDependency node. */
+    static String beliefLabel(Object bs) {
+        StringBuilder b = new StringBuilder("bs[n=").append(callOrNull(bs, "size"));
+        Object wma = callOrNull(bs, "getWorkingMemoryAction");
+        b.append(" wma=").append(wma == null ? "-" : wma.getClass().getSimpleName());
+        Object neg = callOrNull(bs, "isNegated");
+        Object dec = callOrNull(bs, "isDecided");
+        Object con = callOrNull(bs, "isConflicting");
+        if (Boolean.TRUE.equals(neg) || Boolean.TRUE.equals(con) || Boolean.FALSE.equals(dec))
+            b.append(" neg=").append(neg).append(" dec=").append(dec).append(" con=").append(con);
+        b.append(']');
+        int cap = 0;
+        for (Object m = callOrNull(bs, "getFirst"); m != null && cap++ < 16; m = callOrNull(m, "getNext")) {
+            Object dep = callOrNull(m, "getObject");
+            if (dep == null) break;
+            b.append("dep{").append(depLabel(dep)).append('}');
+        }
+        return b.toString();
+    }
+
+    static String depLabel(Object dep) {
+        StringBuilder b = new StringBuilder();
+        Object j = callOrNull(dep, "getJustifier");
+        if (j == null) b.append("justifier=null");
+        else {
+            Object rule = callOrNull(j, "getRule");
+            b.append(rule == null ? "?" : callOrNull(rule, "getName"));
+            b.append(" act=").append(callOrNull(j, "isActive"));
+            Object q = callOrNull(j, "isQueued");
+            if (q != null) b.append(" q=").append(q);
+            Object t = callOrNull(j, "getTuple");
+            b.append(" tup=").append(t == null ? "-" : stableTuple(t));
+        }
+        Object jd = callOrNull(dep, "getJustified");
+        if (jd != null) {
+            Object jid = callOrNull(jd, "getId");
+            b.append(" just=").append(jid != null ? "@" + jid : short_(jd));
+        }
+        return b.toString();
+    }
+
+    /** tupleLabel minus the identity tags: (fact@hid,fact@hid) root-first. */
+    static String stableTuple(Object tuple) {
+        java.util.ArrayList<String> facts = new java.util.ArrayList<>();
+        for (Object t = tuple; t != null; t = callOrNull(t, "getParent")) {
+            Object fh = callOrNull(t, "getFactHandle");
+            if (fh == null) continue;
+            Object o = callOrNull(fh, "getObject");
+            if (o != null && !o.getClass().getSimpleName().equals("InitialFactImpl"))
+                facts.add(short_(o) + "@" + idOf(fh));
+        }
+        java.util.Collections.reverse(facts);
+        return "(" + String.join(",", facts) + ")";
+    }
+
+    static long idOf(Object h) {
+        Object id = h == null ? null : callOrNull(h, "getId");
+        return id instanceof Number ? ((Number) id).longValue() : -1L;
+    }
+
+    static String stTag(Object key) {
+        Object st = callOrNull(key, "getStatus");
+        if (st == null) return "?";
+        try {
+            Class<?> ek = Class.forName("org.drools.core.common.EqualityKey");
+            int v = (Integer) st;
+            if (v == ek.getField("STATED").getInt(null)) return "STATED";
+            if (v == ek.getField("JUSTIFIED").getInt(null)) return "JUSTIFIED";
+            return "?" + v;
+        } catch (Exception e) { return String.valueOf(st); }
+    }
+
+    static Object fieldOrNull(Object o, String name) {
+        for (Class<?> c = o.getClass(); c != null; c = c.getSuperclass()) {
+            try {
+                java.lang.reflect.Field f = c.getDeclaredField(name);
+                f.setAccessible(true);
+                return f.get(o);
+            } catch (Exception ignore) { }
+        }
+        return null;
     }
 
     static void dumpPaths(Object node, Object reteEval, IdentityHashMap<Object, Boolean> seen2) throws Exception {

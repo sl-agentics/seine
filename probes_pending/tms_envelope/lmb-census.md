@@ -47,3 +47,19 @@ Dump-grounded observations:
 NEXT INSTRUMENT: the TmsDump graft (BeliefSet per firing) — the
 beta-memory dump cannot see belief staging; do NOT resume black-box
 inference on this cluster (epicycle discipline).
+
+## RESOLVED (same day, next sitting): the TmsDump lens ran
+
+The BeliefSet lens (grafted into SdDump, D-194 handoff recipe) +
+the gt14 sub-salience splitter settled the cluster — full trace
+reading + the pinned ⚖ eval-consumption landing law + the model
+port in `tmslens-predictions.md` / `tmslens-results.md`. Headlines:
+H2 (mutfirst gates attachment) FALSIFIED (both deps attach at
+insertLogical exec); H1's WM form FALSIFIED (the queue drains
+BETWEEN the justifier's own firings — non-preemption is an
+agenda-layer fact, the interposer arc's lane); H3 ANSWERED: the
+LK1/LK2 asymmetry = mid-run between-firings eval (immediate
+teardown, LK never observed) vs last-firing pop-landing (zombie-
+justifier window: strictly-higher observers fire on it, sub-salience
+never — gt14: RO3@3 silent 3/3). model_sd ported (eager last-firing
+set_break → drops[]); validator 39/39 held; gt13+gt14 exact.

@@ -11,7 +11,9 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11 latest, post-D-178 — **THE D-177 FIX IS
+_Last updated: 2026-07-12, post-D-195 (TMS-envelope arc: the TmsDump
+lens + the lead-NL closure). Earlier closed-arc records below kept
+verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
 top): delete teardowns land by MODE×CAUSE — stream ⇒ at the delete's
@@ -58,101 +60,54 @@ marked act — D-117 guard stays as its backstop).** window:length arc
 CLOSED at D-185 (port landed; corpus **11/1124/354**, lint
 **1662/0/0**; follow-ups not ledgered: CepWindowTest length
 baselines, SEINE_WINLEN axis merge, standalone windows P3; body
-D-183..D-185). **ACTIVE ARC: D-080 TMS ENVELOPE (D-186, opened
-2026-07-11 — the SCOPING/residue deliverable is COMPLETE, no engine
-change; plan `~/.claude/plans/tms-envelope-arc.md`, recon home
-`probes_pending/tms_envelope/`). Fresh 10-replicate re-baseline of
-the 68: ZERO classification changes, oracle byte-stable across +p1;
-exactly 3 witnesses moved engine-side since D-087, bisect-attributed
-— fz_42_4442 at D-091 `f70b189` (dirty-flag lifecycle port),
-fz_123_2674+fz_42_7619 at D-101 `bb6eb6d` (drain-at-link): the
-envelope moves ONLY when the evaluation-lifecycle model moves.
-Law-read buckets (candidates, method-law caveat): L-SD self-defeat
-landing ×13 (11 engine-under / 2 over), L-MB mutation-break landing
-×18 (16 engine-OVER), I-RD mixed-key kill path ×12 (mixed 6/6), I-ST
-static bookkeeping ×1 (fz_7_9902), compound ×1; runaways ×22 =
-identity-law mirror fenced-by-nature; nondet ×1 fenced-by-nature.
-THE RESIDUE: R1 the (cloud × belief-loss) landing rows — the
-fifth-law-shaped hole, evaluation-lifecycle region, ⚠ D-106-adjacent
-(interposer instrument, D-177 pattern); R2 the static
-stated/justified bookkeeping model (outside the identity law as
-written; TmsDump graft first). **D-187 (Bryan-directed): the XFAIL
-ENGINE-DRIFT GATE is LANDED — `make diff` grew a 4th tier gating
-engine output on the quarantine against a committed snapshot
-(scenarios/xfail-engine-baseline.ndjson; liveness-proven red/green;
-movement now requires re-triage + `make xfail-rebank` + a D-entry).
-L-SD RUNG 1 COMPLETE (14 cells, 3 rounds, 3×-stable, predictions
-pre-logged): ⚖-candidate ROW pinned — (cloud × self-defeat): LAZY
-justifier ⇒ the drop lands at the justifier's ITEM POP (same-salience
-observers glimpse iff queue position precedes it — decl order in
-same-firing-born shapes; k irrelevant); EAGER (no-loop/dyn-sal)
-justifier ⇒ flush landing, no ≤-salience glimpse (the min608
-reconciliation: that pin's scope was the eager regime all along — its
-"continuation drains at equal salience" over-generalized to lazy and
-the engine implemented the over-generalization = min812's mechanism,
-acc never load-bearing). 4 open_divergence cells (sd_a9/a10/a13/a15);
-lint 1676/0/0. **RUNG 2 COMPLETE (D-188, Bryan-sequenced): the
-over-fire outliers DISSOLVED into clause B (in-firing
-self-cancellation of the justifier's own remaining tuples — engine
-misses on leading-not/or-twin topologies; sd_b2=3060, sd_b4=9375) and
-the sweep's justifier-under-fire misfits into clause C (post-drop
-re-derivation: no-WM-change ⇒ no refire [t10 scope confirmed];
-left-side change ⇒ t15 re-derivation + strictly-higher re-queue
-preempts the changer after ONE firing = strict alternation
-[sd_c1=5213]; engine batches). THE (cloud × self-defeat) ROW = a
-THREE-CLAUSE TABLE with ALL 13 BUCKET MEMBERS ACCOUNTED (8 pure-A,
-9133=A+B-honored, 3060=B, 9375=B, 5213=A+B+C,
-1353=A+B+cascade-persistence; zero unexplained). Bonus: sd_b3 = the
-bare lazy or-twin is a Drools RUNAWAY 3/3 (the 946 family as a 1-rule
-minimal; no-loop is the terminator). 23 cells, 11 open_divergence =
-the port battery core; lint 1685/0/0.** **CONSOLIDATION (D-189,
-Bryan-directed, IN PROGRESS): c3a falsified the strictly-higher halt
-⇒ THE QUEUE-HEAD DISCIPLINE (fires from the head; (salience, decl
-position); lazy drop at head-return, eager at run end — c3d splitter
-confirmed value-level); model_sd.py + tools/fuzz_tms_sd.py LIVE —
-32/32 banked, 132/150 fresh population, ALL 18 residues
-member-order-sourced; found by population: the missing D-076 cascade
-+ zombie rule, the k1-LEAD-NL RUNAWAY family (self-contained, d3;
-new positive-pattern class), t15-clears-fired-for-died-tuples,
-LK-recreation-refires (identity law in-model). ⚖ BRYAN'S EPICYCLE
-STOP logged (toggles = falsification, not resistance; proxy variable
-= unknown mechanism); member order moved to GROUND TRUTH — SdDump
-graft phase 1: NOT texture (3/3 stable). **D-190: CONSOLIDATION
-CLOSED AT 0-DIV — phase 2 pinned the full member-order construction
-(add-at-head; fold ⇒ REVERSAL; sharer split by decl; fold-staging by
-t0 OWNERSHIP owner⇒PRE / non-owner justifier⇒POST; unshared folds =
-whole-continuation consume; k0-NL nets out iff justifier-first-decl;
-the t10 leak = staged-without-dirty, observed; phase-1's "re-entry"
-reading retracted — queue-head unamended); model_sd order layer =
-physics, ZERO toggles; **32/32 banked; population 750/750, seeds
-6001-6005** (6004/6005 fully out-of-sample); engine census 300/750
-divergent (40%) = the port A/B baseline; lint 1694/0/0; engine
-untouched. **D-193: del = EAGER dep-cascade (gt12: the obs never
-glimpses; the lazy prior scoped to update-breaks only) + the
-INTERVENING-ACTION fold law (gt11: ilfirst churns, mutfirst folds —
-netting iff nothing lands between the LK-ins and run-end del); v2 =
-738/750 (fresh 7003: 148/150), 9 survivors in 3 named order
-clusters (lead-NL quartet / mf-lazy-trail trio / nb-trail tails).**
-**D-192 (MB-1 + graft): the D-191 headline RETRACTED
-(census misread — solo set_break fires once; the model was green on
-all 7 MB-1 cells); engine RED on lead A-shapes (mb1_dl/sl, port
-battery); gt9/gt10 physics: update relocates to join-rtm TAIL
-(not-ltm in place), obs_join mirror orders, fold batching
-(unshared-eager nets out / unshared-lazy churns); v2 = 589/600, 11
-order-class residues named; lint 1701/0/0.** **D-191 (Bryan's
-inversion: instrument before ladder):
-the v2 A-SHAPE FUZZER + model priors are LIVE — 13 residues/600
-fresh v2 cases, ALL A-shaped = the population-sourced L-MB ladder
-targets (headline: set_break's dep-teardown unbreaks IN-RUN, beating
-the fz_42_2442 lazy prior); two principle fixes (self-delete never
-revives the actor; set_break alpha = off-shared-node) + one latent
-v1 loop bug caught-and-fixed (run-end drops land before the next
-head selection — sdp6003x67); 32/32 held throughout.** NEXT: the
-L-MB ladder, checked against the live instrument.** Any engine
-change stays gated (⚠ D-106 tripwire + D-177 landing-not-pick).** Other
-candidates: class-3 re-entrant churn, Allen-beyond-Drools. Prior:
-D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
-`git log --oneline -20` for HEAD._
+D-183..D-185). **ACTIVE ARC: D-080 TMS ENVELOPE (opened D-186 2026-07-11; plan
+`~/.claude/plans/tms-envelope-arc.md`, recon home
+`probes_pending/tms_envelope/`).** Scoping D-186 (68 witnesses
+re-baselined byte-stable; buckets L-SD ×13 / L-MB ×18 / I-RD ×12 /
+I-ST ×1 / compound ×1; runaways+nondet fenced-by-nature; residue R1 =
+cloud×belief-loss landing rows ⚠ D-106-adjacent, R2 = static
+stated/justified model). D-187: xfail ENGINE-DRIFT GATE landed (make
+diff 4th tier; movement needs re-triage + xfail-rebank + D-entry).
+L-SD: rung 1+2 (D-187/188) = the three-clause (cloud × self-defeat)
+row, all 13 accounted; CONSOLIDATION 0-DIV (D-189/190): ⚖ QUEUE-HEAD
+DISCIPLINE + the member-order physics (add-at-head, fold⇒reversal,
+sharer/ownership staging — graft-derived, zero toggles); model_sd.py
++ fuzz_tms_sd.py = the executable spec + population instrument,
+750/750 v1. L-MB (D-191–D-193): v2 A-shape grammar; D-191 headline
+retracted at D-192 (⚖ method law template); pinned physics: update
+relocates join-rtm to TAIL / not-ltm in place (gt9/gt10), obs_join
+mirror orders, fold batching, del = EAGER dep-cascade (gt12), the
+INTERVENING-ACTION fold law (gt11: ilfirst churns / mutfirst folds).
+D-194 (record = probe-dir files + commits, no D-entry): gt1-gt13 +
+39-cell truths banked in-repo; HANDOFF-instrument.md = the TmsDump
+recipe + 3 residue clusters + H1-H3. **D-195: THE TMSDUMP LENS IS
+LIVE IN-TREE (SdDump, one dump both lenses, non-flushing verified)
+AND THE LEAD-NL BELIEF-STAGING CLUSTER IS CLOSED — ⚖-candidate
+EVAL-CONSUMPTION LANDING: the amut update-break's dep-teardown lands
+at the justifier's next NETWORK EVAL (mid-run ⇒ between-firings eval,
+LK nets out unseen; last-firing ⇒ the item's NEXT POP — gt14
+splitter: strictly-higher observers fire on the zombie-justified LK,
+sub-salience never; quiescence-landing dead); composite lane
+(breaks+set_break) is MUTFIRST-gated — the RHS pair drains in RHS
+order, ilfirst's not-break wins the race (D-076 eager, no window),
+mutfirst's join-break wins (lazy, window) = the fold law's
+belief-layer sibling (x51 vs x26/x58/x71/x95; round-1 overreach
+falsified by fuzz, honest record in tmslens-results.md). H2
+falsified (deps attach at insertLogical exec), H1-WM falsified (the
+queue drains BETWEEN same-rule firings; non-preemption is
+agenda-layer = the interposer arc's lane). v2 populations
+**741/750** (7001/7002/6001 149; 6003 147; fresh 7004 147 — its 4
+finds bisected: 3 pre-existing order-class + x51 fixed
+out-of-sample); ZERO belief-staging divergences remain; survivors =
+2 order clusters: mf-lazy-trail continuation (x68/x41/x88 + kin
+x90/x67/x108/x131) + nb-trail tails (x103/x0). gt14+gt15 banked;
+lint 1716/0/0; validator 39/39; corpus + engine untouched, walls
+up.** NEXT: the two order clusters (one SdDump run each, handoff
+§clusters 2-3), then I-RD / the R1 interposer ladder — Bryan's
+sequencing. Any engine change stays gated (⚠ D-106 tripwire + D-177
+landing-not-pick). Other candidates: class-3 re-entrant churn,
+Allen-beyond-Drools. Prior: D-168→D-185 all landed. Fenced-by-nature:
+D-134 §6 ties, fz_42_84. `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -10757,3 +10712,77 @@ justifier's own post-churn continuation order); (iii) two nb-trail
 tails (x103/x0). All order-class; ZERO landing/mechanism divergences
 in 750 v2 cases. Engine census 47/56/45/54/37. NEXT: one dump per
 cluster, then fresh seeds to v2 0-div; then I-RD.
+
+## D-195 — the TmsDump lens LIVE in-tree; the lead-NL belief-staging cluster CLOSED (⚖-candidate eval-consumption landing + the mutfirst composite gate); v2 at 741/750, zero belief-class residues (2026-07-12)
+
+THE INSTRUMENT (the D-194 handoff's unit, now in `SdDump.java` — one
+dump, both lenses): per firing + PRE-FIRE/FIRE-BOUNDARY, every WM
+handle's EqualityKey status (STATED/JUSTIFIED) + BeliefSet (size,
+staged WorkingMemoryAction, each LogicalDependency's justifier
+rule/tuple/act/queued), the TMS-side key map (zombie = belief
+without WM), and the session's pending PropagationEntry queue. TMS
+lines carry NO identity tags (raw cross-launch diff); the TMS object
+is only reached through a live BeliefSet (or the factory AFTER a key
+exists) — the instrument cannot create the TMS. Cleanliness proven
+in-run: PRE-FIRE pending still shows the two external Inserts AFTER
+getFactHandles() (no flush); instrumented firing sequence == the
+banked uninstrumented oracle sequence. gt13 + gt14 3/3 stable.
+
+THE TRACE VERDICTS (predictions pre-logged, tmslens-predictions.md;
+reading in tmslens-results.md): H2 FALSIFIED — both deps attach
+synchronously at insertLogical exec (store handle + JUSTIFIED key +
+dep immediate; only the network Insert rides the queue, behind the
+RHS-earlier Update). H1's WM form FALSIFIED — the session queue
+drains BETWEEN the justifier's own firings; the observers'
+non-preemption is an agenda-layer fact (the R1 interposer arc's
+lane, not this lens's). H3 ANSWERED = the LK1/LK2 asymmetry:
+
+⚖-CANDIDATE EVAL-CONSUMPTION LANDING (dump-grounded, splitter-
+confirmed): the amut update-break's dep-teardown lands when the
+JUSTIFIER'S network eval consumes the staged break — (a) mid-run
+break ⇒ consumed at the between-firings eval: teardown + inline
+retract complete before the next firing, the LK's queued Insert nets
+out, observers NEVER see it; (b) last-firing break ⇒ the staged
+delete waits while strictly-higher observers run (zombie-justifier
+window: belief n=1, justifier match dead — RO2 fired twice on it),
+then lands at the justifier item's NEXT POP — strictly-lower
+observers never fire (gt14: RO3@3 silent 3/3; quiescence-landing
+dead). Sibling of the D-189 lazy-drop-at-pop law.
+
+THE COMPOSITE LANE (breaks=True + set_break) is MUTFIRST-GATED —
+found the honest way: the ungated extension regressed 7002 149→145
+(x26/x58/x71/x95, all ilfirst) while x51 (mutfirst, fresh-seed
+FINALS divergence, del_join@5 firing ×4 on the zombie) demanded the
+window. Mechanism = the D-193 intervening-action fold law's
+belief-layer sibling: the staged RHS pair drains in RHS order;
+ilfirst's insert-caused not-break reaches the tuple FIRST (D-076
+eager cascade at propagation — no window even for strictly-higher);
+mutfirst's update join-break stages first (lazy eval-consumption —
+the pop window). breaks=False has no race (mutfirst-independent).
+
+MODEL PORT (model_sd.py, the only semantic file touched): pure lane
+— eager last-firing set_break drop rides drops[] (pop) instead of
+eager_pend[] (loses-head); mid-run keeps eager_pend (nets out
+pre-next-firing, already order-correct); composite lane — the elif
+moves the LAST cycle's drop to drops[] iff eager ∧ mutfirst ∧ no
+revivable P; mid-cycle stays loses-head (the suppress/revive
+machinery needs the LK dead pre-refire, sd_d* certified). Lazy
+routing untouched (no dump evidence).
+
+SCOREBOARD: v2 populations 741/750 — 7001/7002/6001 149/150, 6003
+147/150, FRESH 7004 147/150 (its 4 finds bisected vs HEAD model:
+x67/x108/x131 pre-existing order-class; x51 = the composite window,
+fixed out-of-sample). THE LEAD-NL QUARTET RESOLVED (x17/x131/x128
+clean; x90 DEMOTED to order-class — firing set right, deleter-run
+P-order reversed). ZERO belief-staging divergences in 750; survivors
+= mf-lazy-trail continuation order (x68/x41/x88, kin x90/x67/x108/
+x131) + nb-trail tails (x103/x0) — both order-class, one SdDump run
+each per the handoff. Engine census steady 47/56/45/54/55.
+
+BANKED: tmslens-predictions.md, tmslens-results.md, gt14_leadnl_
+subsal.json, gt15_composite_mutfirst.json (x51 renamed — collision
+hazard), lmb-census.md §RESOLVED. Gates: validator 39/39 through
+EVERY edit; make diff green incl. xfail drift 75/75; lint 1716/0/0
+(gt14+gt15 live). Corpus + engine UNTOUCHED; gen.rs walls UP. NEXT
+(Bryan's sequencing): the two order clusters, then I-RD / the R1
+interposer ladder.
