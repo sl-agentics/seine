@@ -54,28 +54,32 @@ EMPTY** — every filed divergence fixed-and-graduated or
 fenced-by-nature (D-134 §6 ties, fz_42_84). Known-open surfaces are
 noted SUB-CELLS only (born-expired/D-133, update-refold ph=1,
 stream-AB partner-only sites, the D-175 hypothetical all-alive
-marked act — D-117 guard stays as its backstop).** **ACTIVE ARC: window:length (D-183 — Bryan's
-rulings recorded: acc-source-only, TMS×window fenced in-arc, not
-deferred behind D-080; wl-ladder rungs 1-4 PINNED — post-alpha
-window, one-net-refire evictions, insert-fixed slots, REVIVAL both
-window kinds [pr_wl_time_revival graduated green], no backfill;
-**THE PORT LANDED at D-185: window:length(N) on
-accumulate sources is IN THE SUBSET** — Window::Length + N≥1 parse
-check; the SLOT-RETENTION ring (TrieNode.win_ring) + deferred ring
-ops (win_admit_pending — TWO landing-law inversions in the acc
-machinery found by the 2,700-case population and fixed: the
-evict-vs-pending-upd and entry-slot-position witnesses, pr_wl_*
-pins); the 7 windowed-ness gates widened; model_winlen 0-div (ladder
-21/21, ×5 fresh seeds; the transient-exit epoch-final corner
-pinned); ALL 5 D-110-era fenced cells passed unchanged and
-graduated; the trickle corners are LIVE pins (the engine matches the
-oracle natively — the sub-recon is spec-side only); corpus
-**11/1124/354**, lint **1662/0/0**, 32 new pins; wl_b3_n0 = the
-standing N≥1 wall guard. Follow-ups not ledgered: CepWindowTest
-length baselines (§1c pipeline sitting), SEINE_WINLEN axis merge,
-standalone windows stay P3.)** Other candidates:
-D-080 TMS envelope, class-3 re-entrant churn, Allen-beyond-Drools. Prior:
-D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
+marked act — D-117 guard stays as its backstop).** window:length arc
+CLOSED at D-185 (port landed; corpus **11/1124/354**, lint
+**1662/0/0**; follow-ups not ledgered: CepWindowTest length
+baselines, SEINE_WINLEN axis merge, standalone windows P3; body
+D-183..D-185). **ACTIVE ARC: D-080 TMS ENVELOPE (D-186, opened
+2026-07-11 — the SCOPING/residue deliverable is COMPLETE, no engine
+change; plan `~/.claude/plans/tms-envelope-arc.md`, recon home
+`probes_pending/tms_envelope/`). Fresh 10-replicate re-baseline of
+the 68: ZERO classification changes, oracle byte-stable across +p1;
+exactly 3 witnesses moved engine-side since D-087, bisect-attributed
+— fz_42_4442 at D-091 `f70b189` (dirty-flag lifecycle port),
+fz_123_2674+fz_42_7619 at D-101 `bb6eb6d` (drain-at-link): the
+envelope moves ONLY when the evaluation-lifecycle model moves.
+Law-read buckets (candidates, method-law caveat): L-SD self-defeat
+landing ×13 (11 engine-under / 2 over), L-MB mutation-break landing
+×18 (16 engine-OVER), I-RD mixed-key kill path ×12 (mixed 6/6), I-ST
+static bookkeeping ×1 (fz_7_9902), compound ×1; runaways ×22 =
+identity-law mirror fenced-by-nature; nondet ×1 fenced-by-nature.
+THE RESIDUE: R1 the (cloud × belief-loss) landing rows — the
+fifth-law-shaped hole, evaluation-lifecycle region, ⚠ D-106-adjacent
+(interposer instrument, D-177 pattern); R2 the static
+stated/justified bookkeeping model (outside the identity law as
+written; TmsDump graft first). NEXT: plan §5 rung 1 (L-SD interposer
+ladder on the min812/9133 spines) unless Bryan re-orders.** Other
+candidates: class-3 re-entrant churn, Allen-beyond-Drools. Prior:
+D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
@@ -10186,3 +10190,99 @@ sub-recon (the D-112/D-133 trickle corners — the ENGINE matches the oracle
 on both banked witnesses (pr_wl_f1/f2 graduated LIVE), so the sub-recon is
 spec-side only); standalone-pattern windows stay P3-walled. The battery's
 open ledger REMAINS EMPTY. NEXT is Bryan's call.
+
+## D-186 — the D-080 TMS ENVELOPE ARC OPENED: laws-first scoping COMPLETE — fresh re-baseline (3 moves, both movers = evaluation-lifecycle commits), the law-read buckets, THE RESIDUE stated; no engine change (2026-07-11)
+
+Bryan's charter: open with the laws, not a witness — the arc starts from
+an envelope, so the opening move is scoping, and its deliverable is the
+RESIDUE (what the standing laws do NOT explain). Full read:
+`~/.claude/plans/tms-envelope-arc.md`; recon home
+`probes_pending/tms_envelope/` (fresh baseline table banked).
+
+### 1. Baseline (gates green first: corpus 11/1124/354 byte-identical,
+### lint 1662/0/0 on HEAD 687b8ae, clean tree)
+
+Fresh `tools/triage_xfail.py --runs 10` into a NEW cache
+(`target/triage_cache_d080arc`; the D-087 cache preserved). The envelope
+= exactly the 68 TMS witnesses, byte-unchanged files since D-087.
+Results: ZERO classification changes (45 VALUE + 22 RUNAWAY + 1 NONDET),
+zero graduation candidates, zero unfenced divergences; the oracle is
+BYTE-STABLE on all 68 across the D-163 +p1 vendor (10/10 replicates).
+Mechanical table diff vs D-087: exactly THREE rows moved, all
+ENGINE-side, worktree-bisected (predicate = firing counts, main-tree
+witness files for constant identity):
+
+- fz_42_4442 (SJ runaway) engine 6→4 firings at **D-091 `f70b189`** —
+  the RuleExecutor dirty-flag lifecycle port (whose own entry recorded a
+  TMS-drain fallout; this is the same coupling's un-gated shadow).
+- fz_123_2674 (A,B) −0/+4 → −0/+3 and fz_42_7619 (A,B) −0/+5 → −1/+4 at
+  **D-101 `bb6eb6d`** — the drain-at-link / lazy-teardown slab.
+
+THE SCOPING DATUM: across ~110 commits and ten landed arcs — including
+two TMS-law fixes (D-172/D-181 identity, D-177 landing, all
+temporal/stream-gated by design) — the envelope moved ONLY when the
+executor's EVALUATION-LIFECYCLE model moved. The xfail set sits outside
+the byte-identical gate; these moves were silent until this re-baseline.
+
+### 2. The law-read (shape-level; candidate classifications, NOT pins —
+### method-law discipline: splitting cells before any mechanism claim)
+
+The 45 VALUE witnesses bucket by fence marker × fresh delta direction
+(full per-witness lists in the plan §3):
+
+- **L-SD, self-defeat-cause landing ×13** (pure SJ): **11/13 engine
+  UNDER-fires** — the park lands the drop earlier than Drools' lazy
+  drain; the sibling's glimpse is lost. Kill-cells for any single-row
+  hypothesis: the two OVER outliers fz_123_3060 / fz_7_9375.
+- **L-MB, mutation-break-cause landing ×18** (A-marked, incl. 2 XD):
+  **16/18 engine OVER-fires** — on compounds the engine lands
+  justifier-mutation belief-drops LATER than Drools' eager path (the
+  certified k=1-scope/own-origin pins all pass; the compounds sit past
+  that boundary).
+- **I-RD, mixed-key kill path ×12** (RD): direction MIXED 6/6, two with
+  fact deltas — Drools immediateDelete-vs-staged-cancellation naming
+  OBJECTS vs the engine's value-key; identity-law home turf with a
+  landing component.
+- **I-ST, static bookkeeping ×1**: fz_7_9902 — firings byte-identical,
+  oracle retains one extra stated duplicate. NO ordering component.
+- **Compound ×1**: fz_7_9550 (A,SJ).
+- **Family II ×22 runaways**: the identity law's MIRROR — object-identity
+  belief churn sustains Drools' cascade, the engine's value-merge + park
+  terminates. Explained, NOT actionable (no stable oracle answer);
+  fenced-by-nature stays. Family III ×1 nondet: fenced-by-nature stays.
+
+Law NON-applications stated early: the dedup/side-effect law's signature
+dominates no bucket (per-cell checklist only); the identity law's
+ordering clause is the wrong polarity for L-MB's over-direction (stays a
+per-cell check in I-RD and the two L-SD outliers).
+
+### 3. THE RESIDUE (the arc's actual work)
+
+- **R1 — the (cloud × belief-loss) landing rows.** The landing law's
+  mode×cause table has no rows for self-defeat or justifier-mutation
+  teardowns, and the two clusters' direction-coherence (11/13 under,
+  16/18 over) says a table EXISTS. This is the fifth-law-shaped hole;
+  §1's attribution locates its machinery — the evaluation-lifecycle
+  (dirty/link/drain/halt) discipline, ⚠ D-106-adjacent. The D-177
+  pattern governs any approach (interposer instrument; the pick is
+  never the defect; agenda_open ×19 byte-identical receipts mandatory).
+- **R2 — the static stated/justified bookkeeping model.** The
+  9902-class sits OUTSIDE the identity law as written (no ordering
+  deferral to restore). Law refinement or D-077 model completeness;
+  store-layer, D-106-clean; TmsDump-graft ground truth first.
+
+Probing order (plan §5): (1) L-SD interposer ladder on the min812 +
+fz_123_9133 spines; (2) the L-MB eager/lazy boundary ladder on the
+k/origin/property-hit axes; (3) I-RD TmsDump graft on 4048/9902 before
+cells; (4) model + DEDICATED arc fuzzer population (gen.rs walls STAY
+UP) on fresh out-of-sample seeds; (5) any port validate-and-revert
+behind Bryan's gate. If the cells split with no coherent table, the
+honest close is fe1-shaped: a tighter fence statement, no law.
+
+### 4. Filings
+
+`probes_pending/tms_envelope/` (README + triage-2026-07-11.md);
+`~/.claude/plans/tms-envelope-arc.md`; this entry; CURRENT STATE.
+Engine untouched; corpus untouched; no wall moved; the D-087
+`docs/xfail-triage.md` kept as the historical record. NEXT: plan §5
+rung 1 unless Bryan re-orders.
