@@ -127,9 +127,16 @@ reading retracted — queue-head unamended); model_sd order layer =
 physics, ZERO toggles; **32/32 banked; population 750/750, seeds
 6001-6005** (6004/6005 fully out-of-sample); engine census 300/750
 divergent (40%) = the port A/B baseline; lint 1694/0/0; engine
-untouched. NEXT (Bryan's sequencing): L-MB opens — the 18-witness
-mutation-break cluster.** Any engine change stays
-gated (⚠ D-106 tripwire + D-177 landing-not-pick).** Other
+untouched. **D-191 (Bryan's inversion: instrument before ladder):
+the v2 A-SHAPE FUZZER + model priors are LIVE — 13 residues/600
+fresh v2 cases, ALL A-shaped = the population-sourced L-MB ladder
+targets (headline: set_break's dep-teardown unbreaks IN-RUN, beating
+the fz_42_2442 lazy prior); two principle fixes (self-delete never
+revives the actor; set_break alpha = off-shared-node) + one latent
+v1 loop bug caught-and-fixed (run-end drops land before the next
+head selection — sdp6003x67); 32/32 held throughout.** NEXT: the
+L-MB ladder, checked against the live instrument.** Any engine
+change stays gated (⚠ D-106 tripwire + D-177 landing-not-pick).** Other
 candidates: class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -10628,3 +10635,47 @@ drift gate green. NEXT per Bryan's sequencing: **L-MB** (the
 18-witness mutation-break cluster — plan §5 rung 2 of the residue),
 opening with the same discipline: bucket census re-read, ladder with
 pre-logged predictions, kill-cells first.
+
+## D-191 — the L-MB POPULATION INSTRUMENT built FIRST (Bryan's ruling: "build it before believing the ladder"); v2 A-shape grammar + certified priors; census run; TWO principle fixes + ONE latent v1 bug caught (2026-07-12)
+
+Bryan's sequencing inversion: L-SD's table only became trustworthy at
+750 fresh cases, so L-MB's fuzzer precedes L-MB's ladder.
+
+### 1. The v2 instrument
+
+`tools/fuzz_tms_sd.py` v2: P gains a mutable f1; the k=1 justifier
+draws `amut ∈ {None, del, set_break}` (+ a mutfirst RHS-order toggle;
+set_break adds the `f1 == 0` alpha and emits the house
+`$p.setF1(1); update($p);` form; composable with breaks∈{T,F} — the
+breaks=False+amut draw is the PURE dep-death transient). model_sd
+gains the certified PRIORS: self-inflicted dep-teardown lands lazy
+(fz_42_2442), foreign delete effects eager (recompute + cascade/
+zombie), t15 on RHS deletes. gen.rs walls untouched.
+
+### 2. Census + fixes (validate 32/32 held throughout)
+
+First census (7001): 21 divergences → signatures. Two were prior
+bugs with clean principles, FIXED: (i) a self-inflicted delete never
+t15-revives the ACTOR's own suppressed tuples (oracle keeps them
+parked and the P alive); (ii) a set_break justifier's f1-alpha takes
+it OFF the shared node — private staging, insertion order. One was a
+LATENT v1 MODEL BUG the original 750 draws never exercised
+(sdp6003x67): run-end eager drops must land BEFORE the next head
+selection commits (the model let a low-salience observer pop while
+the dying LK still hid the deleter) — loop fixed; honest note: the
+D-190 0-div stands for its 750 draws; populations are evidence, not
+proof, and the v2 stream shift caught the corner.
+
+### 3. State: the L-MB target list is population-sourced
+
+Post-fix: **7001 149/150, 7002 145/150, 6001-v2 148/150, 6003-v2
+145/150 — 13 residues/600, ALL A-shaped.** Signature spread: set_break
+(lazy trail / NL lead / mutfirst variants) + del (NL lead / lazy
+trail). Headline target: the set_break shape where the oracle fires
+the justifier's SECOND tuple despite the not-break — the mutation's
+dep-teardown unbreaks IN-RUN, faster than the fz_42_2442 lazy prior.
+Engine census on v2 populations: 47/56/45/54 per 150. NEXT: the L-MB
+ladder proper (kill-or-confirm the in-run unbreak; the k2lazy
+boundary; mutfirst), each finding checked against the live instrument
+the way Bryan mandated. lint 1694/0/0 unchanged (no corpus/engine
+touch).

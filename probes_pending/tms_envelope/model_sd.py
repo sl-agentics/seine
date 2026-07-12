@@ -90,10 +90,13 @@ def simulate(facts, rules):
     # eval consumes the scan inline; everyone else memory-scans the
     # current phys head->tail. lead-justifiers and del_join consume
     # insertion order (their observed datum); obs_p insertion order.
+    pmut = {v: 0 for v in facts}          # P.f1 values (A-shape setters)
     phys = list(reversed(facts))          # shared group phys, add-at-head
     grp = [i for i, r in enumerate(rules) if
            (r['kind'] == 'justifier' and r.get('k', 1) == 1
-            and r.get('notpos', 'trail') == 'trail') or r['kind'] == 'del_not']
+            and r.get('notpos', 'trail') == 'trail'
+            and r.get('amut') != 'set_break')   # the f1 alpha breaks node sharing
+           or r['kind'] == 'del_not']
     t0_owner = grp[0] if grp else None
     jstaged = [None for _ in rules]       # per-rule staged member list
     if t0_owner is not None:
@@ -126,9 +129,10 @@ def simulate(facts, rules):
                 return [("IF", None)] if guard_ok and "IF" not in sup[ri] and "IF" not in fired[ri] else []
             if not guard_ok:
                 return []
-            eligible = set(v for v in P if v not in sup[ri] and v not in fired[ri])
-            if r.get("notpos", "trail") == "lead":
-                order = [v for v in P if v in eligible]          # insertion order
+            eligible = set(v for v in P if v not in sup[ri] and v not in fired[ri]
+                           and not (r.get("amut") == "set_break" and pmut.get(v)))
+            if r.get("notpos", "trail") == "lead" or r.get("amut") == "set_break":
+                order = [v for v in P if v in eligible]          # private node
             else:
                 order = group_order(ri, eligible)
             return [(v, v) for v in order]
@@ -255,8 +259,12 @@ def simulate(facts, rules):
             if e["dep"] == pv and not e["zombie"]:
                 retract_lk(key)           # D-076 eager cascade (x130)
 
-    def t15_revive(deleted_p):
+    def t15_revive(deleted_p, actor=None):
         for rj, r in enumerate(rules):
+            if rj == actor:
+                continue                  # a self-inflicted delete never
+                                          # revives the actor's own tuples
+                                          # (7001 census; kin of fz_42_2442)
             if r["kind"] == "justifier" and r.get("k", 1) == 1 \
                and not r.get("ortwin") and not r.get("eager") \
                and r.get("breaks", True):
@@ -271,13 +279,17 @@ def simulate(facts, rules):
         if steps > FIRE_CAP:
             return {"firings": firings, "finals": None, "runaway": True}
         ri = head()
-        for rj in range(len(rules)):      # eager drops land on losing the head
-            if rj != ri and eager_pend[rj]:
-                land_eager(rj)
-        if ri is None:
-            ri = head()                   # eager landing may re-derive work
-            if ri is None:
+        while True:                       # run-end drops land BEFORE the next
+            changed = False               # selection commits (sdp6003x67)
+            for rj in range(len(rules)):
+                if rj != ri and eager_pend[rj]:
+                    land_eager(rj)
+                    changed = True
+            if not changed:
                 break
+            ri = head()
+        if ri is None:
+            break
         land_lazy(ri)
         ts = tuples(ri)
         if not ts:
@@ -326,6 +338,29 @@ def simulate(facts, rules):
                     eager_pend[ri].append(lk_key)
                 else:
                     drops[ri].append(lk_key)
+            amut = r.get("amut")
+            if amut and pval is not None:
+                # A-shape RHS mutation of the justifier's OWN tuple member:
+                # the dep-teardown is SELF-INFLICTED => lands LAZY
+                # (fz_42_2442 prior); foreign effects of a delete are eager
+                # (recompute-on-pop); cascade immunity via the zombie flag.
+                if not LK[lk_key]["zombie"]:
+                    LK[lk_key]["zombie"] = True
+                    if r.get("eager"):
+                        eager_pend[ri].append(lk_key)
+                    else:
+                        drops[ri].append(lk_key)
+                if amut == "set_break":
+                    pmut[pval] = 1
+                elif amut == "del":
+                    P.remove(pval)
+                    if pval in phys:
+                        phys.remove(pval)
+                    for rj in range(len(rules)):
+                        if jstaged[rj] and pval in jstaged[rj]:
+                            jstaged[rj].remove(pval)
+                    cascade_p_death(pval)
+                    t15_revive(pval, actor=ri)
         elif r["kind"] in ("obs_lk", "obs_join", "obs_p"):
             firings.append((name, pval))
         elif r["kind"] in ("del_not", "del_join"):

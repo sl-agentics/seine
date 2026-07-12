@@ -27,7 +27,8 @@ sys.path.insert(0, os.path.join(REPO, "probes_pending", "tms_envelope"))
 from model_sd import simulate  # noqa: E402
 
 HARNESS = ["cargo", "run", "-q", "-p", "seine-harness", "--"]
-P_T = {"name": "P", "fields": [{"name": "f0", "type": "i64"}]}
+P_T = {"name": "P", "fields": [{"name": "f0", "type": "i64"},
+                               {"name": "f1", "type": "i64"}]}
 LK_T = {"name": "LK2", "fields": [{"name": "f0", "type": "i64"},
                                   {"name": "f1", "type": "bool"}]}
 SALS = [-10, -5, -1, 0, 0, 0, 1, 5, 7, 10]
@@ -40,10 +41,15 @@ def draw(rng):
     eager = rng.random() < 0.4
     ortwin = eager and rng.random() < 0.2
     k = 0 if ortwin else rng.choice([0, 1, 1, 1])
+    amut = None
+    if k == 1 and not ortwin:
+        amut = rng.choice([None, None, None, "del", "del", "set_break",
+                           "set_break", "set_break"])
     rules.append({"kind": "justifier", "sal": rng.choice(SALS), "k": k,
                   "notpos": rng.choice(["lead", "trail"]) if k else "trail",
                   "eager": eager, "ortwin": ortwin,
-                  "breaks": rng.random() < 0.9})
+                  "breaks": rng.random() < 0.9,
+                  "amut": amut, "mutfirst": rng.random() < 0.25})
     for _ in range(rng.randint(0, 2)):
         rules.append({"kind": rng.choice(["obs_lk", "obs_join", "obs_p"]),
                       "sal": rng.choice(SALS)})
@@ -73,10 +79,17 @@ def drl_of(rules):
                 body = "    not LK2(f1 != true)\n"
                 rhs = f"    insertLogical(new LK2(7, {ins_f1}));\n"
             else:
-                pat = "    $p : P($x : f0)\n"
+                alpha = ", f1 == 0" if r.get("amut") == "set_break" else ""
+                pat = f"    $p : P($x : f0{alpha})\n"
                 np = "    not LK2(f1 != true)\n"
                 body = np + pat if r["notpos"] == "lead" else pat + np
-                rhs = f"    insertLogical(new LK2($x, {ins_f1}));\n"
+                il = f"    insertLogical(new LK2($x, {ins_f1}));\n"
+                mut = ""
+                if r.get("amut") == "del":
+                    mut = "    delete($p);\n"
+                elif r.get("amut") == "set_break":
+                    mut = "    $p.setF1(1);\n    update($p);\n"
+                rhs = (mut + il) if (mut and r.get("mutfirst")) else (il + mut)
         elif r["kind"] == "obs_lk":
             body, rhs = "    LK2($v : f0)\n", ""
         elif r["kind"] == "obs_join":
@@ -138,7 +151,7 @@ def main():
         name = f"sdp{seed}x{i}"
         path = os.path.join(work, name + ".json")
         json.dump({"name": name, "drl": drl_of(rules),
-                   "facts": [{"type": "P", "fields": {"f0": v}} for v in facts],
+                   "facts": [{"type": "P", "fields": {"f0": v, "f1": 0}} for v in facts],
                    "types": [P_T, LK_T]}, open(path, "w"))
         cases[name] = (facts, rules)
         files.append(path)
