@@ -7056,7 +7056,9 @@ impl Engine {
                     // discipline (pr_tms_t20*; 14 regression cells
                     // pinned it when the whole-drain gate over-deferred).
                     while let Some(i) = self.tms.deferred.iter().position(|(ri, _, fl)| {
-                        *ri == l && !(eq_decl_preempt && (*fl & 2) != 0)
+                        *ri == l
+                            && (*fl & 16) == 0
+                            && !(eq_decl_preempt && (*fl & 2) != 0)
                     }) {
                         let (_, tuple, _) = self.tms.deferred.remove(i);
                         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
@@ -7076,6 +7078,9 @@ impl Engine {
                             self.evaluate_rule(rj, false, false);
                         }
                     }
+                        // ⚖ k0 churn (D-201): del-group rules consume
+                        // the staged blocker-ins before the retract.
+                        self.tms_churn_del_group(l, &tuple);
                         self.tms_on_terminal_del(l, &tuple);
                         // ⚖ land_eager lead-k1 (D-199): the eager
                         // landing's unbreak re-propagates — unpark so
@@ -7199,17 +7204,21 @@ impl Engine {
                 // lands before the witness pops).
                 let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
                 // D-196 (ip_a3 vs ip_c1/gt13): RIGHT-cause entries
-                // (self-defeat) flush-drain unconditionally at the run
-                // end; LEFT-cause entries (update-break lane) drain
-                // only MID-RUN — the run's LAST break rides to the
-                // item's pop (the eval-consumption landing's (b) row:
-                // strictly-higher observers glimpse the zombie).
+                // (self-defeat) flush-drain at the run end; LEFT-cause
+                // entries (update-break lane) drain only MID-RUN — the
+                // run's LAST break rides to the item's pop (the
+                // eval-consumption landing's (b) row: strictly-higher
+                // observers glimpse the zombie). D-201 (sdp7004x51,
+                // model land_eager mutfirst): the bit2 LATE-DEP ride
+                // exempts the bit1 lane too — a MUTFIRST self-defeat's
+                // last key rides drops[] to the pop (ip_a3's k0 entry
+                // has no bit2; unaffected).
                 loop {
                     let run_live = !self.nets[ri].queue.is_empty();
                     let Some(di) = self.tms.deferred.iter().position(|(dri, _, fl)| {
                         *dri == ri
                             && (dyn_sal
-                                || (*fl & 2) != 0
+                                || ((*fl & 2) != 0 && (*fl & 16) == 0)
                                 || ((*fl & 1) != 0 && (run_live || (*fl & 4) == 0))
                                 || ((*fl & 8) != 0 && run_live))
                     }) else {
@@ -7221,6 +7230,9 @@ impl Engine {
                     if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                         eprintln!("TMS drain[flush-pre] r{ri} {tuple:?}");
                     }
+                    // ⚖ k0 churn (D-201): del-group rules consume the
+                    // staged blocker-ins before the retract.
+                    self.tms_churn_del_group(ri, &tuple);
                     self.tms_on_terminal_del(ri, &tuple);
                     // ⚖ land_eager lead-k1 (D-199): eager landing
                     // re-propagates — unpark for re-fire (self-killed
@@ -7255,7 +7267,7 @@ impl Engine {
                     let Some(di) = self.tms.deferred.iter().position(|(dri, _, fl)| {
                         *dri == ri
                             && (dyn_sal
-                                || (*fl & 2) != 0
+                                || ((*fl & 2) != 0 && (*fl & 16) == 0)
                                 || ((*fl & 1) != 0 && (run_live || (*fl & 4) == 0))
                                 || ((*fl & 8) != 0 && run_live))
                     }) else {
@@ -7280,6 +7292,9 @@ impl Engine {
                             self.evaluate_rule(rj, false, false);
                         }
                     }
+                    // ⚖ k0 churn (D-201): del-group rules consume the
+                    // staged blocker-ins before the retract.
+                    self.tms_churn_del_group(ri, &tuple);
                     self.tms_on_terminal_del(ri, &tuple);
                     // ⚖ land_eager lead-k1 (D-199): eager landing
                     // re-propagates — unpark for re-fire (self-killed
@@ -7480,6 +7495,9 @@ impl Engine {
                             self.evaluate_rule(rj, false, false);
                         }
                     }
+                // ⚖ k0 churn (D-201): del-group rules consume the
+                // staged blocker-ins before the retract.
+                self.tms_churn_del_group(ri, &tuple);
                 self.tms_on_terminal_del(ri, &tuple);
             }
             dbg_eval("pop", ri);
@@ -7947,8 +7965,10 @@ impl Engine {
     /// the node, ⚖ the starvation law) clears its parks; RECORDED
     /// full-width siblings re-activate in INSERTION order, bare
     /// prefixes simply stop suppressing (staged re-derivations queue
-    /// at their consumption). TRAIL rules stay on the parked-del lane
-    /// (sd_c1's certified reversed-chain revive).
+    /// at their consumption). TRAIL rules revive REVERSED-chain
+    /// (sd_c1's certified order; the same staging annihilation starves
+    /// their parked-del lane too — sdp7002x121, D-201); the parked-del
+    /// lane remains for deaths that DO reach the terminal first.
     fn tms_p_death_sweep(&mut self, f: FactId, origin: Option<usize>) {
         if self.tms.parked.is_empty() {
             return;
@@ -7965,7 +7985,7 @@ impl Engine {
                 || matches!(self.rules[rj].salience, EngineSalience::Dyn { .. });
             let ortwin = (0..self.rules.len())
                 .any(|rk| rk != rj && self.rule_parents[rk] == self.rule_parents[rj]);
-            if eager || ortwin || !self.tms_lead_k1(rj) {
+            if eager || ortwin {
                 continue;
             }
             let Some(pos) = self.rules[rj]
@@ -7995,6 +8015,13 @@ impl Engine {
                 .map(|(_, pt)| pt.clone())
                 .collect();
             self.tms.parked.retain(|(pri, _)| *pri != rj);
+            // re-add order by notpos: LEAD = insertion (the model's
+            // land-lane law), TRAIL = reversed chain (sd_c1/gt16)
+            let entries: Vec<Tup> = if self.tms_lead_k1(rj) {
+                entries
+            } else {
+                entries.into_iter().rev().collect()
+            };
             for pt in entries {
                 if pt.len() < full_w
                     || pt.contains(&f)
@@ -9824,14 +9851,20 @@ impl Engine {
         // the item's pop (the zombie window gt13/ip_c1 observers see).
         // An ILFIRST dep attaches while the tuple is whole and dies at
         // the flush (pr_tms_t20d / pr_tms_selfbreak_flush certified;
-        // x147's oracle twin).
+        // x147's oracle twin). D-201 (sdp7007x98, the del-lane window):
+        // a tuple member DELETED before the attach is the same race,
+        // del flavor — the last generation's LK rides to the pop and
+        // strictly-higher observers glimpse it once (the model's
+        // x88/x0 windows).
         let late = act.1.iter().any(|f2| {
-            self.store.is_alive(*f2)
-                && self.rules[ri].patterns.iter().enumerate().any(|(pos, pat)| {
-                    pat.sub != SubRole::Inner
-                        && pat.tpos.map(|t| act.1.get(t) == Some(f2)).unwrap_or(false)
-                        && !self.alpha_passes(ri, pos, *f2)
-                })
+            if !self.store.is_alive(*f2) {
+                return true;
+            }
+            self.rules[ri].patterns.iter().enumerate().any(|(pos, pat)| {
+                pat.sub != SubRole::Inner
+                    && pat.tpos.map(|t| act.1.get(t) == Some(f2)).unwrap_or(false)
+                    && !self.alpha_passes(ri, pos, *f2)
+            })
         });
         if late && !self.tms.late_acts.iter().any(|a| *a == act) {
             self.tms.late_acts.push(act.clone());
@@ -10085,10 +10118,35 @@ impl Engine {
                         .iter()
                         .any(|(jf, jo)| jf == f && *jo == Some(act.0))
                 });
-                let flags = (left as u8)
+                let mut flags = (left as u8)
                     | ((right as u8) << 1)
                     | ((late as u8) << 2)
                     | ((joinr as u8) << 3);
+                // ⚖ D-201 (sdp7004x51, model composite re-route): an
+                // EAGER MUTFIRST composite's (bit1+bit2) key with NO
+                // SURVIVORS — no alive fact still passing the positive
+                // pattern's alpha (all pmut'd/deleted) — is the run's
+                // LAST key: it rides to the POP (bit4). Mid-run keys
+                // land at flush/selection boundaries as certified.
+                if flags & 6 == 6
+                    && (self.rules[act.0].def.no_loop
+                        || matches!(self.rules[act.0].salience, EngineSalience::Dyn { .. }))
+                {
+                    let init_tid = self.store.type_id(INITIAL_FACT);
+                    let pos = self.rules[act.0].patterns.iter().position(|p| {
+                        p.ce == CeKind::Positive
+                            && Some(p.type_id) != init_tid
+                            && p.tpos.is_some()
+                    });
+                    let survivors = pos.is_some_and(|pp| {
+                        self.store
+                            .all_facts_in_insertion_order()
+                            .any(|f| self.alpha_passes(act.0, pp, f))
+                    });
+                    if !survivors {
+                        flags |= 16;
+                    }
+                }
                 if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                     eprintln!("TMS defer-push r{} {:?} flags={}", act.0, act.1, flags);
                 }
@@ -10370,6 +10428,73 @@ impl Engine {
     /// Remove an activation's deps; retract facts whose belief sets
     /// emptied (nested WM deletes — cascades recurse through
     /// tms_eager_break/terminal processing). Returns the retracted facts.
+    /// Read-only peek: the justified facts this act's drop WOULD
+    /// retract (tms_drop_act_deps' emptiness pre-check, no mutation).
+    fn tms_act_drop_victims(&self, act: &(usize, Tup)) -> Vec<FactId> {
+        let Some((_, keys)) = self.tms.by_act.iter().find(|(a, _)| a == act) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for key in keys {
+            let Some(e) = self.tms.keys.get(key) else { continue };
+            let survives = e
+                .beliefs
+                .iter()
+                .any(|j| !(j.ri == act.0 && j.tuple == act.1));
+            if !survives {
+                if let Some(jf) = e.justified {
+                    if self.store.is_alive(jf) {
+                        out.push(jf);
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    /// ⚖ the k0 fold/churn law (D-201, model fold_on_drop; the gt3/d4
+    /// + gt6/x11 dump truths): a justifier's belief-drop CHURNS the
+    /// del-group — rules with a positive join and a NOT matching the
+    /// dying belief's type consume the staged blocker-ins BEFORE the
+    /// retract (block + queued-act cancel), so the un-break re-adds
+    /// their lefts in the blocked list's PREPEND order = the firing
+    /// order REVERSES (sdp7001x54: the oracle deletes P4..P1, the
+    /// engine's cross-batch ins+del annihilation kept t0 order).
+    /// LAZY justifier: every del-group rule churns; EAGER (no-loop/
+    /// dyn): SINK ORDER — only rules DECLARED BEFORE the justifier
+    /// (gt6/x11 net-out vs the x70-class churn). Or-siblings ride the
+    /// D-198 sibling-eval lane, not this one.
+    fn tms_churn_del_group(&mut self, l: usize, tuple: &Tup) {
+        let victims = self.tms_act_drop_victims(&(l, tuple.clone()));
+        if victims.is_empty() {
+            return;
+        }
+        let vtypes: Vec<TypeId> =
+            victims.iter().map(|f| self.store.fact_type(*f)).collect();
+        let init_tid = self.store.type_id(INITIAL_FACT);
+        let eager_l = self.rules[l].def.no_loop
+            || matches!(self.rules[l].salience, EngineSalience::Dyn { .. });
+        let par = self.rule_parents[l];
+        for rj in 0..self.rules.len() {
+            if rj == l || self.rule_parents[rj] == par {
+                continue;
+            }
+            if eager_l && rj > l {
+                continue;
+            }
+            let pats = &self.rules[rj].patterns;
+            let has_not = pats
+                .iter()
+                .any(|p| p.ce == CeKind::Not && vtypes.contains(&p.type_id));
+            let has_pos = pats.iter().any(|p| {
+                p.ce == CeKind::Positive && Some(p.type_id) != init_tid
+            });
+            if has_not && has_pos {
+                self.evaluate_rule(rj, false, false);
+            }
+        }
+    }
+
     fn tms_drop_act_deps(&mut self, act: &(usize, Tup)) -> Vec<FactId> {
         let keys = match self.tms.by_act.iter().position(|(a, _)| a == act) {
             Some(i) => self.tms.by_act.remove(i).1,

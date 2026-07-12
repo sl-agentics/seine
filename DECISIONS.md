@@ -11,10 +11,10 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-200 (TMS-envelope arc: THE PORT
-SLAB ROUND 3 COMPLETE, P1-P5 ALL LANDED — census 599→197 cumulative
-−67.1%, SIXTEEN graduates arc-total incl. min812 + the fz_7_1353
-FINALS-DIFF compound; pushed through bfc363e [D-198], D-199/D-200
+_Last updated: 2026-07-12, post-D-201 (TMS-envelope arc: P1-P5 +
+P6-part-1 ALL LANDED — census 599→84 cumulative −86.0%; the residue
+= 64 permanent runaway-mismatches + 20 fixable tails; SIXTEEN
+graduates arc-total; pushed through 1f76175 [D-200], D-201
 UNPUSHED). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
@@ -163,7 +163,28 @@ terminates-invariant, the census floor); ~63 ORDER-ONLY (P6 —
 the model's order layer is the spec); the SET rest = P3's
 equal-salience window (sdp7002x3: the decl-preceding
 same-salience observer's glimpse) + pick-order physics (P6) +
-the undiagnosed x73 class.** **D-200: P3 LANDED — ROUND 3
+the undiagnosed x73 class.** **D-201 (P6 part 1, four
+model-translated lanes): ⚖ the k0 FOLD/CHURN law — del-group rules
+force-evaluate before the drain's retract (the cross-batch
+staging annihilation had blinded their nots to the break; the
+un-break now re-adds REVERSED per the blocked-list prepend order;
+lazy = all del-group rules churn, eager = sink order rj < l) —
+THE ARC'S SINGLE BIGGEST MOVER (197→101 alone: the whole k0 ORDER
+family + the lazy pick-order/set_break SET classes were one
+mechanism); the composite last-key RIDE (bit16 at defer-push via
+the survivors read; flush + post-fire exclude it, drain[pop] only
+= drops[]/land_lazy; ⚠ a run_live-gated first cut was the wrong
+direction — mid-run keys land at selections even queue-empty);
+the del-lane race widening (a DELETED premise at insertLogical is
+the D-195 race too ⇒ bit2; the last generation's zombie window,
+x98); the trail sweep (the annihilation starves trail parked-del
+too; re-add order notpos-split: lead=insertion, trail=reversed
+sd_c1 chain). CENSUS **197→84 (cumulative 599→84, −86.0%)**,
+model 0-div 12×150/150, corpus 11/1124/370 byte-identical ×4,
+drift 59 untouched ×4, agenda_open ×19 identical, lint 1738/0/0.
+COMPOSITION: 64 permanent (d3/d5 no-amut runaways) + 20 FIXABLE
+TAILS (12 ORD + 8 SET, no cluster > 4 — fine-structure corners
+of landed mechanisms).** **D-200: P3 LANDED — ROUND 3
 COMPLETE, P1-P5 ALL LANDED. The pop-precedence drain split at
 post-fire-continue: the halt keeps certified strictly-higher
 (D-091 untouched, the pick untouched); the DRAIN defers under
@@ -183,9 +204,9 @@ sitting, ladder 6/6, cells 39/39, witnesses 26/26, lint
 FROM THE PRE-PORT BASELINE **599→197 (−67.1%)**. Composition:
 64 RUNAWAY-MISMATCH (the d3/d5 no-amut family — permanent, the
 census floor), 63 ORDER-ONLY (P6), 70 SET (pick-order physics +
-the x73 class + tails).** NEXT: **P6** (the order-layer sweep —
-model_sd's member-order physics is the spec) or Bryan's call;
-I-RD after the slab (Bryan's order). Any engine change stays
+the x73 class + tails).** NEXT: the 20 tails (each a
+1-4-case fine-structure corner) or call the population slab
+COMPLETE — Bryan's call; I-RD after the slab (Bryan's order). Any engine change stays
 gated (⚠ D-106 tripwire + D-177 landing-not-pick). Other
 candidates: class-3 re-entrant churn, Allen-beyond-Drools.
 Prior: D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties,
@@ -11270,3 +11291,89 @@ structural floor is 64. NEXT: P6 (the order-layer sweep — the
 model's member-order physics: fold/reversal/insertion-order/
 pick-order per lane) or Bryan's call; I-RD after the slab (Bryan's
 order).
+
+## D-201 — THE PORT SLAB, P6 (part 1): the k0 fold/churn law — the arc's single biggest mover; the composite last-key RIDE; the del-lane race widening; the trail sweep; census 197→84, cumulative 599→84 (−86.0%) (2026-07-12)
+
+FOUR LANES, all model-translated (model_sd's order layer is the
+spec — Bryan: "the order layer is already 0-div in the model, so
+it's translation again"):
+
+1. **⚖ the k0 fold/churn law (tms_churn_del_group; model
+   fold_on_drop, the gt3/d4 + gt6/x11 dump truths)**: a justifier's
+   belief-drop CHURNS the del-group — rules with a positive join
+   and a NOT matching the dying belief's type force-evaluate BEFORE
+   the drain's retract (consuming the staged blocker-ins: block +
+   queued-act cancel), so the un-break re-adds their lefts in the
+   blocked list's PREPEND order = the re-derived firing order
+   REVERSES (sdp7001x54: the oracle deletes P4..P1; the engine's
+   CROSS-BATCH ins+del staging annihilation meant the deleter's not
+   never saw the break, preserving t0 order). LAZY justifier: every
+   del-group rule churns; EAGER: SINK ORDER — only rules DECLARED
+   BEFORE the justifier (gt6/x11 net-out vs the x70-class churn).
+   Wired at all four drain sites beside the D-198 sibling-eval.
+   THE SINGLE BIGGEST MOVER OF THE ARC: census 197 → 101 on this
+   lane alone — it swept the whole k0 ORDER family (45 cases), the
+   lazy pick-order SET classes (x29/x52/x114 — the deleter re-derive
+   order was the same mechanism), and the lazy set_break clusters.
+
+2. **The composite last-key RIDE (bit16; model land_eager's
+   composite re-route, sdp7004x51)**: an EAGER MUTFIRST composite's
+   (bit1+bit2) key pushed with NO SURVIVORS — no alive fact still
+   passing the positive pattern's alpha (all pmut'd/deleted) — is
+   the run's LAST key: flags |= 16 at defer-push; the flush gates
+   and the post-fire-continue exclude bit16 entries (they drain at
+   drain[pop] ONLY = the model's drops[]/land_lazy). Mid-run keys
+   keep the certified flush/selection landings. ⚠ a first cut
+   gated the bit1 flush clause on run_live instead — WRONG
+   DIRECTION: mid-run keys must land at selections even with an
+   empty queue (the model's land_eager is not run_live-gated);
+   x51 dropped to R1×1. The survivors-at-push routing is the
+   model's exact shape. Fixes the 7-case eager-lead-set_break-mf
+   class (oracle: the full R1-run completes, THEN the higher
+   deleter fires on the LAST LK).
+
+3. **The del-lane race widening (sdp7007x98/x79)**: tms's LATE
+   check (the D-195 mutfirst race read at insertLogical) counted
+   only ALPHA-BROKEN live members — a tuple member DELETED before
+   the attach is the same race, del flavor (the model's x88/x0
+   windows: mid-run LKs net out; the LAST generation rides to the
+   pop and STRICTLY-HIGHER observers glimpse it once). Now a dead
+   member ⇒ late (bit2) ⇒ with bit1 the composite machinery (lane
+   2) routes its last key to the pop.
+
+4. **The trail sweep (sdp7002x121)**: the same staging annihilation
+   that starved the LEAD parked-del lane (D-199's sweep) starves
+   TRAIL too — a foreign delete folding into the suppressed
+   re-derived ins never reaches the terminal, so tms_parked_del
+   never triggers. tms_p_death_sweep now covers trail as well;
+   re-add order by notpos: LEAD = insertion (the model's land-lane
+   law), TRAIL = REVERSED chain (sd_c1/gt16 — certified; sd_c1 and
+   the fz_42_5213 alternation graduate stayed green through the
+   widening). The parked-del lane remains for deaths that reach
+   the terminal first.
+
+RECEIPTS: corpus **11/1124/370** byte-identical after EVERY lane
+(the ten D-200 graduates re-verified live-oracle each time); drift
+bank **59** identical — ZERO xfail movement across all four lanes
+(the entire blast radius landed inside the population surface);
+agenda_open ×19 BYTE-IDENTICAL ×3 more (⚠ D-106); ladder 6/6 ×4;
+validate_cells 39/39 ×4; check_witnesses 26/26; cargo test 9
+suites; lint 1738/0/0. CENSUS: **197 → 84** (churn alone → 101;
++ lanes 2-4 → 84); model 0-div 12×150/150 on every run, all seeds
+timeout-clean. Final table: 7001 8, 7002 11, 6001 3, 6003 8, 7004
+6, 7005 6, 7006 5, 7007 6, 7008 10, 7009 9, 7010 5, 7011 7.
+CUMULATIVE FROM THE PRE-PORT BASELINE: **599 → 84 (−86.0%)**.
+
+COMPOSITION at 84: **64 = the d3/d5 no-amut runaway family
+(PERMANENT — oracle runs away / engine terminates, the census
+floor); 20 FIXABLE TAILS** — 12 ORDER (4× eager-ortwin-k0 twin
+match order [sdp7001x97], 3× eager-trail-set_break-mf
+[sdp7002x119], 2× eager-k0, 3 singles) + 8 SET (3× lazy-trail-None
+[sdp6003x77], 2× lazy-trail-del incl. the x33 two-deleter
+pick-value corner, 3 singles). No cluster exceeds 4; every
+remaining case is a fine-structure corner of an already-landed
+mechanism.
+
+NEXT: the 20 tails (diminishing returns — each is a
+one-to-four-case corner) or call the population slab COMPLETE and
+proceed to I-RD per Bryan's order.
