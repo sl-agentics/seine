@@ -11,9 +11,9 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-195 (TMS-envelope arc: the TmsDump
-lens + the lead-NL closure). Earlier closed-arc records below kept
-verbatim. **THE D-177 FIX IS
+_Last updated: 2026-07-12, post-D-196 (TMS-envelope arc: order
+clusters closed, v2 0-div 1800/1800, the R1 interposer ladder open
+at 6/6). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
 top): delete teardowns land by MODE×CAUSE — stream ⇒ at the delete's
@@ -102,9 +102,25 @@ out-of-sample); ZERO belief-staging divergences remain; survivors =
 2 order clusters: mf-lazy-trail continuation (x68/x41/x88 + kin
 x90/x67/x108/x131) + nb-trail tails (x103/x0). gt14+gt15 banked;
 lint 1716/0/0; validator 39/39; corpus + engine untouched, walls
-up.** NEXT: the two order clusters (one SdDump run each, handoff
-§clusters 2-3), then I-RD / the R1 interposer ladder — Bryan's
-sequencing. Any engine change stays gated (⚠ D-106 tripwire + D-177
+up.** **D-196 (Bryan-sequenced: clusters → 0-div → interposer):
+BOTH ORDER CLUSTERS CLOSED (gt16/gt17 dumps: ⚖ two-phase unbreak /
+stale-rtm starvation with the ALPHA-GATE touch + private-phys
+continuation; the nb deleter's t0-FIFO — the churn proxy removed;
+⚖ del-lane eval-consumption — gt12's "eager cascade" was
+salience-confounded; the eager-composite matrix via gt18/gt19 dumps
++ the gt20 2×2: mutfirst never propagates mid-run, ilfirst-lead
+nets, ilfirst-trail folds iff del_not decl-first). **v2 = TRUE
+0-DIV: 1800/1800, twelve seeds incl. never-used 7011 clean on first
+contact**; 26-witness registry (check_witnesses.py); engine census =
+the port A/B baseline. **THE R1 INTERPOSER LADDER IS OPEN AND ITS
+FIRST RUNG IS 6/6 GREEN 3×-stable** (mechanical model predictions
+exact on both spines: pop window = salience threshold; eager k0 no
+glimpse; clause-B fan-out starvation; the D-195 between-row) ⇒ the
+(cloud × belief-loss) landing rows are a CONFIRMED TABLE. lint
+1722/0/0.** NEXT (Bryan's call): the engine A/B on the ladder cells
++ the 13+18 xfail witnesses re-read against the table (the port
+target list); then the port slab; I-RD LAST (Bryan's order). Any
+engine change stays gated (⚠ D-106 tripwire + D-177
 landing-not-pick). Other candidates: class-3 re-entrant churn,
 Allen-beyond-Drools. Prior: D-168→D-185 all landed. Fenced-by-nature:
 D-134 §6 ties, fz_42_84. `git log --oneline -20` for HEAD._
@@ -10786,3 +10802,75 @@ EVERY edit; make diff green incl. xfail drift 75/75; lint 1716/0/0
 (gt14+gt15 live). Corpus + engine UNTOUCHED; gen.rs walls UP. NEXT
 (Bryan's sequencing): the two order clusters, then I-RD / the R1
 interposer ladder.
+
+## D-196 — BOTH ORDER CLUSTERS CLOSED (gt16-gt20 dumps + the 2×2), the del-lane law corrected (gt12 was salience-confounded), v2 at TRUE 0-DIV (1800/1800, twelve seeds); the R1 INTERPOSER LADDER OPENED AND ITS FIRST RUNG IS 6/6 GREEN (2026-07-12)
+
+Bryan's sequencing: "the two order clusters, one SdDump run each,
+then 0-div. Then R1's interposer ladder before I-RD."
+
+THE CLUSTER DUMPS (predictions pre-logged, ordlens-predictions.md;
+readings in ordlens-results.md; all instrument runs 3×-stable):
+- gt16 (x68-core, lazy trail mutfirst composite): ⚖ TWO-PHASE
+  UNBREAK / STALE-RTM STARVATION — at the justifier's pop the DROP
+  lands (WM retract) but the not-level unbreak stays STAGED behind a
+  dead LK's stale right-tuple + blocked chain; blocked tuples revive
+  only on a TOUCH (another rule's WM action on a P that reaches the
+  node — the ALPHA GATE: pmut'd Ps never do, lead and trail alike);
+  revived continuation = the rule's OWN pre-fold private-phys scan
+  (trail; new jphys) / insertion (lead, banked). No touch ⇒ STARVE —
+  the mb1_st/sl/dt banked truths are this law's no-deleter face.
+  Also: D's not processes the full break+unbreak history at ITS
+  eval; consume = the pre-reversal scan; the fold reverses at the
+  FOLD, not at consume (pf_reversed).
+- gt17 (x103-core, nb trail): NO folds ever reach the deleter (nb
+  keys never break) — its t0 staged order survives FIFO; the old
+  pending_fold churn condition was a cross-node PROXY (removed).
+- ⚖ DEL-LANE EVAL-CONSUMPTION (x88/x0/x66/x79/x98): amut=del joins
+  the D-195 law — the actor's own dep rides to its next pop (lazy /
+  last-firing) or nets at the between-firings eval (eager mid-run);
+  gt12's "del = eager cascade" (D-193) was SALIENCE-CONFOUNDED (its
+  observer sat below the justifier, where pop-landing is
+  output-identical); the foreign cascade stays D-076-eager (x130).
+- THE EAGER-COMPOSITE MATRIX (gt18/gt19 dumps + the c2x2 corners +
+  seven population witnesses): eager cycles at FOREIGN nodes —
+  mutfirst keys never propagate (no fold, any decl); ilfirst LEAD
+  nets out everywhere (gt18: D's ltm pristine, zero folds; x131's
+  2-fold match was parity coincidence); ilfirst TRAIL folds IFF the
+  del_not is DECLARED BEFORE the justifier (the 2×2 corners
+  gt20a/gt20b: sink-order shaped). The mutfirst pop-landed LAST key
+  folds regardless (its insert long-processed when the delete
+  arrives). The nb last-key window is closed ONLY for ilfirst+trail
+  (x147); ilfirst+lead keeps it (x6001x131/x7004x92), mutfirst
+  keeps it (gt13).
+
+0-DIV: **v2 populations 1800/1800 across TWELVE seeds** —
+7001/7002/6001/6003 + 7004..7010 (every former fresh seed re-run
+clean) + NEVER-USED 7011 clean on first contact. Validator 39/39
+through every edit; the 26-witness registry + 2 corners inlined in
+check_witnesses.py (pure model regression, no oracle needed).
+Engine census 47/56/45/54/55/47/44/52/51/48/46/54 = the port A/B
+baseline. Every fresh-seed find this arc was bisected against the
+pre-edit model before attribution; two selfmade regressions
+(x66 round-1 del routing; x131/x92 x147-overreach) were caught by
+the base-seed re-runs and reverted-by-narrowing same sitting.
+
+THE R1 INTERPOSER LADDER (interposer_ladder.py; predictions =
+mechanical model_sd outputs logged pre-run, interposer-predictions
+.md): **first rung 6/6 GREEN, 3×-stable, zero adjustments** —
+min812-spine lazy k0 (the pop window is a salience THRESHOLD: the
+@5 interposer glimpses beside the @10 observer; sub-salience never),
+eager k0 (no ≤-salience glimpse, interposer included), 9133-spine
+lazy k1 fan-out (clause B + starvation: gen-1 only), and the D-195
+(b) BETWEEN-row (RI@6 fires once on the zombie LK after RO2@7's
+run, before RJ's pop — gt14's below-row completed). ⇒ the (cloud ×
+belief-loss) landing rows are a CONFIRMED TABLE, population-
+certified at 0-div and interposer-verified on both named spines.
+The ⚠ D-106 region was never entered; engine untouched; walls up.
+
+BANKED: gt16..gt19 + gt20a/gt20b graft targets; ordlens-
+{predictions,results}.md; interposer-{predictions,results}.md;
+interposer_ladder.py; check_witnesses.py. Gates at close: make diff
+green (xfail 75/75), lint 1722/0/0, validator 39/39, witnesses
+26/26. NEXT (Bryan's call): the engine A/B on the ladder cells +
+the 13+18 xfail witnesses re-read against the completed table (the
+port target list); I-RD stays last.

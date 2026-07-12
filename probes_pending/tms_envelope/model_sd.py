@@ -104,8 +104,19 @@ def simulate(facts, rules):
     if t0_owner is not None:
         jstaged[t0_owner] = list(facts)
     pending_fold = [None]                 # unshared-group fold scan, or None
+    pf_reversed = [False]                 # True = the fold already reversed
+                                          # phys (set_break lane); the consume
+                                          # block then must NOT re-reverse
     shared_grp = len(grp) >= 2
     fire_count = 0
+    # ⚖ private phys for alpha'd trail set_break justifiers (gt16): the
+    # f1 alpha gives them their OWN node list — folds there reverse IT,
+    # not the group phys; the touch-revive continuation scans it.
+    jphys = [list(reversed(facts))
+             if (r["kind"] == "justifier" and r.get("k", 1) == 1
+                 and r.get("amut") == "set_break"
+                 and r.get("notpos", "trail") == "trail") else None
+             for r in rules]
 
     def lk_breaking_alive():
         return any(k[1] is False for k in LK)
@@ -133,8 +144,14 @@ def simulate(facts, rules):
                 return []
             eligible = set(v for v in P if v not in sup[ri] and v not in fired[ri]
                            and not (r.get("amut") == "set_break" and pmut.get(v)))
-            if r.get("notpos", "trail") == "lead" or r.get("amut") == "set_break":
-                order = [v for v in P if v in eligible]          # private node
+            if r.get("notpos", "trail") == "lead":
+                order = [v for v in P if v in eligible]          # insertion (banked)
+            elif r.get("amut") == "set_break":
+                # private node: t0 insertion order until a touch-revive
+                # installs the phys-scan continuation (gt16: fires 1,
+                # then 3 — jstaged set by t15_revive)
+                order = ([v for v in jstaged[ri] if v in eligible]
+                         if jstaged[ri] else [v for v in P if v in eligible])
             else:
                 order = group_order(ri, eligible)
             return [(v, v) for v in order]
@@ -193,12 +210,13 @@ def simulate(facts, rules):
         scan = list(phys)
         if r["kind"] == "justifier" and r.get("k", 1) == 1:
             if ri not in grp:
-                # UNSHARED justifier (lead, or alpha'd set_break trail):
-                # eager = same-batch fold nets out on other nodes (gt10);
-                # LAZY = the drop's later batch churns them (pending fold,
-                # the gt3/d4 machinery — the 7001x114-class regression fix)
-                churns = (not r.get("eager")) or (
-                    r.get("amut") == "set_break" and not r.get("mutfirst"))
+                # UNSHARED PLAIN justifier (lead): eager = same-batch
+                # fold nets out on other nodes (gt10); LAZY = the
+                # drop's later batch churns them (pending fold, the
+                # gt3/d4 machinery — the 7001x114-class regression
+                # fix). set_break rules never reach here — their folds
+                # go per-landing via fold_setbreak (gt16/gt17).
+                churns = not r.get("eager")
                 if churns and any(
                         rules[rj]["kind"] == "del_not" for rj in range(len(rules))):
                     pending_fold[0] = scan
@@ -241,21 +259,38 @@ def simulate(facts, rules):
             else:
                 pending_fold[0] = scan
 
+    def fold_setbreak(ri):
+        # ⚖ deleter-side fold, set_break lane (gt16/gt17 dumps + x90/
+        # x131/x108): each BREAKING LK that LANDED in the network folds
+        # the del-group at its death — the scan REPLACES any prior
+        # pending fold, the group phys reverses. nb keys never fold
+        # (gt17: the deleter's t0 staging survives FIFO). Scoped to
+        # shapes with a del_not consumer (all witnesses); no-consumer
+        # compositions are the fuzzer's to flag.
+        if any(rules[rj]["kind"] == "del_not" for rj in range(len(rules))):
+            pending_fold[0] = list(phys)
+            pf_reversed[0] = True         # reversal happens NOW (the dump:
+            phys.reverse()                # D's ltm is reversed pre-firing)
+
     def land_lazy(ri):
-        landed = bool(drops[ri])
+        landed_break_plain = False
         for key in drops[ri]:
             retract_lk(key)               # t10: no self-revival for lazy
             if rules[ri].get("ortwin") and not rules[ri].get("eager"):
                 sup[ri].discard("IF")     # or-twin lazy: twin re-derives -> runaway
                 twin_left[ri] = 2
+            if key[1] is False:           # a BREAKING key landed
+                if rules[ri].get("amut") == "set_break":
+                    fold_setbreak(ri)
+                else:
+                    landed_break_plain = True
         drops[ri].clear()
-        if not landed:
-            return
-        fold_on_drop(ri)
+        if landed_break_plain:
+            fold_on_drop(ri)
 
     def land_eager(ri):
         r = rules[ri]
-        landed = bool(eager_pend[ri])
+        landed_break_plain = False
         for key in eager_pend[ri]:
             retract_lk(key)
             if r.get("notpos", "trail") == "lead" and r.get("k", 1) == 1:
@@ -263,10 +298,33 @@ def simulate(facts, rules):
                 # tuples re-derive as new objects (fired clears) -> the
                 # d3/d1/d5 self-contained runaway when Ps remain
                 rederive(ri, clear_fired=True)
+            if key[1] is False:
+                if r.get("amut") == "set_break":
+                    # ⚖ eager set_break cycles at foreign nodes: a
+                    # MUTFIRST key never propagated (the D-195 race —
+                    # nothing to fold; x119/x30: D consumes t0 order
+                    # even D-first); an ILFIRST key propagated — LEAD
+                    # still nets out (gt18 dump: D's ltm pristine, zero
+                    # folds; x131's 2-fold match was parity coincidence)
+                    # and TRAIL folds IFF the del_not is DECLARED BEFORE
+                    # the justifier (the c2x2 corners + x56/gt19 vs
+                    # x10/x11: sink order — a D-node ahead of J's node
+                    # processes the ins before J's cascade nets it; a
+                    # D-node behind receives ins+del together). The
+                    # mutfirst pop-landed LAST key folds regardless of
+                    # decl — it rides drops[] to land_lazy, where its
+                    # long-processed insert meets the delete
+                    # sequentially (x90/x51/gt13-LK2).
+                    if (not r.get("mutfirst")
+                            and r.get("notpos", "trail") == "trail"
+                            and any(rules[rj]["kind"] == "del_not"
+                                    and rj < ri for rj in range(len(rules)))):
+                        fold_setbreak(ri)
+                else:
+                    landed_break_plain = True
         eager_pend[ri].clear()
-        if not landed:
-            return
-        fold_on_drop(ri)
+        if landed_break_plain:
+            fold_on_drop(ri)
 
     def cascade_p_death(pv):
         for key in list(LK):
@@ -286,7 +344,26 @@ def simulate(facts, rules):
                 # only tuples that DIED in the defeat churn re-derive as new
                 # objects (d4); a non-breaking justifier's fired tuples never
                 # died, so nothing refires (x52/x68/x130)
+                if r.get("amut") == "set_break" and pmut.get(deleted_p):
+                    # ⚖ the alpha gate (gt16 F3 / x108): a pmut'd P is
+                    # alpha'd out of the set_break rule's node — its
+                    # delete never TOUCHES the node, the stale breaker
+                    # right-tuple stays staged, no revive (the
+                    # starvation law; lead and trail alike)
+                    continue
                 rederive(rj, clear_fired=True)
+                if r.get("amut") == "set_break" \
+                   and r.get("notpos", "trail") == "trail":
+                    # ⚖ private-node continuation (gt16): the touch-
+                    # eval re-adds in the rule's OWN pre-fold phys scan
+                    # order, then that phys reverses; lead re-derives
+                    # in insertion order (banked, x108)
+                    jstaged[rj] = [v for v in jphys[rj]
+                                   if v in P and not pmut.get(v)
+                                   and v != deleted_p]
+                    if not jstaged[rj]:
+                        jstaged[rj] = None
+                    jphys[rj].reverse()
 
     steps = 0
     while True:
@@ -322,7 +399,9 @@ def simulate(facts, rules):
             if not jstaged[ri]:
                 jstaged[ri] = None
             pending_fold[0] = None
-            phys.reverse()
+            if not pf_reversed[0]:        # plain-lane folds reverse at
+                phys.reverse()            # consume; set_break folds already did
+            pf_reversed[0] = False
         elif jstaged[ri] and key in jstaged[ri]:
             jstaged[ri].remove(key)
             if not jstaged[ri]:
@@ -379,7 +458,14 @@ def simulate(facts, rules):
                     survivors = any(not pmut.get(v) for v in P)
                     if not was_zombie:            # pure lane (breaks=False)
                         LK[lk_key]["zombie"] = True
-                        if r.get("eager") and survivors:
+                        # the last-key pop window: closed ONLY for the
+                        # ilfirst TRAIL corner (x147: obs@7 never fires);
+                        # ilfirst LEAD keeps it (x6001x131 obs_lk once,
+                        # x7004x92 obs_join across the full P-scan), as
+                        # does mutfirst (gt13's RO2 window)
+                        if r.get("eager") and (survivors or (
+                                not r.get("mutfirst")
+                                and r.get("notpos", "trail") == "trail")):
                             eager_pend[ri].append(lk_key)
                         else:
                             drops[ri].append(lk_key)
@@ -399,6 +485,9 @@ def simulate(facts, rules):
                         eager_pend[ri].remove(lk_key)
                         drops[ri].append(lk_key)
                 elif amut == "del":
+                    route_needed = not LK[lk_key]["zombie"]
+                    if route_needed:
+                        LK[lk_key]["zombie"] = True
                     P.remove(pval)
                     if pval in phys:
                         phys.remove(pval)
@@ -407,6 +496,34 @@ def simulate(facts, rules):
                     for rj in range(len(rules)):
                         if jstaged[rj] and pval in jstaged[rj]:
                             jstaged[rj].remove(pval)
+                        if jphys[rj] and pval in jphys[rj]:
+                            jphys[rj].remove(pval)
+                    if route_needed:
+                        # ⚖ del-lane eval-consumption (x88/x0 windows;
+                        # x66 the eager mid-run net-out; gt12's "eager
+                        # cascade" was salience-confounded — its observer
+                        # sat BELOW the justifier): same split as
+                        # set_break — an EAGER justifier's mid-run del
+                        # nets out at the between-firings eval, the last
+                        # firing (and every LAZY firing) rides to the
+                        # POP; higher-salience observers glimpse. The
+                        # foreign cascade below stays D-076-eager (x130).
+                        if r.get("eager") and tuples(ri):
+                            eager_pend[ri].append(lk_key)
+                        else:
+                            drops[ri].append(lk_key)
+                    elif (r.get("eager") and r.get("mutfirst")
+                          and not any(v not in fired[ri] for v in P)
+                          and lk_key in eager_pend[ri]):
+                        # del+breaks composite (x79/x98): the D-195
+                        # last-key pop re-route, mirrored — the final
+                        # generation's LK rides to the pop; strictly-
+                        # higher observers glimpse it once. ilfirst
+                        # composites stay loses-head (no witness).
+                        # (tuples(ri) can't be the survivors test — the
+                        # live breaking LK gates the guard; unfired-P is.)
+                        eager_pend[ri].remove(lk_key)
+                        drops[ri].append(lk_key)
                     cascade_p_death(pval)
                     t15_revive(pval, actor=ri)
         elif r["kind"] in ("obs_lk", "obs_join", "obs_p"):
@@ -421,6 +538,8 @@ def simulate(facts, rules):
             for rj in range(len(rules)):
                 if jstaged[rj] and pval in jstaged[rj]:
                     jstaged[rj].remove(pval)
+                if jphys[rj] and pval in jphys[rj]:
+                    jphys[rj].remove(pval)
             cascade_p_death(pval)
             t15_revive(pval)
     finals = sorted([("P", v) for v in P] + [("LK", k[0]) for k in LK])
