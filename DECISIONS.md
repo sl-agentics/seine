@@ -84,9 +84,11 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`; `origin/main` at `8f2cfb6` (D-170, Bryan-directed
-push 2026-07-11) — UNPUSHED local: the D-171 commit (Bryan holds every
-push).
+**Git:** on `main`, fully PUSHED through D-174 (`b5103fd`,
+Bryan-directed 2026-07-11) + this reconcile commit (Bryan holds every
+push). Resume point: deliverable (c), the spin arc — handoff
+`~/.claude/plans/tjupd-ledger-handoff.md` (rewritten post-D-174 with
+the session-fresh debug lenses + law-discrimination constraints).
 **RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
 on `2a482e8`, the ci.yml release pipeline all-green incl. the
 differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
