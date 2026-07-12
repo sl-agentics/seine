@@ -1,0 +1,17 @@
+{
+ "name": "sd_a7_acc_lo",
+ "drl": "rule \"RJ\"\nwhen\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\nrule \"RO\"\nsalience -10\nwhen\n    $l : LK($v : f0)\n    accumulate(LK(f0 == $v); $c : count())\nthen\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN control 3x: strictly-lower acc observer never glimpses."
+}

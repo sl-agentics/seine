@@ -76,8 +76,24 @@ THE RESIDUE: R1 the (cloud × belief-loss) landing rows — the
 fifth-law-shaped hole, evaluation-lifecycle region, ⚠ D-106-adjacent
 (interposer instrument, D-177 pattern); R2 the static
 stated/justified bookkeeping model (outside the identity law as
-written; TmsDump graft first). NEXT: plan §5 rung 1 (L-SD interposer
-ladder on the min812/9133 spines) unless Bryan re-orders.** Other
+written; TmsDump graft first). **D-187 (Bryan-directed): the XFAIL
+ENGINE-DRIFT GATE is LANDED — `make diff` grew a 4th tier gating
+engine output on the quarantine against a committed snapshot
+(scenarios/xfail-engine-baseline.ndjson; liveness-proven red/green;
+movement now requires re-triage + `make xfail-rebank` + a D-entry).
+L-SD RUNG 1 COMPLETE (14 cells, 3 rounds, 3×-stable, predictions
+pre-logged): ⚖-candidate ROW pinned — (cloud × self-defeat): LAZY
+justifier ⇒ the drop lands at the justifier's ITEM POP (same-salience
+observers glimpse iff queue position precedes it — decl order in
+same-firing-born shapes; k irrelevant); EAGER (no-loop/dyn-sal)
+justifier ⇒ flush landing, no ≤-salience glimpse (the min608
+reconciliation: that pin's scope was the eager regime all along — its
+"continuation drains at equal salience" over-generalized to lazy and
+the engine implemented the over-generalization = min812's mechanism,
+acc never load-bearing). 4 open_divergence cells (sd_a9/a10/a13/a15);
+lint 1676/0/0. NEXT: rung 2 (the 3060/9375 OVER-fire kill-cells + the
+9133 fan-out spine) unless Bryan re-orders; any engine change stays
+gated (⚠ D-106 tripwire + D-177 landing-not-pick).** Other
 candidates: class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -10286,3 +10302,76 @@ honest close is fe1-shaped: a tighter fence statement, no law.
 Engine untouched; corpus untouched; no wall moved; the D-087
 `docs/xfail-triage.md` kept as the historical record. NEXT: plan §5
 rung 1 unless Bryan re-orders.
+
+## D-187 — the XFAIL ENGINE-DRIFT GATE landed (Bryan-directed) + L-SD rung 1: the (cloud × self-defeat) LANDING ROW PINNED, with the eagerness split that reconciles min608 (2026-07-11)
+
+### 1. The gate (Bryan: "fix the xfail gate")
+
+`tools/xfail_drift.py` + `make xfail-drift`/`xfail-rebank`; `make diff`
+grew a fourth tier ("xfail engine-drift"). Mechanism: the quarantine
+stays excluded from the ORACLE diff by design (its witnesses diverge —
+that is their finding), but the ENGINE's canonical output on every
+witness is now gated against a committed snapshot
+(`scenarios/xfail-engine-baseline.ndjson`, banked at HEAD post-D-185).
+Movement fails the gate and must be deliberate: re-triage
+(tools/triage_xfail.py) → `make xfail-rebank` → D-entry. Comparison is
+D-003-canonical via triage_xfail's canonicalizer (serializer churn
+cannot trip it; semantic movement always does); set drift
+(added/removed witnesses without rebank) also fails. LIVENESS PROVEN:
+banked 75 → green; corrupted one fz_7_9902 entry → RED naming the
+witness ("firings 13 -> 14"), rc=1; rebanked → green; composed
+`make diff` green with the tier riding. The bank's location
+(scenarios/ root) is invisible to every existing consumer (Makefile
+finds target subdirs; lint scans probes/regressions/duckdb/
+probes_pending; fuzz suppression checks scenarios/xfail/{name}.json;
+triage globs scenarios/xfail/*.json). Closes the D-186 §1 exposure
+(D-091/D-101 moved the quarantine silently for five days).
+
+### 2. Rung 1 — 14 cells, 3 designed rounds, all oracle rows 3×-stable;
+### predictions logged before every round (the round-1 lead hypothesis
+### FALSIFIED by its own grid; rounds 2-3 landed 7/7 exact)
+
+**⚖-candidate ROW (the (cloud × self-defeat) landing table, entry 1):
+a LAZY justifier's self-defeat belief drop lands at the justifier's
+ITEM POP — same-salience observers glimpse the transient iff their
+queue position PRECEDES the justifier's item (declaration order in
+same-firing-born shapes); an EAGER justifier (no-loop/dyn-salience)
+lands the drop at the firing's eager-flush — no ≤-salience glimpse,
+queue position irrelevant; strictly-higher always glimpses (t11),
+strictly-lower never; k irrelevant.** The ENGINE lands the lazy case
+early (continuation-time) uniformly → it under-fires exactly the
+observers declared before a lazy justifier at equal salience — which
+IS min812's mechanism (a10), whose accumulate was never load-bearing
+(a9: a plain observer diverges identically; a5: acc-after-justifier is
+green). Decisive cells: **a13** (two IDENTICAL plain observers at equal
+salience split exactly at the justifier's declaration slot — the drain
+occupies the justifier's queue position) and **a14×a15** (no-loop
+kills the glimpse at k=0; k=1-lazy still glimpses ⇒ EAGERNESS is the
+split, not k). Four open_divergence cells filed: a9/a10/a13/a15.
+
+**The min608 reconciliation (⚖ method law applied to a standing pin):**
+D-076 drain point (a)'s "equal salience/earlier decl does NOT preempt
+(min608 vs t11)" was pinned on fz_7_608, whose justifier carries
+NO-LOOP — what it actually pinned is the EAGER flush regime; the
+"continuation drains at equal salience" reading over-generalized to
+lazy justifiers and the engine implemented the over-generalization.
+Both standing pins hold within their real scope (a14 reproduces
+min608's row; a3/a6/a12 reproduce t11's); the lazy-equal case was
+never discriminated until a9/a13. Underdetermined fine print stated in
+the results doc (queue-position vs decl-order realization; the
+engine-side code path deliberately NOT pinned from cells — port-phase
+work, ⚠ D-106 tripwire + the D-177 landing-not-pick pattern apply).
+
+### 3. Gates + filings
+
+lint **1676/0/0** (14 new cells all live; 4 open_divergence markers);
+`make diff` green ×2 this sitting (pre-gate baseline + composed with
+the new tier); corpus untouched **11/1124/354**; engine untouched.
+Filings: `probes_pending/tms_envelope/` sd_a2..a15 +
+rung1-predictions.md (pre-run, all three rounds) + rung1-results.md
+(the row, the grid, the reconciliation). The row RETRODICTS the L-SD
+bucket's 11/13 under-fire direction; the two OVER-fire outliers
+(fz_123_3060, fz_7_9375) are NOT explained by it — rung 2's
+kill-cells, alongside the fz_123_9133 fan-out spine (multi-activation
+justifier × in-firing continuation). NEXT: rung 2, or Bryan's
+re-order; any engine change stays validate-and-revert behind the gate.

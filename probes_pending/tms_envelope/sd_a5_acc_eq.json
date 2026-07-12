@@ -1,0 +1,17 @@
+{
+ "name": "sd_a5_acc_eq",
+ "drl": "rule \"RJ\"\nwhen\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\nrule \"RO\"\nwhen\n    $l : LK($v : f0)\n    accumulate(LK(f0 == $v); $c : count())\nthen\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN control 3x: acc observer declared AFTER the justifier does NOT glimpse \u2014 falsified the round-1 node-class hypothesis; min812's accumulate was a red herring (decl order is the variable)."
+}

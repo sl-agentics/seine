@@ -1,0 +1,17 @@
+{
+ "name": "sd_a11_declfirst_lo",
+ "drl": "rule \"RO\"\nsalience -10\nwhen\n    LK($v : f0)\nthen\nend\nrule \"RJ\"\nwhen\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN control 3x: salience dominates decl order (observer-first at -10 never glimpses)."
+}

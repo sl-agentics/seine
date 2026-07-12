@@ -6,18 +6,23 @@ SHELL := /bin/bash
 #   probes      curated oracle pins behind DECISIONS.md D-0xx entries
 #               (probes/, phase0-2 seed suites, demo)
 #   regressions fuzzer-found cases, minimized and graduated
-# xfail/ holds DOCUMENTED-OPEN divergences (D-042): excluded from the gate,
-# consulted by fuzz to suppress re-flagging. baseline-quarantine/ holds
-# baseline members under faithfulness-bug triage (report first, then fix).
+# xfail/ holds DOCUMENTED-OPEN divergences (D-042): excluded from the
+# ORACLE diff by design (they diverge; that is their finding), but engine
+# output on them is gated against a banked snapshot (xfail-drift, D-187) —
+# movement must be deliberate (re-triage + xfail-rebank + D-entry), never
+# silent (the D-091/D-101 lesson, caught at D-186). fuzz consults xfail/
+# to suppress re-flagging. baseline-quarantine/ holds baseline members
+# under faithfulness-bug triage (report first, then fix).
 BASELINE    := $(shell find scenarios/baseline -name '*.json' 2>/dev/null | sort)
 PROBES      := $(shell find scenarios/probes scenarios/phase0 scenarios/phase1 scenarios/phase2 scenarios/demo scenarios/failures -name '*.json' 2>/dev/null | sort)
 REGRESSIONS := $(shell find scenarios/regressions -name '*.json' 2>/dev/null | sort)
 
-.PHONY: diff diff-baseline diff-probes diff-regressions test oracle fuzz all
+.PHONY: diff diff-baseline diff-probes diff-regressions test oracle fuzz all xfail-drift xfail-rebank
 
 all: test diff
 
 # Differential run, reported per tier; fails if any tier fails.
+# The xfail engine-drift gate rides along (engine-only, no oracle).
 diff: oracle
 	@rc=0; \
 	echo "=== tier: baseline ($(words $(BASELINE)) scenarios) ==="; \
@@ -26,7 +31,17 @@ diff: oracle
 	cargo run -q -p seine-harness -- diff $(PROBES) || rc=1; \
 	echo "=== tier: regressions ($(words $(REGRESSIONS)) scenarios) ==="; \
 	cargo run -q -p seine-harness -- diff $(REGRESSIONS) || rc=1; \
+	echo "=== tier: xfail engine-drift (banked snapshot) ==="; \
+	python3 tools/xfail_drift.py || rc=1; \
 	exit $$rc
+
+# D-187: engine-drift gate over the documented-open quarantine.
+xfail-drift:
+	python3 tools/xfail_drift.py
+
+# Deliberate movement only: re-triage (tools/triage_xfail.py) + D-entry.
+xfail-rebank:
+	python3 tools/xfail_drift.py --rebank
 
 # D-097: data-type semantics differential (DuckDB oracle, D-095 axis 3)
 diff-duckdb:

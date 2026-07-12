@@ -1,0 +1,17 @@
+{
+ "name": "sd_a2_plain_eq",
+ "drl": "rule \"RJ\"\nwhen\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\nrule \"RO\"\nwhen\n    LK($v : f0)\nthen\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN control 3x: plain observer declared AFTER the lazy justifier, equal salience \u2014 no glimpse either side (the engine's early drain coincides with the oracle here)."
+}

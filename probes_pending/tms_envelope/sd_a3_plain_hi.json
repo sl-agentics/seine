@@ -1,0 +1,17 @@
+{
+ "name": "sd_a3_plain_hi",
+ "drl": "rule \"RJ\"\nwhen\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\nrule \"RO\"\nsalience 10\nwhen\n    LK($v : f0)\nthen\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN control 3x: strictly-higher plain observer glimpses both sides (t11 transfer)."
+}

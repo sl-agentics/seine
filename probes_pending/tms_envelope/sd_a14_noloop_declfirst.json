@@ -1,0 +1,17 @@
+{
+ "name": "sd_a14_noloop_declfirst",
+ "drl": "rule \"RO\"\nwhen\n    LK($v : f0)\nthen\nend\nrule \"RJ\"\nno-loop\nwhen\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN control 3x: no-loop (EAGER) justifier kills the glimpse even observer-declared-first \u2014 the min608 reconciliation cell; eagerness splits the row, and the engine's early drain is CORRECT on this row."
+}

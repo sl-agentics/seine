@@ -1,0 +1,18 @@
+{
+ "name": "sd_a13_dual_declsplit",
+ "drl": "rule \"RO\"\nwhen\n    LK($v : f0)\nthen\nend\nrule \"RJ\"\nwhen\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\nrule \"RO2\"\nwhen\n    LK($v : f0)\nthen\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "oracle [RJ,RO] (RO2 silent) vs engine [RJ]: THE QUEUE-POSITION SPLITTER \u2014 identical plain observers at equal salience; declared-before fires, declared-after is drained; the drop occupies exactly the justifier's queue slot. D-187 L-SD row: (cloud x self-defeat) landing \u2014 EAGER justifier (no-loop/dyn-sal) => drop lands at the firing's eager-flush, no <=-salience glimpse, queue position irrelevant (a14, min608/fz_7_608); LAZY justifier => drop lands at the justifier's ITEM POP \u2014 same-salience observers glimpse iff queue position precedes the justifier's item (decl order in same-firing-born shapes; a13 split), k irrelevant (a15); strictly-higher always glimpses (t11), strictly-lower never."
+}
