@@ -127,7 +127,14 @@ reading retracted — queue-head unamended); model_sd order layer =
 physics, ZERO toggles; **32/32 banked; population 750/750, seeds
 6001-6005** (6004/6005 fully out-of-sample); engine census 300/750
 divergent (40%) = the port A/B baseline; lint 1694/0/0; engine
-untouched. **D-191 (Bryan's inversion: instrument before ladder):
+untouched. **D-192 (MB-1 + graft): the D-191 headline RETRACTED
+(census misread — solo set_break fires once; the model was green on
+all 7 MB-1 cells); engine RED on lead A-shapes (mb1_dl/sl, port
+battery); gt9/gt10 physics: update relocates to join-rtm TAIL
+(not-ltm in place), obs_join mirror orders, fold batching
+(unshared-eager nets out / unshared-lazy churns); v2 = 589/600, 11
+order-class residues named; lint 1701/0/0.** **D-191 (Bryan's
+inversion: instrument before ladder):
 the v2 A-SHAPE FUZZER + model priors are LIVE — 13 residues/600
 fresh v2 cases, ALL A-shaped = the population-sourced L-MB ladder
 targets (headline: set_break's dep-teardown unbreaks IN-RUN, beating
@@ -10679,3 +10686,44 @@ ladder proper (kill-or-confirm the in-run unbreak; the k2lazy
 boundary; mutfirst), each finding checked against the live instrument
 the way Bryan mandated. lint 1694/0/0 unchanged (no corpus/engine
 touch).
+
+## D-192 — the L-MB LADDER, rung MB-1 + two graft rounds: the census headline retracted (method law), the update-relocation and fold-batch physics pinned; v2 populations at 589/600 with 11 named order residues (2026-07-12)
+
+### 1. MB-1 (7 cells, predictions pre-logged, all 3×-stable)
+
+The D-191 headline ("set_break's dep-teardown unbreaks IN-RUN") was a
+CENSUS MISREAD — the solo set_break-trail fires ONCE (mb1_st; x48's
+double-fire was its deleter's t15, which the model already carries).
+⚖ method law, self-applied: the retraction is the finding. The 2×2
+(del/set_break × lead/trail) + nobrk/mutfirst controls all match the
+D-191 priors — the model was GREEN on all seven BEFORE any new rule.
+ENGINE: RED on both lead cells (mb1_dl/mb1_sl — the lead clause-B
+miss extends to A-shapes; both filed open_divergence, port battery).
+
+### 2. Graft rounds (gt9/gt10) — three more physical rules
+
+- **update RELOCATES the fact to the join right-memory TAIL** (gt9:
+  P2 visibly moves at gen-2); the not-node ltm does NOT relocate
+  (gt10) — per-node-type update semantics, both observed.
+- **obs_join sharers consume each generation in MIRROR orders**:
+  owner = reversed rtm-scan, later sharer = rtm-scan (retrofits
+  gen-1/gen-2/b7 exactly).
+- **Fold batching**: an UNSHARED justifier's fold (lead, or alpha'd
+  set_break trail) nets out on other nodes when EAGER (same-batch
+  ins+del, gt10 — deleter staging survives FIFO even deleter-first);
+  when LAZY the later-batch drop genuinely churns them (pending fold,
+  the gt3/d4 machinery) — the unified gate fixed the 7001x114-class
+  regressions my first gt10 encode introduced.
+
+### 3. State
+
+v2 populations: **7001 149/150, 7002 147/150, 6001 147/150, 6003
+146/150 = 589/600 (98.2%)**; the 11 residues are ~5 named ORDER-class
+signatures (nb-justifier member orders after partner deletes; the
+mf-lazy justifier's own continuation order; lead-NL-nb missing
+gen-2 obs fires; nb obs pairing tails) — ZERO landing/mechanism
+divergences anywhere in v2. Engine census steady (47/56/45/54).
+lint **1701/0/0** (7 mb1 cells: 2 open_divergence, 5 live); drift
+gate green; corpus + engine untouched. NEXT: the residue signatures
+one graft-dump each (nb/del interplay first), then fresh v2 seeds to
+0-div; the I-RD front after.

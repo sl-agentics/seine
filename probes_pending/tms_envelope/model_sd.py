@@ -91,6 +91,8 @@ def simulate(facts, rules):
     # current phys head->tail. lead-justifiers and del_join consume
     # insertion order (their observed datum); obs_p insertion order.
     pmut = {v: 0 for v in facts}          # P.f1 values (A-shape setters)
+    prtm = list(reversed(facts))          # join right-memory: head-add;
+                                          # UPDATE relocates to TAIL (gt9)
     phys = list(reversed(facts))          # shared group phys, add-at-head
     grp = [i for i, r in enumerate(rules) if
            (r['kind'] == 'justifier' and r.get('k', 1) == 1
@@ -140,9 +142,12 @@ def simulate(facts, rules):
             return [((lk, LK[lk]["gen"]), None) for lk in list(LK)
                     if (lk, LK[lk]["gen"]) not in fired[ri]]
         if k == "obs_join":
+            # sharers consume each generation in MIRROR orders (gt9):
+            # owner = reversed rtm-scan, later sharer = rtm-scan
             firstoj = min(rj for rj in range(len(rules))
                           if rules[rj]["kind"] == "obs_join")
-            pv = list(P) if ri == firstoj else list(reversed(P))
+            scan = [v for v in prtm if v in P]
+            pv = list(reversed(scan)) if ri == firstoj else scan
             return [((lk, LK[lk]["gen"], v), v) for lk in list(LK) for v in pv
                     if (lk, LK[lk]["gen"], v) not in fired[ri]]
         if k == "obs_p":
@@ -187,7 +192,15 @@ def simulate(facts, rules):
         r = rules[ri]
         scan = list(phys)
         if r["kind"] == "justifier" and r.get("k", 1) == 1:
-            if r.get("notpos", "trail") == "trail":
+            if ri not in grp:
+                # UNSHARED justifier (lead, or alpha'd set_break trail):
+                # eager = same-batch fold nets out on other nodes (gt10);
+                # LAZY = the drop's later batch churns them (pending fold,
+                # the gt3/d4 machinery — the 7001x114-class regression fix)
+                if not r.get("eager") and any(
+                        rules[rj]["kind"] == "del_not" for rj in range(len(rules))):
+                    pending_fold[0] = scan
+            elif r.get("notpos", "trail") == "trail":
                 # shared fold (gt5/gt7 dumps): members HOLDING a stale
                 # staging get the PRE-reversal scan; the self-defeated
                 # justifier WITHOUT one gets the POST-reversal order
@@ -352,10 +365,15 @@ def simulate(facts, rules):
                         drops[ri].append(lk_key)
                 if amut == "set_break":
                     pmut[pval] = 1
+                    if pval in prtm:              # join-rtm relocation (gt9);
+                        prtm.remove(pval)         # not-ltm stays in place (gt10)
+                        prtm.append(pval)
                 elif amut == "del":
                     P.remove(pval)
                     if pval in phys:
                         phys.remove(pval)
+                    if pval in prtm:
+                        prtm.remove(pval)
                     for rj in range(len(rules)):
                         if jstaged[rj] and pval in jstaged[rj]:
                             jstaged[rj].remove(pval)
@@ -366,6 +384,8 @@ def simulate(facts, rules):
         elif r["kind"] in ("del_not", "del_join"):
             firings.append((name, pval))
             P.remove(pval)
+            if pval in prtm:
+                prtm.remove(pval)
             if pval in phys:
                 phys.remove(pval)
             for rj in range(len(rules)):

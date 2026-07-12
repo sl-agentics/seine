@@ -1,0 +1,49 @@
+{
+ "name": "mb1_st",
+ "drl": "rule \"RJ\"\nwhen\n    $p : P($x : f0, f1 == 0)\n    not LK2(f1 != true)\nthen\n    insertLogical(new LK2($x, false));\n    $p.setF1(1);\n    update($p);\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1,
+    "f1": 0
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2,
+    "f1": 0
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN 3x: set_break x trail solo \u2014 oracle [RJ(1)]: NO solo in-run revive (the D-191 census headline was a misread; x48's double-fire was deleter-t15). Engine matches."
+}

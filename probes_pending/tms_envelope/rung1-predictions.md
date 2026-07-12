@@ -301,3 +301,31 @@ boundaries). Disposition: argued invisible-in-envelope in the model
 doc; the population can contradict it only by producing a cell where
 the two readings predict different outputs — none is constructible in
 the v1 grammar. Port-phase code read decides the implementation site.
+
+# L-MB ladder rung MB-1 (D-192; predictions BEFORE runs)
+
+The D-191 census confounds mutation-kind with not-position on the
+in-run-revive question (x8/x11 del-lead fired once; x48 set_break-trail
+fired twice). Mechanism candidate: `update($p)` is a left-P WM event ⇒
+a SELF-UPDATE t15-revives the actor's own suppressed tuples, while a
+SELF-DELETE does not (the D-191 fix) — asymmetry: the deleted fact is
+gone; the updated fact re-propagates. The 2×2 splits kind from
+position; nobrk isolates the pure dep-death; mutfirst probes RHS order.
+
+All cells: k=1 lazy justifier, breaks=True unless noted, ilfirst
+unless noted, P×2, solo rule. Oracle 3×.
+
+| cell | shape | ORACLE prediction | basis |
+|---|---|---|---|
+| mb1_dt | del × trail | [RJ(1)]; finals P2 alive (parked) | self-delete never revives (D-191 fix) |
+| mb1_dl | del × lead | [RJ(1)]; finals P2 alive | same |
+| mb1_st | set_break × trail | [RJ(1), RJ(2)]; finals P1,P2 | x48: self-update revives (t15-clears-fired/suppressed) |
+| mb1_sl | set_break × lead | [RJ(1), RJ(2)]; finals P1,P2 | update-revives should be position-blind |
+| mb1_st_nb | set_break × trail × nobrk | [RJ(1), RJ(2)]; finals P1,P2 (both LKs dep-dead) | pure dep-death; no clause B to revive — fires both trivially |
+| mb1_st_mf | set_break × trail × mutfirst | ? — pin output (underdetermined: the mutation precedes the iL in the same RHS; dep may attach to the already-broken tuple) | census shows mutfirst is its own signature |
+| mb1_dt_nb | del × trail × nobrk | [RJ(1), RJ(2)]? — no clause B, P2 never suppressed; fires; finals P2 only + no LKs | control |
+
+If mb1_sl ≠ mb1_st: position enters the revive (not update-vs-delete
+alone) — build the interposer split before claiming. If the del cells
+fire twice: the D-191 self-delete fix over-corrected — re-examine
+against x8/x11 immediately.
