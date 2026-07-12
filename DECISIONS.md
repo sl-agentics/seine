@@ -41,12 +41,22 @@ and GRADUATED (fe1/2/3/4/6 → regressions/, fe5/fe7 →
 pr_fe_{below_boundary,temporal_arm}); corpus **11/1090/349**
 byte-identical, lint **1628/0/0**, full battery green (fuzz ×9 = 0,
 population 2,199/2,200, bindings 72, the ⚠ D-112 cf1x flip-flop zone
-HELD). THE BATTERY'S OPEN LEDGER IS NOW EXACTLY `tu81x60`
-(population latent, D-170/171 exit→re-enter kin — own recon); open
-sub-cells noted not ledgered (born-expired/D-133, update-refold
+HELD).** **tu81x60 is CRACKED (D-181): the LINGERING-DEL relink
+flavor — ⚖ identity-model law instance #3 (the exit's s0-del lingers
+on the unlinked path; the temporal flush leaves the pre-tail
+re-entry ins VISIBLE while the dstash hides the del; the D-171
+exemption's fresh-only scan misses it; the stale del kills the fresh
+pair by value at the pop). FIX VALIDATED-THEN-REVERTED (D-181 §4
+verbatim — one predicate: temporal nodes scan ALL pending s0-ins;
+Bryan's landing gate pending): under it tj_upd 65/65 and the
+population 2,200/2,200 FULLY CONVERGE for the first time. THE OPEN
+LEDGER = the tu81x60 family (tu81x60 +
+tu_x60_{min1,min2,c_no_tswrite,c_split}, all PASS under the fix —
+graduate at the D-181 landing, after which THE LEDGER IS EMPTY);
+open sub-cells noted not ledgered (born-expired/D-133, update-refold
 ph=1, stream-AB partner-only sites).** D-117 guard stays as
-backstop. **NEXT is Bryan's call** —
-candidates: tu81x60 recon, D-080 TMS envelope,
+backstop. **NEXT: Bryan's landing call on D-181** — then the other
+candidates: D-080 TMS envelope,
 class-3 re-entrant churn, window:length, Allen-beyond-Drools. Prior:
 D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -9832,3 +9842,98 @@ walks (ph=1), the stream-AB arm's partner-only sites (~595/612 — no witness;
 fe7 suggests the temporal path guards elsewhere). NEXT is Bryan's call —
 candidates: tu81x60 recon, D-080 TMS envelope, class-3 re-entrant churn,
 window:length, Allen-beyond-Drools.
+
+## D-181 — tu81x60 CRACKED: the LINGERING-DEL relink flavor (⚖ identity-model law instance #3); the D-171 exemption widened for temporal nodes; fix validated-then-REVERTED (Bryan gate) (2026-07-11)
+
+Bryan's call: the tu81x60 recon (the last ledger item). Predictions logged
+pre-run; all oracle rows 3×-stable; the fix validated then reverted.
+
+### 1. The fork, then the minimal
+
+The MODEL predicts the oracle on the case (regeneration verified byte-equal;
+simulate = ['15z|38z','80z|38z'] == oracle 3×) ⇒ the D-169 spec has NO gap —
+an ENGINE SEAM. Minimal (tu_x60_min1, 5 ingredients): E1(59,z); one epoch
+[exit tag→y, re-enter tag→z+ts15] + fresh E0(38,z). Oracle [RJ(15,38)]
+(frozen ts0=59: 59−38=21 ∈ [0,50]); engine [] — the only pair lost.
+
+### 2. Discriminators (each 3×)
+
+- c_no_tswrite RED ⇒ the ts write is NOT load-bearing.
+- c_noexit GREEN ⇒ the EXIT is required (the in-place D-170 family is fine).
+- c_linked GREEN ⇒ **LINKED-NESS is the load-bearing axis** (an inert
+  resident E0 flips it green — a linked path's flush evals drain the del).
+- c_split RED ⇒ **same-epoch-ness is NOT required**: the exit's del LINGERS
+  across a fire boundary (nothing drains unlinked staging, fz_7_145) — the
+  CROSS-EPOCH flavor, outside D-171's same-flush exemption.
+
+### 3. The mechanism (SEINE_TRACE on min1 + c_split) — ⚖ identity law #3
+
+The pair IS created: at the linking E0's flush the temporal node leaves the
+pre-tail re-entry INS visible (temporal joins stash no lefts, D-102) and the
+eval derives [f0,f1]; the terminal queues it. The exit's s0-DEL — staged
+EARLIER in stage order — was dstash-hidden ("pre-tail DELS stash at ALL
+nodes") and drains at the POP, where the value-keyed kill destroys the fresh
+pair. Drools' object-keyed delete would kill only the OLD (childless) tuple.
+The D-171 exemption at engine.rs ~5807 keys on `fresh_ins` (ins staged since
+THIS flush's snapshot) — the re-entry staged by an earlier ACTION (min1) or
+EPOCH (c_split) is pre-tail and invisible to it. Ins visible + del hidden =
+the inversion; the stale del made lethal by value-keying — the law verbatim.
+
+### 4. The fix (VALIDATED THEN REVERTED — re-apply verbatim at the landing)
+
+One predicate widening at the D-171 site: at TEMPORAL nodes scan ALL pending
+s0-ins for the same-fact re-entry (their pre-tail ins is visible to the eval,
+so the del must stay visible with it); PLAIN joins keep the fresh-only scan
+(their pre-tail lefts are stashed — del-batching unchanged).
+
+```diff
+diff --git a/engine/src/engine.rs b/engine/src/engine.rs
+index f598992..85690f9 100644
+--- a/engine/src/engine.rs
++++ b/engine/src/engine.rs
+@@ -5805,9 +5805,18 @@ impl Engine {
+             // OBJECT identity — destroys the re-created children
+             // (tu51x80/tu51x187: the relink SET losses).
+             let fresh_ins = t.s0_in.ins.len() - p.0.min(t.s0_in.ins.len());
+-            if fresh_ins > 0 && !s0_dtail.is_empty() {
++            // D-181 (tu81x60 lingering-del, identity-law instance #3): at a
++            // TEMPORAL node the pre-tail same-fact ins is VISIBLE to this
++            // eval (temporal joins stash no lefts), so a LINGERING del —
++            // staged by an earlier action or epoch on the then-unlinked
++            // path, never drained — must stay visible with it, or it
++            // drains at the pop AFTER the re-entry pair derives and kills
++            // it by value. Plain joins stash pre-tail lefts too, so their
++            // fresh-only scan keeps the certified del-batching.
++            let scan_n = if t.node.temporal { t.s0_in.ins.len() } else { fresh_ins };
++            if scan_n > 0 && !s0_dtail.is_empty() {
+                 let fresh: Vec<FactId> =
+-                    t.s0_in.ins[..fresh_ins].iter().map(|(f, _, _)| *f).collect();
++                    t.s0_in.ins[..scan_n].iter().map(|(f, _, _)| *f).collect();
+                 let mut keep: Vec<(FactId, Origin, u8)> = Vec::new();
+                 s0_dtail.retain(|e| {
+                     if fresh.contains(&e.0) {
+```
+
+### 5. Validation (fix in-tree; ALL green)
+
+corpus 11/1090/349 byte-identical; cargo 9; **tj_upd 65/65 — tu81x60 FLIPPED,
+the dir fully green for the first time**; tjt 25/25; mju 0/200; fuzz_cep
+313/941/943/945 ×400 = 0; SEINE_TJUPD 6001-6005 ×400 = 0; **population
+2,200/2,200 — FULLY CONVERGED on the 11-seed set for the first time** (the
+seed-81 batch 200/200); notpop 87 + expop 122 fresh ALL MATCH (8051/8057);
+bindings 72 (fixed tree; .so reverted with the engine); all 7 recon cells ==
+oracle under the fix (min1/min2/c_no_tswrite/c_split flip; c_linked/c_noexit
+unchanged); post-revert tu81x60 red-again ([RJ(80,38)]).
+
+### 6. Filings + the landing checklist (Bryan gate)
+
+Committed NOW (fix reverted): tu_x60_{min1,min2,c_no_tswrite,c_split}
+(open_divergence — PASS under the fix, graduate at the landing) +
+tu_x60_c_{linked,noexit} (green controls) in probes_pending/cep/tj_upd/;
+tu81x60's finding → CRACKED. Lint 1634/0/0.
+
+LANDING (on Bryan's go): (1) re-apply the §4 diff verbatim → rebuild; (2)
+rerun the §5 battery; (3) GRADUATE tu81x60 + the four red cells →
+regressions/ live pins, c_linked/c_noexit → probes/ control pins; (4)
+rebuild bindings from the landed tree; (5) D-182 + CURRENT STATE + memory;
+commit UNPUSHED. After that landing THE BATTERY'S OPEN LEDGER IS EMPTY.
