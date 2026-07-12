@@ -59,10 +59,14 @@ rulings recorded: acc-source-only, TMS×window fenced in-arc, not
 deferred behind D-080; wl-ladder rungs 1-4 PINNED — post-alpha
 window, one-net-refire evictions, insert-fixed slots, REVIVAL both
 window kinds [pr_wl_time_revival graduated green], no backfill;
-8 engine_fenced pins in probes_pending/cep/winlen/; NEXT rungs 5
-[⚠⚠ D-112 flip-flop zone — model-first] / 6 / 7, then the
-model_check_winacc length extension 0-div, then the port gate;
-handoff `~/.claude/plans/window-length-arc.md`).** Other candidates:
+22 engine_fenced pins in probes_pending/cep/winlen/ + the
+0-DIV model model_winlen.py [ladder 19/19, ~1,050 population cases,
+7 seeds] — D-184: rungs 5-7 pinned, SLOT-RETENTION + RE-OCCUPATION
+corrected via the population peel, two trickle corners FENCED
+[wl_f1 multi-deadline, wl_f2 born-expired — the D-112/D-133
+adjacencies, deferred to the WindowNode sub-recon]; **THE PORT IS AT
+BRYAN'S GATE** [map: D-184 §4]; handoff
+`~/.claude/plans/window-length-arc.md`).** Other candidates:
 D-080 TMS envelope, class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -10023,3 +10027,73 @@ never probe-grind), rung 6 (D-139 discriminator analogs), rung 7
 §4 port map (note added: the length eviction must ride the same
 non-suppressing path the landed time eviction uses for revival) → Bryan's
 port gate.
+
+## D-184 — wl-ladder rungs 5-7 PINNED; the population peel CORRECTED two rung-1-4 interpretations (⚖ method law, self-applied); the winlen MODEL is 0-DIV; THE PORT IS AT BRYAN'S GATE (2026-07-11)
+
+### 1. Rungs 5-7 (oracle 3×; e3 5×; predictions pre-logged)
+
+- **Expiration×length** (e1/e2/e3): a single expiration drops the member
+  from the fold at the advance epoch; the coincident single-deadline
+  expiration+eviction+observer epoch is **5×-STABLE, one net fire by
+  salience** — no D-112-style flip-flop on this surface.
+- **Property reactivity** (p1/p2/p3 — the D-139 analogs): the windowed
+  watch mask = source BINDINGS only, confirmed for length (no-binding
+  count() never re-folds on writes; bound-but-fn-unused re-fires at equal
+  value); membership changes re-fire at equal value; **revival requires a
+  mask write** (a no-mask write on an evicted event does nothing).
+- **Degenerates** (b1/b2/b3/b4): batch overfill = one net fire; N=1 fine;
+  **N=0 THROWS in Drools (ArithmeticException) — out of subset, the port
+  rejects N<1 at parse**; entry-point routing folds normally (clause order:
+  `over` before `from entry-point`).
+- **Alpha transitions via update** (x1/x2): entry ADMITS; exit drops from
+  the FOLD even though tag is unbound — constraint transitions act
+  regardless of the bindings mask.
+
+### 2. The population peel — two D-183 interpretations CORRECTED
+### (⚖ method law, self-applied: fold-drop observables were slot-ambiguous)
+
+The first population (450 cases) diverged ~7% and the peel discriminated
+what the hand cells could not:
+- **SLOT RETENTION** (sr1/sr2 in the model ladder): a deleted, alpha-exited,
+  or expired member leaves the FOLD but its ring SLOT persists — it still
+  counts toward N and still evicts live members on later admissions. Every
+  D-183 "slot freed" reading was underdetermined; the fill-beyond
+  compositions split it. d1/e1/e2 outputs re-derive identically under
+  slot-retention (verified — ladder green both before and after).
+- **SAME-SLOT RE-OCCUPATION** (sr4): an exit-then-re-enter returns the
+  event to its RETAINED slot (it evicts first), not a new one; only a
+  never-slotted entry appends.
+- **TWO FENCED TRICKLE CORNERS** (witnesses banked engine_fenced):
+  wl_f1_multi_deadline_trickle — two deadlines crossed by one advance + a
+  same-epoch insert: the drops TRICKLE across separate fires (the D-112
+  zone transposed to length); wl_f2_born_expired_trickle — a born-expired
+  insert folds at its epoch then drops as its own later fire (the D-133
+  adjacency). Both FENCED from the generator (one advance per scenario in
+  an actions-only epoch; ts floor after advances) and deferred to the
+  WindowNode sub-recon with the time-window family.
+
+### 3. The executable spec: model_winlen.py is 0-DIV
+
+`probes_pending/cep/winlen/model_winlen.py` — slot-retention ring, fold =
+passing slot-occupants ∪ revived, bindings watch mask, re-occupation,
+lazy-free expiration (single-deadline), one-net-fire-per-touched-epoch +
+the initial fire. **Ladder 19/19** (the 15 hand cells + sr1/sr2/sr3/sr4)
+and **0-div on 7 population seeds (~1,050 fresh cases; 601-605, 701-702)**
+under the two documented fences. The generator: N∈{1,2,3}, sum/count,
+tag-transition updates, deletes, single advances, 0-2 facts × 2-3 epochs.
+
+### 4. THE PORT IS AT THE GATE (nothing engine-side touched; lint 1657/0/0)
+
+Port map (refined by the peel): `drl.rs parse_window_opt` Window::Length(n),
+N≥1 enforced, acc-source only; engine `window_len` beside `window_time`
+with a SLOT-RETENTION ring per window node (occupants may be corpses;
+eviction pops the oldest SLOT; re-occupation on re-entry); revival rides
+the SAME non-suppressing path the landed time-window revival uses
+(pr_wl_time_revival); the D-139 windowed-ness gate widens to `window_len`;
+@expires-inference no-contribution already landed (~5006, pin at port);
+expiration×window keeps the lazy single-deadline shape, the trickle corners
+stay fenced (xfail-class witnesses wl_f1/wl_f2). Gates: the standing
+battery + the wl ladder/population via model_winlen fuzz + df_*/cf1x pins
+(⚠ do-not-hand-tune stands) + the CepWindowTest length baselines (§1c) +
+the 22 winlen cells flipping from engine_fenced to live. Bryan's go
+starts the port.

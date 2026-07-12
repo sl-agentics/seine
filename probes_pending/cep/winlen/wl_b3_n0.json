@@ -1,0 +1,54 @@
+{
+ "name": "wl_b3_n0",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(0); $s : sum($v) ) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 10,
+      "v": 1,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "wl rung 7 (D-184): window:length(0) THROWS in Drools (ArithmeticException: / by zero) \u2014 naturally OUT of subset. PORT NOTE: reject N < 1 at parse with a clean error. Oracle-only pin; engine wall holds \u2014 engine_fenced.",
+ "engine_fenced": true
+}

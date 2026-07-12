@@ -1,0 +1,70 @@
+{
+ "name": "wl_p2_bind_notfn",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v, $w : ts) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "v": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "v": 2,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "ts": 11
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "wl rung 6 (D-184, D-139 analog): $w:ts bound-but-fn-unused \u2014 the ts write RE-FIRES with the SAME sum ([3,3]). Mask = bindings, not fn-args, confirmed for length; equal-value re-fires happen. Oracle-only pin; engine wall holds \u2014 engine_fenced.",
+ "engine_fenced": true
+}

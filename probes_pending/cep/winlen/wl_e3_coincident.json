@@ -1,0 +1,82 @@
+{
+ "name": "wl_e3_coincident",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W salience 5 when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\nrule R7 salience 7 when P() then end\nrule RL salience 1 when P() then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "v": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "v": 2,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 111
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 120,
+      "v": 4,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "wl rung 5 (D-184): [W(3) | R7, W(6), RL] 5x-STABLE \u2014 a coincident single expiration + evicting insert + observer epoch folds to ONE net W fire by salience. NO D-112-style flip-flop for the single-deadline length composition (the multi-deadline trickle IS unstable-shaped \u2014 fenced, see wl_f1). Oracle-only pin; engine wall holds \u2014 engine_fenced.",
+ "engine_fenced": true
+}
