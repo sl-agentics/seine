@@ -7050,6 +7050,17 @@ impl Engine {
                         }
                     }
                         self.tms_on_terminal_del(l, &tuple);
+                        // ⚖ land_eager lead-k1 (D-199): the eager
+                        // landing's unbreak re-propagates — unpark so
+                        // the re-derived tuples re-fire. SELF-KILLED
+                        // premises only (tms_left_death): the no-amut
+                        // shape is a Drools runaway the engine fences.
+                        if self.rules[l].def.no_loop
+                            && self.tms_lead_k1(l)
+                            && self.tms_left_death(l, &tuple)
+                        {
+                            self.tms.parked.retain(|(pri, _)| *pri != l);
+                        }
                         if self.spin_tick() {
                             return None;
                         }
@@ -7184,6 +7195,15 @@ impl Engine {
                         eprintln!("TMS drain[flush-pre] r{ri} {tuple:?}");
                     }
                     self.tms_on_terminal_del(ri, &tuple);
+                    // ⚖ land_eager lead-k1 (D-199): eager landing
+                    // re-propagates — unpark for re-fire (self-killed
+                    // premises only; no-amut = fenced runaway).
+                    if self.rules[ri].def.no_loop
+                        && self.tms_lead_k1(ri)
+                        && self.tms_left_death(ri, &tuple)
+                    {
+                        self.tms.parked.retain(|(pri, _)| *pri != ri);
+                    }
                 }
                 dbg_eval("eager", ri);
                 self.evaluate_rule(ri, false, true);
@@ -7234,6 +7254,15 @@ impl Engine {
                         }
                     }
                     self.tms_on_terminal_del(ri, &tuple);
+                    // ⚖ land_eager lead-k1 (D-199): eager landing
+                    // re-propagates — unpark for re-fire (self-killed
+                    // premises only; no-amut = fenced runaway).
+                    if self.rules[ri].def.no_loop
+                        && self.tms_lead_k1(ri)
+                        && self.tms_left_death(ri, &tuple)
+                    {
+                        self.tms.parked.retain(|(pri, _)| *pri != ri);
+                    }
                 }
                 if drained {
                     self.evaluate_rule(ri, false, true);
@@ -7875,7 +7904,95 @@ impl Engine {
                 self.note_link_effects_ex(&mut was, Some(f));
             }
         }
+        self.tms_p_death_sweep(f, origin);
         self.tms_eager_break(f, true);
+    }
+
+    /// ⚖ t15 foreign-death sweep, LEAD lane (D-199, model t15_revive):
+    /// the model's revive keys on the P DEATH ITSELF — a lead-k1
+    /// justifier's dying child can ANNIHILATE in staging (ins+del fold)
+    /// and never reach the terminal, so the parked-del lane misses the
+    /// trigger (sdp7007x86: the first foreign delete revives in the
+    /// oracle; by the second, the candidates are gone). On a foreign
+    /// fact death, every LAZY plain non-ortwin LEAD-k1 justifier whose
+    /// positive pattern ADMITS the dead fact's stale values (the
+    /// value-level pmut gate — an alpha'd-out P's death never touches
+    /// the node, ⚖ the starvation law) clears its parks; RECORDED
+    /// full-width siblings re-activate in INSERTION order, bare
+    /// prefixes simply stop suppressing (staged re-derivations queue
+    /// at their consumption). TRAIL rules stay on the parked-del lane
+    /// (sd_c1's certified reversed-chain revive).
+    fn tms_p_death_sweep(&mut self, f: FactId, origin: Option<usize>) {
+        if self.tms.parked.is_empty() {
+            return;
+        }
+        let ftid = self.store.fact_type(f);
+        for rj in 0..self.rules.len() {
+            if !self.tms.parked.iter().any(|(pri, _)| *pri == rj) {
+                continue;
+            }
+            if origin.is_some_and(|oi| self.rule_parents[oi] == self.rule_parents[rj]) {
+                continue; // self-inflicted: the actor never revives its own
+            }
+            let eager = self.rules[rj].def.no_loop
+                || matches!(self.rules[rj].salience, EngineSalience::Dyn { .. });
+            let ortwin = (0..self.rules.len())
+                .any(|rk| rk != rj && self.rule_parents[rk] == self.rule_parents[rj]);
+            if eager || ortwin || !self.tms_lead_k1(rj) {
+                continue;
+            }
+            let Some(pos) = self.rules[rj]
+                .patterns
+                .iter()
+                .position(|p| p.ce == CeKind::Positive && p.type_id == ftid && p.tpos.is_some())
+            else {
+                continue;
+            };
+            // stale-value admit (the fact is already killed here — the
+            // aliveness gate would always fail; D-160 fields variant)
+            if !self.alpha_passes_fields(rj, pos, f) {
+                continue;
+            }
+            let full_w = self.rules[rj]
+                .patterns
+                .iter()
+                .filter_map(|p| p.tpos)
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let entries: Vec<Tup> = self
+                .tms
+                .parked
+                .iter()
+                .filter(|(pri, _)| *pri == rj)
+                .map(|(_, pt)| pt.clone())
+                .collect();
+            self.tms.parked.retain(|(pri, _)| *pri != rj);
+            for pt in entries {
+                if pt.len() < full_w
+                    || pt.contains(&f)
+                    || pt.iter().any(|x| !self.store.is_alive(*x))
+                {
+                    continue;
+                }
+                let k = self.rules[rj].patterns.len();
+                let alphas = (0..k).all(|p2| {
+                    let pat = &self.rules[rj].patterns[p2];
+                    pat.sub == SubRole::Inner
+                        || pat
+                            .tpos
+                            .map(|tp| tp < pt.len() && self.alpha_passes(rj, p2, pt[tp]))
+                            .unwrap_or(true)
+                });
+                if !alphas {
+                    continue;
+                }
+                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                    eprintln!("TMS sweep-revive r{rj} {pt:?} (death f{f:?})");
+                }
+                self.push_activation(rj, pt);
+            }
+        }
     }
 
     /// Per-rule agenda effects after ONE node event:
@@ -8136,7 +8253,7 @@ impl Engine {
             self.tms.right_touched.clear(); // no CE side on LIA->terminal
             self.tms.joinr_touched.clear();
             for s0 in windows {
-                for (f, _, _) in s0.del.iter().rev() {
+                for (f, o, _) in s0.del.iter().rev() {
                     self.nets[ri].act_num.retain(|t, _| t[0] != *f);
                     let pre = self.queue_top_sal(ri).unwrap_or(0);
                     let n0 = self.nets[ri].queue.len();
@@ -8145,7 +8262,7 @@ impl Engine {
                         self.update_item_salience(ri, pre);
                     }
                     self.tms_on_terminal_del(ri, &vec![*f]);
-                    self.tms_parked_del(ri, &vec![*f]);
+                    self.tms_parked_del(ri, &vec![*f], *o);
                 }
                 for (f, o, _) in s0.upd.iter().rev() {
                     let queued = self.nets[ri].queue.iter().any(|a| a.t[0] == *f);
@@ -8370,7 +8487,7 @@ impl Engine {
         if std::env::var("SEINE_TRACE").is_ok() && !src.is_empty() {
             eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
         }
-        for (t, _, _) in src.del.iter() {
+        for (t, o, _) in src.del.iter() {
             self.nets[ri].act_num.remove(t);
             let pre = self.queue_top_sal(ri).unwrap_or(0);
             let n0 = self.nets[ri].queue.len();
@@ -8379,7 +8496,7 @@ impl Engine {
                 self.update_item_salience(ri, pre);
             }
             self.tms_on_terminal_del(ri, t);
-            self.tms_parked_del(ri, t);
+            self.tms_parked_del(ri, t, *o);
         }
         // D-170 (T6): an eval whose external trigger alpha-ENTERED this
         // rule's anchor consumes INSERTS before UPDATES (the model's
@@ -9266,7 +9383,7 @@ impl Engine {
             if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                 continue;
             }
-            if self.tms_parked_ins(ri, t) {
+            if self.tms_parked_suppress(ri, t) {
                 continue;
             }
             self.push_activation(ri, t.clone());
@@ -9980,6 +10097,9 @@ impl Engine {
                 }
             });
             if self_blocker {
+                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                    eprintln!("TMS park-own r{ri} {tuple:?}");
+                }
                 self.tms.parked.push((ri, tuple.clone()));
                 // Drools leaks the WHOLE blocked list of the dying
                 // blocker (tms_t21: sibling tuples blocked by the same
@@ -9998,16 +10118,20 @@ impl Engine {
                     if pat.ce != CeKind::Not || pat.type_id != ftid {
                         continue;
                     }
-                    // D-198 (sd_b2): find the not's node by env — the
-                    // pos-1 arithmetic holds for trail layouts only; a
+                    // D-198 (sd_b2): find the not's node by env — a
                     // LEAD not's blocked left is the short prefix tuple
                     // (e.g. the InitialFact) and parks as a PREFIX
-                    // (tms_parked_ins matches by starts_with).
+                    // (tms_parked_ins matches by starts_with). Match by
+                    // DEPTH, not creator (D-199, sd_b4): a shared node
+                    // (or-twins, equal-prefix rules) carries its FIRST
+                    // owner's env, but sharing preserves depth — each
+                    // sharer's pattern `pos` is this path's node with
+                    // env.1 == pos.
                     let Some(&ni) = self
                         .nets[ri]
                         .path
                         .iter()
-                        .find(|&&ni| self.trie[ni].env == (ri, pos))
+                        .find(|&&ni| self.trie[ni].env.1 == pos)
                     else {
                         continue;
                     };
@@ -10020,6 +10144,9 @@ impl Engine {
                             self.nets[ri].queue.retain(|a| !a.t.starts_with(&lt));
                             self.nets[ri].act_num.retain(|t, _| !t.starts_with(&lt));
                             if !self.tms.parked.iter().any(|(r, t)| *r == ri && *t == lt) {
+                                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                                    eprintln!("TMS park-leak r{ri} {lt:?} (blocker f{f:?})");
+                                }
                                 self.tms.parked.push((ri, lt));
                             }
                         }
@@ -10027,6 +10154,62 @@ impl Engine {
                 }
                 }
             }
+        }
+    }
+
+    /// ⚖ land_eager lead-k1 (D-199, model_sd land_eager / sd_d3-d5 law):
+    /// an EAGER (no-loop) justifier with exactly one plain NOT strictly
+    /// upstream of exactly one positive join — the flush-time unbreak of
+    /// the upstream not RE-PROPAGATES: parked tuples re-derive as new
+    /// objects and re-fire (sdp7002x4-class: one firing per P). Lazy
+    /// landings never self-revive (sd_b2's park holds), and the mutfirst
+    /// last key rides to the POP and lands lazy (no rederive), so the
+    /// unpark runs at the eager drain sites only.
+    fn tms_lead_k1(&self, ri: usize) -> bool {
+        let init_tid = self.store.type_id(INITIAL_FACT);
+        let (mut not_pos, mut pos_pos) = (None, None);
+        let (mut positives, mut nots) = (0usize, 0usize);
+        for (i, p) in self.rules[ri].patterns.iter().enumerate() {
+            if p.acc.is_some() || p.qce.is_some() || !matches!(p.sub, SubRole::None) {
+                return false;
+            }
+            if Some(p.type_id) == init_tid && p.ce == CeKind::Positive {
+                continue;
+            }
+            match p.ce {
+                CeKind::Positive => {
+                    positives += 1;
+                    pos_pos = Some(i);
+                }
+                CeKind::Not => {
+                    nots += 1;
+                    not_pos = Some(i);
+                }
+                CeKind::Exists => return false,
+            }
+        }
+        positives == 1 && nots == 1 && not_pos < pos_pos
+    }
+
+    /// A tuple member died or exited its pattern alpha — the LEFT-side
+    /// death signature shared by the parked-del revive and the
+    /// land_eager unpark (D-199): the eager rederive applies only when
+    /// the firing SELF-KILLED its premise (amut del/set_break); a
+    /// no-amut self-defeat keeps the park — that shape is a Drools
+    /// RUNAWAY (sd_d3/d5, model=True) and the engine must terminate,
+    /// so its divergence stays Family-II fenced (the sdp7002x40 spin:
+    /// the ungated unpark re-derived + re-fired forever).
+    fn tms_left_death(&self, ri: usize, t: &Tup) -> bool {
+        t.iter().any(|f| !self.store.is_alive(*f)) || {
+            let k = self.rules[ri].patterns.len();
+            (0..k).any(|pos| {
+                let pat = &self.rules[ri].patterns[pos];
+                pat.sub != SubRole::Inner
+                    && pat
+                        .tpos
+                        .map(|tp| tp < t.len() && !self.alpha_passes(ri, pos, t[tp]))
+                        .unwrap_or(false)
+            })
         }
     }
 
@@ -10042,6 +10225,32 @@ impl Engine {
         self.tms.parked.iter().any(|(pri, pt)| *pri == ri && t.starts_with(pt))
     }
 
+    /// tms_parked_ins + full-width RECORDING (D-199): a PREFIX park (a
+    /// lead not's blocked left) suppresses the re-derived child at the
+    /// terminal, but the child stays MATERIALIZED in the join — record
+    /// it as a full-width park so a later foreign left-death finds it
+    /// and the ⚖ t15 revive runs (the lazy-LEAD alternation,
+    /// sdp7002x29-class; the model's t15_revive rederive sweeps lead
+    /// rules too). Trail parks are full-width already — no-op there.
+    fn tms_parked_suppress(&mut self, ri: usize, t: &Tup) -> bool {
+        let Some(pt_len) = self
+            .tms
+            .parked
+            .iter()
+            .find(|(pri, pt)| *pri == ri && t.starts_with(pt))
+            .map(|(_, pt)| pt.len())
+        else {
+            return false;
+        };
+        if pt_len < t.len() && !self.tms.parked.iter().any(|(pri, pt)| *pri == ri && pt == t) {
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!("TMS park-record r{ri} {t:?} (prefix-suppressed ins)");
+            }
+            self.tms.parked.push((ri, t.clone()));
+        }
+        true
+    }
+
     fn tms_unpark_upd(&mut self, ri: usize, t: &Tup) -> bool {
         if let Some(i) = self.tms.parked.iter().position(|(pri, pt)| *pri == ri && pt == t) {
             self.tms.parked.remove(i);
@@ -10051,22 +10260,15 @@ impl Engine {
         }
     }
 
-    fn tms_parked_del(&mut self, ri: usize, t: &Tup) {
+    fn tms_parked_del(&mut self, ri: usize, t: &Tup, origin: Option<usize>) {
         let Some(i) = self.tms.parked.iter().position(|(pri, pt)| *pri == ri && pt == t) else {
             return;
         };
-        let left_death = t.iter().any(|f| !self.store.is_alive(*f)) || {
-            let k = self.rules[ri].patterns.len();
-            (0..k).any(|pos| {
-                let pat = &self.rules[ri].patterns[pos];
-                pat.sub != SubRole::Inner
-                    && pat
-                        .tpos
-                        .map(|tp| !self.alpha_passes(ri, pos, t[tp]))
-                        .unwrap_or(false)
-            })
-        };
+        let left_death = self.tms_left_death(ri, t);
         if left_death {
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!("TMS park-del r{ri} {t:?} (left-death, origin {origin:?})");
+            }
             self.tms.parked.remove(i);
             // ⚖ t15/d4 (D-197 round 2, sd_c1 / fz_42_5213 clause C): a
             // LEFT-side death revives the rule's OTHER parked tuples —
@@ -10076,11 +10278,17 @@ impl Engine {
             // event siblings stay parked (t21 unchanged). LAZY plain
             // rules only — the t15 law excludes eager (no-loop/dyn)
             // and or-twins (fz_777_6816; the model's t15 scope).
+            // ⚖ ACTOR EXCLUSION (D-199, model t15_revive actor / kin of
+            // fz_42_2442): a SELF-INFLICTED left-death — the rule's own
+            // RHS deleted/updated its P — never revives the actor's own
+            // tuples (sdp7002x31-class: the trail mutfirst park holds).
             let eager = self.rules[ri].def.no_loop
                 || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
             let ortwin = (0..self.rules.len())
                 .any(|rj| rj != ri && self.rule_parents[rj] == self.rule_parents[ri]);
-            if eager || ortwin {
+            let self_inflicted =
+                origin.is_some_and(|oi| self.rule_parents[oi] == self.rule_parents[ri]);
+            if eager || ortwin || self_inflicted {
                 return;
             }
             let revived: Vec<Tup> = self
@@ -10113,8 +10321,19 @@ impl Engine {
                 .map(|(_, pt)| pt.clone())
                 .collect();
             // re-add order = the reversed blocked-chain scan (gt16's
-            // pre-fold phys law; sd_c1 fires P3 before P2)
-            for rt in revived.into_iter().rev() {
+            // pre-fold phys law; sd_c1 fires P3 before P2) — TRAIL only;
+            // a LEAD justifier re-derives in INSERTION order (the model's
+            // land-lane comment, banked x108; sdp7002x29's alternation
+            // fires P1 first).
+            let revived: Vec<Tup> = if self.tms_lead_k1(ri) {
+                revived
+            } else {
+                revived.into_iter().rev().collect()
+            };
+            for rt in revived {
+                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                    eprintln!("TMS park-revive r{ri} {rt:?}");
+                }
                 self.tms.parked.retain(|(pri, pt)| !(*pri == ri && *pt == rt));
                 self.push_activation(ri, rt);
             }

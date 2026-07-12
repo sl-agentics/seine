@@ -11,10 +11,11 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-198 (TMS-envelope arc: THE PORT
-SLAB rounds 1-2 — the deferral cause model landed, ladder 6/6
-engine-green, census −15.7%, fz_123_941 graduated; D-196 pushed,
-D-197 unpushed). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
+_Last updated: 2026-07-12, post-D-199 (TMS-envelope arc: THE PORT
+SLAB rounds 1-3 — the deferral cause model + P4/P5 + the t15 lanes
+landed, ladder 6/6 engine-green, census 599→242 cumulative −59.6%,
+six graduates rounds 1-3; pushed through bfc363e [D-198], D-199
+UNPUSHED). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
 top): delete teardowns land by MODE×CAUSE — stream ⇒ at the delete's
@@ -137,13 +138,41 @@ regressed slightly on non-pinned shapes = round-3 targets);
 corpus 11/1124/358, drift 71, agenda_open ×19 identical, ladder
 6/6, model 0-div held; ⚠ a population-only PANIC caught by the
 12-seed net (prefix-park revive, fixed) — populations are the
-panic net. Residue: the or-twin corner (sd_b4/9375 — PnShadow
-read needed), the census regressions, the lazy mass, P3.** NEXT:
-round 3 of the port slab; I-RD LAST (Bryan's order). Any
-engine change stays gated (⚠ D-106 tripwire + D-177
-landing-not-pick). Other candidates: class-3 re-entrant churn,
-Allen-beyond-Drools. Prior: D-168→D-185 all landed. Fenced-by-nature:
-D-134 §6 ties, fz_42_84. `git log --oneline -20` for HEAD._
+panic net.** **D-199 (round 3): P4 CLOSED + the t15 lanes
+completed — the or-twin was NODE SHARING, not PnShadow (the
+leak's env-lookup missed the shared node's first-owner env; the
+DEPTH-match fixes it); TWO GRADUATES (fz_7_9375, fz_123_9175 —
+corpus 11/1124/360, drift 69); the round-2 census regressions
+CURED (65 broken slots → order-only residue; per-case
+attribution: all 65 were D-198 machinery, the depth-match broke
+zero) via three more model-translated lanes: the ⚖ land_eager
+lead-k1 unpark (self-killed premises ONLY — ⚠ the ungated cut
+made the engine follow Drools into the d3/d5 no-amut RUNAWAY,
+sdp7002x40 spun; the census net caught it, second panic-class
+catch in two rounds; census loops now timeout 900/seed), the ⚖
+revive ACTOR EXCLUSION (self-inflicted left-death never revives
+the actor's own), and the lead park-RECORD + ⚖ t15 foreign-death
+SWEEP (WM-level trigger in on_delete_ex, stale-value alpha admit
+= the starvation law; lead revives insertion-order, trail keeps
+sd_c1's reversed chain). CENSUS **483 → 242 (−49.9%; cumulative
+599 → 242, −59.6%)**, model 0-div 12×150/150, agenda_open ×19
+identical ×4, ladder 6/6 ×4, receipts green after EVERY change.
+The classified residue: ~64 = the d3/d5 no-amut runaway family
+(oracle runs away / engine terminates — PERMANENTLY OPEN by the
+terminates-invariant, the census floor); ~63 ORDER-ONLY (P6 —
+the model's order layer is the spec); the SET rest = P3's
+equal-salience window (sdp7002x3: the decl-preceding
+same-salience observer's glimpse) + pick-order physics (P6) +
+the undiagnosed x73 class.** NEXT: **P3** (the pop-precedence
+drain split at next_activation's `higher` gate — the halt keeps
+strictly-higher, the DRAIN gains sal>l_sal || (sal==l_sal &&
+decl<l_decl); ⚠ D-106 receipts protocol MANDATORY), then the P6
+order sweep; I-RD after the slab (Bryan's order). Any engine
+change stays gated (⚠ D-106 tripwire + D-177 landing-not-pick).
+Other candidates: class-3 re-entrant churn, Allen-beyond-Drools.
+Prior: D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties,
+fz_42_84, the d3/d5 no-amut runaways. `git log --oneline -20`
+for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -11009,3 +11038,142 @@ park/revive/two-pass changes over- or under-apply on some geometry;
 those slots are round-3 diagnosis targets alongside the or-twin
 corner, the lazy L-MB mass, and P3 (D-106-adjacent, last).
 Cumulative from the pre-port baseline: **599 → 483 (−19.4%)**.
+
+## D-199 — THE PORT SLAB, ROUND 3: the shared-node depth-match (P4 CLOSED), the land_eager lead-k1 unpark, the revive ACTOR EXCLUSION, and the lead park-RECORD + foreign-death SWEEP; TWO GRADUATES; the round-2 census regressions CURED; census 483→242 (−49.9%) (2026-07-12)
+
+THE ROUND-3 ENTRY was the handoff's or-twin corner (sd_b4 /
+fz_7_9375). The handoff's PnShadow suspicion was WRONG — the trace
+showed PnShadow is not even constructed for the shape (its not
+carries cmps); the real cause is NODE SHARING: `do_exist[0:Not]` is
+ONE shared trie node feeding both terminals, its `blocked` map HOLDS
+the block, but the D-198 leak looked the node up by `env == (ri,
+pos)` and a shared node carries its FIRST owner's env — the
+sibling's lookup missed, no park leaked, the un-break re-fired the
+twin.
+
+THE TRANSLATION (five changes, engine.rs TMS/park machinery only;
+the executor pick/halt untouched):
+
+1. **The depth-match (sd_b4)**: the leak finds the not's node by
+   DEPTH (`trie[ni].env.1 == pos` over `nets[ri].path`), creator-
+   agnostic — sharing preserves depth, so this is exactly
+   `path[pos-1]` for sharers and unshared alike (the D-198 comment's
+   "pos-1 holds for trail layouts only" was a misdiagnosis; the env
+   find it installed also encoded the pos==0 guard, kept). sd_b4
+   fires ONCE — exact. 19 xfail witnesses moved, ALL toward or onto
+   the oracle on the multiset metric (the two firing-count "drops" —
+   fz_7_1353 −8/+1→−8/+0, fz_7_9864 −2/+1→−2/+0 — are spurious
+   extras eliminated; a COUNT drop is not an away-move when the
+   extras die). **fz_7_9375 GRADUATED** (10/10 both sides) and
+   **fz_123_9175 GRADUATED** (the D-197 toward-mover converged,
+   10/10). 15 Family-II runaways rebanked (drift 69). Per-case flip
+   attribution vs a 99b363d worktree: this change broke ZERO cases;
+   the five round-2-regressed seeds all dropped below pre-round-2 on
+   it alone (7002 46→42, 7004 44→31, 7006 35→28, 7007 44→36, 7008
+   41→34).
+
+2. **⚖ land_eager lead-k1 unpark (model_sd land_eager)**: an EAGER
+   (no-loop) justifier with exactly one plain NOT strictly upstream
+   of exactly one positive join (tms_lead_k1), whose firing
+   SELF-KILLED its premise (tms_left_death: a tuple member dead or
+   alpha'd out) — the eager landing's unbreak RE-PROPAGATES: unpark
+   at the three eager drain sites (post-fire-continue gated on
+   no_loop, flush-pre, flush-post), NEVER at the pop (the mutfirst
+   last key rides to the pop and lands lazy — no rederive) and never
+   for lazy rules (sd_b2's park holds). Fixes the sdp7002x4 class
+   (oracle fires once per P on delete($p)/update-out; engine fired
+   once total). ⚠ THE FIRST CUT LACKED the left-death gate and made
+   the engine FAITHFULLY FOLLOW Drools into the d3/d5 no-amut
+   RUNAWAY — sdp7002x40 spun at 99.9% CPU (the oracle's fire limit
+   catches the runaway; the engine has no fire cap and the spin
+   guard resets per next_activation call, so a real firing loop
+   never trips it). The census run STALLED = the population net's
+   second panic-class catch in two rounds. The no-amut shape keeps
+   the park: the engine TERMINATES and its divergence stays
+   Family-II fenced (the terminates-invariant). Census loops now
+   wrap each seed in `timeout 900` so a future spin fails loud.
+
+3. **⚖ the revive ACTOR EXCLUSION (model t15_revive actor; kin of
+   fz_42_2442)**: a SELF-INFLICTED left-death — the dying parked
+   tuple's P deleted/updated-out by the rule's OWN RHS (the staged
+   del's origin, rule_parents == ri's) — never revives the actor's
+   other parked tuples. tms_parked_del now takes the del's origin
+   (both terminal-consume call sites). Fixes the sdp7002x31 class
+   OVER-fire (lazy trail mutfirst: the own-tuple park died at its
+   stale post-drain terminal-del and revived the whole leaked
+   blocked list; the oracle holds the park — fires once). Foreign
+   and external deletes revive as certified (sd_c1 exact).
+
+4. **The lead park-RECORD (tms_parked_suppress)**: a PREFIX park (a
+   lead not's blocked left) suppresses re-derived children at the
+   terminal, but the children stay MATERIALIZED in the join — the
+   suppression now RECORDS each suppressed tuple as a full-width
+   park entry so left-death events can find them. The t15 revive's
+   re-add order is notpos-split: TRAIL keeps the certified
+   reversed-chain (sd_c1), LEAD re-derives in INSERTION order (the
+   model's land-lane law, banked x108).
+
+5. **⚖ the t15 foreign-death SWEEP, lead lane (model t15_revive)**:
+   the model's revive keys on the P DEATH ITSELF — a lead child can
+   ANNIHILATE in staging (ins+del fold) and never reach the
+   terminal, so the parked-del lane misses the trigger (sdp7007x86:
+   the oracle's FIRST foreign delete revives; by the second the
+   candidates are gone). New tms_p_death_sweep in on_delete_ex
+   (both delete paths, external + RHS): on a foreign fact death,
+   every LAZY plain non-ortwin LEAD-k1 justifier whose positive
+   pattern ADMITS the dead fact's STALE values (alpha_passes_fields
+   — the fact is already killed at the hook; the value-level pmut
+   gate = ⚖ the starvation law: an alpha'd-out P's death never
+   touches the node) clears its parks; recorded full-width siblings
+   re-activate in insertion order, bare prefixes just stop
+   suppressing (staged re-derivations queue at their consumption).
+   TRAIL stays on the parked-del lane. sdp7007x86 EXACT (the
+   lazy-lead alternation, including the pmut'd-P skips); sdp7002x29
+   runs the full 12-firing alternation (residue = deleter pick
+   order, P6).
+
+THE ROUND-2 CENSUS REGRESSIONS ARE CURED (the handoff's target 2):
+per-case flip analysis on the five seeds vs 99b363d (150
+cases/seed; the kept census oracle outputs are commit-independent,
+only the engines re-ran) found 65 MATCHING→DIVERGENT flips, every
+one attributable to D-198's machinery. After this round's changes:
+62-63/65 match; the residue is order-only (sdp7008x11/x25 — the P
+consume order per firing) plus sdp7007x86 (fixed by change 5).
+
+Park machinery now carries SEINE_TMS_DEBUG tags: park-own,
+park-leak, park-record, park-del (left-death + origin), park-revive,
+sweep-revive.
+
+RECEIPTS: corpus **11/1124/360** byte-identical after EVERY change
+(the two graduates joined regressions/, 10/10 engine-deterministic);
+drift bank 69 identical post-graduation (changes 2-5 moved ZERO
+xfail witnesses — population-surface only); agenda_open ×19
+BYTE-IDENTICAL ×4 vs a bfc363e worktree baseline (⚠ D-106); ladder
+6/6 ×4; validate_cells 39/39 ×4; check_witnesses 26/26 ×4; cargo
+test 9 suites; lint 1728/0/0 (two park-tag probes' worth of new
+lines are debug-only). CENSUS (12 seeds × 150, engine-vs-oracle
+divergent): **483 → 242 (−49.9%)**; intermediates: 373 after change
+1 alone, 250 after 1-3. Cumulative from the pre-port baseline:
+**599 → 242 (−59.6%)**. Model 0-div held 12×150/150 on every run;
+no panics, no timeouts. Final table: 7001 16, 7002 25, 6001 16,
+6003 19, 7004 19, 7005 20, 7006 17, 7007 23, 7008 22, 7009 25,
+7010 16, 7011 24.
+
+THE MASS CLASSIFICATION (target 3, on the 250-state census): SET
+123 / RUNAWAY-MISMATCH 64 / ORDER-ONLY 63. The 64 runaway
+mismatches are ALL the d3/d5 eager-lead no-amut family — oracle
+RUNS AWAY, engine terminates: PERMANENTLY OPEN by the
+terminates-invariant (fenced-by-nature; the census's structural
+floor is ~64, so the fixable population gap at 242 is ~178). The
+ORDER-ONLY mass is 45× k0 + set_break corners = P6's lane (the
+model's order layer is the spec). The SET mass was the lazy-LEAD
+revive gap (~50, closed by changes 4-5) + P3's equal-salience
+window (sdp7002x3: the decl-preceding same-salience observer must
+glimpse the transient LK before the drain — the pop-precedence
+split) + deleter/justifier pick-order physics (P6) + the x73 class
+(lazy-lead-del: a foreign del_not observer under-fires —
+undiagnosed, one cluster).
+
+RESIDUE (round 3 continues): P3 NEXT (the drain split — ⚠ D-106
+receipts protocol mandatory), then the P6 order sweep; the x73
+class; I-RD after the slab (Bryan's order).

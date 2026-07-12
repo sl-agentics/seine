@@ -110,14 +110,42 @@ scoped — round 2.
   oracles, fenced-by-nature — no semantic gate) — rebanked; drift
   bank 71. fz_7_9864 moved toward (17→18 vs 19).
 
-## Port order (proposed)
+## Round-3 status (D-199): P4 CLOSED (the or-twin), the t15 lanes completed
 
-P1 → P2 (shared drain/landing machinery; ladder-certified; zero
-D-106 contact expected) → P4/P5 (RuleExecutor-local) → P3 (the
-D-106-adjacent drain change, receipts-gated, after everything else
-is green so its diff is minimal) → P6 order-layer sweep. Progress
-metric: the census (47-56/150 → 0) + the ladder cells + the 31
-witnesses; invariants each step: corpus byte-identical, xfail drift
-tier (re-bank as witnesses converge — each graduation is a
-xfail-rebank + D-entry), agenda_open ×19 receipts, full battery,
-populations vs model_sd (which is now the executable spec at 0-div).
+- **The or-twin corner CRACKED — it was NODE SHARING, not PnShadow**:
+  the leak's env-lookup missed a shared not node (env carries the
+  FIRST owner); the depth-match (`env.1 == pos`) fixes it. sd_b4
+  exact; **fz_7_9375 + fz_123_9175 GRADUATED**; 19 xfail movers ALL
+  toward/onto the oracle (multiset); 15 Family-II rebanked (drift 69).
+  ⇒ **P4 is CLOSED** (all its cells/witnesses exact or graduated).
+- **The round-2 census regressions CURED** (the 65 broken slots →
+  order-only residue): per-case flip attribution vs 99b363d showed
+  all 65 were D-198 machinery; three model-translated lanes fixed
+  them — the ⚖ land_eager lead-k1 unpark (self-killed premises only
+  — the ungated cut SPUN the engine on the d3/d5 no-amut runaway,
+  caught by the census net; census loops now `timeout 900`/seed),
+  the ⚖ revive ACTOR EXCLUSION (self-inflicted left-death never
+  revives the actor), and the lead park-RECORD + ⚖ foreign-death
+  SWEEP (t15's WM-level trigger; stale-value alpha admit = the
+  starvation law; lead revives INSERTION-order, trail keeps sd_c1's
+  reversed chain).
+- CENSUS: 483 → 373 (depth-match alone) → 250 (+unpark/actor) →
+  see D-199 for the final table. The floor: 64 of the survivors are
+  the d3/d5 no-amut eager-lead family — oracle RUNAWAY vs engine
+  terminates, permanently open by the terminates-invariant.
+- Classification of the residue: ORDER-ONLY ~63 (45× k0 + set_break
+  corners — P6), SET remainder = P3's equal-salience window
+  (sdp7002x3: the decl-preceding same-salience observer's glimpse)
+  + deleter/justifier pick-order physics (P6) + the x73 class
+  (lazy-lead-del foreign observer under-fire, undiagnosed).
+
+## Port order (updated post-D-199)
+
+~~P1 → P2~~ (D-197) → ~~P4/P5~~ (D-198/D-199) → **P3 NEXT** (the
+equal-salience pop-precedence drain split — the D-106-adjacent
+executor-region change, receipts-gated: agenda_open ×19 before/after
++ the halt matrix + fz_9001/9003/9004 tripwires; the fix shape is in
+HANDOFF-round3.md §4) → P6 order-layer sweep (the model's order
+layer is the spec; x29/x52/x114/x11/x25-class). Invariants each
+step: corpus byte-identical, xfail drift tier, agenda_open ×19
+receipts, full battery, populations vs model_sd (12×150 0-div).
