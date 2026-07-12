@@ -33,15 +33,17 @@ byte-identical); probes_pending/halt/ EMPTY. Gates this slab: cargo
 25/25, tj_upd 64 + exactly tu81x60, mju 0/200, notpop 84 + expop 104
 fresh ALL MATCH (8031/8037), population 2,199/2,200 (the 1 =
 tu81x60, pre-existing, A/B'd, filed), bindings 72 (landed-tree
-release .so). **THE BATTERY'S OPEN LEDGER IS NOW EXACTLY:
-`fe1_fresh_right_flagged_left` (flag-eager pair — OWN ARC,
-probes_pending/flag_eager/ +
-`~/.claude/plans/flag-eager-pair-arc.md`: engine pairs a fresh
-right-insert with a flag-expired left-memory partner at a plain join
-in stream; non-TMS, no executor involvement) and `tu81x60`
-(population latent, D-170/171 exit→re-enter kin — own recon).**
-D-117 guard stays as backstop. **NEXT is Bryan's call** —
-candidates: the flag-eager arc, tu81x60 recon, D-080 TMS envelope,
+release .so). **THE BATTERY'S OPEN LEDGER IS NOW EXACTLY: the
+FLAG-EAGER family (fe1 + the D-179 cells fe2/fe3/fe4/fe6,
+probes_pending/flag_eager/ — mechanism PINNED at D-179: the
+plain-join walks corpse-check only the PARTNER, never the WALKING
+fact, so a corpse whose fold is deferred past its flagging by
+unlinked-path staging walks in and pairs; temporal arm clean [fe7];
+boundary ruled out [fe3]; fix shape stated in the arc file
+`~/.claude/plans/flag-eager-pair-arc.md`, PORT AWAITS BRYAN'S GATE)
+and `tu81x60` (population latent, D-170/171 exit→re-enter kin — own
+recon).** D-117 guard stays as backstop. **NEXT is Bryan's call** —
+candidates: the flag-eager PORT (gated), tu81x60 recon, D-080 TMS envelope,
 class-3 re-entrant churn, window:length, Allen-beyond-Drools. Prior:
 D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -9732,3 +9734,57 @@ latent, D-170/171 exit→re-enter kin — own recon). The D-117 guard stays in
 as backstop. NEXT is Bryan's call — candidates: the flag-eager arc, the
 tu81x60 recon, D-080 TMS envelope, class-3 re-entrant churn, window:length,
 Allen-beyond-Drools.
+
+## D-179 — the FLAG-EAGER PAIR ARC opened: mechanism PINNED in one sitting — the plain-join walks corpse-check only the PARTNER, never the WALKING fact; fix shape stated, port awaits Bryan's gate (2026-07-11)
+
+Bryan's call: initial work on fe1 (the arc filed at D-177). Course per the
+arc file: minimize → boundary-vs-walk discriminator → polarity twin →
+mechanism hunt. Predictions logged before every run; all oracle rows
+3×-stable; no engine changes.
+
+CELLS (probes_pending/flag_eager/, lint 1628/0/0):
+- fe2_minimal — 2 types (E2@expires100, plain P), 1 rule K@7
+  `E2(ts==0) P()`; E2(0) at epoch 0; advance 51; advance 50 + P(1) (clock
+  101 == deadline 101: flagged, alive). Oracle []; engine [K]. The
+  divergence survives minimization.
+- fe3_pastdeadline — advance 60 (clock 111 ≫ deadline). Oracle []; engine
+  [K] ⇒ **boundary arithmetic RULED OUT** — the flag IS set engine-side
+  (advance() marks at clock ≥ deadline); the pairing walk never consults it.
+- fe4_swap — `P() E2(ts==0)` (corpse on the join node's RIGHT). Oracle [];
+  engine [K] ⇒ both walk directions carry the gap.
+- fe6_beta — `E2($t:ts, ts==0) P(v > $t)`. Oracle []; engine [K] ⇒ the
+  constraint-bearing scan too (not scoped to cross joins).
+- fe5_below (control) — advance 30 (clock 81): BOTH [K]. Cells live.
+- fe7_temporal (control) — same deferred-fold structure through
+  `E3(after[0,200] $b)`: engine [] == oracle [] ⇒ **the temporal arm does
+  NOT share the blind spot; the gap is scoped to the PLAIN arm.**
+
+MECHANISM (SEINE_TRACE/EVAL/FLUSH_DEBUG on fe2 + fe4): the corpse's own
+memory-fold is DEFERRED past its flagging — the empty partner side keeps the
+path UNLINKED so the corpse accumulates in staging (D-101/fz_7_145) until the
+fresh partner arrives; both sides then walk in ONE pop eval. The plain-join
+insert walks corpse-check only the PARTNER side: the rightIns walk tests
+`l.iter().any(is_expired)` on left partners (phreak.rs ~1930) and the leftIns
+walk tests `is_expired(f)` on right partners (~1954) — the WALKING
+fact/tuple is never flag-checked. fe2/fe6 = corpse walks as the LEFT
+(partner P(1) is plain ⇒ check passes); fe4 = corpse walks as a ph=4
+pre-link RIGHT after the flush folded the fresh left (trace-pinned). The
+D-102 pin ("a pending-expired event makes NO NEW join pairs") is
+partner-complete but walker-blind in the engine's plain arm.
+
+FIX SHAPE (stated, NOT ported — Bryan gate per doctrine): corpse-guard the
+partner LOOP of both plain walks (walking right `*f`; walking left tuple
+`l`); the memory PUSH stays (flag-eager, retraction-lazy — the corpse
+occupies memory until the lazy delete, it only makes no NEW pairs). At port
+time: cover/probe the stream-AB arm's twin sites (~595/612, same
+partner-only pattern, no witness yet); open sub-cells noted (born-expired
+inserts — D-133 adjacency; update-refold walks). Gates for the port: make
+diff (⚠ the D-112 eviction-vs-expiration flip-flop zone is adjacent — if a
+cf1x-family pin moves, STOP, don't hand-tune), b-ladder, cf11x55/8/19/37,
+fuzz_cep ×4 + TJUPD ×5, cargo, lint, fe2/3/4/6 flipping green.
+
+Bookkeeping: fe1's finding refreshed (its engine sequence gained RN
+post-D-178 — the correct landing-law composition given K fires; the defect
+is unchanged). Arc file `~/.claude/plans/flag-eager-pair-arc.md` updated to
+D-179 state. The battery's open ledger membership is unchanged (fe-family +
+tu81x60); fe now carries a pinned mechanism awaiting the port gate.
