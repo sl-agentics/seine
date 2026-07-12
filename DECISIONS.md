@@ -41,20 +41,33 @@ list).** The fix: stream_flush_ex's dstash exempts an s0-del whose
 fact re-enters in the same flush (del-then-ins in stage order —
 Drools' relink drain; ~15 flush-layer lines, executor untouched,
 D-106-clean). tju_relink_{min,sameepoch,gap} + tu51x80/x187 are LIVE
-pins (+ the nobacklog control); the battery's open ledger is now
-EXACTLY tju_359_spin_min + tu51x207. **NEXT: Bryan's gate — (c) the
-cf6002x359 spin root-cause slab (checker-first, ⚠⚠ D-106; witness
-tju_359_spin_min, 4 facts); tu51x207's ORDER-compound recon
-(smallest) — handoff `~/.claude/plans/tjupd-ledger-handoff.md`
-((a)(b)(d) DONE).** Gates this slab: corpus **11/1084/333**
-byte-identical, population 2,199/2,200 (only tu51x207), fuzz_cep ×4
-= 0, TJUPD 6001-6005 = only the spin, tjt 25/25, mju 0/200 +
-200/200, notpop/expop fresh engine-clean, cargo 9, lint **1595/0/0**,
-bindings 72. Prior: D-170 ORDER port, D-169 T6 spec, D-168 SET fix
-(PUSHED through D-170 at `8f2cfb6`). Other deferred: D-080 TMS
-envelope, class-3 re-entrant churn, window:length (never built),
-Allen-beyond-Drools. Fenced-by-nature: D-134 §6 ties, fz_42_84.
-`git log --oneline -20` for HEAD._
+pins (+ the nobacklog control). **⇒ D-173 (this slab): the tu51x207
+3-touch ORDER compound is CRACKED — the $b-refire's CHILDLIST
+move-to-end is a per-ACTION side effect (the model re-runs phase B
+each touch; the engine's replay attached the re-adds to the ONE
+dedup'd RUpd at the FIRST touch's stamp, so a leading same-epoch
+tag-VI pins the pass before the entry exists and the self-child never
+moves). Discriminated the round-3 way (x2l1-vs-x2l2: drop the leading
+VI ⇒ engine green); NOT the identity-model law (no delete exists —
+stated early, not forced). FIX validated-then-REVERTED (report §5,
+~10 replay-internal lines, D-106-clean): ladder 5/5, battery 81/81,
+corpus clean; CONTROLS: population 2,200/2,200 (the whole update
+axis converges on landing) + fuzz 313/TJUPD 6001 = 0. Ladder
+committed (ladder_x207.py + 6 pins: tjx207_min/x2l1/x2l4/x2l5 red,
+x2l2/x2l3 live); minimize_keyed extended with '!'-negated signature
+keys.** The battery's open ledger: tju_359_spin_min + the D-173
+family (pending the gate). **NEXT: Bryan's gate — (e) land the §5
+fix (takes the open ledger to EXACTLY the spin); (c) the cf6002x359
+spin root-cause slab, THE LAST OPEN TJUPD ITEM (checker-first,
+⚠⚠ D-106) — handoff `~/.claude/plans/tjupd-ledger-handoff.md`
+((a)(b)(d) DONE, (e) recon-ready).** Gates: corpus **11/1084/333**
+byte-identical, cargo 9, lint **1601/0/0** (+6 D-173 pins), bindings
+72 (at D-172). Prior: D-172 relink fix + ⚖ the identity-model law,
+D-170 ORDER port, D-169 T6 spec, D-168 SET fix (PUSHED through D-170
+at `8f2cfb6`). Other deferred: D-080 TMS envelope, class-3 re-entrant
+churn, window:length (never built), Allen-beyond-Drools.
+Fenced-by-nature: D-134 §6 ties, fz_42_84. `git log --oneline -20`
+for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -9261,3 +9274,59 @@ engine-clean; cargo 9; lint **1595/0/0**; bindings 72 (fresh
 NEXT (Bryan gates): (c) the cf6002x359 spin root-cause slab — THE
 LAST OPEN TJUPD ITEM but one (checker-first, ⚠⚠ D-106); tu51x207's
 ORDER-compound recon (smallest).
+## D-173 — the tu51x207 3-touch ORDER recon: mechanism CRACKED, fix VALIDATED (reverted; port pends Bryan's gate) (2026-07-11)
+
+Bryan directed the recon with two standing constraints, both honored:
+(1) do NOT fit the identity-model law — verified inapplicable EARLY
+(no delete of any kind exists in the composition; the law's
+activation condition is categorically absent) and the mechanism found
+is orthogonal (a per-action side-effect elision); (2) ladder, not
+fuzz — the 3-touch is past the 2-action generator's structural reach
+(proven: the discriminator requires a leading VI in the SAME epoch as
+the entry PLUS a next-epoch in-place = 3 touches), so the evidence is
+5 constructed cells; the population/fuzz runs are reported as
+CONTROLS only.
+
+HEAD START (structural): tu51x207 is a model-population cell —
+model_tjupd_v4 is 0-div on it — so the oracle mechanism was already
+encoded in the validated T6 spec and the recon reduced to
+engine-vs-MODEL departure hunting, oracle-confirmed.
+
+MECHANISM (§5 of the report): the $b-refire's CHILDLIST move-to-end
+is a per-ACTION side effect — the model re-runs phase B at every
+touch against the CURRENT children (the ENTRY action's own phase B
+moves the just-created self-child to the childlist end; its emission
+dedups away but the move lands). The engine's replay attaches the
+re-adds to the ONE dedup'd RUpd op at the FIRST touch's stamp
+(keep-first — correct for EMISSIONS only), so a leading same-epoch
+tag-VI pins the refire pass before the entry exists and the
+self-child never moves; the next epoch's A′ then fires it at the
+scan slot instead of the moved end.
+
+DISCRIMINATION (the round-3 bar, per the directive): the
+x2l1-vs-x2l2 minimal pair differs ONLY by the leading VI and the
+engine flips exactly as stamp-elision predicts (green without the
+VI). Controls: x2l3 (cross-epoch VI = vacuously correct — the
+prior-epoch move relocates the memory slot so the scan orders the
+self-child last), x2l4's second in-place (un-dedup'd refires DO
+move), x2l5 (the move precedes later partner appends). All 5 cells
+oracle-2×-stable, model==oracle on every one.
+
+FIX (validated, REVERTED; diff verbatim in the report §5): the
+childlist re-adds move from the RUpd emission op to the per-ACTION
+RMove ops in `temporal_upd_replay` (~10 lines; replay-internal, the
+executor untouched — D-106-clean). Evidence in-tree: ladder 5/5
+engine==oracle, tu51x207 + tjx207_min PASS, fast battery **81/81**,
+corpus **11/1084/333** byte-identical, cargo 9. CONTROLS: the model
+population **2,200/2,200** — the whole SEINE_TJUPD update axis
+converges — and fuzz 313 + TJUPD 6001 ×400 = 0.
+
+SCENARIOS: tjx207_min + x2l1/x2l4/x2l5 = open_divergence pins (red
+at HEAD, findings point at §5); x2l2/x2l3 = live controls;
+tu51x207's finding updated to CRACKED. `ladder_x207.py` committed;
+`minimize_keyed.py` extended with '!'-negated signature keys (the
+ORDER-class minimization this recon needed).
+
+NEXT (Bryan gates): (e) land the §5 fix (evidence complete — takes
+the battery's open ledger to EXACTLY tju_359_spin_min); (c) the spin
+arc — THE LAST OPEN TJUPD ITEM (checker-first, ⚠⚠ D-106).

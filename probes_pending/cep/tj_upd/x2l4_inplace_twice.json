@@ -1,0 +1,103 @@
+{
+ "name": "x2l4_inplace_twice",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule SJ when $a : E0(tag == \"z\") $b : E0(this before[0ms,200ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 57,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 116,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 86,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "y"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z",
+      "ts": 75
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z",
+      "ts": 118
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z",
+      "ts": 30
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-173 3-touch ORDER compound (mechanism CRACKED, fix VALIDATED in recon and REVERTED pending the Bryan gate \u2014 diff verbatim in docs/tjupd-ledger-mechanisms.md \u00a75): the $b-refire's CHILDLIST move-to-end is a per-ACTION side effect (the model re-runs phase B each touch against the CURRENT children, its emission dedup notwithstanding), but the engine's replay attaches it to the ONE dedup'd RUpd op at the FIRST touch's stamp \u2014 a leading same-epoch tag-VI pins the refire pass before the entry exists and the entry's self-child never moves. Discriminated by the x2l1-vs-x2l2 minimal pair (drop the leading VI: engine goes green). NOT the identity-model law (no delete exists in the composition). Fix = the childlist re-adds ride the per-action RMove ops."
+}

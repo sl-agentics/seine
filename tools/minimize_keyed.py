@@ -2,18 +2,21 @@
 
 The D-165/D-167 recon workhorse, previously rebuilt per session (the
 tjupd-ledger handoff's trap list) — now committed. Like minimize.py,
-but the divergence predicate additionally requires a KEY literal in the
-diff output, so minimization can't drift to a different divergence:
+but the divergence predicate additionally pins the FAILURE SIGNATURE:
+each KEY literal must appear in the diff output (or must NOT appear,
+when prefixed with '!'), so minimization can't drift to a different
+divergence class:
   - an ORDER witness pins its rule:      KEY = the rule name
   - a SET witness pins the count class:  KEY = "firing count differs"
+  - an ORDER-class witness excludes SET: KEY = '!firing count differs'
 Rule splitting handles the fuzz generators' UNQUOTED rule names.
 
-Usage: python3 tools/minimize_keyed.py <scenario.json> <KEY> [out.json]
+Usage: python3 tools/minimize_keyed.py <scenario.json> <KEY[,KEY...]> [out.json]
 """
 import json, subprocess, re, sys, copy, os, tempfile
 
 BASE = sys.argv[1]
-KEY = sys.argv[2]
+KEYS = sys.argv[2].split(',')
 OUT = sys.argv[3] if len(sys.argv) > 3 else 'target/min_case.json'
 TMP = os.path.join(tempfile.gettempdir(), f'seine_min_{os.getpid()}.json')
 
@@ -26,7 +29,15 @@ def diverges(d):
     except subprocess.TimeoutExpired:
         return False
     out = r.stdout
-    return 'FAIL' in out and 'errored' not in out and KEY in out
+    if 'FAIL' not in out or 'errored' in out:
+        return False
+    for k in KEYS:
+        if k.startswith('!'):
+            if k[1:] in out:
+                return False
+        elif k not in out:
+            return False
+    return True
 
 d = json.load(open(BASE))
 assert diverges(d), 'baseline must diverge with the key present'

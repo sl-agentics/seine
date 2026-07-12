@@ -214,14 +214,79 @@ tu51x207 — the separate 3-touch ORDER compound — remains); fuzz_cep
 313 + SEINE_TJUPD 6001 ×400 = 0; cargo 9. Executor/halt machinery
 untouched (the fix is flush-layer — D-106-clean).
 
+### 5. The 3-TOUCH ORDER compound — tu51x207 (D-173 recon): the
+### childlist move is per-ACTION, not per-staged-upd
+
+Minimal (`tjx207_min`, keyed-minimized with the ORDER-class signature
+`'!firing count differs'`): SJ; four y-facts; ep0 = [tag-VI on F,
+ENTRY of F], ep1 = [in-place on F]. The ep1 A′ block fires the
+self-pair at its entry-scan slot (engine) instead of the moved END
+(oracle/model).
+
+MECHANISM: the model — 0-div on this exact cell — re-runs phase B
+($b-refire) at EVERY touch against the CURRENT children: the ENTRY
+action's own phase B finds the just-created self-child and MOVES it
+to the childlist end (the emission dedups away; the move side effect
+lands). The engine's replay dedups the staged upd to ONE RUpd op at
+the FIRST touch's stamp (TupleSets keep-first — correct for
+EMISSIONS), and the childlist re-adds rode that op — so with a
+leading same-epoch tag-VI the refire pass runs BEFORE the entry
+exists and the self-child never moves. The 3-touch is structurally
+necessary (why the 2-action generator can never reach it): without
+the leading VI the un-dedup'd refire stamp lands AFTER the entry and
+the move happens.
+
+DISCRIMINATION (the round-3 bar): the x2l1-vs-x2l2 minimal pair
+differs ONLY by the leading VI and the engine flips exactly as the
+stamp-elision predicts (`ladder_x207.py`, 5 cells, all oracle-stable,
+model==oracle on every cell). Controls: `x2l3` (VI in its OWN epoch —
+vacuously correct: the prior-epoch move relocates the memory slot so
+the scan itself orders the self-child last) and `x2l4`'s ep2 (an
+un-dedup'd in-place refire DOES move). `x2l5` pins the move's
+position in time (at the entry touch, BEFORE later partner appends).
+NOT the identity-model law: no delete exists anywhere in the
+composition — the law's activation condition is categorically absent.
+
+**FIX (validated in recon, REVERTED pending the Bryan gate):** the
+childlist re-adds move from the RUpd (emission) op to the per-ACTION
+RMove ops in `temporal_upd_replay`:
+
+```rust
+Op::RMove(f, tagc, log) => {
+    // D-173: the $b-refire's CHILDLIST move-to-end is a
+    // per-ACTION side effect too — the model re-runs
+    // phase B each touch against the CURRENT children,
+    // even when its emission dedups away.
+    let ids: Vec<usize> =
+        node.by_right.get(&f).cloned().unwrap_or_default();
+    for c in ids {
+        if !node.children[c].dead {
+            node.re_add_left(c);
+        }
+    }
+    ... existing rtm move ...
+}
+// and Op::RUpd's emission loop drops its re_add_left(c)
+```
+
+Gate evidence with the fix in-tree: ladder 5/5 engine==oracle;
+tu51x207 + tjx207_min PASS; fast battery **81/81**; corpus
+**11/1084/333** byte-identical; cargo 9. CONTROLS (per the
+recon directive, not evidence): the model population
+**2,200/2,200** (the axis fully converges) and fuzz 313 + TJUPD 6001
+×400 = 0.
+
 ## Status
 
-_Updated at D-172._ Deliverables:
+_Updated at D-173._ Deliverables:
 0. ✅ the RELINK-SET family (§4) — **LANDED (D-172)**: the dstash
    relink exemption is in-tree; tu51x80/x187 + the tju_relink_*
    ladder are live pins. The IDENTITY-MODEL LAW (top of this doc) is
-   the standing distillation. tu51x207 stays the one open ORDER
-   compound (recon when scheduled);
+   the standing distillation;
+0b. the 3-TOUCH ORDER compound (§5) — **mechanism CRACKED, fix
+   validated in recon and REVERTED — awaiting the Bryan gate**
+   (tu51x207 + tjx207_min + the x2l* ladder; landing takes the model
+   population to 2,200/2,200);
 1. ✅ the SET fix — **LANDED (D-168)**: cf6001x384 graduated;
 2. ✅ the ORDER family — **spec closed (D-169, 0-div on 2,200) and
    ENGINE-PORTED (D-170)**: cf6001x245/cf6003x274/cf6004x233/
