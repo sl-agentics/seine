@@ -1,5 +1,5 @@
 {
- "name": "tju_spin_deps_extdel",
+ "name": "fe1_fresh_right_flagged_left",
  "types": [
   {
    "name": "E0",
@@ -85,7 +85,7 @@
    ]
   }
  ],
- "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule RL salience 1 when P() then end\n",
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule K salience 7 when $b : E2(ts == 0) P() then delete($b); end\nrule R6 salience 6 when P() then end\nrule RL salience 1 when P() then end\n",
  "facts": [
   {
    "type": "E1",
@@ -133,10 +133,6 @@
     {
      "op": "advance",
      "ms": 50
-    },
-    {
-     "op": "delete",
-     "target": 3
     }
    ],
    "facts": [
@@ -165,6 +161,6 @@
    ]
   }
  ],
- "_finding": "D-176 OPEN LEDGER, finding CORRECTED AT D-177 (the original asserted 'Drools reopens the pick pre-fire' \u2014 FALSE; it pointed at the caveated D-106 executor for no reason; why the old text was wrong: the pinned output was UNDERDETERMINED \u2014 [TJ1,RN,TJ1,RL] is consistent with both pre-pick landing and reach-landing-plus-reopen, and one reading was written down as fact without a cell that could tell them apart (see the D-177 METHOD LAW: a pin is an interpretation of a probe; an underdetermined output is not a finding).) THE MECHANISM (D-177 LANDING LAW, interposer-discriminated hm1/hm1b): in a STREAM session an explicit delete's teardown lands at the delete's PROPAGATION, pre-pick \u2014 the delete kills the marked E2(0); the executor never reopens a pick and the cf5x17 static return is CORRECT. Oracle 3x: [TJ1, RN, TJ1, RL]. Engine on HEAD defers the k>=2 teardown to the victim's pop eval and under-fires RN ([TJ1,TJ1,RL]). FIX validated-then-REVERTED at D-177 (tms_eager_break k=1 scope lifts for stream explicit deletes; diff verbatim in D-177): this pin PASSES under it. Graduates at the landing.",
+ "_finding": "FLAG-EAGER PAIR ARC (own arc, split from the D-177 halt work per Bryan): the ENGINE pairs a fresh right-insert P(1) with the flag-expired left-memory partner E2(0) at a plain join inside a STREAM session \u2014 the oracle refuses the pair (D-102 mechanism 4 flag-eager: a pending-expired event makes NO NEW join pairs). Witness: K@7 `E2(ts==0) P()` at clock 101 (E2(0) deadline 101, expired-pending): oracle 3x [TJ1, R6, TJ1, RL] (K never activates); engine [TJ1, K, R6, TJ1, RL] (K fires). Mechanism UNCONFIRMED: flag-walk gap on the right-insert->left-memory scan vs ==boundary arithmetic on this path. Non-TMS, no executor involvement \u2014 needs its own minimal cell + bisect. Arc file: ~/.claude/plans/flag-eager-pair-arc.md.",
  "open_divergence": true
 }

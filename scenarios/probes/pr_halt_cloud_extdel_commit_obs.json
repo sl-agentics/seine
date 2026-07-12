@@ -1,0 +1,96 @@
+{
+ "name": "pr_halt_cloud_extdel_commit_obs",
+ "types": [
+  {
+   "name": "G",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "H",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J2 salience 5 when $g : G($t : tag) $h : H() then insertLogical(new D($t)); end\nrule RN salience 9 when not D(tag == \"old\") P() then end\nrule R6 salience 6 when T() then end\nrule RL salience 1 when P() then end\n",
+ "facts": [
+  {
+   "type": "G",
+   "fields": {
+    "tag": "old"
+   }
+  },
+  {
+   "type": "H",
+   "fields": {
+    "v": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "T",
+     "fields": {
+      "v": 1
+     }
+    },
+    {
+     "type": "G",
+     "fields": {
+      "tag": "new"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "HALT ARC (hm3b): hm3 with the observer TAG-SCOPED (`not D(tag=='old') P()`) so re-justification cannot kill RN. Oracle 3x == engine: [J2, R6, J2, RN, RL] \u2014 RN fires AFTER the victim's committed head and before RL => the cloud external-delete teardown lands at the victim's reach/post-fire (NOT quiescence) and no pre-fire reopen exists. cf5x17's commit polarity CONFIRMED on the new instrument. GREEN. GRADUATED at D-177 (green on both the fixed and the reverted tree \u2014 the CLOUD row of the landing law: teardown at the victim's item-reach, committed head fires through the reach-born observer)."
+}

@@ -11,40 +11,39 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11 late, post-D-176 — **THE D-175 SPIN FIX IS
-LANDED (Bryan-gated): deliverable (c) is CLOSED and THE WHOLE D-117
-HANG FAMILY IS CURED — the root cause is fixed, not just guarded.**
-The fix (2 predicate hunks, D-175 §4 verbatim): the TMS teardown
-CAUSE SPLIT — lazy ⟺ `in_expiration_drain` ∨ (marked member ∧ ALL
-members alive); a dead member on a flag-false report = external kill
-⇒ EAGER (a7d extended into the mark window; q1/a7c preserved).
-Graduated: tju_359_spin_min → live pin; cf6002x359 (ex-xfail) + the
-ORIGINAL pre_existing_temporal_delete_hang (ex-hang-backlog) +
-spin_c3/c4/c6 + spin_deps_k1 → regressions/ (corpus **11/1084/339**
-byte-identical); **scenarios/hang-backlog/ is EMPTY** (README maps
-dispositions); **SEINE_TJUPD 6001-6005 ×400 flags NOTHING**. Gates
-this slab: cargo 9, lint **1613/0/0** (exact count), fuzz_cep ×4 = 0,
-tjt 25/25, tj_upd 64+2-expected-fails, mju 0/200, notpop/expop fresh
-ALL MATCH (8011/8017), population CONTROL **2,200/2,200**,
-agenda_open ×19 byte-identical, bindings 72 (landed-tree .so).
-**THE BATTERY'S OPEN LEDGER IS NOW EXACTLY
-tju_spin_deps_{extdel,delpartner}** — the D-106 halt-fine-structure
-corner (post-fix: TERMINATE but one RN under-fire vs oracle
-[TJ1,RN,TJ1,RL] 3×-pinned; the eager dep-drop lands after the pick's
-D-101/cf5x17 static return; Drools reopens the pick pre-fire;
-cf5x17 certifies the OPPOSITE polarity for the pre-drain shape ⇒
-needs its own halt-matrix arc — ⚠⚠ D-106, do NOT hand-patch the
-pick). The D-117 guard STAYS IN (backstop; SEINE_SPIN_GUARD
-override + minimize_keyed --errored + TMS drain lenses landed at
-D-175). ⚖ Laws: identity-model killed BOTH directions on this
-family (c3/c7); dedup/side-effect precondition-absent — neither
-applies to the spin class. **NEXT is Bryan's call** — candidates:
-the halt-corner arc (the new ledger), D-080 TMS envelope, class-3
-re-entrant churn, window:length, Allen-beyond-Drools. Prior arc:
-D-168 SET fix → D-169 T6 spec → D-170 ORDER port → D-171/172
-relink-SET + ⚖ identity law → D-173/174 3-touch + ⚖ dedup law →
-D-175 spin recon (all landed). Fenced-by-nature: D-134 §6 ties,
-fz_42_84. `git log --oneline -20` for HEAD._
+_Last updated: 2026-07-11 latest, post-D-177 — **THE HALT-MATRIX ARC
+OPENED AND CLOSED IN ONE MOVE (Bryan-gated): the interposer
+instrument proved there is NO pick-reopen in Drools; ⚖ THE LANDING
+LAW is the third standing law (delete teardowns land by MODE×CAUSE:
+stream ⇒ at the delete's propagation [external: action / RHS:
+firing]; cloud ⇒ victim's item-reach, D-076; expiration ⇒
+post-fire/quiescence; cf5x17's static return ~7234 CORRECT and
+UNTOUCHED)**. The D-176 residual's "Drools reopens the pick
+pre-fire" was a DEFECT (underdetermined output pinned as fact) —
+corrected in both pins; **⚖ METHOD LAW logged: a pin is an
+interpretation of a probe; an underdetermined output is not a
+finding** (both laws: docs/tjupd-ledger-mechanisms.md top + D-177
+§3/§4). **THE FIX IS VALIDATED-THEN-REVERTED (D-177 §5 verbatim
+diff, Bryan's landing call pending):** tms_eager_break's k=1 scope
+lifts for stream explicit deletes (from_delete flag; one predicate,
+both delete paths; NOT the pick — the caveated region untouched,
+agenda_open ×19 byte-identical fixed-vs-reverted). Validation: full
+D-176 battery green (corpus/cargo/fuzz_cep ×4 = 0/TJUPD ×5 = 0/tjt
+25/tj_upd **66/66 both ledger fails FLIPPED**/mju/notpop+expop
+fresh/bindings 72); population 2,199/2,200 (the 1 = tu81x60,
+PRE-EXISTING, A/B'd byte-identical, filed). THIS TREE (fix
+reverted): corpus **11/1088/339** byte-identical (4 GRADUATED
+pr_halt_cloud_* pins = the law's cloud row), lint **1622/0/0**,
+cargo 9. **OPEN LEDGER: tju_spin_deps_{extdel,delpartner} +
+hm1/hm1b/hm2b (all PASS under the §5 fix — graduate at the D-177
+LANDING, checklist §7) · fe1 flag-eager pair (OWN ARC,
+probes_pending/flag_eager/ + ~/.claude/plans/flag-eager-pair-arc.md:
+engine pairs fresh right-insert with flag-expired left-memory
+partner, non-TMS) · tu81x60 (population latent, D-170/171 kin, own
+recon).** RESUME: Bryan's landing call on D-177 §5→§7. Prior arc
+D-168→D-176 all landed; D-117 guard stays as backstop.
+Fenced-by-nature: D-134 §6 ties, fz_42_84. `git log --oneline -20`
+for HEAD._
 
 **Repo:** Seine — differential-tested Rust port of a bounded Drools 9.44.0.Final
 subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
@@ -9561,3 +9560,138 @@ NEXT is Bryan's call. Candidates: the halt-corner arc (the new ledger; needs
 a D-106-style halt-matrix over the deps shapes + cf5x17 twins), or the other
 deferred items (D-080 TMS envelope, class-3 re-entrant churn, window:length,
 Allen-beyond-Drools).
+
+## D-177 — the HALT-MATRIX ARC opened and CLOSED in one move: no pick-reopen exists; ⚖ THE LANDING LAW; the D-176 residual's finding text was a DEFECT (corrected); fix validated-then-REVERTED (Bryan gate) (2026-07-11)
+
+Bryan's charter: characterization, not bug hunt — the deliverable is the
+polarity CONDITION, the fix falls out of it. Opening move (Bryan-specified,
+"may end the arc"): re-derive cf5x17's polarity on the D-175
+salience-staggered observer instrument, both polarities on ONE probe design.
+It ended the arc.
+
+### 1. The instrument: the salience INTERPOSER
+
+The pinned spin_deps output [TJ1 | RN, TJ1, RL] was UNDERDETERMINED —
+consistent with (M1) the belief drop landing PRE-PICK (RN@9 simply outranks
+TJ1@5 at the first pick; no reopen exists) AND (M2) reach-landing plus a
+pre-fire pick-reopen. The D-176 residual wrote M2 down as fact. An
+INTERPOSER rule at a salience strictly between observer and victim converts
+landing time into firing order and splits M1/M2/commit three ways.
+Predictions were logged BEFORE every run (scratchpad predictions.md); every
+oracle row below is 3×-stable; baseline was green first (corpus 11/1084/339,
+ledger pins red-as-expected).
+
+### 2. The cells
+
+| cell | mode/cause | oracle | engine@HEAD | verdict |
+|---|---|---|---|---|
+| hm1  | stream/external, mark-window open | [TJ1\|RN,R7,TJ1,RL] | [TJ1\|R7,TJ1,RL] | PRE-PICK landing; engine RED |
+| hm1b | stream/external, window closed    | same as hm1 | RED | window does NOT gate landing |
+| hm2b | stream/RHS delete                 | [TJ1\|K,RN,R6,TJ1,RL] | [TJ1\|K,R6,TJ1,RL] | lands at the deleting rule's FIRE; engine RED (new family member) |
+| hm3/hm3b | cloud/external (+tag-scoped obs) | [J2\|R6,J2,(RN),RL] | == oracle | reach landing + COMMIT; GREEN |
+| hm4/hm4b | cloud/RHS (+tag-scoped obs)      | [J2\|K,R6,J2,(RN),RL] | == oracle | reach landing + COMMIT; GREEN |
+
+hm3b/hm4b are decisive on the executor: the reach-born RN@9 fires AFTER the
+victim's committed head (before RL) — commit, not reopen, engine==oracle.
+Every standing pin slots in without exception: q1/q2/q4 + a7c +
+spin_deps_expire (expiration ⇒ post-fire/quiescence), a7d + spin_deps_k1
+(stream k=1 delete ⇒ action time), the certified plain-TMS corpus (cloud
+reach, D-076), D-138 class-3 (the law's existential instance), u4 (the
+insert-side mirror). A voided cell (hm2, clock at the expiration boundary)
+produced an OFF-ARC find — see §6.
+
+### 3. ⚖ THE LANDING LAW (Bryan's ruling; third sibling at
+### docs/tjupd-ledger-mechanisms.md top)
+
+**Delete-sourced teardowns land by MODE × CAUSE. Stream ⇒ at the delete's
+propagation (external: at the action; RHS: at the firing). Cloud ⇒ at the
+victim's item-reach (D-076). Expiration ⇒ post-fire/quiescence. The executor
+NEVER reopens a committed pick — cf5x17 is confirmed, the pick's static
+return (~7234) is correct and stays.** TRIAGE: a firing-order divergence
+around a delete → identify mode and cause first, then check landing site
+against the law, BEFORE hypothesizing anything about the executor. The
+contested window (activations born during a k≥2 pop) is EMPTY in Drools'
+frame for stream deletes and populated-but-committed in cloud. Axis
+post-mortem: axis 2 (engine-frame landing site) was the whole story and
+dissolved into Drools-side variables exactly as the arc directive warned;
+axis 3 (observer lifecycle) discriminated nothing.
+
+### 4. The D-176 residual correction — a DEFECT, not a typo (Bryan's ruling)
+### + ⚖ THE METHOD LAW
+
+The two ledger pins asserted "Drools reopens the pick pre-fire" — FALSE, and
+aimed the next session at the caveated D-106 region for no reason. Finding
+text corrected in both pins with the why: the output was underdetermined and
+one reading got pinned without a discriminating cell. **⚖ METHOD LAW (the
+third thing this arc taught, logged beside the two behavioral laws): a pin
+is an interpretation of a probe; an underdetermined output is not a finding.
+Before pinning a mechanism claim, ask what OTHER mechanism produces the same
+output; if one exists, build the splitting cell first or pin only the
+output.**
+
+### 5. The fix (VALIDATED THEN REVERTED — re-apply verbatim at the landing)
+
+NOT at the pick (engine.rs:7216/7234 caveated region untouched, per the law
+and Bryan's tripwire). The single choke point is `tms_eager_break`'s k=1
+scope: the k≥2 exclusion is CORRECT for cloud (min3783/t11/t12 pins) and
+WRONG for stream explicit deletes. One predicate + a call-site flag
+(from_delete: on_delete_ex ⇒ true, the on_update alpha-fail path ⇒ false —
+update-sourced breaks stay lazy, unprobed):
+
+```rust
+let stream_del_land = from_delete
+    && !self.in_expiration_drain
+    && self.event_specs.contains_key(&self.store.fact_type(f));
+...
+if !self.nets[*ri].path.is_empty() && !stream_del_land {
+    return false;
+}
+```
+
+The landing rides the EXISTING eager machinery (tms_drop_act_deps →
+belief retract → cascade queues the observer): external deletes land inside
+delete_fact's on_delete_ex (at the action), RHS deletes inside execute_rhs's
+Delete arm (at the firing) — one edit, both call sites, k=1 behavior
+byte-identical (path.is_empty() short-circuits before the new conjunct
+matters). The current_act self-guard stays (fz_42_2442; the fenced
+RHS-self-churn case stays fenced). A D-138-style force-eval was considered
+and REJECTED: evaluate_rule(force=true) sets tms.defer_mode, which routes
+the teardown into tms.deferred (reach landing) — it cannot land the drop.
+
+### 6. Validation (fix in-tree; the full D-176 battery)
+
+corpus **11/1084/339 byte-identical** (make diff rc 0); cargo **9 suites**;
+fuzz_cep 313/941/943/945 ×400 = **0**; **SEINE_TJUPD 6001-6005 ×400 = 0**;
+tjt 25/25; tj_upd dir **66/66 — both ledger fails FLIPPED**; mju 0/200;
+notpop 81 + expop 115 fresh ALL MATCH (seeds 8021/8027); population
+2,199/2,200 (model_tjupd_v4, seeds 11..111 step 10 — the 1 = tu81x60,
+PRE-EXISTING: baseline-vs-fix engine outputs byte-identical, worktree A/B'd;
+structurally inert — the tu population has no insertLogical so tms.by_act is
+empty; filed as an open pin, kin of the D-170/171 exit→re-enter family);
+bindings --release 72 (fixed tree; the .so reverted with the engine — the
+landing rebuilds it); **agenda_open ×19 BYTE-IDENTICAL fixed-vs-reverted**
+(the D-106-clean receipt); expected flips all confirmed:
+tju_spin_deps_{extdel,delpartner} + hm1/hm1b/hm2b PASS under the fix,
+spin_deps_expire + the four cloud cells unchanged. Post-revert: ledger pins
+red-again, corpus green with the graduations.
+
+### 7. Filings + state after this slab
+
+- GRADUATED (green both trees, the law's cloud row): scenarios/probes/
+  pr_halt_cloud_{extdel,rhsdel}_commit{,_obs} — corpus probes 1084→1088.
+- probes_pending/halt/: hm1, hm1b, hm2b (open_divergence, PASS under the
+  fix, graduate at the landing).
+- probes_pending/flag_eager/fe1_fresh_right_flagged_left.json — the OFF-ARC
+  find as ITS OWN ARC (Bryan: not a footnote): the engine pairs a fresh
+  right-insert with a flag-expired left-memory partner at a plain join in a
+  stream session; oracle refuses (D-102 flag-eager); non-TMS, no executor
+  involvement. Arc file `~/.claude/plans/flag-eager-pair-arc.md` (minimal
+  cell + boundary-vs-walk discriminator + bisect course).
+- probes_pending/cep/tj_upd/tu81x60.json — the population latent (§6).
+- The battery's open ledger is now EXACTLY: the two corrected halt pins
+  (close at the D-177 landing), fe1 (own arc), tu81x60 (own recon).
+
+LANDING (on Bryan's go): (1) re-apply the §5 diff verbatim → rebuild; (2)
+rerun the §6 battery; (3) GRADUATE tju_spin_deps_{extdel,delpartner} +
+hm1/hm1b/hm2b → regressions//live pins; (4) rebuild bindings from the landed
+tree; (5) D-178 + CURRENT STATE + memory; commit UNPUSHED.

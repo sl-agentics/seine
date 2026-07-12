@@ -1,0 +1,91 @@
+{
+ "name": "pr_halt_cloud_rhsdel_commit",
+ "types": [
+  {
+   "name": "G",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "H",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule J2 salience 5 when $g : G($t : tag) $h : H() then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule K salience 7 when $g : G(tag == \"old\") T() then delete($g); end\nrule R6 salience 6 when T() then end\nrule RL salience 1 when P() then end\n",
+ "facts": [
+  {
+   "type": "G",
+   "fields": {
+    "tag": "old"
+   }
+  },
+  {
+   "type": "H",
+   "fields": {
+    "v": 0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "T",
+     "fields": {
+      "v": 1
+     }
+    },
+    {
+     "type": "G",
+     "fields": {
+      "tag": "new"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "HALT ARC control (hm4): CLOUD/plain RHS-delete twin (K@7 `G(tag=='old') T() then delete($g)`). Oracle 3x == engine: [J2, K, R6, J2, RL] \u2014 the RHS delete's teardown does NOT land at K's fire in cloud (interposer R6 fires before any RN effect); victim's head commits through the reach-born RN (dies to re-justification). GREEN. GRADUATED at D-177 (green on both the fixed and the reverted tree \u2014 the CLOUD row of the landing law: teardown at the victim's item-reach, committed head fires through the reach-born observer)."
+}

@@ -1,0 +1,165 @@
+{
+ "name": "tu81x60",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule RJ when $a : E1(tag == \"z\") $b : E0(this before[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 26,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 72,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 59,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z",
+      "ts": 80
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 101,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 106,
+      "tag": "y"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z",
+      "ts": 15
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 38,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "ts": 119
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z",
+      "ts": 0
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 95,
+      "tag": "y"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 120,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "POPULATION LATENT (D-177 gate sweep, model_tjupd_v4 seed set 11..111 step 10 \u2014 seed 81 was outside the earlier population's seed draw): an exit(tag y)->re-enter(tag z + ts 15) double-touch under-fires the re-entry pair \u2014 engine [RJ(80,38)] vs oracle 2x-stable [RJ(15,38), RJ(80,38)]. PRE-EXISTING: baseline(6a26dab)-vs-D-177-fix engine outputs BYTE-IDENTICAL on this case (worktree A/B receipt), and the fix is structurally inert on the whole tu population (no insertLogical => tms.by_act empty). Kin of the D-170/D-171 exit->re-enter family (tu51x80/x187 lineage) \u2014 a residual member; needs its own recon.",
+ "open_divergence": true
+}

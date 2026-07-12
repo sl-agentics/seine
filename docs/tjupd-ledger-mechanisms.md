@@ -54,6 +54,55 @@ staged op. The activation signature needs ≥2 same-fact touches with a
 state change between them (why these hide beyond 2-action fuzz reach
 and need constructed ladders).
 
+## ⚖ STANDING BEHAVIORAL LAW (Bryan, D-177): THE LANDING LAW —
+## DELETE-SOURCED TEARDOWNS LAND BY MODE × CAUSE
+
+**Delete-sourced teardowns land by mode × cause. Stream ⇒ at the
+delete's PROPAGATION (external: at the action; RHS: at the firing).
+Cloud ⇒ at the victim's item-reach (D-076). Expiration ⇒
+post-fire/quiescence (q1/q2/q4, the D-175 cause split). The executor
+NEVER reopens a committed pick — cf5x17 is confirmed universally, and
+the pick's static return (engine.rs ~7234) is correct and stays.**
+
+ACTIVATION CONDITION: an explicit delete (epoch action or RHS
+`delete()`) kills a fact participating in fired/joined tuples whose
+death has observable consequences — a TMS belief drop, an existential
+unblock, an activation cancel — and something else is queued between
+the delete and the victim rule's own evaluation. The landing site then
+decides the firing order.
+
+TRIAGE RULE: a firing-order divergence around a delete → identify
+MODE and CAUSE first, then check the landing site against the law,
+BEFORE hypothesizing anything about the executor. The pick machinery
+(⚠⚠ D-106 region) is downstream of landing and has never been the
+defect in this family.
+
+PREDICTION: any engine path that defers a stream explicit-delete's
+consequences to the victim's pop eval will under-fire (or mis-order)
+higher-salience observers born from the teardown; the faithful fix
+moves the LANDING (the D-138 delete-time eval, the D-177
+`tms_eager_break` k≥2 lift), never the pick. Instances: D-138 class-3
+exists churn (the law's existential instance), u4 per-RHS-insert
+flush windows (the insert-side mirror), the D-177 fix itself
+(tju_spin_deps_{extdel,delpartner} + hm1/hm1b/hm2b vs the green cloud
+cells pr_halt_cloud_*).
+
+## ⚖ METHOD LAW (Bryan, D-177): AN UNDERDETERMINED OUTPUT IS NOT A
+## FINDING
+
+**A pin is an interpretation of a probe; an underdetermined output is
+not a finding.** The D-175/D-176 residual asserted "Drools reopens the
+pick pre-fire" — false, and it pointed the next arc straight at the
+caveated D-106 executor for no reason. The pinned spin_deps output
+[TJ1, RN, TJ1, RL] was consistent with BOTH pre-pick landing and
+reach-landing-plus-reopen; one reading got written down as fact
+without a cell that could tell them apart. The salience-INTERPOSER
+instrument (a rule strictly between the observer's and the victim's
+salience) is the discriminator that was missing. TRIAGE RULE: before
+pinning a mechanism claim, ask what OTHER mechanism produces the same
+output; if one exists, the probe is underdetermined — build the
+splitting cell first, or pin only the output.
+
 ## The ledger resolves into THREE mechanisms
 
 ### 1. SET family — cf6001x384 (the correctness gap): a stale staged
