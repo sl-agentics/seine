@@ -7035,6 +7035,20 @@ impl Engine {
                         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                             eprintln!("TMS drain[post-fire-continue] r{l} {tuple:?}");
                         }
+                    // D-198 (sd_b4): an or-twin's SIBLING branch must
+                    // consume the in-firing block (materializing its
+                    // blocked list + queue prune) BEFORE the self-defeat
+                    // drop un-breaks the not — one Drools item covers
+                    // both branches.
+                    {
+                        let par = self.rule_parents[l];
+                        let sibs: Vec<usize> = (0..self.rules.len())
+                            .filter(|&rj| rj != l && self.rule_parents[rj] == par)
+                            .collect();
+                        for rj in sibs {
+                            self.evaluate_rule(rj, false, false);
+                        }
+                    }
                         self.tms_on_terminal_del(l, &tuple);
                         if self.spin_tick() {
                             return None;
@@ -7173,13 +7187,21 @@ impl Engine {
                 }
                 dbg_eval("eager", ri);
                 self.evaluate_rule(ri, false, true);
-                // D-091: with the halted (outranked) self re-evaluation
-                // gone, the deferred entry for an eager justifier's own
-                // break is created BY this flush evaluation — drain the
-                // flush-eligible entries it just produced and propagate,
-                // so the removal still lands at the SAME flush
-                // (evaluateEagerList inside haltRuleFiring; t20 pins:
-                // pr_tms_selfbreak_flush / pr_tms_t20d).
+            }
+        }
+        // Pass 2 (D-198, sd_b4): drains produced BY the pass-1 flush
+        // evaluations run AFTER every eager rule evaluated — an
+        // or-twin's sibling branch consumes the in-firing block (its
+        // queue prunes) BEFORE the self-defeat drop un-breaks the not
+        // (Drools' one-item or semantics; evaluateEagerList inside
+        // haltRuleFiring — t20 pins pr_tms_selfbreak_flush /
+        // pr_tms_t20d unchanged).
+        for i in 0..self.rule_order.len() {
+            let ri = self.rule_order[i];
+            if self.rules[ri].def.no_loop
+                || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
+            {
+                let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
                 let mut drained = false;
                 loop {
                     let run_live = !self.nets[ri].queue.is_empty();
@@ -7196,6 +7218,20 @@ impl Engine {
                     let (_, tuple, _) = self.tms.deferred.remove(di);
                     if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                         eprintln!("TMS drain[flush-post] r{ri} {tuple:?}");
+                    }
+                    // D-198 (sd_b4): an or-twin's SIBLING branch must
+                    // consume the in-firing block (materializing its
+                    // blocked list + queue prune) BEFORE the self-defeat
+                    // drop un-breaks the not — one Drools item covers
+                    // both branches.
+                    {
+                        let par = self.rule_parents[ri];
+                        let sibs: Vec<usize> = (0..self.rules.len())
+                            .filter(|&rj| rj != ri && self.rule_parents[rj] == par)
+                            .collect();
+                        for rj in sibs {
+                            self.evaluate_rule(rj, false, false);
+                        }
                     }
                     self.tms_on_terminal_del(ri, &tuple);
                 }
@@ -7374,6 +7410,20 @@ impl Engine {
                 if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                     eprintln!("TMS drain[pop] r{ri} {tuple:?}");
                 }
+                    // D-198 (sd_b4): an or-twin's SIBLING branch must
+                    // consume the in-firing block (materializing its
+                    // blocked list + queue prune) BEFORE the self-defeat
+                    // drop un-breaks the not — one Drools item covers
+                    // both branches.
+                    {
+                        let par = self.rule_parents[ri];
+                        let sibs: Vec<usize> = (0..self.rules.len())
+                            .filter(|&rj| rj != ri && self.rule_parents[rj] == par)
+                            .collect();
+                        for rj in sibs {
+                            self.evaluate_rule(rj, false, false);
+                        }
+                    }
                 self.tms_on_terminal_del(ri, &tuple);
             }
             dbg_eval("pop", ri);
@@ -9934,20 +9984,47 @@ impl Engine {
                 // Drools leaks the WHOLE blocked list of the dying
                 // blocker (tms_t21: sibling tuples blocked by the same
                 // self-defeat fact stay parked too, firing once not
-                // per-tuple).
+                // per-tuple). OR-SIBLINGS share the one Drools item —
+                // their blocked lefts park too (D-198, sd_b4: the twin
+                // branch fires once, not per-branch).
+                let par = self.rule_parents[ri];
+                let group: Vec<usize> = (0..self.rules.len())
+                    .filter(|&rj| self.rule_parents[rj] == par)
+                    .collect();
+                for gri in group {
+                let ri = gri;
                 for pos in 0..self.rules[ri].patterns.len() {
                     let pat = &self.rules[ri].patterns[pos];
-                    if pat.ce != CeKind::Not || pat.type_id != ftid || pos == 0 {
+                    if pat.ce != CeKind::Not || pat.type_id != ftid {
                         continue;
                     }
-                    let ni = self.nets[ri].path[pos - 1];
+                    // D-198 (sd_b2): find the not's node by env — the
+                    // pos-1 arithmetic holds for trail layouts only; a
+                    // LEAD not's blocked left is the short prefix tuple
+                    // (e.g. the InitialFact) and parks as a PREFIX
+                    // (tms_parked_ins matches by starts_with).
+                    let Some(&ni) = self
+                        .nets[ri]
+                        .path
+                        .iter()
+                        .find(|&&ni| self.trie[ni].env == (ri, pos))
+                    else {
+                        continue;
+                    };
                     if let Some(lefts) = self.trie[ni].node.blocked_of(f) {
                         for lt in lefts {
+                            // the in-firing block CANCELS queued
+                            // activations extending this left (sd_b4:
+                            // the twin's original activation dies with
+                            // the block, before any un-break)
+                            self.nets[ri].queue.retain(|a| !a.t.starts_with(&lt));
+                            self.nets[ri].act_num.retain(|t, _| !t.starts_with(&lt));
                             if !self.tms.parked.iter().any(|(r, t)| *r == ri && *t == lt) {
                                 self.tms.parked.push((ri, lt));
                             }
                         }
                     }
+                }
                 }
             }
         }
@@ -9959,7 +10036,10 @@ impl Engine {
     /// unpark and activate. DEL: unpark only when a tuple fact died or
     /// fails its alpha (left-side death); blocking churn keeps the park.
     fn tms_parked_ins(&self, ri: usize, t: &Tup) -> bool {
-        self.tms.parked.iter().any(|(pri, pt)| *pri == ri && pt == t)
+        // prefix semantics (D-198, sd_b2): a parked LEFT tuple (a lead
+        // not's blocked prefix) suppresses every terminal ins that
+        // EXTENDS it; trail parks are full-width so prefix == exact.
+        self.tms.parked.iter().any(|(pri, pt)| *pri == ri && t.starts_with(pt))
     }
 
     fn tms_unpark_upd(&mut self, ri: usize, t: &Tup) -> bool {
@@ -9988,6 +10068,56 @@ impl Engine {
         };
         if left_death {
             self.tms.parked.remove(i);
+            // ⚖ t15/d4 (D-197 round 2, sd_c1 / fz_42_5213 clause C): a
+            // LEFT-side death revives the rule's OTHER parked tuples —
+            // they re-derive as new objects and re-queue (strictly-
+            // higher re-queue then preempts the deleter after one
+            // firing = the certified alternation). Without a left
+            // event siblings stay parked (t21 unchanged). LAZY plain
+            // rules only — the t15 law excludes eager (no-loop/dyn)
+            // and or-twins (fz_777_6816; the model's t15 scope).
+            let eager = self.rules[ri].def.no_loop
+                || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
+            let ortwin = (0..self.rules.len())
+                .any(|rj| rj != ri && self.rule_parents[rj] == self.rule_parents[ri]);
+            if eager || ortwin {
+                return;
+            }
+            let revived: Vec<Tup> = self
+                .tms
+                .parked
+                .iter()
+                .filter(|(pri, pt)| {
+                    // full-width parks only: a PREFIX park (a lead
+                    // not's blocked left) re-derives via the network,
+                    // never by direct re-activation (its tuple is
+                    // shorter than the terminal width)
+                    *pri == ri
+                        && pt.len() == t.len()
+                        && pt.iter().all(|f| self.store.is_alive(*f))
+                        && {
+                            let k = self.rules[ri].patterns.len();
+                            (0..k).all(|pos| {
+                                let pat = &self.rules[ri].patterns[pos];
+                                pat.sub == SubRole::Inner
+                                    || pat
+                                        .tpos
+                                        .map(|tp| {
+                                            tp < pt.len()
+                                                && self.alpha_passes(ri, pos, pt[tp])
+                                        })
+                                        .unwrap_or(true)
+                            })
+                        }
+                })
+                .map(|(_, pt)| pt.clone())
+                .collect();
+            // re-add order = the reversed blocked-chain scan (gt16's
+            // pre-fold phys law; sd_c1 fires P3 before P2)
+            for rt in revived.into_iter().rev() {
+                self.tms.parked.retain(|(pri, pt)| !(*pri == ri && *pt == rt));
+                self.push_activation(ri, rt);
+            }
         }
     }
 

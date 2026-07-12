@@ -81,6 +81,35 @@ bank now 74). Census: 7001 47→38, 6003 54→47 at mid-round; the full
 envelope witnesses are P3/P4/P5 + lazy-fine-structure targets as
 scoped — round 2.
 
+## Round-2 status (same sitting): P5 LANDED, P4 mostly landed
+
+- **P5 clause-C (t15/d4 sibling revive)**: tms_parked_del's
+  left-death now unparks the rule's other parked tuples and
+  re-activates the live ones in reversed-chain order (gt16's re-add
+  law) — LAZY plain rules only (the eager/or-twin exclusion is the
+  model's t15 scope; the ungated version flipped fz_777_6816, caught
+  by the regressions tier and scoped same sitting). sd_c1 EXACT
+  ([RJ1,RD1,RJ3,RD3,RJ2,RD2]); **fz_42_5213 GRADUATED** (the full
+  20-firing alternation, 10/10).
+- **P4 clause-B**: the park's blocked-leak now finds LEAD nots (env
+  lookup instead of the pos-1 arithmetic) and parks the blocked
+  LEFT PREFIX; tms_parked_ins matches by starts_with (trail parks
+  are full-width, so prefix == exact — certified cells unchanged).
+  sd_b2 fixed ([RJ] once); **fz_123_3060 GRADUATED** (10/10). The
+  eager list split into evaluate-all-then-drain passes (Drools'
+  evaluateEagerList shape). BONUS: **fz_7_9550 — the L-SD × L-MB
+  COMPOUND — GRADUATED** with no dedicated work.
+- RESIDUE (named): sd_b4/fz_7_9375 — the OR-TWIN corner: the twin's
+  blocked list is invisible to node.blocked_of (the D-158 PnShadow
+  structure is the suspect); the drain-site sibling-eval + group
+  park + queue prune are in place but the leak finds nothing on the
+  sibling's not. Needs a PnShadow read or a dump — next round.
+  sd_b3 stays fenced (the lazy or-twin is a Drools runaway,
+  Family II).
+- Seven Family-II runaway witnesses moved engine-side (fire-limit
+  oracles, fenced-by-nature — no semantic gate) — rebanked; drift
+  bank 71. fz_7_9864 moved toward (17→18 vs 19).
+
 ## Port order (proposed)
 
 P1 → P2 (shared drain/landing machinery; ladder-certified; zero

@@ -11,8 +11,8 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-197 (TMS-envelope arc: THE PORT
-SLAB round 1 — the deferral cause model landed, ladder 6/6
+_Last updated: 2026-07-12, post-D-198 (TMS-envelope arc: THE PORT
+SLAB rounds 1-2 — the deferral cause model landed, ladder 6/6
 engine-green, census −15.7%, fz_123_941 graduated; D-196 pushed,
 D-197 unpushed). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
@@ -128,8 +128,18 @@ ENGINE-GREEN 6/6, census 599→505 (−15.7%, all 12 seeds, model
 agenda_open ×19 byte-identical ×2, corpus byte-identical, lint
 1723/0/0. Round 2 = P4 clause-B, P5 clause-C, the lazy L-MB fine
 structure, THEN P3 (the equal-salience drain split, ⚠
-D-106-adjacent, deliberately last) — port-target-list.md.** NEXT:
-round 2 of the port slab; I-RD LAST (Bryan's order). Any
+D-106-adjacent, deliberately last) — port-target-list.md.**
+**D-198 (round 2): P5 clause-C + P4-lead LANDED — sd_c1/sd_b2
+exact; THREE GRADUATES (fz_42_5213 the 20-firing alternation,
+fz_123_3060 the clause-B over-cell, fz_7_9550 the L-SD×L-MB
+COMPOUND); census 505→483 net, HONEST MIX (5 seeds improved / 5
+regressed slightly on non-pinned shapes = round-3 targets);
+corpus 11/1124/358, drift 71, agenda_open ×19 identical, ladder
+6/6, model 0-div held; ⚠ a population-only PANIC caught by the
+12-seed net (prefix-park revive, fixed) — populations are the
+panic net. Residue: the or-twin corner (sd_b4/9375 — PnShadow
+read needed), the census regressions, the lazy mass, P3.** NEXT:
+round 3 of the port slab; I-RD LAST (Bryan's order). Any
 engine change stays gated (⚠ D-106 tripwire + D-177
 landing-not-pick). Other candidates: class-3 re-entrant churn,
 Allen-beyond-Drools. Prior: D-168→D-185 all landed. Fenced-by-nature:
@@ -10948,3 +10958,54 @@ over-cells), P5 clause-C alternation (sd_c1, 5213), the lazy L-MB
 fine structure (the census's remaining mass), THEN P3 (the
 equal-salience queue-position drain split — D-106-adjacent,
 receipts-gated, deliberately last). UNPUSHED; Bryan holds the push.
+
+## D-198 — THE PORT SLAB, ROUND 2 (P5 + most of P4): clause-C alternation + the lead-not suppression landed; THREE GRADUATES incl. the L-SD×L-MB compound; census 505→483 net with an honest per-seed mix; one panic caught by the population net (2026-07-12)
+
+THE TRANSLATION (engine.rs, TMS/park machinery only; executor
+untouched):
+- **P5 clause-C (⚖ t15/d4)**: tms_parked_del's left-death now
+  unparks the rule's OTHER parked tuples and re-activates the live
+  ones in REVERSED-chain order (gt16's re-add law) — LAZY plain
+  rules only (the eager/or-twin exclusion is the model's t15 scope;
+  the ungated version flipped fz_777_6816 — caught by the
+  regressions tier, scoped same sitting). sd_c1 EXACT
+  [RJ1,RD1,RJ3,RD3,RJ2,RD2]; **fz_42_5213 GRADUATED** (the full
+  20-firing alternation, 10/10 both sides).
+- **P4 clause-B (lead)**: the park's blocked-leak finds LEAD nots
+  by ENV LOOKUP (the pos-1 arithmetic is trail-only) and parks the
+  blocked LEFT PREFIX; tms_parked_ins matches by starts_with
+  (trail parks are full-width ⇒ prefix == exact, certified cells
+  unchanged); the leak spans OR-SIBLINGS and prunes their queues.
+  The eager list split into evaluate-all-then-drain passes
+  (Drools' evaluateEagerList shape). sd_b2 fixed ([RJ] once);
+  **fz_123_3060 GRADUATED** (10/10). BONUS: **fz_7_9550 — the
+  L-SD × L-MB COMPOUND — GRADUATED** with no dedicated work.
+- RESIDUE (named, round 3): sd_b4/fz_7_9375 — the OR-TWIN corner:
+  the sibling's blocked list is invisible to node.blocked_of (the
+  D-158 PnShadow structure is the suspect; drain-site sibling-eval
+  + group park + queue prune are in place and insufficient) — needs
+  a PnShadow read. sd_b3 stays fenced (lazy or-twin = Drools
+  runaway, Family II).
+- Seven Family-II runaway witnesses moved engine-side (fire-limit
+  oracles, fenced-by-nature) — rebanked; fz_7_9864 moved TOWARD
+  (17→18 vs 19). Drift bank 71.
+
+⚠ LESSON (the population net): a prefix park re-activated through
+my revive filter PANICKED on a 3-fact population shape (index out
+of bounds) while the corpus, ladder, AND receipts were all green —
+the 12-seed census caught it (fixed: full-width parks only revive
+directly; prefix parks re-derive via the network). Populations are
+the panic net, not just the divergence metric.
+
+RECEIPTS: corpus **11/1124/358** byte-identical (three graduates
+this round); drift 71 identical post-rebank; agenda_open ×19
+BYTE-IDENTICAL (⚠ D-106); ladder 6/6 held; cargo test 9 suites;
+the 26-witness oracle registry untouched (model 0-div held 12×
+150/150 through both rounds). CENSUS: **505 → 483 net (−22)** —
+HONEST MIX: 7001 38→28, 6003 47→37, 7009 44→39, 7010 41→32, 6001
+37→35 improved; 7002 46→50, 7006 37 (+2), 7007 44→48, 7008 41→46,
+7004 +1 REGRESSED on non-pinned population shapes — the round's
+park/revive/two-pass changes over- or under-apply on some geometry;
+those slots are round-3 diagnosis targets alongside the or-twin
+corner, the lazy L-MB mass, and P3 (D-106-adjacent, last).
+Cumulative from the pre-port baseline: **599 → 483 (−19.4%)**.
