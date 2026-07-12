@@ -1,0 +1,50 @@
+{
+ "name": "sd_c3d_join_deleter",
+ "drl": "rule \"RD\"\nno-loop\nwhen\n    $p : P($x : f0)\n    LK2(f1 == false)\nthen\n    delete($p);\nend\nrule \"RJ\"\nwhen\n    P($x : f0)\n    not LK2(f1 != true)\nthen\n    insertLogical(new LK2($x, false));\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 3
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "THE H-QHEAD-vs-H-REENTRY SPLITTER: join-deleter decl-first at equal salience \u2014 oracle [RJ,RD,RD,RD] finals EMPTY (queue-head wins; zombie LK visible to the join through the run); engine [RJ] with all Ps surviving (early drain kills the join's tuples). Value-level split, doubly divergent."
+}

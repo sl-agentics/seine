@@ -105,8 +105,24 @@ THREE-CLAUSE TABLE with ALL 13 BUCKET MEMBERS ACCOUNTED (8 pure-A,
 1353=A+B+cascade-persistence; zero unexplained). Bonus: sd_b3 = the
 bare lazy or-twin is a Drools RUNAWAY 3/3 (the 946 family as a 1-rule
 minimal; no-loop is the terminator). 23 cells, 11 open_divergence =
-the port battery core; lint 1685/0/0.** NEXT: L-MB (18 witnesses) or
-L-SD model-phase consolidation — Bryan's call; any engine change stays
+the port battery core; lint 1685/0/0.** **CONSOLIDATION (D-189,
+Bryan-directed, IN PROGRESS): c3a falsified the strictly-higher halt
+⇒ THE QUEUE-HEAD DISCIPLINE (fires from the head; (salience, decl
+position); lazy drop at head-return, eager at run end — c3d splitter
+confirmed value-level); model_sd.py + tools/fuzz_tms_sd.py LIVE —
+32/32 banked, 132/150 fresh population, ALL 18 residues
+member-order-sourced; found by population: the missing D-076 cascade
++ zombie rule, the k1-LEAD-NL RUNAWAY family (self-contained, d3;
+new positive-pattern class), t15-clears-fired-for-died-tuples,
+LK-recreation-refires (identity law in-model). ⚖ BRYAN'S EPICYCLE
+STOP logged (toggles = falsification, not resistance; proxy variable
+= unknown mechanism); member order moved to GROUND TRUTH — SdDump
+graft phase 1: NOT texture (3/3 stable), three physical rules
+(add-at-head; churn REVERSES the list; sharer split by decl
+position), plus new fine print (empty-item drop rides RE-ENTRY?
+gt3-vs-a13 split = phase-2 target). lint 1694/0/0; 32 cells, 16
+open_divergence; engine census 69/150. NEXT: graft phase 2 →
+encode rules → 0-div → L-MB.** Any engine change stays
 gated (⚠ D-106 tripwire + D-177 landing-not-pick).** Other
 candidates: class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
@@ -10448,3 +10464,102 @@ B's exact fold site; clause C's equal-salience re-queue case c3 —
 unprobed, one cell at the model phase) recorded in the results doc.
 NEXT: L-MB (the 18-witness mutation-break cluster) per plan §5, or
 L-SD model-phase consolidation first — Bryan's call.
+
+## D-189 — CONSOLIDATION (Bryan-directed): c3 falsified the halt formulation → THE QUEUE-HEAD DISCIPLINE; the model + dedicated fuzzer live; ⚖ Bryan's EPICYCLE STOP mid-arc; the MEMBER-ORDER GRAFT phase 1 — deterministic mechanics, not texture (2026-07-12)
+
+Bryan's ruling after D-188: consolidate before L-MB — "the table has
+never been tested out-of-sample." Executed, and the out-of-sample
+testing did its job THREE times over.
+
+### 1. c3: the equal-salience re-queue cells (theory-derived predictions)
+
+c3b/c3c hit exactly; **c3a FALSIFIED the strictly-higher halt
+formulation** (oracle alternates at EQUAL salience, justifier
+decl-first, 3×). Unification: **H-QHEAD — the executor always fires
+from the queue head; queue order = (salience desc, declaration
+position); an item continues iff still head; a lazy drop lands when
+its item returns to the head, an eager (no-loop) drop at run end.**
+The undischarged H-REENTRY alternative was killed by the pre-registered
+splitter **c3d** (value-level split: finals EMPTY vs P-survivors;
+oracle = queue-head exactly; the zombie self-defeated LK stays visible
+through the deleter's run). Clause C dissolves into H-QHEAD + t15.
+Rung-2's three-clause wording is SUPERSEDED: the table = queue-head
+discipline + in-firing self-cancellation + t10-leak/t15-revive +
+cascade (below). c3d is also a new doubly-divergent engine witness.
+
+### 2. The executable spec + the dedicated fuzzer (population loop LIVE)
+
+`probes_pending/tms_envelope/model_sd.py` (simulate()) +
+`validate_cells.py` (32 banked truths incl. 3 derived runaways) +
+`tools/fuzz_tms_sd.py` (the L-SD grammar; gen.rs walls UNTOUCHED;
+mismatches oracle-3× flake-filtered; engine census riding along).
+Population seed 6001 ×150 fresh found REAL out-of-sample holes and
+drove these mechanism-grounded corrections: **the D-076 CASCADE was
+missing** (P dies ⇒ its non-defeated LK dies eagerly — x130) with the
+**ZOMBIE refinement** (a self-defeated LK's dep is already cancelled
+at break time; it is immune to its P's death and dies only at its
+drop — c3d); **the k1-LEAD-NL RUNAWAY family** (7/7 population hits;
+the d1-d5 boundary ladder pinned it: SELF-CONTAINED — no deleter
+needed (d3); trail terminates (d2); lazy-lead terminates (d4);
+no-loop blocks t15 revival (d2); a NEW positive-pattern Drools
+runaway family beyond the CE-only D-080 census; engine terminates =
+strictly better; uncertifiable); **t15 re-derivation clears fired
+marks** for tuples that DIED in a defeat churn (d4 — same-value
+refire as a NEW object) and ONLY for those (x52/x68/x130: a
+non-breaking justifier's live fired tuples never re-derive); **LK
+re-creation is a new OBJECT** — observers refire (x14; the
+identity-model law applied inside the model). State: 32/32 banked,
+**132/150 population clean, ALL 18 residues member-order-sourced**;
+engine-vs-oracle census 69/150 (the port A/B baseline).
+
+### 3. ⚖ Bryan's EPICYCLE STOP (method doctrine, logged)
+
+Mid-consolidation the member-order sub-model degenerated into four
+fitted toggles (yielded/stale/churned/has_lead_just). Bryan halted it:
+**residue cases that keep inverting a model's empirical toggles are
+FALSIFYING the formulation, not resisting it; every added conjunct is
+an epicycle; a rule that needs a proxy variable is a rule that doesn't
+know why that variable matters.** Layer separation ruled: the
+pop-level discipline (§1-2) STANDS — every designed splitter confirmed
+it; the member-order layer was being hand-derived from firing
+sequences (inferring a data structure's layout from its consumption
+order) and moved to GROUND TRUTH per D-086. The churned-on-every-pop
+model defect found during the stop was fixed FIRST (Bryan's order);
+32/32 holds post-fix, honestly (raw population mismatches rose 13→20
+when the bug stopped absorbing order cases — then 18 after the §2
+principle fixes).
+
+### 4. The member-order GRAFT, phase 1 (SdDump.java; outcomes pre-registered)
+
+`oracle/.../SdDump.java` (ExistsDump clone): every beta memory in
+physical iteration order + handle ids + identityHashCode tags, after
+every action and firing; 4 reduced residue cores × 3 JVM launches.
+**NOT hash texture — cross-launch STABLE 3/3 everywhere** (outcome B
+off for these shapes). Three physical rules observed
+(`graft-phase1.md`): (1) **add-at-head**, no in-place reordering;
+(2) **churn replay REVERSES the list** (break/unbreak re-inserts the
+scan at head — the source of every FIFO/LIFO flip the toggles
+chased); (3) **sharer split by decl position** (first-declared sharer
+consumes staging FIFO, later sharer scans memory LIFO; gt2↔gt4 swap
+exactly). NEW fine print opened by the dump, NOT hand-derived: gt3
+shows the lazy drop landing AFTER the deleter's first firing — a
+clause-B-emptied item apparently DEQUEUES (D-091 empty-item rule) and
+the drop rides its re-entry; a13 (k=0) pinned the empty-item case
+differently ⇒ the split is phase-2's target, with the per-path
+SegmentMemory staged-list/peer dump (rule 3's construction).
+
+### 5. Gates + filings + state
+
+lint **1694/0/0** (9 more cells: c3a/c3c/c3d/d1/d3/d4/d5
+open_divergence — d1/d3/d5 = runaway-class, uncertifiable; c3b/d2
+live controls); xfail drift gate GREEN; corpus untouched
+**11/1124/354**; engine untouched; oracle module gains SdDump
+(diagnostic main class — runner/gate paths untouched, classpath
+rebuild clean). Arc census: 32 constructed cells, 16 open_divergence.
+Filings: model_sd.py + validate_cells.py + fuzz_tms_sd.py +
+graft-phase1.md + the predictions file (every round pre-logged,
+including the pre-registered graft outcomes). NEXT: graft phase 2
+(per-path staged lists/peers; the empty-item drop-landing split),
+encode rules 1-3, re-population toward 0-div; then L-MB. The four
+in-model order toggles are RETIRED as semantics (stopgap only,
+superseded by graft-phase1.md).

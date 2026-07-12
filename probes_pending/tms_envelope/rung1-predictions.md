@@ -170,3 +170,134 @@ If c1's oracle does NOT alternate strictly (e.g. RD fires twice in a
 row), the halt-gating hypothesis is wrong and only the t15-refire part
 stands — pin the output, split later. If c2 refires, t10's scope is
 narrower than pinned — surface loudly (standing-pin contradiction).
+
+# Consolidation (D-189) — c3: the equal-salience re-queue case
+# (predictions DERIVED FROM THE TABLE before running — the first
+# genuinely out-of-sample test: these shapes constrained no clause)
+
+Derivation basis: the D-091 halt is STRICTLY-higher-gated (clause C);
+a continuing/re-queued item keeps its decl-order position in the equal
+bucket (a13: the drain sat exactly at the justifier's decl slot);
+t15 revive on left-P events; t10 leak for the justifier's own unbreak.
+
+| cell | shape | ORACLE prediction (derived) | ENGINE prediction |
+|---|---|---|---|
+| sd_c3a_eq_jfirst | RJ@0 decl-1, RD@0 no-loop decl-2, P×3 | [RJ(1), RD(1), RD(2), RD(3)] — RJ pops first (entry order), fires once (B); drop at its re-pop; RD then fires its WHOLE list (equal ⇒ NO halt despite RJ's t15 re-queues); RJ's re-derived tuples die as their Ps are deleted ⇒ RJ never refires | same sequence ⇒ GREEN (the engine's batching coincides with the table at equal salience) |
+| sd_c3b_eq_dfirst | RD@0 no-loop decl-1, RJ@0 decl-2, P×3 | [RD(1), RD(2), RD(3)] — RD pops first, no halt at equal, deletes everything; RJ's tuples all die before its pop ⇒ RJ NEVER fires | same ⇒ GREEN |
+| sd_c3c_gap1 | RJ@0 decl-1, RD@−1 no-loop decl-2, P×3 | strict alternation [RJ(1),RD(1),RJ(3),RD(3),RJ(2),RD(2)] — c1's regime at salience gap 1 (the halt is ordinal, not cardinal) | [RJ, RD, RD, RD] (batching) ⇒ RED |
+
+Any oracle deviation from these three = the table is incomplete →
+new clause work BEFORE the population. Member-order sub-predictions
+(1 first initially; 3,2 on re-derivation) ride along at lower
+confidence — an order-only miss refines the memory-order rule, not
+the clauses.
+
+RESULT: c3b, c3c EXACT hits; **c3a FALSIFIED the strictly-higher
+formulation** — oracle alternates AT EQUAL SALIENCE when the justifier
+is decl-first ([RJ(1),RD(1),RJ(3),RD(3),RJ(2),RD(2)] 3×-stable; engine
+batches). The halt is not salience-special-cased. Unifying candidate
+**H-QHEAD: the executor always fires from the QUEUE HEAD; queue order
+= (salience desc, declaration position); a firing item continues iff
+still head** — absorbs clause A's queue-position rule, c3a/b/c, b7,
+9133, a13, c1. Undischarged alternative **H-REENTRY: at equal
+salience a RE-ENTERING item preempts a continuer (position
+irrelevant)** — alive because every alternation cell so far had the
+re-entrant also decl-first. Splitter (logged before running):
+
+| cell | shape | H-QHEAD | H-REENTRY |
+|---|---|---|---|
+| sd_c3d_join_deleter | RD decl-1 @0 no-loop = `$p:P($x) LK2(f1==false) -> delete($p)` (join — its tuples exist only after LK2 is born); RJ decl-2 @0 justifier; P×3 | [RJ, RD, RD, RD] (RD pos-1 stays head through its list; RJ's drop lands after, killing nothing that matters) | [RJ, RD] (RJ's re-queue preempts after RD's first firing; the drop kills LK2 and with it RD's remaining join tuples) |
+
+ENGINE prediction either way: [RJ, RD, RD, RD]-shaped batching
+(strictly-higher predicate sees nothing higher). NOTE the readings
+also differ in FINAL FACTS (H-REENTRY leaves P2, P3 alive; H-QHEAD
+deletes all three) — a value-level split, not order-only.
+
+RESULT: H-QHEAD, exactly (3×; finals []). Model built; 27/27 banked.
+
+# Population round 1 (seed 6001, 150 fresh): 13 REAL divergences →
+# two model gaps + one new runaway family (predictions BEFORE the
+# boundary cells)
+
+Census: (1) CASCADE gap — x130-class: my model lacked D-076
+justification-death (P dies ⇒ its non-defeated LK dies EAGERLY at the
+action); c3d refines it: an already-SELF-DEFEATED LK is a ZOMBIE (dep
+cancelled at break time, pending drop) — immune to its P's death,
+dies only at the drop. (2) RUNAWAY family — 7/7 cases carry
+{no-loop × k=1 × LEADING-not} justifiers (+deleter in all 7, 60%
+draw rate — presence possibly incidental); zero trailing-not runaways
+in ~22 expected trail+NL draws. The D-080 runaway census was CE-only
+(SJ); this is a POSITIVE-pattern self-justifier runaway — new family
+member. (3) member-order fine structure (batch LIFO in waited/churned
+contexts) — census-driven work, no hand-rule yet.
+
+Boundary mini-ladder for (2), predictions from the 7/7-lead signal:
+
+| cell | shape (P×2 + del_not@-5 unless noted) | ORACLE pred |
+|---|---|---|
+| sd_d1_nl_lead_del | JUST k1 lead NL @0 + deleter | RUNAWAY (the population shape) |
+| sd_d2_nl_trail_del | JUST k1 trail NL @0 + deleter | terminates (no trail runaway in 150) |
+| sd_d3_nl_lead_nodel | JUST k1 lead NL @0, no deleter | ? — splits deleter-necessity; if RUNAWAY, the cycle is self-contained (lead×NL alone); if terminates, the deleter's guard-churn feeds it |
+| sd_d4_lazy_lead_del | JUST k1 lead LAZY @0 + deleter | terminates (b2/b6 lead-lazy banked green vs model; c-series lazy+deleter alternate/batch) |
+| sd_d5_nl_lead_obs | as d3 + obs_lk@5 | rides d3's verdict (observer sampling instrument if terminating) |
+
+Engine prediction: terminates on all five (the engine's early drain
+never cycles). If d1 terminates instead: the runaway needs a specific
+salience/decl geometry — take the exact x110 shape as d1' verbatim.
+
+# The MEMBER-ORDER GRAFT (D-189 §order; Bryan-directed after the
+# epicycle stop): protocol + PRE-REGISTERED outcomes
+
+The four FIFO/LIFO toggles were shadows of physical tuple-list
+mechanics observed through the wrong instrument (firing sequences).
+Layer separation is now explicit: the POP-LEVEL discipline
+(queue-head, landings, clause B, cascade/zombie, NL/t15 scope,
+runaway family) stands — 32/32 banked cells, 132/150 population,
+with ALL 18 residues member-order-sourced (12+2 multiset-equal, 4
+order-cascades where the picked member changes downstream deletes).
+The member-order layer is hereby probed by GROUND TRUTH, not fitted.
+
+INSTRUMENT: SdDump (ExistsDump clone) — after EVERY action and EVERY
+firing, dump each beta node's left+right tuple memories in physical
+iteration order with fact f0 values, FactHandle ids, and
+identityHashCode of tuple and handle. 3 JVM launches per shape.
+
+TARGETS: T1 c3b-core (del@0 decl-0 + trail just decl-1; FIFO
+baseline), T2 x130-core (trail-nobrk just@7 decl-0 + del@0 decl-1,
+P×4; the stale-LIFO case), T3 d4-core (lead-lazy just@0 + del@-5,
+P×3), T4 x52-core (del@-5 decl-0 + trail-nobrk just@5, P×4; the
+stale-FIFO twin of T2). T2-vs-T4 is the sharpest pair: same staleness,
+opposite observed orders, differing (as drawn) in deleter decl
+position. If a 2-rule reduction changes the order behavior vs the
+population original, that context-sensitivity is itself evidence
+toward texture.
+
+PRE-REGISTERED OUTCOMES (so a negative reads as a result):
+(A) The dumped lists show a coherent physical rule (insertion
+    position by event class; re-derivation position; shared-vs-private
+    memory) that predicts firing order across all four shapes and all
+    launches → encode THAT rule (mechanism, not toggles), re-run the
+    population toward 0-div.
+(B) The lists show IDENTITY-HASH texture — order varies across JVM
+    launches for the same program, or tracks identityHashCode — then
+    within-item member order is NOT semantics (the ex9/fz_42_84 class
+    at the memory level) and the layer is FENCED WITH EVIDENCE: the
+    model certifies landings/sets/counts/runaway (the mechanism
+    layer); order-only residue is quantified (currently 18/150 =
+    12%) and documented; the 12 open_divergence port cells do not
+    depend on the order layer.
+(C) Stable across launches but no rule visible in four shapes →
+    extend targets before concluding; do NOT resume toggle-fitting.
+
+## Clause-B fold-site disposition (during consolidation, per Bryan)
+
+Claim to check: no in-envelope observable splits fold-at-WM-action
+from fold-at-between-tuples-eval, because every path to the cancelled
+tuple's firing passes a network evaluation first (a strictly-higher
+mid-firing preemption still re-enters via the item's next pop-eval,
+which processes the staged break under EITHER reading; external
+actions cannot reach between-tuple states — they land at epoch
+boundaries). Disposition: argued invisible-in-envelope in the model
+doc; the population can contradict it only by producing a cell where
+the two readings predict different outputs — none is constructible in
+the v1 grammar. Port-phase code read decides the implementation site.

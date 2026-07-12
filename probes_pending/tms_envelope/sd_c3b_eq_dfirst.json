@@ -1,0 +1,49 @@
+{
+ "name": "sd_c3b_eq_dfirst",
+ "drl": "rule \"RD\"\nno-loop\nwhen\n    $p : P($x : f0)\n    not LK2(f1 != true)\nthen\n    delete($p);\nend\nrule \"RJ\"\nwhen\n    P($x : f0)\n    not LK2(f1 != true)\nthen\n    insertLogical(new LK2($x, false));\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 3
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN control 3x: deleter decl-first at equal salience batches its whole list and the justifier never fires \u2014 exact H-QHEAD prediction, engine==oracle."
+}

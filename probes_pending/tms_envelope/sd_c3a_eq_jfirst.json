@@ -1,0 +1,50 @@
+{
+ "name": "sd_c3a_eq_jfirst",
+ "drl": "rule \"RJ\"\nwhen\n    P($x : f0)\n    not LK2(f1 != true)\nthen\n    insertLogical(new LK2($x, false));\nend\nrule \"RD\"\nno-loop\nwhen\n    $p : P($x : f0)\n    not LK2(f1 != true)\nthen\n    delete($p);\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 3
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "oracle ALTERNATES AT EQUAL SALIENCE (justifier decl-first): [RJ1,RD1,RJ3,RD3,RJ2,RD2] vs engine batching [RJ,RD,RD,RD] \u2014 the cell that falsified the strictly-higher halt formulation and forced H-QHEAD (queue-head discipline, D-189)."
+}

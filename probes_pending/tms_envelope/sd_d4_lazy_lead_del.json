@@ -1,0 +1,44 @@
+{
+ "name": "sd_d4_lazy_lead_del",
+ "drl": "rule \"RJ\"\nwhen\n    not LK2(f1 != true)\n    $p : P($x : f0)\nthen\n    insertLogical(new LK2($x, false));\nend\nrule \"RD\"\nno-loop\nsalience -5\nwhen\n    $p : P($x : f0)\n    not LK2(f1 != true)\nthen\n    delete($p);\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "oracle [RJ1,RD2,RJ1,RD1]: lead-LAZY justifier + deleter \u2014 t15 re-derivation CLEARS FIRED MARKS (RJ refires the same P1 as a new tuple object) and the waited deleter fires LIFO; engine [RJ1,RJ2,RD1,RD2] (lead clause-B miss + order). Doubly divergent."
+}
