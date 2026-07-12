@@ -51,18 +51,23 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`; PUSHED through `b260ab4` (Bryan holds every
-push); UNPUSHED on top: the D-175 recon commit (`e9a153d`) + the
-D-176 LANDING commit (this one). Resume point: NEXT is Bryan's call
-(the D-176 tail lists candidates; the open ledger =
-tju_spin_deps_{extdel,delpartner}, the halt-corner arc).
-**RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
-on `2a482e8`, the ci.yml release pipeline all-green incl. the
-differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
-sdist). The v*-tag⇒publish hazard note stands for FUTURE tags. ⚠ **NO `v*` TAGS until a PyPI release is
-intended** — `ci.yml`'s `release`/`publish-pypi` fire on tag push and the
-`pypi` environment has NO protection rules (gh-verified): a new tag
-publishes `seine-rs` with no manual gate. Arc history: the D-entries
+**Git:** on `main`, fully PUSHED through `cf14cb5` (the v0.4.2 bump;
+Bryan-directed 2026-07-11; D-175 `e9a153d` + D-176 `2028c41` + the
+bump all on origin). Resume point: NEXT is Bryan's call (the D-176
+tail lists candidates; the open ledger =
+tju_spin_deps_{extdel,delpartner}, the halt-corner arc — the
+polarity-tension sharpening is in the 2026-07-11 session log:
+cf5x17's static-commit pin vs the spin_deps pre-fire yield, three
+co-varying axes, contested window = activations born during a k≥2
+pop's processing).
+**RELEASED: v0.4.2 → PyPI, 2026-07-11** (Bryan-directed; tag
+`v0.4.2` on `cf14cb5`, pipeline landed green — Bryan-confirmed;
+follows v0.4.1 on `2a482e8` earlier the same day). The
+v*-tag⇒publish hazard note stands for FUTURE tags. ⚠ **NO `v*` TAGS
+until a PyPI release is intended** — `ci.yml`'s
+`release`/`publish-pypi` fire on tag push and the `pypi` environment
+has NO protection rules (gh-verified): a new tag publishes
+`seine-rs` with no manual gate. Arc history: the D-entries
 below (D-136 shared-tjo → D-137/138/139 item-C → D-140 not-order →
 D-141 tj-ts → D-143..D-153 the mechanical shadows → D-154/155 A2 winacc
 → D-156 tj pair-order → D-158/159 plain-not → D-160 acc drain → D-161
