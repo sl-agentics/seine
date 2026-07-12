@@ -30,6 +30,30 @@ before hypothesizing anything else. Expect it to explain future
 finds wherever deletes defer: TMS retraction cascades, expiration
 drains, halt-model re-adds.
 
+## ⚖ STANDING BEHAVIORAL LAW (Bryan, D-174): DEDUP FOLDS EMISSIONS,
+## NOT SIDE EFFECTS
+
+**Staged-op dedup (TupleSets keep-first) is an EMISSION economy;
+per-touch processing side effects still run once per ACTION.** Drools
+stages at most one op per fact and keeps the first slot — that governs
+what FIRES and where — but every touch's processing (memory
+re-add/move, child-list re-add, stamp refresh) executes at its own
+action against the then-current state. An engine decomposition that
+attaches a side effect to the dedup'd staged op runs it exactly once,
+at the FIRST touch's stamp, against the FIRST touch's state — silently
+eliding every later touch's effect. Side effects must ride PER-ACTION
+ops (the pending-move pattern, D-170); only emissions belong on the
+dedup'd op.
+
+Known instances: the rtm tail-move (tu11x95, solved at D-170 with
+`pending_rmoves`) and the childlist move-to-end (tu51x207, solved at
+D-174 by riding the same ops). TRIAGE RULE: an ORDER divergence in a
+multi-touch composition where the engine behaves as if only the FIRST
+touch happened — check whether a per-action side effect rode a dedup'd
+staged op. The activation signature needs ≥2 same-fact touches with a
+state change between them (why these hide beyond 2-action fuzz reach
+and need constructed ladders).
+
 ## The ledger resolves into THREE mechanisms
 
 ### 1. SET family — cf6001x384 (the correctness gap): a stale staged
@@ -278,15 +302,15 @@ recon directive, not evidence): the model population
 
 ## Status
 
-_Updated at D-173._ Deliverables:
-0. ✅ the RELINK-SET family (§4) — **LANDED (D-172)**: the dstash
-   relink exemption is in-tree; tu51x80/x187 + the tju_relink_*
-   ladder are live pins. The IDENTITY-MODEL LAW (top of this doc) is
-   the standing distillation;
-0b. the 3-TOUCH ORDER compound (§5) — **mechanism CRACKED, fix
-   validated in recon and REVERTED — awaiting the Bryan gate**
-   (tu51x207 + tjx207_min + the x2l* ladder; landing takes the model
-   population to 2,200/2,200);
+_Updated at D-174._ Deliverables:
+0. ✅ the RELINK-SET family (§4) — **LANDED (D-172)**; the
+   IDENTITY-MODEL LAW is standing;
+0b. ✅ the 3-TOUCH ORDER compound (§5) — **LANDED (D-174)**: the
+   childlist re-adds ride the per-action RMove ops; tu51x207 +
+   tjx207_min + the x2l* ladder are live pins; the model population
+   is **2,200/2,200**. The DEDUP/SIDE-EFFECT LAW (top of this doc,
+   beside the identity law) is the standing distillation. **The
+   battery's open ledger is now EXACTLY tju_359_spin_min**;
 1. ✅ the SET fix — **LANDED (D-168)**: cf6001x384 graduated;
 2. ✅ the ORDER family — **spec closed (D-169, 0-div on 2,200) and
    ENGINE-PORTED (D-170)**: cf6001x245/cf6003x274/cf6004x233/

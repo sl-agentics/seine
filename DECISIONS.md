@@ -55,16 +55,26 @@ corpus clean; CONTROLS: population 2,200/2,200 (the whole update
 axis converges on landing) + fuzz 313/TJUPD 6001 = 0. Ladder
 committed (ladder_x207.py + 6 pins: tjx207_min/x2l1/x2l4/x2l5 red,
 x2l2/x2l3 live); minimize_keyed extended with '!'-negated signature
-keys.** The battery's open ledger: tju_359_spin_min + the D-173
-family (pending the gate). **NEXT: Bryan's gate — (e) land the §5
-fix (takes the open ledger to EXACTLY the spin); (c) the cf6002x359
-spin root-cause slab, THE LAST OPEN TJUPD ITEM (checker-first,
-⚠⚠ D-106) — handoff `~/.claude/plans/tjupd-ledger-handoff.md`
-((a)(b)(d) DONE, (e) recon-ready).** Gates: corpus **11/1084/333**
-byte-identical, cargo 9, lint **1601/0/0** (+6 D-173 pins), bindings
-72 (at D-172). Prior: D-172 relink fix + ⚖ the identity-model law,
-D-170 ORDER port, D-169 T6 spec, D-168 SET fix (PUSHED through D-170
-at `8f2cfb6`). Other deferred: D-080 TMS envelope, class-3 re-entrant
+keys.** **⇒ D-174 (this slab): the §5 fix is LANDED (Bryan-gated) and ⚖ THE
+DEDUP/SIDE-EFFECT LAW is ledgered beside the identity law: staged-op
+dedup folds EMISSIONS only — per-touch side effects run once per
+ACTION and must ride per-action ops (the D-170 pending-move pattern);
+a side effect on the dedup'd op runs once at the FIRST touch's stamp
+(instances: the rtm move tu11x95/D-170, the childlist move tu51x207/
+D-174; triage: multi-touch ORDER divergence where the engine acts as
+if only the first touch happened).** tjx207_min + x2l1/x2l4/x2l5 +
+tu51x207 are LIVE pins. **THE BATTERY'S OPEN LEDGER IS NOW EXACTLY
+tju_359_spin_min — the whole SEINE_TJUPD update axis is closed except
+the D-117 spin. NEXT: Bryan's gate — (c) the spin root-cause slab,
+THE LAST OPEN TJUPD ITEM (checker-first, ⚠⚠ D-106) — handoff
+`~/.claude/plans/tjupd-ledger-handoff.md` ((a)(b)(d)(e) DONE).**
+Gates this slab: corpus **11/1084/333** byte-identical, cargo 9,
+fuzz_cep ×4 = 0, TJUPD 6001-6005 = only the spin, tjt 25/25, mju
+0/200 + 200/200, notpop/expop fresh clean, lint **1601/0/0**,
+bindings 72; CONTROL: the model population **2,200/2,200**. Prior:
+D-173 recon, D-172 relink fix + ⚖ the identity-model law, D-170
+ORDER port, D-169 T6 spec, D-168 SET fix (PUSHED through D-170 at
+`8f2cfb6`). Other deferred: D-080 TMS envelope, class-3 re-entrant
 churn, window:length (never built), Allen-beyond-Drools.
 Fenced-by-nature: D-134 §6 ties, fz_42_84. `git log --oneline -20`
 for HEAD._
@@ -9330,3 +9340,45 @@ ORDER-class minimization this recon needed).
 NEXT (Bryan gates): (e) land the §5 fix (evidence complete — takes
 the battery's open ledger to EXACTLY tju_359_spin_min); (c) the spin
 arc — THE LAST OPEN TJUPD ITEM (checker-first, ⚠⚠ D-106).
+## D-174 — the 3-touch fix LANDED; ⚖ THE DEDUP/SIDE-EFFECT LAW logged (2026-07-11)
+
+Bryan gated (e) and ruled the D-173 distillation the SECOND standing
+behavioral law, ledgered beside the identity-model law.
+
+⚖ **THE DEDUP/SIDE-EFFECT LAW (Bryan's ruling): staged-op dedup
+(TupleSets keep-first) folds EMISSIONS only; per-touch processing
+side effects run once per ACTION.** Every touch's processing (memory
+re-add/move, child-list re-add, stamp refresh) executes at its own
+action against the then-current state — a side effect attached to the
+dedup'd staged op runs once at the FIRST touch's stamp against the
+FIRST touch's state, silently eliding later touches. Engine
+corollary: side effects ride PER-ACTION ops (the D-170 pending-move
+pattern); only emissions belong on the dedup'd op. Instances: the rtm
+tail-move (tu11x95/D-170), the childlist move-to-end (tu51x207/this
+slab). TRIAGE: an ORDER divergence in a multi-touch composition where
+the engine acts as if only the FIRST touch happened — check whether a
+side effect rode a dedup'd op. Activation needs ≥2 same-fact touches
+with a state change between (beyond 2-action fuzz reach ⇒ constructed
+ladders). Ledgered at the top of `docs/tjupd-ledger-mechanisms.md`
+beside the identity-model law + the workflow memory's doctrine list.
+
+ENGINE (the D-173 §5 diff, applied verbatim + the law cited): the
+childlist re-adds move from the RUpd emission op to the per-ACTION
+RMove ops in `temporal_upd_replay`. Replay-internal; executor
+untouched (D-106-clean).
+
+SCENARIOS: tjx207_min + x2l1/x2l4/x2l5 + tu51x207 flipped to LIVE
+pins (GRADUATED findings); x2l2/x2l3 stay live controls. **The
+battery's open ledger is now EXACTLY tju_359_spin_min** — the whole
+SEINE_TJUPD update axis is closed except the D-117 spin.
+
+GATES (all green): ladder 5/5 engine==oracle; corpus **11/1084/333**
+byte-identical; fast battery 81/81; cargo 9; fuzz_cep
+313/941/943/945 ×400 = 0; SEINE_TJUPD 6001-6005 ×400 = only
+cf6002x359; tjt 25/25; mju 0/200 + 200/200; notpop/expop fresh
+engine-clean; lint **1601/0/0**; bindings 72. CONTROL: the model
+population **2,200/2,200** — the update axis fully converges.
+
+NEXT (Bryan's gate): (c) the cf6002x359 spin root-cause slab — THE
+LAST OPEN TJUPD ITEM (checker-first, ⚠⚠ D-106; witness
+tju_359_spin_min, 4 facts).

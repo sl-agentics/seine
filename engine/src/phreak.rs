@@ -1254,6 +1254,20 @@ fn temporal_upd_replay<E: JoinEnv>(
                     }
                 }
                 Op::RMove(f, tagc, log) => {
+                    // D-173 (⚖ the dedup/side-effect law: staged-op dedup
+                    // folds EMISSIONS only — per-touch side effects run
+                    // once per ACTION): the $b-refire's CHILDLIST
+                    // move-to-end rides the per-action move op, not the
+                    // dedup'd RUpd — a leading same-epoch tag-VI would
+                    // otherwise pin the refire pass before an entry's
+                    // self-child exists (tu51x207).
+                    let ids: Vec<usize> =
+                        node.by_right.get(&f).cloned().unwrap_or_default();
+                    for c in ids {
+                        if !node.children[c].dead {
+                            node.re_add_left(c);
+                        }
+                    }
                     // one memory-move per update ACTION (dedup-proof) at
                     // its own stamp — interleaves with staged inserts
                     // (tu11x92/x95). Prior-epoch moves apply silently.
@@ -1280,7 +1294,9 @@ fn temporal_upd_replay<E: JoinEnv>(
                     }
                 }
                 Op::RUpd(f, o) => {
-                    // pure refire — the memory moves are RMove ops.
+                    // pure refire EMISSIONS — the memory moves AND the
+                    // childlist re-adds are per-action RMove side effects
+                    // (D-173: dedup folds emissions, not effects).
                     let ids: Vec<usize> =
                         node.by_right.get(&f).cloned().unwrap_or_default();
                     let mut by_pos: Vec<(usize, usize)> = ids
@@ -1299,7 +1315,6 @@ fn temporal_upd_replay<E: JoinEnv>(
                     by_pos.sort_by_key(|(p, _)| *p);
                     for (_, c) in by_pos {
                         op_out.child_upd(node.children[c].tuple.clone(), o, 2);
-                        node.re_add_left(c);
                     }
                 }
                 Op::LUpd(l, o) => {
