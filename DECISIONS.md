@@ -33,17 +33,20 @@ byte-identical); probes_pending/halt/ EMPTY. Gates this slab: cargo
 25/25, tj_upd 64 + exactly tu81x60, mju 0/200, notpop 84 + expop 104
 fresh ALL MATCH (8031/8037), population 2,199/2,200 (the 1 =
 tu81x60, pre-existing, A/B'd, filed), bindings 72 (landed-tree
-release .so). **THE BATTERY'S OPEN LEDGER IS NOW EXACTLY: the
-FLAG-EAGER family (fe1 + the D-179 cells fe2/fe3/fe4/fe6,
-probes_pending/flag_eager/ — mechanism PINNED at D-179: the
-plain-join walks corpse-check only the PARTNER, never the WALKING
-fact, so a corpse whose fold is deferred past its flagging by
-unlinked-path staging walks in and pairs; temporal arm clean [fe7];
-boundary ruled out [fe3]; fix shape stated in the arc file
-`~/.claude/plans/flag-eager-pair-arc.md`, PORT AWAITS BRYAN'S GATE)
-and `tu81x60` (population latent, D-170/171 exit→re-enter kin — own
-recon).** D-117 guard stays as backstop. **NEXT is Bryan's call** —
-candidates: the flag-eager PORT (gated), tu81x60 recon, D-080 TMS envelope,
+release .so). **THE FLAG-EAGER PORT IS LANDED (D-180,
+Bryan-gated): the plain-arm insert walks now corpse-check the
+WALKING fact too (two guards, phreak.rs do_join_node; memory push
+stays — flag-eager, retraction-lazy); all seven fe cells == oracle
+and GRADUATED (fe1/2/3/4/6 → regressions/, fe5/fe7 →
+pr_fe_{below_boundary,temporal_arm}); corpus **11/1090/349**
+byte-identical, lint **1628/0/0**, full battery green (fuzz ×9 = 0,
+population 2,199/2,200, bindings 72, the ⚠ D-112 cf1x flip-flop zone
+HELD). THE BATTERY'S OPEN LEDGER IS NOW EXACTLY `tu81x60`
+(population latent, D-170/171 exit→re-enter kin — own recon); open
+sub-cells noted not ledgered (born-expired/D-133, update-refold
+ph=1, stream-AB partner-only sites).** D-117 guard stays as
+backstop. **NEXT is Bryan's call** —
+candidates: tu81x60 recon, D-080 TMS envelope,
 class-3 re-entrant churn, window:length, Allen-beyond-Drools. Prior:
 D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -9788,3 +9791,48 @@ post-D-178 — the correct landing-law composition given K fires; the defect
 is unchanged). Arc file `~/.claude/plans/flag-eager-pair-arc.md` updated to
 D-179 state. The battery's open ledger membership is unchanged (fe-family +
 tu81x60); fe now carries a pinned mechanism awaiting the port gate.
+
+## D-180 — the flag-eager WALKER-GUARD port LANDED (Bryan-gated); the fe arc is CLOSED; the battery's open ledger = EXACTLY tu81x60 (2026-07-11)
+
+Bryan's port call on D-179. The fix, exactly the stated shape: the plain-join
+insert walks corpse-check the WALKING fact too — two guards in `phreak.rs
+do_join_node`'s plain arm, each AFTER the memory push (flag-eager,
+retraction-lazy: the corpse still occupies memory until the lazy delete; it
+only makes no NEW pairs):
+- rightIns walk (~1934): `if env.is_expired(*f) { continue; }` before the
+  lefts_bucket partner loop (fe4's corpse-as-ph=4-pre-link-right);
+- leftIns walk (~1959): `if l.iter().any(|x| env.is_expired(*x)) { continue; }`
+  before the rights_bucket partner loop (fe2/fe6's corpse-as-left).
+The ph=1 update-re-entry walk stays UNGUARDED (no witness — the update-refold
+open sub-cell stands); the temporal arm needed nothing (fe7 was already
+green). Cloud sessions are byte-identical BY CONSTRUCTION (no clock ⇒
+store.expired always empty ⇒ the new conjuncts read false).
+
+GATES (all green, port in-tree): corpus **11/1090/349** byte-identical after
+graduation (pre-graduation 11/1088/344 also byte-identical — the b-ladder,
+cf11x55/8/19/37 flag-eager pins, and the ⚠ D-112 cf1x eviction flip-flop zone
+all HELD; no STOP condition); lint **1628/0/0**; cargo 9; fuzz_cep
+313/941/943/945 ×400 = 0; SEINE_TJUPD 6001-6005 ×400 = 0; tjt 25/25; tj_upd
+64 + exactly tu81x60; mju 0/200; notpop 85 + expop 115 fresh ALL MATCH
+(seeds 8041/8047); population 2,199/2,200 (only the filed tu81x60 — the
+temporal arm untouched, as designed); bindings rebuilt from the landed tree,
+72 passed (release .so). All SEVEN fe cells == oracle: fe1 collapses to
+[TJ1, R6, TJ1, RL] (K refused ⇒ no RHS delete ⇒ no RN — the whole composed
+sequence matches), fe2/3/4/6 = [] (now expect_inert live pins), fe5 [K] and
+fe7 [] controls unchanged.
+
+GRADUATIONS: fe1/fe2/fe3/fe4/fe6 → `scenarios/regressions/` live pins
+(fe2/3/4/6 with `expect_inert` — deliberately empty post-fix);
+fe5→`scenarios/probes/pr_fe_below_boundary`, fe7→`pr_fe_temporal_arm`
+(control pins). `probes_pending/flag_eager/` is EMPTY and removed; the arc
+file marked CLOSED.
+
+STATE AFTER THIS SLAB: **the flag-eager arc is closed** (D-102 mechanism 4 is
+now walker-complete on the plain arm). **The battery's open ledger is
+EXACTLY `probes_pending/cep/tj_upd/tu81x60.json`** (the population latent,
+D-170/171 exit→re-enter kin — own recon). Open sub-cells noted for future
+arcs, not ledgered: born-expired inserts (D-133 adjacency), update-refold
+walks (ph=1), the stream-AB arm's partner-only sites (~595/612 — no witness;
+fe7 suggests the temporal path guards elsewhere). NEXT is Bryan's call —
+candidates: tu81x60 recon, D-080 TMS envelope, class-3 re-entrant churn,
+window:length, Allen-beyond-Drools.

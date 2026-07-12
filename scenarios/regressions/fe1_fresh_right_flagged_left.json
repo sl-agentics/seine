@@ -1,0 +1,165 @@
+{
+ "name": "fe1_fresh_right_flagged_left",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule K salience 7 when $b : E2(ts == 0) P() then delete($b); end\nrule R6 salience 6 when P() then end\nrule RL salience 1 when P() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 13,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 21,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 9,
+    "tag": "y",
+    "dur": 80
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 0,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 128,
+      "tag": "y",
+      "dur": 0
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 124,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "GRADUATED at D-180 (the flag-eager port landed; engine==oracle): FLAG-EAGER ARC original witness (born as the halt arc's voided hm2 cell). Oracle 3x [TJ1, R6, TJ1, RL] (K never activates \u2014 flag-eager refuses the fresh-P x flagged-E2(0) pair). Engine post-D-178: [TJ1, K, RN, R6, TJ1, RL] \u2014 K fires (the defect), and RN follows correctly per the landing law once K's RHS delete lands (the pre-D-178 recorded sequence lacked RN; refreshed at D-179). MINIMAL witness: fe2_minimal (2 types, 1 rule). MECHANISM (D-179, trace-pinned): the plain-join insert walks corpse-check only the PARTNER side (right walk: l.iter().any(is_expired) on left partners, phreak.rs ~1930; left walk: is_expired(f) on right partners, ~1954) \u2014 the WALKING fact/tuple is never flag-checked. A corpse whose own memory-fold is deferred past its flagging \u2014 unlinked-path staging accumulation (D-101/fz_7_145) or the flush right-stash (D-102) \u2014 walks in flagged and forms pairs. The temporal arm does NOT share the blind spot (fe7 green). Fix shape (NOT ported, Bryan gate): corpse-guard the partner LOOP of both plain walks (memory push stays \u2014 flag-eager, retraction-lazy); check the AB-arm sites (~595/612, same partner-only pattern, no witness yet) at port time."
+}

@@ -1931,6 +1931,13 @@ fn do_join_node<E: JoinEnv>(
     for (f, o, _) in ordered {
         let rkey = env.key_of_right(node_idx, *f);
         node.rights.push((*f, rkey.clone()));
+        // D-179/D-180 (fe4): the WALKING fact is corpse-checked too — a
+        // flagged right whose fold was deferred past its flagging
+        // (unlinked-path staging) makes no NEW pairs; the memory push
+        // above stays (flag-eager, retraction-lazy).
+        if env.is_expired(*f) {
+            continue;
+        }
         for l in node.lefts_bucket(rkey.as_ref()) {
             if l.iter().any(|lf| env.is_expired(*lf)) {
                 continue; // D-102: corpse lefts make no NEW pairs
@@ -1949,6 +1956,11 @@ fn do_join_node<E: JoinEnv>(
     }
     for (l, o, _) in &sl.ins {
         node.lefts.push((l.clone(), env.key_of_left(node_idx, l)));
+        // D-179/D-180 (fe2/fe6): the walking left tuple is corpse-checked
+        // too (see the right walk above).
+        if l.iter().any(|x| env.is_expired(*x)) {
+            continue;
+        }
         let lkey = node.lefts.last().and_then(|(_, k)| k.clone());
         for f in node.rights_bucket(lkey.as_ref()) {
             if env.is_expired(f) {

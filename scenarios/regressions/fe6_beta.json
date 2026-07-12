@@ -1,0 +1,70 @@
+{
+ "name": "fe6_beta",
+ "types": [
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule K salience 7 when $b : E2($t : ts, ts == 0) P(v > $t) then end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 0,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "GRADUATED at D-180 (the flag-eager port landed; engine==oracle): FLAG-EAGER ARC beta twin (D-179): K@7 `E2($t:ts, ts==0) P(v > $t)` \u2014 a real beta constraint. Oracle 3x []; engine [K] \u2014 the constraint-bearing scan shares the blind spot (not scoped to cross joins). MECHANISM (D-179, trace-pinned): the plain-join insert walks corpse-check only the PARTNER side (right walk: l.iter().any(is_expired) on left partners, phreak.rs ~1930; left walk: is_expired(f) on right partners, ~1954) \u2014 the WALKING fact/tuple is never flag-checked. A corpse whose own memory-fold is deferred past its flagging \u2014 unlinked-path staging accumulation (D-101/fz_7_145) or the flush right-stash (D-102) \u2014 walks in flagged and forms pairs. The temporal arm does NOT share the blind spot (fe7 green). Fix shape (NOT ported, Bryan gate): corpse-guard the partner LOOP of both plain walks (memory push stays \u2014 flag-eager, retraction-lazy); check the AB-arm sites (~595/612, same partner-only pattern, no witness yet) at port time.",
+ "expect_inert": true
+}
