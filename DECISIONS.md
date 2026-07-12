@@ -41,22 +41,21 @@ and GRADUATED (fe1/2/3/4/6 → regressions/, fe5/fe7 →
 pr_fe_{below_boundary,temporal_arm}); corpus **11/1090/349**
 byte-identical, lint **1628/0/0**, full battery green (fuzz ×9 = 0,
 population 2,199/2,200, bindings 72, the ⚠ D-112 cf1x flip-flop zone
-HELD).** **tu81x60 is CRACKED (D-181): the LINGERING-DEL relink
-flavor — ⚖ identity-model law instance #3 (the exit's s0-del lingers
-on the unlinked path; the temporal flush leaves the pre-tail
-re-entry ins VISIBLE while the dstash hides the del; the D-171
-exemption's fresh-only scan misses it; the stale del kills the fresh
-pair by value at the pop). FIX VALIDATED-THEN-REVERTED (D-181 §4
-verbatim — one predicate: temporal nodes scan ALL pending s0-ins;
-Bryan's landing gate pending): under it tj_upd 65/65 and the
-population 2,200/2,200 FULLY CONVERGE for the first time. THE OPEN
-LEDGER = the tu81x60 family (tu81x60 +
-tu_x60_{min1,min2,c_no_tswrite,c_split}, all PASS under the fix —
-graduate at the D-181 landing, after which THE LEDGER IS EMPTY);
-open sub-cells noted not ledgered (born-expired/D-133, update-refold
-ph=1, stream-AB partner-only sites).** D-117 guard stays as
-backstop. **NEXT: Bryan's landing call on D-181** — then the other
-candidates: D-080 TMS envelope,
+HELD).** **THE D-181 LINGERING-DEL FIX IS LANDED (D-182,
+Bryan-gated) — ⚖ identity-model law instance #3 closed (one
+predicate at the D-171 exemption site: temporal nodes scan ALL
+pending s0-ins so a lingering exit-del stays visible with its
+re-entry ins and processes del-then-ins in stage order). The tu81x60
+family GRADUATED (5 → regressions/, 2 → pr_tux60_* control pins);
+corpus **11/1092/354** byte-identical, lint **1634/0/0**, tj_upd
+**64/64**, population **2,200/2,200 all 11 seeds**, fuzz ×9 = 0,
+bindings 72 (landed-tree .so). ⇒ **THE BATTERY'S OPEN LEDGER IS
+EMPTY** — every filed divergence fixed-and-graduated or
+fenced-by-nature (D-134 §6 ties, fz_42_84). Known-open surfaces are
+noted SUB-CELLS only (born-expired/D-133, update-refold ph=1,
+stream-AB partner-only sites, the D-175 hypothetical all-alive
+marked act — D-117 guard stays as its backstop).** **NEXT is Bryan's
+call** — candidates: D-080 TMS envelope,
 class-3 re-entrant churn, window:length, Allen-beyond-Drools. Prior:
 D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -9937,3 +9936,34 @@ rerun the §5 battery; (3) GRADUATE tu81x60 + the four red cells →
 regressions/ live pins, c_linked/c_noexit → probes/ control pins; (4)
 rebuild bindings from the landed tree; (5) D-182 + CURRENT STATE + memory;
 commit UNPUSHED. After that landing THE BATTERY'S OPEN LEDGER IS EMPTY.
+
+## D-182 — the D-181 lingering-del fix LANDED (Bryan-gated); the tu81x60 family graduated; **THE BATTERY'S OPEN LEDGER IS EMPTY** (2026-07-11)
+
+Bryan's landing call on D-181. The §4 diff re-applied VERBATIM (the temporal
+scan_n predicate at the D-171 exemption site; comment cites D-181), rebuilt,
+and the §6 checklist executed.
+
+GRADUATIONS: `tu81x60` + `tu_x60_{min1,min2,c_no_tswrite,c_split}` →
+`scenarios/regressions/` live pins (GRADUATED findings);
+`tu_x60_c_linked`→`scenarios/probes/pr_tux60_linked`,
+`tu_x60_c_noexit`→`pr_tux60_noexit` (control pins). The tj_upd dir is back
+to 64 files, ALL green.
+
+GATES (all green on the landed tree): corpus **11/1092/354** byte-identical;
+lint **1634/0/0**; cargo 9; **tj_upd 64/64**; tjt 25/25; mju 0/200; fuzz_cep
+313/941/943/945 ×400 = 0; SEINE_TJUPD 6001-6005 ×400 = 0; **population
+2,200/2,200 — all 11 seeds fully converged**; notpop 83 + expop 117 fresh
+ALL MATCH (seeds 8061/8067); bindings rebuilt from the LANDED tree, 72
+passed (release .so).
+
+STATE AFTER THIS SLAB: **THE BATTERY'S OPEN LEDGER IS EMPTY** — for the
+first time since the ledger existed, every filed divergence in the battery
+is either fixed-and-graduated or explicitly fenced-by-nature (D-134 §6
+heap ties, fz_42_84 identity-hash-order). The identity-model law carries
+three closed instances (c13 Staged no-fold, D-171 relink, D-181
+lingering-del). Remaining known-open surfaces are SUB-CELLS noted in their
+entries, not ledgered divergences: born-expired inserts (D-133 adjacency),
+update-refold ph=1 walks, the stream-AB partner-only sites, the D-175
+hypothetical all-alive-marked act (D-117 guard stays as backstop for it).
+NEXT is Bryan's call — candidates: D-080 TMS envelope, class-3 re-entrant
+churn, window:length, Allen-beyond-Drools, or probing the noted sub-cells.

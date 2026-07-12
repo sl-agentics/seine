@@ -5805,9 +5805,18 @@ impl Engine {
             // OBJECT identity — destroys the re-created children
             // (tu51x80/tu51x187: the relink SET losses).
             let fresh_ins = t.s0_in.ins.len() - p.0.min(t.s0_in.ins.len());
-            if fresh_ins > 0 && !s0_dtail.is_empty() {
+            // D-181 (tu81x60 lingering-del, identity-law instance #3): at a
+            // TEMPORAL node the pre-tail same-fact ins is VISIBLE to this
+            // eval (temporal joins stash no lefts), so a LINGERING del —
+            // staged by an earlier action or epoch on the then-unlinked
+            // path, never drained — must stay visible with it, or it
+            // drains at the pop AFTER the re-entry pair derives and kills
+            // it by value. Plain joins stash pre-tail lefts too, so their
+            // fresh-only scan keeps the certified del-batching.
+            let scan_n = if t.node.temporal { t.s0_in.ins.len() } else { fresh_ins };
+            if scan_n > 0 && !s0_dtail.is_empty() {
                 let fresh: Vec<FactId> =
-                    t.s0_in.ins[..fresh_ins].iter().map(|(f, _, _)| *f).collect();
+                    t.s0_in.ins[..scan_n].iter().map(|(f, _, _)| *f).collect();
                 let mut keep: Vec<(FactId, Origin, u8)> = Vec::new();
                 s0_dtail.retain(|e| {
                     if fresh.contains(&e.0) {
