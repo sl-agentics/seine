@@ -11,11 +11,14 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-201 (TMS-envelope arc: P1-P5 +
-P6-part-1 ALL LANDED — census 599→84 cumulative −86.0%; the residue
-= 64 permanent runaway-mismatches + 20 fixable tails; SIXTEEN
-graduates arc-total; pushed through 1f76175 [D-200], D-201
-UNPUSHED). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
+_Last updated: 2026-07-12, post-D-202 (TMS-envelope arc: THE
+POPULATION SLAB IS EFFECTIVELY CLOSED — census 599→72 cumulative
+−88.0%; residue = 64 permanent runaways + 8 fixable (6 = ONE named
+mechanism question, the phys-history re-add order, ⚖
+epicycle-stopped with SdDump as the named next instrument); SIXTEEN
+graduates; pushed through 001a821 [D-201 pointer], D-202 UNPUSHED;
+I-RD OPEN NEXT — dump-first on fz_7_4048 + fz_7_9902). Earlier
+closed-arc records below kept verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
 top): delete teardowns land by MODE×CAUSE — stream ⇒ at the delete's
@@ -204,9 +207,21 @@ sitting, ladder 6/6, cells 39/39, witnesses 26/26, lint
 FROM THE PRE-PORT BASELINE **599→197 (−67.1%)**. Composition:
 64 RUNAWAY-MISMATCH (the d3/d5 no-amut family — permanent, the
 census floor), 63 ORDER-ONLY (P6), 70 SET (pick-order physics +
-the x73 class + tails).** NEXT: the 20 tails (each a
-1-4-case fine-structure corner) or call the population slab
-COMPLETE — Bryan's call; I-RD after the slab (Bryan's order). Any engine change stays
+the x73 class + tails).** **D-202 (the tail grind): the
+flush-mid decl-law drain (in-eval pushes drain at the rule's OWN
+eager-list slot — decl-after deleters fold, decl-before churn;
+ortwin-k0 ×4 + eager-k0 ×2 + 3 singles fixed) + ⚖ the mutfirst
+teardown (eager bit1+bit2: victims' blocked lists reverse
+pre-retract → t0 release; x119 ×3 fixed; ⚠ lazy over-reach caught
+and scoped) + ⚖ EPICYCLE STOP on the lazy-trail re-add order
+(x63/x77/x33 want unreversed, fz_42_5213 wants reversed, sd_c1
+passes both — the park list is too flat for the model's phys
+history; reverted, graduate green; NEXT INSTRUMENT: per-round
+SdDump on the x63 shape, not a toggle). CENSUS 84→72 (cumulative
+599→72, −88.0%): 64 permanent + 8 fixable. THE POPULATION SLAB IS
+EFFECTIVELY CLOSED.** NEXT (Bryan's sequence): I-RD — dump-first
+(fz_7_4048 + fz_7_9902 grafts; which handle dies, which path,
+where the value-key diverges; cells AFTER the dump). Any engine change stays
 gated (⚠ D-106 tripwire + D-177 landing-not-pick). Other
 candidates: class-3 re-entrant churn, Allen-beyond-Drools.
 Prior: D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties,
