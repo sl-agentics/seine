@@ -1,0 +1,57 @@
+{
+ "name": "pr_wl_d110_len1",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 1000000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rc when accumulate( E() over window:length(1); $c : count() ) then end\nrule Rs when accumulate( E( $t : ts ) over window:length(1); $s : sum( $t ) ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 20,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [],
+ "_finding": "GRADUATED at D-185: a D-110-era walled window:length recon cell \u2014 the lint's fence-regression guard surfaced it when the wall lifted, and it PASSES engine==oracle under the port unchanged. "
+}

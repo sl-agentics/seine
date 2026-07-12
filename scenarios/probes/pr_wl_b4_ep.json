@@ -1,0 +1,82 @@
+{
+ "name": "pr_wl_b4_ep",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2) from entry-point \"S1\"; $s : sum($v) ) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 10,
+      "v": 1,
+      "tag": "z"
+     },
+     "entry_point": "S1"
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 20,
+      "v": 2,
+      "tag": "z"
+     },
+     "entry_point": "S1"
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "v": 3,
+      "tag": "z"
+     },
+     "entry_point": "S1"
+    }
+   ]
+  }
+ ],
+ "_finding": "wl rung 7 (D-184): entry-point-routed source (`over window:length(2) from entry-point \"S1\"` \u2014 clause order matters; `from` before `over` is a compile error) folds normally: [0,1,3,5] 3x. Oracle-only pin; engine wall holds \u2014 engine_fenced. GRADUATED at D-185 (the port landed; engine==oracle)."
+}

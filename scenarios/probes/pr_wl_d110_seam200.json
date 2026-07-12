@@ -1,0 +1,66 @@
+{
+ "name": "pr_wl_d110_seam200",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule Rw when accumulate( E() over window:length(2); $c : count() ) then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 20,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 200
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "GRADUATED at D-185: a D-110-era walled window:length recon cell (the seam cells pin that length windows contribute NOTHING to @expires inference \u2014 already landed at engine.rs ~5006); PASSES engine==oracle under the port. "
+}

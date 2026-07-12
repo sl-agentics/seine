@@ -1,0 +1,74 @@
+{
+ "name": "pr_wl_f2_born_expired_trickle",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 120
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 19,
+      "v": 4,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 52,
+      "v": 9,
+      "tag": "y"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 91,
+      "v": 4,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "wl FENCE WITNESS (D-184): a BORN-EXPIRED insert (deadline == clock at insert) FOLDS at its epoch and drops as a SEPARATE fire at the next epoch's processing before that epoch's inserts fold ([0,4,0,4]) \u2014 the lazy drop trickles like f1's. The D-133 born-expired adjacency x windows; FENCED from the generator (ts floor after advances) and deferred with the same sub-recon. engine_fenced. GRADUATED at D-185 as a LIVE pin: the engine's lazy per-deadline expiration architecture reproduces the trickle NATIVELY (engine==oracle 3x) \u2014 the fence stays on the MODEL side only (model_winlen's generator avoids the corner; the spec does not predict trickles)."
+}

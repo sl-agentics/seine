@@ -49,6 +49,6 @@
    ]
   }
  ],
- "_finding": "wl rung 7 (D-184): window:length(0) THROWS in Drools (ArithmeticException: / by zero) \u2014 naturally OUT of subset. PORT NOTE: reject N < 1 at parse with a clean error. Oracle-only pin; engine wall holds \u2014 engine_fenced.",
+ "_finding": "STANDING WALL GUARD (D-185): window:length(0) \u2014 the ORACLE throws (ArithmeticException: / by zero, out of subset) and the ENGINE rejects at parse with the clean N >= 1 error (drl.rs). engine_fenced keeps the lint verifying the wall stays up.",
  "engine_fenced": true
 }

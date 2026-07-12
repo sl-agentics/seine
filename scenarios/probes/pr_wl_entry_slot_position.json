@@ -1,0 +1,121 @@
+{
+ "name": "pr_wl_entry_slot_position",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 40,
+    "v": 3,
+    "tag": "y"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 71,
+    "v": 4,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 97
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 76,
+      "v": 8,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 111,
+      "v": 7,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 63
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 125,
+      "v": 9,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 35
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-185 landing-law witness (acc machinery, admission side): a deferred-entry ADMISSION takes its ring slot at its FIFO position \u2014 BEFORE the same-epoch walk inserts (engine pre-fix slotted it last and it survived evictions it should take: 104 vs 15). GRADUATED at D-185 (engine==oracle)."
+}

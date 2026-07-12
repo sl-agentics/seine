@@ -1,0 +1,95 @@
+{
+ "name": "pr_wl_u2b_after_revival",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "v": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "v": 2,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "v": 3,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 50
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 40,
+      "v": 4,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "wl-ladder rung 3 (D-183): [3, 5, 55, 57] 3x \u2014 post-revival the revived event PERSISTS in the fold outside the ring: z4's admission evicts only the oldest RING slot (v2), folding {50,3,4}=57. Tentative structure (model phase confirms): revival re-enters the FOLD, not the RING. Oracle-only pin: the engine wall (drl.rs ~705) holds \u2014 engine_fenced. GRADUATED at D-185 (the port landed; engine==oracle)."
+}

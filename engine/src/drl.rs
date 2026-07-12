@@ -231,11 +231,14 @@ pub enum AccFunc {
 
 /// CEP E2 item B (D-110): a sliding window on an accumulate source.
 /// `Time(N)` = `over window:time(N ms)` — an event contributes while
-/// `clock − ts < N`, evicted at `ts+N`. (`window:length` is walled to a
-/// follow-on slab.)
+/// `clock − ts < N`, evicted at `ts+N`. `Length(N)` (D-184/D-185) =
+/// `over window:length(N)` — a SLOT-RETENTION ring of the last N
+/// admissions (post-alpha; corpses keep their slot; eviction pops the
+/// oldest slot). N >= 1 (N=0 throws in Drools — out of subset).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Window {
     Time(i64),
+    Length(i64),
 }
 
 /// Inline accumulate / collect spec attached to a pattern whose
@@ -703,9 +706,22 @@ impl Parser {
         let w = match kind.as_str() {
             "time" => Window::Time(self.duration_ms()?),
             "length" => {
-                return Err(self.perr(
-                    "window:length is a follow-on slab (D-110); only window:time is in this slab",
-                ))
+                // D-184/D-185: the wall lifts for accumulate sources (the
+                // only place this parser is reached from).
+                let n = match self.next()? {
+                    Tok::IntLit(n) => n,
+                    other => {
+                        return Err(
+                            self.perr_prev(format!("expected window length, got {other}"))
+                        )
+                    }
+                };
+                if n < 1 {
+                    return Err(self.perr(
+                        "window:length(N) requires N >= 1 (N=0 throws in Drools; D-184)",
+                    ));
+                }
+                Window::Length(n)
             }
             other => {
                 return Err(self.perr(format!("unknown window kind {other:?} (window:time only)")))

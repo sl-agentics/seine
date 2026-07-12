@@ -59,14 +59,21 @@ rulings recorded: acc-source-only, TMS×window fenced in-arc, not
 deferred behind D-080; wl-ladder rungs 1-4 PINNED — post-alpha
 window, one-net-refire evictions, insert-fixed slots, REVIVAL both
 window kinds [pr_wl_time_revival graduated green], no backfill;
-22 engine_fenced pins in probes_pending/cep/winlen/ + the
-0-DIV model model_winlen.py [ladder 19/19, ~1,050 population cases,
-7 seeds] — D-184: rungs 5-7 pinned, SLOT-RETENTION + RE-OCCUPATION
-corrected via the population peel, two trickle corners FENCED
-[wl_f1 multi-deadline, wl_f2 born-expired — the D-112/D-133
-adjacencies, deferred to the WindowNode sub-recon]; **THE PORT IS AT
-BRYAN'S GATE** [map: D-184 §4]; handoff
-`~/.claude/plans/window-length-arc.md`).** Other candidates:
+**THE PORT LANDED at D-185: window:length(N) on
+accumulate sources is IN THE SUBSET** — Window::Length + N≥1 parse
+check; the SLOT-RETENTION ring (TrieNode.win_ring) + deferred ring
+ops (win_admit_pending — TWO landing-law inversions in the acc
+machinery found by the 2,700-case population and fixed: the
+evict-vs-pending-upd and entry-slot-position witnesses, pr_wl_*
+pins); the 7 windowed-ness gates widened; model_winlen 0-div (ladder
+21/21, ×5 fresh seeds; the transient-exit epoch-final corner
+pinned); ALL 5 D-110-era fenced cells passed unchanged and
+graduated; the trickle corners are LIVE pins (the engine matches the
+oracle natively — the sub-recon is spec-side only); corpus
+**11/1124/354**, lint **1662/0/0**, 32 new pins; wl_b3_n0 = the
+standing N≥1 wall guard. Follow-ups not ledgered: CepWindowTest
+length baselines (§1c pipeline sitting), SEINE_WINLEN axis merge,
+standalone windows stay P3.)** Other candidates:
 D-080 TMS envelope, class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
@@ -10097,3 +10104,85 @@ battery + the wl ladder/population via model_winlen fuzz + df_*/cf1x pins
 (⚠ do-not-hand-tune stands) + the CepWindowTest length baselines (§1c) +
 the 22 winlen cells flipping from engine_fenced to live. Bryan's go
 starts the port.
+
+## D-185 — the WINDOW:LENGTH PORT LANDED (Bryan-gated): the wall lifts on accumulate sources; TWO landing-law inversions in the acc machinery found-by-population and fixed; the wl arc is CLOSED (2026-07-11)
+
+Bryan's port call on D-184. The arc's rulings (D-183 §1) implemented in full.
+
+### 1. The port
+
+- `drl.rs`: `Window::Length(n)` + the wall at parse_window_opt lifts for
+  accumulate sources; **N ≥ 1 enforced** with a clean error (N=0 throws in
+  Drools — wl_b3_n0 stays the engine_fenced WALL GUARD, the only file left
+  in probes_pending/cep/winlen/ beside the model).
+- `engine.rs`: `CompiledAcc.window_len`; the SLOT-RETENTION ring
+  (`TrieNode.win_ring`) — admission appends (insert walk +
+  `winacc_step`'s never-admitted entry, NOT revivals), overflow pops the
+  OLDEST SLOT via `stage_acc_removal` (detach; revival stays mask-gated —
+  the same non-suppressing path as landed time windows); the seven
+  windowed-ness gates widened (`window_time.is_some() || window_len...`):
+  shadow exclusions ×3, the acc-entry drain router, the on_update router,
+  the D-139 bind-fields eff_mask, the insert walk; the node-share key
+  gains `window_len` (wl_s2 independence); `acc_nodes` carries it so
+  length-windowed accs SKIP eager expiration removals (lazy through the
+  window, like time). The @expires-inference no-contribution was already
+  landed (D-110).
+
+### 2. Two landing-law inversions, found by the population (the port's
+### hand cells all passed FIRST BUILD — the population caught what they
+### could not)
+
+Engine-vs-oracle over the winlen population initially failed ~6.8%:
+- **Eviction side** (pr_wl_evict_pending_upd, was wl603x23: 42 vs 3): an
+  external upd DEFERS to the D-160 entry drain; an immediate walk-time ring
+  pop landed BEFORE it, turning the pre-eviction update into a spurious
+  mask-hit revival of the just-evicted member.
+- **Admission side** (pr_wl_entry_slot_position, was wl603x54: 104 vs 15):
+  a deferred-entry ADMISSION slotted at drain time (last) instead of its
+  FIFO position (before the epoch's walk inserts), surviving evictions it
+  should take.
+FIX (one mechanism): when deferred entries pend, walk-time RING OPS defer
+to `win_admit_pending` and land at the END of `drain_acc_pending` — true
+action order: entries first at their FIFO positions (their ring ops run
+mid-drain with acc_pending already taken ⇒ immediate), then the walk
+admissions in arrival order. Pure-insert epochs (acc_pending empty) keep
+immediate ring ops — byte-identical to the first build's green cells.
+
+### 3. The spec caught its own corner (⚖ method law, both directions)
+
+model_winlen found wl901x72: deferred update entries evaluate against
+EPOCH-FINAL fields (the D-160 doctrine verbatim) — a same-epoch
+exit-and-back transient is INVISIBLE. The model was restructured to the
+engine's own shape (explicit ACTIVE set vs final-alpha arms) —
+pr_wl_transient_exit pins it. Final spec state: **ladder 21/21; 0-div ×5
+fresh seeds (750 cases)**.
+
+### 4. Gates (all green on the landed tree)
+
+corpus **11/1124/354** byte-identical; lint **1662/0/0**; cargo 9;
+**winlen population 2,695/2,700 engine==oracle** (the 5 = OLD-generator
+invalid scenarios where BOTH sides error — update-of-expired: engine
+dead-handle vs oracle NPE — mutual refusal, not divergence; every
+new-generator case passes); **all 5 D-110-era fenced recon cells passed
+UNCHANGED and graduated** (pr_wl_d110_* — cells written 75 D-entries ago,
+the lint's fence-regression guard surfaced them); winacc TIME-window
+population spec 150/0 (shared paths undisturbed); fuzz_cep ×4 = 0; TJUPD
+6001/6003/6005 ×400 = 0 (full ×5 = 0 earlier in the cycle); tu population
+spot 800/800 (full 2,200 clean earlier in the cycle; no accs in that
+population); tjt 25/25; tj_upd 64/64; mju 0/200; notpop 85 + expop 111
+fresh ALL MATCH (8081/8087, post-fix); bindings 72 (landed-tree release
+.so). GRADUATIONS: 21 wl cells + x3/x3t + the 5 D-110 cells + the 3
+fix-witness pins → scenarios/probes/ (32 new pins incl.
+pr_wl_time_{revival,reentry}).
+
+### 5. State + follow-ups
+
+**window:length(N) on accumulate sources is IN THE SUBSET** (FEATURES §1
+row to flip from ARC OPEN at the next touch). Follow-ups, not ledgered:
+the CepWindowTest length-subset baseline adoption (§1c — the drift-checked
+extraction pipeline, its own sitting); the generator axis merge
+(SEINE_WINLEN into fuzz_cep — after the baselines); the WindowNode
+sub-recon (the D-112/D-133 trickle corners — the ENGINE matches the oracle
+on both banked witnesses (pr_wl_f1/f2 graduated LIVE), so the sub-recon is
+spec-side only); standalone-pattern windows stay P3-walled. The battery's
+open ledger REMAINS EMPTY. NEXT is Bryan's call.

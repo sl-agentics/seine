@@ -1,0 +1,85 @@
+{
+ "name": "pr_wl_evict_pending_upd",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 35,
+      "v": 9,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 60,
+      "v": 4,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 39
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 96,
+      "v": 1,
+      "tag": "y"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 104,
+      "v": 3,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-185 landing-law witness (acc machinery, eviction side): an external upd DEFERS to the D-160 entry drain; the same-epoch insert's ring eviction must land BEHIND it (engine pre-fix revived the just-evicted member: 42 vs 3). Fixed by deferring walk-time ring ops to the drain when entries pend. GRADUATED at D-185 (engine==oracle)."
+}

@@ -1,0 +1,96 @@
+{
+ "name": "pr_wl_transient_exit",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 5,
+      "v": 2,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "v": 7,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y"
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 47,
+      "v": 7,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    },
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "D-185 spec witness: deferred update entries evaluate against EPOCH-FINAL fields (D-160 'live fields = epoch-final') \u2014 a same-epoch exit-and-back transient is INVISIBLE (the member never leaves: 14 folds), while a cross-epoch exit is visible (x3). The model's per-entry field application was corrected to the engine's explicit-active + final-alpha structure. GRADUATED at D-185 (engine==oracle)."
+}

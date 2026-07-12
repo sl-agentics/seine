@@ -1,0 +1,87 @@
+{
+ "name": "pr_wl_e2_expire_then_fill",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "v": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "v": 2,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 111
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "v": 3,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 40,
+      "v": 4,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "wl rung 5 (D-184): [3,2,7] 3x \u2014 expire then fill TWO: {3,4}=7. Consistent with slot-retention (the corpse slot evicts first). Oracle-only pin; engine wall holds \u2014 engine_fenced. GRADUATED at D-185 (the port landed; engine==oracle)."
+}

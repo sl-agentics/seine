@@ -1,0 +1,60 @@
+{
+ "name": "pr_wl_x2_alpha_exit",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "v": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "v": 2,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "y"
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "wl round 4 (D-184): alpha EXIT via tag update drops the member from the FOLD ([3,2]) \u2014 despite tag being UNBOUND: constraint transitions act regardless of the bindings mask. The SLOT is RETAINED (sr2, model ladder \u2014 population-discriminated). Oracle-only pin; engine wall holds \u2014 engine_fenced. GRADUATED at D-185 (the port landed; engine==oracle)."
+}

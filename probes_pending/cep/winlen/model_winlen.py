@@ -37,24 +37,26 @@ def simulate(scn):
     revived = set(); clock = 0
     fires = []
 
+    detached = set()   # revival gate: only a MASK write re-admits
+    active = set()     # EXPLICIT fold membership (the engine's active set)
     def passing(i):
         e = ev[i]
         return e["alive"] and not e["expired"] and e["tag"] == "z"
-    def in_fold(i): return (i in ring and passing(i)) or i in revived
-    def fold_ids():
-        ids = [i for i in ring if passing(i)]
-        return ids + [i for i in sorted(revived) if i not in ids]
+    def in_fold(i): return i in active
     def value():
-        ids = fold_ids()
-        return sum(ev[i]["v"] for i in ids) if fn == "sum" else len(ids)
+        return sum(ev[i]["v"] for i in sorted(active)) if fn == "sum" \
+            else len(active)
 
     def admit(i):
-        # a slot appends on post-alpha INSERT or alpha-ENTRY update; overflow
-        # pops the OLDEST SLOT regardless of its occupant's fold status
+        # a slot appends on post-alpha INSERT or never-admitted alpha ENTRY;
+        # overflow pops the OLDEST SLOT regardless of its occupant's fold
+        # status, DETACHING the occupant (revivable only by a mask write)
         ev[i]["admitted_ever"] = True
+        active.add(i)
         ring.append(i)
         if len(ring) > n:
-            ring.pop(0)
+            old = ring.pop(0)
+            active.discard(old); detached.add(old)
 
     def insert(f):
         ev.append(dict(ts=f[0], v=f[1], tag=f[2], alive=True, expired=False,
@@ -70,7 +72,7 @@ def simulate(scn):
             if e["alive"] and not e["expired"] and e["ts"] + EXPIRES + 1 <= clock:
                 if in_fold(i): t = True
                 e["expired"] = True     # fold-drop; the SLOT is retained
-                revived.discard(i)
+                active.discard(i); revived.discard(i)
         return t
 
     def apply_action(a):
@@ -83,37 +85,40 @@ def simulate(scn):
             if ev[i]["alive"]:
                 if in_fold(i): t = True
                 ev[i]["alive"] = False  # fold-drop; the SLOT is retained
-                revived.discard(i)
-        elif a[0] == "upd":
-            i = a[1]; fields = a[2]
-            was_pass = passing(i); was_fold = in_fold(i)
-            evicted_live = (ev[i]["admitted_ever"] and ev[i]["alive"]
-                            and not ev[i]["expired"] and ev[i]["tag"] == "z"
-                            and not was_fold)
-            ev[i].update(fields)
-            now_pass = passing(i)
-            if "tag" in fields and was_pass != now_pass:
-                if now_pass:
-                    # x1 entry: a NEW slot appends; a RETAINED slot (exit
-                    # then re-enter, sr4) is RE-OCCUPIED in place — the
-                    # fold re-includes a passing ring member automatically
-                    if i not in ring: admit(i)
-                    t = True
-                else:
-                    if was_fold: t = True         # x2 exit: fold-drop only
-                    revived.discard(i)
-            elif was_fold and binding and "v" in fields:
-                t = True                          # member mask write re-fires
-            elif evicted_live and binding and "v" in fields:
-                revived.add(i); t = True          # u2 revival (outside ring)
+                active.discard(i); revived.discard(i)
         return t
 
     for f in scn["facts"]: insert(f)
     fires.append(value())                          # the initial fire
     for epoch in scn["epochs"]:
         touched = False
+        # D-160/x72: deferred external update entries evaluate against
+        # EPOCH-FINAL fields — apply all writes first; a same-epoch
+        # transient (exit-and-back) is invisible to the entries.
         for a in epoch["actions"]:
-            touched |= apply_action(a)
+            if a[0] == "upd":
+                ev[a[1]].update(a[2])
+        for a in epoch["actions"]:
+            if a[0] == "upd":
+                i = a[1]; fields = a[2]
+                pass_now = passing(i)
+                was_in = i in active
+                mask_hit = binding and "v" in fields
+                if was_in and not pass_now:
+                    active.discard(i); detached.add(i)   # exit: detach
+                    revived.discard(i); touched = True
+                elif was_in and pass_now:
+                    if mask_hit: touched = True          # member re-fold
+                elif not was_in and pass_now:
+                    if not ev[i]["admitted_ever"]:
+                        if "tag" in fields:
+                            admit(i); touched = True     # x1 entry
+                    elif i in detached and mask_hit:
+                        detached.discard(i); active.add(i)
+                        if i not in ring: revived.add(i)
+                        touched = True                   # mask-gated revival
+            else:
+                touched |= apply_action(a)
         for f in epoch["facts"]:
             touched |= insert(f)
         if touched: fires.append(value())
@@ -293,6 +298,16 @@ LADDER = [
    "epochs":[{"actions":[("advance",35),("advance",30)],"facts":[(12,8,"z"),(32,1,"z")]},
              {"actions":[("upd",0,{"tag":"y"})],"facts":[]}]},
   [0,1]),
+ ("x72_transient_exit", {"n":2,"binding":True,"fn":"sum","facts":[],
+   "epochs":[{"actions":[],"facts":[(5,2,"z"),(30,7,"z")]},
+             {"actions":[("upd",1,{"tag":"y"}),("upd",1,{"tag":"z"})],"facts":[(47,7,"z")]},
+             {"actions":[("delete",1),("upd",2,{"tag":"z"})],"facts":[]}]},
+  [0,9,14,7]),
+ ("x3_reentry_lone", {"n":2,"binding":True,"fn":"sum","facts":[(10,1,"z"),(20,2,"z")],
+   "epochs":[{"actions":[("upd",0,{"tag":"y"})],"facts":[]},
+             {"actions":[("upd",0,{"tag":"z"})],"facts":[]},
+             {"actions":[],"facts":[(30,5,"z")]}]},
+  [3,2,7]),
  ("sr4_reentry_slot", {"n":2,"binding":True,"fn":"sum","facts":[(21,4,"z")],
    "epochs":[{"actions":[],"facts":[(30,1,"z"),(58,5,"z")]},
              {"actions":[("upd",1,{"tag":"z"})],"facts":[(69,4,"z")]},

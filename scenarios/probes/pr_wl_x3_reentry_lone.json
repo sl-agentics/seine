@@ -1,0 +1,85 @@
+{
+ "name": "pr_wl_x3_reentry_lone",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "v": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "v": 2,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "y"
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "z"
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "v": 5,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-185 detach-arm discriminator (oracle 3x, both window kinds agree; the time twin was landed-surface green pre-port): a LONE alpha re-entry of a previously-admitted (detached) member does NOT re-fold ([3,2,7] \u2014 no fire at the re-entry epoch); revival is MASK-GATED. The x85/sr4 're-occupation' reading was mechanically wrong (right observables by seed luck) \u2014 corrected in model_winlen (detach-state semantics) before the port."
+}

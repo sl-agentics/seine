@@ -362,6 +362,10 @@ struct CompiledAcc {
     /// contributes while `clock − ts < N`, evicted at `ts+N` (per-subtree
     /// unmatch: the fact survives WM). None = no window.
     window_time: Option<i64>,
+    /// D-185: `over window:length(N)` — a SLOT-RETENTION ring of the last
+    /// N admissions (TrieNode.win_ring); eviction pops the oldest SLOT via
+    /// `stage_acc_removal` (detach — revival stays mask-gated, like time).
+    window_len: Option<i64>,
 }
 
 enum CompiledAction {
@@ -1640,6 +1644,20 @@ struct TrieNode {
     /// branch consults this to suppress the revival. Populated only for
     /// event types (empty on the plain corpus ⇒ byte-identical).
     clock_removed: HashSet<FactId>,
+    /// D-185 `window:length(N)`: the SLOT ring — FactIds in admission
+    /// order. Slots are RETAINED by corpses (delete/exit/expiration leave
+    /// the entry; it still evicts in FIFO order); only overflow pops.
+    /// Empty unless this node's acc has `window_len`.
+    win_ring: Vec<FactId>,
+    /// D-185 (the LANDING LAW in the acc machinery): when deferred acc
+    /// entries are PENDING (acc_pending, D-160), a walk-time admission's
+    /// RING ops defer HERE and land at the drain AFTER the entries — in
+    /// true action order (entries first at their FIFO positions, then the
+    /// walk admissions in arrival order). Immediate ring ops would invert
+    /// the order: a pre-eviction update becomes a spurious revival
+    /// (wl603x23: 42 vs 3) and an entry-admission slots LAST instead of
+    /// FIRST, surviving evictions it should take (wl603x54: 104 vs 15).
+    win_admit_pending: Vec<FactId>,
     /// Transient link pulse for UNCONSTRAINED not nodes (D-031).
     pulse: bool,
     /// Level-1 only: pattern-0 fact staging from the owning LIA.
@@ -2196,7 +2214,7 @@ pub struct Engine {
     /// right-delete at advance-time when a feeding event expires, so the
     /// count-drop lands before the fire's inserts and fires by salience
     /// (df_* pins; model_check_accdefer survivor: acc EAGER, not-CE LAZY).
-    acc_nodes: Vec<(usize, TypeId, Option<i64>)>,
+    acc_nodes: Vec<(usize, TypeId, Option<i64>, Option<i64>)>,
     in_expiration_drain: bool,
     in_stream_flush: bool,
     /// D-158: inside fire_all's activation loop — PnShadow D events arriving
@@ -2675,6 +2693,8 @@ impl Engine {
                                 env: (ri, j),
                                 active: HashSet::new(),
                                 clock_removed: HashSet::new(),
+                                win_ring: Vec::new(),
+                                win_admit_pending: Vec::new(),
                                 pulse: false,
                                 s0_in,
                                 sinks: Vec::new(),
@@ -2767,7 +2787,7 @@ impl Engine {
                             rr.patterns.iter().any(|q| {
                                 q.acc
                                     .as_ref()
-                                    .is_some_and(|a| a.window_time.is_some())
+                                    .is_some_and(|a| a.window_time.is_some() || a.window_len.is_some())
                                     && gated.contains(&q.type_id)
                             })
                         });
@@ -2854,7 +2874,7 @@ impl Engine {
                             rr.patterns.iter().any(|q| {
                                 q.acc
                                     .as_ref()
-                                    .is_some_and(|a| a.window_time.is_some())
+                                    .is_some_and(|a| a.window_time.is_some() || a.window_len.is_some())
                                     && gated.contains(&q.type_id)
                             })
                         });
@@ -2922,7 +2942,7 @@ impl Engine {
                             rr.patterns.iter().any(|q| {
                                 q.acc
                                     .as_ref()
-                                    .is_some_and(|a| a.window_time.is_some())
+                                    .is_some_and(|a| a.window_time.is_some() || a.window_len.is_some())
                                     && gated.contains(&q.type_id)
                             })
                         });
@@ -3010,7 +3030,7 @@ impl Engine {
             let (ri, pos) = self.trie[ni].env;
             if let Some(acc) = self.rules[ri].patterns[pos].acc.as_ref() {
                 let tid = self.rules[ri].patterns[pos].type_id;
-                self.acc_nodes.push((ni, tid, acc.window_time));
+                self.acc_nodes.push((ni, tid, acc.window_time, acc.window_len));
             }
         }
     }
@@ -3279,6 +3299,11 @@ impl Engine {
                 acc.arg_field,
                 acc.window_time,
                 acc.key_field,
+            );
+            let _ = write!(
+                s,
+                ":wl{:?}",
+                acc.window_len,
             );
         }
         s
@@ -4141,7 +4166,14 @@ impl Engine {
                         result_tid,
                         arg_name: spec.arg.clone(),
                         key_field,
-                        window_time: spec.window.map(|drl::Window::Time(n)| n),
+                        window_time: spec.window.and_then(|w| match w {
+                            drl::Window::Time(n) => Some(n),
+                            drl::Window::Length(_) => None,
+                        }),
+                        window_len: spec.window.and_then(|w| match w {
+                            drl::Window::Length(n) => Some(n),
+                            drl::Window::Time(_) => None,
+                        }),
                     })
                 }
             };
@@ -5352,7 +5384,7 @@ impl Engine {
             return;
         };
         for i in 0..self.acc_nodes.len() {
-            let (ni, wtid, win) = self.acc_nodes[i];
+            let (ni, wtid, win, _) = self.acc_nodes[i];
             if wtid == tid {
                 if let Some(n) = win {
                     // D-154: an already-due deadline never schedules — the
@@ -5394,6 +5426,45 @@ impl Engine {
             return true;
         };
         ts + n > self.clock_ms
+    }
+
+    /// D-185 `window:length(N)` admission: append a SLOT for a fresh
+    /// admission (insert-walk or never-admitted alpha entry — NOT a
+    /// revival) and, on overflow, evict the OLDEST SLOT's occupant via
+    /// `stage_acc_removal` (a no-op if that occupant is already a corpse —
+    /// slot retention, D-184 sr1/sr2). The staged del folds with the same
+    /// epoch's staging: one net re-fire (t1/t2/b1). No-op on non-length
+    /// nodes and on a retained slot (never re-append).
+    fn winlen_admit(&mut self, ni: usize, f: FactId) {
+        let (ri, pos) = self.trie[ni].env;
+        let Some(n) =
+            self.rules[ri].patterns[pos].acc.as_ref().and_then(|a| a.window_len)
+        else {
+            return;
+        };
+        if self.trie[ni].win_ring.contains(&f)
+            || self.trie[ni].win_admit_pending.contains(&f)
+        {
+            return;
+        }
+        if !self.acc_pending.is_empty() {
+            // deferred entries pend: this walk admission's ring ops land
+            // at the drain, AFTER the entries (true action order)
+            self.trie[ni].win_admit_pending.push(f);
+            return;
+        }
+        self.winlen_ring_op(ni, f, n);
+    }
+
+    /// The ring op proper: append the slot; on overflow evict the OLDEST
+    /// SLOT's occupant (a no-op if it is already a corpse/detached — slot
+    /// retention, D-184 sr1/sr2).
+    fn winlen_ring_op(&mut self, ni: usize, f: FactId, n: i64) {
+        self.trie[ni].win_ring.push(f);
+        if self.trie[ni].win_ring.len() as i64 > n {
+            let old = self.trie[ni].win_ring.remove(0);
+            self.stage_acc_removal(ni, old);
+        }
     }
 
     /// D-154: ONE windowed-accumulate node processes ONE update of a
@@ -5460,6 +5531,12 @@ impl Engine {
                 if admit {
                     self.trie[ni].clock_removed.remove(&f);
                     self.trie[ni].active.insert(f);
+                    if !detached {
+                        // D-185: a FRESH admission (x1 never-admitted entry)
+                        // takes a slot; a revival (detached mask-hit) rides
+                        // its existing state — zombie or retained slot.
+                        self.winlen_admit(ni, f);
+                    }
                     // re-entry staging exactly as the plain (false,true)
                     // update branch (D-082/D-083 ph classification)
                     let reentry =
@@ -5581,7 +5658,7 @@ impl Engine {
                             {
                                 continue;
                             }
-                            if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some())
+                            if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some() || a.window_len.is_some())
                             {
                                 if pass == 0 {
                                     self.winacc_step(ni, f, mask, None, &mut was);
@@ -5632,6 +5709,26 @@ impl Engine {
                         }
                         self.note_link_effects_ex(&mut was, Some(f));
                     }
+                }
+            }
+        }
+        // D-185: deferred walk admissions land after the entry FIFO, in
+        // arrival order (pending admissions exist only when entries were
+        // pending, so this fn was guaranteed to run past its empty-check).
+        for ni in 0..self.trie.len() {
+            let pending = std::mem::take(&mut self.trie[ni].win_admit_pending);
+            if pending.is_empty() {
+                continue;
+            }
+            let (ri, pos) = self.trie[ni].env;
+            let Some(n) =
+                self.rules[ri].patterns[pos].acc.as_ref().and_then(|a| a.window_len)
+            else {
+                continue;
+            };
+            for f in pending {
+                if !self.trie[ni].win_ring.contains(&f) {
+                    self.winlen_ring_op(ni, f, n);
                 }
             }
         }
@@ -6289,8 +6386,12 @@ impl Engine {
         }
         let tid = self.store.fact_type(id);
         for i in 0..self.acc_nodes.len() {
-            let (ni, atid, win) = self.acc_nodes[i];
-            if atid == tid && win.is_none() {
+            let (ni, atid, win, wlen) = self.acc_nodes[i];
+            // D-185: length-windowed accs skip the eager expiration removal
+            // like time-windowed ones — the drop rides the lazy quiescence
+            // delete THROUGH the window (e1/e3; the trickle corners stay
+            // fenced with the time family, wl_f1/wl_f2).
+            if atid == tid && win.is_none() && wlen.is_none() {
                 self.stage_acc_removal(ni, id);
             }
         }
@@ -7300,13 +7401,14 @@ impl Engine {
                 if self.rules[ri].patterns[pos]
                     .acc
                     .as_ref()
-                    .is_some_and(|a| a.window_time.is_some())
+                    .is_some_and(|a| a.window_time.is_some() || a.window_len.is_some())
                     && !self.winacc_admits(ni, f)
                 {
                     self.trie[ni].clock_removed.insert(f);
                     continue;
                 }
                 self.trie[ni].active.insert(f);
+                self.winlen_admit(ni, f); // D-185: length-window slot + eviction
                 self.maybe_pulse(ni);
                 // D-102 (survivor pre_lifo_then_post_arr): in EVENT
                 // sessions, plain-join rights record their LINK-RELATIVE
@@ -7460,7 +7562,7 @@ impl Engine {
             // windowed ones their machinery (incl. the clock_removed
             // guard and the bind_fields eff_mask) is subsumed by the
             // step's mask-gated revival/admission semantics.
-            if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some()) {
+            if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some() || a.window_len.is_some()) {
                 if pass == 0 {
                     if origin.is_none() {
                         acc_defer = true;
@@ -7556,7 +7658,7 @@ impl Engine {
                     // even though listen_mask includes them (xf_cep_c_upd_win_
                     // {live,noop}). bind_fields is bindings-only, listen_mask is
                     // constraints∪bindings, so this drops exactly the constraints.
-                    let eff_mask = if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some()) {
+                    let eff_mask = if pat.acc.as_ref().is_some_and(|a| a.window_time.is_some() || a.window_len.is_some()) {
                         pat.bind_fields
                     } else {
                         pat.listen_mask
