@@ -119,7 +119,7 @@ cargo run -q -p seine-harness -- run probes_pending/agenda_open/*.json > now.ndj
 # the metric + the panic net (12 seeds, ~35 min, background):
 for seed in 7001 7002 6001 6003 7004 7005 7006 7007 7008 7009 7010 7011; do
   python3 tools/fuzz_tms_sd.py 150 $seed; done   # model MUST stay 12×150/150
-python3 probes_pending/tms_envelope/check_witnesses.py               # 28/28
+python3 probes_pending/tms_envelope/check_witnesses.py               # 26/26
 ```
 
 ## Standing discipline
