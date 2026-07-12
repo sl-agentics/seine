@@ -7060,7 +7060,7 @@ impl Engine {
                             && (*fl & 16) == 0
                             && !(eq_decl_preempt && (*fl & 2) != 0)
                     }) {
-                        let (_, tuple, _) = self.tms.deferred.remove(i);
+                        let (_, tuple, fl) = self.tms.deferred.remove(i);
                         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                             eprintln!("TMS drain[post-fire-continue] r{l} {tuple:?}");
                         }
@@ -7081,6 +7081,16 @@ impl Engine {
                         // ⚖ k0 churn (D-201): del-group rules consume
                         // the staged blocker-ins before the retract.
                         self.tms_churn_del_group(l, &tuple);
+                        // ⚖ the mutfirst teardown (D-201): t0 release
+                        // order for bit1+bit2 composite keys — AFTER
+                        // the churn materializes the blocks. EAGER
+                        // lane only (model: "Lazy routing untouched").
+                        if fl & 6 == 6
+                            && (self.rules[l].def.no_loop
+                                || matches!(self.rules[l].salience, EngineSalience::Dyn { .. }))
+                        {
+                            self.tms_mf_teardown_reverse(l, &tuple);
+                        }
                         self.tms_on_terminal_del(l, &tuple);
                         // ⚖ land_eager lead-k1 (D-199): the eager
                         // landing's unbreak re-propagates — unpark so
@@ -7213,39 +7223,17 @@ impl Engine {
                 // exempts the bit1 lane too — a MUTFIRST self-defeat's
                 // last key rides drops[] to the pop (ip_a3's k0 entry
                 // has no bit2; unaffected).
-                loop {
-                    let run_live = !self.nets[ri].queue.is_empty();
-                    let Some(di) = self.tms.deferred.iter().position(|(dri, _, fl)| {
-                        *dri == ri
-                            && (dyn_sal
-                                || ((*fl & 2) != 0 && (*fl & 16) == 0)
-                                || ((*fl & 1) != 0 && (run_live || (*fl & 4) == 0))
-                                || ((*fl & 8) != 0 && run_live))
-                    }) else {
-                        break;
-                    };
-                    // (dyn entries here only from FORCE evals; flush
-                    // evals process them inline per the wrapper)
-                    let (_, tuple, _) = self.tms.deferred.remove(di);
-                    if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-                        eprintln!("TMS drain[flush-pre] r{ri} {tuple:?}");
-                    }
-                    // ⚖ k0 churn (D-201): del-group rules consume the
-                    // staged blocker-ins before the retract.
-                    self.tms_churn_del_group(ri, &tuple);
-                    self.tms_on_terminal_del(ri, &tuple);
-                    // ⚖ land_eager lead-k1 (D-199): eager landing
-                    // re-propagates — unpark for re-fire (self-killed
-                    // premises only; no-amut = fenced runaway).
-                    if self.rules[ri].def.no_loop
-                        && self.tms_lead_k1(ri)
-                        && self.tms_left_death(ri, &tuple)
-                    {
-                        self.tms.parked.retain(|(pri, _)| *pri != ri);
-                    }
-                }
+                self.tms_flush_drain(ri, dyn_sal, "flush-pre");
                 dbg_eval("eager", ri);
                 self.evaluate_rule(ri, false, true);
+                // D-201 (sdp7001x97, the eager decl-law): an entry
+                // pushed DURING ri's evaluation drains at ri's OWN
+                // eager-list slot — decl-AFTER deleters then receive
+                // the blocker ins+del FOLDED (gt6/x11 net-out) while
+                // decl-BEFORE ones, already evaluated, churn (x70).
+                if self.tms_flush_drain(ri, dyn_sal, "flush-mid") {
+                    self.evaluate_rule(ri, false, true);
+                }
             }
         }
         // Pass 2 (D-198, sd_b4): drains produced BY the pass-1 flush
@@ -7261,52 +7249,7 @@ impl Engine {
                 || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
             {
                 let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
-                let mut drained = false;
-                loop {
-                    let run_live = !self.nets[ri].queue.is_empty();
-                    let Some(di) = self.tms.deferred.iter().position(|(dri, _, fl)| {
-                        *dri == ri
-                            && (dyn_sal
-                                || ((*fl & 2) != 0 && (*fl & 16) == 0)
-                                || ((*fl & 1) != 0 && (run_live || (*fl & 4) == 0))
-                                || ((*fl & 8) != 0 && run_live))
-                    }) else {
-                        break;
-                    };
-                    drained = true;
-                    let (_, tuple, _) = self.tms.deferred.remove(di);
-                    if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-                        eprintln!("TMS drain[flush-post] r{ri} {tuple:?}");
-                    }
-                    // D-198 (sd_b4): an or-twin's SIBLING branch must
-                    // consume the in-firing block (materializing its
-                    // blocked list + queue prune) BEFORE the self-defeat
-                    // drop un-breaks the not — one Drools item covers
-                    // both branches.
-                    {
-                        let par = self.rule_parents[ri];
-                        let sibs: Vec<usize> = (0..self.rules.len())
-                            .filter(|&rj| rj != ri && self.rule_parents[rj] == par)
-                            .collect();
-                        for rj in sibs {
-                            self.evaluate_rule(rj, false, false);
-                        }
-                    }
-                    // ⚖ k0 churn (D-201): del-group rules consume the
-                    // staged blocker-ins before the retract.
-                    self.tms_churn_del_group(ri, &tuple);
-                    self.tms_on_terminal_del(ri, &tuple);
-                    // ⚖ land_eager lead-k1 (D-199): eager landing
-                    // re-propagates — unpark for re-fire (self-killed
-                    // premises only; no-amut = fenced runaway).
-                    if self.rules[ri].def.no_loop
-                        && self.tms_lead_k1(ri)
-                        && self.tms_left_death(ri, &tuple)
-                    {
-                        self.tms.parked.retain(|(pri, _)| *pri != ri);
-                    }
-                }
-                if drained {
+                if self.tms_flush_drain(ri, dyn_sal, "flush-post") {
                     self.evaluate_rule(ri, false, true);
                 }
                 // removeRuleAgendaItemWhenEmpty applies to EAGER
@@ -8016,7 +7959,13 @@ impl Engine {
                 .collect();
             self.tms.parked.retain(|(pri, _)| *pri != rj);
             // re-add order by notpos: LEAD = insertion (the model's
-            // land-lane law), TRAIL = reversed chain (sd_c1/gt16)
+            // land-lane law), TRAIL = reversed chain (sd_c1/gt16,
+            // fz_42_5213). ⚠ the x63/x77/x33 lazy-trail tails want
+            // the UNREVERSED list — three shapes, two orders, one
+            // flat list = the ⚖ epicycle stop: the park list is too
+            // flat for the model's phys history; the next move on
+            // that corner is an SdDump of the per-round phys, not a
+            // toggle (left open, D-202).
             let entries: Vec<Tup> = if self.tms_lead_k1(rj) {
                 entries
             } else {
@@ -10491,6 +10440,86 @@ impl Engine {
             });
             if has_not && has_pos {
                 self.evaluate_rule(rj, false, false);
+            }
+        }
+    }
+
+    /// One flush-drain sweep for ri's eligible deferred entries — the
+    /// full landing body (or-sibling consumption [D-198], the k0
+    /// churn [D-201], the retract, the land_eager unpark [D-199]).
+    /// Called BEFORE the pass-1 evaluation (entries from earlier
+    /// phases), AFTER it (D-201: an entry pushed DURING ri's eval
+    /// drains at ri's OWN eager-list slot — the decl-law), and in
+    /// pass 2 (the residue net). Returns whether anything drained.
+    fn tms_flush_drain(&mut self, ri: usize, dyn_sal: bool, site: &str) -> bool {
+        let mut drained = false;
+        loop {
+            let run_live = !self.nets[ri].queue.is_empty();
+            let Some(di) = self.tms.deferred.iter().position(|(dri, _, fl)| {
+                *dri == ri
+                    && (dyn_sal
+                        || ((*fl & 2) != 0 && (*fl & 16) == 0)
+                        || ((*fl & 1) != 0 && (run_live || (*fl & 4) == 0))
+                        || ((*fl & 8) != 0 && run_live))
+            }) else {
+                break;
+            };
+            drained = true;
+            let (_, tuple, fl) = self.tms.deferred.remove(di);
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!("TMS drain[{site}] r{ri} {tuple:?}");
+            }
+            // D-198 (sd_b4): the or-twin's SIBLING branch consumes the
+            // in-firing block BEFORE the self-defeat drop un-breaks.
+            {
+                let par = self.rule_parents[ri];
+                let sibs: Vec<usize> = (0..self.rules.len())
+                    .filter(|&rj| rj != ri && self.rule_parents[rj] == par)
+                    .collect();
+                for rj in sibs {
+                    self.evaluate_rule(rj, false, false);
+                }
+            }
+            self.tms_churn_del_group(ri, &tuple);
+            if fl & 6 == 6 {
+                self.tms_mf_teardown_reverse(ri, &tuple);
+            }
+            self.tms_on_terminal_del(ri, &tuple);
+            if self.rules[ri].def.no_loop
+                && self.tms_lead_k1(ri)
+                && self.tms_left_death(ri, &tuple)
+            {
+                self.tms.parked.retain(|(pri, _)| *pri != ri);
+            }
+        }
+        drained
+    }
+
+    /// ⚖ the mutfirst teardown (D-201, model x119/x30): a MUTFIRST
+    /// composite key (bit1+bit2) "never propagated" — the deleter
+    /// consumes t0 order EVEN when declared first. Reverse the
+    /// victims' blocked lists pre-retract so the right-del release
+    /// emits INSERTION order instead of the prepend chain.
+    fn tms_mf_teardown_reverse(&mut self, ri: usize, tuple: &Tup) {
+        let victims = self.tms_act_drop_victims(&(ri, tuple.clone()));
+        for f in victims {
+            let ftid = self.store.fact_type(f);
+            for rj in 0..self.rules.len() {
+                for pos in 0..self.rules[rj].patterns.len() {
+                    let pat = &self.rules[rj].patterns[pos];
+                    if pat.ce != CeKind::Not || pat.type_id != ftid {
+                        continue;
+                    }
+                    let Some(&ni) = self
+                        .nets[rj]
+                        .path
+                        .iter()
+                        .find(|&&ni| self.trie[ni].env.1 == pos)
+                    else {
+                        continue;
+                    };
+                    self.trie[ni].node.blocked_reverse_of(f);
+                }
             }
         }
     }

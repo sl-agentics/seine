@@ -715,6 +715,16 @@ impl Node {
         self.blocked.get(&f).cloned()
     }
 
+    /// D-201 (the mutfirst teardown, model x119/x30): reverse `f`'s
+    /// blocked list so the right-del release emits INSERTION order —
+    /// a mutfirst race key "never propagated": D consumes t0 order
+    /// even when D is declared first.
+    pub fn blocked_reverse_of(&mut self, f: FactId) {
+        if let Some(v) = self.blocked.get_mut(&f) {
+            v.reverse();
+        }
+    }
+
     pub fn push_right(&mut self, f: FactId, key: Option<Vec<Value>>) {
         self.rights.push((f, key));
     }

@@ -11377,3 +11377,73 @@ mechanism.
 NEXT: the 20 tails (diminishing returns — each is a
 one-to-four-case corner) or call the population slab COMPLETE and
 proceed to I-RD per Bryan's order.
+
+## D-202 — THE PORT SLAB, P6 (part 2, the tail grind): the flush-mid decl-law drain + the mutfirst teardown; twelve ORDER tails closed; ⚖ epicycle stop invoked on the lazy-trail re-add order (SdDump next, not a toggle); census 84→72, cumulative 599→72 (−88.0%) (2026-07-12)
+
+TWO LANES LANDED + ONE HONEST STOP:
+
+1. **The flush-mid drain (the eager decl-law; model gt6/x11 vs
+   x70)**: an entry pushed DURING a rule's pass-1 flush evaluation
+   now drains at that rule's OWN eager-list slot (tms_flush_drain
+   helper, called flush-pre → eval → flush-mid; pass 2 stays as the
+   residue net) — decl-AFTER deleters then receive the blocker
+   ins+del FOLDED (net-out, t0 order preserved) while decl-BEFORE
+   ones, already evaluated, churn. Previously every in-eval push
+   waited for pass 2, AFTER all eager rules had evaluated — every
+   deleter churned regardless of decl. Fixed: the 4-case
+   eager-ortwin-k0 class (sdp7001x97 — the twin's del-group keeps
+   t0), the 2-case eager-k0 class (sdp7001x146), and the x11/x25/
+   x123 singles.
+
+2. **⚖ the mutfirst teardown (model x119/x30: "a MUTFIRST key never
+   propagated — D consumes t0 order even D-first")**: for an EAGER
+   composite (bit1+bit2) key's drain, the victims' blocked lists
+   REVERSE pre-retract (blocked_reverse_of, a node fix-up — no
+   JoinEnv threading), so the right-del release emits INSERTION
+   order instead of the prepend chain. Placed AFTER the churn
+   materializes blocks, at the flush helper AND post-fire-continue
+   (x119's site — its deleter sits BELOW the justifier's salience).
+   ⚠ the first cut reached LAZY bit-6 entries too and flipped three
+   matching classes (x68/x92/x145) — the model's law is the eager
+   lane ("Lazy routing untouched"); scoped, all three recovered.
+   Fixed: the 3-case eager-trail-set_break-mf class (sdp7002x119).
+
+3. **⚖ EPICYCLE STOP — the lazy-trail re-add order (x63/x77/x33 +
+   kin, ~6 cases)**: dropping the sweep's trail-reversal fixed all
+   six (sdp7005x63's round-2 insertion-order pick, sdp6003x77,
+   sdp7002x33's two-deleter corner) — and broke fz_42_5213 (the
+   D-198 20-firing-alternation graduate: its round-1 revive wants
+   the reversed chain; the engine revived f0=5 where the oracle
+   revives f0=10). sd_c1 passes under BOTH orders. Three shapes,
+   two orders, one flat list = the park list is TOO FLAT an
+   approximation of the model's phys/jstaged fold history. Per the
+   stop-rule: REVERTED to the certified reversal (5213 green, the
+   six stay open tails); the named next instrument is an SdDump of
+   the per-round phys state on the x63 shape — a dump, not a
+   toggle. (The model itself is 0-div on all of them — the LAW
+   exists; the engine's park-replay altitude is what's wrong.)
+
+RECEIPTS: corpus **11/1124/370** byte-identical (fz_42_5213
+re-verified after the revert; the D-200 graduates live-green);
+drift **59** identical; agenda_open ×19 BYTE-IDENTICAL (⚠ D-106);
+ladder 6/6; validate_cells 39/39; check_witnesses 26/26; cargo
+test 9 suites; lint 1738/0/0. CENSUS: **84 → 72**; model 0-div
+12×150/150, all seeds timeout-clean. Table: 7001 6, 7002 10, 6001
+3, 6003 5, 7004 6, 7005 5, 7006 5, 7007 6, 7008 8, 7009 7, 7010 4,
+7011 7. CUMULATIVE: **599 → 72 (−88.0%)**.
+
+COMPOSITION at 72: **64 permanent** (d3/d5 no-amut runaways — the
+floor) + **8 fixable**: the epicycle-stopped lazy-trail order
+corner (~6: x63/x77-class ORD/SET + x33) + ~2 singles (x141
+lazy-trail-del-mf, x0 nb). THE POPULATION SLAB IS EFFECTIVELY
+CLOSED — every remaining fixable case funnels into ONE named
+mechanism question (the phys-history re-add order) with ONE named
+instrument (the per-round SdDump).
+
+NEXT (Bryan's sequence): I-RD — the mixed-key kill path (12
+witnesses, 2 already graduated via landing components, 2 moved
+toward; the identity law's home turf). The plan's step 3 stands:
+GROUND TRUTH FIRST — TmsDump/RunnerDump graft on fz_7_4048 +
+fz_7_9902 (which handle dies, which path: immediateDelete vs
+staged cancellation, where the value-key diverges); cells after
+the dump, never before.
