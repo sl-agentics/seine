@@ -1,0 +1,2 @@
+{"scenario":"sd_a14_noloop_declfirst","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]}],"queries":[]}}
+{"scenario":"sd_a15_k1_declfirst","result":{"facts":[{"type":"P","fields":{"f0":1}}],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1}}]},{"rule":"RO","matches":[{"type":"LK","fields":{"f0":7}}]}],"queries":[]}}

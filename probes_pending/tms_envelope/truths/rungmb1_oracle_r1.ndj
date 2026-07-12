@@ -1,0 +1,7 @@
+{"scenario":"mb1_dl","result":{"facts":[{"type":"P","fields":{"f0":2,"f1":0}}],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}},{"type":"P","fields":{"f0":1,"f1":0}}]}],"queries":[]}}
+{"scenario":"mb1_dt","result":{"facts":[{"type":"P","fields":{"f0":2,"f1":0}}],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1,"f1":0}}]}],"queries":[]}}
+{"scenario":"mb1_dt_nb","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1,"f1":0}}]},{"rule":"RJ","matches":[{"type":"P","fields":{"f0":2,"f1":0}}]}],"queries":[]}}
+{"scenario":"mb1_sl","result":{"facts":[{"type":"P","fields":{"f0":2,"f1":0}},{"type":"P","fields":{"f0":1,"f1":1}}],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}},{"type":"P","fields":{"f0":1,"f1":1}}]}],"queries":[]}}
+{"scenario":"mb1_st","result":{"facts":[{"type":"P","fields":{"f0":1,"f1":1}},{"type":"P","fields":{"f0":2,"f1":0}}],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1,"f1":1}}]}],"queries":[]}}
+{"scenario":"mb1_st_mf","result":{"facts":[{"type":"P","fields":{"f0":2,"f1":0}},{"type":"P","fields":{"f0":1,"f1":1}}],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1,"f1":1}}]}],"queries":[]}}
+{"scenario":"mb1_st_nb","result":{"facts":[{"type":"P","fields":{"f0":1,"f1":1}},{"type":"P","fields":{"f0":2,"f1":1}}],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1,"f1":1}}]},{"rule":"RJ","matches":[{"type":"P","fields":{"f0":2,"f1":1}}]}],"queries":[]}}

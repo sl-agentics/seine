@@ -1,0 +1,5 @@
+{"scenario":"sd_d1_nl_lead_del","error":"IllegalStateException: fire limit 100000 reached (non-terminating?)"}
+{"scenario":"sd_d2_nl_trail_del","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1}}]},{"rule":"RD","matches":[{"type":"P","fields":{"f0":1}}]},{"rule":"RD","matches":[{"type":"P","fields":{"f0":2}}]}],"queries":[]}}
+{"scenario":"sd_d3_nl_lead_nodel","error":"IllegalStateException: fire limit 100000 reached (non-terminating?)"}
+{"scenario":"sd_d4_lazy_lead_del","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}},{"type":"P","fields":{"f0":1}}]},{"rule":"RD","matches":[{"type":"P","fields":{"f0":2}}]},{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}},{"type":"P","fields":{"f0":1}}]},{"rule":"RD","matches":[{"type":"P","fields":{"f0":1}}]}],"queries":[]}}
+{"scenario":"sd_d5_nl_lead_obs","error":"IllegalStateException: fire limit 100000 reached (non-terminating?)"}

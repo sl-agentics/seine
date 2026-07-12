@@ -1,0 +1,6 @@
+{"scenario":"sd_b1_fanout_trailing","result":{"facts":[{"type":"P","fields":{"f0":2}},{"type":"P","fields":{"f0":1}}],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1}}]}],"queries":[]}}
+{"scenario":"sd_b2_fanout_leading","result":{"facts":[{"type":"P","fields":{"f0":2}},{"type":"P","fields":{"f0":1}}],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}},{"type":"P","fields":{"f0":1}}]}],"queries":[]}}
+{"scenario":"sd_b3_ortwin_lazy","error":"IllegalStateException: fire limit 100000 reached (non-terminating?)"}
+{"scenario":"sd_b4_ortwin_noloop","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]}],"queries":[]}}
+{"scenario":"sd_b5_fanout3_obs","result":{"facts":[{"type":"P","fields":{"f0":2}},{"type":"P","fields":{"f0":3}},{"type":"P","fields":{"f0":1}}],"firings":[{"rule":"RJ","matches":[{"type":"P","fields":{"f0":1}}]},{"rule":"RO","matches":[{"type":"LK","fields":{"f0":7}}]}],"queries":[]}}
+{"scenario":"sd_b6_leading_obs","result":{"facts":[{"type":"P","fields":{"f0":2}},{"type":"P","fields":{"f0":1}}],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}},{"type":"P","fields":{"f0":1}}]},{"rule":"RO","matches":[{"type":"LK","fields":{"f0":7}}]}],"queries":[]}}

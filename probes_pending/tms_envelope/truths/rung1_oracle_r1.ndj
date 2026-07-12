@@ -1,0 +1,7 @@
+{"scenario":"sd_a2_plain_eq","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]}],"queries":[]}}
+{"scenario":"sd_a3_plain_hi","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]},{"rule":"RO","matches":[{"type":"LK","fields":{"f0":7}}]}],"queries":[]}}
+{"scenario":"sd_a4_plain_lo","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]}],"queries":[]}}
+{"scenario":"sd_a5_acc_eq","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]}],"queries":[]}}
+{"scenario":"sd_a6_acc_hi","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]},{"rule":"RO","matches":[{"type":"LK","fields":{"f0":7}},{"type":"Long","fields":{"value":1}}]}],"queries":[]}}
+{"scenario":"sd_a7_acc_lo","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]}],"queries":[]}}
+{"scenario":"sd_a8_dual_eq","result":{"facts":[],"firings":[{"rule":"RJ","matches":[{"type":"InitialFact","fields":{}}]}],"queries":[]}}

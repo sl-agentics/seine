@@ -7,16 +7,19 @@ stability was verified at capture time). Comparison: rule-name sequence
 + final facts as sorted (type, f0) with LK/LK2 folded to "LK" + the
 runaway flag (b3 = oracle fire-limit).
 
-Usage: python3 validate_cells.py <truth_dir>   (dir with rung*_oracle_r1.ndjson)
+Usage: python3 validate_cells.py [truth_dir]   (default: the banked
+probes_pending/tms_envelope/truths/ — rung*_oracle_r1.ndj)
 """
 import json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from model_sd import simulate
 
 
-def J(name="RJ", sal=0, k=1, notpos="trail", eager=False, ortwin=False):
+def J(name="RJ", sal=0, k=1, notpos="trail", eager=False, ortwin=False,
+      breaks=True, amut=None, mutfirst=False):
     return {"kind": "justifier", "name": name, "sal": sal, "k": k,
-            "notpos": notpos, "eager": eager, "ortwin": ortwin, "breaks": True}
+            "notpos": notpos, "eager": eager, "ortwin": ortwin,
+            "breaks": breaks, "amut": amut, "mutfirst": mutfirst}
 
 
 def OL(sal, name="RO"): return {"kind": "obs_lk", "name": name, "sal": sal}
@@ -58,6 +61,13 @@ CELLS = {
     "sd_d3_nl_lead_nodel":   ([1, 2],    [J(notpos="lead", eager=True)]),
     "sd_d4_lazy_lead_del":   ([1, 2],    [J(notpos="lead"), DN(-5)]),
     "sd_d5_nl_lead_obs":     ([1, 2],    [J(notpos="lead", eager=True), OL(5)]),
+    "mb1_dt":                ([1, 2],    [J(amut="del")]),
+    "mb1_dl":                ([1, 2],    [J(notpos="lead", amut="del")]),
+    "mb1_st":                ([1, 2],    [J(amut="set_break")]),
+    "mb1_sl":                ([1, 2],    [J(notpos="lead", amut="set_break")]),
+    "mb1_st_nb":             ([1, 2],    [J(amut="set_break", breaks=False)]),
+    "mb1_st_mf":             ([1, 2],    [J(amut="set_break", mutfirst=True)]),
+    "mb1_dt_nb":             ([1, 2],    [J(amut="del", breaks=False)]),
 }
 
 
@@ -79,10 +89,12 @@ def truth_of(entry):
 
 
 def main():
-    tdir = sys.argv[1]
+    tdir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "truths")
     truths = {}
     for fn in os.listdir(tdir):
-        if fn.startswith("rung") and fn.endswith("_oracle_r1.ndjson"):
+        if fn.startswith("rung") and (fn.endswith("_oracle_r1.ndjson")
+                                      or fn.endswith("_oracle_r1.ndj")):
             for line in open(os.path.join(tdir, fn)):
                 j = json.loads(line)
                 truths[j["scenario"]] = truth_of(j)
