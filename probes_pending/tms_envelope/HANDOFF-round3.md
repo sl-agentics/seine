@@ -81,7 +81,7 @@ Sample survivors from any census run (`--keep`, diff engine vs
 oracle per case), classify against port-target-list.md's P-list,
 fix the biggest cluster first. Most are expected to be lazy-lane
 landing/order (the model — model_sd.py — is the spec at 0-div;
-`check_witnesses.py` = 28 banked oracle truths, oracle-free).
+`check_witnesses.py` = the banked oracle truths, oracle-free — expect 26/26).
 
 ### 4. P3 — the equal-salience queue-position drain split (LAST, ⚠ D-106)
 
@@ -135,4 +135,4 @@ and docs/tjupd-ledger-mechanisms.md. gen.rs walls STAY UP
 (fuzz_tms_sd is arc-local recon). The oracle is 9.44.0.Final+p1;
 oracle rebuilds: `cd oracle && mvn -q -DskipTests package` (then
 run from repo root — the cd hazard). Gates on resume: make diff +
-lint-probes + `validate_cells.py` (39/39) + check_witnesses (28/28).
+lint-probes + `validate_cells.py` (39/39) + check_witnesses (26/26).
