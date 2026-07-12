@@ -104,3 +104,69 @@ both-[RJ] ⇒ the split is conjunctive (needs both) — further cells;
 both-glimpse ⇒ fz_7_608's non-glimpse needs a different ingredient
 (its observers' own alpha misses? R2 DOES match the inserted T1 —
 re-derive from its record before more cells).
+
+# Rung 2 — the outliers + the fan-out spine (predictions BEFORE runs)
+
+CACHE READ (no new runs; 10-replicate sequences, all 10/10 stable):
+fz_123_9133 oracle = [R2, R1, R1, R1] — the justifier fires ONCE (its
+remaining 2 activations die in-firing at its own self-break) and the
+decl-before observer glimpses with ALL THREE of its activations;
+engine = [R2] (clause-A loss). fz_123_3060 oracle = [R0,R0,R3], engine
+fires R3 TWICE — R3 is a LEADING-not k=1 lazy justifier with fan-out 2;
+the engine fails the in-firing cancellation. fz_7_9375 oracle =
+[R3,R2,R1], engine fires R2 twice — R2 is an OR-TWIN CE-only
+self-justifier (no-loop): one item, two branch activations; engine
+fires both. 9133's trailing-not justifier engine-cancels correctly ⇒
+the engine's gap is TOPOLOGY-dependent (leading-not / or-twin miss).
+
+H-CLAUSE-B: the self-break's drop hits the justifier's OWN remaining
+same-item tuples IN-FIRING (before the next tuple fires), in BOTH
+eager and lazy regimes; clause A (item-pop landing, queue-position
+glimpse) governs other rules. The over-fire outliers are clause-B
+engine violations, not counterexamples to clause A.
+
+| cell | shape | ORACLE pred | ENGINE pred | basis |
+|---|---|---|---|---|
+| sd_b1_fanout_trailing | RJ = `P() not LK() -> iL` lazy, P(1) P(2) | [RJ] ×1 | [RJ] ×1 | 9133's trailing-not: engine cancels; GREEN control |
+| sd_b2_fanout_leading | RJ = `not LK() P() -> iL` lazy, P×2 | [RJ] | [RJ, RJ] | 3060 minimal; RED |
+| sd_b3_ortwin_lazy | RJ = `(not LK(f0==7)) or (not LK(f0==7)) -> iL` | [RJ] | [RJ, RJ] | or-twin gap extrapolated to lazy; MED confidence — if GREEN, the or-twin gap is eager-only |
+| sd_b4_ortwin_noloop | b3 + no-loop | [RJ] | [RJ, RJ] | 9375 minimal; RED |
+| sd_b5_fanout3_obs | trailing-not k=1 fan-out-3 + plain RO decl-FIRST @0 | [RJ, RO, RO, RO] | [RJ] | 9133 minimal (clause A: the observer's item fires its WHOLE tuple list at its pop); RED |
+| sd_b6_leading_obs | b2 + plain RO decl-FIRST @0 | [RJ, RO] | [RJ, RJ] | both clauses in one cell; RED both ways |
+
+Engine predictions are falsifiable as minimality checks: an engine
+mismatch means the constructed cell missed the compound's load-bearing
+ingredient. After verdicts: a desk retrodiction sweep of ALL 13 L-SD
+bucket members' cached sequences against the two clauses — the row is
+not done until every bucket member is accounted for (Bryan's bar).
+
+## Rung-2 round 2 — the third regime (written after the sweep + the
+## 5213 trace read, BEFORE the cells run)
+
+SWEEP RESULT: 11/13 fit clauses A+B at the count level. The two
+misfits share one signature: the JUSTIFIER under-fires engine-side
+(5213 R3 −7; 1353 R0/R2 −4 each, triple-justifier cascade). The 5213
+trace decodes as STRICT ALTERNATION: per round, the lazy justifier@7
+fires once (clause B cancels its other tuples), the drop lands at its
+item pop, the no-loop deleter R4@0 re-derives and fires exactly ONCE
+— then halts because the justifier's re-queue is strictly higher (the
+D-091 halt rule) — and the deleted T0 is a left-side WM event that
+re-propagates (the certified t15 revive), refreshing the dead-blocker
+leak. Ten [R3, R4] pairs. The engine batches R4 and starves R3's
+refires (×3 vs ×10). t10's no-refire pin is NOT violated — it scopes
+to no-WM-change cycles.
+
+H-CLAUSE-C (the refire-alternation regime): after the drop lands, a
+left-side WM change (t15) re-derives the justifier's remaining
+tuples; its re-queued item competes at its salience — strictly-higher
+re-queues preempt the changer's item after ONE firing (D-091 halt).
+
+| cell | shape | ORACLE pred | ENGINE pred |
+|---|---|---|---|
+| sd_c1_alternation | RJ@7 lazy `P($x:f0) not LK2(f1 != true) -> iL(LK2($x,false))`; RD@0 no-loop `$p:P() not LK2(f1 != true) -> delete($p)`; P×3 | strict pairs: [RJ,RD]×3 (RJ ×3, RD ×3) | RJ under-fires, RD batches — [RJ, RD, RD, RD]-like, RJ count < 3 → RED |
+| sd_c2_no_deleter | RJ@7 alone, P×3 | [RJ] once (t10: no WM change ⇒ no refire; dead-blocker leak) | [RJ] → GREEN control |
+
+If c1's oracle does NOT alternate strictly (e.g. RD fires twice in a
+row), the halt-gating hypothesis is wrong and only the t15-refire part
+stands — pin the output, split later. If c2 refires, t10's scope is
+narrower than pinned — surface loudly (standing-pin contradiction).

@@ -1,0 +1,39 @@
+{
+ "name": "sd_b1_fanout_trailing",
+ "drl": "rule \"RJ\"\nwhen\n    $p : P(f0 > 0)\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "_finding": "GREEN control 3x: TRAILING-not lazy justifier fan-out-2 \u2014 both sides fire once; the engine's in-firing cancellation works in this topology (contrast sd_b2)."
+}

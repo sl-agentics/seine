@@ -91,8 +91,22 @@ reconciliation: that pin's scope was the eager regime all along — its
 "continuation drains at equal salience" over-generalized to lazy and
 the engine implemented the over-generalization = min812's mechanism,
 acc never load-bearing). 4 open_divergence cells (sd_a9/a10/a13/a15);
-lint 1676/0/0. NEXT: rung 2 (the 3060/9375 OVER-fire kill-cells + the
-9133 fan-out spine) unless Bryan re-orders; any engine change stays
+lint 1676/0/0. **RUNG 2 COMPLETE (D-188, Bryan-sequenced): the
+over-fire outliers DISSOLVED into clause B (in-firing
+self-cancellation of the justifier's own remaining tuples — engine
+misses on leading-not/or-twin topologies; sd_b2=3060, sd_b4=9375) and
+the sweep's justifier-under-fire misfits into clause C (post-drop
+re-derivation: no-WM-change ⇒ no refire [t10 scope confirmed];
+left-side change ⇒ t15 re-derivation + strictly-higher re-queue
+preempts the changer after ONE firing = strict alternation
+[sd_c1=5213]; engine batches). THE (cloud × self-defeat) ROW = a
+THREE-CLAUSE TABLE with ALL 13 BUCKET MEMBERS ACCOUNTED (8 pure-A,
+9133=A+B-honored, 3060=B, 9375=B, 5213=A+B+C,
+1353=A+B+cascade-persistence; zero unexplained). Bonus: sd_b3 = the
+bare lazy or-twin is a Drools RUNAWAY 3/3 (the 946 family as a 1-rule
+minimal; no-loop is the terminator). 23 cells, 11 open_divergence =
+the port battery core; lint 1685/0/0.** NEXT: L-MB (18 witnesses) or
+L-SD model-phase consolidation — Bryan's call; any engine change stays
 gated (⚠ D-106 tripwire + D-177 landing-not-pick).** Other
 candidates: class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
@@ -10375,3 +10389,62 @@ bucket's 11/13 under-fire direction; the two OVER-fire outliers
 kill-cells, alongside the fz_123_9133 fan-out spine (multi-activation
 justifier × in-firing continuation). NEXT: rung 2, or Bryan's
 re-order; any engine change stays validate-and-revert behind the gate.
+
+## D-188 — RUNG 2 (Bryan's sequencing): the over-fire outliers DISSOLVE into a second clause, the sweep's misfits into a third — the L-SD row is a THREE-CLAUSE TABLE and ALL 13 BUCKET MEMBERS ARE ACCOUNTED FOR (2026-07-11)
+
+Bryan's bar: "a table that explains 11/13 and can't explain 2 is not a
+table yet." Executed: cache trace-reads (10-replicate sequences, free)
+of 9133/3060/9375 → 9 constructed cells over two prediction rounds
+(pre-logged; all oracle rows 3×-stable) → a mechanical 13-witness
+retrodiction sweep → trace-reads of the two sweep misfits. Full write-up
+`probes_pending/tms_envelope/rung2-results.md`.
+
+**THE (cloud × self-defeat) ROW, complete — three clauses:**
+- **A (landing/queue-position, rung 1):** lazy ⇒ drop lands at the
+  justifier's ITEM POP, same-salience observers glimpse iff queue
+  position precedes it; eager ⇒ flush landing; an item fires its WHOLE
+  tuple list at its pop (sd_b7: join observer ⇒ [RJ,RO,RO,RO] — the
+  9133 sequence from a 2-rule cell).
+- **B (in-firing self-cancellation — the over-fire outliers):** the
+  justifier's OWN remaining same-item tuples (fan-out AND or-twin
+  branches) die IN-FIRING at the self-break, both regimes. sd_b2
+  (leading-not, = 3060) and sd_b4 (or-twin no-loop, = 9375) RED; sd_b1
+  green — the ENGINE's cancellation works trailing-not but fires the
+  corpse tuples on leading-not/or-twin topologies. The "over-fire
+  outliers" were clause-B violations, not counterexamples to A.
+- **C (post-drop re-derivation — the sweep's justifier-under-fire
+  misfits):** no WM change ⇒ NO refire (sd_c2 green; t10's scope
+  confirmed exactly); a left-side WM change (t15 revive) re-derives the
+  remaining tuples and the re-queued item competes at its salience —
+  strictly-higher preempts the changer after ONE firing ⇒ STRICT
+  ALTERNATION (sd_c1: oracle [RJ,RD]×3, = 5213's ten pairs; the D-091
+  halt structure). The ENGINE batches the changer and starves refires.
+
+**Bucket accounting (13/13):** 8 pure-A (sweep-verified), 9133 = A+B
+(B honored: trailing-not), 3060 = B, 9375 = B, 5213 = A+B+C, 1353 =
+A+B+cascade-persistence (the bootstrap glimpse's own insertLogicals
+persist per the ordinary D-076 lifecycle — no fourth clause; its
+8-firing/5-fact loss is the persistence chain the engine's early drain
+never starts). ZERO unexplained members.
+
+**Bonus boundary find (sd_b3):** the bare LAZY or-twin self-justifier
+is a genuine Drools RUNAWAY (fire-limit 3/3) — the fz_42_946 family as
+a 1-rule constructed minimal; `no-loop` is exactly what makes 9375's
+or-twin terminate. The terminate/runaway boundary is now a designed
+pair (b3/b4), not just fuzz census.
+
+**Engine gaps, stated (all evaluation-lifecycle; ⚠ D-106 tripwire +
+D-177 landing-not-pick apply to any future fix):** (1) early
+continuation-drain instead of pop-landing [A]; (2) topology-dependent
+in-firing cancellation miss [B: leading-not, or-twin]; (3)
+changer-batching instead of halt-alternation [C].
+
+GATES: lint **1685/0/0** (9 new cells: 7 open_divergence incl. the b3
+boundary witness, 2 live controls); corpus untouched 11/1124/354;
+engine untouched; xfail drift gate green (nothing rebanked). Cell
+census for the arc so far: 23 constructed cells, 11 open_divergence
+witnesses = the L-SD port battery core. Method-law fine print (clause
+B's exact fold site; clause C's equal-salience re-queue case c3 —
+unprobed, one cell at the model phase) recorded in the results doc.
+NEXT: L-MB (the 18-witness mutation-break cluster) per plan §5, or
+L-SD model-phase consolidation first — Bryan's call.

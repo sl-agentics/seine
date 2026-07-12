@@ -1,0 +1,46 @@
+{
+ "name": "sd_b5_fanout3_obs",
+ "drl": "rule \"RO\"\nwhen\n    LK($v : f0)\nthen\nend\nrule \"RJ\"\nwhen\n    $p : P(f0 > 0)\n    not LK()\nthen\n    insertLogical(new LK(7));\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 3
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "CLAUSE A composition: trailing-not justifier fan-out-3 + single-pattern observer decl-FIRST \u2014 oracle [RJ, RO] (one observer activation exists; it glimpses), engine [RJ]. NOTE the round-4 prediction of RO x3 was a design slip (single-pattern observer has one activation); the whole-tuple-list clause is pinned by sd_b7 instead."
+}

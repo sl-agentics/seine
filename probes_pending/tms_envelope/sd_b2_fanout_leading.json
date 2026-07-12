@@ -1,0 +1,40 @@
+{
+ "name": "sd_b2_fanout_leading",
+ "drl": "rule \"RJ\"\nwhen\n    not LK()\n    $p : P(f0 > 0)\nthen\n    insertLogical(new LK(7));\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "CLAUSE B witness (3060 minimal): leading-not lazy justifier fan-out-2 \u2014 oracle fires ONCE (its own remaining same-item tuple dies IN-FIRING at the self-break); engine fires BOTH. The engine's in-firing cancellation gap is topology-dependent (trailing-not works: sd_b1)."
+}

@@ -1,0 +1,18 @@
+{
+ "name": "sd_b3_ortwin_lazy",
+ "drl": "rule \"RJ\"\nwhen\n    ( not LK(f0 == 7) )\n    or\n    ( not LK(f0 == 7) )\nthen\n    insertLogical(new LK(7));\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "FAMILY-II BOUNDARY (uncertifiable): the bare LAZY or-twin self-justifier RUNS AWAY in Drools (fire-limit 3/3) \u2014 the fz_42_946 mechanism in miniature; no-loop is what makes it terminate (sd_b4). Engine terminates at 2 firings (strictly better). Routes to xfail as a runaway witness at graduation; kept here as the terminate/runaway boundary control."
+}

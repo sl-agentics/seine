@@ -1,0 +1,40 @@
+{
+ "name": "sd_b6_leading_obs",
+ "drl": "rule \"RO\"\nwhen\n    LK($v : f0)\nthen\nend\nrule \"RJ\"\nwhen\n    not LK()\n    $p : P(f0 > 0)\nthen\n    insertLogical(new LK(7));\nend\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "f0": 2
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "CLAUSES A+B in one cell: oracle [RJ, RO] (one justifier firing, decl-first observer glimpses); engine [RJ, RJ] (fires the cancelled second tuple AND loses the glimpse). Doubly divergent."
+}

@@ -1,0 +1,18 @@
+{
+ "name": "sd_b4_ortwin_noloop",
+ "drl": "rule \"RJ\"\nno-loop\nwhen\n    ( not LK(f0 == 7) )\n    or\n    ( not LK(f0 == 7) )\nthen\n    insertLogical(new LK(7));\nend\n",
+ "facts": [],
+ "types": [
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "CLAUSE B witness (9375 minimal): or-twin + no-loop \u2014 ONE RuleAgendaItem, two branch activations; oracle fires one branch (the twin dies in-firing), engine fires both. Clause B holds in the EAGER regime too."
+}
