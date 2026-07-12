@@ -1,0 +1,336 @@
+== PRE-FIRE ==
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[()@-1#39307~0 ] del[] upd[]
+  TMS wm: @1(T0( f0=true, f1=9, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2
+FIRING 0 R3  T0( f0=true, f1=9, f2=-3 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=true, f1=9, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=true, f1=9, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@3
+FIRING 1 R3  T0( f0=false, f1=-3, f2=-1000000007 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=true, f1=9, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=true, f1=9, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@4+]lfh=@4bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@4
+FIRING 2 R0  T1( f0=false, f1=false ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=true, f1=9, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=true, f1=9, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@4+]lfh=@4bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 3 R1  T0( f0=true, f1=9, f2=-3 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=true, f1=9, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=true, f1=9, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+@6+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@4+]lfh=@4bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+]lfh=-
+  TMS pending: Insert@5 Insert@6
+FIRING 4 R1  T0( f0=false, f1=-3, f2=-1000000007 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=true, f1=9, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=true, f1=9, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @7(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+@6+@7+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@4+@8+]lfh=@4bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+]lfh=-
+  TMS pending: Insert@7 Insert@8
+FIRING 5 R0  T1( f0=false, f1=false ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=true, f1=9, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=true, f1=9, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @7(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+@6+@7+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@4+@8+]lfh=@4bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+]lfh=-
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=true, f1=9, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=true, f1=9, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @7(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+@6+@7+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=9, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@4+@8+]lfh=@4bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+]lfh=-
+  TMS pending: -
+== ACTION update ==
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @7(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+@6+@7+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@4+@8+]lfh=@4bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+]lfh=-
+  TMS pending: Update@1
+== ACTION insert ==
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @3(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @7(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=-
+  TMS keys: JUSTIFIED fhs[@3+@6+@7+]lfh=@3bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@4+@8+]lfh=@4bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+]lfh=-
+  TMS pending: Update@1 Insert@9
+FIRING 6 R3  T0( f0=false, f1=10, f2=-3 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED
+  TMS keys: JUSTIFIED fhs[@4+@8+]lfh=@4bs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+]lfh=- STATED fhs[@11+]lfh=-
+  TMS pending: -
+FIRING 7 R3  T0( f0=true, f1=7, f2=100 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+]lfh=@4bs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@12
+FIRING 8 R1  T0( f0=false, f1=10, f2=-3 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+]lfh=@4bs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@13 Insert@14
+FIRING 9 R0  T1( f0=false, f1=false ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+]lfh=@4bs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 10 R1  T0( f0=true, f1=7, f2=100 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @15(T1( f0=true, f1=true ))key=STATED @16(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+]lfh=@4bs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+@15+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+@16+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@15 Insert@16
+== EPOCH 1 BOUNDARY ==
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @15(T1( f0=true, f1=true ))key=STATED @16(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+]lfh=@4bs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+@15+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+@16+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+== ACTION insert ==
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @15(T1( f0=true, f1=true ))key=STATED @16(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @17(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+]lfh=@4bs[n=2 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+@15+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+@16+@17+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@17
+FIRING 11 R3  T0( f0=false, f1=10, f2=-1 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @15(T1( f0=true, f1=true ))key=STATED @16(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @17(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @18(T0( f0=false, f1=10, f2=-1 ))key=-
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+]lfh=@4bs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+@15+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+@16+@17+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 12 R1  T0( f0=false, f1=10, f2=-1 ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @15(T1( f0=true, f1=true ))key=STATED @16(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @17(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @18(T0( f0=false, f1=10, f2=-1 ))key=- @19(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @20(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+@20+]lfh=@4bs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+@15+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+@16+@17+@19+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@19 Insert@20
+FIRING 13 R0  T1( f0=false, f1=false ) | 
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @15(T1( f0=true, f1=true ))key=STATED @16(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @17(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @18(T0( f0=false, f1=10, f2=-1 ))key=- @19(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @20(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+@20+]lfh=@4bs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+@15+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+@16+@17+@19+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+== EPOCH 2 BOUNDARY ==
+  PATH R0
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  NotNode 12
+     ltm: 
+     rtm: (T0( f0=false, f1=-3, f2=-1000000007 ))@-1#69095~23186 blocked{()@-1#39307~0 } (T0( f0=false, f1=10, f2=-3 ))@-1#31318~16869 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false, f1=10, f2=-3 ))key=- @2(T0( f0=false, f1=-3, f2=-1000000007 ))key=- @4(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @5(T1( f0=true, f1=true ))key=STATED @6(T1( f0=false, f1=true ))key=JUSTIFIED @7(T1( f0=false, f1=true ))key=JUSTIFIED @8(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @9(T0( f0=true, f1=7, f2=100 ))key=- @10(T1( f0=true, f1=true ))key=STATED @11(T1( f0=true, f1=false ))key=STATED @12(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @13(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @14(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @15(T1( f0=true, f1=true ))key=STATED @16(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @17(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @18(T0( f0=false, f1=10, f2=-1 ))key=- @19(T1( f0=false, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @20(T1( f0=false, f1=false ))key=JUSTIFIEDbs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+@8+@14+@20+]lfh=@4bs[n=3 wma=-]dep{R3 act=false q=false tup=(T0( f0=false, f1=-3, f2=-1000000007 )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-3 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R3 act=false q=false tup=(T0( f0=false, f1=10, f2=-1 )@18) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5+@10+@15+]lfh=- STATED fhs[@11+]lfh=- JUSTIFIED fhs[@12+@13+@16+@17+@19+]lfh=@12bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=true, f1=7, f2=100 )@9) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -

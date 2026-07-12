@@ -1,0 +1,160 @@
+== PRE-FIRE ==
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=, f1=true ))key=- @3(T1( f0=alpha, f1=true ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2 Insert@3
+FIRING 0 R0  T0( f0=true ) | 
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=, f1=true ))key=STATED @3(T1( f0=alpha, f1=true ))key=STATED @4(T1( f0=b, f1=true ))key=JUSTIFIEDbs[n=2 wma=-]dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@2+]lfh=- STATED fhs[@3+]lfh=- JUSTIFIED fhs[@4+]lfh=@4bs[n=2 wma=-]dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@4
+FIRING 1 R1  T0( f0=true ) | 
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=, f1=true ))key=STATED @3(T1( f0=alpha, f1=true ))key=STATEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=b, f1=true ))key=JUSTIFIEDbs[n=2 wma=-]dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @6(T1( f0=, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@2+]lfh=- JUSTIFIED fhs[@4+]lfh=@4bs[n=2 wma=-]dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5!@3+]lfh=@5bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@6+]lfh=@6bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@6
+FIRING 2 R2  T1( f0=, f1=true ) | 
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @3(T1( f0=alpha, f1=true ))key=STATEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=b, f1=true ))key=JUSTIFIEDbs[n=2 wma=-]dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @6(T1( f0=, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+]lfh=@4bs[n=2 wma=-]dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@5!@3+]lfh=@5bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@6+]lfh=@6bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Delete@2
+FIRING 3 R2  T1( f0=alpha, f1=true ) | 
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @4(T1( f0=b, f1=true ))key=JUSTIFIEDbs[n=2 wma=-]dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @6(T1( f0=, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+]lfh=@4bs[n=2 wma=-]dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R0 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} JUSTIFIED fhs[@6+]lfh=@6bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Delete@3 Insert@5
+FIRING 4 R2  T1( f0=b, f1=true ) | 
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @6(T1( f0=, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@6+]lfh=@6bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 5 R2  T1( f0=alpha, f1=true ) | 
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @6(T1( f0=, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@6+]lfh=@6bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 6 R3  T1( f0=, f1=false ) | 
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @6(T1( f0=, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@6+]lfh=@6bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 7 R3  T1( f0=alpha, f1=true ) | 
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @6(T1( f0=, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@6+]lfh=@6bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  PATH R2
+     seg0: null
+  PATH R3
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @6(T1( f0=, f1=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@6+]lfh=@6bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -

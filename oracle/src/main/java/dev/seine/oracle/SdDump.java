@@ -66,8 +66,10 @@ public final class SdDump {
             }
         });
 
+        java.util.List<org.kie.api.runtime.rule.FactHandle> inserted =
+                new java.util.ArrayList<>();
         for (JsonNode fact : scenario.path("facts")) {
-            session.insert(instantiate(kbase, scenario, fact));
+            inserted.add(session.insert(instantiate(kbase, scenario, fact)));
         }
         System.out.println("== PRE-FIRE ==");
         dumpBetas(session);
@@ -76,7 +78,66 @@ public final class SdDump {
         System.out.println("== FIRE-BOUNDARY ==");
         dumpBetas(session);
         dumpTms(session);
+        // D-202/I-RD: epoch replay (OracleRunner's action loop, dump
+        // after every action + at each epoch's fire boundary). The TMS
+        // recon scenarios use insert/update/delete only.
+        int epochNo = 0;
+        for (JsonNode epoch : scenario.path("epochs")) {
+            epochNo++;
+            for (JsonNode action : epoch.path("actions")) {
+                String op = action.path("op").asText();
+                if (op.equals("insert")) {
+                    inserted.add(session.insert(instantiate(kbase, scenario, action)));
+                } else if (op.equals("update")) {
+                    org.kie.api.runtime.rule.FactHandle fh =
+                            inserted.get(action.path("target").asInt());
+                    Object bean = session.getObject(fh);
+                    FactType ft = kbase.getFactType(PKG, bean.getClass().getSimpleName());
+                    java.util.List<String> props = new java.util.ArrayList<>();
+                    java.util.Iterator<String> it = action.path("fields").fieldNames();
+                    while (it.hasNext()) {
+                        String fname = it.next();
+                        setField(ft, bean, fname, action.path("fields").path(fname),
+                                scenario, bean.getClass().getSimpleName());
+                        props.add(fname);
+                    }
+                    session.update(fh, bean, props.toArray(new String[0]));
+                } else if (op.equals("delete")) {
+                    session.delete(inserted.get(action.path("target").asInt()));
+                } else {
+                    throw new IllegalArgumentException("SdDump: unsupported epoch op " + op);
+                }
+                System.out.println("== ACTION " + op + " ==");
+                dumpBetas(session);
+                dumpTms(session);
+            }
+            for (JsonNode fact : epoch.path("facts")) {
+                inserted.add(session.insert(instantiate(kbase, scenario, fact)));
+            }
+            session.fireAllRules(10_000);
+            System.out.println("== EPOCH " + epochNo + " BOUNDARY ==");
+            dumpBetas(session);
+            dumpTms(session);
+        }
         session.dispose();
+    }
+
+    static void setField(FactType ft, Object bean, String fname, JsonNode v,
+            JsonNode scenario, String type) throws Exception {
+        JsonNode typedef = null;
+        for (JsonNode t : scenario.path("types")) {
+            if (t.path("name").asText().equals(type)) typedef = t;
+        }
+        String fty = "";
+        for (JsonNode f : typedef.path("fields")) {
+            if (f.path("name").asText().equals(fname)) fty = f.path("type").asText();
+        }
+        switch (fty) {
+            case "i64": ft.set(bean, fname, v.asLong()); break;
+            case "f64": ft.set(bean, fname, v.asDouble()); break;
+            case "bool": ft.set(bean, fname, v.asBoolean()); break;
+            default: ft.set(bean, fname, v.asText());
+        }
     }
 
     static void dumpBetas(KieSession session) {
