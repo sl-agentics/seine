@@ -83,11 +83,11 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, fully PUSHED through the D-180 stack
-(Bryan-directed 2026-07-11, branch-only, NO tag: D-177 `0bd2bc7` +
-D-178 `188e216` + D-179 `0f9ca8d` + D-180 `3d0e1fc` + this state
-commit). Resume point: NEXT is Bryan's call (the D-180 tail lists
-candidates; the open ledger = EXACTLY `tu81x60`).
+**Git:** on `main`, fully PUSHED through the D-185 stack
+(Bryan-directed 2026-07-11, branch-only, NO tag: D-181 `9cd64dd` →
+D-182 `bafbabc` → D-183 `b8dc624` → D-184 `cf41076` → D-185
+`98e8d87` + pointer/state commits). Resume point: NEXT is Bryan's
+call (the D-185 §5 follow-ups; the battery's open ledger is EMPTY).
 **RELEASED: v0.4.2 → PyPI, 2026-07-11** (Bryan-directed; tag
 `v0.4.2` on `cf14cb5`, pipeline landed green — Bryan-confirmed;
 follows v0.4.1 on `2a482e8` earlier the same day). The
