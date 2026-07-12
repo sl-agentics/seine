@@ -127,7 +127,13 @@ reading retracted — queue-head unamended); model_sd order layer =
 physics, ZERO toggles; **32/32 banked; population 750/750, seeds
 6001-6005** (6004/6005 fully out-of-sample); engine census 300/750
 divergent (40%) = the port A/B baseline; lint 1694/0/0; engine
-untouched. **D-192 (MB-1 + graft): the D-191 headline RETRACTED
+untouched. **D-193: del = EAGER dep-cascade (gt12: the obs never
+glimpses; the lazy prior scoped to update-breaks only) + the
+INTERVENING-ACTION fold law (gt11: ilfirst churns, mutfirst folds —
+netting iff nothing lands between the LK-ins and run-end del); v2 =
+738/750 (fresh 7003: 148/150), 9 survivors in 3 named order
+clusters (lead-NL quartet / mf-lazy-trail trio / nb-trail tails).**
+**D-192 (MB-1 + graft): the D-191 headline RETRACTED
 (census misread — solo set_break fires once; the model was green on
 all 7 MB-1 cells); engine RED on lead A-shapes (mb1_dl/sl, port
 battery); gt9/gt10 physics: update relocates to join-rtm TAIL
@@ -10727,3 +10733,27 @@ lint **1701/0/0** (7 mb1 cells: 2 open_divergence, 5 live); drift
 gate green; corpus + engine untouched. NEXT: the residue signatures
 one graft-dump each (nb/del interplay first), then fresh v2 seeds to
 0-div; the I-RD front after.
+
+## D-193 — L-MB continuation: two more dump-grounded rules (del = EAGER dep-cascade; the INTERVENING-ACTION fold law); v2 at 738/750 with three named residue clusters (2026-07-12)
+
+gt12 (nb-del + obs_join): the observer NEVER fires — a self-inflicted
+DELETE carries the LK's dep EAGERLY (plain cascade at the action);
+the zombie+lazy-drop prior was WRONG for deletes and its spurious
+fold machinery caused the x134-trio misorders. fz_42_2442's
+self-inflicted-lazy is the UPDATE-break's law, not the delete's.
+gt11 (ilfirst-NL + deleter): the deleter's node CHURNS under ilfirst
+where gt10's mutfirst did not — **the fold nets out iff NO WM action
+intervenes between the LK-ins and the run-end del** (ilfirst puts the
+update between them, forcing the staged ins to process; mutfirst
+leaves them adjacent to fold). Both encoded; 32/32 held.
+
+STATE: v2 populations **7001 149/150, 7002 148/150, 6001 148/150,
+6003 146/150, 7003 (fresh) 148/150 = 738/750 (98.4%)**; the 9
+survivors cluster: (i) the lead-NL quartet (x17/x90/x128/x131 —
+set_break×NL×lead, missing gen-2 obs fires / deleter orders — the
+multi-firing run's drop-batch structure, NOT hand-derived, next
+dump target); (ii) the mf-lazy-trail trio (x68/x41/x88 — the
+justifier's own post-churn continuation order); (iii) two nb-trail
+tails (x103/x0). All order-class; ZERO landing/mechanism divergences
+in 750 v2 cases. Engine census 47/56/45/54/37. NEXT: one dump per
+cluster, then fresh seeds to v2 0-div; then I-RD.

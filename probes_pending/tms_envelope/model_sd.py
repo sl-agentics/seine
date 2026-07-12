@@ -197,7 +197,9 @@ def simulate(facts, rules):
                 # eager = same-batch fold nets out on other nodes (gt10);
                 # LAZY = the drop's later batch churns them (pending fold,
                 # the gt3/d4 machinery — the 7001x114-class regression fix)
-                if not r.get("eager") and any(
+                churns = (not r.get("eager")) or (
+                    r.get("amut") == "set_break" and not r.get("mutfirst"))
+                if churns and any(
                         rules[rj]["kind"] == "del_not" for rj in range(len(rules))):
                     pending_fold[0] = scan
             elif r.get("notpos", "trail") == "trail":
@@ -353,11 +355,11 @@ def simulate(facts, rules):
                     drops[ri].append(lk_key)
             amut = r.get("amut")
             if amut and pval is not None:
-                # A-shape RHS mutation of the justifier's OWN tuple member:
-                # the dep-teardown is SELF-INFLICTED => lands LAZY
-                # (fz_42_2442 prior); foreign effects of a delete are eager
-                # (recompute-on-pop); cascade immunity via the zombie flag.
-                if not LK[lk_key]["zombie"]:
+                # A-shape RHS mutation: a self-inflicted DELETE carries the
+                # dep EAGERLY (plain cascade — gt12: the obs never glimpses);
+                # a self-inflicted UPDATE-break defers (fz_42_2442's actual
+                # shape) — zombie + lazy/run-end drop.
+                if amut == "set_break" and not LK[lk_key]["zombie"]:
                     LK[lk_key]["zombie"] = True
                     if r.get("eager"):
                         eager_pend[ri].append(lk_key)
