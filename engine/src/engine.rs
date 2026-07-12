@@ -7008,6 +7008,26 @@ impl Engine {
                 && (0..self.queries.len())
                     .any(|qi| self.query_pending[qi] && 0 > l_sal));
             let _ = l_group;
+            // ⚖ P3 pop-precedence (D-199, model head(); min812's
+            // glimpse): a LAZY rule's run-end drops land only if l
+            // would be the NEXT SELECTION anyway — an EQUAL-salience
+            // DECL-PRECEDING queued same-group item pops first and
+            // glimpses the transient; the entry lingers to l's own
+            // pop (drain[pop]). The halt keeps the certified
+            // strictly-higher gate (the min608 over-generalization
+            // drained equal salience wholesale). EAGER rules' drops
+            // land before the next selection commits (land_eager) —
+            // exempt.
+            let lazy_l = !(self.rules[l].def.no_loop
+                || matches!(self.rules[l].salience, EngineSalience::Dyn { .. }));
+            let eq_decl_preempt = lazy_l
+                && (0..self.rules.len()).any(|rj| {
+                    rj != l
+                        && self.nets[rj].queued
+                        && self.rules[rj].def.agenda_group.as_deref().unwrap_or("MAIN") == top_g
+                        && self.item_salience(rj) == l_sal
+                        && rj < l
+                });
             let pre_force_qlen = self.nets[l].queue.len();
             if !higher {
                 dbg_eval("post-fire-force", l);
@@ -7028,9 +7048,16 @@ impl Engine {
                             return None;
                         }
                     }
-                    while let Some(i) =
-                        self.tms.deferred.iter().position(|(ri, _, _)| *ri == l)
-                    {
+                    // (eq_decl_preempt computed beside `higher` above —
+                    // the ⚖ P3 pop-precedence gate). Per-ENTRY: only the
+                    // NOT-side self-defeat lane (bit1) defers to the pop
+                    // — the LIA/t20 lane (bit0, no not: self-update/
+                    // delete breaks) keeps its CERTIFIED continue-drain
+                    // discipline (pr_tms_t20*; 14 regression cells
+                    // pinned it when the whole-drain gate over-deferred).
+                    while let Some(i) = self.tms.deferred.iter().position(|(ri, _, fl)| {
+                        *ri == l && !(eq_decl_preempt && (*fl & 2) != 0)
+                    }) {
                         let (_, tuple, _) = self.tms.deferred.remove(i);
                         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                             eprintln!("TMS drain[post-fire-continue] r{l} {tuple:?}");

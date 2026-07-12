@@ -139,13 +139,30 @@ scoped — round 2.
   + deleter/justifier pick-order physics (P6) + the x73 class
   (lazy-lead-del foreign observer under-fire, undiagnosed).
 
-## Port order (updated post-D-199)
+## Round-3 part 2 (D-200): P3 LANDED — round 3 COMPLETE, P1-P5 all landed
 
-~~P1 → P2~~ (D-197) → ~~P4/P5~~ (D-198/D-199) → **P3 NEXT** (the
-equal-salience pop-precedence drain split — the D-106-adjacent
-executor-region change, receipts-gated: agenda_open ×19 before/after
-+ the halt matrix + fz_9001/9003/9004 tripwires; the fix shape is in
-HANDOFF-round3.md §4) → P6 order-layer sweep (the model's order
-layer is the spec; x29/x52/x114/x11/x25-class). Invariants each
-step: corpus byte-identical, xfail drift tier, agenda_open ×19
-receipts, full battery, populations vs model_sd (12×150 0-div).
+- **P3 = the pop-precedence drain split** at post-fire-continue:
+  the halt keeps certified strictly-higher (D-091/pick untouched);
+  the DRAIN defers under equal-salience decl-preceding preemption,
+  **LANE-SCOPED to bit1 (NOT-side self-defeat) entries** — ⚠ the
+  whole-drain first cut broke 14 certified t20-lane cells (bit0
+  justifiers, no not: their continue-drain is pr_tms_t20*-
+  certified); the D-197 cause flags made the scoping expressible.
+- **TEN GRADUATES in one change** — the ENTIRE P3 witness list:
+  min812 (the anchor), fz_123_{2135,3370,4318,7637,9133},
+  fz_777_9637, fz_7_812, fz_7_9864, and **fz_7_1353 the FINALS-DIFF
+  compound** (4→12 — the 8 lost firings returned as predicted).
+  Corpus 11/1124/370, drift 59.
+- CENSUS 242→197 (cumulative **599→197, −67.1%**). Composition: 64
+  RUNAWAY-MISMATCH (d3/d5 no-amut — permanent floor), 63 ORDER-ONLY
+  (P6), 70 SET (pick-order physics, the x73 class, tails).
+
+## Port order (updated post-D-200)
+
+~~P1 → P2~~ (D-197) → ~~P4/P5~~ (D-198/D-199) → ~~P3~~ (D-200) →
+**P6 NEXT** — the order-layer sweep (the model's order layer is the
+spec; the x29/x52/x114 pick-order class, the x11/x25 consume-order
+class, the k0 mass) + the x73 class (lazy-lead-del foreign observer
+under-fire, undiagnosed). Invariants each step: corpus
+byte-identical, xfail drift tier, agenda_open ×19 receipts, full
+battery, populations vs model_sd (12×150 0-div).

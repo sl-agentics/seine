@@ -11,10 +11,10 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-199 (TMS-envelope arc: THE PORT
-SLAB rounds 1-3 — the deferral cause model + P4/P5 + the t15 lanes
-landed, ladder 6/6 engine-green, census 599→242 cumulative −59.6%,
-six graduates rounds 1-3; pushed through bfc363e [D-198], D-199
+_Last updated: 2026-07-12, post-D-200 (TMS-envelope arc: THE PORT
+SLAB ROUND 3 COMPLETE, P1-P5 ALL LANDED — census 599→197 cumulative
+−67.1%, SIXTEEN graduates arc-total incl. min812 + the fz_7_1353
+FINALS-DIFF compound; pushed through bfc363e [D-198], D-199/D-200
 UNPUSHED). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
@@ -163,13 +163,31 @@ terminates-invariant, the census floor); ~63 ORDER-ONLY (P6 —
 the model's order layer is the spec); the SET rest = P3's
 equal-salience window (sdp7002x3: the decl-preceding
 same-salience observer's glimpse) + pick-order physics (P6) +
-the undiagnosed x73 class.** NEXT: **P3** (the pop-precedence
-drain split at next_activation's `higher` gate — the halt keeps
-strictly-higher, the DRAIN gains sal>l_sal || (sal==l_sal &&
-decl<l_decl); ⚠ D-106 receipts protocol MANDATORY), then the P6
-order sweep; I-RD after the slab (Bryan's order). Any engine
-change stays gated (⚠ D-106 tripwire + D-177 landing-not-pick).
-Other candidates: class-3 re-entrant churn, Allen-beyond-Drools.
+the undiagnosed x73 class.** **D-200: P3 LANDED — ROUND 3
+COMPLETE, P1-P5 ALL LANDED. The pop-precedence drain split at
+post-fire-continue: the halt keeps certified strictly-higher
+(D-091 untouched, the pick untouched); the DRAIN defers under
+equal-salience decl-preceding preemption — LANE-SCOPED to bit1
+(NOT-side self-defeat) entries ONLY: ⚠ the whole-drain first cut
+broke 14 certified t20-lane cells (bit0 justifiers, no not —
+their continue-drain is pr_tms_t20*-certified); the D-197 cause
+flags made the scoping expressible; all 14 recovered. TEN
+GRADUATES in one change — the ENTIRE P3 witness list: min812
+(the anchor glimpse), fz_123_{2135,3370,4318,7637,9133},
+fz_777_9637, fz_7_812, fz_7_9864 (= the oracle's 19), and
+fz_7_1353 THE FINALS-DIFF COMPOUND (4→12, its 8 lost firings
+returned exactly as the target list predicted). Corpus
+11/1124/370, drift 59, agenda_open ×19 byte-identical ×6 this
+sitting, ladder 6/6, cells 39/39, witnesses 26/26, lint
+1738/0/0. CENSUS 242→197; ROUND-3 CUMULATIVE 483→197 (−59.2%);
+FROM THE PRE-PORT BASELINE **599→197 (−67.1%)**. Composition:
+64 RUNAWAY-MISMATCH (the d3/d5 no-amut family — permanent, the
+census floor), 63 ORDER-ONLY (P6), 70 SET (pick-order physics +
+the x73 class + tails).** NEXT: **P6** (the order-layer sweep —
+model_sd's member-order physics is the spec) or Bryan's call;
+I-RD after the slab (Bryan's order). Any engine change stays
+gated (⚠ D-106 tripwire + D-177 landing-not-pick). Other
+candidates: class-3 re-entrant churn, Allen-beyond-Drools.
 Prior: D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties,
 fz_42_84, the d3/d5 no-amut runaways. `git log --oneline -20`
 for HEAD._
@@ -11177,3 +11195,78 @@ undiagnosed, one cluster).
 RESIDUE (round 3 continues): P3 NEXT (the drain split — ⚠ D-106
 receipts protocol mandatory), then the P6 order sweep; the x73
 class; I-RD after the slab (Bryan's order).
+
+## D-200 — THE PORT SLAB, ROUND 3 (part 2): P3 LANDED — the equal-salience pop-precedence drain split, LANE-SCOPED to the NOT-side self-defeat flag; TEN GRADUATES including min812 AND the fz_7_1353 FINALS-DIFF compound; census 242→197; cumulative 599→197 (−67.1%) (2026-07-12)
+
+THE SITE (as scoped by the handoff): next_activation's post-fire
+continue — the `higher` gate governed BOTH the D-091 network
+re-eval halt AND the TMS deferred drain; min608's over-
+generalization drained equal-salience continuations wholesale,
+killing the transient before a DECL-PRECEDING same-salience
+observer could pop (min812's certified glimpse).
+
+THE SPLIT: the halt keeps the certified strictly-higher gate
+UNTOUCHED (the D-091 lane, the executor pick untouched — ⚖ D-177
+landing-not-pick). The DRAIN gains pop-precedence: computed beside
+`higher`, `eq_decl_preempt` = the fired rule is LAZY (no-loop/dyn
+exempt — the model's land_eager runs before every selection) AND
+some queued same-group item has (sal == l_sal && decl < l). A
+preempted entry LINGERS (the deferred entries keep the item queued)
+and lands at drain[pop] when l is actually reached = the model's
+land_lazy-at-selection, exactly head()'s (-sal, decl) order.
+
+⚠ THE LANE-SCOPING LESSON (14 certified cells as the tripwire): the
+first cut deferred ALL of l's entries under preemption — 14
+regression-tier cells broke immediately (baseline/probes/receipts
+all green). Their common geometry: justifiers with NO not — the
+LIA/t20 lane (bit0: a self-update/delete breaks the own tuple),
+whose drain-at-continue discipline is CERTIFIED (pr_tms_t20*). The
+pop-precedence deferral belongs to the NOT-side SELF-DEFEAT lane
+ONLY — the drain position() now skips exactly entries with (fl & 2)
+!= 0 under preemption; bit0/bit2/bit3 entries keep their certified
+timing. All 14 recovered; the D-197 cause-flags model is what made
+the scoping expressible (the lanes were separable because the flags
+exist).
+
+TEN GRADUATES (10/10 oracle-stable, 10/10 engine-deterministic,
+370/370 live-oracle green in the regressions tier):
+**xf_tms_min812** (the P3 anchor — the certified glimpse now
+fires), **fz_123_2135, fz_123_3370, fz_123_4318, fz_123_7637,
+fz_123_9133** (the ×3-generation shape: 1→4 firings),
+**fz_777_9637, fz_7_812, fz_7_9864** (17→19 = the oracle count),
+and **fz_7_1353 — THE FINALS-DIFF COMPOUND (P3+P4+cascade)**: 4→12
+firings, exactly as the port-target-list predicted ("the
+FINALS-DIFF resolves when its 8 lost firings return"). The ENTIRE
+P3 witness list from the target list graduated in this one change.
+3 ORACLE-RUNAWAY movers rebanked; fz_7_2864's broad-gate movement
+reverted with the lane-scoping (its P3-sensitivity rode a bit0
+entry — correctly excluded; rebanked at its pre-P3 output);
+fz_7_9360 rebanked toward (+5 firings, −1/+1 residue).
+
+RECEIPTS (⚠ D-106, the full protocol): agenda_open ×19
+BYTE-IDENTICAL ×2 at this change (broad + refined; ×6 total this
+sitting) vs the bfc363e worktree baseline; the halt matrix +
+fz_9001/9003/9004 tripwires ride the probes tier — 1124/1124 green;
+baseline 11/11; regressions **370/370** (the 14 t20-lane cells
+recovered + the 10 graduates); drift bank **59** identical
+post-rebank; ladder 6/6; validate_cells 39/39; check_witnesses
+26/26; cargo test 9 suites; lint 1738/0/0.
+
+CENSUS: **242 → 197** (12 seeds × 150; model 0-div 12×150/150, all
+exits clean). ROUND-3 CUMULATIVE: **483 → 197 (−59.2% in one
+round)**; from the pre-port baseline: **599 → 197 (−67.1%)**.
+Final table: 7001 14, 7002 21, 6001 12, 6003 17, 7004 15, 7005 16,
+7006 16, 7007 16, 7008 16, 7009 23, 7010 11, 7011 20.
+Composition (reclassified on the same case set): RUNAWAY-MISMATCH
+64 (the d3/d5 no-amut family — oracle runs away / engine
+terminates, PERMANENTLY OPEN, the census floor), ORDER-ONLY 63
+(P6's lane — the model's order layer is the spec), SET 70 (down
+from 115 — P3 wiped ~40% of the remaining set-mass; what's left:
+pick-order physics [P6-adjacent], the x73 class, tails).
+
+⇒ **ROUND 3 IS COMPLETE. P1-P5 ARE ALL LANDED.** The engine's
+fixable population gap is 133 (63 order + 70 set) over 1800; the
+structural floor is 64. NEXT: P6 (the order-layer sweep — the
+model's member-order physics: fold/reversal/insertion-order/
+pick-order per lane) or Bryan's call; I-RD after the slab (Bryan's
+order).
