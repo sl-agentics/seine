@@ -1557,7 +1557,12 @@ struct Tms {
     /// property-hit the tuple's LEFT side (LIA staging), which makes an
     /// eager (no-loop/dyn) justifier's entry drain at the FLUSH instead
     /// (tms_t20_b_s vs nb_ns event dumps).
-    deferred: Vec<(usize, Tup, bool)>,
+    /// The u8 = CAUSE flags: bit0 = LEFT (an own-origin left/property
+    /// hit — the update-break lane; flush-drains only MID-RUN, the
+    /// last one rides to the item's pop — D-196 ip_c1/gt13); bit1 =
+    /// RIGHT (an own-origin CE-side op — the self-defeat lane;
+    /// flush-drains unconditionally at the run end — D-196 ip_a3).
+    deferred: Vec<(usize, Tup, u8)>,
     /// D-102 (q1/q4/cf5x33): EXPIRATION-routed lazy teardowns — drain
     /// at the rule's post-firing block or at agenda QUIESCENCE; never
     /// make an item reachable, never drain at cloud fire-end
@@ -1566,6 +1571,24 @@ struct Tms {
     /// with the staging origin (eager-flush drains are OWN-origin only,
     /// min3783 vs tms_t20_b_s).
     left_touched: Vec<(FactId, Origin)>,
+    /// CE-side (right) staged ops consumed by the CURRENT evaluation,
+    /// with origins — the SELF-DEFEAT signature (D-196 port, ip_a3 +
+    /// the L-SD eager row): a no-loop justifier whose own insertLogical
+    /// broke its own not has its terminal-del deferred with a
+    /// right-side op of its OWN origin; that entry is flush-drainable
+    /// (run-end landing) like an own-origin left hit. Foreign-origin
+    /// right breaks stay lazy (the t20/min3783 discipline unchanged).
+    right_touched: Vec<(FactId, Origin)>,
+    /// Acts whose insertLogical ran AFTER their own tuple-break (the
+    /// MUTFIRST signature — the dep attached late): their LEFT-lane
+    /// last-firing teardown rides to the item's pop instead of the
+    /// flush (D-195/D-196 race; gt13/ip_c1 vs pr_tms_t20d).
+    late_acts: Vec<(usize, Tup)>,
+    /// Own-origin ops reaching a JOIN's right (a positive non-LIA
+    /// pattern — the LEAD topology's P side, ip_c1): flush-drainable
+    /// MID-RUN only; the last firing's entry rides to the pop even for
+    /// ilfirst (pr_tms_t20a/b/c + selfbreak_lazy certified pop).
+    joinr_touched: Vec<(FactId, Origin)>,
     /// Ambient flag: inside the post-firing force evaluation.
     defer_mode: bool,
     /// Facts currently dying BY EXPIRATION (advance()): steers the
@@ -7009,6 +7032,9 @@ impl Engine {
                         self.tms.deferred.iter().position(|(ri, _, _)| *ri == l)
                     {
                         let (_, tuple, _) = self.tms.deferred.remove(i);
+                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                            eprintln!("TMS drain[post-fire-continue] r{l} {tuple:?}");
+                        }
                         self.tms_on_terminal_del(l, &tuple);
                         if self.spin_tick() {
                             return None;
@@ -7120,15 +7146,29 @@ impl Engine {
                 // (fz_999_3020: the justifier's foreign-origin break
                 // lands before the witness pops).
                 let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
-                while let Some(di) = self
-                    .tms
-                    .deferred
-                    .iter()
-                    .position(|(dri, _, eok)| *dri == ri && (*eok || dyn_sal))
-                {
+                // D-196 (ip_a3 vs ip_c1/gt13): RIGHT-cause entries
+                // (self-defeat) flush-drain unconditionally at the run
+                // end; LEFT-cause entries (update-break lane) drain
+                // only MID-RUN — the run's LAST break rides to the
+                // item's pop (the eval-consumption landing's (b) row:
+                // strictly-higher observers glimpse the zombie).
+                loop {
+                    let run_live = !self.nets[ri].queue.is_empty();
+                    let Some(di) = self.tms.deferred.iter().position(|(dri, _, fl)| {
+                        *dri == ri
+                            && (dyn_sal
+                                || (*fl & 2) != 0
+                                || ((*fl & 1) != 0 && (run_live || (*fl & 4) == 0))
+                                || ((*fl & 8) != 0 && run_live))
+                    }) else {
+                        break;
+                    };
                     // (dyn entries here only from FORCE evals; flush
                     // evals process them inline per the wrapper)
                     let (_, tuple, _) = self.tms.deferred.remove(di);
+                    if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                        eprintln!("TMS drain[flush-pre] r{ri} {tuple:?}");
+                    }
                     self.tms_on_terminal_del(ri, &tuple);
                 }
                 dbg_eval("eager", ri);
@@ -7141,14 +7181,22 @@ impl Engine {
                 // (evaluateEagerList inside haltRuleFiring; t20 pins:
                 // pr_tms_selfbreak_flush / pr_tms_t20d).
                 let mut drained = false;
-                while let Some(di) = self
-                    .tms
-                    .deferred
-                    .iter()
-                    .position(|(dri, _, eok)| *dri == ri && (*eok || dyn_sal))
-                {
+                loop {
+                    let run_live = !self.nets[ri].queue.is_empty();
+                    let Some(di) = self.tms.deferred.iter().position(|(dri, _, fl)| {
+                        *dri == ri
+                            && (dyn_sal
+                                || (*fl & 2) != 0
+                                || ((*fl & 1) != 0 && (run_live || (*fl & 4) == 0))
+                                || ((*fl & 8) != 0 && run_live))
+                    }) else {
+                        break;
+                    };
                     drained = true;
                     let (_, tuple, _) = self.tms.deferred.remove(di);
+                    if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                        eprintln!("TMS drain[flush-post] r{ri} {tuple:?}");
+                    }
                     self.tms_on_terminal_del(ri, &tuple);
                 }
                 if drained {
@@ -7323,6 +7371,9 @@ impl Engine {
                 self.tms.deferred.iter().position(|(dri, _, _)| *dri == ri)
             {
                 let (_, tuple, _) = self.tms.deferred.remove(i);
+                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                    eprintln!("TMS drain[pop] r{ri} {tuple:?}");
+                }
                 self.tms_on_terminal_del(ri, &tuple);
             }
             dbg_eval("pop", ri);
@@ -8032,6 +8083,8 @@ impl Engine {
                 .flat_map(|w| w.upd.iter().chain(w.del.iter()))
                 .map(|(f, o, _)| (*f, *o))
                 .collect();
+            self.tms.right_touched.clear(); // no CE side on LIA->terminal
+            self.tms.joinr_touched.clear();
             for s0 in windows {
                 for (f, _, _) in s0.del.iter().rev() {
                     self.nets[ri].act_num.retain(|t, _| t[0] != *f);
@@ -8101,6 +8154,8 @@ impl Engine {
             let mut fresh: Staged<Tup> = Staged::default();
             if step == 0 {
                 self.tms.left_touched.clear();
+                self.tms.right_touched.clear();
+                self.tms.joinr_touched.clear();
             }
             if !s0w.is_empty() {
                 // pattern-0 fact staging: any LIA child on the path
@@ -8117,6 +8172,30 @@ impl Engine {
             let pending = slw;
             let src = Staged::merge_into_pending(pending, fresh);
             let sr = srw;
+            // Lane split (D-196): a JOIN's right is a POSITIVE pattern —
+            // its own-origin ops are the LEFT lane (the update-break
+            // class; in the LEAD topology P rides the join right, so
+            // left_touched alone misses it — ip_c1). NOT-side ops are
+            // the RIGHT lane (the self-defeat class, ip_a3).
+            if matches!(
+                self.trie[ni].node.kind,
+                phreak::Kind::Not | phreak::Kind::SubnetNot
+            ) {
+                self.tms.right_touched.extend(
+                    sr.ins
+                        .iter()
+                        .chain(sr.upd.iter())
+                        .chain(sr.del.iter())
+                        .map(|(f, o, _)| (*f, *o)),
+                );
+            } else {
+                self.tms.joinr_touched.extend(
+                    sr.upd
+                        .iter()
+                        .chain(sr.del.iter())
+                        .map(|(f, o, _)| (*f, *o)),
+                );
+            }
             let sn_dirty = matches!(
                 self.trie[ni].node.kind,
                 phreak::Kind::SubnetNot | phreak::Kind::SubnetExists
@@ -9544,6 +9623,25 @@ impl Engine {
             inserted = Some(f);
         }
         self.tms.firing_keys.push(key.clone());
+        // ⚖ D-195/D-196 (the RHS-order race, engine translation): a
+        // MUTFIRST consequence mutated its own tuple BEFORE this
+        // insertLogical — a tuple member's alpha already fails on the
+        // LIVE fields — so the dep attaches LATE: its teardown rides to
+        // the item's pop (the zombie window gt13/ip_c1 observers see).
+        // An ILFIRST dep attaches while the tuple is whole and dies at
+        // the flush (pr_tms_t20d / pr_tms_selfbreak_flush certified;
+        // x147's oracle twin).
+        let late = act.1.iter().any(|f2| {
+            self.store.is_alive(*f2)
+                && self.rules[ri].patterns.iter().enumerate().any(|(pos, pat)| {
+                    pat.sub != SubRole::Inner
+                        && pat.tpos.map(|t| act.1.get(t) == Some(f2)).unwrap_or(false)
+                        && !self.alpha_passes(ri, pos, *f2)
+                })
+        });
+        if late && !self.tms.late_acts.iter().any(|a| *a == act) {
+            self.tms.late_acts.push(act.clone());
+        }
         match self.tms.by_act.iter_mut().find(|(a, _)| *a == act) {
             Some((_, keys)) => {
                 if !keys.contains(&key) {
@@ -9775,13 +9873,32 @@ impl Engine {
         }
         if self.tms.defer_mode {
             if !self.tms.deferred.iter().any(|(r, t, _)| (*r, t) == (act.0, &act.1)) {
-                let eager_ok = act.1.iter().any(|f| {
+                let left = act.1.iter().any(|f| {
                     self.tms
                         .left_touched
                         .iter()
                         .any(|(lf, lo)| lf == f && *lo == Some(act.0))
                 });
-                self.tms.deferred.push((act.0, act.1, eager_ok));
+                let right = self
+                    .tms
+                    .right_touched
+                    .iter()
+                    .any(|(_, ro)| *ro == Some(act.0));
+                let late = self.tms.late_acts.iter().any(|a| (*a).0 == act.0 && a.1 == act.1);
+                let joinr = act.1.iter().any(|f| {
+                    self.tms
+                        .joinr_touched
+                        .iter()
+                        .any(|(jf, jo)| jf == f && *jo == Some(act.0))
+                });
+                let flags = (left as u8)
+                    | ((right as u8) << 1)
+                    | ((late as u8) << 2)
+                    | ((joinr as u8) << 3);
+                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                    eprintln!("TMS defer-push r{} {:?} flags={}", act.0, act.1, flags);
+                }
+                self.tms.deferred.push((act.0, act.1, flags));
             }
             return;
         }

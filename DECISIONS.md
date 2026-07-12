@@ -11,9 +11,10 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-196 (TMS-envelope arc: order
-clusters closed, v2 0-div 1800/1800, the R1 interposer ladder open
-at 6/6). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
+_Last updated: 2026-07-12, post-D-197 (TMS-envelope arc: THE PORT
+SLAB round 1 — the deferral cause model landed, ladder 6/6
+engine-green, census −15.7%, fz_123_941 graduated; D-196 pushed,
+D-197 unpushed). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
 top): delete teardowns land by MODE×CAUSE — stream ⇒ at the delete's
@@ -117,9 +118,18 @@ FIRST RUNG IS 6/6 GREEN 3×-stable** (mechanical model predictions
 exact on both spines: pop window = salience threshold; eager k0 no
 glimpse; clause-B fan-out starvation; the D-195 between-row) ⇒ the
 (cloud × belief-loss) landing rows are a CONFIRMED TABLE. lint
-1722/0/0.** NEXT (Bryan's call): the engine A/B on the ladder cells
-+ the 13+18 xfail witnesses re-read against the table (the port
-target list); then the port slab; I-RD LAST (Bryan's order). Any
+1722/0/0.** **D-197 (THE PORT SLAB, round 1 — Bryan: "the port is
+translation"): the deferral CAUSE MODEL landed (three lanes + the
+late-dep race flag on tms.deferred; engine.rs TMS machinery only,
+the executor pick/halt untouched) — the interposer ladder is
+ENGINE-GREEN 6/6, census 599→505 (−15.7%, all 12 seeds, model
+0-div held), fz_123_941 GRADUATED out of xfail (10/10; regressions
+355), fz_123_9175 rebanked toward-oracle (drift bank 74),
+agenda_open ×19 byte-identical ×2, corpus byte-identical, lint
+1723/0/0. Round 2 = P4 clause-B, P5 clause-C, the lazy L-MB fine
+structure, THEN P3 (the equal-salience drain split, ⚠
+D-106-adjacent, deliberately last) — port-target-list.md.** NEXT:
+round 2 of the port slab; I-RD LAST (Bryan's order). Any
 engine change stays gated (⚠ D-106 tripwire + D-177
 landing-not-pick). Other candidates: class-3 re-entrant churn,
 Allen-beyond-Drools. Prior: D-168→D-185 all landed. Fenced-by-nature:
@@ -10874,3 +10884,67 @@ green (xfail 75/75), lint 1722/0/0, validator 39/39, witnesses
 26/26. NEXT (Bryan's call): the engine A/B on the ladder cells +
 the 13+18 xfail witnesses re-read against the completed table (the
 port target list); I-RD stays last.
+
+## D-197 — THE PORT SLAB, ROUND 1 (P1+P2): the deferral CAUSE MODEL landed — the interposer ladder is ENGINE-GREEN 6/6, census 599→505 (−15.7%, all 12 seeds), fz_123_941 GRADUATED; corpus byte-identical, agenda_open ×19 receipts clean (2026-07-12)
+
+Bryan: "Push it. Then the port slab: engine A/B on the ladder cells,
+re-read the 13 L-SD and 18 L-MB xfail witnesses against the completed
+table, and that produces the target list. ... the port is translation."
+D-196 pushed (9979cda..000a8e1). The A/B + re-read (port-target-list
+.md): ladder 4/6 engine-green pre-port — the two misses named the
+mechanisms (ip_a3 = the eager run-end landing missing; ip_c1 = mid-run
+net-out + run-continuation missing); the 31 witnesses' signatures:
+L-MB 18/18 engine-OVER finals-equal (the P1/P2 family), L-SD 11 under
+(P3: the equal-salience queue-position window — min812's decl-first
+observer; the engine's min608-over-generalized drain; ⚠ D-106-adjacent,
+port LAST), 2 over (P4 clause-B), 5213 (P5 clause-C), 1353 compound.
+
+THE TRANSLATION (engine.rs, the TMS deferral machinery only —
+next_activation's flush loops + tms_on_terminal_del + tms_insert_
+logical + evaluate_rule_inner; the executor's pick/halt logic
+untouched): `tms.deferred`'s bool became a CAUSE-FLAGS u8, populated
+from three per-evaluation lanes + one per-act flag:
+- bit1 NOT-side (`right_touched`, NOT/SubnetNot node right ops only —
+  a join's right is a positive pattern, not a CE): the SELF-DEFEAT
+  lane — flush-drains unconditionally at the run end (ip_a3: the
+  eager k0 drop now lands before any ≤-salience pop).
+- bit0 LIA-hit (`left_touched`, unchanged — watch-gated s0 staging,
+  which is what kept the t20 property-reactivity split certified):
+  the t20 flush discipline — EXCEPT when bit2 is set.
+- bit2 LATE-DEP (`late_acts`): the D-195 RHS-order race read LIVE at
+  insertLogical — a MUTFIRST consequence has already broken its own
+  tuple's alpha when the dep attaches ⇒ the act's last-firing
+  teardown rides to the item's POP (the gt13/ip_c1 zombie window);
+  ilfirst deps attach whole and die at the flush (pr_tms_t20d +
+  pr_tms_selfbreak_flush stayed green; the a/b/c/selfbreak_lazy
+  certified-POP cells held via the LIA watch gate).
+- bit3 JOIN-RIGHT (`joinr_touched`): the LEAD topology's P side —
+  flush-drains MID-RUN only (run_live = the item's queue non-empty);
+  the last firing's entry rides to the pop. ip_c1 exact INCLUDING
+  the gt9 pairing order.
+
+RECEIPTS: the interposer ladder 6/6 ENGINE-GREEN; corpus
+11/1124/355 byte-identical (the six t20-family pins all green);
+**agenda_open ×19 BYTE-IDENTICAL** (⚠ D-106, measured twice — the
+worktree-free stash-dance verified with git diff --stat after);
+cargo test 9 suites; lint 1723/0/0. **fz_123_941 GRADUATED out of
+xfail** (10/10 converged both sides, firings + finals — its I-RD
+divergence carried a landing component all along; now a
+regressions/ cell with a D-197 comment); fz_123_9175 moved TOWARD
+the oracle (5→4 firings; re-triaged 10/10 stable, rebanked — the
+drift bank is 74). CENSUS (the port A/B metric, 12 seeds ×150):
+**599 → 505 divergent (−94, −15.7%), every seed improved**
+(47→38, 56→46, 45→37, 54→47, 55→44, 47→41, 44→35, 52→44, 51→41,
+48→44, 46→41, 54→47); model-vs-oracle 12× 150/150 — the 0-div spec
+held through the engine change. The 30 remaining envelope witnesses
+unchanged, as scoped (P3/P4/P5 + lazy fine structure = round 2+).
+
+DEBUG: the deferral drain sites carry SEINE_TMS_DEBUG site tags
+(defer-push with flags, drain[post-fire-continue|flush-pre|
+flush-post|pop]) — the diagnosis loop for the next rounds.
+
+NEXT (round 2): P4 clause-B (sd_b2/b4 battery, the two L-SD
+over-cells), P5 clause-C alternation (sd_c1, 5213), the lazy L-MB
+fine structure (the census's remaining mass), THEN P3 (the
+equal-salience queue-position drain split — D-106-adjacent,
+receipts-gated, deliberately last). UNPUSHED; Bryan holds the push.
