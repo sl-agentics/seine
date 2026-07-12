@@ -1,0 +1,78 @@
+{
+ "name": "pr_wl_time_revival",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:time(200ms); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "v": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "v": 2,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 215
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 50
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "GRADUATED at D-183 (wl-ladder rung-3 time twin, GREEN engine==oracle 3x): [3, 2, 52] \u2014 the advance time-evicts v1 (eager re-fire, D-112), then an external update of the EVICTED event REVIVES it into the windowed accumulate ({50,2}=52). Pins that the landed window:time surface already implements revival in the pure-eviction shape (the D-137c2 clock_removed suppression scopes elsewhere; its pins stay green) \u2014 and that time and length windows AGREE on revival (the length twin wl_u2_upd_evicted)."
+}

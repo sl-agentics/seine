@@ -1,0 +1,88 @@
+{
+ "name": "wl_t2_double_evict",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 10,
+      "v": 1,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 20,
+      "v": 2,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "v": 4,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 40,
+      "v": 8,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "wl-ladder rung 2 (D-183): two evicting inserts in one epoch -> ONE net fire (12 = {4,8}) 3x \u2014 multi-eviction batches to a single fold change. Oracle-only pin: the engine wall (drl.rs ~705) holds \u2014 engine_fenced.",
+ "engine_fenced": true
+}

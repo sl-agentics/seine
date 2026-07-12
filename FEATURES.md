@@ -104,7 +104,8 @@ expected-to-fail acceptance criteria (see `docs/roadmap-acceptance.md`).
 
 | Feature | Priority | Drools-test references | Rationale / notes |
 |---|---|---|---|
-| `window:length(N)` + standalone window patterns | P3 | c.i `CepWindowTest` (length subset) | Keeps the N most-recently-inserted events; does NOT feed `@expires` inference (D-110 recon). Deferred with the D-080 envelope (window×TMS). |
+| `window:length(N)` on ACCUMULATE SOURCES | P2 — ARC OPEN (D-183; Bryan rulings 2026-07-11: acc-source-only; TMS×window stays FENCED in-arc, D-080 remains its own arc; not deferred behind it) | c.i `CepWindowTest` (length subset) | Keeps the N most-recently-inserted events; does NOT feed `@expires` inference (D-110 recon). Handoff: `~/.claude/plans/window-length-arc.md`. |
+| Standalone-pattern windows (`over` outside an accumulate source) | P3 | c.i `CepWindowTest` | Split from the acc-source row by the 2026-07-11 ruling; own grammar + node semantics; stays WALLED (natural parse wall at `over`). |
 | `forall` | P2 | c.i operators `ForAllTest` (29) | Reducibility assessed at D-089: the MULTI-pattern form (`forall(base rem)`) is a pure parse rewrite onto the D-089 substrate — `not(base and not(rem))`, correlation shape probe-backed (sn_a10). NOT free: the flagship SINGLE-pattern form injects a `this == base` identity join (no such operator in subset — needs its own design), and multi-remaining forms need RIA-in-RIA (fenced). Keep as its own phase. |
 
 | Push (reactive) query CEs + open/live queries | P2 | m.i `QueryTest` (open query methods) | qx2_late_push pinned the basic refire; row lifecycle unprobed (D-057). |

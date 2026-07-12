@@ -1,0 +1,83 @@
+{
+ "name": "wl_u2_upd_evicted",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 10,
+    "v": 1,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 20,
+    "v": 2,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "v": 3,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 50
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "wl-ladder rung 3 (D-183) \u2014 THE FIND: [3, 5, 55] 3x \u2014 an external update of a LENGTH-EVICTED event REVIVES it into the fold: {50,2,3}=55, THREE events folding in an N=2 window. The time-window twin (pr_wl_time_revival, GREEN engine==oracle) revives too (52) \u2014 both window kinds revive in the pure-eviction shape; the D-137c2 clock_removed suppression covers a different composition (its pins stay green). Port note: the length eviction must ride the same non-suppressing path the landed time eviction uses here. Oracle-only pin: the engine wall (drl.rs ~705) holds \u2014 engine_fenced.",
+ "engine_fenced": true
+}

@@ -1,0 +1,86 @@
+{
+ "name": "wl_t1_net_or_two",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule W salience 5 when accumulate( E0(tag == \"z\", $v : v) over window:length(2); $s : sum($v) ) then end\nrule R7 salience 7 when P() then end\nrule RL salience 1 when P() then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 10,
+      "v": 1,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 20,
+      "v": 2,
+      "tag": "z"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 30,
+      "v": 4,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "wl-ladder rung 2 (D-183, interposer): final epoch [R7@7, W(6)@5, RL@1] 3x \u2014 eviction+admission fold as ONE NET W re-fire (no intermediate evict-only sum), staged in-epoch and fired BY SALIENCE. Oracle-only pin: the engine wall (drl.rs ~705) holds \u2014 engine_fenced.",
+ "engine_fenced": true
+}

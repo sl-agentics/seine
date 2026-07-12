@@ -54,10 +54,16 @@ EMPTY** — every filed divergence fixed-and-graduated or
 fenced-by-nature (D-134 §6 ties, fz_42_84). Known-open surfaces are
 noted SUB-CELLS only (born-expired/D-133, update-refold ph=1,
 stream-AB partner-only sites, the D-175 hypothetical all-alive
-marked act — D-117 guard stays as its backstop).** **NEXT is Bryan's call** — candidates: D-080
-TMS envelope, window:length (handoff PREPARED:
-`~/.claude/plans/window-length-arc.md` — scope rulings §1 first),
-class-3 re-entrant churn, Allen-beyond-Drools. Prior:
+marked act — D-117 guard stays as its backstop).** **ACTIVE ARC: window:length (D-183 — Bryan's
+rulings recorded: acc-source-only, TMS×window fenced in-arc, not
+deferred behind D-080; wl-ladder rungs 1-4 PINNED — post-alpha
+window, one-net-refire evictions, insert-fixed slots, REVIVAL both
+window kinds [pr_wl_time_revival graduated green], no backfill;
+8 engine_fenced pins in probes_pending/cep/winlen/; NEXT rungs 5
+[⚠⚠ D-112 flip-flop zone — model-first] / 6 / 7, then the
+model_check_winacc length extension 0-div, then the port gate;
+handoff `~/.claude/plans/window-length-arc.md`).** Other candidates:
+D-080 TMS envelope, class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
@@ -9968,3 +9974,52 @@ update-refold ph=1 walks, the stream-AB partner-only sites, the D-175
 hypothetical all-alive-marked act (D-117 guard stays as backstop for it).
 NEXT is Bryan's call — candidates: D-080 TMS envelope, class-3 re-entrant
 churn, window:length, Allen-beyond-Drools, or probing the noted sub-cells.
+
+## D-183 — the WINDOW:LENGTH ARC OPENED: Bryan's scope rulings recorded; wl-ladder rungs 1-4 PINNED in one sitting (9 cells, one landed-surface graduation); rungs 5-7 + the model phase remain (2026-07-11)
+
+### 1. Scope rulings (Bryan, 2026-07-11)
+
+(a) **ACC-SOURCE-ONLY** — `window:length` enters the subset on accumulate
+sources only; standalone-pattern windows split to their own P3 FEATURES row
+and STAY WALLED (the natural parse wall at `over`). (b) **TMS×window stays
+FENCED in-arc; D-080 remains its own arc and this arc is NOT deferred behind
+it.** (c) (unopposed) the `CepWindowTest` length subset via the drift-checked
+extraction pipeline is the spec floor. FEATURES §2 updated (the bundled row
+split); handoff `~/.claude/plans/window-length-arc.md` §1 marked RULED.
+
+### 2. wl-ladder rungs 1-4 (oracle 3× per cell; predictions logged pre-run;
+### the engine wall drl.rs ~705 verified held — all length cells engine_fenced)
+
+- **POST-ALPHA window** (wl_s1): an alpha-failing insert consumes NO slot
+  and causes no re-fire; sums [0,1,3,6].
+- **Independent windows per (type,N)** (wl_s2): N=2/N=3 no cross-talk.
+- **Eviction+admission = ONE NET re-fire, in-epoch by salience** (wl_t1,
+  interposer instrument): [R7@7, W(6)@5, RL@1] — no intermediate evict-only
+  fold. Multi-evictions in one epoch batch to one fire (wl_t2: 12).
+- **Slot order is INSERT-FIXED** (wl_u1): a value-relevant update re-folds
+  (bound field — the D-139 bindings-watch analog) but never re-admits; the
+  updated event still evicts first. The D-141 insert-fixed parallel.
+- **REVIVAL** (wl_u2 + the time twin): an external update of an EVICTED
+  event re-enters the fold — length: {50,2,3}=55, THREE events in an N=2
+  window; time (pr_wl_time_revival, GREEN engine==oracle, GRADUATED): 52.
+  Both window kinds agree in the pure-eviction shape; the D-137c2
+  clock_removed suppression scopes to a different composition (its pins
+  stay green — measured before filing, per the method law: the near-filing
+  of a false divergence died to one engine run). Post-revival (wl_u2b) the
+  revived event persists OUTSIDE the ring: the next admission evicts only
+  the oldest ring slot ({50,3,4}=57). Structure tentative until the model.
+- **NO backfill on delete** (wl_d1): deleting an in-window event shrinks
+  the window; the evicted event does not return.
+
+### 3. State + next
+
+probes_pending/cep/winlen/ holds the 8 engine_fenced pins;
+pr_wl_time_revival graduated (corpus probes 1093); lint **1643/0/0**;
+corpus otherwise untouched, engine untouched. REMAINING before the port
+gate: rung 5 (expiration×length — ⚠⚠ the D-112 flip-flop zone: model-first,
+never probe-grind), rung 6 (D-139 discriminator analogs), rung 7
+(batch/degenerate N + entry points), then the §3 model extension
+(model_check_winacc length dimension, 0-div on ladder + population) → the
+§4 port map (note added: the length eviction must ride the same
+non-suppressing path the landed time eviction uses for revival) → Bryan's
+port gate.
