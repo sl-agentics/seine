@@ -59,3 +59,27 @@ with an interposer observer).
   they remain only as the in-sample stopgap until rules 1-3 + phase 2
   replace them; the model's docstring order-notes are superseded by
   this file.
+
+# Phase 2 (same instrument + per-path staged lefts/blocked/peers): the
+# construction pinned; 0-DIV REACHED
+
+Extended SdDump (PathMemory → SegmentMemories → stagedLeftTuples;
+blocked chains; peer chains). Key dumps: gt5 (shared+churn — the
+justifier's re-adds visible as seg1 stagedIns in PRE-scan order; the
+t10 leak = staged-WITHOUT-dirty, revived by t15's dirty), gt6 (k0-NL:
+the off-path fold NETS OUT — no reversal, t0 staging intact), gt7/gt8
+(the fold-staging matrix: owner⇒PRE, non-owner justifier⇒POST — by
+OWNERSHIP, not staging-presence; gt8 fold-2 is the discriminating
+observation). The gt3 "drop rides re-entry" reading from phase 1 was
+RETRACTED on re-read: the justifier's not-node rtm holding LK2 at F1
+is a stale unevaluated memory; the drop landed at head-return as the
+queue-head discipline says.
+
+FINAL STATE: model_sd order layer = the four physical rules (see the
+module docstring), zero empirical toggles. **32/32 banked cells;
+population 750/750 (0-div) on seeds 6001-6005**, of which 6004/6005
+were untouched by any fitting round. Engine-vs-oracle census over the
+same 750: 300 divergent (40%) — the port A/B baseline. The lone
+flagged order anomaly remaining anywhere: fz_123_3060's T0(5)-first
+initial pick (its two-not + no-loop-observer structure; out of the
+v1 grammar; noted, not modeled).

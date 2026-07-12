@@ -20,10 +20,26 @@ THE UNIFIED TABLE (post-c3d; supersedes the rung-2 three-clause wording):
      blocker leaks); a left-side P WM change (delete) revives the
      suppressed tuples of every rule with P in its LHS.
 
-  Member order (empirical, population-refinable): trailing-not and
-  join items enumerate P-tuples in INSERTION order at first
-  derivation; REVIVED tuples enumerate LIFO (latest P first);
-  leading-not items enumerate LIFO always (3060).
+  4. MEMBER ORDER (graft-derived, D-189 phases 1-2; zero toggles —
+     graft-phase1.md holds the dump evidence; 0-div on 750 fresh
+     cases, seeds 6001-6005):
+     - PHYSICAL LIST: adds prepend (add-at-head); deletes remove in
+       place; a processed break+unbreak fold REVERSES the list.
+     - SHARER SPLIT: the first-DECLARED member of a shared beta
+       prefix owns the t0 staged-insert list (insertion FIFO); later
+       sharers memory-scan the current phys. Same split for obs_join
+       twins over the shared [LK x P] join.
+     - FOLD STAGING (shared [P x not] group): owner-members holding a
+       staging get the PRE-reversal scan; the self-defeated justifier
+       stages PRE if it is the t0-owner else POST (ownership, not
+       staging-presence — gt8 fold-2); stagingless deleters
+       memory-scan the reversed phys.
+     - UNSHARED folds (lead-k1 lazy / k0-lazy) stay PENDING until a
+       member's eval consumes the scan as its WHOLE continuation
+       list, then the phys reverses. A k0-NL same-batch fold NETS OUT
+       on the off-path node iff the justifier is declared before the
+       deleter; deleter-first-decl churns (x70-class).
+     - lead-justifiers and del_join consume insertion order.
 
   Clause-B fold-site note: fold-at-WM-action vs fold-at-next-eval is
   argued OUTPUT-INVISIBLE in-envelope — every path to a cancelled
@@ -63,20 +79,40 @@ def simulate(facts, rules):
     drops = [[] for _ in rules]           # lazy drops: land at the item's pop
     eager_pend = [[] for _ in rules]      # eager drops: land when the item loses the head
     twin_left = [2 if r.get("ortwin") else None for r in rules]
-    derive_seq = [0 for _ in rules]       # OTHERS-fires snapshot at last (re)derivation
-    others = [0 for _ in rules]           # firings by OTHER rules
-    churned = [False for _ in rules]      # guard reopened by a landed drop
-    yielded = [False for _ in rules]      # fired a tuple, then another rule fired
-    has_fired_any = [False for _ in rules]
+    # GRAFT-DERIVED ORDER LAYER (D-189 phase 2; graft-phase1/2 docs):
+    # one physical list for the shared [P x not-LK] prefix group
+    # (trail-justifiers + del_not) and one per private del-group; adds
+    # PREPEND; a processed break+unbreak fold REVERSES the list; the
+    # first-DECLARED group member owns the t0 staged-insert list
+    # (insertion FIFO); a self-defeated justifier's re-adds stage to
+    # its own path in PRE-reversal scan order (consumed FIFO on t15
+    # revive); an UNSHARED group's fold stays pending until a member's
+    # eval consumes the scan inline; everyone else memory-scans the
+    # current phys head->tail. lead-justifiers and del_join consume
+    # insertion order (their observed datum); obs_p insertion order.
+    phys = list(reversed(facts))          # shared group phys, add-at-head
+    grp = [i for i, r in enumerate(rules) if
+           (r['kind'] == 'justifier' and r.get('k', 1) == 1
+            and r.get('notpos', 'trail') == 'trail') or r['kind'] == 'del_not']
+    t0_owner = grp[0] if grp else None
+    jstaged = [None for _ in rules]       # per-rule staged member list
+    if t0_owner is not None:
+        jstaged[t0_owner] = list(facts)
+    pending_fold = [None]                 # unshared-group fold scan, or None
+    shared_grp = len(grp) >= 2
     fire_count = 0
-    has_lead_just = any(r["kind"] == "justifier" and r.get("k", 1) == 1
-                        and r.get("notpos", "trail") == "lead" for r in rules)
 
     def lk_breaking_alive():
         return any(k[1] is False for k in LK)
 
-    def stale(ri):
-        return others[ri] > derive_seq[ri]
+    def group_order(ri, eligible):
+        # PURE (tuples() is called on every queue peek): the pending-fold
+        # consume happens in the fire path, not here
+        if pending_fold[0] is not None:
+            return [v for v in pending_fold[0] if v in eligible]
+        if jstaged[ri]:
+            return [v for v in jstaged[ri] if v in eligible]
+        return [v for v in phys if v in eligible]
 
     def tuples(ri):
         r = rules[ri]
@@ -90,16 +126,20 @@ def simulate(facts, rules):
                 return [("IF", None)] if guard_ok and "IF" not in sup[ri] and "IF" not in fired[ri] else []
             if not guard_ok:
                 return []
-            avail = [v for v in P if v not in sup[ri] and v not in fired[ri]]
-            rev = sorted([v for v in avail if v in revived[ri]], key=lambda v: -P_seq[v])
-            ini = [v for v in avail if v not in revived[ri]]
-            avail = rev + ini if rev else ini
-            return [(v, v) for v in avail]
+            eligible = set(v for v in P if v not in sup[ri] and v not in fired[ri])
+            if r.get("notpos", "trail") == "lead":
+                order = [v for v in P if v in eligible]          # insertion order
+            else:
+                order = group_order(ri, eligible)
+            return [(v, v) for v in order]
         if k == "obs_lk":
             return [((lk, LK[lk]["gen"]), None) for lk in list(LK)
                     if (lk, LK[lk]["gen"]) not in fired[ri]]
         if k == "obs_join":
-            return [((lk, LK[lk]["gen"], v), v) for lk in list(LK) for v in P
+            firstoj = min(rj for rj in range(len(rules))
+                          if rules[rj]["kind"] == "obs_join")
+            pv = list(P) if ri == firstoj else list(reversed(P))
+            return [((lk, LK[lk]["gen"], v), v) for lk in list(LK) for v in pv
                     if (lk, LK[lk]["gen"], v) not in fired[ri]]
         if k == "obs_p":
             return [(v, v) for v in P if v not in fired[ri]]
@@ -109,18 +149,12 @@ def simulate(facts, rules):
             if k == "del_join" and not any(key[1] is False for key in LK):
                 return []                 # zombies ARE visible (c3d): the
                                           # flag gates cascade immunity only
-            avail = [v for v in P if v not in fired[ri]]
-            # member order (empirical): LIFO once the item has YIELDED
-            # mid-list (c1/c3a rounds 2+), or when its tuple set is STALE
-            # with no churn-re-derivation since t0 (x130-class: other
-            # rules fired, guard never churned). Fresh/churned first
-            # rounds are FIFO (c3b/c3d/c1-round-1). OPEN 1-cell corner:
-            # d4's round-1 LIFO after a LEAD-lazy churn — documented,
-            # not encoded (order-only).
-            if yielded[ri] or stale(ri) \
-               or (k == "del_not" and churned[ri] and has_lead_just):
-                avail = sorted(avail, key=lambda v: -P_seq[v])
-            return [(v, v) for v in avail]
+            eligible = set(v for v in P if v not in fired[ri])
+            if k == "del_join":
+                order = [v for v in P if v in eligible]          # insertion order
+            else:
+                order = group_order(ri, eligible)
+            return [(v, v) for v in order]
         raise ValueError(k)
 
     def queued(ri):
@@ -141,10 +175,52 @@ def simulate(facts, rules):
                 if v in P:
                     fired[ri].discard(v)
                     revived[ri].add(v)
-        derive_seq[ri] = fire_count
 
     def retract_lk(key):
         LK.pop(key, None)
+
+    def fold_on_drop(ri):
+        r = rules[ri]
+        scan = list(phys)
+        if r["kind"] == "justifier" and r.get("k", 1) == 1:
+            if r.get("notpos", "trail") == "trail":
+                # shared fold (gt5/gt7 dumps): members HOLDING a stale
+                # staging get the PRE-reversal scan; the self-defeated
+                # justifier WITHOUT one gets the POST-reversal order
+                # staged; stagingless deleters memory-scan the reversed
+                # phys. Then the phys reverses.
+                pre = [v for v in scan]
+                post = list(reversed(pre))
+                for rj in grp:
+                    if rj != ri and jstaged[rj] is not None:
+                        jstaged[rj] = list(pre)      # owner-deleters: PRE
+                # the self-defeated justifier stages by OWNERSHIP, not by
+                # staging-presence (gt8 fold-2: non-owner with leftover
+                # staging still gets POST)
+                jstaged[ri] = list(pre) if ri == t0_owner else list(post)
+                phys.reverse()
+            else:
+                # lead justifier: its own private nodes re-derive in
+                # insertion order (observed); the del-group's [P x not]
+                # node fold stays PENDING for the deleter's own eval
+                if any(rules[rj]["kind"] == "del_not" for rj in range(len(rules))):
+                    pending_fold[0] = scan
+        elif r["kind"] == "justifier" and r.get("k", 1) == 0:
+            dels = [rj for rj in range(len(rules)) if rules[rj]["kind"] == "del_not"]
+            if not dels:
+                pass
+            elif r.get("eager"):
+                # k0-NL same-batch fold NETS OUT on the off-path node iff
+                # the justifier is declared BEFORE the deleter (gt6/x11);
+                # a deleter declared FIRST churns: pre-scan staging
+                # replace + reversal (the x70-class five)
+                if any(rj < ri for rj in dels):
+                    for rj in dels:
+                        if jstaged[rj] is not None:
+                            jstaged[rj] = [v for v in scan]
+                    phys.reverse()
+            else:
+                pending_fold[0] = scan
 
     def land_lazy(ri):
         landed = bool(drops[ri])
@@ -156,11 +232,7 @@ def simulate(facts, rules):
         drops[ri].clear()
         if not landed:
             return
-        # a drop actually landed: guard reopen re-derives del_not memories
-        for rj, r in enumerate(rules):
-            if r["kind"] in ("del_not",):
-                derive_seq[rj] = others[rj]
-                churned[rj] = True
+        fold_on_drop(ri)
 
     def land_eager(ri):
         r = rules[ri]
@@ -175,10 +247,7 @@ def simulate(facts, rules):
         eager_pend[ri].clear()
         if not landed:
             return
-        for rj, r2 in enumerate(rules):
-            if r2["kind"] in ("del_not",):
-                derive_seq[rj] = others[rj]
-                churned[rj] = True
+        fold_on_drop(ri)
 
     def cascade_p_death(pv):
         for key in list(LK):
@@ -214,12 +283,23 @@ def simulate(facts, rules):
         if not ts:
             continue
         key, pval = ts[0]
-        for rj in range(len(rules)):
-            if rj != ri:
-                if has_fired_any[rj]:
-                    yielded[rj] = True
-                others[rj] += 1
-        has_fired_any[ri] = True
+        in_group = (rules[ri]["kind"] == "del_not"
+                    or (rules[ri]["kind"] == "justifier" and rules[ri].get("k", 1) == 1
+                        and rules[ri].get("notpos", "trail") == "trail"))
+        if in_group and pending_fold[0] is not None:
+            # this member's eval consumed the fold inline: the re-add scan
+            # is its WHOLE continuation list (minus the fired head), the
+            # node processes the re-adds, the phys reverses (gt3/d4 + the
+            # population's RD-continuation signature)
+            jstaged[ri] = [v for v in pending_fold[0] if v != key and v in P]
+            if not jstaged[ri]:
+                jstaged[ri] = None
+            pending_fold[0] = None
+            phys.reverse()
+        elif jstaged[ri] and key in jstaged[ri]:
+            jstaged[ri].remove(key)
+            if not jstaged[ri]:
+                jstaged[ri] = None
         fired[ri].add(key)
         fire_count += 1
         name = rules[ri].get("name", f"R{ri}")
@@ -235,9 +315,6 @@ def simulate(facts, rules):
                 lk_gen[0] += 1
                 LK[lk_key] = {"owner": ri, "dep": key, "zombie": False,
                               "gen": lk_gen[0]}
-                for rj, r2 in enumerate(rules):
-                    if r2["kind"] == "del_join":
-                        derive_seq[rj] = others[rj] + 1  # this firing counts
             if breaks:
                 if r.get("ortwin"):
                     sup[ri].add("IF")
@@ -254,6 +331,11 @@ def simulate(facts, rules):
         elif r["kind"] in ("del_not", "del_join"):
             firings.append((name, pval))
             P.remove(pval)
+            if pval in phys:
+                phys.remove(pval)
+            for rj in range(len(rules)):
+                if jstaged[rj] and pval in jstaged[rj]:
+                    jstaged[rj].remove(pval)
             cascade_p_death(pval)
             t15_revive(pval)
     finals = sorted([("P", v) for v in P] + [("LK", k[0]) for k in LK])

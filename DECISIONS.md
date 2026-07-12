@@ -117,12 +117,18 @@ new positive-pattern class), t15-clears-fired-for-died-tuples,
 LK-recreation-refires (identity law in-model). ⚖ BRYAN'S EPICYCLE
 STOP logged (toggles = falsification, not resistance; proxy variable
 = unknown mechanism); member order moved to GROUND TRUTH — SdDump
-graft phase 1: NOT texture (3/3 stable), three physical rules
-(add-at-head; churn REVERSES the list; sharer split by decl
-position), plus new fine print (empty-item drop rides RE-ENTRY?
-gt3-vs-a13 split = phase-2 target). lint 1694/0/0; 32 cells, 16
-open_divergence; engine census 69/150. NEXT: graft phase 2 →
-encode rules → 0-div → L-MB.** Any engine change stays
+graft phase 1: NOT texture (3/3 stable). **D-190: CONSOLIDATION
+CLOSED AT 0-DIV — phase 2 pinned the full member-order construction
+(add-at-head; fold ⇒ REVERSAL; sharer split by decl; fold-staging by
+t0 OWNERSHIP owner⇒PRE / non-owner justifier⇒POST; unshared folds =
+whole-continuation consume; k0-NL nets out iff justifier-first-decl;
+the t10 leak = staged-without-dirty, observed; phase-1's "re-entry"
+reading retracted — queue-head unamended); model_sd order layer =
+physics, ZERO toggles; **32/32 banked; population 750/750, seeds
+6001-6005** (6004/6005 fully out-of-sample); engine census 300/750
+divergent (40%) = the port A/B baseline; lint 1694/0/0; engine
+untouched. NEXT (Bryan's sequencing): L-MB opens — the 18-witness
+mutation-break cluster.** Any engine change stays
 gated (⚠ D-106 tripwire + D-177 landing-not-pick).** Other
 candidates: class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-185 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
@@ -10563,3 +10569,62 @@ including the pre-registered graft outcomes). NEXT: graft phase 2
 encode rules 1-3, re-population toward 0-div; then L-MB. The four
 in-model order toggles are RETIRED as semantics (stopgap only,
 superseded by graft-phase1.md).
+
+## D-190 — L-SD CONSOLIDATION CLOSED AT 0-DIV: graft phase 2 pinned the member-order construction; the toggles are GONE; **750/750 across five fresh seeds** (2026-07-12)
+
+Bryan's mandate executed end-to-end: phase 2 → encode rules → fresh
+seeds to 0-div.
+
+### 1. Graft phase 2 (SdDump + per-path staged lefts / blocked / peers)
+
+Decisive dumps (graft-phase1.md, phase-2 section): **gt5** — the
+self-defeated justifier's re-adds appear as its OWN path's staged
+inserts in PRE-reversal scan order, held STAGED-WITHOUT-DIRTY (the
+t10 leak's implementation; t15's revive = the dirty set — the
+queue-head discipline needed no amendment); **gt6** — a k0-NL fold
+NETS OUT on the deleter's off-path node (same-batch ins+del fold
+away: no reversal, t0 staging intact); **gt7/gt8** — the fold-staging
+matrix: owner-members ⇒ PRE-reversal scan, the non-owner justifier ⇒
+POST, decided by t0-OWNERSHIP not staging-presence (gt8's fold-2 is
+the discriminating observation: a non-owner holding leftover staging
+still stages POST). Phase-1's "drop rides re-entry" reading RETRACTED
+on re-read (stale unevaluated rtm, not a live LK): the drop lands at
+head-return, exactly per the queue-head discipline.
+
+### 2. The final order layer (model_sd docstring §4; ZERO toggles)
+
+Physical list: add-at-head, delete-in-place, fold ⇒ REVERSAL. Sharer
+split by declaration (t0 owner = staging FIFO; later sharers =
+memory-scan) — recurring for obs_join twins (6003x15/x47). Fold
+staging by ownership (PRE/POST matrix). Unshared folds pend until a
+member's eval consumes the scan as its WHOLE continuation. k0-NL
+folds net out iff the justifier is declared before the deleter
+(x70-class churns). lead-justifier and del_join consume insertion
+order. Every clause traces to a dump or a 3×-stable population
+discrimination — no proxy variables (the epicycle-stop discipline
+held).
+
+### 3. THE 0-DIV RESULT
+
+**32/32 banked cells; population 750/750 — seeds 6001-6005 × 150,
+ZERO divergences** (mismatch protocol: oracle 3× flake filter; none
+needed at close). Seeds 6004/6005 were untouched by any fitting
+round — genuine out-of-sample confirmation. Engine-vs-oracle census
+over the same 750: **300/750 divergent (40%)** = the port's A/B
+baseline (69/53/58/62/58 per seed). Lone flagged residual anywhere:
+fz_123_3060's T0(5)-first initial pick (two-not + no-loop-observer
+structure, outside the v1 grammar; noted, unmodeled). The L-SD
+sub-family's executable spec is DONE: the queue-head discipline +
+in-firing self-cancellation + t10/t15 + cascade/zombie + the
+member-order physics, validated out-of-sample at the bar the arc
+set.
+
+### 4. State
+
+Engine untouched throughout (the consolidation is spec-side; the
+port battery = the 16 open_divergence cells + the 40% population
+census awaits its own gated slab). lint 1694/0/0; corpus untouched;
+drift gate green. NEXT per Bryan's sequencing: **L-MB** (the
+18-witness mutation-break cluster — plan §5 rung 2 of the residue),
+opening with the same discipline: bucket census re-read, ladder with
+pre-logged predictions, kill-cells first.

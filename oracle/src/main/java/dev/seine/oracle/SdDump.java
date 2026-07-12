@@ -87,6 +87,7 @@ public final class SdDump {
         if (cn.equals("JoinNode") || cn.equals("NotNode") || cn.equals("ExistsNode")) {
             dumpBeta(node, reteEval, cn);
         }
+        dumpPaths(node, reteEval, seen);
         for (String prop : new String[]{"getObjectSinkPropagator", "getSinkPropagator"}) {
             try {
                 Object propag = call(node, prop);
@@ -113,8 +114,68 @@ public final class SdDump {
         Object rit = call(rtm, "iterator");
         for (Object rt = call(rit, "next"); rt != null; rt = call(rit, "next")) {
             sb.append(tupleLabel(rt)).append(' ');
+            Object blocked = callOrNull(rt, "getBlocked");
+            if (blocked != null) {
+                sb.append("blocked{");
+                for (Object lt = blocked; lt != null; lt = callOrNull(lt, "getBlockedNext")) {
+                    sb.append(tupleLabel(lt)).append(' ');
+                }
+                sb.append("} ");
+            }
+        }
+        // ltm entries' peer chains (per-path copies of shared-segment tuples)
+        sb.append("\n     peers: ");
+        Object lit2 = call(ltm, "iterator");
+        for (Object lt = call(lit2, "next"); lt != null; lt = call(lit2, "next")) {
+            Object peer = callOrNull(lt, "getPeer");
+            if (peer != null) {
+                sb.append(tupleLabel(lt)).append("->");
+                for (Object pp = peer; pp != null; pp = callOrNull(pp, "getPeer")) {
+                    sb.append(tupleLabel(pp)).append("->");
+                }
+                sb.append("| ");
+            }
         }
         System.out.println(sb);
+    }
+
+    static Object callOrNull(Object o, String m) {
+        try { return call(o, m); } catch (Exception e) { return null; }
+    }
+
+    static void dumpPaths(Object node, Object reteEval, IdentityHashMap<Object, Boolean> seen2) throws Exception {
+        String cn = node.getClass().getSimpleName();
+        if (cn.equals("RuleTerminalNode")) {
+            try {
+                Object pm = call1(reteEval, "getNodeMemory", node,
+                        Class.forName("org.drools.core.common.MemoryFactory"));
+                Object rule = call(node, "getRule");
+                StringBuilder sb = new StringBuilder("  PATH ").append(call(rule, "getName"));
+                Object segs = callOrNull(pm, "getSegmentMemories");
+                if (segs instanceof Object[]) {
+                    int si = 0;
+                    for (Object seg : (Object[]) segs) {
+                        sb.append("\n     seg").append(si++);
+                        if (seg == null) { sb.append(": null"); continue; }
+                        Object st = callOrNull(seg, "getStagedLeftTuples");
+                        if (st == null) { sb.append(": nostage"); continue; }
+                        sb.append(" stagedIns[");
+                        for (Object s = callOrNull(st, "getInsertFirst"); s != null; s = callOrNull(s, "getStagedNext"))
+                            sb.append(tupleLabel(s)).append(' ');
+                        sb.append("] del[");
+                        for (Object s = callOrNull(st, "getDeleteFirst"); s != null; s = callOrNull(s, "getStagedNext"))
+                            sb.append(tupleLabel(s)).append(' ');
+                        sb.append("] upd[");
+                        for (Object s = callOrNull(st, "getUpdateFirst"); s != null; s = callOrNull(s, "getStagedNext"))
+                            sb.append(tupleLabel(s)).append(' ');
+                        sb.append(']');
+                    }
+                }
+                System.out.println(sb);
+            } catch (Throwable t) {
+                System.out.println("  PATH dump error: " + t);
+            }
+        }
     }
 
     /** (facts)@handleId#tupleIdentityHash~objIdentityHash */
