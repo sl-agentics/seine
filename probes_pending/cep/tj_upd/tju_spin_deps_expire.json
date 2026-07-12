@@ -1,0 +1,165 @@
+{
+ "name": "tju_spin_deps_expire",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2($t : tag, this before[0ms,50ms] $a) then insertLogical(new D($t)); end\nrule RN salience 9 when not D() P() then end\nrule RL salience 1 when P() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 13,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 21,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 9,
+    "tag": "y",
+    "dur": 80
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 0,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 128,
+      "tag": "y",
+      "dur": 0
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 124,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-175: the LAZY control of the teardown cause split (a7c analog at a k=2 temporal justifier): the justifying tuple dies by EXPIRATION (no delete), so the D(z) belief survives through the same-window TJ1 re-fire (which re-justifies D(x)) and RN never fires. Oracle [TJ1,TJ1,RL] 3x-stable; engine byte-identical on both trees. Opposite polarity of spin_deps_extdel/delpartner (hang-backlog until the D-175 landing)."
+}

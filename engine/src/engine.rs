@@ -2257,6 +2257,10 @@ pub struct Engine {
     /// `spin_tick` trips past `AGENDA_SPIN_LIMIT` so the engine ERRORS instead
     /// of hanging. Never approached by legitimate sessions.
     spin_guard: u64,
+    /// `AGENDA_SPIN_LIMIT`, overridable via `SEINE_SPIN_GUARD` (recon lens:
+    /// a genuine cycle's verdict is limit-independent, so a low limit turns
+    /// an ~18s guard trip into milliseconds; the default is the backstop).
+    spin_limit: u64,
     /// rules[i].def.parent, copied out for borrow-friendly no-loop
     /// checks (D-070): subrules of one `or` rule share a parent.
     rule_parents: Vec<usize>,
@@ -2388,6 +2392,10 @@ impl Engine {
             ep_ids: HashMap::new(),
             fact_eps: Vec::new(),
             spin_guard: 0,
+            spin_limit: std::env::var("SEINE_SPIN_GUARD")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(50_000_000),
             rule_parents: Vec::new(),
             rule_order: Vec::new(),
             lias: Vec::new(),
@@ -6825,13 +6833,14 @@ impl Engine {
         // Per-`next_activation` CALL budget: one call's real work is bounded by
         // the agenda size (rules × queued tuples) + deferred size — at most a
         // few million even for large scenarios — so this is a huge margin that
-        // only a genuine re-add cycle blows.
-        const AGENDA_SPIN_LIMIT: u64 = 50_000_000;
+        // only a genuine re-add cycle blows. `SEINE_SPIN_GUARD` overrides the
+        // limit (recon only — a cycle's verdict is limit-independent).
+        let limit = self.spin_limit;
         self.spin_guard += 1;
-        if self.spin_guard > AGENDA_SPIN_LIMIT {
+        if self.spin_guard > limit {
             if self.pending_err.is_none() {
                 self.pending_err = Some(format!(
-                    "agenda non-termination guard tripped at {AGENDA_SPIN_LIMIT} steps \
+                    "agenda non-termination guard tripped at {limit} steps \
                      (E1-hardening backstop — a pre-existing temporal/TMS re-add cycle)"
                 ));
             }
@@ -6878,6 +6887,9 @@ impl Engine {
                         self.tms.exp_deferred.iter().position(|(ri, _)| *ri == l)
                     {
                         let (_, tuple) = self.tms.exp_deferred.remove(i);
+                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                            eprintln!("TMS drain[post-fire-exp] r{l} {tuple:?}");
+                        }
                         self.tms_on_terminal_del(l, &tuple);
                         if self.spin_tick() {
                             return None;
@@ -7124,6 +7136,9 @@ impl Engine {
                     // (cf11x24: ND4@2 before NE5@0).
                     let pending = std::mem::take(&mut self.tms.exp_deferred);
                     for (dri, tuple) in pending {
+                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                            eprintln!("TMS drain[quiescence-exp] r{dri} {tuple:?}");
+                        }
                         self.tms_on_terminal_del(dri, &tuple);
                     }
                     continue;
@@ -7135,6 +7150,9 @@ impl Engine {
                 if !self.tms.exp_deferred.is_empty() {
                     let pending = std::mem::take(&mut self.tms.exp_deferred);
                     for (dri, tuple) in pending {
+                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                            eprintln!("TMS drain[quiescence-bare] r{dri} {tuple:?}");
+                        }
                         self.tms_on_terminal_del(dri, &tuple);
                     }
                     continue;
@@ -9558,6 +9576,8 @@ impl Engine {
             // at the justifier's ITEM POP (salience/decl agenda order),
             // exactly like k>=2 walk-path teardowns. External deletes
             // keep the certified EAGER path (the a7d delete twin).
+            // ⚠ D-175: mark-only here is the k=1 flavor of the D-117
+            // re-add edge (spin_deps_k1) — same cause-split fix applies.
             if act.1.iter().any(|x| self.tms.expiring.contains(x)) {
                 if !self.tms.exp_deferred.iter().any(|(r, t)| (*r, t) == (act.0, &act.1)) {
                     self.tms.exp_deferred.push((act.0, act.1));
@@ -9578,13 +9598,21 @@ impl Engine {
     /// revival by property-relevant update; t10/t11 fire once).
     fn tms_on_terminal_del(&mut self, ri: usize, tuple: &Tup) {
         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-            eprintln!("TMS terminal-del r{ri} {tuple:?}");
+            eprintln!(
+                "TMS terminal-del r{ri} {tuple:?} expiring={:?} exp_deferred={:?} deferred={}",
+                self.tms.expiring,
+                self.tms.exp_deferred,
+                self.tms.deferred.len()
+            );
         }
         // D-101/D-102 (cf5x17 second bite): an EXPIRING justifier's
         // teardown is LAZY — reroute to the certified tms.deferred
         // item-pop path. This covers the DIRECT prune callers (queue
         // pruning during advance()'s deletes), which bypass the
         // eager-break scan's routing.
+        // ⚠ D-175: this mark-only check is the D-117 re-add edge — the
+        // validated cause-split fix (DECISIONS D-175 §4, Bryan-gated)
+        // scopes it to `in_expiration_drain || (marked && all-alive)`.
         if tuple.iter().any(|f| self.tms.expiring.contains(f)) {
             if !self.tms.exp_deferred.iter().any(|(r, t)| (*r, t) == (ri, tuple)) {
                 self.tms.exp_deferred.push((ri, tuple.clone()));

@@ -1,0 +1,149 @@
+{
+ "name": "spin_c4_noE1s",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2(this before[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 9,
+    "tag": "y",
+    "dur": 80
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 0,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    },
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 128,
+      "tag": "y",
+      "dur": 0
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 124,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-175: spin-family cell \u2014 the E1s removed (delete retargeted): marks={E2(0)} alone sustain the cycle, proving the E1 deadlines are NOT load-bearing (the D-167 minimizer could not drop them only because of its index-shift guard). Spins pre-fix; passes with the D-175 fix (graduate at landing)."
+}

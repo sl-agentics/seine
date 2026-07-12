@@ -1,0 +1,163 @@
+{
+ "name": "spin_c3_delpartner",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ1 salience 5 when $a : E0() from entry-point \"S1\" $b : E2(this before[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 13,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 21,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 9,
+    "tag": "y",
+    "dur": 80
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 0,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    },
+    {
+     "op": "delete",
+     "target": 2
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 128,
+      "tag": "y",
+      "dur": 0
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 124,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "D-175: spin-family cell \u2014 delete the NEVER-EXPIRED partner E0(9) instead of the expired E2(0); the dead tuple still contains the marked E2(0) so the teardown routes lazy and the post-fire drain cycles. THE ROUND-3 KILL of the identity-model law in the necessity direction (no delete-of-just-expired, no same-value re-creation, phenomenon present). Spins pre-fix; passes engine==oracle with the D-175 cause-split fix (graduate to live pin at landing)."
+}

@@ -11,71 +11,47 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-11 late, post-D-170 — **the ORDER-family
-ENGINE PORT IS LANDED (Bryan-gated): the whole SEINE_TJUPD ORDER
-family is closed** — cf6001x245/cf6003x274/cf6004x233/cf6005x208
-GRADUATED to regressions/ (corpus **11/1084/333** byte-identical);
-population A/B **+719 fixed / 0 regressed** on 2,200; the TJUPD axis
-6001-6005 now flags ONLY cf6002x359 (the D-117 spin). The port
-(D-170, all temporal-join-scoped, plain sessions untouched): the T6
-REPLAY (`phreak.rs temporal_upd_replay` — upd-carrying temporal
-2-pattern batches replay ops in arrival-stamp order with per-op FIFO
-block composition), per-ACTION pending memory-moves (dedup-proof,
-prior-epoch floor), the self-slot entry-scan view
-(`scan_rights_view`), terminal movability+relocation with ins-first
-consume for entry evals (`consume_term_*`, act_movable, tj_trigger —
-QUEUE content only, the pick/halt untouched ⚠ D-106), and the A'
-child-list discipline (AB self-pair slot, pre-move snapshot, ph=6
-tag-class staging). Fast battery 75/75 (incl. tj_tail 25/25 — D-166
-intact). NEW residual ledger (pre-existing, A/B-proven on the
-pre-port tree, quarantined in probes_pending/cep/tj_upd/):
-tu51x80/tu51x187 = SET losses in an exit→unlinked→re-enter relink
-shape + tu51x207 (a 3-touch ORDER compound). **⇒ D-171 cracked the
-relink-SET mechanism; D-172 (this slab) LANDED the fix (Bryan-gated)
-and logged ⚖ THE IDENTITY-MODEL LAW (Bryan's ruling): the engine
-kills by VALUE; Drools kills by tuple OBJECT identity — deferred
-deletes reaching across a same-value re-creation are THIS law; check
-the del's deferral path first (full statement atop
-docs/tjupd-ledger-mechanisms.md + the workflow memory's doctrine
-list).** The fix: stream_flush_ex's dstash exempts an s0-del whose
-fact re-enters in the same flush (del-then-ins in stage order —
-Drools' relink drain; ~15 flush-layer lines, executor untouched,
-D-106-clean). tju_relink_{min,sameepoch,gap} + tu51x80/x187 are LIVE
-pins (+ the nobacklog control). **⇒ D-173 (this slab): the tu51x207
-3-touch ORDER compound is CRACKED — the $b-refire's CHILDLIST
-move-to-end is a per-ACTION side effect (the model re-runs phase B
-each touch; the engine's replay attached the re-adds to the ONE
-dedup'd RUpd at the FIRST touch's stamp, so a leading same-epoch
-tag-VI pins the pass before the entry exists and the self-child never
-moves). Discriminated the round-3 way (x2l1-vs-x2l2: drop the leading
-VI ⇒ engine green); NOT the identity-model law (no delete exists —
-stated early, not forced). FIX validated-then-REVERTED (report §5,
-~10 replay-internal lines, D-106-clean): ladder 5/5, battery 81/81,
-corpus clean; CONTROLS: population 2,200/2,200 (the whole update
-axis converges on landing) + fuzz 313/TJUPD 6001 = 0. Ladder
-committed (ladder_x207.py + 6 pins: tjx207_min/x2l1/x2l4/x2l5 red,
-x2l2/x2l3 live); minimize_keyed extended with '!'-negated signature
-keys.** **⇒ D-174 (this slab): the §5 fix is LANDED (Bryan-gated) and ⚖ THE
-DEDUP/SIDE-EFFECT LAW is ledgered beside the identity law: staged-op
-dedup folds EMISSIONS only — per-touch side effects run once per
-ACTION and must ride per-action ops (the D-170 pending-move pattern);
-a side effect on the dedup'd op runs once at the FIRST touch's stamp
-(instances: the rtm move tu11x95/D-170, the childlist move tu51x207/
-D-174; triage: multi-touch ORDER divergence where the engine acts as
-if only the first touch happened).** tjx207_min + x2l1/x2l4/x2l5 +
-tu51x207 are LIVE pins. **THE BATTERY'S OPEN LEDGER IS NOW EXACTLY
-tju_359_spin_min — the whole SEINE_TJUPD update axis is closed except
-the D-117 spin. NEXT: Bryan's gate — (c) the spin root-cause slab,
-THE LAST OPEN TJUPD ITEM (checker-first, ⚠⚠ D-106) — handoff
-`~/.claude/plans/tjupd-ledger-handoff.md` ((a)(b)(d)(e) DONE).**
-Gates this slab: corpus **11/1084/333** byte-identical, cargo 9,
-fuzz_cep ×4 = 0, TJUPD 6001-6005 = only the spin, tjt 25/25, mju
-0/200 + 200/200, notpop/expop fresh clean, lint **1601/0/0**,
-bindings 72; CONTROL: the model population **2,200/2,200**. Prior:
-D-173 recon, D-172 relink fix + ⚖ the identity-model law, D-170
-ORDER port, D-169 T6 spec, D-168 SET fix (PUSHED through D-170 at
-`8f2cfb6`). Other deferred: D-080 TMS envelope, class-3 re-entrant
-churn, window:length (never built), Allen-beyond-Drools.
+_Last updated: 2026-07-11 late, post-D-175 — **DELIVERABLE (c) IS
+CRACKED: the cf6002x359 / D-117 spin root cause is the TMS teardown
+CAUSE SPLIT, and the fix is VALIDATED-THEN-REVERTED awaiting Bryan's
+landing gate** (D-175 has the mechanism, the verbatim 2-hunk diff, the
+full green battery, and the landing checklist). The cycle: an external
+delete kills a fired tuple containing a still-expiration-marked fact
+inside the advance→quiescence mark window; the mark-keyed lazy route
+(tms_on_terminal_del / tms_eager_break) sends the teardown to
+exp_deferred, and the just-fired rule's post-fire drain hands it back
+to the same route forever. The checker (4 new oracle pins, 3×-stable):
+**lazy is the EXPIRATION cause only** — route lazy ⟺
+in_expiration_drain ∨ (marked member ∧ ALL members alive); a dead
+member on a flag-false report = external kill ⇒ EAGER (a7d extended
+into the mark window; q1/a7c preserved). Under the fix the witness
+reproduces the oracle's complete sequence in 27ms, the FULL
+cf6002x359 + the ORIGINAL hang-backlog scenario PASS, **SEINE_TJUPD
+6001-6005 ×400 = ZERO flags (the axis fully clean)**, corpus
+11/1084/333 byte-identical, population 2,200/2,200, agenda_open ×19
+byte-identical (worktree A/B), lint 1601/0/0, bindings 72, cargo 9,
+fuzz_cep ×4 = 0, tjt 25/25, mju 0/200, notpop/expop fresh clean.
+⚖ BOTH laws discriminated at the round-3 bar: identity-model killed
+in BOTH directions (c3 spins without its condition; c7 doesn't spin
+with it); dedup/side-effect precondition absent. BONUS:
+spin_deps_k1 = a previously-unknown latent D-117 family member (k=1,
+no temporal join) — spins on HEAD, byte-identical under the fix.
+RESIDUAL (new, filed, NOT this slab): the deps-carrying shapes
+terminate but under-fire RN post-fix (eager drop lands after the
+pick's D-101 static return; Drools reopens the pick — ⚠⚠ D-106 halt
+fine structure, cf5x17 certifies the opposite polarity; own arc).
+Tooling landed: SEINE_SPIN_GUARD override (verdict measured
+limit-independent: 100k==50M), minimize_keyed --errored (witness
+verified at local minimum), TMS drain debug lenses. New pins:
+tju_spin_{nodelete,nofresh,window_split,deps_expire} live;
+6 pre-fix spinners banked in scenarios/hang-backlog/ (README maps
+each to its landing disposition). tju_359_spin_min stays
+open_divergence until the landing. **NEXT: Bryan's gate — re-apply
+the D-175 §4 diff and run the §6 landing checklist.** Prior arc:
+D-168 SET fix → D-169 T6 spec → D-170 ORDER port → D-171/172
+relink-SET + ⚖ identity law → D-173/174 3-touch + ⚖ dedup law (all
+LANDED & PUSHED). Other deferred: D-080 TMS envelope, class-3
+re-entrant churn, window:length, Allen-beyond-Drools.
 Fenced-by-nature: D-134 §6 ties, fz_42_84. `git log --oneline -20`
 for HEAD._
 
@@ -84,11 +60,11 @@ subset. **Prime directive: PROBE-FIRST** — the oracle settles every semantic;
 NEVER hand-derive PHREAK/temporal staging (it flip-flops — re-proven twice).
 Workflow / env quirks / doctrine: memory `seine-workflow.md`.
 
-**Git:** on `main`, fully PUSHED through D-174 (`b5103fd`,
-Bryan-directed 2026-07-11) + this reconcile commit (Bryan holds every
-push). Resume point: deliverable (c), the spin arc — handoff
-`~/.claude/plans/tjupd-ledger-handoff.md` (rewritten post-D-174 with
-the session-fresh debug lenses + law-discrimination constraints).
+**Git:** on `main`, PUSHED through the `b260ab4` reconcile (Bryan
+holds every push); the D-175 recon commit is UNPUSHED on top. Resume
+point: **Bryan's landing gate for the D-175 spin fix** — re-apply the
+§4 diff verbatim and run the §6 landing checklist (handoff
+`~/.claude/plans/tjupd-ledger-handoff.md`, updated post-D-175).
 **RELEASED: v0.4.1 → PyPI, 2026-07-11** (Bryan-directed; tag `v0.4.1`
 on `2a482e8`, the ci.yml release pipeline all-green incl. the
 differential job: GH release live, seine-rs 0.4.1 on PyPI, 4 wheels +
@@ -9384,3 +9360,158 @@ population **2,200/2,200** — the update axis fully converges.
 NEXT (Bryan's gate): (c) the cf6002x359 spin root-cause slab — THE
 LAST OPEN TJUPD ITEM (checker-first, ⚠⚠ D-106; witness
 tju_359_spin_min, 4 facts).
+
+## D-175 — the cf6002x359 SPIN ROOT CAUSE cracked: the TMS teardown CAUSE SPLIT; fix validated-then-REVERTED (Bryan gate); the whole D-117 hang family cured under the fix (2026-07-11)
+
+Deliverable (c), the last open TJUPD item. Framed per Bryan's directive as an
+ordinary divergence that manifests as non-termination: Drools halts and fires
+a complete sequence; reproducing that sequence was the bar, and it is met.
+
+### 0. Tooling (LANDED, stays in-tree)
+
+- `SEINE_SPIN_GUARD` env override of the D-117 limit (`spin_limit` field,
+  default 50M unchanged). MEASURED verdict identity on the witness: guard trip
+  at 100k in 0.08s == guard trip at 50M in 26.8s — the guard is a backstop,
+  not semantics, now as fact. Recon cost per spin cell: ms instead of ~26s.
+- `tools/minimize_keyed.py --errored`: the HANG-variant predicate ("engine
+  errored but oracle succeeded") as an explicit flag — the default predicate
+  REJECTS errored runs (the handoff's silent-reduce trap). Verified: the
+  witness repros under it and is at a LOCAL MINIMUM (no fact/epoch/action
+  droppable; the E1s survive only via the index-shift guard — see §2 c4).
+- TMS debug lens extended: `tms_on_terminal_del` prints
+  expiring/exp_deferred/deferred state; the three exp_deferred drain sites
+  print `TMS drain[post-fire-exp|quiescence-exp|quiescence-bare]`.
+
+### 1. The cycle, instrumented (SEINE_EVAL_DEBUG + SEINE_TMS_DEBUG, guard=50)
+
+Epoch 2 (`advance 50` + delete E2(0) + fresh pair): the advance marks
+`tms.expiring = {E2(0), E1(13), E1(21)}` (cleared ONLY by
+`drain_pending_expirations` at quiescence, engine.rs:6296). The external
+delete of E2(0) — ALIVE per c_del_after_exp — kills the fired tuple
+[E0(9),E2(0)] at the pop eval; `tms_on_terminal_del`'s mark-keyed check
+(engine.rs:9588-region) routes the teardown to `exp_deferred`. The fresh pair
+fires TJ1 (the oracle's 2nd firing HAPPENS — the engine dies AFTER completing
+the oracle's sequence), then the post-fire drain (engine.rs:6877-region
+`while let`) removes the entry, hands it back to `tms_on_terminal_del`, which
+sees E2(0) STILL marked (quiescence never runs) and RE-ADDS the entry it was
+just handed. 1000-step trace: one `drain[post-fire-exp]` + one re-add per
+iteration, same tuple, forever — D-117's sentence verbatim.
+
+### 2. Discrimination (round-3 bar; predictions logged before running)
+
+Six cells from the witness, engine-side at guard=100k:
+- c1 drop-the-delete → terminates (no mid-window entry) — delete NECESSARY.
+- c2 drop-the-fresh-pair → terminates, 1 firing (no post-fire drain) —
+  same-window re-fire NECESSARY.
+- c3 delete the NEVER-EXPIRED partner E0(9) → SPINS. ⚖ identity-model law
+  KILLED, necessity direction: no delete-of-just-expired, no same-value
+  re-creation, phenomenon present.
+- c7 same delete OUTSIDE the mark window → terminates. ⚖ identity law killed
+  in the SUFFICIENCY direction too: its activation shape (delete-of-expired +
+  same-flush re-adds) fully present, phenomenon absent. (Mechanically the law
+  cannot bind here: exp_deferred keys by FactId — handle identity, not value —
+  and the fresh pair demonstrably fired.)
+- c4 no-E1s → SPINS (their deadlines are NOT load-bearing; D-167's minimizer
+  simply couldn't drop facts below the delete's target index).
+- c6 no-entry-point → SPINS (EP-independent).
+- ⚖ dedup/side-effect law: precondition measurably ABSENT (≥2 same-fact
+  touches required; the witness has ONE touch of one fact, and the trace shows
+  the opposite shape — one touch acted on unboundedly, not N folded to 1).
+
+MECHANISM: spin ⇔ an external delete kills a fired tuple containing ANY
+still-expiration-marked fact inside the advance→quiescence mark window, AND
+the same rule fires again before quiescence. The original hang-backlog
+scenario is the c3 flavor (deletes an unmarked fact whose PARTNER is marked)
+— which also proves a delete-clears-own-mark fix shape cannot work.
+
+### 3. The checker: the teardown CAUSE SPLIT (oracle-pinned 3×, new corner)
+
+The certified seam (a7c/a7d/q1/q4) distinguishes teardown cause — expiration
+lazy, external-delete eager — but a7d's pin has NO mark window open; the
+external-delete-INSIDE-the-window corner was unpinned (both known hang
+scenarios have EMPTY by_act — the original's insertLogical rule J3 has no E1
+facts, dead code — so neither could decide it). New probes, all 3×-stable:
+- spin_deps_extdel (witness + insertLogical + not-D observer @9):
+  [TJ1, RN, TJ1, RL] — the belief drop lands EAGERLY at the delete's
+  propagation, before ANY epoch-2 firing.
+- spin_deps_delpartner (delete the unmarked partner): SAME — the split keys
+  on the tuple's DEATH CAUSE, not on which member carries the mark.
+- spin_deps_expire (control; tuple dies by expiration): [TJ1, TJ1, RL] — RN
+  never fires (D survives through the re-justification) — the a7c lazy
+  behavior, reproduced by the same probe design.
+- spin_deps_k1 (k=1 justifier, NO temporal join): [J1, RN, J1, RL] — eager;
+  and a previously-UNKNOWN latent D-117 family member (SPINS on HEAD).
+
+THE LAW OF THE CORNER: **lazy is the expiration cause only.** At the report
+site the faithful reconstruction is: route lazy ⟺ `in_expiration_drain`
+(the drain's own synchronous prunes) ∨ (some tuple member marked ∧ ALL
+members alive — q1's mid-fire consume of a scheduled-but-alive fact). A
+flag-false report with a DEAD member means an external delete killed the
+tuple: Drools tears its beliefs down eagerly at the propagation and the
+pending expiration later no-ops on the dead handle (store.kill already
+models this by clearing store.expired; tms.expiring was the stale mirror).
+
+### 4. The fix (VALIDATED THEN REVERTED — re-apply verbatim at the landing)
+
+Two predicate edits, same cause logic at both exp_deferred producers; flush/
+executor/guard untouched (D-106-clean: pick/halt/loop identical; the 19
+agenda_open engine outputs byte-identical pre/post, worktree-A/B'd).
+
+In `tms_on_terminal_del` (the direct path):
+```
+-        if tuple.iter().any(|f| self.tms.expiring.contains(f)) {
++        if self.in_expiration_drain
++            || (tuple.iter().any(|f| self.tms.expiring.contains(f))
++                && tuple.iter().all(|f| self.store.is_alive(*f)))
++        {
+```
+In `tms_eager_break` (the k=1 scan):
+```
+-            if act.1.iter().any(|x| self.tms.expiring.contains(x)) {
++            if self.in_expiration_drain
++                || (act.1.iter().any(|x| self.tms.expiring.contains(x))
++                    && act.1.iter().all(|x| self.store.is_alive(*x)))
++            {
+```
+The re-add edge dies structurally: dead-member entries never enter
+exp_deferred, so the post-fire drain cannot bounce them.
+
+### 5. Validation (fix in-tree; ALL of D-174's gate list green)
+
+The witness reproduces the oracle's COMPLETE sequence byte-identically in
+27ms (TJ1(E0 9×E2 0), TJ1(E0 128×E2 124), facts [E2(124)]). Full original
+`scenarios/xfail/cf6002x359.json` PASSES (1.1s). The original hang-backlog
+scenario PASSES. All six cells PASS engine==oracle. spin_deps_k1 PASSES
+byte-identical. Battery: corpus 11/1084/333 byte-identical (make diff rc 0);
+cargo 9 suites; fuzz_cep 313/941/943/945 ×400 = 0; **SEINE_TJUPD 6001-6005
+×400 = ZERO flags — cf6002x359 GONE, the axis fully clean** (no name-keyed
+skip in fuzz_cep: the case genuinely ran green); tjt 25/25; tj_upd fast
+battery 60/60; mju 0/200; notpop 112 + expop 147 fresh ALL MATCH (seeds
+7013/7017); lint 1601/0/0; bindings 72 (release); population CONTROL
+2,200/2,200; a7c/a7d/q1/q4 seam pins PASS; agenda_open ×19 byte-identical.
+
+RESIDUAL (new, smaller, filed): spin_deps_extdel/delpartner post-fix
+TERMINATE but under-fire RN ([TJ1,TJ1,RL] vs oracle [TJ1,RN,TJ1,RL]) — the
+eager drop lands mid-pop-eval AFTER the pick committed (the D-101/cf5x17
+static return); Drools reopens the pick pre-fire. That is the halt fine
+structure (⚠⚠ D-106) and cf5x17 certifies the OPPOSITE polarity for the
+pre-drain shape — needs its own halt-matrix arc; NOT touched here. k=1 has
+no such gap (the drop lands at delete-action time, pre-pick).
+
+### 6. Artifacts + the landing checklist (Bryan gate)
+
+Committed NOW (fix reverted): the §0 tooling; live pins
+tju_spin_{nodelete,nofresh,window_split,deps_expire}; hang-backlog cells
+spin_{c3_delpartner,c4_noE1s,c6_noEP,deps_extdel,deps_delpartner,deps_k1}
+(+ README); this entry. The witness stays `open_divergence` (still red on
+HEAD).
+
+LANDING (on Bryan's go): (1) re-apply the §4 diff verbatim → rebuild; (2)
+rerun the §5 battery; (3) GRADUATE: tju_359_spin_min → live pin, xfail/
+cf6002x359 + hang-backlog/pre_existing_temporal_delete_hang + spin_c3/c4/c6
++ spin_deps_k1 → regressions// live pins, spin_deps_extdel/delpartner →
+open_divergence pins (the D-106 halt-corner ledger item); (4) update the
+fuzz expected-names note (TJUPD axis = zero); (5) D-17x + CURRENT STATE +
+memory; commit UNPUSHED. The D-117 guard STAYS IN — the backstop for cycles
+not yet met (e.g. a hypothetical all-alive-marked act at its own justifier's
+post-fire drain, reachable in principle, no witness).

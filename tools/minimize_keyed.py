@@ -11,13 +11,23 @@ divergence class:
   - an ORDER-class witness excludes SET: KEY = '!firing count differs'
 Rule splitting handles the fuzz generators' UNQUOTED rule names.
 
-Usage: python3 tools/minimize_keyed.py <scenario.json> <KEY[,KEY...]> [out.json]
+Usage: python3 tools/minimize_keyed.py [--errored] <scenario.json> <KEY[,KEY...]> [out.json]
+
+--errored (the HANG/guard-trip variant, D-117 class): the predicate
+becomes "engine errored but oracle succeeded" INSTEAD of excluding
+errored runs — without it the default predicate rejects the baseline
+(loud assert), and hand-flipping the wrong clause would silently
+reduce a spin witness to nothing. Run under a low SEINE_SPIN_GUARD so
+each diverging variant costs ms, not ~18s; re-verify the final
+artifact at the DEFAULT guard before trusting it.
 """
 import json, subprocess, re, sys, copy, os, tempfile
 
-BASE = sys.argv[1]
-KEYS = sys.argv[2].split(',')
-OUT = sys.argv[3] if len(sys.argv) > 3 else 'target/min_case.json'
+argv = [a for a in sys.argv[1:] if a != '--errored']
+ERRORED = len(argv) != len(sys.argv) - 1
+BASE = argv[0]
+KEYS = argv[1].split(',')
+OUT = argv[2] if len(argv) > 2 else 'target/min_case.json'
 TMP = os.path.join(tempfile.gettempdir(), f'seine_min_{os.getpid()}.json')
 
 def diverges(d):
@@ -29,7 +39,10 @@ def diverges(d):
     except subprocess.TimeoutExpired:
         return False
     out = r.stdout
-    if 'FAIL' not in out or 'errored' in out:
+    if ERRORED:
+        if 'engine errored but oracle succeeded' not in out:
+            return False
+    elif 'FAIL' not in out or 'errored' in out:
         return False
     for k in KEYS:
         if k.startswith('!'):
