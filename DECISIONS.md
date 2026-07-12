@@ -54,9 +54,10 @@ EMPTY** — every filed divergence fixed-and-graduated or
 fenced-by-nature (D-134 §6 ties, fz_42_84). Known-open surfaces are
 noted SUB-CELLS only (born-expired/D-133, update-refold ph=1,
 stream-AB partner-only sites, the D-175 hypothetical all-alive
-marked act — D-117 guard stays as its backstop).** **NEXT is Bryan's
-call** — candidates: D-080 TMS envelope,
-class-3 re-entrant churn, window:length, Allen-beyond-Drools. Prior:
+marked act — D-117 guard stays as its backstop).** **NEXT is Bryan's call** — candidates: D-080
+TMS envelope, window:length (handoff PREPARED:
+`~/.claude/plans/window-length-arc.md` — scope rulings §1 first),
+class-3 re-entrant churn, Allen-beyond-Drools. Prior:
 D-168→D-177 all landed. Fenced-by-nature: D-134 §6 ties, fz_42_84.
 `git log --oneline -20` for HEAD._
 
