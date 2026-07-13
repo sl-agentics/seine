@@ -369,3 +369,38 @@ def test_dynamic_salience_stays_silent():
     a = r.patterns[0]
     r.set_salience(a.pri)
     assert "rule" in seine_rs.compile_rules([_blocker(), r])
+
+
+# --- RHS arithmetic wall (round 11) -----------------------------------
+
+def test_rhs_arithmetic_walled_with_authoring_message():
+    # modify($c){ setN($c.getN()+1) } is standard Drools but outside the
+    # certified subset — the wall must be the authoring diagnostic, not
+    # the leaked internal "unsupported literal type SalExpr"
+    @seine_rs.fact
+    class Ctr:
+        n: int
+
+    for build in ("modify", "insert"):
+        r = seine_rs.Rule("inc")
+        c = r.when(Ctr)
+        if build == "modify":
+            r.then_modify(c, n=c.n + 1)
+        else:
+            r.then_insert(Ctr, n=c.n + 1)
+        with pytest.raises(CompileError, match="RHS arithmetic") as ei:
+            seine_rs.compile_rules([r])
+        msg = str(ei.value)
+        assert "SalExpr" not in msg          # no internal type names
+        assert "set_salience" in msg         # says where expressions ARE ok
+        assert "accumulate" in msg or "acc_sum" in msg  # offers the idiom
+
+
+def test_salience_arithmetic_still_compiles():
+    @seine_rs.fact
+    class Ctr2:
+        n: int
+    r = seine_rs.Rule("sal")
+    c = r.when(Ctr2)
+    r.set_salience(c.n + 1)
+    assert "salience" in seine_rs.compile_rules([r])

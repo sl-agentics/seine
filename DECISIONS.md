@@ -12796,3 +12796,37 @@ everything that left WM without Python asking for it by name.
 
 Receipts: bindings 107/107 (4 new + the reviewer's repro green);
 bindings-only, engine and corpus untouched.
+
+## D-229 — the RHS-arithmetic wall gets the authoring voice (external review round 11 — his wheel workout: one real gap in an otherwise clean sweep) (2026-07-13)
+
+His round-11 sweep (NaN-vs-NULL 3VL, empty-set aggregate split,
+property reactivity, agenda bootstrap, regex whole-string
+semantics, CEP deadline instant, decimal round-trip) found
+everything faithful — including correctly re-deriving several
+certified subtleties from black-box observation alone. The one
+real finding: `then_modify(c, n=c.n + 1)` — the standard Drools
+counter idiom `modify($c) { setN($c.getN() + 1) }` — dies with the
+leaked internal "unsupported literal type SalExpr".
+
+Scoping first: this is NOT just an authoring rendering gap. The
+ENGINE's RHS grammar is Lit | Var | Getter — no arithmetic — and
+no corpus scenario exercises RHS arithmetic; the only arithmetic
+machinery in the engine is the salience-expression evaluator.
+So the idiom is outside the certified subset end to end, and
+supporting it is an engine feature arc (RHS expression grammar +
+evaluator + oracle probes pinning Java arithmetic semantics —
+long wrap, int/float promotion — + the full battery), Bryan-gated,
+queued as a candidate.
+
+What lands now is the wall he asked for: _rhs_arg catches SalExpr
+and raises the authoring diagnostic — action values are bound
+fields or literals; `field op term` expressions are certified only
+in set_salience; the remedies are the LHS accumulate idiom
+(acc_sum/acc_count and insert the result) or reading the fact and
+update()-ing the new value from Python between fires. No internal
+type names leak. Salience arithmetic compiles unchanged.
+
+Receipts: bindings 109/109 (wall pinned for both then_modify and
+then_insert; message asserts no "SalExpr", names set_salience and
+the accumulate remedy; salience-expr control). Authoring-layer
+only; engine and corpus untouched.

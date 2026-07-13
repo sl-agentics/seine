@@ -881,6 +881,15 @@ class Rule:
     def _rhs_arg(self, v: Any) -> str:
         if isinstance(v, BoundField):
             return self._binding_for(v, "an RHS argument")
+        if isinstance(v, SalExpr):
+            raise CompileError(
+                "RHS arithmetic is outside the certified subset: an action "
+                "value must be a bound field or a literal — `field op term` "
+                "expressions are certified only in set_salience. To keep a "
+                "running value, accumulate it on the LHS (acc_sum/acc_count) "
+                "and insert the result, or read the fact and update() the "
+                "new value from Python between fires."
+            )
         return _lit(v)
 
     def to_drl(self) -> str:
