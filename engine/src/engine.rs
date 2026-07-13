@@ -1536,6 +1536,19 @@ struct Tms {
     /// Types that appear in any insertLogical (the mutation wall's and
     /// the bookkeeping's scope).
     logical_tids: HashSet<TypeId>,
+    /// ⚖ D-208 ACTIVATION-BACKFILL (the port, D-211): keys form at TMS
+    /// ACTIVATION = the session's first insertLogical. Stated facts
+    /// noted BEFORE activation wait here (keyless — observationally a
+    /// per-handle singleton key); the backfill maps the LAST per value.
+    activated: bool,
+    pre_stated: Vec<FactId>,
+    /// ⚖ ORPHANS (x1/r1/L6 events): handles dropped from key
+    /// bookkeeping when their key died around them — WM-alive and
+    /// UNDELETABLE (route-delete no-ops).
+    orphans: HashSet<FactId>,
+    /// ⚖ UNSTAGE-BORN handles (dump7 materializations): TMS-dropped;
+    /// their deletes must NOT cancel queued acts (the dynamic law).
+    unstage_born: HashSet<FactId>,
     seq: u64,
     /// Keys the CURRENT firing's insertLogicals touched — drives the
     /// refire-supersede pass (fz_7777_112/74: Drools removes an
@@ -9701,6 +9714,23 @@ impl Engine {
                         if let Some(jf) = e.justified.take() {
                             self.tms.by_fact.remove(&jf);
                             to_retract.push(jf);
+                            // ⚖ D-211 L6-EVENT at the refire-supersede
+                            // epilogue too (fz_7_9902: the per-epoch
+                            // refire drops the stale dep HERE): the key
+                            // dies whole, stated siblings orphan, a
+                            // later re-justification re-keys fresh.
+                            let sibs: Vec<FactId> = e.stated.drain(..).collect();
+                            for sb in sibs {
+                                self.tms.by_fact.remove(&sb);
+                                self.tms.orphans.insert(sb);
+                            }
+                            self.tms.keys.remove(key);
+                        } else if e.pending_vals.is_some() {
+                            // ⚖ D-211 pending-clear (c2/c3/c4 law).
+                            e.pending_vals = None;
+                            if e.stated.is_empty() {
+                                self.tms.keys.remove(key);
+                            }
                         }
                     }
                 }
@@ -9753,12 +9783,50 @@ impl Engine {
         if !self.tms.logical_tids.contains(&tid) {
             return;
         }
+        if !self.tms.activated {
+            // ⚖ D-211 activation-backfill: pre-activation stateds are
+            // keyless until the first insertLogical (d1/d2 dumps: two
+            // keys, one value — only the LAST backfills into the map).
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!("TMS key[stated-note/pre] f{f:?}");
+            }
+            self.tms.pre_stated.push(f);
+            return;
+        }
         let key = self.tms_key_of(tid, f);
         self.tms.keys.entry(key.clone()).or_default().stated.push(f);
         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
             eprintln!("TMS key[stated-note] f{f:?} key={key:?}");
         }
         self.tms.by_fact.insert(f, key);
+    }
+
+    /// ⚖ D-211: TMS activation — the first insertLogical backfills the
+    /// pre-activation stated facts; the LAST one per value becomes the
+    /// mapped entry's member (earlier ones stay keyless: their deletes
+    /// are ordinary, matching the oracle's unmapped singleton keys).
+    fn tms_activate(&mut self) {
+        if self.tms.activated {
+            return;
+        }
+        self.tms.activated = true;
+        let pre = std::mem::take(&mut self.tms.pre_stated);
+        for f in pre {
+            if !self.store.is_alive(f) {
+                continue;
+            }
+            let tid = self.store.fact_type(f);
+            let key = self.tms_key_of(tid, f);
+            let e = self.tms.keys.entry(key.clone()).or_default();
+            for prev in e.stated.drain(..) {
+                self.tms.by_fact.remove(&prev);
+            }
+            e.stated.push(f);
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!("TMS key[backfill] f{f:?} key={key:?}");
+            }
+            self.tms.by_fact.insert(f, key);
+        }
     }
 
     /// insertLogical (D-076): merge onto the key's justified handle,
@@ -9771,6 +9839,7 @@ impl Engine {
         tid: TypeId,
         values: Vec<Value>,
     ) -> Result<(), EngineError> {
+        self.tms_activate();
         let key = (tid, key_vals(&values));
         let act = (ri, tuple.clone());
         let seq = self.tms.seq;
@@ -9856,6 +9925,14 @@ impl Engine {
     /// justified fact (dump7). External deletes net materialize-then-die
     /// (dump8) — nothing survives, so no materialization is produced.
     fn tms_route_delete_ex(&mut self, f: FactId, rhs: bool) -> (Option<FactId>, Option<(TypeId, Vec<Value>)>) {
+        if self.tms.orphans.contains(&f) {
+            // ⚖ D-211 (x1/r1/c5 events): an orphaned handle is
+            // UNDELETABLE — the delete silently no-ops.
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!("TMS key[route-del/orphan-noop] f{f:?}");
+            }
+            return (None, None);
+        }
         let Some(key) = self.tms.by_fact.get(&f).cloned() else {
             return (Some(f), None); // not a logical-type fact: normal delete
         };
@@ -9893,6 +9970,32 @@ impl Engine {
             }
             return (None, None); // dump3: undeletable stated sibling
         }
+        // ⚖ D-211 THE R1-EVENT (r1/d1/d2/8757; b1 = the 0-sibling
+        // case): an RHS stated-delete of a pending-mixed key kills the
+        // named handle, ORPHANS the remaining stateds, UNSTAGES the
+        // pending belief, and the key dies WHOLE. Externals keep the
+        // old path (dump8: no materialization). The beliefs gate keeps
+        // a cleared-pending zombie from unstaging (c2/c3).
+        if rhs && e.stated.contains(&f) && e.pending_vals.is_some() && !e.beliefs.is_empty() {
+            let vals = e.pending_vals.take().expect("gated Some");
+            let sibs: Vec<FactId> = e.stated.iter().copied().filter(|x| *x != f).collect();
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!(
+                    "TMS key[route-del/r1-event] f{f:?} orphans={sibs:?} vals={vals:?}"
+                );
+            }
+            self.tms.by_fact.remove(&f);
+            for sb in &sibs {
+                self.tms.by_fact.remove(sb);
+                self.tms.orphans.insert(*sb);
+            }
+            for (_, keys) in self.tms.by_act.iter_mut() {
+                keys.retain(|k| *k != key);
+            }
+            self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
+            self.tms.keys.remove(&key);
+            return (Some(f), Some((key.0, vals)));
+        }
         e.stated.retain(|x| *x != f);
         self.tms.by_fact.remove(&f);
         if rhs && e.stated.is_empty() && !e.beliefs.is_empty() {
@@ -9912,13 +10015,18 @@ impl Engine {
                 f, e.beliefs.len(), e.stated, e.pending_vals.is_some()
             );
         }
-        e.beliefs.clear(); // stated-only key dies with its handles (tms_e6)
-        for (_, keys) in self.tms.by_act.iter_mut() {
-            keys.retain(|k| *k != key);
-        }
-        self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
-        if self.tms.keys.get(&key).map(|e| e.justified.is_none() && e.stated.is_empty()).unwrap_or(false) {
-            self.tms.keys.remove(&key);
+        // ⚖ D-211: the tms_e6 clear is scoped to the key actually
+        // dying — the D-210-pinned mis-scope wiped beliefs on NON-LAST
+        // stated deletes and starved the unstage gate.
+        if e.stated.is_empty() {
+            e.beliefs.clear(); // stated-only key dies with its handles (tms_e6)
+            for (_, keys) in self.tms.by_act.iter_mut() {
+                keys.retain(|k| *k != key);
+            }
+            self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
+            if self.tms.keys.get(&key).map(|e| e.justified.is_none() && e.stated.is_empty()).unwrap_or(false) {
+                self.tms.keys.remove(&key);
+            }
         }
         (Some(f), None)
     }
@@ -9931,11 +10039,16 @@ impl Engine {
         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
             eprintln!("TMS key[materialize] key={key:?} f{f:?}");
         }
+        // ⚖ D-211: the unstage-born handle is fully TMS-DROPPED (the
+        // oracle dumps show @5 leaving the map — 4048/d1); no entry
+        // update, no by_fact. Its later delete is ordinary WM removal
+        // and (the dynamic law, F2) must not cancel queued acts.
+        self.tms.unstage_born.insert(f);
         if let Some(e) = self.tms.keys.get_mut(&key) {
             e.justified = Some(f);
             e.had_justified = true;
+            self.tms.by_fact.insert(f, key);
         }
-        self.tms.by_fact.insert(f, key);
         self.on_insert(f, None);
         Ok(())
     }
@@ -10570,8 +10683,29 @@ impl Engine {
                 if let Some(jf) = e.justified.take() {
                     self.tms.by_fact.remove(&jf);
                     to_retract.push((self.tms.seq, jf));
-                }
-                if e.stated.is_empty() {
+                    // ⚖ D-211 THE L6-EVENT (l5/l6/x1/9902): the last
+                    // dep's break kills the key WHOLE — stated siblings
+                    // ORPHAN (undeletable, WM-alive); a later
+                    // re-justification re-keys FRESH with a WM-visible
+                    // handle (the l6 rebirth).
+                    let sibs: Vec<FactId> = e.stated.drain(..).collect();
+                    for sb in sibs {
+                        self.tms.by_fact.remove(&sb);
+                        self.tms.orphans.insert(sb);
+                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                            eprintln!("TMS key[l6-orphan] f{sb:?} key={key:?}");
+                        }
+                    }
+                    self.tms.keys.remove(&key);
+                } else if e.pending_vals.is_some() {
+                    // ⚖ D-211 PENDING-CLEAR (c2/c3/c4): deps-empty on a
+                    // NON-WM pending belief clears the bookkeeping; the
+                    // key survives as pure stated.
+                    e.pending_vals = None;
+                    if e.stated.is_empty() {
+                        self.tms.keys.remove(&key);
+                    }
+                } else if e.stated.is_empty() {
                     self.tms.keys.remove(&key); // fz_42_1395: fresh start
                 }
             }
