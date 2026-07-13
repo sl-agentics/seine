@@ -26,23 +26,23 @@ class Decimal:
     """Field metadata marker: exact decimal with declared precision/scale
     (D-098). Use inside Annotated on a `decimal.Decimal` field:
 
-        @seine.fact
+        @seine_rs.fact
         class Loan:
-            balance: Annotated[Decimal, seine.Decimal(18, 2)]
-            rate: Optional[Annotated[Decimal, seine.Decimal(9, 6)]]
+            balance: Annotated[Decimal, seine_rs.Decimal(18, 2)]
+            rate: Optional[Annotated[Decimal, seine_rs.Decimal(9, 6)]]
 
     Arrow Decimal128-compatible: 1 <= p <= 38, 0 <= s <= p (validated
     here, matching the engine's i128 storage limits). Prefer the
-    module-qualified spelling `seine.Decimal` — a bare `from seine
-    import Decimal` shadows `decimal.Decimal`.
+    module-qualified spelling `seine_rs.Decimal` — a bare `from
+    seine_rs import Decimal` shadows `decimal.Decimal`.
     """
 
     def __init__(self, p: int, s: int):
         if not (isinstance(p, int) and isinstance(s, int)):
-            raise CompileError("seine.Decimal(p, s): p and s must be ints")
+            raise CompileError("seine_rs.Decimal(p, s): p and s must be ints")
         if not (1 <= p <= 38 and 0 <= s <= p):
             raise CompileError(
-                f"seine.Decimal({p}, {s}): needs 1 <= p <= 38 and 0 <= s <= p "
+                f"seine_rs.Decimal({p}, {s}): needs 1 <= p <= 38 and 0 <= s <= p "
                 "(Arrow Decimal128 / engine i128 limits, D-098)"
             )
         self.p, self.s = p, s
@@ -85,14 +85,14 @@ def _resolve_field_type(cls_name: str, fname: str, hint: Any) -> str:
         if not dec_meta:
             raise CompileError(
                 f"@fact {cls_name}.{fname}: bare Decimal has no precision — declare it "
-                f"Annotated[Decimal, seine.Decimal(p, s)] (e.g. seine.Decimal(18, 2)). "
+                f"Annotated[Decimal, seine_rs.Decimal(p, s)] (e.g. seine_rs.Decimal(18, 2)). "
                 "Silent money precision is walled (D-098)."
             )
         m = dec_meta[0]
         return f"decimal({m.p},{m.s})" + ("?" if nullable else "")
     if dec_meta:
         raise CompileError(
-            f"@fact {cls_name}.{fname}: seine.Decimal(p, s) metadata belongs on a "
+            f"@fact {cls_name}.{fname}: seine_rs.Decimal(p, s) metadata belongs on a "
             "decimal.Decimal field"
         )
     if t not in _PY_TO_SUBSET:
@@ -245,7 +245,7 @@ class Event:
     """CEP event declaration for @fact (D-101 E1 subset): the fact type
     becomes a point event on the session pseudo-clock.
 
-        @seine.fact(event=seine.Event(timestamp="ts", expires_ms=5_000))
+        @seine_rs.fact(event=seine_rs.Event(timestamp="ts", expires_ms=5_000))
         class Reading:
             ts: int
             value: float
@@ -256,10 +256,10 @@ class Event:
 
     def __init__(self, timestamp: str, expires_ms: int):
         if not isinstance(timestamp, str) or not timestamp:
-            raise CompileError("seine.Event: timestamp must name an int field")
+            raise CompileError("seine_rs.Event: timestamp must name an int field")
         if not isinstance(expires_ms, int) or isinstance(expires_ms, bool) or expires_ms < 0:
             raise CompileError(
-                "seine.Event: expires_ms must be a non-negative int — expiration "
+                "seine_rs.Event: expires_ms must be a non-negative int — expiration "
                 "inference from temporal constraints is outside the certified "
                 "subset (D-101); declare the event lifetime explicitly"
             )
@@ -270,7 +270,7 @@ class Event:
 def fact(cls: type = None, *, event: "Event | None" = None) -> type:
     """Declare a fact type from an annotated class:
 
-        @seine.fact
+        @seine_rs.fact
         class Person:
             name: str
             age: int
@@ -289,7 +289,7 @@ def fact(cls: type = None, *, event: "Event | None" = None) -> type:
             return fact(c, event=event)
         return _wrap
     if event is not None and not isinstance(event, Event):
-        raise CompileError("@fact(event=...) takes a seine.Event")
+        raise CompileError("@fact(event=...) takes a seine_rs.Event")
     try:
         ann = typing.get_type_hints(cls, include_extras=True)
     except Exception as ex:
@@ -580,7 +580,7 @@ class _Temporal:
         if getattr(anchor.cls, "__seine_event__", None) is None:
             raise CompileError(
                 f"this_{op}: anchor {anchor.type_name} is not an event type "
-                "(declare @fact(event=seine.Event(...)))"
+                "(declare @fact(event=seine_rs.Event(...)))"
             )
         for v, n in ((lo_ms, "lo_ms"), (hi_ms, "hi_ms")):
             if not isinstance(v, int) or isinstance(v, bool) or v < 0:
@@ -667,14 +667,14 @@ class Rule:
     # -- LHS ------------------------------------------------------------
     def _add_pattern(self, cls, constraints, ce, agg=None) -> _Pattern:
         if not hasattr(cls, "__seine_fields__"):
-            raise CompileError(f"{cls!r} is not a @seine.fact class")
+            raise CompileError(f"{cls!r} is not a @seine_rs.fact class")
         for c in constraints:
             _reject_callable(c, f"{cls.__name__} constraint")
             if isinstance(c, _Temporal):
                 if getattr(cls, "__seine_event__", None) is None:
                     raise CompileError(
                         f"{cls.__name__}: temporal constraints need an event "
-                        "type - declare @fact(event=seine.Event(...))"
+                        "type - declare @fact(event=seine_rs.Event(...))"
                     )
                 continue
             if isinstance(c, _Group):
@@ -717,7 +717,7 @@ class Rule:
         inline accumulates)."""
         if not isinstance(agg, _Agg):
             raise CompileError(
-                "agg must be one of seine.sum_/count/average/min_/max_ — custom "
+                "agg must be one of seine_rs.sum_/count/average/min_/max_ — custom "
                 "accumulate functions are outside the certified subset"
             )
         if agg.arg is not None:
@@ -750,7 +750,7 @@ class Rule:
     # -- RHS ------------------------------------------------------------
     def then_insert(self, cls: type, **field_values) -> "Rule":
         if not hasattr(cls, "__seine_fields__"):
-            raise CompileError(f"{cls!r} is not a @seine.fact class")
+            raise CompileError(f"{cls!r} is not a @seine_rs.fact class")
         fields = cls.__seine_fields__
         missing = set(fields) - set(field_values)
         extra = set(field_values) - set(fields)
@@ -783,7 +783,7 @@ class Rule:
         CEs, and mutating a logically-inserted type is rejected at
         build (the engine names the offending rules)."""
         if not hasattr(cls, "__seine_fields__"):
-            raise CompileError(f"{cls!r} is not a @seine.fact class")
+            raise CompileError(f"{cls!r} is not a @seine_rs.fact class")
         fields = cls.__seine_fields__
         missing = set(fields) - set(field_values)
         extra = set(field_values) - set(fields)
@@ -950,7 +950,7 @@ def compile_rules(rules) -> str:
     seen = set()
     for r in rules:
         if not isinstance(r, Rule):
-            raise CompileError(f"expected seine.Rule, got {type(r).__name__}")
+            raise CompileError(f"expected seine_rs.Rule, got {type(r).__name__}")
         if r.name in seen:
             raise CompileError(f"duplicate rule name {r.name!r}")
         seen.add(r.name)

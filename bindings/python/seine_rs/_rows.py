@@ -1,6 +1,6 @@
 """Row-object ingestion sugar (D-048).
 
-Lists of @seine.fact instances, plain dicts, or any attribute-bearing
+Lists of @seine_rs.fact instances, plain dicts, or any attribute-bearing
 objects (dataclasses, Pydantic models, ...) convert into the certified
 dict-of-column-lists path. This layer adds ZERO semantics: it only
 reshapes rows into columns in schema order; all type checking and the
@@ -50,7 +50,7 @@ def rows_to_columns(key: Any, rows: list) -> dict[str, list]:
         if not isinstance(first, dict):
             raise ValueError(
                 f"{type_name}: rows of type {type(first).__name__} carry no schema; "
-                "use @seine.fact instances, dicts, or declare with a @fact class key"
+                "use @seine_rs.fact instances, dicts, or declare with a @fact class key"
             )
         fields = list(first)
     return {f: [_extract(r, f, i, type_name) for i, r in enumerate(rows)] for f in fields}

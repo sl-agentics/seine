@@ -8,8 +8,8 @@ campaigns (zero divergences to completion).
 
 ```python
 import polars as pl
-import seine
-from seine import Rule, fact
+import seine_rs
+from seine_rs import Rule, fact
 
 @fact
 class Person:
@@ -27,7 +27,7 @@ p = adults.when(Person, Person.age >= 18)
 adults.then_insert(Flagged, name=p.name, score=p.score)
 
 people = pl.DataFrame({"name": ["ada", "kurt"], "age": [36, 17], "score": [91.5, 99.0]})
-res = seine.run([adults], {Person: people, Flagged: []})
+res = seine_rs.run([adults], {Person: people, Flagged: []})
 
 pl.DataFrame(res.derived()["Flagged"])   # facts the rules created
 pl.DataFrame(res.firings())              # full audit trail
@@ -45,7 +45,7 @@ pl.DataFrame(res.firings())              # full audit trail
 - **No Python in the hot path**: conditions, aggregates and salience
   are native; callbacks are observers over immutable results.
 
-Install: `pip install seine-rs` — the import is `import seine`.
+Install: `pip install seine-rs` — the import is `import seine_rs`.
 
 Source, scenario corpus, and the full decision log (D-001…D-048):
 https://github.com/sl-agentics/seine

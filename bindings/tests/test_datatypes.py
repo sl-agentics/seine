@@ -9,12 +9,12 @@ from decimal import Decimal
 from typing import Annotated, Optional
 
 import pytest
-import seine
+import seine_rs
 
 
 # --- the PEP-563 regression: plain types under stringized annotations ---
 def test_fact_works_under_pep563():
-    @seine.fact
+    @seine_rs.fact
     class Plain:
         name: str
         age: int
@@ -24,11 +24,11 @@ def test_fact_works_under_pep563():
 
 # --- ratified point 2: Optional/Annotated normalize at any nesting ---
 def test_optional_and_annotated_compose():
-    @seine.fact
+    @seine_rs.fact
     class Loan:
-        balance: Annotated[Decimal, seine.Decimal(18, 2)]
-        rate: Optional[Annotated[Decimal, seine.Decimal(9, 6)]]
-        note: Annotated[Optional[Decimal], seine.Decimal(10, 2)]
+        balance: Annotated[Decimal, seine_rs.Decimal(18, 2)]
+        rate: Optional[Annotated[Decimal, seine_rs.Decimal(9, 6)]]
+        note: Annotated[Optional[Decimal], seine_rs.Decimal(10, 2)]
         score: Optional[float]
         age: int | None
 
@@ -43,28 +43,28 @@ def test_optional_and_annotated_compose():
 
 # --- ratified point 1 (EMPHATIC): bare Decimal is a loud error ---
 def test_bare_decimal_names_the_fix():
-    with pytest.raises(seine.CompileError) as ei:
-        @seine.fact
+    with pytest.raises(seine_rs.CompileError) as ei:
+        @seine_rs.fact
         class Bad:
             amount: Decimal
 
     msg = str(ei.value)
-    assert "Annotated[Decimal, seine.Decimal(p, s)]" in msg
+    assert "Annotated[Decimal, seine_rs.Decimal(p, s)]" in msg
     assert "walled" in msg
 
 
 # --- ratified point 4: marker validates at construction ---
 def test_marker_validation():
-    with pytest.raises(seine.CompileError):
-        seine.Decimal(39, 0)
-    with pytest.raises(seine.CompileError):
-        seine.Decimal(10, 11)
-    with pytest.raises(seine.CompileError):
-        seine.Decimal(0, 0)
+    with pytest.raises(seine_rs.CompileError):
+        seine_rs.Decimal(39, 0)
+    with pytest.raises(seine_rs.CompileError):
+        seine_rs.Decimal(10, 11)
+    with pytest.raises(seine_rs.CompileError):
+        seine_rs.Decimal(0, 0)
 
 
 def test_null_3vl_end_to_end():
-    sess = seine.Session(
+    sess = seine_rs.Session(
         "rule R when T(v > 2) then insert(new Out()); end",
         schemas={"T": {"v": "i64?", "w": "i64"}, "Out": {}},
     )
@@ -77,7 +77,7 @@ def test_null_3vl_end_to_end():
 
 
 def test_none_rejected_for_non_nullable():
-    sess = seine.Session(
+    sess = seine_rs.Session(
         "rule R when T(v > 2) then end",
         schemas={"T": {"v": "i64"}},
     )
@@ -88,7 +88,7 @@ def test_none_rejected_for_non_nullable():
 
 # --- ratified point 5 (EMPHATIC): the declaration IS the NaN choice ---
 def test_nan_normalizes_to_null_for_nullable_floats():
-    sess = seine.Session(
+    sess = seine_rs.Session(
         "rule R when T(x > 0.0) then end\n"
         "rule S when T(x == null) then end",
         schemas={"T": {"x": "f64?"}},
@@ -103,7 +103,7 @@ def test_nan_normalizes_to_null_for_nullable_floats():
 
 
 def test_nan_stays_a_value_for_bare_floats():
-    sess = seine.Session(
+    sess = seine_rs.Session(
         "rule R when T(x != 0.0) then end",
         schemas={"T": {"x": "f64"}},
     )
@@ -117,7 +117,7 @@ def test_nan_stays_a_value_for_bare_floats():
 
 
 def test_decimal_round_trip_and_wall():
-    sess = seine.Session(
+    sess = seine_rs.Session(
         "rule R when M(amount == 1.25) then end",
         schemas={"M": {"amount": "decimal(10,2)"}},
     )
@@ -143,7 +143,7 @@ def test_arrow_ingest_nullable_and_decimal():
         "amount": pa.array([Decimal("1.25"), Decimal("2.50"), None],
                            type=pa.decimal128(10, 2)),
     })
-    sess = seine.Session(
+    sess = seine_rs.Session(
         "rule R when T(v > 2) then end\n"
         "rule S when T(x == null) then end\n"
         "rule Q when T(amount == 1.25) then end",
@@ -161,14 +161,14 @@ def test_arrow_null_still_rejected_when_not_nullable():
     pa = pytest.importorskip("pyarrow")
     tbl = pa.table({"v": pa.array([1, None], type=pa.int64())})
     with pytest.raises(Exception) as ei:
-        seine.Session("rule R when T(v > 0) then end",
+        seine_rs.Session("rule R when T(v > 0) then end",
                       facts={"T": tbl}, schemas={"T": {"v": "i64"}})
     assert "null" in str(ei.value).lower()
 
 
 def test_results_round_trip_nulls_and_decimals():
     pl = pytest.importorskip("polars")
-    sess = seine.Session(
+    sess = seine_rs.Session(
         "rule R when M(amount > 1) then insert(new M(0.99, null)); end",
         schemas={"M": {"amount": "decimal(10,2)", "opt": "i64?"}},
     )

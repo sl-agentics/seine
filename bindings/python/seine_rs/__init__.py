@@ -1,11 +1,11 @@
-"""seine — differentially certified Drools-subset rule engine over Arrow.
+"""seine_rs — differentially certified Drools-subset rule engine over Arrow.
 
 Layer 1 (D-044): `run(drl, {type: table})` — DRL strings over Arrow
 batches, WM-delta results.
 Layer 2 (D-045): Pythonic authoring that compiles to DRL text — the
 engine only ever sees the certified grammar.
 """
-from seine._native import Session as _NativeSession, Result, Table, run as _native_run
+from seine_rs._native import Session as _NativeSession, Result, Table, run as _native_run
 
 from ._rows import is_row_list, rows_to_columns
 from .authoring import (
@@ -63,7 +63,7 @@ def _facts_arg(facts):
                 if name not in schemas:
                     raise ValueError(
                         f"{name}: cannot infer a schema from an empty row list — "
-                        "use a @seine.fact class key or a typed Arrow table"
+                        "use a @seine_rs.fact class key or a typed Arrow table"
                     )
                 continue  # schema-only declaration
             v = rows_to_columns(k, v)
@@ -81,7 +81,7 @@ def _drl_arg(rules):
 
 
 class Session:
-    """seine.Session(rules, facts): `rules` is a DRL string, a Rule, or
+    """seine_rs.Session(rules, facts): `rules` is a DRL string, a Rule, or
     a list of Rules; `facts` maps type names OR @fact classes to Arrow
     tables, dicts of column lists, or lists of row objects. Thin
     delegating wrapper over the native session — the row sugar reshapes

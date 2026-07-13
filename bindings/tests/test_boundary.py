@@ -15,7 +15,7 @@ import polars as pl
 import pyarrow as pa
 import pytest
 
-import seine
+import seine_rs
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -25,7 +25,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 def test_f64_bit_exact_roundtrip():
     vals = [0.1, 0.2, 0.30000000000000004, -0.0, 1e-308, 6.5e9]
     df = pl.DataFrame({"v": vals})
-    res = seine.run("rule R when T($x : v) then end\n", {"T": df})
+    res = seine_rs.run("rule R when T($x : v) then end\n", {"T": df})
     out = pl.DataFrame(res.facts()["T"])["v"].to_list()
     assert [struct.pack(">d", a) for a in out] == [struct.pack(">d", a) for a in vals]
 
@@ -35,7 +35,7 @@ def test_i64_extremes_and_strings():
         "n": [2**63 - 1, -(2**63), 0],
         "s": ["", "héllo — ünïcode", "line\nbreak\t\"quote\""],
     })
-    res = seine.run("rule R when T($x : n) then end\n", {"T": df})
+    res = seine_rs.run("rule R when T($x : n) then end\n", {"T": df})
     t = pl.DataFrame(res.facts()["T"])
     assert t["n"].to_list() == df["n"].to_list()
     assert t["s"].to_list() == df["s"].to_list()
@@ -46,7 +46,7 @@ def test_widening_is_exact():
         "a": pa.array([1, -7, 2**31 - 1], type=pa.int32()),
         "b": pa.array([1.5, -2.25, 3.0], type=pa.float32()),
     })
-    res = seine.run("rule R when T($x : a) then end\n", {"T": tbl})
+    res = seine_rs.run("rule R when T($x : a) then end\n", {"T": tbl})
     t = pl.DataFrame(res.facts()["T"])
     assert t["a"].dtype == pl.Int64 and t["a"].to_list() == [1, -7, 2**31 - 1]
     assert t["b"].to_list() == [1.5, -2.25, 3.0]  # f32->f64 exact for these
@@ -57,31 +57,31 @@ def test_widening_is_exact():
 def test_nulls_rejected_loudly():
     df = pl.DataFrame({"v": [1.0, None, 3.0]})
     with pytest.raises(ValueError, match="null"):
-        seine.run("rule R when T($x : v) then end\n", {"T": df})
+        seine_rs.run("rule R when T($x : v) then end\n", {"T": df})
 
 
 def test_unsupported_dtype_rejected():
     tbl = pa.table({"d": pa.array([1, 2], type=pa.date32())})
     with pytest.raises(TypeError, match="outside the certified subset"):
-        seine.run("rule R when T($x : d) then end\n", {"T": tbl})
+        seine_rs.run("rule R when T($x : d) then end\n", {"T": tbl})
 
 
 def test_out_of_subset_drl_is_a_parse_error():
     df = pl.DataFrame({"v": [1.0]})
     bad = "rule R when accumulate( T($x : v); $s : variance($x) ) then end\n"
     with pytest.raises(ValueError, match="not in subset|accumulate function"):
-        seine.run(bad, {"T": df})
+        seine_rs.run(bad, {"T": df})
 
 
 def test_none_scalar_rejected_in_dict_path():
     with pytest.raises(ValueError, match="None"):
-        seine.run("rule R when T($x : v) then end\n", {"T": {"v": [1.0, None]}})
+        seine_rs.run("rule R when T($x : v) then end\n", {"T": {"v": [1.0, None]}})
 
 
 # ----------------------------------------------------------------- lifecycle
 
 def test_multi_fire_deltas():
-    s = seine.Session("rule R when T(v > 1.0) then end\n", {"T": {"v": [2.0]}})
+    s = seine_rs.Session("rule R when T(v > 1.0) then end\n", {"T": {"v": [2.0]}})
     r1 = s.fire()
     assert r1.fired == 1
     # quiescent refire: nothing new
@@ -97,7 +97,7 @@ def test_multi_fire_deltas():
 
 def test_multi_fire_derived_is_per_fire():
     drl = "rule R when $t : T(v >= 2.0) then insert(new U($t.getV())); end\n"
-    s = seine.Session(drl, {"T": {"v": [2.0]}, "U": {"v": [0.0]}})
+    s = seine_rs.Session(drl, {"T": {"v": [2.0]}, "U": {"v": [0.0]}})
     r1 = s.fire()
     assert pl.DataFrame(r1.derived()["U"])["v"].to_list() == [2.0]
     s.insert("T", {"v": [5.0]})
@@ -112,11 +112,11 @@ def test_fire_limit_is_an_error_not_a_hang():
         "rule R when $t : T($x : v) then $t.setV($t.getV()); update($t); end\n"
     )
     with pytest.raises(RuntimeError, match="fire limit"):
-        seine.run(drl, {"T": {"v": [1.0]}}, fire_limit=500)
+        seine_rs.run(drl, {"T": {"v": [1.0]}}, fire_limit=500)
 
 
 def test_insert_row_and_incremental_insert_before_fire():
-    s = seine.Session("rule R when T(v > 1.0) then end\n", {"T": {"v": [0.5]}})
+    s = seine_rs.Session("rule R when T(v > 1.0) then end\n", {"T": {"v": [0.5]}})
     s.insert("T", {"v": [1.5, 2.5]})
     s.insert_row("T", {"v": 9.0})
     res = s.fire()
@@ -126,7 +126,7 @@ def test_insert_row_and_incremental_insert_before_fire():
 def test_observer_matches_audit_order():
     seen = []
     df = pl.DataFrame({"v": [3.0, 1.0, 2.0]})
-    res = seine.run(
+    res = seine_rs.run(
         "rule R salience($x) when T($x : v) then end\n",
         {"T": df},
         on_fire=lambda rule, matches: seen.append((rule, tuple(matches[0]))),
@@ -143,7 +143,7 @@ def test_wm_delta_and_deletions():
         "rule Promote when $t : T(v >= 2.0) then insert(new U($t.getV())); end\n"
         "rule Drop salience -5 when $t : T(v < 2.0) then delete($t); end\n"
     )
-    s = seine.Session(drl, {"T": {"v": [1.0, 2.0, 3.0]}, "U": {"v": [0.0]}})
+    s = seine_rs.Session(drl, {"T": {"v": [1.0, 2.0, 3.0]}, "U": {"v": [0.0]}})
     res = s.fire()
     derived_u = pl.DataFrame(res.derived()["U"])
     assert sorted(derived_u["v"].to_list()) == [2.0, 3.0]
@@ -152,7 +152,7 @@ def test_wm_delta_and_deletions():
 
 def test_external_update_and_delete():
     drl = "rule R when T(v > 1.0, $x : v) then end\n"
-    s = seine.Session(drl, {"T": {"v": [2.0, 0.5]}})
+    s = seine_rs.Session(drl, {"T": {"v": [2.0, 0.5]}})
     r1 = s.fire()
     assert r1.fired == 1
     handles = pl.DataFrame(r1.facts()["T"])
@@ -174,7 +174,7 @@ def test_external_update_and_delete():
 def test_external_action_order_is_certified():
     # session-action order composes at k=1 terminals (D-047/xv2..xv5)
     drl = "rule R when T($b : g) then end\n"
-    s = seine.Session(drl, {"T": {"g": [True]}})
+    s = seine_rs.Session(drl, {"T": {"g": [True]}})
     s.fire()
     s.insert("T", {"g": [False]})
     h0 = 0
@@ -186,7 +186,7 @@ def test_external_action_order_is_certified():
 
 
 def test_dead_handle_errors():
-    s = seine.Session("rule R when T($x : v) then end\n", {"T": {"v": [1.0]}})
+    s = seine_rs.Session("rule R when T($x : v) then end\n", {"T": {"v": [1.0]}})
     s.fire()
     s.delete(0)
     # D-115: delete of an already-dead handle is a Drools-faithful
@@ -232,7 +232,7 @@ def test_parity_with_native_harness(scenario):
         name: pa.table({f: pa.array([], type=arrow_type(ty)) for f, ty in fields.items()})
         for name, fields in schemas.items()
     }
-    s = seine.Session(scn["drl"], tables)
+    s = seine_rs.Session(scn["drl"], tables)
     # scenario facts are ORDER-SIGNIFICANT across types: insert row-wise,
     # recording handles for action targeting
     visible = []
@@ -278,10 +278,10 @@ def test_parity_with_native_harness(scenario):
 def test_positioned_drl_error_reaches_python():
     """D-103: raw-DRL parse errors carry line/col + caret through PySession."""
     import pytest
-    import seine
+    import seine_rs
 
     with pytest.raises(Exception) as ei:
-        seine.Session(
+        seine_rs.Session(
             "rule R when BPos(v > ) then end",
             facts={"BPos": {"v": [1]}},
         )
@@ -292,15 +292,15 @@ def test_positioned_drl_error_reaches_python():
 
 def test_reset_paged_batches():
     """D-104: page1 / reset / page2 == fresh(page2)."""
-    import seine
+    import seine_rs
 
-    @seine.fact
+    @seine_rs.fact
     class RP:
         v: int
 
-    rule = seine.Rule("r")
+    rule = seine_rs.Rule("r")
     rule.when(RP, RP.v > 0)
-    s = seine.Session([rule], facts={"RP": {"v": [1, 2]}})
+    s = seine_rs.Session([rule], facts={"RP": {"v": [1, 2]}})
     r1 = s.fire()
     assert len(r1.firings()) == 2
     s.reset()
@@ -308,6 +308,6 @@ def test_reset_paged_batches():
     r2 = s.fire()
     assert len(r2.firings()) == 1
 
-    fresh = seine.Session([rule], facts={"RP": {"v": [3]}})
+    fresh = seine_rs.Session([rule], facts={"RP": {"v": [3]}})
     rf = fresh.fire()
     assert len(rf.firings()) == len(r2.firings())

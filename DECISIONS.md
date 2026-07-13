@@ -12179,3 +12179,22 @@ POPULATION. Engine notes: 11 permanent SEINE_TMS_DEBUG probes; the
 k≥2-observer-of-unstage-born shape outside the pinned envelope
 (noted); tms.orphans carries undeletability. RP2 (lazy-trail
 re-add order) remains open with its named instrument.
+
+## D-212 — bindings import renamed `seine` → `seine_rs`: dist/import/native consistency (2026-07-12)
+
+The PyPI distribution was always `seine-rs` (bare "seine" is taken);
+the import package was still `seine` — `pip install seine-rs` →
+`import seine` was the one inconsistent seam in the product surface.
+Now aligned end-to-end: dist `seine-rs` ↔ package `seine_rs` ↔
+native module `seine_rs._native` (pyproject module-name). The Rust
+side is untouched — `[lib] name = "_native"` and `PyInit__native`
+are parent-package-agnostic. Mechanics: git mv
+bindings/python/seine → seine_rs; the package's absolute
+self-imports, five test modules, the bindings README, and the
+Decimal-shadowing docstring updated; zero residual `import seine`
+references (this log's earlier entries kept verbatim, append-only).
+Receipts: 72/72 binding tests (PYTHONPATH + the venv's editable
+.pth resolves the rename in place; stale `import seine` correctly
+fails there); engine/corpus untouched (no Rust change). NOTE:
+v0.4.3 as published still imports as `seine`; the rename ships with
+the NEXT release.

@@ -5,8 +5,8 @@ because the engine only ever sees the generated DRL.
 import polars as pl
 import pytest
 
-import seine
-from seine import CompileError, Rule, average, count, fact, max_, min_, sum_
+import seine_rs
+from seine_rs import CompileError, Rule, average, count, fact, max_, min_, sum_
 
 
 @fact
@@ -100,7 +100,7 @@ def test_generated_drl_parses_in_engine():
         Order: {"owner": ["x"], "amount": [0.0], "priority": [0]},
         Alert: {"owner": ["x"], "total": [0.0]},
     }
-    res = seine.run(r, empty)  # engine parse + fire is the assertion
+    res = seine_rs.run(r, empty)  # engine parse + fire is the assertion
     assert res.fired >= 0
 
 
@@ -184,7 +184,7 @@ def test_min_over_int_is_usable_downstream():
     r.then_insert(Alert, owner=p.name, total=m)
     drl = r.to_drl()
     assert "insert(new Alert($b0_0, $a1));" in drl
-    seine.run(r, {
+    seine_rs.run(r, {
         Person: {"name": ["x"], "age": [1], "score": [0.0], "active": [False]},
         Order: {"owner": ["x"], "amount": [0.0], "priority": [3]},
         Alert: {"owner": ["x"], "total": [0.0]},
@@ -225,8 +225,8 @@ def test_authored_equals_hand_drl():
     })
     alerts = pl.DataFrame({"owner": ["x"], "total": [0.0]}).clear()
 
-    r1 = seine.run(hand, {"Person": people, "Alert": alerts})
-    r2 = seine.run([adults, boost], {Person: people, Alert: alerts})
+    r1 = seine_rs.run(hand, {"Person": people, "Alert": alerts})
+    r2 = seine_rs.run([adults, boost], {Person: people, Alert: alerts})
     a1 = pl.DataFrame(r1.firings())
     a2 = pl.DataFrame(r2.firings())
     assert a1["rule"].to_list() == a2["rule"].to_list()
