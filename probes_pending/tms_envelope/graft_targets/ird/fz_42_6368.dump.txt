@@ -1,0 +1,192 @@
+== PRE-FIRE ==
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 7
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=2, f1=false, f2=zz ))key=- @2(T1( f0=0.5 ))key=- @3(T1( f0=-3.0 ))key=- @4(T1( f0=3.0 ))key=- @5(T1( f0=3.5 ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2 Insert@3 Insert@4 Insert@5
+FIRING 0 R3  T0( f0=2, f1=false, f2=zz ) | 
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 7
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=2, f1=false, f2=zz ))key=- @2(T1( f0=0.5 ))key=STATED @3(T1( f0=-3.0 ))key=STATED @4(T1( f0=3.0 ))key=STATED @5(T1( f0=3.5 ))key=STATED @6(T1( f0=2.0 ))key=STATEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=2, f1=false, f2=zz )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@2+]lfh=- STATED fhs[@3+]lfh=- STATED fhs[@4+]lfh=- STATED fhs[@5+]lfh=- STATED fhs[@7!@6+]lfh=@7bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=2, f1=false, f2=zz )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@6
+FIRING 1 R2  T1( f0=3.0 ) | 
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 7
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=2, f1=false, f2=zz ))key=- @2(T1( f0=0.5 ))key=STATED @3(T1( f0=-3.0 ))key=STATED @5(T1( f0=3.5 ))key=STATED @6(T1( f0=2.0 ))key=STATEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=2, f1=false, f2=zz )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@2+]lfh=- STATED fhs[@3+]lfh=- STATED fhs[@5+]lfh=- STATED fhs[@7!@6+]lfh=@7bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=2, f1=false, f2=zz )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Delete@4
+FIRING 2 R2  T1( f0=3.5 ) | 
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 7
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=2, f1=false, f2=zz ))key=- @2(T1( f0=0.5 ))key=STATED @3(T1( f0=-3.0 ))key=STATED @6(T1( f0=2.0 ))key=STATEDbs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=2, f1=false, f2=zz )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@2+]lfh=- STATED fhs[@3+]lfh=- STATED fhs[@7!@6+]lfh=@7bs[n=1 wma=-]dep{R3 act=false q=false tup=(T0( f0=2, f1=false, f2=zz )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Delete@5
+FIRING 3 R2  T1( f0=2.0 ) | 
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 7
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=2, f1=false, f2=zz ))key=- @2(T1( f0=0.5 ))key=STATED @3(T1( f0=-3.0 ))key=STATED
+  TMS keys: STATED fhs[@2+]lfh=- STATED fhs[@3+]lfh=-
+  TMS pending: Delete@6 Insert@7
+FIRING 4 R2  T1( f0=2.0 ) | 
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 7
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=2, f1=false, f2=zz ))key=- @2(T1( f0=0.5 ))key=STATED @3(T1( f0=-3.0 ))key=STATED
+  TMS keys: STATED fhs[@2+]lfh=- STATED fhs[@3+]lfh=-
+  TMS pending: -
+FIRING 5 R2  T1( f0=2.0 ) | 
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 7
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=2, f1=false, f2=zz ))key=- @2(T1( f0=0.5 ))key=STATED @3(T1( f0=-3.0 ))key=STATED
+  TMS keys: STATED fhs[@2+]lfh=- STATED fhs[@3+]lfh=-
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 7
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=2, f1=false, f2=zz ))key=- @2(T1( f0=0.5 ))key=STATED @3(T1( f0=-3.0 ))key=STATED
+  TMS keys: STATED fhs[@2+]lfh=- STATED fhs[@3+]lfh=-
+  TMS pending: -

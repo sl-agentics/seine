@@ -1,0 +1,265 @@
+== PRE-FIRE ==
+  PATH R0
+     seg0: null
+  NotNode 15
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R1
+     seg0: null
+  ExistsNode 19
+     ltm: 
+     rtm: 
+     peers: 
+  NotNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0: null
+     seg1: null
+     seg2: null
+  NotNode 34
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0: null
+     seg1: null
+     seg2: null
+  ExistsNode 25
+     ltm: 
+     rtm: 
+     peers: 
+  NotNode 30
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0: null
+     seg1: null
+  NotNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T1( f0=true, f1=true ))key=- @2(T2( f0= ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2
+FIRING 0 R0  T1( f0=true, f1=true ) | 0 | 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  NotNode 15
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R1
+     seg0 stagedIns[] del[] upd[]
+  ExistsNode 19
+     ltm: 
+     rtm: (T2( f0= ))@-1#4119~53241 blocked{(T1( f0=true, f1=true ))@-1#75722~49026 } 
+     peers: 
+  NotNode 22
+     ltm: (T1( f0=true, f1=true ))@-1#37900~49026 
+     rtm: 
+     peers: (T1( f0=true, f1=true ))@-1#37900~49026->(T1( f0=true, f1=true ))@-1#3662~49026->| 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+     seg2 stagedIns[] del[] upd[]
+  NotNode 34
+     ltm: (T1( f0=true, f1=true ))@-1#3662~49026 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+     seg2 stagedIns[] del[] upd[]
+  ExistsNode 25
+     ltm: 
+     rtm: 
+     peers: 
+  NotNode 30
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[(T1( f0=true, f1=true ))@-1#84410~49026 ] del[] upd[]
+  NotNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T1( f0=true, f1=true ))key=- @2(T2( f0= ))key=-
+  TMS keys: -
+  TMS pending: -
+FIRING 1 R2  T1( f0=true, f1=true ) | 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  NotNode 15
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R1
+     seg0 stagedIns[] del[] upd[]
+  ExistsNode 19
+     ltm: 
+     rtm: (T2( f0= ))@-1#4119~53241 blocked{(T1( f0=true, f1=true ))@-1#75722~49026 } 
+     peers: 
+  NotNode 22
+     ltm: (T1( f0=true, f1=true ))@-1#37900~49026 
+     rtm: 
+     peers: (T1( f0=true, f1=true ))@-1#37900~49026->(T1( f0=true, f1=true ))@-1#3662~49026->| 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+     seg2 stagedIns[] del[] upd[]
+  NotNode 34
+     ltm: (T1( f0=true, f1=true ))@-1#3662~49026 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+     seg2 stagedIns[] del[] upd[]
+  ExistsNode 25
+     ltm: 
+     rtm: 
+     peers: 
+  NotNode 30
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[(T1( f0=true, f1=true ))@-1#84410~49026 ] del[] upd[]
+  NotNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T1( f0=true, f1=true ))key=- @2(T2( f0= ))key=STATED @4(T2( f0=a ))key=JUSTIFIEDbs[n=1 wma=-]dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@2+]lfh=- JUSTIFIED fhs[@4+]lfh=@4bs[n=1 wma=-]dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@4
+FIRING 2 R2  T1( f0=true, f1=true ) | 
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  NotNode 15
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R1
+     seg0 stagedIns[] del[] upd[]
+  ExistsNode 19
+     ltm: 
+     rtm: (T2( f0= ))@-1#4119~53241 blocked{(T1( f0=true, f1=true ))@-1#75722~49026 } (T2( f0=a ))@-1#74513~95086 
+     peers: 
+  NotNode 22
+     ltm: (T1( f0=true, f1=true ))@-1#37900~49026 
+     rtm: 
+     peers: (T1( f0=true, f1=true ))@-1#37900~49026->(T1( f0=true, f1=true ))@-1#3662~49026->| 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+     seg2 stagedIns[] del[] upd[]
+  NotNode 34
+     ltm: (T1( f0=true, f1=true ))@-1#3662~49026 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+     seg2 stagedIns[] del[] upd[]
+  ExistsNode 25
+     ltm: 
+     rtm: (T2( f0=a ))@-1#54428~95086 blocked{(T1( f0=true, f1=true ))@-1#84410~49026 } 
+     peers: 
+  NotNode 30
+     ltm: (T1( f0=true, f1=true ))@-1#85418~49026 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+  NotNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T1( f0=true, f1=true ))key=- @2(T2( f0= ))key=STATED @4(T2( f0=a ))key=JUSTIFIEDbs[n=2 wma=-]dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@2+]lfh=- JUSTIFIED fhs[@4+]lfh=@4bs[n=2 wma=-]dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  PATH R0
+     seg0 stagedIns[] del[] upd[]
+  NotNode 15
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R1
+     seg0 stagedIns[] del[] upd[]
+  ExistsNode 19
+     ltm: 
+     rtm: (T2( f0= ))@-1#4119~53241 blocked{(T1( f0=true, f1=true ))@-1#75722~49026 } (T2( f0=a ))@-1#74513~95086 
+     peers: 
+  NotNode 22
+     ltm: (T1( f0=true, f1=true ))@-1#37900~49026 
+     rtm: 
+     peers: (T1( f0=true, f1=true ))@-1#37900~49026->(T1( f0=true, f1=true ))@-1#3662~49026->| 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+     seg2 stagedIns[] del[] upd[]
+  NotNode 34
+     ltm: (T1( f0=true, f1=true ))@-1#3662~49026 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+     seg2 stagedIns[] del[] upd[]
+  ExistsNode 25
+     ltm: 
+     rtm: (T2( f0=a ))@-1#54428~95086 blocked{(T1( f0=true, f1=true ))@-1#84410~49026 } 
+     peers: 
+  NotNode 30
+     ltm: (T1( f0=true, f1=true ))@-1#85418~49026 
+     rtm: 
+     peers: 
+  PATH R2
+     seg0 stagedIns[] del[] upd[]
+     seg1 stagedIns[] del[] upd[]
+  NotNode 12
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T1( f0=true, f1=true ))key=- @2(T2( f0= ))key=STATED @4(T2( f0=a ))key=JUSTIFIEDbs[n=2 wma=-]dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@2+]lfh=- JUSTIFIED fhs[@4+]lfh=@4bs[n=2 wma=-]dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T1( f0=true, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -

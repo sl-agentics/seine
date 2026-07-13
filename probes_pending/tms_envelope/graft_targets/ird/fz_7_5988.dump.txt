@@ -1,0 +1,208 @@
+== PRE-FIRE ==
+  PATH R1
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R0
+     seg0: null
+  ExistsNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 23
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=10, f1=false ))key=- @2(T1( f0=, f1=-1000000007 ))key=- @3(T1( f0=ab, f1=12 ))key=- @4(T1( f0=alpha, f1=9 ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2 Insert@3 Insert@4
+FIRING 0 R1  T1( f0=, f1=-1000000007 ) | 
+  PATH R1
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R0
+     seg0: null
+  ExistsNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 23
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=10, f1=false ))key=- @3(T1( f0=ab, f1=12 ))key=- @4(T1( f0=alpha, f1=9 ))key=-
+  TMS keys: -
+  TMS pending: Delete@2
+FIRING 1 R1  T1( f0=ab, f1=12 ) | 
+  PATH R1
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R0
+     seg0: null
+  ExistsNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 23
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=10, f1=false ))key=- @4(T1( f0=alpha, f1=9 ))key=-
+  TMS keys: -
+  TMS pending: Delete@3
+FIRING 2 R1  T1( f0=alpha, f1=9 ) | 
+  PATH R1
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R0
+     seg0: null
+  ExistsNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 23
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=10, f1=false ))key=-
+  TMS keys: -
+  TMS pending: Delete@4
+FIRING 3 R0  T0( f0=10, f1=true ) | 
+  PATH R1
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R0
+     seg0: null
+  ExistsNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 23
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=10, f1=true ))key=- @5(T1( f0=ab, f1=10 ))key=JUSTIFIEDbs[n=1 wma=-]dep{R0 act=false q=false tup=(T0( f0=10, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @6(T1( f0=b, f1=9 ))key=STATED
+  TMS keys: JUSTIFIED fhs[@5+]lfh=@5bs[n=1 wma=-]dep{R0 act=false q=false tup=(T0( f0=10, f1=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} STATED fhs[@6+]lfh=-
+  TMS pending: Insert@5 Insert@6 Update@1
+FIRING 4 R1  T1( f0=b, f1=9 ) | 
+  PATH R1
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R0
+     seg0: null
+  ExistsNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 23
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0 stagedIns[(T0( f0=10, f1=true ))@-1#14419~48718 ] del[] upd[]
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm: @1(T0( f0=10, f1=true ))key=-
+  TMS keys: -
+  TMS pending: Delete@6
+FIRING 5 R4  T0( f0=10, f1=true ) | 
+  PATH R1
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R0
+     seg0: null
+  ExistsNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 23
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0 stagedIns[(T0( f0=10, f1=true ))@-1#14419~48718 ] del[] upd[]
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm:
+  TMS keys: -
+  TMS pending: Delete@1
+== FIRE-BOUNDARY ==
+  PATH R1
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R0
+     seg0: null
+  ExistsNode 22
+     ltm: 
+     rtm: 
+     peers: 
+  JoinNode 23
+     ltm: 
+     rtm: 
+     peers: 
+  PATH R3
+     seg0 stagedIns[] del[] upd[]
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  TMS wm:
+  TMS keys: -
+  TMS pending: -

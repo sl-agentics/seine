@@ -11,26 +11,32 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-203 (TMS-envelope arc, I-RD: THE
-CELLS ARE DONE — ⚖ the SURVIVE-THE-DELETE law pinned ORIGIN-KEYED
-(the 4048 splitter: a1/b2 killed the flush-window reading; b1/b2 =
-the 4048 miss minimal) + ⚖ the KEY-LIFECYCLE law, the identity
-law's STATIC face (the 9902 ladder: L6 = the one-short finals delta
-single-epoch; the engine's one miss = rule 4, key-death-at-break/
-fresh-key-rebirth) + the x1 pin (break-orphans UNDELETABLE both
-sides ⇒ no unified seventh law; two laws, one root). ⚠ the banked
-"value-keyed store dedups" 9902 read CORRECTED (L1-L4: the engine
-does NOT dedup multiplicity). 12 cells + 4 truth files banked, 3
-open_divergence (b1/b2/l6); lint 1750/0/0; corpus 11/1124/370 +
-drift 59 + census 72 all stand (no engine change). Everything
-through 728af4a PUSHED; D-203 committed local. NEXT: dump-read the
-remaining six I-RD witnesses (fz_123_7219, fz_42_6368,
-fz_777_{1278,2956}, fz_7_{1591,5988,8757}) against both laws →
-model extension → population → port validate-and-revert, Bryan
-gates. RESUME POINT 2 (lazy-trail re-add order) untouched,
-epicycle-stop standing — the named instrument stays the per-round
-SdDump on the x63 shape). Earlier closed-arc records below kept
-verbatim. **THE D-177 FIX IS
+_Last updated: 2026-07-12, post-D-204 (TMS-envelope arc, I-RD: the
+CELLS (D-203) + the WITNESS DUMP-READS (D-204) are DONE. ⚖
+SURVIVE-THE-DELETE pinned ORIGIN-KEYED and now OUT-OF-SAMPLE
+CONFIRMED (7219 textbook; 6368 via the deleter's own or-twin ⇒
+act-generic); ⚖ KEY-LIFECYCLE (static face) pinned via the 9902
+ladder + the 8757 REFINEMENT read (first stated delete on a
+multi-sibling mixed key kills the key WHOLE — orphan + unstage one
+event; x1 undeletability live in finals; refinement cell still to
+build; ⚠ engine R4×2 anomaly = port-time recon). A THIRD MECHANISM
+named from 2956/1591/5988 (five instances): the SAME-BATCH
+SELF-BREAK landing — `Insert@belief … Update@premise` one batch;
+oracle breaks WITHIN the flush (no act on the belief ever fires),
+engine lands update-sourced breaks LAZILY and over-fires;
+splitter cells required before any fix (the lazy path is
+"certified" only by default). 1278 reclassified OUT of I-RD
+(or-branch activation count). Ledger: dynamic={4048,7219,6368},
+static={9902,8757}, third={2956,1591,5988}, out={1278}. All nine
+ird dumps banked in graft_targets/ird/. No engine change: lint
+1750/0/0, corpus 11/1124/370 + drift 59, cells 39/39, witnesses
+26/26, census 72 stand. Through 728af4a PUSHED; D-203+D-204
+committed local. NEXT: the 8757 refinement cell + the
+third-mechanism splitters → model extension over all three
+mechanisms → population → port validate-and-revert, Bryan gates.
+RESUME POINT 2 (lazy-trail re-add order) untouched, epicycle-stop
+standing — the named instrument stays the per-round SdDump on the
+x63 shape). Earlier closed-arc records below kept verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
 top): delete teardowns land by MODE×CAUSE — stream ⇒ at the delete's
@@ -11579,3 +11585,69 @@ extension (model_check/model_sd or an I-RD replica), population,
 port validate-and-revert with FULL receipts — Bryan gates the
 landing. RESUME POINT 2 (the lazy-trail re-add order) untouched,
 epicycle-stop standing.
+
+## D-204 — I-RD WITNESS DUMP-READS: both laws PASS out-of-sample (7219 dynamic textbook; 6368 dynamic via or-twin ⇒ act-generic); a THIRD mechanism named (the same-batch self-break landing: 2956/1591/5988); the 8757 multi-stated refinement (+ x1 undeletability LIVE in finals); 1278 reclassified OUT of I-RD (2026-07-12)
+
+Predictions logged from scenario STATICS ONLY before any runs
+(ird-witness-predictions.md — including the correction that the
+ledger line held SEVEN witnesses, not six as D-203 miscounted).
+Then shapes measured (oracle 3× identity-stable + engine 1×), then
+SdDump 3× identity-normalized per witness (7/7 stable; all banked
+in graft_targets/ird/). Full read: ird-witness-results.md.
+
+THE OUT-OF-SAMPLE LAW TESTS (the D-093 doctrine's demand): both
+PASS. fz_123_7219 = the dynamic law joint-by-joint (unstage batch
+Delete@9+Insert@10 at F6; immediate re-kill F7 pending `-`; the
+queued R1 act on @10 fires THREE FIRINGS POST-DELETE at its
+salience position = the engine's exact −1). fz_42_6368 = the
+dynamic law where the surviving act is the DELETER'S OWN OR-TWIN
+(branch B fires on the dead unstage-born @7, delete-of-dead no-op)
+⇒ ⚖ law sharpening: the survival is ACT-GENERIC, any queued act on
+the unstage-born handle, not observer-specific.
+
+THE THIRD MECHANISM (fz_777_2956 + fz_7_1591 ×3-epochs +
+fz_7_5988; five instances): a rule justifies a belief then UPDATES
+ITS OWN PREMISE in the same RHS — the TMS batch stages
+`Insert@belief … Update@premise` (update LAST); the ORACLE lands
+the update-sourced justification break WITHIN THE FLUSH (5988: @5
+registered `JUSTIFIED fhs[@5+]` post-firing, GONE next firing, no
+Delete staged, NO act on it ever fires); the ENGINE lands the
+update-sourced break LAZILY — the belief materializes, its acts
+fire, the deleter walls kill it ⇒ engine OVER-FIRES +1 per
+instance, finals converge. Reverse direction from the dynamic law
+(oracle cancels what the engine fires). Landing-law row:
+mode=cloud, cause=RHS-self-update, same-batch. ⚠ the engine's
+tms_eager_break(from_delete=false) lazy path is implicated but
+"certified lazy" only by default (unprobed on the staircase);
+splitter cells REQUIRED before any fix: same-batch vs later-batch,
+self vs foreign premise, vs the fz_42_2442 own-tuple exclusion.
+
+THE 8757 REFINEMENT (static family): or-twin ⇒ TWO stated siblings
++ non-WM belief on one stated-born key (`STATED fhs[@3!@2+@4+]`,
+rules 1+3 composing); at F3 the FIRST stated delete kills the key
+WHOLE — keys line EMPTY + `Delete@2 Insert@3` in one batch ⇒
+orphan the remaining stated sibling AND unstage the belief in ONE
+event (the L6 key-death + 4048 unstage COMPOSED; the static
+assumption that the unstage waits for the LAST stated is WRONG).
+F4 kills the unstage-born immediately; F5 fires the deleter on the
+ORPHAN and the delete NO-OPS (x1 undeletability LIVE in a fuzz
+witness) — the orphan is the oracle's finals survivor (+1). Needs
+its own cell (two stated faces + belief + deleter) before pinning.
+⚠ ENGINE ANOMALY for port-time recon: engine R4 ×2, no survivor —
+inconsistent with a naive tms_route_delete_ex walk; instrument,
+don't armchair.
+
+fz_777_1278 = OUT of I-RD per the pre-registered mapping: no
+deletes/breaks/unstages exist in the run; the delta is or-branch
+ACTIVATION COUNT (oracle 2 of 3 branches, engine 3); the
+dep-fold (bs n=2 one handle) matches the pinned static rules.
+Filed to the or-branch activation family.
+
+UPDATED I-RD LEDGER: dynamic law = {4048, 7219, 6368} + b1/b2;
+static law = {9902, 8757(+refinement cell to build)} + l6; third
+mechanism = {2956, 1591, 5988} (splitters to build); out = {1278}.
+Receipts: no engine change — lint 1750/0/0, corpus 11/1124/370 +
+drift 59 identical, cells 39/39, witnesses 26/26; census 72
+stands. NEXT: the 8757 refinement cell + the third-mechanism
+splitters, then the model extension over all three mechanisms,
+population, port validate-and-revert (Bryan gates).

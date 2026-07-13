@@ -1,0 +1,144 @@
+== PRE-FIRE ==
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[()@-1#85019~0 ] del[] upd[]
+  TMS wm: @1(T1( f0=2, f1=false, f2=false ))key=- @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=false ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2 Insert@3
+FIRING 0 R4  T1( f0=2, f1=false, f2=false ) | 
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[()@-1#85019~0 ] del[] upd[]
+  TMS wm: @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=false ))key=-
+  TMS keys: -
+  TMS pending: Delete@1
+FIRING 1 R0  T0( f0=3.5, f1=, f2=false ) | 
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[()@-1#85019~0 ] del[] upd[]
+  TMS wm: @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=false ))key=- @4(T1( f0=-1000000007, f1=false, f2=false ))key=STATED @5(T1( f0=-1000000007, f1=false, f2=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R0 act=false q=false tup=(T0( f0=3.5, f1=, f2=false )@3) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@4+]lfh=- JUSTIFIED fhs[@5+]lfh=@5bs[n=1 wma=-]dep{R0 act=false q=false tup=(T0( f0=3.5, f1=, f2=false )@3) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@4 Insert@5
+FIRING 2 R4  T1( f0=-1000000007, f1=false, f2=false ) | 
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[()@-1#85019~0 ] del[] upd[]
+  TMS wm: @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=false ))key=- @5(T1( f0=-1000000007, f1=false, f2=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{R0 act=false q=false tup=(T0( f0=3.5, f1=, f2=false )@3) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@5+]lfh=@5bs[n=1 wma=-]dep{R0 act=false q=false tup=(T0( f0=3.5, f1=, f2=false )@3) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Delete@4
+FIRING 3 R4  T1( f0=-1000000007, f1=false, f2=true ) | 
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[()@-1#85019~0 ] del[] upd[]
+  TMS wm: @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=false ))key=-
+  TMS keys: -
+  TMS pending: -
+FIRING 4 R1  T0( f0=3.5, f1=, f2=true ) | 
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[()@-1#85019~0 ] del[] upd[]
+  TMS wm: @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=true ))key=- @6(T1( f0=8, f1=false, f2=false ))key=STATED @7(T1( f0=100, f1=false, f2=false ))key=JUSTIFIEDbs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=3.5, f1=, f2=true )@3) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@6+]lfh=- JUSTIFIED fhs[@7+]lfh=@7bs[n=1 wma=-]dep{R1 act=false q=false tup=(T0( f0=3.5, f1=, f2=true )@3) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@6 Insert@7 Update@3
+FIRING 5 R4  T1( f0=8, f1=false, f2=false ) | 
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[()@-1#85019~0 ] del[] upd[]
+  TMS wm: @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=true ))key=-
+  TMS keys: -
+  TMS pending: Delete@6
+FIRING 6 R3  org.drools.base.reteoo.InitialFactImpl@4dde85f0 | 0.0 | 
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=true ))key=-
+  TMS keys: -
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  PATH R5
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R4
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R3
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @2(T0( f0=-3.0, f1=zz, f2=true ))key=- @3(T0( f0=3.5, f1=, f2=true ))key=-
+  TMS keys: -
+  TMS pending: -

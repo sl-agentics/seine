@@ -1,0 +1,176 @@
+== PRE-FIRE ==
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=-1000000007 ))key=-
+  TMS keys: -
+  TMS pending: Insert@1
+FIRING 0 R2  T0( f0=-1000000007 ) | 
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=-1000000007 ))key=- @2(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=STATEDbs[n=1 wma=-]dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@3!@2+]lfh=@3bs[n=1 wma=-]dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@2
+FIRING 1 R2  T0( f0=-1000000007 ) | 
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=-1000000007 ))key=- @2(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=STATEDbs[n=2 wma=-]dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=STATEDbs[n=2 wma=-]dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@3!@2+@4+]lfh=@3bs[n=2 wma=-]dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@4
+FIRING 2 R3  T0( f0=-1000000007 ) | 
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=-1000000007 ))key=- @2(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=STATEDbs[n=2 wma=-]dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=STATEDbs[n=2 wma=-]dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@3!@2+@4+]lfh=@3bs[n=2 wma=-]dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}dep{R2 act=false q=false tup=(T0( f0=-1000000007 )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 3 R4  T1( f0=-1.000000007E9, f1=-1000000007, f2=true ) | 
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=-1000000007 ))key=- @4(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=JUSTIFIED
+  TMS keys:
+  TMS pending: Delete@2 Insert@3
+FIRING 4 R4  T1( f0=-1.000000007E9, f1=-1000000007, f2=true ) | 
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=-1000000007 ))key=- @4(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=JUSTIFIED
+  TMS keys:
+  TMS pending: -
+FIRING 5 R4  T1( f0=-1.000000007E9, f1=-1000000007, f2=true ) | 
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=-1000000007 ))key=- @4(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=JUSTIFIED
+  TMS keys:
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  PATH R4
+     seg0: null
+  PATH R5
+     seg0: null
+  PATH R1
+     seg0: null
+  PATH R0
+     seg0: null
+  PATH R2
+     seg0: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R2
+     seg0: null
+     seg1: null
+  PATH R3
+     seg0: null
+  TMS wm: @1(T0( f0=-1000000007 ))key=- @4(T1( f0=-1.000000007E9, f1=-1000000007, f2=true ))key=JUSTIFIED
+  TMS keys:
+  TMS pending: -

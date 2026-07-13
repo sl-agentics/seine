@@ -51,3 +51,18 @@ of WM handle/EqualityKey status, BeliefSets, and the pending queue.
    bookkeeping (counts per insert route).
 3. Then the model extension + port per the plan (validate-and-revert,
    full receipts).
+
+## The seven remaining witnesses (D-204 dump-read; full read =
+## ../../ird-witness-results.md, predictions ../../ird-witness-predictions.md)
+
+All seven dumps banked here 3×-stable. Classification: 7219 + 6368 =
+the DYNAMIC law out-of-sample (6368: the surviving act is the
+deleter's own or-twin ⇒ act-generic); 2956 + 1591 + 5988 = the THIRD
+mechanism (same-batch self-break landing: `Insert@belief …
+Update@premise` one batch — oracle breaks WITHIN the flush, no act
+on the belief ever fires; engine lands the break lazily and
+over-fires); 8757 = the STATIC family + the multi-stated REFINEMENT
+(first stated delete on a multi-sibling mixed key kills the key
+WHOLE — orphan + unstage in one event; the orphan is x1-undeletable
+and survives to finals) + ⚠ an engine-side R4×2 anomaly for
+port-time recon; 1278 = OUT of I-RD (or-branch activation count).
