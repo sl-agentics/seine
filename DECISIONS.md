@@ -12756,3 +12756,43 @@ on both inferred and declared paths, boundary values ingest, the
 F64 promotion carve-out, unknown row field rejected).
 Bindings-only; engine and corpus untouched — the reviewer's round-9
 batch (tier-1 off-by-one, A, B, C) is now fully closed.
+
+## D-228 — the WM-delta blind spot: TMS retractions reach deleted_handles (external review round 10 — logical inserts were tracked, logical retracts were invisible) (2026-07-13)
+
+His finding, reproduced verbatim from his failing test: an
+insertLogical fact retracted by truth maintenance left working
+memory but appeared in NEITHER derived NOR deleted_handles on any
+fire(), and Session.delete() returned None. The asymmetry was
+real — the logical INSERT is tracked in derived, the logical
+RETRACT was reported nowhere; a consumer diffing on
+deleted_handles (the documented WM-delta use) silently missed
+every TMS retraction.
+
+The mechanism: fire() computes deleted = before-set minus
+after-set, but Session.delete() retracts the justified facts
+SYNCHRONOUSLY — before the next fire's before-set is snapshotted.
+The cascade fell between deltas.
+
+The fix, and the convention it follows: Python's own between-fire
+actions are not echoed back (inserts stay out of derived; the
+explicitly deleted handle stays out of deleted_handles) — but
+ENGINE-initiated changes always reach the delta. delete() and
+update() now snapshot live handles around the engine call; the
+difference minus the acted-on handle is the TMS cascade, returned
+from delete() directly (was None) and banked into a
+pending_retracted buffer the next fire() merges (sorted, deduped)
+into deleted_handles. reset() clears the buffer. Snapshot cost is
+two facts() renders per external delete/update — the REPL-grade
+external-action path; a cheap engine live_handles() is the
+battery-gated follow-up if profiling ever cares.
+
+Edges pinned: shared justification (two Hot(7) premises, one
+Alarm) cascades only when the LAST premise dies — first delete()
+returns []; update()-driven justification break reaches the delta;
+during-fire RHS-delete cascades were already caught by the
+before/after diff (both premise and alarm reported — the run's own
+deletes). deleted_handles docstring rewritten around the rule:
+everything that left WM without Python asking for it by name.
+
+Receipts: bindings 107/107 (4 new + the reviewer's repro green);
+bindings-only, engine and corpus untouched.

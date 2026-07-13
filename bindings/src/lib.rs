@@ -793,7 +793,12 @@ impl PyResult_ {
         Ok(d)
     }
 
-    /// Handles of Python-inserted facts the run deleted.
+    /// Every handle that LEFT working memory without Python asking for
+    /// it by name: RHS delete()s during this fire, plus truth-maintenance
+    /// retractions — including those a between-fire Session.delete() or
+    /// update() triggered synchronously. Handles Python deleted itself
+    /// are not echoed back (mirror of Python inserts staying out of
+    /// `derived`); Session.delete() returns its own TMS cascade directly.
     #[getter]
     fn deleted_handles(&self) -> Vec<i64> {
         self.deleted.clone()
@@ -834,6 +839,14 @@ struct PySession {
     /// Event declarations (type -> (ts_field, expires_ms)),
     /// applied before rule compilation at build time.
     events: Vec<(String, String, i64)>,
+    /// Handles retracted by the ENGINE between fires — the TMS cascade
+    /// of an external delete()/update() (a justified fact losing its
+    /// premise dies synchronously, before the next fire's before-set is
+    /// snapshotted). Merged into the next fire's deleted_handles so the
+    /// WM-delta stays complete; the explicitly-acted-on handle itself is
+    /// NOT included (Python already knows its own actions, same as
+    /// between-fire inserts staying out of `derived`).
+    pending_retracted: Vec<i64>,
 }
 
 impl PySession {
@@ -908,6 +921,7 @@ impl PySession {
             drl,
             built: false,
             events: Vec::new(),
+            pending_retracted: Vec::new(),
         };
         if let Some(ev) = events {
             for (k, v) in ev.iter() {
@@ -1087,9 +1101,23 @@ impl PySession {
             .engine
             .as_mut()
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        // same TMS-cascade capture as delete(): an update that breaks a
+        // justification can retract facts synchronously
+        let pre: std::collections::HashSet<u32> =
+            engine.facts().iter().map(|f| f.handle).collect();
         engine
             .update_fact(seine_engine::FactId(handle as u32), vals)
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let post: std::collections::HashSet<u32> =
+            engine.facts().iter().map(|f| f.handle).collect();
+        let mut cascade: Vec<i64> = pre
+            .iter()
+            .filter(|h| !post.contains(h) && **h as i64 != handle)
+            .map(|&h| h as i64)
+            .collect();
+        cascade.sort_unstable();
+        self.pending_retracted.extend(cascade.iter().copied());
+        Ok(())
     }
 
     /// EXTERNAL delete by handle.
@@ -1112,17 +1140,33 @@ impl PySession {
             .engine
             .as_mut()
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        self.pending_retracted.clear();
         engine.reset().map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    fn delete(&mut self, handle: i64) -> PyResult<()> {
+    fn delete(&mut self, handle: i64) -> PyResult<Vec<i64>> {
         let engine = self
             .engine
             .as_mut()
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        // TMS: deleting a premise synchronously retracts the facts it
+        // justified. Capture that cascade so it reaches the WM-delta —
+        // returned here AND merged into the next fire's deleted_handles.
+        let pre: std::collections::HashSet<u32> =
+            engine.facts().iter().map(|f| f.handle).collect();
         engine
             .delete_fact(seine_engine::FactId(handle as u32))
-            .map_err(|e| PyValueError::new_err(e.to_string()))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let post: std::collections::HashSet<u32> =
+            engine.facts().iter().map(|f| f.handle).collect();
+        let mut cascade: Vec<i64> = pre
+            .iter()
+            .filter(|h| !post.contains(h) && **h as i64 != handle)
+            .map(|&h| h as i64)
+            .collect();
+        cascade.sort_unstable();
+        self.pending_retracted.extend(cascade.iter().copied());
+        Ok(cascade)
     }
 
     /// Run the rules to quiescence and return THIS fire's delta.
@@ -1181,7 +1225,12 @@ impl PySession {
             .filter(|h| !live_set.contains(h))
             .map(|&h| h as i64)
             .collect();
+        // engine-initiated retractions between fires (TMS cascades of
+        // external delete/update) happen BEFORE this fire's before-set
+        // was snapshotted — merge them so the WM-delta is complete
+        deleted.extend(self.pending_retracted.drain(..));
         deleted.sort_unstable();
+        deleted.dedup();
 
         // firing audit (long format)
         let mut a = AuditRows {

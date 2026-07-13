@@ -236,3 +236,65 @@ def test_insert_row_unknown_field_rejected():
     s = seine_rs.Session([r], facts={RowT: {"a": [1], "b": [2]}})
     with pytest.raises(ValueError, match="unknown field c"):
         s.insert_row(RowT, {"a": 1, "b": 2, "c": 3})
+
+# --- the WM-delta symmetry (round 10): TMS retractions are observable --
+
+@seine_rs.fact
+class Hot:
+    sensor: int
+
+
+@seine_rs.fact
+class Alarm:
+    sensor: int
+
+
+def _alarm_session(hots):
+    r = seine_rs.Rule("alarm-while-hot")
+    h = r.when(Hot)
+    r.then_insert_logical(Alarm, sensor=h.sensor)
+    sess = seine_rs.Session([r], {Hot: hots, Alarm: []})
+    return sess, sess.fire()
+
+
+def test_tms_retraction_reaches_deleted_handles():
+    # a logical fact leaving WM must be as observable as one entering it:
+    # the cascade of a between-fire delete() lands on the NEXT fire
+    sess, res = _alarm_session([Hot(7)])
+    hot = res.facts["Hot"].to_pylist()[0]["handle"]
+    alarm = res.facts["Alarm"].to_pylist()[0]["handle"]
+    sess.delete(hot)
+    res2 = sess.fire()
+    assert res2.facts["Alarm"].to_pylist() == []
+    assert alarm in res2.deleted_handles
+    assert hot not in res2.deleted_handles  # Python's own action, not echoed
+
+
+def test_session_delete_returns_the_cascade():
+    sess, res = _alarm_session([Hot(7)])
+    hot = res.facts["Hot"].to_pylist()[0]["handle"]
+    alarm = res.facts["Alarm"].to_pylist()[0]["handle"]
+    assert sess.delete(hot) == [alarm]
+
+
+def test_shared_justification_cascades_only_on_last_premise():
+    sess, res = _alarm_session([Hot(7), Hot(7)])
+    hots = [x["handle"] for x in res.facts["Hot"].to_pylist()]
+    alarm = res.facts["Alarm"].to_pylist()[0]["handle"]
+    assert sess.delete(hots[0]) == []      # still justified by the other
+    assert sess.delete(hots[1]) == [alarm]
+    assert sess.fire().deleted_handles == [alarm]
+
+
+def test_update_driven_retraction_reaches_deleted_handles():
+    r = seine_rs.Rule("alarm-while-hot")
+    h = r.when(Hot, Hot.sensor > 0)
+    r.then_insert_logical(Alarm, sensor=h.sensor)
+    sess = seine_rs.Session([r], {Hot: [Hot(7)], Alarm: []})
+    res = sess.fire()
+    hot = res.facts["Hot"].to_pylist()[0]["handle"]
+    alarm = res.facts["Alarm"].to_pylist()[0]["handle"]
+    sess.update(hot, sensor=-1)
+    res2 = sess.fire()
+    assert res2.facts["Alarm"].to_pylist() == []
+    assert alarm in res2.deleted_handles
