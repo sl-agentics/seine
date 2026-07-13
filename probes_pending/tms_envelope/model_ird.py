@@ -22,7 +22,9 @@ THE LAWS AS CODE (predictions + commitments: ird-model-predictions.md):
     (self-join): a lazy-break pseudo-item at the JUSTIFIER's salience.
     Form (modify/update) and source (update/delete) never branch.
  Tie-break: equal salience pops FIFO by act creation. Breaks cascade
- through kills recursively (a2). UNPINNED corners raise AssertionError.
+ through kills recursively (a2). UNPINNED corners raise AssertionError
+ (three remain; the update-invalidates-act corner became a D-207
+ IMPORTED commitment — see ird-population-predictions.md).
 
 Validation: `python3 model_ird.py` -> 22/22 vs truths/ird_*.ndj.
 """
@@ -61,8 +63,12 @@ def KILLT0(sal, arm):
     return dict(kind="killt0", sal=sal, arm=arm)
 
 
-def MIDT(sal, trig, trig_f1, val):
-    return dict(kind="midt", sal=sal, trig=trig, trig_f1=trig_f1, val=val)
+def MIDT(sal, trig, trig_f1, val, bf1=False):
+    # bf1: the belief's f1 (default False = b2's mid). D-207
+    # parameterization for the population grammar (key sharing with
+    # JL beliefs needs f1=True); no semantic content.
+    return dict(kind="midt", sal=sal, trig=trig, trig_f1=trig_f1, val=val,
+                bf1=bf1)
 
 
 def RINS(sal, arm):
@@ -332,8 +338,12 @@ class Sim:
             if a["live"] and not a["fired"] and hid in a["tuple"]:
                 pats = self.patterns(a["rule"])
                 if not all(p(x) for p, x in zip(pats, a["tuple"])):
-                    raise AssertionError(
-                        "UNPINNED: update invalidates a queued act")
+                    # D-207 IMPORTED commitment (D-076 eager-unmatch
+                    # family, engine-corpus-certified, NOT ird-cell-
+                    # pinned): an alpha-breaking update cancels queued
+                    # unfired acts. Pre-registered at-risk axis in
+                    # ird-population-predictions.md.
+                    a["live"] = False
         for vk in list(self.keys):
             k = self.keys.get(vk)
             if not k:
@@ -391,7 +401,7 @@ class Sim:
             self.rhs_delete(t[0], act)
             self.rhs_delete(t[1], act)
         elif k == "midt":
-            self.insert_logical("T1", {"f0": r["val"], "f1": False}, act)
+            self.insert_logical("T1", {"f0": r["val"], "f1": r["bf1"]}, act)
         elif k == "rins":
             self.insert_stated("T0", {"f0": False})
             self.rhs_delete(t[0], act)

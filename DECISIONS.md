@@ -11,7 +11,28 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-206 (TMS-envelope arc, I-RD:
+_Last updated: 2026-07-12, post-D-207 (TMS-envelope arc, I-RD:
+THE POPULATION RAN AND DID ITS JOB — fuzz_tms_ird.py (arc-local, 5
+seeds × 150, distinct-salience + no-false-alpha confound controls):
+745/750 model-clean, **5 REAL = TWO findings on pre-registered
+at-risk axes**: (A) the r1 mixed-key-kill event is NOT
+arrival-order-universal (belief-arrives-LAST ⇒ oracle kills
+handle-by-handle, no orphan; 3 witnesses; P-POSITION vs P-SLOT
+sub-hypotheses, SdDump cell round next); (B) the ⚖-flagged
+LAZY-SLOT pick fails in the same-salience tie (the break lands AT
+the justifier's item BEFORE later same-salience pops ⇒ rebirth +
+re-fire; plus update-propagation re-queues still-valid tuples — the
+imported update commitment is incomplete). Corners: pending-dep-
+break 29-39/seed (top-volume, cell needed), belief-del-w-siblings
+1-3/seed, justified-born-stated-del SHADOWED to 0. CENSUS = the
+I-RD port baseline: engine-vs-oracle **86/750 (11.5%)**. Two
+flagged model changes (imported D-076 update-cancel; MIDT bf1),
+22/22 + matrix intact. Gate meaning: A+B cell rounds → model re-pin
+FROM CELLS → population re-run → 0 REAL → then the port (Bryan
+gates). D-203..207 committed local; through 728af4a PUSHED. RP2
+untouched, epicycle-stop standing._
+
+_Prior (post-D-206): I-RD:
 THE MODEL EXTENSION IS DONE — model_ird.py, the executable spec of
 all three mechanisms, validates 22/22 against the banked truths ON
 THE FIRST RUN (zero semantic edits, predictions logged first incl.
@@ -11785,3 +11806,67 @@ cells 39/39, witnesses 26/26, model_ird 22/22; census 72 stands
 fuzzer toward the I-RD vocabulary if the laws generalize — mixed
 stated/logical inserts + self-breaks in the grammar), then the
 port validate-and-revert with FULL receipts (Bryan gates).
+
+## D-207 — THE I-RD POPULATION: fuzz_tms_ird.py (arc-local; 5 seeds × 150) — THE 0-DIV GATE IS RED BY DESIGN'S OWN TEST: 5 REAL / 750, TWO findings on pre-registered at-risk axes (the lazy-break SLOT; the mixed-key kill's ARRIVAL-ORDER scope) + the corner census + engine baseline 86/750 (2026-07-12)
+
+Predictions first (ird-population-predictions.md): the grammar
+(model_ird vocabulary: JL±brk±selfjoin / ST / DEL / OBS / MIDT /
+KILLT0 / RU over T0/T1, payloads {v,w}), the confound controls
+(DISTINCT saliences — isolate the TMS laws from the pick layer; no
+f0==false alphas — update-driven NEW activation excluded; arms
+disjoint), and TWO flagged model changes: (1) the
+update-invalidates-act assert became a D-076-family IMPORTED
+commitment (alpha-breaking update cancels queued acts —
+engine-corpus-certified, NOT ird-cell-pinned, pre-registered
+at-risk), (2) MIDT bf1 parameterization (no semantics). Validator
+22/22 + mutation matrix re-verified after both.
+
+RESULTS (750 cases): 745 model-clean, **5 REAL after 3× (0 flaky)**
+— per the pre-registered gate: LAW-GAP CELLS BEFORE THE PORT.
+
+**FINDING A (3 cases; finals-only — the model keeps an orphan the
+oracle deletes): the r1 mixed-key-kill event is NOT
+arrival-order-universal.** All three witnesses have the belief
+arriving AFTER all existing stated siblings (r1/8757 had it before
+the last stated); there the oracle kills handle-by-handle (deleter
+×3, no orphan, no survivor). Sub-hypotheses for the A cell round
+(SdDump arms required): P-POSITION (belief-before-a-later-stated ⇒
+key-dies-whole/orphan; belief-last ⇒ R-LAST-like) vs P-SLOT
+(pending_vals forms only on an EXACTLY-ONE-stated key; ≥2 stateds ⇒
+a different belief form and the r1 event never arms — l3's dump
+pinned pending on 1 stated; no dump exists for
+logical-onto-2-stateds).
+
+**FINDING B (2 cases; firings — the oracle re-keys and re-fires
+where the model dep-folds): the ⚖-flagged LAZY-SLOT pick fails in
+exactly the tie the cells could not reach.** Self-join justifier
+×2 firings at one salience: the oracle's lazy break LANDS BEFORE
+the second same-salience act pops (the slot is AT the justifier's
+item — before any LATER pop at its salience; the model's FIFO seq
+put it after) ⇒ the second insertLogical re-keys FRESH (rebirth) +
+re-fires the observer. SECOND nuance in the same shapes: the
+oracle's second firing is the (t2,t2) twin, not the earlier-queued
+(t1,t2) — Drools update-propagation apparently CANCELS+RE-QUEUES
+still-valid tuples containing the updated fact ⇒ the imported
+update commitment is INCOMPLETE (cancels alpha-failing only; must
+also reorder survivors). B cell round: the slot straddle + the
+update-requeue order.
+
+CORNERS (counted, banked by regenerate-pointer — the SD precedent):
+pending-dep-break 29-39/seed (the same-batch self-break law × the
+L3 pending sibling — the top-volume corner, cell needed);
+belief-delete-with-siblings 1-3/seed; stated-delete-on-justified-
+born-mixed ZERO — SHADOWED (DEL's FIFO act on the WM belief pops
+first in this grammar); deliberate cell required. CENSUS:
+engine-vs-oracle 12/14/21/25/14 = **86/750 (11.5%)**, the low edge
+of the predicted 10-40% — THE I-RD PORT BASELINE. Scorecard: census
+bracket hit, flake prediction hit, corner reachability 2/3 hit +
+1 shadow-explained, 0-div failed on the two named axes.
+
+Receipts: model_ird 22/22 (post-edit), lint 1760/0/0, corpus
+11/1124/370 + drift 59, cells 39/39, witnesses 26/26; census-72
+(SD) stands — no engine change. NEXT (the pre-registered protocol):
+the A cell round (position × stated-count, SdDump) → the B cell
+round (slot straddle, update-requeue) → model re-pin FROM CELLS →
+population re-run same seeds → 0 REAL → THEN the port slab (Bryan
+gates), engine baseline 86/750.
