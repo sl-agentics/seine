@@ -116,6 +116,7 @@ reverse/as-is again.
 cargo build -q -p seine-harness
 python3 probes_pending/tms_envelope/interposer_ladder.py --run /tmp/ip   # 6/6
 python3 probes_pending/tms_envelope/validate_cells.py                    # 39/39
+python3 probes_pending/tms_envelope/model_ird.py                         # 22/22 (D-206)
 python3 probes_pending/tms_envelope/check_witnesses.py                   # 26/26
 make diff          # 11/1124/370 + drift 59; movement ⇒ triage_xfail 10x,
                    # graduate CONVERGED (git mv + xfail-rebank + D-entry)

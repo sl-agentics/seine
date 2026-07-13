@@ -11,7 +11,22 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-205 (TMS-envelope arc, I-RD:
+_Last updated: 2026-07-12, post-D-206 (TMS-envelope arc, I-RD:
+THE MODEL EXTENSION IS DONE — model_ird.py, the executable spec of
+all three mechanisms, validates 22/22 against the banked truths ON
+THE FIRST RUN (zero semantic edits, predictions logged first incl.
+two ⚖-flagged underdetermined picks + four assert-unreachable
+corners); the MUTATION MATRIX proves every commitment load-bearing
+(each mutation fails exactly its pinning cells: dynamic→{b1,b2,r1},
+selfjoin-lazy→{m3,m6,m7}, in-flush→{m1,m2,m5}, orphan→{r1,x1},
+R-FIRST→{r1}, key-death→{l6,x1}, FIFO→{b2}). New standing gate:
+model_ird.py 22/22 (in the HANDOFF loop). The port inherits the
+model as its executable target. NEXT: population (I-RD vocabulary
+in the arc fuzzer if the laws generalize) → port validate-and-
+revert (Bryan gates). D-203..206 committed local; through 728af4a
+PUSHED. RP2 untouched, epicycle-stop standing._
+
+_Prior (post-D-205): I-RD:
 CELLS (D-203) + WITNESS DUMP-READS (D-204) + THE THIRD MECHANISM
 PINNED (D-205). ⚖ the SAME-BATCH SELF-BREAK law: a justifier's RHS
 breaking its own premise in the belief's staging batch lands the
@@ -11724,3 +11739,49 @@ open_divergence cells: dynamic {b1,b2}, static {l6,r1}, third
 {m1,m2,m5}. NEXT: the model extension over all three mechanisms
 (incl. both key-death events + the self-join exception),
 population, port validate-and-revert (Bryan gates).
+
+## D-206 — THE I-RD MODEL EXTENSION: model_ird.py — the executable spec of ALL THREE mechanisms validates 22/22 against the banked truths ON THE FIRST RUN (zero semantic edits); the mutation matrix proves every law commitment load-bearing (2026-07-12)
+
+Predictions first (ird-model-predictions.md): the laws-as-code
+commitments (dynamic act-cancel exemption; the static key model
+with BOTH key-death-whole events + orphan undeletability + fresh
+re-key; the break-landing rule — immediate everywhere EXCEPT
+self-break with tuple-binding ≥2×, scheduled at the justifier's
+salience; FIFO-within-salience; recursive break cascade), the TWO
+underdetermined picks flagged per the ⚖ method law (the lazy slot
+[at-justifier-salience vs end-of-agenda — one intervening act in
+each of m3/m6/m7 cannot split them; doctrine-aligned pick] and
+FIFO's global generalization from b2/l6), four assert-unreachable
+UNPINNED corners (stated-del on justified-born mixed key;
+belief-del with siblings; pending-belief dep-empty; update
+invalidating a queued act), and the per-cell hand-traced expected
+outputs for all 22 cells.
+
+RESULT: **22/22 first complete run** — exact firing sequences
+(per-pattern POST-RHS match values, the harness convention) +
+finals multisets, across truths/ird{,_ladder,_l56,_x1,_rm,_m67}.
+Zero semantic edits, zero transcription fixes, no assert fired.
+
+THE MUTATION MATRIX (each commitment mutated alone must fail
+exactly its pinning cells — the truths CONSTRAIN the spec):
+dynamic-law-off → {b1,b2,r1}; selfjoin-exception-off → {m3,m6,m7};
+all-self-lazy → {m1,m2,m5}; orphan-undeletability-off → {r1,x1};
+R-LAST-not-R-FIRST → {r1} (the discriminator alone); key-survives-
+break → {l6,x1}; LIFO-tiebreak → {b2} (the FIFO carrier, as
+pre-registered); restored → clean. No dead commitment; no vacuous
+pass.
+
+Gate added to the iteration loop (HANDOFF-ird.md): `python3
+probes_pending/tms_envelope/model_ird.py` → 22/22. Scope: the cell
+vocabulary (witnesses = dump-read coverage, D-204; the port
+graduates them). The engine r1 anomaly is NOT modeled — model =
+ORACLE spec. The port inherits model_ird.py as its executable
+target; boundary cells to keep green: r2/m0/m3/m4/m6/m7 + the 39
+sd cells + full receipts.
+
+Receipts: lint 1760/0/0, corpus 11/1124/370 + drift 59 identical,
+cells 39/39, witnesses 26/26, model_ird 22/22; census 72 stands
+(no engine change). NEXT per the plan: population (extend the arc
+fuzzer toward the I-RD vocabulary if the laws generalize — mixed
+stated/logical inserts + self-breaks in the grammar), then the
+port validate-and-revert with FULL receipts (Bryan gates).
