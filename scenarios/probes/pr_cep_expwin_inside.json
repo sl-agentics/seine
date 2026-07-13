@@ -1,0 +1,73 @@
+{
+ "name": "pr_cep_expwin_inside",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "acct",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 5000
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "acct",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R when $a : A($ac : acct) $b : B(acct == $ac, this after[0ms,10000ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 0,
+    "acct": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 3000
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "B",
+     "fields": {
+      "ts": 3000,
+      "acct": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "Explicit expires SHORTER than a temporal window, partner INSIDE the surviving prefix (3000 < 5000): the join fires \u2014 the truncated window's live part works. Control for the expwin pair (D-219; black-box review found the corner unpinned)."
+}

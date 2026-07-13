@@ -1,0 +1,74 @@
+{
+ "name": "pr_cep_expwin_gap",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "acct",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 5000
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "acct",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R when $a : A($ac : acct) $b : B(acct == $ac, this after[0ms,10000ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 0,
+    "acct": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 7000
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "B",
+     "fields": {
+      "ts": 7000,
+      "acct": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "Explicit expires SHORTER than a temporal window, partner in the GAP (5000 < 7000 <= 10000): the anchor expired, the join CANNOT fire \u2014 the declared window silently truncates at the anchor's lifetime. Oracle-faithful (explicit @expires overrides; no inference). The authoring layer rejects this shape statically (D-219).",
+ "expect_inert": true
+}

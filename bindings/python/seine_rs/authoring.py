@@ -676,6 +676,36 @@ class Rule:
                         f"{cls.__name__}: temporal constraints need an event "
                         "type - declare @fact(event=seine_rs.Event(...))"
                     )
+                # The declared-lifetime-vs-window consistency lint: the
+                # EARLIER event of a temporal join must live until the
+                # window's upper bound, or matches past its expiry are
+                # silently impossible. Expiration inference stays outside
+                # the certified subset — this only cross-checks the
+                # user's own explicit declarations, per constraint (no
+                # transitive/STP reasoning).
+                if c.op == "after":
+                    early_cls = c.anchor.cls  # this AFTER anchor: anchor is earlier
+                else:
+                    early_cls = cls           # this BEFORE anchor: this is earlier
+                ev = getattr(early_cls, "__seine_event__", None)
+                if ev is not None and ev[1] < c.hi_ms:
+                    expires = ev[1]
+                    where = (
+                        f"{early_cls.__name__} declares expires_ms={expires} but is the "
+                        f"earlier event of a this_{c.op}[{c.lo_ms}, {c.hi_ms}] window "
+                        f"in rule {self.name!r}"
+                    )
+                    if expires <= c.lo_ms:
+                        raise CompileError(
+                            f"{where} — it always expires before the window opens, so "
+                            f"this constraint can never match. Raise expires_ms to at "
+                            f"least {c.hi_ms} or narrow the window."
+                        )
+                    raise CompileError(
+                        f"{where} — partners arriving after {expires}ms can never "
+                        f"match, silently truncating the declared window. Raise "
+                        f"expires_ms to at least {c.hi_ms} or narrow the window."
+                    )
                 continue
             if isinstance(c, _Group):
                 owners = c.owners()

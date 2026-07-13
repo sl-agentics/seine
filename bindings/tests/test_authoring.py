@@ -234,3 +234,54 @@ def test_authored_equals_hand_drl():
     d1 = pl.DataFrame(r1.derived["Alert"]).sort("owner")
     d2 = pl.DataFrame(r2.derived["Alert"]).sort("owner")
     assert d1.drop("handle").equals(d2.drop("handle"))
+
+
+# --- the expires-vs-window consistency lint (D-219) ------------------
+
+def _ev(expires_ms, name="Anchor"):
+    @seine_rs.fact(event=seine_rs.Event(timestamp="ts", expires_ms=expires_ms))
+    class Anchor:
+        ts: int
+        acct: int
+    Anchor.__name__ = name
+    return Anchor
+
+
+@seine_rs.fact(event=seine_rs.Event(timestamp="ts", expires_ms=100_000))
+class Later:
+    ts: int
+    acct: int
+
+
+def test_expires_truncates_window_rejected():
+    Anchor = _ev(5_000)
+    r = seine_rs.Rule("nsf-reverses-payoff")
+    a = r.when(Anchor)
+    with pytest.raises(CompileError, match="silently truncating"):
+        r.when(Later, seine_rs.this_after(a, 0, 10_000))
+
+
+def test_expires_before_window_opens_rejected():
+    Anchor = _ev(5_000)
+    r = seine_rs.Rule("gap")
+    a = r.when(Anchor)
+    with pytest.raises(CompileError, match="can never match"):
+        r.when(Later, seine_rs.this_after(a, 6_000, 10_000))
+
+
+def test_expires_covering_window_allowed():
+    Anchor = _ev(10_000)
+    r = seine_rs.Rule("ok")
+    a = r.when(Anchor)
+    r.when(Later, seine_rs.this_after(a, 0, 10_000))
+    assert "after[0ms,10000ms]" in r.to_drl()
+
+
+def test_before_checks_the_this_side():
+    # this BEFORE anchor: the THIS pattern is the earlier event
+    Anchor = _ev(500_000)
+    Short = _ev(5_000, name="Short")
+    r = seine_rs.Rule("before-side")
+    a = r.when(Anchor)
+    with pytest.raises(CompileError, match="Short declares expires_ms=5000"):
+        r.when(Short, seine_rs.this_before(a, 0, 10_000))

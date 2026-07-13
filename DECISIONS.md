@@ -12367,3 +12367,53 @@ ci.yml, environment crates-io), then revokes the session-exposed
 token. The `seine` placeholder stays static (no CI); publishing the
 engine UNDER the reserved bare name is a future rename decision,
 deliberately not taken here.
+
+## D-219 — the expires-vs-window corner: PINNED differentially (3 probes, oracle-faithful silence) + the authoring-layer consistency lint (external review round 5, black-box CEP probing of the published wheel) (2026-07-12)
+
+The reviewer's find (running published 0.4.4 black-box): an event
+type may declare expires_ms SHORTER than a temporal window it
+participates in, and the system accepts it silently — their NSF/
+payoff repro (expires 5d, window 10d, partner at 7d) fired nothing.
+One correction to their read: the shape is NOT unsatisfiable — a
+partner inside the surviving prefix fires; the declared window
+silently TRUNCATES at the anchor's lifetime (their "can never
+match" holds only when the window's LOWER bound ≥ the lifetime).
+The distinction shaped both deliverables.
+
+ASK 1 — pinned? NO: 36 corpus scenarios carried @expires, zero
+with expires < window-hi. NOW PINNED (oracle 3×-stable,
+differential PASS ×3): pr_cep_expwin_inside (partner at 3000 <
+expires 5000 → FIRES — the live prefix works),
+pr_cep_expwin_gap (partner at 7000, window [0,10000] → SILENT —
+the truncation, oracle-faithful: explicit @expires overrides, no
+inference), pr_cep_expwin_lowgap (window [6000,10000], expires
+5000 → never matches — the unsatisfiable tier). The reviewer's
+"probably faithful" hedge confirmed: Drools is silent the same
+way, so the corpus rightly passes and the ONLY correct closure is
+static. (Probe-construction note: the certified join grammar wants
+bound-field joins — `$a : A($ac : acct) … B(acct == $ac, …)` —
+not `$a.acct`; first drafts parse-failed engine-side.)
+
+ASK 2 — the lint, implemented in the authoring layer exactly as
+argued (no inference enters the certified subset; the engine is
+untouched; raw-DRL users get Drools-faithful behavior): at
+pattern-add time, for each temporal constraint the EARLIER event's
+declared expires_ms must reach the window's upper bound —
+this_after ⇒ the anchor is earlier; this_before ⇒ "this" is
+earlier. Two tiers, accurately worded: expires ≤ lo ⇒ "always
+expires before the window opens … can never match"; lo < expires <
+hi ⇒ "partners arriving after Nms can never match, silently
+truncating the declared window" — both name the type, the rule,
+the window, and the fix (raise expires_ms or narrow the window).
+Per-constraint and local by design: no transitive/STP reasoning
+(that is the fenced inference). expires == hi passes (exact
+cover). Non-inference now means "you must tell me", not "you may
+lie to me and I'll say nothing".
+
+Receipts: 86/86 binding tests (4 new: both tiers, exact-cover
+allowed, the before-side check); corpus 11/**1127**/397 all green
++ drift 32 identical; lint 1799/0/0; certification()'s baked
+corpus counts follow automatically at the next build. Credit: the
+reviewer's fifth round, and the first from pure black-box use —
+the NSF-reversal-vs-payoff-hold shape is the real DI use case,
+which is exactly why this foot-gun ranked.
