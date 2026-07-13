@@ -11,7 +11,28 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-210 (TMS-envelope arc, I-RD:
+_Last updated: 2026-07-12, post-D-211 (TMS-envelope arc: **THE
+I-RD PORT IS LANDED AND TOTAL** (Bryan-gated) — three families
+red-first (F1 static key model `2f76db8`; F2 dynamic law `0aef958`
+[boundary force-eval + del-consume exemptions + the j05-prune
+exemption]; F3 rule-shape landing [current_act narrowed]) + the
+c5-approximation residual cured (the justified-delete is now the
+real key-death event). TWENTY-SEVEN WITNESSES GRADUATED (oracle
+3×-stable + converged; drift 59→32, regressions 370→**397**, lint
+1796/0/0). **THE IRD CENSUS: 86 → 0, ZERO divergents ×5 seeds,
+model-clean 150/150 ×5. SD census 72 EXACT + 0-div 12×150/150
+through every family** — the SD population and the whole certified
+corpus (11/1124/397 byte-green, agenda_open ×19 byte-identical
+throughout) untouched. 11 permanent SEINE_TMS_DEBUG probes.
+D-203..211 committed local; through 728af4a PUSHED — Bryan holds
+pushes. REMAINING OPEN: RP2 (the lazy-trail re-add order,
+epicycle-stopped, instrument = per-round SdDump on the x63 shape);
+the SD census floor 72 (64 permanent runaways + 8 fixable);
+fz_123_6887 (moved-not-converged, different mechanism); the
+k≥2-observer-of-unstage-born envelope note; triage_xfail's batch
+parse bug._
+
+_Prior (post-D-210): I-RD:
 THE RD×2 ANOMALY IS PINNED — instrumented, not armchaired: 7
 permanent SEINE_TMS_DEBUG key-path probes; H1 confirmed verbatim
 (the mis-scoped `e.beliefs.clear()` in tms_route_delete_ex's plain
@@ -12098,3 +12119,63 @@ ird census 86 EXACT (150/150 clean ×5, corners none)** — the
 probes are behavior-inert and stay as the permanent TMS key-path
 debug facility. NEXT: THE PORT SLAB (Bryan gates) — the map above,
 red-first per divergence family, full receipts per change.
+
+## D-211 — THE I-RD PORT (Bryan-gated): all three law families translated red-first — the static key model (F1), the dynamic law (F2), the in-flush self-break landing (F3) — plus the c5-approximation residual; TWENTY-SEVEN GRADUATES (drift 59→32, regressions 370→397); THE IRD CENSUS CLOSES 86→0 (ALL FIVE SEEDS ZERO); SD 72 EXACT THROUGHOUT (2026-07-12)
+
+Plan + per-family predictions: ird-port-plan.md; full narrative:
+ird-port-results.md. Per-family summaries:
+
+**F1 (`2f76db8`) THE STATIC KEY MODEL**: activation-backfill
+(pre-activation stateds keyless; LAST-per-value backfills mapped) +
+the r1-event (orphan siblings [tms.orphans = the undeletability
+carrier] + unstage + key-death; externals keep dump8) + the
+L6-event & pending-clear at BOTH belief-empty sites (⚠ the
+epilogue minimal-touch bet LOST — fz_7_9902's per-epoch refire
+lands there; the pre-registered fallback applied) + TMS-dropped
+materialization. Converged l6/8757/9902 + BONUS fz_7_2864;
+fz_123_6887 moved-not-converged (rebanked). ird 86→81.
+
+**F2 (`0aef958`) THE DYNAMIC LAW**: found by instrumented bisection
+through SIX candidate cancel sites (probes added and stripped; the
+five-site staging-annihilation whack-a-mole was the WRONG ALTITUDE,
+reverted): the boundary FORCE-EVAL (tms.force_eval, the D-201
+churn-force-evaluate precedent — the act exists at the flush while
+the fact lives) + the k=1/general terminal del-consume exemptions +
+the j05 DEACTIVATION-PRUNE exemption (the LAST cancel site: the
+unlinked-rule eval prunes acts whose facts left the alpha sets).
+⚠ the stale-value hazard never fired. Converged b1/b2/d1/d2/r1 +
+4048/7219/6368. ird 81→75.
+
+**F3 (this commit) THE RULE-SHAPE LANDING**: the current_act
+exclusion NARROWED — lazy only when the justifying tuple holds ≥2
+facts of the broken type; single-binding same-batch self-breaks
+land eagerly. GREEN FIRST BUILD; every boundary held (m3/m4/m6/m7,
+s1/s2/s3, fz_42_2442, the t20 corpus cells). THE QUARANTINE MOVED
+WIDE: 21 witnesses, ALL CONVERGED.
+
+**GRADUATION**: 27 witnesses (21 F3 + 2864 + 8757/9902 +
+4048/7219/6368), oracle 3×-identity-stable + engine-converged →
+regressions/ (tiers 11/1124/397; drift 59→32; lint 1796/0/0).
+⚠ triage_xfail's own batch parse crashed on an unrelated CEP
+witness — worked around with the direct 3× sweep; tool fix
+deferred.
+
+**THE RESIDUAL (found by the F3 census, 86→1)**: irdp6003x128 —
+the c5 key-survives+had_justified approximation leaked
+dump3-undeletability onto a stated insert arriving AFTER the
+belief's delete. Cured: the justified-delete branch is now the
+REAL key-death event (orphan + key removal; dump3's no-op
+observable preserved via orphans; fz_42_1395 zero-sibling
+unchanged). All 31 cells + corpus + drift green after.
+
+**CLOSING RECEIPTS**: corpus 11/1124/397 byte-green; drift 32
+identical; lint 1796/0/0; sd cells 39/39; witnesses 26/26; model
+31/31; ladder 6/6; agenda_open ×19 byte-identical to the
+session-start capture through ALL families; cargo test 9; **SD
+census 72 EXACT, 0-div 12×150/150 (all families + residual); ird
+census 86 → 0 — ZERO DIVERGENTS ON ALL FIVE SEEDS**, model-clean
+150/150 ×5, corners none. THE I-RD PORT IS TOTAL OVER THE
+POPULATION. Engine notes: 11 permanent SEINE_TMS_DEBUG probes; the
+k≥2-observer-of-unstage-born shape outside the pinned envelope
+(noted); tms.orphans carries undeletability. RP2 (lazy-trail
+re-add order) remains open with its named instrument.

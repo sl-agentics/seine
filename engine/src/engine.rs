@@ -10011,19 +10011,25 @@ impl Engine {
         if let Some(jf) = e.justified {
             e.justified = None;
             e.beliefs.clear();
-            let empty = e.stated.is_empty();
             self.tms.by_fact.remove(&jf);
+            // ⚖ D-211 (c5 + the irdp6003x128 residual): deleting the
+            // WM belief kills the key WHOLE — coexisting stated
+            // siblings ORPHAN (undeletable, preserving the dump3
+            // no-op observable) and a LATER stated insert of the
+            // value re-keys FRESH and DELETABLE (the oracle's
+            // key-death; the old key-survives+had_justified
+            // approximation leaked undeletability onto post-death
+            // inserts). Zero-sibling case = fz_42_1395 unchanged.
+            let sibs: Vec<FactId> = e.stated.drain(..).collect();
+            for sb in sibs {
+                self.tms.by_fact.remove(&sb);
+                self.tms.orphans.insert(sb);
+            }
             for (_, keys) in self.tms.by_act.iter_mut() {
                 keys.retain(|k| *k != key);
             }
             self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
-            if empty {
-                // no surviving handles: the key vanishes — a later
-                // stated insert starts FRESH (fz_42_1395); the no-op
-                // delete quirk only protects SIBLINGS that coexisted
-                // with the justified handle (dump3).
-                self.tms.keys.remove(&key);
-            }
+            self.tms.keys.remove(&key);
             return (Some(jf), None);
         }
         if e.had_justified {
@@ -10144,11 +10150,23 @@ impl Engine {
             .by_act
             .iter()
             .filter(|((ri, tuple), _)| {
-                // a justifier breaking its OWN tuple mid-firing lands
-                // LAZY at its terminal instead (fz_42_2442: R3's higher-
-                // salience activation fires before the retract).
+                // ⚖ D-211/F3 (the rule-shape law, D-208 s2): a
+                // justifier breaking its OWN tuple mid-firing lands
+                // LAZY only when its LHS is a SELF-JOIN on the broken
+                // fact's type (>=2 tuple facts of that type — m3/m6/m7/
+                // s2, fz_42_2442's shape); a SINGLE-BINDING same-batch
+                // self-break lands EAGERLY like a foreign one (m1/m2/
+                // m5, fz_777_2956 + fz_7_1591 + fz_7_5988: no act on
+                // the belief ever fires).
                 if self.tms.current_act.as_ref() == Some(&(*ri, tuple.clone())) {
-                    return false;
+                    let ftid = self.store.fact_type(f);
+                    let same_type = tuple
+                        .iter()
+                        .filter(|x| self.store.fact_type(**x) == ftid)
+                        .count();
+                    if same_type >= 2 {
+                        return false;
+                    }
                 }
                 // In CLOUD, eager teardown reaches the terminal DIRECTLY
                 // only for k=1 justifiers (LIA->terminal); k>=2 tuples
