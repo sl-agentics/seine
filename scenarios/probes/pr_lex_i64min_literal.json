@@ -1,0 +1,18 @@
+{
+ "name": "pr_lex_i64min_literal",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {"name": "v", "type": "i64"}
+   ]
+  }
+ ],
+ "drl": "rule R when P(v == -9223372036854775808) then end\n",
+ "facts": [
+  {"type": "P", "fields": {"v": -9223372036854775808}},
+  {"type": "P", "fields": {"v": 5}}
+ ],
+ "epochs": [],
+ "_finding": "i64::MIN as a constraint literal (external review round 9, finding A): the magnitude 9223372036854775808 exceeds i64::MAX, so a magnitude-first lexer rejects it before the unary minus can fold - Java folds the sign into Long.MIN_VALUE literals (JLS 3.10.1) and the oracle accepts and MATCHES the MIN-valued fact. Engine now lexes the exact magnitude as a MIN-only token folded at negation; bare (unnegated) use and magnitude+1 are compile errors on BOTH sides."
+}

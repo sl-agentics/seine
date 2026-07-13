@@ -51,6 +51,10 @@ pub enum Tok {
     Ident(String),
     StrLit(String),
     IntLit(i64),
+    /// Exactly 9223372036854775808 (= 2^63): legal only as the operand
+    /// of a unary minus, where it folds to i64::MIN — Java folds the
+    /// sign into Long.MIN_VALUE literals the same way (JLS 3.10.1).
+    IntMinLit,
     FloatLit(f64),
     Sym(&'static str),
 }
@@ -61,6 +65,7 @@ impl fmt::Display for Tok {
             Tok::Ident(s) => write!(f, "{s}"),
             Tok::StrLit(s) => write!(f, "{s:?}"),
             Tok::IntLit(n) => write!(f, "{n}"),
+            Tok::IntMinLit => write!(f, "9223372036854775808"),
             Tok::FloatLit(n) => write!(f, "{n}"),
             Tok::Sym(s) => write!(f, "{s}"),
         }
@@ -527,9 +532,15 @@ fn lex(src: &str) -> Result<(Vec<Tok>, Vec<u32>), DrlError> {
                 })?));
             } else {
                 let s: String = b[start..i].iter().collect();
-                push!(start, Tok::IntLit(s.parse().map_err(|e| {
-                    lerr(start, format!("bad int literal {s}: {e}"))
-                })?));
+                match s.parse::<i64>() {
+                    Ok(n) => push!(start, Tok::IntLit(n)),
+                    // 2^63 exactly: representable only under a unary
+                    // minus (Long.MIN_VALUE); the parser folds or rejects
+                    Err(_) if s.parse::<u64>() == Ok(1u64 << 63) => {
+                        push!(start, Tok::IntMinLit)
+                    }
+                    Err(e) => return Err(lerr(start, format!("bad int literal {s}: {e}"))),
+                }
             }
         } else if c == '"' {
             let start = i;
@@ -734,6 +745,10 @@ impl Parser {
     fn literal(&mut self) -> Result<Literal, DrlError> {
         match self.next()? {
             Tok::IntLit(n) => Ok(Literal::I64(n)),
+            Tok::IntMinLit => Err(self.perr_prev(
+                "integer number too large: 9223372036854775808 (only \
+                 -9223372036854775808 is representable)",
+            )),
             Tok::FloatLit(n) => Ok(Literal::F64(n)),
             Tok::StrLit(s) => Ok(Literal::Str(s)),
             Tok::Ident(w) if w == "true" => Ok(Literal::Bool(true)),
@@ -741,6 +756,7 @@ impl Parser {
             Tok::Ident(w) if w == "null" => Ok(Literal::Null),
             Tok::Sym("-") => match self.next()? {
                 Tok::IntLit(n) => Ok(Literal::I64(-n)),
+                Tok::IntMinLit => Ok(Literal::I64(i64::MIN)),
                 Tok::FloatLit(n) => Ok(Literal::F64(-n)),
                 other => Err(self.perr_prev(format!("expected number after '-', got {other}"))),
             },

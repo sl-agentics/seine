@@ -12688,3 +12688,40 @@ this is the likeliest true oracle divergence of the three; (B)
 data-path i64 overflow misreported as "table schema differs"; (C)
 unknown fields in a row dict silently accepted, alone among the
 schema violations.
+
+## D-226 — finding A landed: i64::MIN is writable as a constraint literal (external review round 9, Bryan-gated engine change) (2026-07-13)
+
+The confirmed divergence: the oracle accepts P(v ==
+-9223372036854775808) and MATCHES the MIN-valued fact, while the
+engine's lexer parsed the magnitude before the unary minus could
+fold and died with "number too large to fit in target type". Java
+folds the sign into Long.MIN_VALUE literals (JLS 3.10.1: the
+magnitude 2^63 is legal only as the operand of unary minus) — the
+reviewer called this the likeliest true divergence of his batch,
+and the probe proved him right before the fix.
+
+The port, at the token level: the lexer emits a dedicated
+Tok::IntMinLit for the exact magnitude 9223372036854775808;
+literal() folds it to i64::MIN under Sym("-") and rejects it bare
+with "integer number too large" (the javac shape). Binary-minus
+and every other IntLit consumer are untouched — the new token is
+legalized only inside literal()'s negation arm, so duration_ms,
+window:length, and salience terms reject it with their existing
+messages. Edges pinned differentially before landing: bare 2^63
+and magnitude 2^63+1 are compile errors on BOTH sides (oracle
+RuntimeException at kbase build) — semantics agree, the shapes
+stay out of the corpus as out-of-subset.
+
+pr_lex_i64min_literal graduated (engine and oracle both fire on
+the MIN fact, control fact silent; 3x-stable).
+
+The full battery, engine change protocol: corpus 11/1132/397 +
+drift 32 identical; cargo test green; lint-probes 1804/0/0;
+model_ird 31/31; check_witnesses 26/26; agenda_open x19
+byte-identical vs a clean worktree at 1d7c420 (first comparison
+run had a cwd bug making it vacuous — redone properly); SD census
+72 EXACT (6+10+3+5+6+5+5+6+8+7+4+7 across the 12 seeds, model
+0-div 12x150/150); ird census 0 x5 seeds, corners none; bindings
+99/99 on the rebuilt .so. B (overflow misreported as schema
+mismatch) and C (unknown dict fields silently accepted) remain
+open from the reviewer's batch.
