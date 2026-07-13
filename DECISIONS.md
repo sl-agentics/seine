@@ -12610,3 +12610,44 @@ Receipts: bindings 98/98 (the both-orders test now pins all four
 remedies in the message text); message-and-docstring only, lint
 logic byte-identical, engine and corpus untouched. Rides the next
 tag with D-221/D-222.
+
+## D-224 — the lint is a sampler, not a detector: the monotonicity caveat on the D-222 doc (external review round 8, second half) + the crates.io name check resolved (2026-07-13)
+
+THE NAME CHECK (his time-sensitive flag): `cargo publish -p
+seine-engine` is CORRECT AS WRITTEN, and the mismatch he feared is
+the documented design, not an accident. engine/Cargo.toml is
+`name = "seine-engine"` and the CI job publishes that; the `seine`
+v0.0.1 reservation (reserved/seine/) says in its own Cargo.toml
+comment and README that it is held for a FUTURE designed public
+Rust API — "reserved rather than squatted" — and explicitly names
+`seine-engine` as the real crate in the repository. Two names on
+purpose: `seine-engine` = the certified internal engine published
+now (its Rust API is unstable-by-design; burning the good name on
+it would pin `seine` 0.4.x to an API we never designed for public
+use); `seine` = the signpost, upgradeable to the real thing later.
+Follow-up when convenient: a placeholder 0.0.2 adding the live
+crates.io/crates/seine-engine link once the first publish lands.
+
+THE CAVEAT (his sharper form, adopted onto the lint's docstring):
+stated insert = monotonic conclusion, logical insert = defeasible
+conclusion — and the checkable proxy needing no chain reasoning is
+whether the LHS QUANTIFIES over the absence or aggregate of
+working memory (not / exists / accumulate / forall): every one is
+a claim about the whole current state, and any state that can
+still change can defeat it. NAF is not where the problem lives,
+only where it leaks first, because negation is explicitly
+non-monotonic and ordering makes the leak observable. His
+convincer is ours to keep: the oracle's own stale-min/max defect
+(the D-093 report, fixed upstream and vendored at D-163) IS this
+class in production — an extremum is an aggregate, the stale value
+a permanence claim that failed to retract when the premise moved.
+The oracle got this wrong for years; the principle is load-bearing
+and non-obvious. Therefore the docstring now states it: passing
+D-222 means the modeling error did not leak through a same-stratum
+negation THIS TIME — an accumulate-derived stated fact with no
+`not` anywhere stays perfectly silent. Lint green must never be
+read as model sound.
+
+Receipts: bindings 98/98 (docstring-only; the tracker-ID scan is
+over public docs and the lint helper is private, verified green);
+engine and corpus untouched. Rides the next tag with D-221..D-223.

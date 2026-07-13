@@ -1002,7 +1002,24 @@ def _lint_unstratified_negation(rules: "list[Rule]") -> None:
     negating a type it itself inserts) is the fire-once idiom, not a
     race. The engine stays Drools-faithful — raw DRL keeps the
     footgun; this only stops the authoring layer from silently
-    accepting rule sets whose answer depends on list order."""
+    accepting rule sets whose answer depends on list order.
+
+    CAVEAT — this lint is a SAMPLER of the underlying modeling
+    error, not a detector of it. The error is asserting a
+    defeasible conclusion with a stated (monotonic) insert: any
+    rule whose LHS quantifies over the absence or aggregate of
+    working memory (not, exists, accumulate, forall) concludes
+    from the WHOLE current state, and a state that can still
+    change can defeat it. Negation-as-failure is merely where that
+    error leaks first, because ordering makes it observable — an
+    accumulate-derived stated fact with no `not` anywhere in the
+    rule set is just as wrong and stays perfectly silent here.
+    (The oracle's own stale-min/max defect, fixed upstream via the
+    D-093 report, was this class in production: an extremum is an
+    aggregate, the stale value a permanence claim that failed to
+    retract when its premise moved.) Passing this lint means the
+    modeling error did not leak through a same-stratum negation
+    this time; it does not mean the model is sound."""
     def stratum(r: Rule):
         s = r.salience if r.salience is not None else 0
         return (r.agenda_group, s) if isinstance(s, int) else None
