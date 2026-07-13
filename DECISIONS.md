@@ -12253,3 +12253,43 @@ hygiene meta-test that greps public __doc__ for tracker IDs);
 corpus 11/1124/397 + drift 32 byte-identical (the reviewer's
 predicted null-proof: the whole batch is non-behavioral). The
 published v0.4.3 predates all of this; ships with the next tag.
+
+## D-215 — triage_xfail's batch-parse bug fixed: the crash was a STALE CACHE (a July-6 engine/oracle cache with 75 scenarios silently reused against the D-211 59-file population); the tool now fingerprints its inputs, enforces the name-collision hazard, fail-fasts before the oracle burn, writes atomically, and self-heals partials; fresh 10× triage of the 32-witness quarantine: ZERO graduation candidates (2026-07-12)
+
+THE DIAGNOSIS: ensure_runs reused any existing
+target/triage_cache/*.ndjson with NO invalidation — the D-211 crash
+(`KeyError: xf_cep_c_del_churn_exists_rule` at classification,
+AFTER the full 10× oracle spend) was a July-6 cache built from a
+75-scenario population read against July-12's 59 files; scenarios
+added after July 6 were simply absent. The current population was
+clean (no duplicate internal names, no name/stem mismatches) — the
+bug was purely cache lifecycle.
+
+THE FIX (tools/triage_xfail.py):
+1. INPUT FINGERPRINT — manifest.json of (basename, size, mtime) per
+   input; any mismatch wipes and rebuilds the cache (caching stays —
+   10× oracle is expensive — it's just SOUND now).
+2. PREFLIGHT enforces the recorded name-collision hazard: duplicate
+   internal names across files exit LOUDLY naming both files (the
+   harness keys ndjson by internal name and would silently
+   overwrite); name≠stem prints an informational note.
+3. FAIL-FAST ORDER: the cheap engine batch is completeness-checked
+   BEFORE the runs× oracle replicates launch — the D-211 failure
+   mode (burn first, KeyError later) is structurally gone.
+4. ATOMIC BATCHES: ndjsons write to .tmp and rename on success — an
+   interrupted run can never leave a partial behind a valid
+   manifest (a partial was produced and caught live during this
+   fix's own testing).
+5. SELF-HEAL: a pre-existing incomplete batch is detected, deleted,
+   and rebuilt once; only a rebuild that is STILL incomplete exits.
+
+RECEIPTS: synthetic duplicate-name pair → loud exit ✓; the legacy
+partial → "rebuilding" + clean completion ✓; the D-211 crash
+scenario classifies cleanly (VALUE) ✓; full `--runs 10` end-to-end
+rc=0. BONUS — the first complete quarantine triage since the port:
+**32 witnesses = 22 ORACLE-RUNAWAY + 1 ORACLE-NONDET (fz_42_84
+family) + 5 ORDER-ONLY + 4 VALUE, ZERO PASS** — no graduation
+candidates remain, independently cross-validating the D-211 sweep.
+The 9 certifiable-but-open (5 order + 4 value, incl. fz_123_6887)
+are the true open ledger; the other 23 are uncertifiable in
+principle (runaway/nondet, D-080 doctrine).

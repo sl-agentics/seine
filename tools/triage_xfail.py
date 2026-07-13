@@ -162,25 +162,106 @@ def load_ndjson(path):
     return m
 
 
+def input_manifest(files):
+    """Fingerprint of the input population: basename + size + mtime per
+    file. A cache built for a different population is INVALID — the
+    D-211 triage crash was a July-6 cache (75 scenarios) silently
+    reused against a 59-file population, KeyError-ing only AFTER the
+    full 10x oracle burn."""
+    ents = []
+    for f in sorted(files):
+        st = os.stat(f)
+        ents.append([os.path.basename(f), st.st_size, int(st.st_mtime)])
+    return ents
+
+
+def preflight(files):
+    """The recorded name-collision hazard, enforced: the harness keys
+    ndjson output by each scenario's INTERNAL name, so duplicate names
+    across files silently overwrite each other. Fail loudly instead."""
+    by_name = {}
+    for f in files:
+        name = json.load(open(f))["name"]
+        if name in by_name:
+            sys.exit(
+                f"duplicate scenario name {name!r} in {by_name[name]} and {f} — "
+                "the harness result map keys by name and would silently collide; "
+                "rename one (the minimize_keyed convention) before triaging"
+            )
+        by_name[name] = f
+        stem = os.path.splitext(os.path.basename(f))[0]
+        if name != stem:
+            print(f"note: {os.path.basename(f)} has internal name {name!r} (harmless; keyed by name)")
+    return set(by_name)
+
+
+def is_complete(path, expected):
+    try:
+        return expected <= set(load_ndjson(path))
+    except (json.JSONDecodeError, OSError):
+        return False
+
+
+def check_complete(path, expected, what):
+    got = set(load_ndjson(path))
+    missing = expected - got
+    if missing:
+        sys.exit(
+            f"{what} batch is missing {len(missing)} scenario(s) even after "
+            f"a rebuild (e.g. {sorted(missing)[:3]}) — the harness is "
+            f"dropping output for them; run it by hand on those files"
+        )
+
+
 def ensure_runs(files, cache, runs):
     os.makedirs(cache, exist_ok=True)
+    expected = preflight(files)
+    manifest_path = os.path.join(cache, "manifest.json")
+    manifest = input_manifest(files)
+    stale = True
+    if os.path.exists(manifest_path):
+        try:
+            stale = json.load(open(manifest_path)) != manifest
+        except (json.JSONDecodeError, OSError):
+            stale = True
+    if stale:
+        for f in os.listdir(cache):
+            if f.endswith(".ndjson") or f == "manifest.json":
+                os.remove(os.path.join(cache, f))
+        json.dump(manifest, open(manifest_path, "w"))
+        print(f"cache invalidated (population changed or first run): {cache}")
+    # Batches write to .tmp and rename on success: an interrupted run
+    # can never leave a partial .ndjson behind a valid manifest.
     eng_path = os.path.join(cache, "engine.ndjson")
+    if os.path.exists(eng_path) and not is_complete(eng_path, expected):
+        print("engine cache incomplete (interrupted run?) — rebuilding")
+        os.remove(eng_path)
     if not os.path.exists(eng_path):
-        with open(eng_path, "w") as fh:
+        with open(eng_path + ".tmp", "w") as fh:
             subprocess.run(HARNESS + ["run"] + files, stdout=fh, cwd=REPO, check=True)
+        os.replace(eng_path + ".tmp", eng_path)
+    # validate the CHEAP batch before burning runs x oracle launches
+    check_complete(eng_path, expected, "engine")
     procs = []
     for i in range(1, runs + 1):
         p = os.path.join(cache, f"oracle_r{i}.ndjson")
+        if os.path.exists(p) and not is_complete(p, expected):
+            print(f"oracle replicate {i} incomplete — rebuilding")
+            os.remove(p)
         if not os.path.exists(p):
-            fh = open(p, "w")
+            fh = open(p + ".tmp", "w")
             procs.append((subprocess.Popen(HARNESS + ["oracle"] + files, stdout=fh,
-                                           stderr=subprocess.DEVNULL, cwd=REPO), fh))
-    for p, fh in procs:
-        p.wait()
+                                           stderr=subprocess.DEVNULL, cwd=REPO), fh, p))
+    for pr, fh, p in procs:
+        pr.wait()
         fh.close()
-        if p.returncode != 0:
+        if pr.returncode != 0:
             sys.exit("oracle replicate failed")
-    return eng_path, [os.path.join(cache, f"oracle_r{i}.ndjson") for i in range(1, runs + 1)]
+        os.replace(p + ".tmp", p)
+    orc_paths = [os.path.join(cache, f"oracle_r{i}.ndjson") for i in range(1, runs + 1)]
+    for op in orc_paths:
+        check_complete(op, expected, "oracle")
+    return eng_path, orc_paths
 
 
 def main():
