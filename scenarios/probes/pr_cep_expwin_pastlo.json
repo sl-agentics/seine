@@ -1,0 +1,31 @@
+{
+ "name": "pr_cep_expwin_pastlo",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "acct", "type": "i64"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 10000}
+  },
+  {
+   "name": "B",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "acct", "type": "i64"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 100000}
+  }
+ ],
+ "drl": "rule R when $a : A($ac : acct) $b : B(acct == $ac, this after[10000ms,20000ms] $a) then end\n",
+ "facts": [
+  {"type": "A", "fields": {"ts": 0, "acct": 1}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "advance", "ms": 10001}], "facts": []},
+  {"actions": [], "facts": [{"type": "B", "fields": {"ts": 10001, "acct": 1}}]}
+ ],
+ "_finding": "expires == window lo, partner ONE MS past the instant (delta 10001, deadline 10000): the anchor died strictly after its deadline passed, the join is SILENT. Control for pr_cep_expwin_atlo - the alive-AT-deadline boundary is exact.",
+ "expect_inert": true
+}

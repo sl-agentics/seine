@@ -12651,3 +12651,40 @@ read as model sound.
 Receipts: bindings 98/98 (docstring-only; the tracker-ID scan is
 over public docs and the lint helper is private, verified green);
 engine and corpus untouched. Rides the next tag with D-221..D-223.
+
+## D-225 — the tier-1 off-by-one: expires == lo is the single-instant truncation, not never-match (external review round 9 — his boundary probe caught the lint contradicting the engine it fronts) (2026-07-13)
+
+His finding, verified exactly: with anchor expires_ms=10000 and a
+this_after[10000,20000] window, a partner at delta 9999 is silent
+(below lo), at delta 10000 FIRES, at 10001 silent — while the
+D-219 lint classified the shape tier-1 "can never match". The
+authoring layer was refusing with a factual claim the engine under
+it disproves. The frontier was `expires <= lo` where the world is
+`expires < lo`: the event is alive AT its deadline instant.
+
+Oracle-pinned before the one-character fix, per doctrine — two new
+probes, predictions logged (IDENTICAL/fired=1 at 0.8; matched):
+pr_cep_expwin_atlo (delta == lo == expires == 10000 → the join
+FIRES in both engines, 3×-stable) and pr_cep_expwin_pastlo (one ms
+past → SILENT both, 3×-stable). Alive-at-deadline is exact on both
+sides of the instant.
+
+The fix: tier 1 now requires expires STRICTLY below lo; expires ==
+lo falls to tier 2, whose existing wording ("partners arriving
+after {expires}ms can never match, silently truncating the
+declared window") is precisely accurate for the
+truncated-to-one-instant case. The shape is still rejected — D-219's
+declare-your-lifetime contract is unchanged — but the message no
+longer states a falsehood. Engine untouched (the boundary was
+already oracle-faithful; only the lint's claim moved).
+
+Receipts: bindings 99/99 (new boundary test pins tier-2 wording,
+tier-1 marker absent); corpus 11/1131/397 + drift 32 identical;
+lint-probes 1803/0/0. STILL OPEN from his adversarial batch,
+queued explicitly (round 9's ask): (A) i64::MIN unwritable as a
+constraint literal — the lexer reads the magnitude before the
+unary minus; Java folds the minus into Long.MIN_VALUE literals, so
+this is the likeliest true oracle divergence of the three; (B)
+data-path i64 overflow misreported as "table schema differs"; (C)
+unknown fields in a row dict silently accepted, alone among the
+schema violations.

@@ -701,7 +701,11 @@ class Rule:
                         f"earlier event of a this_{c.op}[{c.lo_ms}, {c.hi_ms}] window "
                         f"in rule {self.name!r}"
                     )
-                    if expires <= c.lo_ms:
+                    # strictly below lo: the event is alive AT its
+                    # deadline instant (pr_cep_expwin_atlo — delta ==
+                    # lo == expires fires), so expires == lo is tier-2
+                    # truncation to that single instant, not never-match
+                    if expires < c.lo_ms:
                         raise CompileError(
                             f"{where} — it always expires before the window opens, so "
                             f"this constraint can never match. Raise expires_ms to at "

@@ -1,0 +1,30 @@
+{
+ "name": "pr_cep_expwin_atlo",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "acct", "type": "i64"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 10000}
+  },
+  {
+   "name": "B",
+   "fields": [
+    {"name": "ts", "type": "i64"},
+    {"name": "acct", "type": "i64"}
+   ],
+   "event": {"timestamp": "ts", "expires_ms": 100000}
+  }
+ ],
+ "drl": "rule R when $a : A($ac : acct) $b : B(acct == $ac, this after[10000ms,20000ms] $a) then end\n",
+ "facts": [
+  {"type": "A", "fields": {"ts": 0, "acct": 1}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "advance", "ms": 10000}], "facts": []},
+  {"actions": [], "facts": [{"type": "B", "fields": {"ts": 10000, "acct": 1}}]}
+ ],
+ "_finding": "expires == window lo, partner at EXACTLY that instant (delta == lo == expires == 10000): the anchor is still alive AT its deadline and the join FIRES. This is the single surviving instant of a window whose lo equals the lifetime - tier 2 truncation, NOT tier-1 never-match (external review round 9: the authoring lint's tier frontier was <= where the engine/oracle boundary is <)."
+}

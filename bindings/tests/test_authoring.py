@@ -269,6 +269,19 @@ def test_expires_before_window_opens_rejected():
         r.when(Later, seine_rs.this_after(a, 6_000, 10_000))
 
 
+def test_expires_equal_to_lo_is_truncation_not_never_match():
+    # the round-9 off-by-one: at delta == lo == expires the anchor is
+    # alive AT its deadline and the join fires (pr_cep_expwin_atlo,
+    # oracle-pinned) — so expires == lo is the single-instant tier-2
+    # truncation, and "can never match" would state a falsehood
+    Anchor = _ev(10_000)
+    r = seine_rs.Rule("at-lo")
+    a = r.when(Anchor)
+    with pytest.raises(CompileError, match="silently truncating") as ei:
+        r.when(Later, seine_rs.this_after(a, 10_000, 20_000))
+    assert "before the window opens" not in str(ei.value)
+
+
 def test_expires_covering_window_allowed():
     Anchor = _ev(10_000)
     r = seine_rs.Rule("ok")
