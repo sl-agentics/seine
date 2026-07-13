@@ -1,0 +1,17 @@
+# Name reservation for the Seine project. This placeholder exists so
+# the crate name matches the project (github.com/sl-agentics/seine)
+# before someone unrelated takes it — the project already lost the
+# bare "seine" name on PyPI to an unrelated package and ships there
+# as "seine-rs". The real engine may publish under this name once a
+# public Rust API is designed; until then, use the Python package.
+[package]
+name = "seine"
+version = "0.0.1"
+edition = "2021"
+license = "Apache-2.0"
+description = "Reserved for Seine: a differentially certified Drools-subset rule engine over Arrow. Use the Python package `seine-rs`; Rust API to come."
+repository = "https://github.com/sl-agentics/seine"
+readme = "README.md"
+
+# standalone: opt out of the enclosing workspace
+[workspace]

@@ -12313,3 +12313,32 @@ latent misread in the same dict — summing all four buckets as
 asserts the three load-bearing phrases stay in the payload.
 Receipts: 82/82 binding tests; non-behavioral (ships with the next
 tag; the published v0.4.4 lacks the key).
+
+## D-217 — crates.io name reservation prepared: `seine` (external-review round 4, pushed 3×; the PyPI precedent argues it) (2026-07-12)
+
+The reviewer's case: the project already lost bare `seine` on PyPI
+to an unrelated package (hile's network utils) before Seine
+existed — the cost was the dist/import mismatch that took D-212 to
+clean up. On crates.io the names are STILL AVAILABLE (checked live:
+`seine`, `seine-rs`, `seine-engine` all 404). Prepared
+`reserved/seine/` — a minimal 0.0.1 placeholder (own [workspace]
+opt-out; builds + `cargo package` verifies clean; the main
+workspace untouched) whose README states plainly it is a
+reservation for an ACTIVE project, points at the repo and the PyPI
+package, and names the engine crate the reservation is held for —
+reserved-not-squatted per crates.io norms. NOT PUBLISHED: no cargo
+credentials exist on this machine and publishing is Bryan's
+outward-facing act — `cargo login` (token from crates.io/settings)
+then `cargo publish` from reserved/seine/. `seine-rs` on crates.io
+(PyPI symmetry) is available too if wanted; only the pushed ask was
+prepared. PUBLISHED same day (Bryan-run: cargo login + email
+verification + the publish one-liner): **seine v0.0.1 live on
+crates.io**, 7 files / 1.6KiB compressed — after a packaging
+incident caught pre-upload: the D-217 commit's `git add reserved/`
+had swept the nested target/ (the root .gitignore's /target anchors
+to the repo root; git-TRACKED files override cargo's target
+auto-exclusion) → a 34-file package with rlibs and the prior .crate
+nested inside itself; the email-verification failure blocked that
+upload, the junk was untracked + locally gitignored, and the clean
+7-file package shipped. ⚠ hazard note: nested crates need their own
+/target gitignore BEFORE the first `git add`.
