@@ -12576,3 +12576,37 @@ existing suite green under the lint — the certified
 when_not+insertLogical idiom (arc-3 TMS test) compiles untouched,
 which is exemption (2) earning its keep. Authoring-layer only;
 corpus untouched. Rides the next tag with D-221.
+
+## D-223 — the fourth remedy: the lint's message now leads with the modeling question (external review round 8 — he verified exemption 2 himself, then caught the message withholding it) (2026-07-13)
+
+The reviewer stress-tested the load-bearing exemption on 0.4.5
+directly — no lint involved, pure TMS: with the negator's insert
+STATED, flipping declaration order flips finals (the leak); with it
+LOGICAL, the trace still differs but finals are identical both ways
+— the RELEASE is retracted the instant the block falsifies its
+justification. Exemption (2) verified independently, exactly as
+claimed.
+
+His finding: the D-222 message offered three remedies (salience /
+agenda_group / two-pass) and never mentioned the fourth one the
+exemption itself is built on — make the negating rule's inserts
+logical. The knowledge was encoded in the exemption and withheld
+from the error. And it's the smallest available diff: then_insert
+→ then_insert_logical, one token.
+
+His deeper point, adopted as the message's structure: the leak is
+a MODELING error before it is an ordering bug. A conclusion that a
+later-discovered fact should invalidate is semantically a DERIVED
+VIEW; asserting it with a stated insert claims permanence — a lie
+the ordering race merely surfaces. So the message now leads with
+the question ("First decide what this rule's conclusion is") and
+splits the remedies by the answer: a view → then_insert_logical
+(TMS self-corrects, finals order-invariant — and the firings table
+still records the considered-and-retracted release, strictly MORE
+audit information than the stated version's wrong final); a
+durable record → the three stratification fixes, unchanged.
+
+Receipts: bindings 98/98 (the both-orders test now pins all four
+remedies in the message text); message-and-docstring only, lint
+logic byte-identical, engine and corpus untouched. Rides the next
+tag with D-221/D-222.

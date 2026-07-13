@@ -993,7 +993,11 @@ def _lint_unstratified_negation(rules: "list[Rule]") -> None:
     A rule whose consequences are ALL insertLogical is exempt — truth
     maintenance retracts its products when the negation is falsified
     later, so its finals are order-invariant (the firing trace may
-    still vary). Dynamic (bound-field) salience is statically
+    still vary). The message leads with that as the first remedy,
+    because the underlying question is a modeling one: a conclusion a
+    later fact should invalidate is a derived view (insertLogical); a
+    conclusion that must survive is a record, and records need strata
+    or a second pass. Dynamic (bound-field) salience is statically
     unknowable, so those pairs stay silent. Self-negation (a rule
     negating a type it itself inserts) is the fire-once idiom, not a
     race. The engine stays Drools-faithful — raw DRL keeps the
@@ -1029,10 +1033,16 @@ def _lint_unstratified_negation(rules: "list[Rule]") -> None:
                     f'rule "{r.name}" negates {p.cls.__name__}, but rule {names} '
                     f"inserts {p.cls.__name__} in {where} — the negation may be "
                     f"evaluated before that insert, so this rule's outcome depends "
-                    f"on the order rules were declared. Separate the strata: give "
-                    f"the inserting rule higher salience or its own agenda_group, "
-                    f"or compute {p.cls.__name__} in a separate session pass and "
-                    f"feed it back as input facts."
+                    f"on the order rules were declared. First decide what this "
+                    f"rule's conclusion is: if it is a derived view that a "
+                    f"later {p.cls.__name__} should invalidate, use "
+                    f"then_insert_logical — truth maintenance retracts it when "
+                    f"the negation is falsified, so finals are order-invariant "
+                    f"(and the firings table still records that it was "
+                    f"considered). If it is a durable record, separate the "
+                    f"strata: give the inserting rule higher salience or its "
+                    f"own agenda_group, or compute {p.cls.__name__} in a "
+                    f"separate session pass and feed it back as input facts."
                 )
 
 

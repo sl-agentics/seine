@@ -324,6 +324,10 @@ def test_unstratified_negation_rejected_in_both_declaration_orders():
         msg = str(ei.value)
         assert "release" in msg and "block-bankruptcy" in msg
         assert "SDecision" in msg and "declared" in msg
+        # every remedy the lint's own exemptions know about is offered,
+        # including the smallest diff: view -> then_insert_logical
+        assert "then_insert_logical" in msg
+        assert "salience" in msg and "agenda_group" in msg and "separate session pass" in msg
 
 
 def test_stratified_by_salience_passes():
