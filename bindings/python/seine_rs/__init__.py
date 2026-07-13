@@ -1,11 +1,22 @@
 """seine_rs — differentially certified Drools-subset rule engine over Arrow.
 
-Layer 1 (D-044): `run(drl, {type: table})` — DRL strings over Arrow
-batches, WM-delta results.
-Layer 2 (D-045): Pythonic authoring that compiles to DRL text — the
-engine only ever sees the certified grammar.
+Layer 1: `run(drl, {type: table})` — DRL strings over Arrow batches,
+WM-delta results.
+Layer 2: Pythonic authoring that compiles to DRL text — the engine
+only ever sees the certified grammar.
+
+The certification claim is interrogable: `seine_rs.certification()`
+reports the pinned Drools oracle, the differential corpus this build
+was stamped beside, and the source commit.
 """
-from seine_rs._native import Session as _NativeSession, Result, Table, run as _native_run
+from seine_rs._native import (
+    Session as _NativeSession,
+    Result,
+    Table,
+    run as _native_run,
+    certification,
+    __version__,
+)
 
 from ._rows import is_row_list, rows_to_columns
 from .authoring import (
@@ -48,7 +59,7 @@ def _facts_arg(facts):
     """Accept @fact classes or string names as keys, and Arrow tables,
     dicts of column lists, or LISTS OF ROW OBJECTS (@fact instances,
     dicts, dataclasses, Pydantic models — anything with the fields as
-    attributes) as values (D-048). Returns (facts, schemas): @fact
+    attributes) as values. Returns (facts, schemas): @fact
     class keys contribute explicit schemas, so empty row lists still
     declare their type."""
     if facts is None:
@@ -117,12 +128,12 @@ class Session:
         return self._native.delete(handle)
 
     def advance(self, ms):
-        """Advance the session pseudo-clock (CEP, D-101): expired events
+        """Advance the session pseudo-clock (CEP): expired events
         leave working memory at the next fire's quiescence."""
         return self._native.advance(ms)
 
     def reset(self):
-        """In-place reset for paged batches (D-104): clears all facts,
+        """In-place reset for paged batches: clears all facts,
         the agenda, TMS state, the pseudo-clock and handle numbering;
         keeps the compiled rules and queries. The session behaves like
         a fresh one afterwards."""

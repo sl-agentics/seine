@@ -12219,3 +12219,37 @@ develop --release rebuilt the tracked .so (0.4.3); **76/76 binding
 tests** (72 prior + test_surface.py: to_arrow/to_polars round-trips,
 dir() discoverability, uniform-property assertions); tests + README
 migrated to property access; engine/corpus untouched.
+
+## D-214 — Python surface, round 2 (claude.ai sandbox review): certification() + __version__ (the claim made interrogable), py.typed, tracker IDs stripped from ALL user-visible text, `handle` column named plainly, to_pylist, values_json rationale (2026-07-12)
+
+The reviewer's strongest point: the product's central claim —
+differential certification against a pinned Drools — was a README
+assertion, invisible at runtime (`seine.__version__` didn't even
+exist). Now interrogable: `seine_rs.__version__` (baked from the
+workspace version) and `seine_rs.certification()` → the pinned
+oracle string ("Drools 9.44.0.Final (+ vendored upstream fix
+apache/incubator-kie-drools#6796)"), the differential corpus counts
+stamped AT BUILD TIME by a new bindings/build.rs using the SAME
+directory globs as `make diff` (baseline/probes/regressions +
+quarantine size), and the source commit (graceful zeros/"unknown"
+outside the repo tree). Packaging: py.typed marker added — the
+authoring layer's annotations now reach mypy/pyright (PEP 561).
+Hygiene: D-xxx tracker IDs stripped from EVERYTHING a user can
+reach — module/class/method docstrings AND the CompileError message
+strings (the reviewer praised the error voice; the voice stays,
+the ticket numbers go; maintainer comments keep them). Two tests
+that matched on "D-039"/"D-043" in messages re-anchored to
+meaningful content. Contract clarity: the fact tables' `_handle`
+column renamed `handle` (it IS contract — Session.update/delete and
+deleted_handles correlate through it; the underscore was lying) and
+documented in Table's docstring; Table.__repr__ now reports the
+true column count; `to_pylist()` added beside to_arrow/to_polars;
+the `values_json` firings column got its why-this-is-columnar
+docstring (heterogeneous fact schemas cannot share Arrow columns —
+long format + per-row JSON is the faithful encoding). Receipts:
+maturin develop --release; **82/82 binding tests** (7 new:
+version/certification/py.typed/to_pylist/handle-naming/docstring-
+hygiene meta-test that greps public __doc__ for tracker IDs);
+corpus 11/1124/397 + drift 32 byte-identical (the reviewer's
+predicted null-proof: the whole batch is non-behavioral). The
+published v0.4.3 predates all of this; ships with the next tag.

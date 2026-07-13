@@ -491,9 +491,9 @@ fn py_dec_from_str(
 // Arrow export: engine FactViews -> RecordBatch -> PyCapsule stream
 // ---------------------------------------------------------------------
 
-/// Build an Arrow batch for one fact type: `_handle` + schema columns.
+/// Build an Arrow batch for one fact type: `handle` + schema columns.
 fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBatch> {
-    let mut fields: Vec<Field> = vec![Field::new("_handle", DataType::Int64, false)];
+    let mut fields: Vec<Field> = vec![Field::new("handle", DataType::Int64, false)];
     for (fi, (name, ft)) in schema.fields.iter().enumerate() {
         let dt = match ft {
             FieldType::I64 => DataType::Int64,
@@ -583,11 +583,14 @@ fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBat
         .map_err(|e| PyRuntimeError::new_err(format!("arrow batch build failed: {e}")))
 }
 
-/// A one-batch Arrow table. Consume it three ways, all zero-copy via
-/// the PyCapsule C-stream interface: `t.to_arrow()` (pyarrow.Table),
-/// `t.to_polars()` (polars.DataFrame), or hand it directly to anything
-/// that accepts `__arrow_c_stream__` (`pyarrow.table(t)`,
-/// `polars.DataFrame(t)`, pandas>=2.2, arro3, ...).
+/// A one-batch Arrow table. Consume it zero-copy via the PyCapsule
+/// C-stream interface: `t.to_arrow()` (pyarrow.Table), `t.to_polars()`
+/// (polars.DataFrame), `t.to_pylist()` (list of dicts), or hand it
+/// directly to anything accepting `__arrow_c_stream__`
+/// (`pyarrow.table(t)`, `polars.DataFrame(t)`, pandas>=2.2, arro3, ...).
+/// Fact tables carry a `handle` column: the engine's fact handle,
+/// correlating rows with `Result.deleted_handles`, the firings audit,
+/// and `Session.update`/`Session.delete`.
 #[pyclass(name = "Table")]
 struct PyTable {
     batch: RecordBatch,
@@ -628,11 +631,16 @@ impl PyTable {
         pl.call_method1("DataFrame", (slf,))
     }
 
+    /// Materialize as a list of row dicts (via pyarrow).
+    fn to_pylist<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        PyTable::to_arrow(slf)?.call_method0("to_pylist")
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "seine_rs.Table({} rows x {} cols)",
             self.batch.num_rows(),
-            self.batch.num_columns() - 1
+            self.batch.num_columns()
         )
     }
 }
@@ -723,6 +731,10 @@ impl PyResult_ {
 
     /// Long-format firing audit: (seq, rule, pos, type, handle,
     /// values_json) — values as rendered at fire time (post-RHS).
+    /// `values_json` is a JSON string column by design: one audit table
+    /// spans every fact type a rule can match, and heterogeneous fact
+    /// schemas cannot share Arrow columns — long format with per-row
+    /// JSON is the faithful columnar encoding of a mixed-type log.
     #[getter]
     fn firings(&self) -> PyTable {
         PyTable { batch: self.firings.clone() }
@@ -749,7 +761,7 @@ struct PySession {
     schemas: Vec<TypeSchema>,
     drl: String,
     built: bool,
-    /// D-101/Arc 3: event declarations (type -> (ts_field, expires_ms)),
+    /// Event declarations (type -> (ts_field, expires_ms)),
     /// applied before rule compilation at build time.
     events: Vec<(String, String, i64)>,
 }
@@ -808,7 +820,7 @@ impl PySession {
 impl PySession {
     /// Session(drl, facts=None, schemas=None): declared types come from
     /// the ingested tables' schemas plus any EXPLICIT schemas
-    /// ({type: {field: "i64"|"f64"|"bool"|"String"}}, D-048 — lets
+    /// ({type: {field: "i64"|"f64"|"bool"|"String"}} — lets
     /// @fact-class keys declare types with zero rows). Constructor
     /// argument order in DRL = field order.
     #[new]
@@ -954,10 +966,10 @@ impl PySession {
         Ok(id.0 as i64)
     }
 
-    /// EXTERNAL update by handle (D-047): set the given fields and
-    /// propagate with the changed-fields property mask. Handles come
-    /// from result tables' `_handle` column. Composes with other
-    /// external actions in SESSION-ACTION ORDER (certified).
+    /// EXTERNAL update by handle: set the given fields and propagate
+    /// with the changed-fields property mask. Handles come from result
+    /// tables' `handle` column. Composes with other external actions
+    /// in session-action order (certified).
     #[pyo3(signature = (handle, **fields))]
     fn update(
         &mut self,
@@ -993,8 +1005,8 @@ impl PySession {
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// EXTERNAL delete by handle (D-047).
-    /// CEP (D-101): advance the pseudo-clock by ms.
+    /// EXTERNAL delete by handle.
+    /// CEP: advance the pseudo-clock by ms.
     fn advance(&mut self, ms: i64) -> PyResult<()> {
         self.ensure_built()?;
         let engine = self
@@ -1006,7 +1018,7 @@ impl PySession {
             .map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
-    /// D-104: in-place session reset for paged batches — clears WM,
+    /// In-place session reset for paged batches — clears WM,
     /// agenda, TMS, clock and handle numbering; keeps rules/queries.
     fn reset(&mut self) -> PyResult<()> {
         let engine = self
@@ -1027,7 +1039,7 @@ impl PySession {
     }
 
     /// Run the rules to quiescence and return THIS fire's delta.
-    /// Sessions are multi-fire (D-046): insert more facts afterwards and
+    /// Sessions are multi-fire: insert more facts afterwards and
     /// fire again. `on_fire(rule, matches)` is an OBSERVER invoked per
     /// firing after the run completes, in firing order; matches is a
     /// list of (type, handle) pairs. The run itself releases the GIL.
@@ -1203,11 +1215,32 @@ fn run(
     sess.fire(py, fire_limit, on_fire)
 }
 
+/// The certification claim, interrogable at runtime: the Drools
+/// oracle this build is differentially certified against, the
+/// differential corpus it was built beside (the same directory globs
+/// as the repo's `make diff` gate), the quarantined open-divergence
+/// count, and the source commit. Numbers are stamped at build time;
+/// wheels built outside the source tree stamp zeros/"unknown".
+#[pyfunction]
+fn certification(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
+    let d = PyDict::new(py);
+    d.set_item("oracle", "Drools 9.44.0.Final (+ vendored upstream fix apache/incubator-kie-drools#6796)")?;
+    d.set_item("engine_version", env!("CARGO_PKG_VERSION"))?;
+    d.set_item("corpus_baseline", env!("SEINE_CORPUS_BASELINE").parse::<i64>().unwrap_or(0))?;
+    d.set_item("corpus_probes", env!("SEINE_CORPUS_PROBES").parse::<i64>().unwrap_or(0))?;
+    d.set_item("corpus_regressions", env!("SEINE_CORPUS_REGRESSIONS").parse::<i64>().unwrap_or(0))?;
+    d.set_item("quarantine_xfail", env!("SEINE_CORPUS_XFAIL").parse::<i64>().unwrap_or(0))?;
+    d.set_item("commit", env!("SEINE_GIT_COMMIT"))?;
+    Ok(d)
+}
+
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySession>()?;
     m.add_class::<PyResult_>()?;
     m.add_class::<PyTable>()?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
+    m.add_function(wrap_pyfunction!(certification, m)?)?;
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

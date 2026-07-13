@@ -1,4 +1,4 @@
-"""Pythonic rule authoring that COMPILES TO DRL TEXT (D-045).
+"""Pythonic rule authoring that COMPILES TO DRL TEXT.
 
 Every construct here builds a declarative AST at rule-definition time
 and renders it into the certified DRL subset (engine/src/drl.rs is the
@@ -24,7 +24,7 @@ class CompileError(Exception):
 
 class Decimal:
     """Field metadata marker: exact decimal with declared precision/scale
-    (D-098). Use inside Annotated on a `decimal.Decimal` field:
+    Use inside Annotated on a `decimal.Decimal` field:
 
         @seine_rs.fact
         class Loan:
@@ -43,21 +43,21 @@ class Decimal:
         if not (1 <= p <= 38 and 0 <= s <= p):
             raise CompileError(
                 f"seine_rs.Decimal({p}, {s}): needs 1 <= p <= 38 and 0 <= s <= p "
-                "(Arrow Decimal128 / engine i128 limits, D-098)"
+                "(Arrow Decimal128 / engine i128 limits)"
             )
         self.p, self.s = p, s
 
 
 def _resolve_field_type(cls_name: str, fname: str, hint: Any) -> str:
-    """Normalize a type hint into a subset type string (D-098 §6):
+    """Normalize a type hint into a subset type string:
     Optional and Annotated unwrap AT ANY NESTING; Annotated metadata is
     collected wherever it appears; the result is one of i64/f64/String/
     bool/decimal(p,s), with a trailing '?' when nullable.
 
     Nullability semantics are LEGIBLE API semantics: the type
     declaration IS the NaN-vs-NULL choice. `Optional[float]` ingests
-    pandas/Arrow NaN as NULL (SQL 3VL, D-095); bare `float` keeps NaN
-    as a bit-exact IEEE value (certified D-044 behavior).
+    pandas/Arrow NaN as NULL (SQL 3VL); bare `float` keeps NaN
+    as a bit-exact IEEE value (certified behavior).
     """
     nullable = False
     metas: list = []
@@ -86,7 +86,7 @@ def _resolve_field_type(cls_name: str, fname: str, hint: Any) -> str:
             raise CompileError(
                 f"@fact {cls_name}.{fname}: bare Decimal has no precision — declare it "
                 f"Annotated[Decimal, seine_rs.Decimal(p, s)] (e.g. seine_rs.Decimal(18, 2)). "
-                "Silent money precision is walled (D-098)."
+                "Silent money precision is walled."
             )
         m = dec_meta[0]
         return f"decimal({m.p},{m.s})" + ("?" if nullable else "")
@@ -166,7 +166,7 @@ class FieldRef:
             good = "is_null()" if op == "==" else "is_not_null()"
             raise CompileError(
                 f"{self.owner.__name__}.{self.name} {op} None: null tests are "
-                f"EXPLICIT three-valued logic - use .{good} (D-095/D-096; the "
+                f"EXPLICIT three-valued logic - use .{good} (the "
                 "field must be declared Optional to be nullable)"
             )
         _reject_callable(other, f"{self.owner.__name__}.{self.name} {op}")
@@ -213,7 +213,7 @@ class FieldRef:
         return _Constraint(self, "contains", needle)
 
     def is_null(self):
-        """SQL 3VL null test (D-095/D-096): renders `field == null`."""
+        """SQL 3VL null test: renders `field == null`."""
         return _Constraint(self, "==", _NULL)
 
     def is_not_null(self):
@@ -242,7 +242,7 @@ class FieldRef:
 
 
 class Event:
-    """CEP event declaration for @fact (D-101 E1 subset): the fact type
+    """CEP event declaration for @fact: the fact type
     becomes a point event on the session pseudo-clock.
 
         @seine_rs.fact(event=seine_rs.Event(timestamp="ts", expires_ms=5_000))
@@ -252,7 +252,7 @@ class Event:
 
     `timestamp` names an int field holding the event time in ms;
     `expires_ms` is REQUIRED (expiration inference is outside the
-    certified subset — declare the lifetime explicitly, D-101/a8)."""
+    certified subset — declare the lifetime explicitly)."""
 
     def __init__(self, timestamp: str, expires_ms: int):
         if not isinstance(timestamp, str) or not timestamp:
@@ -261,7 +261,7 @@ class Event:
             raise CompileError(
                 "seine_rs.Event: expires_ms must be a non-negative int — expiration "
                 "inference from temporal constraints is outside the certified "
-                "subset (D-101); declare the event lifetime explicitly"
+                "subset; declare the event lifetime explicitly"
             )
         self.timestamp = timestamp
         self.expires_ms = expires_ms
@@ -396,7 +396,7 @@ class SalExpr:
 
 class AccResult(BoundField):
     """The result binding of an accumulate — a BoundField whose pattern
-    is the accumulate CE. D-039 typing walls apply."""
+    is the accumulate CE. Aggregate typing walls apply."""
 
     def __init__(self, pattern: "_Pattern", func: str, arg: Optional[BoundField]):
         st = {
@@ -417,15 +417,15 @@ class AccResult(BoundField):
     def _guard_opaque(self, use: str):
         if self.opaque:
             raise CompileError(
-                f"{self.func}() over a float field yields an opaque Number in Drools "
-                f"(D-039): it cannot be used in {use}. Aggregate an int field, or "
+                f"{self.func}() over a float field yields an opaque Number in "
+                f"Drools: it cannot be used in {use}. Aggregate an int field, or "
                 "keep the result unused."
             )
 
     def _arith(self, op, other, reflected=False):
         raise CompileError(
             "accumulate results in salience expressions are not certified "
-            "against the oracle (D-043); compute the aggregate into a fact "
+            "against the oracle; compute the aggregate into a fact "
             "and reference that instead"
         )
 
@@ -498,7 +498,7 @@ class _Constraint:
 
 
 class _Group:
-    """Inline boolean constraint group (D-073): `(a || b)`, `(a && b)`,
+    """Inline boolean constraint group: `(a || b)`, `(a && b)`,
     `!(a)` - same-pattern fields only."""
 
     def __init__(self, op, children):
@@ -568,7 +568,7 @@ class _Pattern:
 
 
 class _Temporal:
-    """`this after[lo,hi] $anchor` / before - the D-101 E1 temporal
+    """`this after[lo,hi] $anchor` / before - the certified temporal
     join. The anchor is a MATCHED event pattern from an earlier when()."""
 
     def __init__(self, op, anchor, lo_ms, hi_ms):
@@ -626,7 +626,7 @@ class Rule:
         if isinstance(salience, AccResult):
             raise CompileError(
                 "accumulate results in salience expressions are not certified "
-                "against the oracle (D-043)"
+                "against the oracle"
             )
         if salience is not None and not isinstance(salience, (int, BoundField, SalExpr)):
             raise CompileError(
@@ -654,7 +654,7 @@ class Rule:
         if isinstance(salience, AccResult):
             raise CompileError(
                 "accumulate results in salience expressions are not certified "
-                "against the oracle (D-043)"
+                "against the oracle"
             )
         if not isinstance(salience, (int, BoundField, SalExpr)):
             raise CompileError(
@@ -684,7 +684,7 @@ class Rule:
                     raise CompileError(
                         f"boolean groups combine constraints of ONE pattern - "
                         f"this {cls.__name__} group also references {other} "
-                        "(inline groups cannot join across patterns, D-073)"
+                        "(inline groups cannot join across patterns)"
                     )
                 continue
             if not isinstance(c, _Constraint):
@@ -737,12 +737,12 @@ class Rule:
     def collect(self, cls: type, *constraints) -> None:
         """`List() from collect(...)`. The source must be ALPHA-only:
         a collect source referencing other patterns builds an RIA
-        subnetwork, which is outside the certified subset (D-041)."""
+        subnetwork, which is outside the certified subset."""
         for c in constraints:
             if isinstance(c, _Constraint) and isinstance(c.rhs, BoundField):
                 raise CompileError(
                     "collect sources cannot reference other patterns (that builds "
-                    "an RIA subnetwork, outside the certified subset — D-041); "
+                    "an RIA subnetwork, outside the certified subset); "
                     "use accumulate() for joined aggregation"
                 )
         self._add_pattern(cls, constraints, "collect")
@@ -767,7 +767,7 @@ class Rule:
         return self
 
     def then_set_focus(self, group: str) -> "Rule":
-        """drools.setFocus(group) (D-106): push the agenda group onto
+        """drools.setFocus(group): push the agenda group onto
         the focus stack. The group must be some rule's agenda_group -
         the engine walls undeclared targets at build (Drools NPEs at
         runtime on them)."""
@@ -778,7 +778,7 @@ class Rule:
 
     def then_insert_logical(self, cls: type, **field_values) -> "Rule":
         """insertLogical(new Cls(...)): the fact is JUSTIFIED by this
-        rule's match (D-076 TMS) - it auto-retracts when the match goes
+        rule's match (truth maintenance) - it auto-retracts when the match goes
         away. Unit walls apply: insertLogical cannot coexist with ?query
         CEs, and mutating a logically-inserted type is rejected at
         build (the engine names the offending rules)."""

@@ -156,8 +156,8 @@ def test_external_update_and_delete():
     r1 = s.fire()
     assert r1.fired == 1
     handles = pl.DataFrame(r1.facts["T"])
-    h_low = handles.filter(pl.col("v") == 0.5)["_handle"][0]
-    h_hi = handles.filter(pl.col("v") == 2.0)["_handle"][0]
+    h_low = handles.filter(pl.col("v") == 0.5)["handle"][0]
+    h_hi = handles.filter(pl.col("v") == 2.0)["handle"][0]
     # raise the low fact above the threshold -> fires
     s.update(h_low, v=3.0)
     r2 = s.fire()
@@ -168,7 +168,7 @@ def test_external_update_and_delete():
     s.delete(h_hi)
     r3 = s.fire()
     assert r3.fired == 0
-    assert h_hi not in pl.DataFrame(r3.facts["T"])["_handle"].to_list()
+    assert h_hi not in pl.DataFrame(r3.facts["T"])["handle"].to_list()
 
 
 def test_external_action_order_is_certified():

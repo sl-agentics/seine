@@ -1,4 +1,4 @@
-"""Row-object ingestion sugar (D-048).
+"""Row-object ingestion sugar.
 
 Lists of @seine_rs.fact instances, plain dicts, or any attribute-bearing
 objects (dataclasses, Pydantic models, ...) convert into the certified

@@ -135,7 +135,7 @@ def test_minmax_float_downstream_fenced_d039():
     r = Rule("L")
     r.when(Person)
     m = r.accumulate(Order, agg=max_(Order.amount))
-    with pytest.raises(CompileError, match="D-039"):
+    with pytest.raises(CompileError, match="opaque Number"):
         r.then_insert(Alert, owner="x", total=m)
 
 
@@ -143,7 +143,7 @@ def test_acc_result_salience_fenced_d043():
     r = Rule("L")
     r.when(Person)
     c = r.accumulate(Order, agg=count())
-    with pytest.raises(CompileError, match="D-043"):
+    with pytest.raises(CompileError, match="against the oracle"):
         Rule("L2", salience=c)
 
 
@@ -233,4 +233,4 @@ def test_authored_equals_hand_drl():
     assert a1["values_json"].to_list() == a2["values_json"].to_list()
     d1 = pl.DataFrame(r1.derived["Alert"]).sort("owner")
     d2 = pl.DataFrame(r2.derived["Alert"]).sort("owner")
-    assert d1.drop("_handle").equals(d2.drop("_handle"))
+    assert d1.drop("handle").equals(d2.drop("handle"))

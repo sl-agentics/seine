@@ -52,3 +52,47 @@ def test_result_uniform_properties(res):
     assert isinstance(res.facts, dict)
     assert isinstance(res.deleted_handles, list)
     assert "seine_rs.Result" in repr(res)
+
+
+def test_version_present():
+    assert isinstance(seine_rs.__version__, str)
+    assert seine_rs.__version__.count(".") == 2
+
+
+def test_certification_interrogable():
+    c = seine_rs.certification()
+    assert "9.44.0.Final" in c["oracle"]
+    assert c["corpus_baseline"] > 0
+    assert c["corpus_probes"] > 0
+    assert c["corpus_regressions"] > 0
+    assert c["engine_version"] == seine_rs.__version__
+    assert isinstance(c["commit"], str) and c["commit"]
+
+
+def test_py_typed_marker():
+    import pathlib
+    pkg = pathlib.Path(seine_rs.__file__).parent
+    assert (pkg / "py.typed").exists()
+
+
+def test_table_to_pylist(res):
+    rows = res.derived["Out"].to_pylist()
+    assert isinstance(rows, list) and len(rows) == 2
+    assert "handle" in rows[0]
+
+
+def test_handle_column_named_plainly(res):
+    cols = res.derived["Out"].to_arrow().column_names
+    assert "handle" in cols and "_handle" not in cols
+
+
+def test_no_tracker_ids_in_public_docs():
+    import re
+    texts = [seine_rs.__doc__ or ""]
+    for name in dir(seine_rs):
+        if name.startswith("_"):
+            continue
+        obj = getattr(seine_rs, name)
+        texts.append(getattr(obj, "__doc__", "") or "")
+    offenders = [t[:60] for t in texts if re.search(r"\bD-\d{2,3}\b", t)]
+    assert not offenders, offenders
