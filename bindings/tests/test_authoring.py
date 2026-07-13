@@ -404,3 +404,39 @@ def test_salience_arithmetic_still_compiles():
     c = r.when(Ctr2)
     r.set_salience(c.n + 1)
     assert "salience" in seine_rs.compile_rules([r])
+
+
+# --- string ops on nullable String (round 12) --------------------------
+
+@fact
+class NDoc:
+    title: "str | None"
+    acct: int
+
+
+def test_string_ops_allowed_on_nullable_string():
+    # null makes the constraint UNKNOWN (SQL 3VL, duckdb-tier certified:
+    # dk_strings) — the natural nullable-text schema needs no sentinel
+    r = Rule("release-via-title")
+    d = r.when(NDoc, NDoc.title.is_not_null(), NDoc.title.contains("DEED"))
+    r2 = Rule("m")
+    r2.when(NDoc, NDoc.title.matches(".*DEED.*"))
+    res = seine_rs.run(
+        [r, r2], {NDoc: {"title": ["WARRANTY DEED", None, "NOTE"], "acct": [1, 2, 3]}}
+    )
+    assert res.fired == 2  # both rules, DEED row only; null row never admits
+
+
+def test_bare_nullable_contains_skips_null_rows():
+    r = Rule("bare")
+    r.when(NDoc, NDoc.title.contains("NOTE"))
+    res = seine_rs.run([r], {NDoc: {"title": [None, "NOTE"], "acct": [1, 2]}})
+    assert res.fired == 1
+
+
+def test_string_ops_still_walled_on_non_string():
+    r = Rule("x")
+    with pytest.raises(CompileError, match="requires a str field"):
+        r.when(Person, Person.age.contains("1"))
+    with pytest.raises(CompileError, match="requires a str field"):
+        r.when(Person, Person.age.matches("1.*"))

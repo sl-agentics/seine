@@ -12830,3 +12830,36 @@ Receipts: bindings 109/109 (wall pinned for both then_modify and
 then_insert; message asserts no "SalExpr", names set_salience and
 the accumulate remedy; salience-expr control). Authoring-layer
 only; engine and corpus untouched.
+
+## D-230 — string ops unwalled on nullable String (external review round 12 — the PL/SQL port's one friction point) (2026-07-13)
+
+His finding from porting a real PL/SQL package: contains/matches
+were walled on Optional[str] even when the same pattern asserted
+is_not_null() — so the natural schema for the domain (nullable
+title/remitter text columns) forced a non-nullable-plus-""-sentinel
+workaround. He asked for either 3VL semantics or a diagnostic
+naming the sentinel.
+
+The answer was already in the certified envelope: the wall was
+authoring-layer conservatism only. The engine's inline-group
+evaluation is tri-state (D-097/SQL 3VL) and a null operand makes
+cmp/MATCHES/CONTAINS/in UNKNOWN — never admitted — with the
+combinator tables pinned in docs/duckdb-datatype-pins.md and the
+nullable-String matches/contains leaf pinned GREEN by the standing
+dk_strings duckdb-tier scenario (null / "abc" / "zb" rows). The
+nullable arc is deliberately certified against DuckDB (SQL 3VL),
+not the Drools oracle — the Drools-diff canon does not even render
+null field values.
+
+The fix is two characters per operator: matches()/contains()
+accept subset type "String?" alongside "String". Null rows are
+simply never admitted, so his is_not_null() + contains() pattern
+works as written and the bare form silently skips null rows — SQL
+semantics, no sentinel. Non-string fields stay walled with the
+unchanged message.
+
+Receipts: bindings 112/112 (3 new: the reviewer's natural schema
+end-to-end, bare-nullable 3VL skip, int wall intact); duckdb tier
+11/11; authoring-only, engine and Drools corpus untouched. His
+point 2 (the firings audit as lending-compliance evidence) needs
+no action — it is the D-046/D-213 design doing its job.

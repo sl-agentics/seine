@@ -199,16 +199,19 @@ class FieldRef:
         return self._cmp(">=", other)
 
     def matches(self, regex: str):
+        # nullable String is fine: a null operand makes the constraint
+        # UNKNOWN (SQL 3VL, certified in the duckdb tier) — the null row
+        # is simply never admitted
         if not isinstance(regex, str):
             raise CompileError(".matches() takes a literal regex string")
-        if self.subset_type != "String":
+        if self.subset_type not in ("String", "String?"):
             raise CompileError(f".matches() requires a str field, {self.name} is {self.subset_type}")
         return _Constraint(self, "matches", regex)
 
     def contains(self, needle: str):
         if not isinstance(needle, str):
             raise CompileError(".contains() takes a literal string")
-        if self.subset_type != "String":
+        if self.subset_type not in ("String", "String?"):
             raise CompileError(f".contains() requires a str field, {self.name} is {self.subset_type}")
         return _Constraint(self, "contains", needle)
 
