@@ -47,6 +47,18 @@ the census floor) and 8 are fixable tails. P1-P6 are ALL LANDED
 
 ## RESUME POINT 1 — the I-RD cells (dump-first is DONE)
 
+**STATUS (D-203): THE CELLS ARE DONE.** Both laws pinned — the
+survive-the-delete law ORIGIN-KEYED (ird-predictions.md /
+ird-results.md: the splitter killed the flush-window alternative)
+and the KEY-LIFECYCLE law, the static face (ird-ladder-*.md: L6 =
+the 9902 delta minimal; x1 = orphans undeletable, no unified
+seventh law; ⚠ the "value-keyed dedup" read below is CORRECTED in
+the graft README). 12 cells + truths banked; engine recon sites
+named in ird-results.md. NEXT: dump-read the six remaining
+witnesses against both laws → model extension → population → port
+(Bryan gates). The original brief follows (its 9902 read is
+superseded):
+
 Ground truths banked 3× identity-stable:
 `graft_targets/ird/fz_7_4048.dump.txt`, `fz_7_9902.dump.txt`,
 README = the full read. Summary:

@@ -1,0 +1,44 @@
+{
+  "_finding": "Splitter scaffold control: stated handle's delete cancels the queued act (4048 @2 shape).",
+  "drl": "rule \"RD\"\nsalience 5\nwhen\n    $p : T1(f0 == \"tgt\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "tgt",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_c1_stated_ctl",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

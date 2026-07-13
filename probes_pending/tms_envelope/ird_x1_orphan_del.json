@@ -1,0 +1,44 @@
+{
+  "_finding": "UNIFICATION cell, refuting outcome: the break-orphaned stated sibling is UNDELETABLE \u2014 RD's delete NO-OPS both sides (oracle: TMS-dropped orphan; engine: the dump3 had_justified quirk \u2014 different internal models, same observable). The deletable TMS-dropped population = unstage-born only, so no unified seventh law; the dynamic face stays origin-keyed.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    $t : T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RS1\"\nsalience 18\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RKILL\"\nsalience 10\nwhen\n    $t : T0(f0 == true)\n    $k : T1(f0 == \"karm\", f1 == false)\nthen\n    delete($t);\n    delete($k);\nend\nrule \"RD\"\nsalience 5\nwhen\n    $p : T1(f0 == \"v\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "karm",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_x1_orphan_del",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

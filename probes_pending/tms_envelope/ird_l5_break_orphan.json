@@ -1,0 +1,44 @@
+{
+  "_finding": "Ladder sanity rung: the belief-empty break kills exactly the belief handle; stated siblings survive WM-alive (2/2 both sides).",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    $t : T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RS1\"\nsalience 18\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RS2\"\nsalience 16\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RKILL\"\nsalience 10\nwhen\n    $t : T0(f0 == true)\n    $k : T1(f0 == \"karm\", f1 == false)\nthen\n    delete($t);\n    delete($k);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "karm",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_l5_break_orphan",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

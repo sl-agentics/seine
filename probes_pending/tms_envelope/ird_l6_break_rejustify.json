@@ -1,0 +1,52 @@
+{
+  "_finding": "KEY-REBIRTH witness (9902 minimal, single-epoch): after the last justification breaks, the oracle kills the key (SdDump: keys EMPTY at F4) orphaning stated siblings; re-justification starts a FRESH key with a WM-VISIBLE justified handle (fhs[@8+]) => oracle 3 v-handles. The engine keeps the key stated and routes the re-justify as a non-WM sibling (L3 route) => 2. Exactly fz_7_9902's one-short finals delta.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    $t : T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RS1\"\nsalience 18\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RS2\"\nsalience 16\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RKILL\"\nsalience 10\nwhen\n    $t : T0(f0 == true)\n    $k : T1(f0 == \"karm\", f1 == false)\nthen\n    delete($t);\n    delete($k);\nend\nrule \"RINS\"\nsalience 9\nwhen\n    $i : T1(f0 == \"iarm\", f1 == false)\nthen\n    insert(new T0(false));\n    delete($i);\nend\nrule \"RJ2\"\nsalience 8\nwhen\n    $t : T0(f0 == false)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "karm",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "iarm",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_l6_break_rejustify",
+  "open_divergence": true,
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "_finding": "Ladder rung: external stated x3 of one value coexist as 3 WM-visible handles BOTH SIDES \u2014 the engine does NOT value-dedup simple multiplicity (corrects the banked 9902 read).",
+  "drl": "rule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_l1_stated_x3",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

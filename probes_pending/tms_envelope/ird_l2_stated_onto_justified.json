@@ -1,0 +1,37 @@
+{
+  "_finding": "Ladder rung: stated inserts onto a born-justified key APPEND WM-visible siblings; key label stays JUSTIFIED (SdDump 3x: fhs[@4+@5+@6+]). Both sides 3.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RS1\"\nsalience 10\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RS2\"\nsalience 8\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "ird_l2_stated_onto_justified",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

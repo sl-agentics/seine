@@ -1,0 +1,37 @@
+{
+  "_finding": "Splitter control: ordinary-justified handle born-and-killed within one flush window \u2014 act CANCELS (kills the freshness/window reading; n=1 deps kills the dep-count reading).",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"tgt\", true));\nend\nrule \"RD\"\nsalience 5\nwhen\n    $p : T1(f0 == \"tgt\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "ird_a1_ord_fresh",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

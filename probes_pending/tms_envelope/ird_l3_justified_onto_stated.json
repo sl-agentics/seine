@@ -1,0 +1,44 @@
+{
+  "_finding": "Ladder rung: insertLogical onto a stated-born key = NON-WM sibling (SdDump: STATED fhs[@3!@2+], pending_vals held \u2014 the 4048-F1/dump7 unstage precursor). Both sides 1.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_l3_justified_onto_stated",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

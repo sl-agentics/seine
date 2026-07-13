@@ -11,14 +11,26 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-202 (TMS-envelope arc: THE
-POPULATION SLAB IS EFFECTIVELY CLOSED — census 599→72 cumulative
-−88.0%; residue = 64 permanent runaways + 8 fixable (6 = ONE named
-mechanism question, the phys-history re-add order, ⚖
-epicycle-stopped with SdDump as the named next instrument); SIXTEEN
-graduates; pushed through 001a821 [D-201 pointer], D-202 UNPUSHED;
-I-RD OPEN NEXT — dump-first on fz_7_4048 + fz_7_9902). Earlier
-closed-arc records below kept verbatim. **THE D-177 FIX IS
+_Last updated: 2026-07-12, post-D-203 (TMS-envelope arc, I-RD: THE
+CELLS ARE DONE — ⚖ the SURVIVE-THE-DELETE law pinned ORIGIN-KEYED
+(the 4048 splitter: a1/b2 killed the flush-window reading; b1/b2 =
+the 4048 miss minimal) + ⚖ the KEY-LIFECYCLE law, the identity
+law's STATIC face (the 9902 ladder: L6 = the one-short finals delta
+single-epoch; the engine's one miss = rule 4, key-death-at-break/
+fresh-key-rebirth) + the x1 pin (break-orphans UNDELETABLE both
+sides ⇒ no unified seventh law; two laws, one root). ⚠ the banked
+"value-keyed store dedups" 9902 read CORRECTED (L1-L4: the engine
+does NOT dedup multiplicity). 12 cells + 4 truth files banked, 3
+open_divergence (b1/b2/l6); lint 1750/0/0; corpus 11/1124/370 +
+drift 59 + census 72 all stand (no engine change). Everything
+through 728af4a PUSHED; D-203 committed local. NEXT: dump-read the
+remaining six I-RD witnesses (fz_123_7219, fz_42_6368,
+fz_777_{1278,2956}, fz_7_{1591,5988,8757}) against both laws →
+model extension → population → port validate-and-revert, Bryan
+gates. RESUME POINT 2 (lazy-trail re-add order) untouched,
+epicycle-stop standing — the named instrument stays the per-round
+SdDump on the x63 shape). Earlier closed-arc records below kept
+verbatim. **THE D-177 FIX IS
 LANDED (Bryan-gated): the HALT ARC IS CLOSED END-TO-END.** ⚖ THE
 LANDING LAW (third standing law, docs/tjupd-ledger-mechanisms.md
 top): delete teardowns land by MODE×CAUSE — stream ⇒ at the delete's
@@ -11462,3 +11474,108 @@ GROUND TRUTH FIRST — TmsDump/RunnerDump graft on fz_7_4048 +
 fz_7_9902 (which handle dies, which path: immediateDelete vs
 staged cancellation, where the value-key diverges); cells after
 the dump, never before.
+
+## D-203 — I-RD CELLS: ⚖ the SURVIVE-THE-DELETE law pinned origin-keyed (the 4048 splitter) + ⚖ the KEY-LIFECYCLE law = the identity law's STATIC face (the 9902 ladder; L6 the minimal witness) + the x1 orphan-undeletability pin (NO unified seventh law) (2026-07-12)
+
+Resume gates all green on entry (corpus 11/1124/370, drift 59,
+ladder 6/6, cells 39/39, witnesses 26/26, lint 1738/0/0, cargo 9,
+agenda_open ×19 byte-stable ×2 runs, census 12×150 = 0-div with the
+72 baseline EXACT: 6/10/3/5/6/5/5/6/8/7/4/7). No engine change this
+slab — cells, dumps, truths, docs only.
+
+### The splitter (predictions logged first: ird-predictions.md)
+
+The banked 4048 law candidate was consistent with TWO readings the
+dump could not split: P-STATUS (survival keyed on the handle's
+unstage-born ORIGIN — the banked form) vs P-WINDOW (keyed on
+born-and-killed-within-one-flush-window TIMING — @5 was fresh at its
+kill; @2/@3/@4 were all stale; a live alternative). ⚠ The dump's
+pending line also does NOT evidence "takes the STAGED cancellation
+path": post-F5 pending is `-` — @5's delete bypasses TMS pending
+exactly like @4's immediateDelete; the staging (if any) is not the
+TMS queue. Five cells (T0/T1 vocabulary, explicit salience
+deleter>observer, deviation logged), oracle 3× identity-stable:
+
+  a1 ord-fresh: cancel (kills P-WINDOW's fresh arm; n=1 kills
+     dep-count) | a2 ord-stale: cancel | b1 unstage-fresh: FIRE
+     (4048 reproduced minimally) | b2 unstage-stale: FIRE through an
+     intervening flush, in salience position (kills P-WINDOW's stale
+     arm) | c1 stated-ctl: cancel (scaffold sound).
+
+⚖ THE SURVIVE-THE-DELETE LAW (pinned, the pre-registered P-STATUS
+row): a queued activation on an UNSTAGE-BORN handle (a belief
+unstaged into WM by the mixed-key kill, dump7) SURVIVES that
+handle's RHS delete and fires in its normal agenda position; deletes
+of stated and ordinary-justified handles cancel queued activations
+eagerly. The fact dies either way — finals unaffected (all 5 cells
+finals-identical both sides). Engine misses exactly the surviving
+firing (b1/b2 = the whole 4048 miss, 7-vs-8 firings).
+
+### The ladder (ird-ladder-predictions.md, three rounds)
+
+Round 1 (insert-route counts L1-L4): oracle hit all four predictions
+(3/3/1/3) — and the ENGINE MATCHED THE ORACLE EVERYWHERE. ⚠ The
+banked "engine's value-keyed store dedups" read is WRONG as a
+general statement; measured 9902 delta = firings 14/14, finals
+short EXACTLY ONE T1(false,true) (oracle 7, engine 6).
+
+Round 2 (break/re-justify L5/L6): both predictions hit. L6:
+oracle 3/3 vs engine 2/2 = fz_7_9902's one-short delta reproduced
+single-epoch. SdDump 3×-stable shows every joint: stated siblings
+APPEND to a born-justified key which KEEPS the JUSTIFIED label
+(fhs[@4+@5+@6+]); at the last-justification break the key dies
+WHOLE (`TMS keys:` EMPTY) orphaning the stated siblings WM-alive;
+the re-justification starts a FRESH key with a WM-VISIBLE handle
+(fhs[@8+]) the orphans never join.
+
+⚖ THE KEY-LIFECYCLE LAW (the identity law's STATIC face): (1)
+stated inserts of one value coexist per-handle, route-agnostic;
+(2) a born-JUSTIFIED key keeps its label, belief handle WM-visible,
+stated inserts append WM-visible siblings; (3) a born-STATED key
+takes a justified insert as a NON-WM sibling (pending_vals — the
+unstage precursor, 4048-F1); (4) at last-justification break the
+key DIES WHOLE, orphaning stated siblings; a later re-justification
+re-keys FRESH under rule 2. THE ENGINE'S ONE MISS = rule 4 (keeps
+the key STATED/had_justified ⇒ re-justify takes rule 3's non-WM
+route). Fix altitude: the TMS key model, not the executor.
+
+Round 3 (x1 unification cell): asked whether a break-orphan's
+delete also skips act-cancel (⇒ one TMS-map-absence law covering
+both faces). Outcome NEITHER predicted branch: the delete NO-OPS —
+the orphan is UNDELETABLE, finals keep it, BOTH SIDES IDENTICAL
+(oracle: TMS-dropped absorption; engine: the dump3 had_justified
+quirk — different internal models, same observable). ⇒ the
+deletable TMS-dropped population is unstage-born EXACTLY; the
+dynamic law stays ORIGIN-KEYED; no seventh law — two laws, one
+root (Drools drops handles from TMS bookkeeping; the engine keeps
+tracking them).
+
+### Engine recon (port NOT built; sites named)
+
+tms_materialize (engine.rs:9898) RE-REGISTERS the unstaged handle
+(oracle drops it) — re-registration STAYS (b1 re-kill routing +
+fz_42_1395 ride it); the dynamic-face port surface = the queued-act
+cancel at the terminal delete-drain downstream of on_delete_ex
+(7861), exempting origin-marked handles. ⚠ Port hazard: the
+surviving act fires with a DEAD fact's values — check how tuples
+carry values before wiring (a stale FactId re-read would panic).
+Static-face port = key death at belief-empty-with-siblings + an
+orphan set carrying the x1 undeletability (currently carried by the
+surviving key's had_justified — same observable today, wrong
+internal model, diverges only at re-justification).
+
+### Receipts + ledger
+
+12 new cells banked (3 open_divergence: b1/b2/l6; 9 pins) +
+truths/ird{,_ladder,_l56,_x1}_oracle_r1.ndj; graft_targets/ird
+README corrected. Post-slab: lint 1750/0/0 (12 new, all live),
+corpus 11/1124/370 + drift 59 identical, cells 39/39, witnesses
+26/26, cargo 9. Census untouched (no engine change; 72 stands).
+I-RD ledger: 4048 = the dynamic law exactly; 9902 = static rule 4
+exactly; the remaining six (fz_123_7219, fz_42_6368,
+fz_777_{1278,2956}, fz_7_{1591,5988,8757}) need dump reads against
+both laws. NEXT per the plan: those dump reads, then the model
+extension (model_check/model_sd or an I-RD replica), population,
+port validate-and-revert with FULL receipts — Bryan gates the
+landing. RESUME POINT 2 (the lazy-trail re-add order) untouched,
+epicycle-stop standing.

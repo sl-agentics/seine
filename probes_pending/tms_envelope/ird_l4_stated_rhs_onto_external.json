@@ -1,0 +1,44 @@
+{
+  "_finding": "Ladder rung: RHS-stated onto external-stated \u2014 route-agnostic, 3 handles both sides.",
+  "drl": "rule \"RS1\"\nsalience 10\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RS2\"\nsalience 8\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_l4_stated_rhs_onto_external",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

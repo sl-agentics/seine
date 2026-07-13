@@ -1,0 +1,59 @@
+{
+  "_finding": "SURVIVE-THE-DELETE discriminator: intervening TMS flush between unstage and kill \u2014 act STILL survives (oracle ROBS('tgt') fires two firings post-delete, in salience position). Kills the flush-window reading; with a1 pins P-STATUS/origin.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"tgt\", true));\nend\nrule \"RKS\"\nsalience 10\nwhen\n    $p : T1(f0 == \"tgt\", f1 == true)\n    $arm : T1(f0 == \"ks_arm\", f1 == false)\nthen\n    delete($p);\n    delete($arm);\nend\nrule \"RMID\"\nsalience 5\nwhen\n    T1(f0 == \"mid_arm\", f1 == false)\nthen\n    insertLogical(new T1(\"mid\", false));\nend\nrule \"RD\"\nsalience 3\nwhen\n    $p : T1(f0 == \"tgt\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "tgt",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "ks_arm",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "mid_arm",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_b2_unstage_stale",
+  "open_divergence": true,
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

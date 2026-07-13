@@ -34,6 +34,13 @@ of WM handle/EqualityKey status, BeliefSets, and the pending queue.
   VALUE coexist as sibling handles on ONE key (each WM-visible),
   while the engine's value-keyed store dedups. Which handles stay
   WM-visible per insert route = the cell axis.
+  ⚠ CORRECTED BY THE LADDER (ird-ladder-results.md): the engine
+  does NOT dedup simple multiplicity (L1-L4 all match). The
+  measured delta is EXACTLY ONE T1(false,true) — the engine misses
+  the KEY-REBIRTH rule (key dies at last-justification-break,
+  orphaning stated siblings; re-justification starts a FRESH key
+  with a WM-visible handle — the L6 witness). @6/@7 in this dump
+  ARE the orphans; @12 is the fresh-key handle.
 
 ## Next (cells AFTER the dump — the plan's order)
 
