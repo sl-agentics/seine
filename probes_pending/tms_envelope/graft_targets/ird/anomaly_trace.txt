@@ -1,0 +1,34 @@
+########## ird_b1_unstage_fresh
+TMS key[stated-note] fFactId(1) key=(TypeId(1), [S("tgt"), B(true)])
+TMS key[logical] key=(TypeId(1), [S("tgt"), B(true)]) need_insert=false pending=true beliefs=1 stated=[FactId(1)] justified=None
+TMS key[route-del] fFactId(1) rhs=true stated=[FactId(1)] beliefs=1 pending=true justified=None had_justified=false
+TMS key[route-del/unstage] fFactId(1) vals=[Str("tgt"), Bool(true)]
+TMS key[materialize] key=(TypeId(1), [S("tgt"), B(true)]) fFactId(2)
+TMS key[route-del] fFactId(2) rhs=true stated=[] beliefs=1 pending=false justified=Some(FactId(2)) had_justified=true
+########## ird_r1_multistated_kill
+TMS key[stated-note] fFactId(1) key=(TypeId(1), [S("v"), B(true)])
+TMS key[logical] key=(TypeId(1), [S("v"), B(true)]) need_insert=false pending=true beliefs=1 stated=[FactId(1)] justified=None
+TMS key[stated-note] fFactId(2) key=(TypeId(1), [S("v"), B(true)])
+TMS key[route-del] fFactId(1) rhs=true stated=[FactId(1), FactId(2)] beliefs=1 pending=true justified=None had_justified=false
+TMS key[route-del/plain] fFactId(1) beliefs-cleared=1 stated-remainder=[FactId(2)] pending-still=true
+TMS key[route-del] fFactId(2) rhs=true stated=[FactId(2)] beliefs=0 pending=true justified=None had_justified=false
+TMS key[route-del/plain] fFactId(2) beliefs-cleared=0 stated-remainder=[] pending-still=true
+########## ird_d1_2stated_belief_last
+TMS key[stated-note] fFactId(1) key=(TypeId(1), [S("v"), B(true)])
+TMS key[stated-note] fFactId(2) key=(TypeId(1), [S("v"), B(true)])
+TMS key[logical] key=(TypeId(1), [S("v"), B(true)]) need_insert=false pending=true beliefs=1 stated=[FactId(1), FactId(2)] justified=None
+TMS key[route-del] fFactId(1) rhs=true stated=[FactId(1), FactId(2)] beliefs=1 pending=true justified=None had_justified=false
+TMS key[route-del/plain] fFactId(1) beliefs-cleared=1 stated-remainder=[FactId(2)] pending-still=true
+TMS key[route-del] fFactId(2) rhs=true stated=[FactId(2)] beliefs=0 pending=true justified=None had_justified=false
+TMS key[route-del/plain] fFactId(2) beliefs-cleared=0 stated-remainder=[] pending-still=true
+########## ird_d2_2stated_belief_mid
+TMS key[stated-note] fFactId(1) key=(TypeId(1), [S("v"), B(true)])
+TMS key[stated-note] fFactId(2) key=(TypeId(1), [S("v"), B(true)])
+TMS key[logical] key=(TypeId(1), [S("v"), B(true)]) need_insert=false pending=true beliefs=1 stated=[FactId(1), FactId(2)] justified=None
+TMS key[stated-note] fFactId(3) key=(TypeId(1), [S("v"), B(true)])
+TMS key[route-del] fFactId(1) rhs=true stated=[FactId(1), FactId(2), FactId(3)] beliefs=1 pending=true justified=None had_justified=false
+TMS key[route-del/plain] fFactId(1) beliefs-cleared=1 stated-remainder=[FactId(2), FactId(3)] pending-still=true
+TMS key[route-del] fFactId(2) rhs=true stated=[FactId(2), FactId(3)] beliefs=0 pending=true justified=None had_justified=false
+TMS key[route-del/plain] fFactId(2) beliefs-cleared=0 stated-remainder=[FactId(3)] pending-still=true
+TMS key[route-del] fFactId(3) rhs=true stated=[FactId(3)] beliefs=0 pending=true justified=None had_justified=false
+TMS key[route-del/plain] fFactId(3) beliefs-cleared=0 stated-remainder=[] pending-still=true

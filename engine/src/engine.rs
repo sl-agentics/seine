@@ -9755,6 +9755,9 @@ impl Engine {
         }
         let key = self.tms_key_of(tid, f);
         self.tms.keys.entry(key.clone()).or_default().stated.push(f);
+        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            eprintln!("TMS key[stated-note] f{f:?} key={key:?}");
+        }
         self.tms.by_fact.insert(f, key);
     }
 
@@ -9791,6 +9794,14 @@ impl Engine {
             e.beliefs.push(Justif { ri, tuple: tuple.clone(), seq });
             self.tms.by_fact.insert(f, key.clone());
             inserted = Some(f);
+        }
+        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            let e = self.tms.keys.get(&key).expect("key");
+            eprintln!(
+                "TMS key[logical] key={:?} need_insert={} pending={} beliefs={} stated={:?} justified={:?}",
+                key, need_insert, e.pending_vals.is_some(), e.beliefs.len(),
+                e.stated, e.justified
+            );
         }
         self.tms.firing_keys.push(key.clone());
         // ⚖ D-195/D-196 (the RHS-order race, engine translation): a
@@ -9851,6 +9862,13 @@ impl Engine {
         let Some(e) = self.tms.keys.get_mut(&key) else {
             return (Some(f), None);
         };
+        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            eprintln!(
+                "TMS key[route-del] f{:?} rhs={} stated={:?} beliefs={} pending={} justified={:?} had_justified={}",
+                f, rhs, e.stated, e.beliefs.len(), e.pending_vals.is_some(),
+                e.justified, e.had_justified
+            );
+        }
         if let Some(jf) = e.justified {
             e.justified = None;
             e.beliefs.clear();
@@ -9870,6 +9888,9 @@ impl Engine {
             return (Some(jf), None);
         }
         if e.had_justified {
+            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                eprintln!("TMS key[route-del/dump3-noop] f{f:?}");
+            }
             return (None, None); // dump3: undeletable stated sibling
         }
         e.stated.retain(|x| *x != f);
@@ -9879,8 +9900,17 @@ impl Engine {
                 // unstage (dump7): the pending justified belief becomes
                 // a live fact after the stated handle dies; its deps
                 // are already in place.
+                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                    eprintln!("TMS key[route-del/unstage] f{f:?} vals={vals:?}");
+                }
                 return (Some(f), Some((key.0, vals)));
             }
+        }
+        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            eprintln!(
+                "TMS key[route-del/plain] f{:?} beliefs-cleared={} stated-remainder={:?} pending-still={}",
+                f, e.beliefs.len(), e.stated, e.pending_vals.is_some()
+            );
         }
         e.beliefs.clear(); // stated-only key dies with its handles (tms_e6)
         for (_, keys) in self.tms.by_act.iter_mut() {
@@ -9898,6 +9928,9 @@ impl Engine {
     fn tms_materialize(&mut self, tid: TypeId, vals: Vec<Value>) -> Result<(), EngineError> {
         let key = (tid, key_vals(&vals));
         let f = self.store.insert(tid, vals).map_err(EngineError)?;
+        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            eprintln!("TMS key[materialize] key={key:?} f{f:?}");
+        }
         if let Some(e) = self.tms.keys.get_mut(&key) {
             e.justified = Some(f);
             e.had_justified = true;

@@ -11,7 +11,29 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-209 (TMS-envelope arc, I-RD:
+_Last updated: 2026-07-12, post-D-210 (TMS-envelope arc, I-RD:
+THE RD×2 ANOMALY IS PINNED — instrumented, not armchaired: 7
+permanent SEINE_TMS_DEBUG key-path probes; H1 confirmed verbatim
+(the mis-scoped `e.beliefs.clear()` in tms_route_delete_ex's plain
+branch fires on NON-LAST stated deletes — kill#1 drops the belief
+with stateds remaining, kill#2 reads beliefs=0 with pending STILL
+Some → the unstage gate never takes it; b1's single-stated control
+unstages fine); H2/H3 refuted empirically (pending=true throughout;
+branch never dump3-noop); no unread actor; BONUS: the one-key
+stated-note gap (no activation-backfill split) trace-confirmed
+engine-side. THE PORT MAP IS PINNED: (1) scope the clear to
+stated-empty, (2) backfill key topology, (3) dynamic-law
+act-survival + stale-value hazard, (4) whole-key-death/orphan vs
+had_justified. Receipts ALL EXACT incl. both censuses (SD 72,
+0-div 12×150/150; ird 86, 150/150 ×5) — the probes are
+behavior-inert, kept permanent. THE I-RD RECON IS FULLY CLOSED:
+model total (31 cells/13 rows), population clean, both engine gaps
+trace-pinned, baseline 86/750. NEXT: THE PORT SLAB (Bryan gates),
+red-first per family, validate-and-revert, full receipts.
+D-203..210 committed local; through 728af4a PUSHED. RP2 untouched,
+epicycle-stop standing._
+
+_Prior (post-D-209): I-RD:
 **THE RECON PROGRAM IS COMPLETE — THE MODEL IS TOTAL.** The corner
 round pinned ⚖ PENDING-CLEAR (deps-empty on a non-WM pending belief
 reverts the key to PURE STATED — no death/orphans; source-invariant
@@ -12028,3 +12050,51 @@ clean population, dumps ×14 banked, engine baseline 86/750,
 divergence targets d1/d2/b1/b2/l6/r1/m1/m2/m5. NEXT: THE PORT SLAB
 (Bryan gates) — instrument the RD×2 engine anomaly first, then
 port against model_ird.py with validate-and-revert + FULL receipts.
+
+## D-210 — THE RD×2 ANOMALY INSTRUMENTED AND PINNED: the mis-scoped `beliefs.clear()` in tms_route_delete_ex's plain branch (H1 confirmed end-to-end; H2/H3 refuted empirically; no unread actor) + the one-key stated-note gap trace-confirmed; 7 permanent SEINE_TMS_DEBUG key-path probes; all receipts + both censuses EXACT (2026-07-12)
+
+Predictions first (ird-anomaly-predictions.md): the code-read
+primary H1 — a NON-LAST stated delete falls past the unstage gate
+into the plain tail whose `e.beliefs.clear()` (the tms_e6
+"stated-only key dies with its handles" line) runs UNCONDITIONALLY,
+so the LAST stated's delete reads beliefs empty and never takes
+pending_vals — with per-hypothesis trace signatures for H1/H2
+(pending lost)/H3 (had_justified no-op)/H4 (an unread actor), and
+the b1 working-control expectation.
+
+SEVEN SEINE_TMS_DEBUG-gated probes added (house tag style,
+corpus-inert): stated-note / logical / route-del entry-state /
+dump3-noop / unstage / plain-with-clear / materialize. Traces on
+b1/r1/d1/d2 (banked: graft_targets/ird/anomaly_trace.txt):
+
+**H1 CONFIRMED — the verbatim r1 fingerprint**: kill#1
+`route-del/plain f1 beliefs-cleared=1 stated-remainder=[FactId(2)]
+pending-still=true` (the mis-scope: a belief dropped with stateds
+remaining); kill#2 `beliefs=0 pending=true` → gate-fail → plain;
+NO materialize. d1 identical; d2 = the clear at kill#1 + two
+gate-fails (RD×3 no unstage); b1 control = gate reached with
+beliefs=1 → unstage + materialize + the materialized handle's
+justified-path kill. **H2 REFUTED** (pending=true at every
+kill#2/#3 — the values sit unused). **H3 REFUTED** (every branch
+plain, never dump3-noop; had_justified=false throughout). **H4
+NONE** (no entry mutation between the route-del lines). BONUS
+trace-pin: stated-note registers ALL same-value stateds on ONE key
+— the engine lacks the D-208 activation-backfill split; both d1/d2
+engine gaps now confirmed from the engine side.
+
+THE PINNED PORT MAP (nothing landed): (1) scope the clear to
+stated-empty; (2) the activation-backfill key topology; (3) the
+dynamic law's act-survival (terminal-drain cancel exemption +
+⚠ the stale-value fire hazard); (4) the r1 whole-key-death/orphan
+event + x1 undeletability vs the had_justified approximation. All
+against model_ird.py (31 cells / 13 mutation rows / 750-case clean
+population), baseline 86/750, validate-and-revert, Bryan gates.
+
+Receipts (an engine change, debug-only): corpus 11/1124/370 +
+drift 59 byte-identical, lint 1769/0/0, cells 39/39, witnesses
+26/26, model 31/31, agenda_open ×19 byte-identical vs the
+session-start capture; **SD census 72 EXACT (0-div 12×150/150) +
+ird census 86 EXACT (150/150 clean ×5, corners none)** — the
+probes are behavior-inert and stay as the permanent TMS key-path
+debug facility. NEXT: THE PORT SLAB (Bryan gates) — the map above,
+red-first per divergence family, full receipts per change.
