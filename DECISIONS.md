@@ -12522,3 +12522,57 @@ negation-over-derived-facts) is a method question for the
 conversion playbook, not an engine defect — the agenda-group
 pieces are certified (D-106), and the choice is Bryan's to make
 before the first real conversion sets the pattern.
+
+## D-222 — unstratified negation-as-failure: the declaration-order leak, and the stratification lint (external review round 7 — his priority finding, "the one that ends with a title going out the door on a bankrupt account") (2026-07-13)
+
+The reviewer built the agenda-group variant himself, then did the
+experiment that matters: made the careless-maintainer mistake (one
+forgotten kwarg on a new rule) in BOTH patterns and flipped
+declaration order. Both leaked identically — same rules, same
+facts, same default salience, and the only difference between
+"correct" and "title released on a bankrupt account" was the order
+rules were appended to a Python list. His diagnosis is exactly
+right: the culprit is not salience-vs-agenda-groups but
+NEGATION-AS-FAILURE OVER DERIVED FACTS — `when_not(T)` asks "has
+nothing inserted T *yet*", and when the same stratum is still
+producing T, "yet" is resolved by agenda pick order. His first
+variant survived only because PHREAK's lazy negation happened to
+cancel the release activation before it fired — cancellation that
+itself hinged on which equal-salience rule fired first. Luck, not
+safety. His two-pass structure (pass 1 blocks to quiescence, pass
+2 consumes pass-1 Decisions as INPUT facts) is verified
+order-invariant and becomes the playbook page: the phase boundary
+as program structure, not a rule attribute.
+
+THE LINT, implemented at his requested altitude (the D-219
+altitude: per-rule, type-level, local, no chain/fixpoint
+reasoning, engine untouched, raw DRL keeps Drools-faithful
+behavior): at compile_rules() — the single funnel Session() and
+run() both use — if rule R has a `when_not(T)` and a DIFFERENT
+rule in the SAME STRATUM (same agenda_group AND same salience,
+None normalized to 0) inserts T, CompileError. The message names
+both rules, the type, the stratum, and all three fixes (raise the
+inserter's salience / separate agenda_group / a second session
+pass).
+
+Three deliberate exemptions, each an established idiom the naive
+rule would have broken: (1) SELF-negation — a rule negating the
+type it itself inserts is the fire-once guard, deterministic by
+construction; (2) negators whose consequences are ALL
+insertLogical — truth maintenance retracts their products when the
+negation falsifies later, so their FINALS are order-invariant (the
+certified TMS envelope semantics; the firing trace may still
+vary); (3) dynamic (bound-field/expression) salience — statically
+unknowable, so those pairs stay silent rather than cry wolf.
+Positive/exists patterns are monotone under late inserts (the
+activation appears late but still fires) — NAF is the
+non-monotone case, and stays the lint's whole scope.
+
+Receipts: bindings 98/98 (6 new: the leak in BOTH declaration
+orders with both rule names in the message, salience-separated
+passes, agenda_group-separated passes, fire-once passes,
+insertLogical-negator exempt, dynamic-salience silent); the
+existing suite green under the lint — the certified
+when_not+insertLogical idiom (arc-3 TMS test) compiles untouched,
+which is exemption (2) earning its keep. Authoring-layer only;
+corpus untouched. Rides the next tag with D-221.

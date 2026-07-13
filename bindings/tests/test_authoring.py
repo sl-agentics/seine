@@ -285,3 +285,70 @@ def test_before_checks_the_this_side():
     a = r.when(Anchor)
     with pytest.raises(CompileError, match="Short declares expires_ms=5000"):
         r.when(Short, seine_rs.this_before(a, 0, 10_000))
+
+
+@seine_rs.fact
+class SApp:
+    acct: str
+    pri: int
+
+
+@seine_rs.fact
+class SDecision:
+    acct: str
+    kind: str
+
+
+def _negator(logical=False):
+    r = seine_rs.Rule("release")
+    a = r.when(SApp)
+    r.when_not(SDecision, SDecision.acct == a.acct)
+    ins = r.then_insert_logical if logical else r.then_insert
+    ins(SDecision, acct=a.acct, kind="release")
+    return r
+
+
+def _blocker(**rule_kw):
+    r = seine_rs.Rule("block-bankruptcy", **rule_kw)
+    b = r.when(SApp, SApp.acct == "bad")
+    r.then_insert(SDecision, acct=b.acct, kind="block")
+    return r
+
+
+def test_unstratified_negation_rejected_in_both_declaration_orders():
+    # the round-7 leak: same stratum, outcome flips with list order —
+    # the lint must fire regardless of which order was declared
+    for rules in ([_blocker(), _negator()], [_negator(), _blocker()]):
+        with pytest.raises(seine_rs.CompileError) as ei:
+            seine_rs.compile_rules(rules)
+        msg = str(ei.value)
+        assert "release" in msg and "block-bankruptcy" in msg
+        assert "SDecision" in msg and "declared" in msg
+
+
+def test_stratified_by_salience_passes():
+    assert "rule" in seine_rs.compile_rules([_blocker(salience=10), _negator()])
+
+
+def test_stratified_by_agenda_group_passes():
+    assert "rule" in seine_rs.compile_rules(
+        [_blocker(agenda_group="blocks"), _negator()]
+    )
+
+
+def test_self_negation_fire_once_passes():
+    # a rule negating the type it itself inserts is the fire-once idiom
+    assert "rule" in seine_rs.compile_rules([_negator()])
+
+
+def test_insert_logical_negator_exempt():
+    # TMS retracts the logical product when the negation falsifies
+    # later — finals are order-invariant, so the set compiles
+    assert "rule" in seine_rs.compile_rules([_blocker(), _negator(logical=True)])
+
+
+def test_dynamic_salience_stays_silent():
+    r = _negator()
+    a = r.patterns[0]
+    r.set_salience(a.pri)
+    assert "rule" in seine_rs.compile_rules([_blocker(), r])

@@ -980,10 +980,67 @@ class Rule:
         )
 
 
+def _lint_unstratified_negation(rules: "list[Rule]") -> None:
+    """Negation-as-failure over a type the SAME STRATUM is still
+    producing: `when_not(T)` asks "has nothing inserted T *yet*", and
+    when another rule at the same agenda_group and salience inserts T,
+    "yet" depends on declaration order — the negating rule's outcome
+    silently flips with the order rules were appended to a list.
+
+    Local and static by design (the altitude that kept the temporal
+    lint out of STP territory): per-rule, type-level, no chain or
+    fixpoint reasoning, and only the user's own declarations are read.
+    A rule whose consequences are ALL insertLogical is exempt — truth
+    maintenance retracts its products when the negation is falsified
+    later, so its finals are order-invariant (the firing trace may
+    still vary). Dynamic (bound-field) salience is statically
+    unknowable, so those pairs stay silent. Self-negation (a rule
+    negating a type it itself inserts) is the fire-once idiom, not a
+    race. The engine stays Drools-faithful — raw DRL keeps the
+    footgun; this only stops the authoring layer from silently
+    accepting rule sets whose answer depends on list order."""
+    def stratum(r: Rule):
+        s = r.salience if r.salience is not None else 0
+        return (r.agenda_group, s) if isinstance(s, int) else None
+    inserters: dict = {}  # (stratum, fact class) -> [rule names]
+    for r in rules:
+        st = stratum(r)
+        if st is None:
+            continue
+        for a in r.actions:
+            if a.kind in ("insert", "insert_logical"):
+                inserters.setdefault((st, a.kw["cls"]), []).append(r.name)
+    for r in rules:
+        st = stratum(r)
+        if st is None:
+            continue
+        if r.actions and all(a.kind == "insert_logical" for a in r.actions):
+            continue  # TMS self-corrects this rule's finals
+        for p in r.patterns:
+            if p.ce != "not":
+                continue
+            offenders = [n for n in inserters.get((st, p.cls), []) if n != r.name]
+            if offenders:
+                names = ", ".join(f'"{n}"' for n in sorted(set(offenders)))
+                where = (
+                    f"agenda_group {st[0]!r}" if st[0] is not None else "the default agenda group"
+                ) + f" at salience {st[1]}"
+                raise CompileError(
+                    f'rule "{r.name}" negates {p.cls.__name__}, but rule {names} '
+                    f"inserts {p.cls.__name__} in {where} — the negation may be "
+                    f"evaluated before that insert, so this rule's outcome depends "
+                    f"on the order rules were declared. Separate the strata: give "
+                    f"the inserting rule higher salience or its own agenda_group, "
+                    f"or compute {p.cls.__name__} in a separate session pass and "
+                    f"feed it back as input facts."
+                )
+
+
 def compile_rules(rules) -> str:
     """Render a list of Rule objects into one DRL source string."""
     out = []
     seen = set()
+    rules = list(rules)
     for r in rules:
         if not isinstance(r, Rule):
             raise CompileError(f"expected seine_rs.Rule, got {type(r).__name__}")
@@ -991,4 +1048,5 @@ def compile_rules(rules) -> str:
             raise CompileError(f"duplicate rule name {r.name!r}")
         seen.add(r.name)
         out.append(r.to_drl())
+    _lint_unstratified_negation(rules)
     return "\n".join(out)
