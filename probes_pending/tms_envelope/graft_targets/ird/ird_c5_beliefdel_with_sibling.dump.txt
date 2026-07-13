@@ -1,0 +1,98 @@
+== PRE-FIRE ==
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+     seg1: null
+  PATH RS1
+     seg0: null
+     seg1: null
+  TMS wm: @1(T0( f0=true ))key=-
+  TMS keys: -
+  TMS pending: Insert@1
+FIRING 0 RJ  T0( f0=true ) | 
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+     seg1: null
+  PATH RS1
+     seg0: null
+     seg1: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=v, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@2+]lfh=@2bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@2
+FIRING 1 RS1  T0( f0=true ) | 
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+     seg1: null
+  PATH RS1
+     seg0: null
+     seg1: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=v, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @3(T1( f0=v, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@2+@3+]lfh=@2bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@3
+FIRING 2 RD  T1( f0=v, f1=true ) | 
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+     seg1: null
+  PATH RS1
+     seg0: null
+     seg1: null
+  TMS wm: @1(T0( f0=true ))key=- @3(T1( f0=v, f1=true ))key=JUSTIFIED
+  TMS keys:
+  TMS pending: -
+FIRING 3 RD  T1( f0=v, f1=true ) | 
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+     seg1: null
+  PATH RS1
+     seg0: null
+     seg1: null
+  TMS wm: @1(T0( f0=true ))key=- @3(T1( f0=v, f1=true ))key=JUSTIFIED
+  TMS keys:
+  TMS pending: -
+FIRING 4 ROBS  T1( f0=v, f1=true ) | 
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+     seg1: null
+  PATH RS1
+     seg0: null
+     seg1: null
+  TMS wm: @1(T0( f0=true ))key=- @3(T1( f0=v, f1=true ))key=JUSTIFIED
+  TMS keys:
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+     seg1: null
+  PATH RS1
+     seg0: null
+     seg1: null
+  TMS wm: @1(T0( f0=true ))key=- @3(T1( f0=v, f1=true ))key=JUSTIFIED
+  TMS keys:
+  TMS pending: -

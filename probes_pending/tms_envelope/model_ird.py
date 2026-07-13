@@ -36,11 +36,13 @@ ird-population-predictions.md, ird-ab-predictions.md):
     no re-queue (s3).
  Tie-break: equal salience pops FIFO by act creation; lazy-breaks beat
  same-salience acts. Breaks cascade through kills recursively (a2).
- UNPINNED corners raise AssertionError (three: stated-delete on a
- justified-born mixed key; belief-delete with stated siblings; a break
- emptying a PENDING belief's deps).
+ ONE UNPINNED corner raises AssertionError: stated-delete on a
+ justified-born mixed key — FENCED-BY-UNREACHABILITY (D-209: value-
+ matched deleters always hit the WM belief first, and the belief-delete
+ kills the key whole [c5], so the shape never arises; the pending-clear
+ [c2/c3/c4] and belief-delete-key-death [c5] corners are now encoded).
 
-Validation: `python3 model_ird.py` -> 27/27 vs truths/ird_*.ndj.
+Validation: `python3 model_ird.py` -> 31/31 vs truths/ird_*.ndj.
 """
 import json
 import os
@@ -171,12 +173,22 @@ CELLS = {
         {"RJ": JL(10, brk="modify", selfjoin=True), "ROBS": OBS(15)}),
     "ird_s3_update_requeue": ([T0F, T0F, V("arm", False)],
         {"RB": RUK(20, "arm"), "RO": T0OBS(10)}),
+    "ird_c2_pending_selfbreak_kill": ([T0F, V()],
+        {"RJ": JL(20, brk="update"), "RD": DEL(5, "v"), "ROBS": OBS(0)}),
+    "ird_c3_pending_foreignbreak_kill": ([T0F, V(), V("karm", False)],
+        {"RJ": JL(20), "RKILL": KILLT0(10, "karm"), "RD": DEL(5, "v"),
+         "ROBS": OBS(0)}),
+    "ird_c4_pending_break_rejustify": ([T0F, V(), V("karm", False), V("iarm", False)],
+        {"RJ": JL(20), "RKILL": KILLT0(10, "karm"), "RINS": RINS(9, "iarm"),
+         "RJ2": JL2(8), "ROBS": OBS(0)}),
+    "ird_c5_beliefdel_with_sibling": ([T0F],
+        {"RJ": JL(20), "RS1": ST(10), "RD": DEL(5, "v"), "ROBS": OBS(0)}),
 }
 
 TRUTH_FILES = ["ird_oracle_r1.ndj", "ird_ladder_oracle_r1.ndj",
                "ird_l56_oracle_r1.ndj", "ird_x1_oracle_r1.ndj",
                "ird_rm_oracle_r1.ndj", "ird_m67_oracle_r1.ndj",
-               "ird_ab_oracle_r1.ndj"]
+               "ird_ab_oracle_r1.ndj", "ird_c_oracle_r1.ndj"]
 
 
 class Sim:
@@ -381,9 +393,16 @@ class Sim:
                         self.drop_key(kid)
                 return
             if hid == k["belief"]:
-                assert not k["stated"], \
-                    "UNPINNED: belief-delete with stated siblings"
+                # ⚖ D-209 (c5 dump): deleting the WM belief of a mixed
+                # justified-born key kills the key WHOLE — stated siblings
+                # ORPHAN (x1-undeletable). Zero-sibling case = a1's plain
+                # justified delete.
+                sibs = list(k["stated"])
                 self.drop_key(kid)
+                for sb in sibs:
+                    if self.h[sb]["alive"]:
+                        self.h[sb]["orphan"] = True
+                        self.h[sb]["key"] = None
                 self.kill(hid, by, cancel=True)
                 return
         # keyless: unstage-born, pre-activation stated, or T0/T2 premises
@@ -436,8 +455,11 @@ class Sim:
             self.drop_key(kid)
             self.kill(b, by, cancel=True)
         elif k["pending"] is not None:
-            raise AssertionError(
-                "UNPINNED: break empties a pending belief's deps")
+            # ⚖ D-209 PENDING-CLEAR (c2/c3/c4, source-invariant): deps-empty
+            # on a NON-WM pending belief clears the bookkeeping; the key
+            # REVERTS TO PURE STATED (c4: a later logical lands pending-again
+            # on the SAME key). No key death, no orphaning.
+            k["pending"] = None
 
     # ---------- RHS dispatch ----------
     def fire(self, act):

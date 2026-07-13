@@ -1,0 +1,51 @@
+{
+  "_finding": "PENDING-CLEAR pin (foreign delete-sourced arm): same fate \u2014 source-invariant. Post-break the key survives; the stated kill is ordinary. CONVERGED.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RKILL\"\nsalience 10\nwhen\n    $t : T0(f0 == true)\n    $k : T1(f0 == \"karm\", f1 == false)\nthen\n    delete($t);\n    delete($k);\nend\nrule \"RD\"\nsalience 5\nwhen\n    $p : T1(f0 == \"v\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "karm",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_c3_pending_foreignbreak_kill",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

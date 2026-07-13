@@ -1,0 +1,80 @@
+== PRE-FIRE ==
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0: null
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=v, f1=true ))key=- @3(T1( f0=karm, f1=false ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2 Insert@3
+FIRING 0 RJ  T0( f0=true ) | 
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[(T0( f0=true ))@-1#1447~90536 ] del[] upd[]
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=v, f1=true ))key=STATEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @3(T1( f0=karm, f1=false ))key=STATED
+  TMS keys: STATED fhs[@3+]lfh=- STATED fhs[@4!@2+]lfh=@4bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 1 RKILL  T0( f0=true ) | T1( f0=karm, f1=false ) | 
+  JoinNode 11
+     ltm: (T0( f0=true ))@-1#1447~90536 
+     rtm: (T1( f0=karm, f1=false ))@-1#6638~89140 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[] del[] upd[]
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  TMS wm: @2(T1( f0=v, f1=true ))key=STATEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: STATED fhs[@4!@2+]lfh=@4bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Delete@1 Delete@3
+FIRING 2 RD  T1( f0=v, f1=true ) | 
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[] del[] upd[]
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  TMS wm:
+  TMS keys: -
+  TMS pending: Delete@2
+== FIRE-BOUNDARY ==
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[] del[] upd[]
+  PATH RD
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  TMS wm:
+  TMS keys: -
+  TMS pending: -

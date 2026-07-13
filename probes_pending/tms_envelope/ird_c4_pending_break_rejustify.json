@@ -1,0 +1,58 @@
+{
+  "_finding": "PENDING-CLEAR's key-survival proof: post-break dump shows STATED fhs[@2+] (pure stated, pending mark gone); the re-justify lands as a NEW pending sibling on the SAME key (fhs[@7!@2+]) => ROBS=1, no fresh WM belief. Splits key-survives from key-dissolves. CONVERGED.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RKILL\"\nsalience 10\nwhen\n    $t : T0(f0 == true)\n    $k : T1(f0 == \"karm\", f1 == false)\nthen\n    delete($t);\n    delete($k);\nend\nrule \"RINS\"\nsalience 9\nwhen\n    $i : T1(f0 == \"iarm\", f1 == false)\nthen\n    insert(new T0(false));\n    delete($i);\nend\nrule \"RJ2\"\nsalience 8\nwhen\n    $t : T0(f0 == false)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "karm",
+        "f1": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "iarm",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_c4_pending_break_rejustify",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

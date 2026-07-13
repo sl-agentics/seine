@@ -11,7 +11,27 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-208 (TMS-envelope arc, I-RD:
+_Last updated: 2026-07-12, post-D-209 (TMS-envelope arc, I-RD:
+**THE RECON PROGRAM IS COMPLETE — THE MODEL IS TOTAL.** The corner
+round pinned ⚖ PENDING-CLEAR (deps-empty on a non-WM pending belief
+reverts the key to PURE STATED — no death/orphans; source-invariant
+c2/c3/c4; c4's dump shows the re-justify landing pending-again on
+the SAME key) + ⚖ BELIEF-DELETE KEY-DEATH (the WM belief's delete
+kills the mixed key WHOLE, siblings orphan x1-undeletable; c5's
+dump splits the count-ambiguous alternative) + corner 3
+FENCED-BY-UNREACHABILITY (the collapse argument; the assert never
+fired in 750 more cases). ENGINE CONVERGES on all four corner
+cells. Model 31/31, 13 exact mutation rows. **POPULATION: 150/150
+×5 seeds, 0 raw, corners NONE — total over the grammar.** Census
+86/750 = the port baseline. lint 1769/0/0; all receipts green; no
+engine change. D-203..209 committed local; through 728af4a PUSHED.
+NEXT: THE PORT SLAB (Bryan gates) — instrument the RD×2 anomaly
+first; port against model_ird.py; divergence targets
+d1/d2/b1/b2/l6/r1/m1/m2/m5; boundaries s*/c*/r2/m0/m3/m4/m6/m7 +
+39 sd cells + full receipts. RP2 untouched, epicycle-stop
+standing._
+
+_Prior (post-D-208): I-RD:
 THE A/B ROUNDS ARE DONE AND THE POPULATION IS GREEN — ⚖ the
 ACTIVATION-BACKFILL law (Finding A dissolved: TMS keys form at the
 first insertLogical; pre-activation stateds get PER-HANDLE keys,
@@ -11960,3 +11980,51 @@ materializes) gets INSTRUMENTED recon first. Corner cells
 (pending-dep-break top-volume; justified-born-stated-delete
 shadowed; belief-delete-with-siblings) = a separate pre-port round
 if Bryan wants the corner space pinned first.
+
+## D-209 — THE CORNER ROUND: ⚖ PENDING-CLEAR (deps-empty on a non-WM pending belief reverts the key to PURE STATED — no death, no orphans; source-invariant; c2/c3/c4) + ⚖ BELIEF-DELETE KEY-DEATH (the WM belief's delete kills the mixed key WHOLE, siblings orphan; c5) + corner 3 FENCED-BY-UNREACHABILITY; POPULATION PERFECT: 150/150 ×5 SEEDS, ZERO corners — THE MODEL IS TOTAL OVER THE GRAMMAR (2026-07-12)
+
+Predictions first (ird-corner-predictions.md) incl. the
+pre-registered COLLAPSE ARGUMENT for corner 3 (value-matched
+deleters always hit the WM belief first — the D-207 shadowing — so
+the stated-on-live-justified-born-mixed-key shape is unreachable;
+its fate rides c5's outcome). Four cells, oracle 3×-stable, SdDump
+3× ×4 (banked); **THE ENGINE CONVERGES ON ALL FOUR** — the corner
+space adds boundary pins, not port targets.
+
+⚖ PENDING-CLEAR (c2 self-update ≡ c3 foreign-delete ≡ c4, the
+pre-registered column-A lean, all three consistent as the protocol
+required): deps-empty on a NON-WM pending belief clears the
+bookkeeping; the key SURVIVES as pure stated. The decisive c4
+joints: post-break `STATED fhs[@2+]` (pending mark gone, key
+alive); the re-justify lands as a NEW pending sibling on the SAME
+key (`fhs[@7!@2+]`). ⚠ c2's post-kill empty keys line briefly
+misread as dissolution-at-break — c3/c4 corrected the attribution
+(the kill hid the pure-stated interval); logged, not repeated.
+
+⚖ BELIEF-DELETE KEY-DEATH (c5, the pre-registered lean): deleting
+the WM belief of a mixed justified-born key kills the key WHOLE —
+the dump shows the keys line emptying at the belief's delete with
+the sibling still listed; the sibling ORPHANS (x1-undeletable, the
+RD no-op, the finals survivor). The count-ambiguous alternative
+(belief-only + undeletable-sibling — identical counts!) is excluded
+by the dump's key-line timing. Corner 3's assert STAYS as the fence.
+
+MODEL: both winners encoded (finalize_break pending branch;
+rhs_delete belief branch — zero-sibling degenerates to a1);
+validator **31/31**; mutation rows exact
+(pending-flipped→{c2,c3,c4}; beliefdel-flipped→{c5}; restored
+clean; 13 exact rows total). POPULATION RE-RUN (corners now INSIDE
+the 0-div comparison): **150/150 model-clean ON ALL FIVE SEEDS, 0
+raw mismatches, corners NONE** — every ex-corner case simulates
+and matches; the fence never fired in 750 more cases; census
+byte-stable **86/750 (11.5%)**. THE MODEL IS TOTAL OVER THE
+POPULATION GRAMMAR.
+
+Receipts: lint 1769/0/0 (c2-c5 all converged pins), corpus
+11/1124/370 + drift 59, cells 39/39, witnesses 26/26, model 31/31,
+SD census 72 stands (no engine change). THE I-RD RECON PROGRAM IS
+COMPLETE: 31 cells, 13 mutation rows, a total model, a 750-case
+clean population, dumps ×14 banked, engine baseline 86/750,
+divergence targets d1/d2/b1/b2/l6/r1/m1/m2/m5. NEXT: THE PORT SLAB
+(Bryan gates) — instrument the RD×2 engine anomaly first, then
+port against model_ird.py with validate-and-revert + FULL receipts.

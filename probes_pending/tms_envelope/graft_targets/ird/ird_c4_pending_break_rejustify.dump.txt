@@ -1,0 +1,126 @@
+== PRE-FIRE ==
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0: null
+  PATH RINS
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  PATH RJ2
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=v, f1=true ))key=- @3(T1( f0=karm, f1=false ))key=- @4(T1( f0=iarm, f1=false ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2 Insert@3 Insert@4
+FIRING 0 RJ  T0( f0=true ) | 
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[(T0( f0=true ))@-1#71084~97380 ] del[] upd[]
+  PATH RINS
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  PATH RJ2
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T1( f0=v, f1=true ))key=STATEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @3(T1( f0=karm, f1=false ))key=STATED @4(T1( f0=iarm, f1=false ))key=STATED
+  TMS keys: STATED fhs[@3+]lfh=- STATED fhs[@4+]lfh=- STATED fhs[@5!@2+]lfh=@5bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 1 RKILL  T0( f0=true ) | T1( f0=karm, f1=false ) | 
+  JoinNode 11
+     ltm: (T0( f0=true ))@-1#71084~97380 
+     rtm: (T1( f0=karm, f1=false ))@-1#80051~52671 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[] del[] upd[]
+  PATH RINS
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  PATH RJ2
+     seg0: null
+  TMS wm: @2(T1( f0=v, f1=true ))key=STATEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @4(T1( f0=iarm, f1=false ))key=STATED
+  TMS keys: STATED fhs[@4+]lfh=- STATED fhs[@5!@2+]lfh=@5bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=true )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Delete@1 Delete@3
+FIRING 2 RINS  T1( f0=iarm, f1=false ) | 
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[] del[] upd[]
+  PATH RINS
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  PATH RJ2
+     seg0: null
+  TMS wm: @2(T1( f0=v, f1=true ))key=STATED @6(T0( f0=false ))key=-
+  TMS keys: STATED fhs[@2+]lfh=-
+  TMS pending: Insert@6 Delete@4
+FIRING 3 RJ2  T0( f0=false ) | 
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[] del[] upd[]
+  PATH RINS
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  PATH RJ2
+     seg0: null
+  TMS wm: @2(T1( f0=v, f1=true ))key=STATEDbs[n=1 wma=-]dep{RJ2 act=false q=false tup=(T0( f0=false )@6) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @6(T0( f0=false ))key=-
+  TMS keys: STATED fhs[@7!@2+]lfh=@7bs[n=1 wma=-]dep{RJ2 act=false q=false tup=(T0( f0=false )@6) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 4 ROBS  T1( f0=v, f1=true ) | 
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[] del[] upd[]
+  PATH RINS
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  PATH RJ2
+     seg0: null
+  TMS wm: @2(T1( f0=v, f1=true ))key=STATEDbs[n=1 wma=-]dep{RJ2 act=false q=false tup=(T0( f0=false )@6) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @6(T0( f0=false ))key=-
+  TMS keys: STATED fhs[@7!@2+]lfh=@7bs[n=1 wma=-]dep{RJ2 act=false q=false tup=(T0( f0=false )@6) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  JoinNode 11
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RKILL
+     seg0 stagedIns[] del[] upd[]
+  PATH RINS
+     seg0: null
+  PATH ROBS
+     seg0: null
+  PATH RJ
+     seg0: null
+  PATH RJ2
+     seg0: null
+  TMS wm: @2(T1( f0=v, f1=true ))key=STATEDbs[n=1 wma=-]dep{RJ2 act=false q=false tup=(T0( f0=false )@6) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS} @6(T0( f0=false ))key=-
+  TMS keys: STATED fhs[@7!@2+]lfh=@7bs[n=1 wma=-]dep{RJ2 act=false q=false tup=(T0( f0=false )@6) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
