@@ -101,3 +101,32 @@ def test_no_tracker_ids_in_public_docs():
         texts.append(getattr(obj, "__doc__", "") or "")
     offenders = [t[:60] for t in texts if re.search(r"\bD-\d{2,3}\b", t)]
     assert not offenders, offenders
+
+
+RESERVED_DRL = """
+rule "R"
+when
+    P(v > 0)
+then
+end
+"""
+
+
+def test_handle_field_rejected_at_fact():
+    # `handle` is the engine's result column; a user field with that
+    # name would duplicate it and collapse silently in to_pylist/polars
+    with pytest.raises(seine_rs.CompileError, match="reserved"):
+        @seine_rs.fact
+        class Bad:
+            handle: int
+            v: int
+
+
+def test_handle_field_rejected_in_dict_table():
+    with pytest.raises(Exception, match="reserved"):
+        seine_rs.run(RESERVED_DRL, {"P": {"handle": [1], "v": [1]}})
+
+
+def test_handle_field_rejected_in_arrow_table():
+    with pytest.raises(Exception, match="reserved"):
+        seine_rs.run(RESERVED_DRL, {"P": pa.table({"handle": [1], "v": [1]})})

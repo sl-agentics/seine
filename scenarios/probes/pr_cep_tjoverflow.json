@@ -1,0 +1,72 @@
+{
+ "name": "pr_cep_tjoverflow",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R when $a : A() $b : B(this after[0ms,10ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 0,
+    "tag": "ctlA"
+   }
+  },
+  {
+   "type": "A",
+   "fields": {
+    "ts": -9223372036854775000,
+    "tag": "minA"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 5,
+    "tag": "ctlB"
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 9223372036854775000,
+    "tag": "maxB"
+   }
+  }
+ ],
+ "epochs": [],
+ "_finding": "Temporal-join delta i64/long OVERFLOW: after[0,10] computes d = B.ts - A.ts in wrapping two's-complement on BOTH sides (engine eval_allen wrapping_sub = Java AfterEvaluator plain long subtraction), so the extreme pairings (ctlA x maxB, minA x ctlB, minA x maxB) all land OUT of [0,10] identically and only the in-range control pair fires; the extreme events' expiration deadlines also wrap negative => kept forever (DROOLS-455 = engine D-133 branch). Pins wrap-faithfulness of the Allen delta (adversarial-surface pass on v0.4.4, companion to pr_cep_expoverflow)."
+}

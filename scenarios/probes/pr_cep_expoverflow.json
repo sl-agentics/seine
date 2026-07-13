@@ -1,0 +1,51 @@
+{
+ "name": "pr_cep_expoverflow",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 10000
+   }
+  }
+ ],
+ "drl": "rule R when E() then end\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "tag": "control"
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 9223372036854775000,
+    "tag": "overflow"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 20000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "Expiration deadline i64/long OVERFLOW: ts near MAX + expires_ms wraps NEGATIVE in two's-complement on BOTH sides, feeding the same negative-deadline guard (engine D-133 branch = DROOLS-455 effectiveEnd<0 -> Long.MAX_VALUE) => the overflow event never expires while the ts=0 control expires normally past its deadline. Pins wrap-faithfulness against a hypothetical Java-side addExact/clamp asymmetry (adversarial-surface pass on v0.4.4)."
+}

@@ -861,6 +861,7 @@ impl PySession {
                     }
                     fields.push((fname, ft));
                 }
+                reject_reserved_fields(&type_name, &fields)?;
                 sess.schemas.push(TypeSchema { name: type_name, fields, nullable });
             }
         }
@@ -1158,6 +1159,20 @@ impl PySession {
     }
 }
 
+/// Result tables prepend the engine's fact handle under this column
+/// name (see batch_for_type); a user field with the same name would
+/// produce a duplicate column that collapses silently downstream.
+fn reject_reserved_fields(type_name: &str, fields: &[(String, FieldType)]) -> PyResult<()> {
+    if fields.iter().any(|(n, _)| n == "handle") {
+        return Err(PyValueError::new_err(format!(
+            "{type_name}.handle: the field name \"handle\" is reserved — result \
+             tables carry the engine's fact handle in a column of that name; \
+             rename the field"
+        )));
+    }
+    Ok(())
+}
+
 /// Ingest either an Arrow-stream-capable object or a dict of lists.
 fn ingest_any(
     _py: Python<'_>,
@@ -1174,7 +1189,9 @@ fn ingest_any(
         })
     };
     if let Ok(d) = obj.downcast::<PyDict>() {
-        return columns_from_dict(type_name, d, &target_of);
+        let (fields, cols) = columns_from_dict(type_name, d, &target_of)?;
+        reject_reserved_fields(type_name, &fields)?;
+        return Ok((fields, cols));
     }
     let mut reader = import_stream(obj)?;
     let schema = reader.schema();
@@ -1187,6 +1204,7 @@ fn ingest_any(
             None => fields.push((f.name().clone(), map_dtype(type_name, f)?)),
         }
     }
+    reject_reserved_fields(type_name, &fields)?;
     let mut cols: Vec<Vec<Value>> = vec![Vec::new(); fields.len()];
     while let Some(batch) = reader.next() {
         let batch = batch.map_err(|e| PyValueError::new_err(format!("arrow read: {e}")))?;

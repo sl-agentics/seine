@@ -299,6 +299,12 @@ def fact(cls: type = None, *, event: "Event | None" = None) -> type:
         raise CompileError(f"@fact {cls.__name__}: no annotated fields")
     fields = {}
     for name, py_t in ann.items():
+        if name == "handle":
+            raise CompileError(
+                f"@fact {cls.__name__}: the field name 'handle' is reserved — "
+                f"result tables carry the engine's fact handle in a column of "
+                f"that name; rename the field"
+            )
         fields[name] = _resolve_field_type(cls.__name__, name, py_t)
     dc = dataclasses.dataclass(cls)
     dc.__seine_fields__ = fields  # ordered: annotation order = constructor order

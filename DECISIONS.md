@@ -12417,3 +12417,64 @@ corpus counts follow automatically at the next build. Credit: the
 reviewer's fifth round, and the first from pure black-box use —
 the NSF-reversal-vs-payoff-hold shape is the real DI use case,
 which is exactly why this foot-gun ranked.
+
+## D-220 — the adversarial self-pass on v0.4.4: the `handle` column collision closed at every schema entrance + the temporal i64 arithmetic brought onto the Java-wrap convention (2026-07-12)
+
+Bryan flagged that the external reviewer is turning adversarial on
+the published wheel. Rather than wait, a self-pass over the two
+most attackable self-inflicted surfaces ran first. Both bit.
+
+FINDING 1 — the D-214 rename collides with user data. A fact type
+with a field literally named `handle` produced result tables with
+TWO `handle` columns (the injected engine handle + the user's
+field): `to_pylist` silently collapses the duplicate dict keys,
+and polars errors on the duplicate name. Silent ambiguity on the
+wheel's front door, self-inflicted by the underscore-drop. CLOSED
+by reserving the name at every schema entrance, in the established
+error voice ("result tables carry the engine's fact handle in a
+column of that name; rename the field"): `@fact` raises
+CompileError at decoration time; `reject_reserved_fields` guards
+`ingest_any` (the single funnel for BOTH dict and Arrow fact
+tables — run(), Session facts=, and insert() inclusive) and the
+schemas= declaration loop. insert_row iterates the declared schema
+only, so it cannot reintroduce the name. 3 new surface tests pin
+the three entrances.
+
+FINDING 2 — the temporal arithmetic PANICKED IN DEBUG. The probe
+(ts near i64::MAX with expires_ms) crashed the engine at the
+deadline computation — `attempt to add with overflow` — before the
+oracle could even be compared: debug builds panic where release
+wraps, so debug≠release on user-reachable input, and any dev build
+sat one absurd timestamp from a crash (the harness itself died).
+The RHS expr evaluator already spells Java's long-wrap convention
+(wrapping_add/sub/mul); the CEP sites had simply missed it. The
+same spelling now covers the whole class: the expiration deadline
+(the D-133/DROOLS-455 negative-deadline guard receives the same
+wrapped value in every profile), window:time admission +
+scheduling (x3), the pseudo-clock advance (PseudoClockScheduler's
+timer += ms wraps the same), both interval-end computations (ts +
+@duration, x2 sites), not_fire_time's after-close, and every
+eval_allen delta (wrapping_sub + wrapping_abs — Java's
+Math.abs(Long.MIN_VALUE) wraps identically). Release semantics are
+bit-identical (wrapping == checked whenever in range); the change
+makes debug == release == Java.
+
+The wrap-faithfulness is PINNED, not argued: pr_cep_expoverflow
+(the wrapped deadline is kept-forever on both sides — DROOLS-455
+eats the same negative — while the ts=0 control expires normally
+past the advance) and pr_cep_tjoverflow (the after[0,10] delta
+wraps identically, so among the 2x2 pairings only the in-range
+control fires, and the extreme events' deadlines wrap to
+kept-forever) — both 3x-stable. Prediction ledger: the deadline
+probe was predicted IDENTICAL at 0.8 and instead found the debug
+panic — the probe earning its keep — then matched its predicted
+finals post-fix; the join probe (0.85) matched outright.
+
+Receipts: corpus 11/**1129**/397 all green (+2 probes) + drift 32
+identical; SD census **72 EXACT** (0-div 12x150/150, panic net
+silent); ird census **0 divergents x5 seeds**, model-clean
+150/150 x5; model cells 31/31; witnesses 26/26; agenda_open x19
+byte-identical (worktree baseline); lint-probes 1801/0/0; cargo
+test green; bindings 89/89 (3 new); wheel-level smoke (near-MAX ts
+event: fires at insert, survives the advance that expires the
+control). Ships on the next tag.

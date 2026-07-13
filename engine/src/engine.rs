@@ -5367,7 +5367,13 @@ impl Engine {
                         r.patterns.iter().any(|p| p.type_id == tid)
                     });
                     let plus = if referenced { 1 } else { 0 };
-                    let deadline = ts + dur + exp + plus;
+                    // Java long overflow WRAPS (two's-complement), and the
+                    // wrapped-negative deadline feeds the same DROOLS-455
+                    // guard below — wrapping here keeps debug==release==Java
+                    // (pr_cep_expoverflow pins the composite; same convention
+                    // as the RHS expr evaluator).
+                    let deadline =
+                        ts.wrapping_add(dur).wrapping_add(exp).wrapping_add(plus);
                     // D-133 boundary, CORRECTED by D-152: the D-133 probes ran
                     // at insert-clock 0, where "past deadline" ⇔ NEGATIVE
                     // deadline — two cases they conflated (Drools
@@ -5433,8 +5439,9 @@ impl Engine {
                     // otherwise pop at the next advance and evict a REVIVED
                     // member that Drools' queue never contained
                     // (wf902x184: the zombie must survive).
-                    if ts + n > self.clock_ms {
-                        self.window_deadlines.entry(ts + n).or_default().push((ni, id));
+                    let due = ts.wrapping_add(n); // Java long wrap (see deadline above)
+                    if due > self.clock_ms {
+                        self.window_deadlines.entry(due).or_default().push((ni, id));
                     }
                 }
             }
@@ -5464,7 +5471,7 @@ impl Engine {
         let Value::I64(ts) = self.store.temporal_ts(f, ts_fi) else {
             return true;
         };
-        ts + n > self.clock_ms
+        ts.wrapping_add(n) > self.clock_ms // Java long wrap
     }
 
     /// D-185 `window:length(N)` admission: append a SLOT for a fresh
@@ -6339,7 +6346,8 @@ impl Engine {
         if ms < 0 {
             return Err(EngineError("advance must be >= 0".into()));
         }
-        self.clock_ms += ms;
+        // Java long wrap: PseudoClockScheduler's timer += ms wraps the same
+        self.clock_ms = self.clock_ms.wrapping_add(ms);
         let due: Vec<FactId> = {
             let mut keys: Vec<i64> = self
                 .deadlines
@@ -11084,8 +11092,8 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                     let Value::I64(as_) = self.store.temporal_ts(l[anchor.0], anchor.1) else {
                         return false;
                     };
-                    let be = bs + dur_of(self.store, f, *self_dur_fi);
-                    let ae = as_ + dur_of(self.store, l[anchor.0], *anchor_dur_fi);
+                    let be = bs.wrapping_add(dur_of(self.store, f, *self_dur_fi));
+                    let ae = as_.wrapping_add(dur_of(self.store, l[anchor.0], *anchor_dur_fi));
                     eval_allen(*op, params, bs, be, as_, ae)
                 }
                 Test::Cmp { .. } => true,
@@ -11191,8 +11199,8 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
                     let Value::I64(as_) = self.store.temporal_ts(l[anchor.0], anchor.1) else {
                         return false;
                     };
-                    let be = bs + dur_of(self.store, f, *self_dur_fi);
-                    let ae = as_ + dur_of(self.store, l[anchor.0], *anchor_dur_fi);
+                    let be = bs.wrapping_add(dur_of(self.store, f, *self_dur_fi));
+                    let ae = as_.wrapping_add(dur_of(self.store, l[anchor.0], *anchor_dur_fi));
                     eval_allen(*op, params, bs, be, as_, ae)
                 }
                 Test::Cmp { .. } => true,
@@ -11219,7 +11227,7 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
         };
         let (lo, hi) = (params[0], params[1]);
         match op {
-            AllenOp::After => Some(a_ts + hi),
+            AllenOp::After => Some(a_ts.wrapping_add(hi)),
             AllenOp::Before if lo == 0 => Some(a_ts),
             _ => None,
         }
@@ -11292,16 +11300,21 @@ fn during_bounds(params: &[i64]) -> (i64, i64, i64, i64) {
 /// so a dur=0 anchor/self reduces each op to its point behavior.
 fn eval_allen(op: AllenOp, params: &[i64], bs: i64, be: i64, as_: i64, ae: i64) -> bool {
     use AllenOp::*;
+    // Deltas in Java long arithmetic: overflow WRAPS (and Math.abs(MIN)
+    // stays MIN), so extreme-timestamp pairs mis-compare identically on
+    // both sides — pr_cep_tjoverflow pins the After composite; same
+    // convention as the RHS expr evaluator.
+    let sub = i64::wrapping_sub;
     match op {
         // after: d = Bs − Ae ∈ [lo,hi] (B later; only the anchor's dur
         // enters via Ae). before: d = As − Be ∈ [lo,hi] (B earlier; only
         // self's dur enters via Be). Bounds inclusive, exact (no ±1).
         After => {
-            let d = bs - ae;
+            let d = sub(bs, ae);
             d >= params[0] && d <= params[1]
         }
         Before => {
-            let d = as_ - be;
+            let d = sub(as_, be);
             d >= params[0] && d <= params[1]
         }
         // bare: Bs==As ∧ Be==Ae. [dev]: |Bs−As|≤dev ∧ |Be−Ae|≤dev.
@@ -11312,44 +11325,48 @@ fn eval_allen(op: AllenOp, params: &[i64], bs: i64, be: i64, as_: i64, ae: i64) 
                 [sd, ed] => (*sd, *ed),
                 _ => (0, 0),
             };
-            (bs - as_).abs() <= sdev && (be - ae).abs() <= edev
+            sub(bs, as_).wrapping_abs() <= sdev && sub(be, ae).wrapping_abs() <= edev
         }
         // bare: Be==As. [dev]: |Be−As|≤dev.
-        Meets => (be - as_).abs() <= params.first().copied().unwrap_or(0),
+        Meets => sub(be, as_).wrapping_abs() <= params.first().copied().unwrap_or(0),
         // bare: Bs==Ae. [dev]: |Bs−Ae|≤dev.
-        MetBy => (bs - ae).abs() <= params.first().copied().unwrap_or(0),
+        MetBy => sub(bs, ae).wrapping_abs() <= params.first().copied().unwrap_or(0),
         // structural Bs<As<Be<Ae; overlap = Be−As within [min,max].
         Overlaps => {
             let (min, max) = overlap_bounds(params);
-            let ov = be - as_;
+            let ov = sub(be, as_);
             bs < as_ && as_ < be && be < ae && ov >= min && ov <= max
         }
         // structural As<Bs<Ae<Be; overlap = Ae−Bs within [min,max].
         OverlappedBy => {
             let (min, max) = overlap_bounds(params);
-            let ov = ae - bs;
+            let ov = sub(ae, bs);
             as_ < bs && bs < ae && ae < be && ov >= min && ov <= max
         }
         // B strictly inside A: dS=Bs−As, dE=Ae−Be, each in its window.
         During => {
             let (smin, smax, emin, emax) = during_bounds(params);
-            let (ds, de) = (bs - as_, ae - be);
+            let (ds, de) = (sub(bs, as_), sub(ae, be));
             ds >= smin && ds <= smax && de >= emin && de <= emax
         }
         // A strictly inside B (during with A,B swapped): dS=As−Bs, dE=Be−Ae.
         Includes => {
             let (smin, smax, emin, emax) = during_bounds(params);
-            let (ds, de) = (as_ - bs, be - ae);
+            let (ds, de) = (sub(as_, bs), sub(be, ae));
             ds >= smin && ds <= smax && de >= emin && de <= emax
         }
         // Bs==As (±dev) ∧ Be<Ae (the end side stays strict).
-        Starts => (bs - as_).abs() <= params.first().copied().unwrap_or(0) && be < ae,
+        Starts => sub(bs, as_).wrapping_abs() <= params.first().copied().unwrap_or(0) && be < ae,
         // Bs==As (±dev) ∧ Be>Ae.
-        StartedBy => (bs - as_).abs() <= params.first().copied().unwrap_or(0) && be > ae,
+        StartedBy => {
+            sub(bs, as_).wrapping_abs() <= params.first().copied().unwrap_or(0) && be > ae
+        }
         // Be==Ae (±dev) ∧ Bs>As (the start side stays strict).
-        Finishes => (be - ae).abs() <= params.first().copied().unwrap_or(0) && bs > as_,
+        Finishes => sub(be, ae).wrapping_abs() <= params.first().copied().unwrap_or(0) && bs > as_,
         // Be==Ae (±dev) ∧ Bs<As.
-        FinishedBy => (be - ae).abs() <= params.first().copied().unwrap_or(0) && bs < as_,
+        FinishedBy => {
+            sub(be, ae).wrapping_abs() <= params.first().copied().unwrap_or(0) && bs < as_
+        }
     }
 }
 
