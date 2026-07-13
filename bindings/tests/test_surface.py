@@ -180,3 +180,59 @@ def test_to_pylist_native_fidelity():
     )
     drow = d.facts["M"].to_pylist()[0]
     assert drow["amt"] == decimal.Decimal("1.50") and isinstance(drow["amt"], decimal.Decimal)
+
+@seine_rs.fact
+class OvAcct:
+    v: int
+
+
+def test_int_overflow_names_the_overflow_not_the_schema():
+    # a Python int past i64 must fail AS an overflow at ingestion —
+    # not decay to float and resurface as "table schema differs"
+    with pytest.raises(ValueError, match="does not fit a 64-bit") as ei:
+        seine_rs.run("rule R when P(v > 0) then end", {"P": {"v": [2**63]}})
+    assert "schema differs" not in str(ei.value)
+    r = seine_rs.Rule("r")
+    r.when(OvAcct)
+    with pytest.raises(ValueError, match="does not fit a 64-bit") as ei:
+        seine_rs.Session([r], facts={OvAcct: {"v": [2**63]}})
+    assert "schema differs" not in str(ei.value)
+
+
+def test_int_boundaries_still_ingest():
+    res = seine_rs.run(
+        "rule R when P(v != 0) then end",
+        {"P": {"v": [2**63 - 1, -(2**63)]}},
+    )
+    vals = sorted(row["v"] for row in res.facts["P"].to_pylist())
+    assert vals == [-(2**63), 2**63 - 1]
+    assert res.fired == 2
+
+
+@seine_rs.fact
+class OvF:
+    f: float
+
+
+def test_big_int_promotes_into_declared_float_field():
+    r = seine_rs.Rule("r")
+    r.when(OvF)
+    s = seine_rs.Session([r], facts={OvF: {"f": [1.0]}})
+    s.insert_row(OvF, {"f": 2**63})
+    rows = s.fire().facts["OvF"].to_pylist()
+    assert float(2**63) in [row["f"] for row in rows]
+
+
+@seine_rs.fact
+class RowT:
+    a: int
+    b: int
+
+
+def test_insert_row_unknown_field_rejected():
+    # the one schema violation this path accepted silently (round 9 C)
+    r = seine_rs.Rule("r")
+    r.when(RowT)
+    s = seine_rs.Session([r], facts={RowT: {"a": [1], "b": [2]}})
+    with pytest.raises(ValueError, match="unknown field c"):
+        s.insert_row(RowT, {"a": 1, "b": 2, "c": 3})

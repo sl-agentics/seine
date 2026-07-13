@@ -444,6 +444,21 @@ fn py_scalar(
         }
         return Ok(Value::I64(n));
     }
+    // a genuine Python int too large for i64 must fail HERE, loudly —
+    // otherwise it decays into the f64 fallback below and surfaces
+    // later as a baffling schema mismatch (or a silently-float column)
+    if v.downcast::<pyo3::types::PyInt>().is_ok() {
+        if matches!(target, Some((FieldType::F64, _))) {
+            // declared float field: same promotion ints already get
+            if let Ok(f) = v.extract::<f64>() {
+                return Ok(Value::F64(f));
+            }
+        }
+        return Err(PyValueError::new_err(format!(
+            "{type_name}.{field}: {v} does not fit a 64-bit signed integer \
+             (i64 / Java long: -9223372036854775808..9223372036854775807)"
+        )));
+    }
     if let Ok(f) = v.extract::<f64>() {
         if matches!(target, Some((FieldType::Dec { .. }, _))) {
             return Err(PyTypeError::new_err(format!(
@@ -1001,6 +1016,22 @@ impl PySession {
             .clone();
         let nullable_mask = declared.nullable;
         let declared = declared.fields;
+        // unknown keys were the one schema violation this path accepted
+        // silently — a typo'd field name must not vanish into a
+        // defaulted-looking insert
+        for (k, _) in row.iter() {
+            let k: String = k.extract()?;
+            if !declared.iter().any(|(f, _)| f == &k) {
+                return Err(PyValueError::new_err(format!(
+                    "{type_name}: unknown field {k} (declared fields: {})",
+                    declared
+                        .iter()
+                        .map(|(f, _)| f.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )));
+            }
+        }
         let mut vals: Vec<(String, Value)> = Vec::new();
         for (fi, (fname, ft)) in declared.iter().enumerate() {
             let item = row

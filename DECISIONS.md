@@ -12725,3 +12725,34 @@ run had a cwd bug making it vacuous — redone properly); SD census
 99/99 on the rebuilt .so. B (overflow misreported as schema
 mismatch) and C (unknown dict fields silently accepted) remain
 open from the reviewer's batch.
+
+## D-227 — findings B and C landed: the overflow that lied about schemas, and the row dict that ate typos (external review round 9's remainder) (2026-07-13)
+
+B, the mechanism: py_scalar tried extract::<i64> and, on failure,
+fell through to extract::<f64> — which succeeds for ANY Python
+int. So a value past i64 silently became a float column; against a
+declared schema that resurfaced as "table schema differs from the
+declared schema" (a lie — the schema was fine, the VALUE
+overflowed), and on the inferred path it became a silently-float
+column with no error at all (worse than the reviewer's report).
+The fix: a genuine Python int (PyInt downcast) that fails i64
+extraction now errors AT ingestion, naming the value and the
+i64/Java-long range. One deliberate carve-out: a declared F64
+field still accepts big ints via float promotion — the same
+promotion in-range ints already get. Boundaries pinned: 2^63-1 and
+-2^63 ingest; 2^63 errors.
+
+C: insert_row iterated the DECLARED fields, so an unknown key in
+the row dict was never consulted — a typo'd field name vanished
+into what looked like a successful insert. Now the row's keys are
+checked against the schema first: unknown field -> ValueError
+naming it and listing the declared fields. Verified the neighbors
+are already loud: the bulk dict path errors on extra columns via
+the schema comparison, and update() with an unknown field errors
+engine-side ("no field zzz").
+
+Receipts: bindings 103/103 (4 new: overflow named-not-schema-diff
+on both inferred and declared paths, boundary values ingest, the
+F64 promotion carve-out, unknown row field rejected).
+Bindings-only; engine and corpus untouched — the reviewer's round-9
+batch (tier-1 off-by-one, A, B, C) is now fully closed.
