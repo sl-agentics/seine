@@ -36,7 +36,7 @@ def test_fact_instances_end_to_end():
         Person("grace", 45, 88.0),
     ]
     res = seine_rs.run(_rules(), {Person: people, Flagged: []})
-    out = pl.DataFrame(res.derived()["Flagged"]).sort("name")
+    out = pl.DataFrame(res.derived["Flagged"]).sort("name")
     assert out["name"].to_list() == ["ada", "grace"]
 
 
@@ -97,6 +97,6 @@ def test_row_sugar_equals_column_path():
     people_cols = {"name": ["ada", "kurt"], "age": [36, 17], "score": [91.5, 99.0]}
     r1 = seine_rs.run(_rules(), {Person: people_rows, Flagged: []})
     r2 = seine_rs.run(_rules(), {Person: people_cols, Flagged: []})
-    a1 = pl.DataFrame(r1.firings())
-    a2 = pl.DataFrame(r2.firings())
+    a1 = pl.DataFrame(r1.firings)
+    a2 = pl.DataFrame(r2.firings)
     assert a1["values_json"].to_list() == a2["values_json"].to_list()

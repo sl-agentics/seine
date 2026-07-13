@@ -72,7 +72,7 @@ def test_null_3vl_end_to_end():
     sess.insert_row("T", {"v": None, "w": 0})
     sess.insert_row("T", {"v": 5, "w": 0})
     res = sess.fire()
-    fdf = __import__("polars").DataFrame(res.firings())
+    fdf = __import__("polars").DataFrame(res.firings)
     assert fdf["seq"].n_unique() == 1  # pin D: only v=5 (UNKNOWN excluded)
 
 
@@ -96,7 +96,7 @@ def test_nan_normalizes_to_null_for_nullable_floats():
     sess.insert_row("T", {"x": float("nan")})
     sess.insert_row("T", {"x": 1.5})
     res = sess.fire()
-    fdf = __import__("polars").DataFrame(res.firings())
+    fdf = __import__("polars").DataFrame(res.firings)
     by_rule = sorted(fdf["rule"].to_list())
     # NaN became NULL: R fires once (1.5); S fires once (the NaN row)
     assert by_rule == ["R", "S"]
@@ -112,7 +112,7 @@ def test_nan_stays_a_value_for_bare_floats():
     # bit-exact NaN is a VALUE (certified D-044): != 0.0 is Java-false
     # for NaN comparisons in the engine (ord None) — zero firings, and
     # crucially NO null conversion happened (insert succeeded).
-    fdf = __import__("polars").DataFrame(res.firings())
+    fdf = __import__("polars").DataFrame(res.firings)
     assert fdf.height == 0
 
 
@@ -124,7 +124,7 @@ def test_decimal_round_trip_and_wall():
     sess.insert_row("M", {"amount": Decimal("1.25")})
     sess.insert_row("M", {"amount": Decimal("1.005")})  # half-up -> 1.01
     res = sess.fire()
-    fdf = __import__("polars").DataFrame(res.firings())
+    fdf = __import__("polars").DataFrame(res.firings)
     assert fdf["seq"].n_unique() == 1
 
     with pytest.raises(TypeError) as ei:
@@ -151,7 +151,7 @@ def test_arrow_ingest_nullable_and_decimal():
         schemas={"T": {"v": "i64?", "x": "f64?", "amount": "decimal(10,2)?"}},
     )
     res = sess.fire()
-    fdf = __import__("polars").DataFrame(res.firings())
+    fdf = __import__("polars").DataFrame(res.firings)
     by_rule = sorted(fdf["rule"].to_list())
     # R: v=5 only; S: the NaN row AND the None row (both NULL); Q: 1.25
     assert by_rule == ["Q", "R", "S", "S"]
@@ -174,7 +174,7 @@ def test_results_round_trip_nulls_and_decimals():
     )
     sess.insert_row("M", {"amount": Decimal("2.00"), "opt": None})
     res = sess.fire()
-    df = pl.DataFrame(res.facts()["M"])
+    df = pl.DataFrame(res.facts["M"])
     assert str(df.schema["amount"]).startswith("Decimal")
     vals = sorted(str(v) for v in df["amount"].to_list())
     assert vals == ["0.99", "2.00"]

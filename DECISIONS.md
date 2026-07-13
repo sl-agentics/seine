@@ -12198,3 +12198,24 @@ Receipts: 72/72 binding tests (PYTHONPATH + the venv's editable
 fails there); engine/corpus untouched (no Rust change). NOTE:
 v0.4.3 as published still imports as `seine`; the rename ships with
 the NEXT release.
+
+## D-213 — Python surface ergonomics: Table.to_arrow()/to_polars(), uniform property accessors on Result, reprs to seine_rs.* (2026-07-12)
+
+External review (a second Claude, relayed by Bryan) flagged three
+binding defects. (1) The import-name collision with PyPI's unrelated
+`seine` (hile's network utils) — already cured by D-212's rename;
+the published v0.4.3 still imports as `seine`, ships fixed with the
+next release (no urgency: no external consumers yet). (2) Table was
+opaque — only dunders, so `dir()` showed nothing and users had to
+know `pa.table(t)` picks up the C stream. Added `to_arrow()` /
+`to_polars()` (zero-copy via the same capsule; polars' capsule
+support already proven in-tree) + a discoverability docstring.
+(3) Inconsistent Result surface — `fired` was an attribute while
+`facts()/derived()/deleted_handles()/firings()` were methods (a
+printed bound-method repr was the tell). All five are now getters;
+Session's action methods stay methods. Reprs updated to
+`seine_rs.Table(...)` / `seine_rs.Result(...)`. Receipts: maturin
+develop --release rebuilt the tracked .so (0.4.3); **76/76 binding
+tests** (72 prior + test_surface.py: to_arrow/to_polars round-trips,
+dir() discoverability, uniform-property assertions); tests + README
+migrated to property access; engine/corpus untouched.

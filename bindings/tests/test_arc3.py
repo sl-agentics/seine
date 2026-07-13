@@ -36,8 +36,8 @@ def test_insert_logical_golden_and_tms():
     # TMS auto-retraction: inserting the blocker kills the justification
     s.insert_row(Blocker, {"name": "a"})
     res = s.fire()
-    t = res.facts().get("Eligible")
-    assert t is None or len(t) == 0, res.facts()
+    t = res.facts.get("Eligible")
+    assert t is None or len(t) == 0, res.facts
 
 
 def test_insert_logical_wall_names_rules():
@@ -72,13 +72,13 @@ def test_event_temporal_and_advance():
 
     s = seine_rs.Session([r], facts={"Ping": {"ts": [0, 30], "tag": ["x", "y"]}})
     res = s.fire()
-    firings = res.firings()
+    firings = res.firings
     assert len(firings) >= 1
     # expiration: advance past both deadlines; a fresh late pair works
     s.advance(500)
     s.insert(Ping, {"ts": [500, 520], "tag": ["x", "y"]})
     res2 = s.fire()
-    assert len(res2.firings()) >= 1
+    assert len(res2.firings) >= 1
 
 
 def test_event_requires_explicit_expiry():
@@ -113,7 +113,7 @@ def test_null_tests_and_none_guard():
 
     s = seine_rs.Session([r], facts={MaybeV: {"tag": ["a", "b"], "v": [None, 2]}})
     res = s.fire()
-    assert len(res.firings()) == 1
+    assert len(res.firings) == 1
 
 
 def test_inline_boolean_groups():
@@ -125,7 +125,7 @@ def test_inline_boolean_groups():
 
     s = seine_rs.Session([r], facts={"Person": {"name": ["a", "x", "b"], "age": [70, 70, 30]}})
     res = s.fire()
-    assert len(res.firings()) == 1
+    assert len(res.firings) == 1
 
 
 def test_group_cross_pattern_rejected():
@@ -161,7 +161,7 @@ def test_agenda_groups_sugar():
     s = seine_rs.Session([f, g, m], facts={AP: {"v": [1]}})
     res = s.fire()
     import polars as pl
-    order = pl.DataFrame(res.firings())["rule"].to_list()
+    order = pl.DataFrame(res.firings)["rule"].to_list()
     assert order == ["F", "G", "M"], order
 
 

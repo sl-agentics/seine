@@ -29,8 +29,8 @@ adults.then_insert(Flagged, name=p.name, score=p.score)
 people = pl.DataFrame({"name": ["ada", "kurt"], "age": [36, 17], "score": [91.5, 99.0]})
 res = seine_rs.run([adults], {Person: people, Flagged: []})
 
-pl.DataFrame(res.derived()["Flagged"])   # facts the rules created
-pl.DataFrame(res.firings())              # full audit trail
+pl.DataFrame(res.derived["Flagged"])   # facts the rules created
+pl.DataFrame(res.firings)              # full audit trail
 ```
 
 - **Bulk, columnar boundary**: Arrow tables in (polars / pyarrow /

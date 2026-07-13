@@ -26,7 +26,7 @@ def test_f64_bit_exact_roundtrip():
     vals = [0.1, 0.2, 0.30000000000000004, -0.0, 1e-308, 6.5e9]
     df = pl.DataFrame({"v": vals})
     res = seine_rs.run("rule R when T($x : v) then end\n", {"T": df})
-    out = pl.DataFrame(res.facts()["T"])["v"].to_list()
+    out = pl.DataFrame(res.facts["T"])["v"].to_list()
     assert [struct.pack(">d", a) for a in out] == [struct.pack(">d", a) for a in vals]
 
 
@@ -36,7 +36,7 @@ def test_i64_extremes_and_strings():
         "s": ["", "héllo — ünïcode", "line\nbreak\t\"quote\""],
     })
     res = seine_rs.run("rule R when T($x : n) then end\n", {"T": df})
-    t = pl.DataFrame(res.facts()["T"])
+    t = pl.DataFrame(res.facts["T"])
     assert t["n"].to_list() == df["n"].to_list()
     assert t["s"].to_list() == df["s"].to_list()
 
@@ -47,7 +47,7 @@ def test_widening_is_exact():
         "b": pa.array([1.5, -2.25, 3.0], type=pa.float32()),
     })
     res = seine_rs.run("rule R when T($x : a) then end\n", {"T": tbl})
-    t = pl.DataFrame(res.facts()["T"])
+    t = pl.DataFrame(res.facts["T"])
     assert t["a"].dtype == pl.Int64 and t["a"].to_list() == [1, -7, 2**31 - 1]
     assert t["b"].to_list() == [1.5, -2.25, 3.0]  # f32->f64 exact for these
 
@@ -91,7 +91,7 @@ def test_multi_fire_deltas():
     s.insert("T", {"v": [3.0, 0.5]})
     r3 = s.fire()
     assert r3.fired == 1
-    audit = pl.DataFrame(r3.firings())
+    audit = pl.DataFrame(r3.firings)
     assert json.loads(audit["values_json"][0])["v"] == 3.0
 
 
@@ -99,11 +99,11 @@ def test_multi_fire_derived_is_per_fire():
     drl = "rule R when $t : T(v >= 2.0) then insert(new U($t.getV())); end\n"
     s = seine_rs.Session(drl, {"T": {"v": [2.0]}, "U": {"v": [0.0]}})
     r1 = s.fire()
-    assert pl.DataFrame(r1.derived()["U"])["v"].to_list() == [2.0]
+    assert pl.DataFrame(r1.derived["U"])["v"].to_list() == [2.0]
     s.insert("T", {"v": [5.0]})
     r2 = s.fire()
     # ONLY this fire's derivation
-    assert pl.DataFrame(r2.derived()["U"])["v"].to_list() == [5.0]
+    assert pl.DataFrame(r2.derived["U"])["v"].to_list() == [5.0]
 
 
 def test_fire_limit_is_an_error_not_a_hang():
@@ -131,7 +131,7 @@ def test_observer_matches_audit_order():
         {"T": df},
         on_fire=lambda rule, matches: seen.append((rule, tuple(matches[0]))),
     )
-    audit = pl.DataFrame(res.firings())
+    audit = pl.DataFrame(res.firings)
     got = list(zip(audit["rule"].to_list(), zip(audit["type"].to_list(), audit["handle"].to_list())))
     assert seen == got
     # dynamic salience fires descending
@@ -145,9 +145,9 @@ def test_wm_delta_and_deletions():
     )
     s = seine_rs.Session(drl, {"T": {"v": [1.0, 2.0, 3.0]}, "U": {"v": [0.0]}})
     res = s.fire()
-    derived_u = pl.DataFrame(res.derived()["U"])
+    derived_u = pl.DataFrame(res.derived["U"])
     assert sorted(derived_u["v"].to_list()) == [2.0, 3.0]
-    assert len(res.deleted_handles()) == 1
+    assert len(res.deleted_handles) == 1
 
 
 def test_external_update_and_delete():
@@ -155,7 +155,7 @@ def test_external_update_and_delete():
     s = seine_rs.Session(drl, {"T": {"v": [2.0, 0.5]}})
     r1 = s.fire()
     assert r1.fired == 1
-    handles = pl.DataFrame(r1.facts()["T"])
+    handles = pl.DataFrame(r1.facts["T"])
     h_low = handles.filter(pl.col("v") == 0.5)["_handle"][0]
     h_hi = handles.filter(pl.col("v") == 2.0)["_handle"][0]
     # raise the low fact above the threshold -> fires
@@ -168,7 +168,7 @@ def test_external_update_and_delete():
     s.delete(h_hi)
     r3 = s.fire()
     assert r3.fired == 0
-    assert h_hi not in pl.DataFrame(r3.facts()["T"])["_handle"].to_list()
+    assert h_hi not in pl.DataFrame(r3.facts["T"])["_handle"].to_list()
 
 
 def test_external_action_order_is_certified():
@@ -180,7 +180,7 @@ def test_external_action_order_is_certified():
     h0 = 0
     s.update(h0, g=True)  # same-value update of the FIRED fact
     r = s.fire()
-    audit = pl.DataFrame(r.firings())
+    audit = pl.DataFrame(r.firings)
     got = [json.loads(v)["g"] for v in audit["values_json"].to_list()]
     assert got == [False, True]  # insert first, then the re-added update
 
@@ -239,7 +239,7 @@ def test_parity_with_native_harness(scenario):
     for fact in scn["facts"]:
         visible.append(s.insert_row(fact["type"], fact["fields"]))
     res = s.fire()
-    audits = [pl.DataFrame(res.firings())]
+    audits = [pl.DataFrame(res.firings)]
     total = res.fired
     # multi-fire epochs (D-046) + external actions (D-047): replay
     # through the boundary, mapping visible insertion indices to real
@@ -255,7 +255,7 @@ def test_parity_with_native_harness(scenario):
         for fact in epoch.get("facts", []):
             visible.append(s.insert_row(fact["type"], fact["fields"]))
         r = s.fire()
-        a = pl.DataFrame(r.firings())
+        a = pl.DataFrame(r.firings)
         if len(a):
             a = a.with_columns((pl.col("seq") + total).alias("seq"))
         audits.append(a)
@@ -302,12 +302,12 @@ def test_reset_paged_batches():
     rule.when(RP, RP.v > 0)
     s = seine_rs.Session([rule], facts={"RP": {"v": [1, 2]}})
     r1 = s.fire()
-    assert len(r1.firings()) == 2
+    assert len(r1.firings) == 2
     s.reset()
     s.insert(RP, [RP(v=3)])
     r2 = s.fire()
-    assert len(r2.firings()) == 1
+    assert len(r2.firings) == 1
 
     fresh = seine_rs.Session([rule], facts={"RP": {"v": [3]}})
     rf = fresh.fire()
-    assert len(rf.firings()) == len(r2.firings())
+    assert len(rf.firings) == len(r2.firings)

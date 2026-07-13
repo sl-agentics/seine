@@ -583,8 +583,11 @@ fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBat
         .map_err(|e| PyRuntimeError::new_err(format!("arrow batch build failed: {e}")))
 }
 
-/// A one-batch Arrow table exposed via the PyCapsule stream interface —
-/// `polars.DataFrame(t)` / `pyarrow.table(t)` import it zero-copy.
+/// A one-batch Arrow table. Consume it three ways, all zero-copy via
+/// the PyCapsule C-stream interface: `t.to_arrow()` (pyarrow.Table),
+/// `t.to_polars()` (polars.DataFrame), or hand it directly to anything
+/// that accepts `__arrow_c_stream__` (`pyarrow.table(t)`,
+/// `polars.DataFrame(t)`, pandas>=2.2, arro3, ...).
 #[pyclass(name = "Table")]
 struct PyTable {
     batch: RecordBatch,
@@ -611,9 +614,23 @@ impl PyTable {
         self.batch.num_rows()
     }
 
+    /// Materialize as a `pyarrow.Table` (zero-copy C-stream import).
+    fn to_arrow<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        let py = slf.py();
+        let pa = py.import("pyarrow")?;
+        pa.call_method1("table", (slf,))
+    }
+
+    /// Materialize as a `polars.DataFrame` (zero-copy C-stream import).
+    fn to_polars<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        let py = slf.py();
+        let pl = py.import("polars")?;
+        pl.call_method1("DataFrame", (slf,))
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "seine.Table({} rows x {} cols)",
+            "seine_rs.Table({} rows x {} cols)",
             self.batch.num_rows(),
             self.batch.num_columns() - 1
         )
@@ -679,6 +696,7 @@ struct PyResult_ {
 #[pymethods]
 impl PyResult_ {
     /// Final working memory, one Arrow table per fact type.
+    #[getter]
     fn facts<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let d = PyDict::new(py);
         for (k, b) in &self.facts {
@@ -688,6 +706,7 @@ impl PyResult_ {
     }
 
     /// Facts derived (inserted) by rule firings, per type — the WM delta.
+    #[getter]
     fn derived<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let d = PyDict::new(py);
         for (k, b) in &self.derived {
@@ -697,12 +716,14 @@ impl PyResult_ {
     }
 
     /// Handles of Python-inserted facts the run deleted.
+    #[getter]
     fn deleted_handles(&self) -> Vec<i64> {
         self.deleted.clone()
     }
 
     /// Long-format firing audit: (seq, rule, pos, type, handle,
     /// values_json) — values as rendered at fire time (post-RHS).
+    #[getter]
     fn firings(&self) -> PyTable {
         PyTable { batch: self.firings.clone() }
     }
@@ -714,7 +735,7 @@ impl PyResult_ {
 
     fn __repr__(&self) -> String {
         format!(
-            "seine.Result(fired={}, derived_types={}, deleted={})",
+            "seine_rs.Result(fired={}, derived_types={}, deleted={})",
             self.fired,
             self.derived.len(),
             self.deleted.len()
