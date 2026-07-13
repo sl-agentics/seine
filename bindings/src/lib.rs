@@ -1231,6 +1231,13 @@ fn certification(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     d.set_item("corpus_regressions", env!("SEINE_CORPUS_REGRESSIONS").parse::<i64>().unwrap_or(0))?;
     d.set_item("quarantine_xfail", env!("SEINE_CORPUS_XFAIL").parse::<i64>().unwrap_or(0))?;
     d.set_item("commit", env!("SEINE_GIT_COMMIT"))?;
+    d.set_item(
+        "scope",
+        "certified = corpus_baseline + corpus_probes + corpus_regressions, \
+byte-checked engine-vs-oracle by the repo's differential gate (make diff); \
+quarantine_xfail = documented-open divergences (drift-tracked, NOT certified); \
+excludes WIP recon instruments (probes_pending/)",
+    )?;
     Ok(d)
 }
 

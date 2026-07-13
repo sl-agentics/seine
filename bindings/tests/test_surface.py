@@ -67,6 +67,11 @@ def test_certification_interrogable():
     assert c["corpus_regressions"] > 0
     assert c["engine_version"] == seine_rs.__version__
     assert isinstance(c["commit"], str) and c["commit"]
+    # the payload is self-describing: scope names the gate, marks the
+    # quarantine as NOT certified, and excludes WIP instruments
+    assert "make diff" in c["scope"]
+    assert "NOT certified" in c["scope"]
+    assert "probes_pending" in c["scope"]
 
 
 def test_py_typed_marker():

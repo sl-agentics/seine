@@ -12293,3 +12293,23 @@ candidates remain, independently cross-validating the D-211 sweep.
 The 9 certifiable-but-open (5 order + 4 value, incl. fz_123_6887)
 are the true open ledger; the other 23 are uncertifiable in
 principle (runaway/nondet, D-080 doctrine).
+
+## D-216 — certification() gains a `scope` key: the attestation made self-describing in the payload itself (external-review round 3) (2026-07-12)
+
+The reviewer's argument, accepted in full: the attestation's
+audience is by construction someone who does not trust us; that
+person reads the dict, not the docstring. The proof was live — a
+reviewer holding DECISIONS.md's own (stale) lint figure tried to
+reconcile it against the four buckets and needed an expert
+walkthrough (D-215's reconciliation) to resolve it. One key
+forecloses the misread where the reader actually is:
+`scope` = "certified = corpus_baseline + corpus_probes +
+corpus_regressions, byte-checked engine-vs-oracle by the repo's
+differential gate (make diff); quarantine_xfail = documented-open
+divergences (drift-tracked, NOT certified); excludes WIP recon
+instruments (probes_pending/)". This also forecloses the SECOND
+latent misread in the same dict — summing all four buckets as
+"certified" when the quarantine is tracked-open. The surface test
+asserts the three load-bearing phrases stay in the payload.
+Receipts: 82/82 binding tests; non-behavioral (ships with the next
+tag; the published v0.4.4 lacks the key).
