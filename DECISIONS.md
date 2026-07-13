@@ -11,7 +11,28 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-207 (TMS-envelope arc, I-RD:
+_Last updated: 2026-07-12, post-D-208 (TMS-envelope arc, I-RD:
+THE A/B ROUNDS ARE DONE AND THE POPULATION IS GREEN — ⚖ the
+ACTIVATION-BACKFILL law (Finding A dissolved: TMS keys form at the
+first insertLogical; pre-activation stateds get PER-HANDLE keys,
+last one value-mapped — d1/d2 dumps show TWO keys ONE value; the
+r1 kill event unchanged PER-KEY; no position law exists) + ⚖ the
+lazy slot (beats same-salience earlier-queued acts, s1) + the
+D-205 exception RE-PHRASED rule-shape (self-join LHS, not
+tuple-bindcount, s2) + requeue REFUTED (s3, alpha-keeping updates
+leave acts in place). Model re-pinned FROM CELLS: validator 27/27,
+4 new mutation rows each failing exactly their pinning cells.
+**POPULATION RE-RUN: 0 REAL ×5 seeds — THE LAWS GENERALIZE.**
+Census stands 86/750 (11.5%) = the I-RD port baseline. d1/d2 join
+the engine divergence targets; s1/s2/s3 converged. lint 1765/0/0;
+all receipts green; no engine change. **THE PORT SLAB MAY OPEN
+(Bryan gates)**: target model_ird.py; divergence targets
+d1/d2/b1/b2/l6/r1/m1/m2/m5; instrument the RD×2 engine anomaly
+first; corner cells (pending-dep-break etc.) optionally pre-port.
+D-203..208 committed local; through 728af4a PUSHED. RP2 untouched,
+epicycle-stop standing._
+
+_Prior (post-D-207): I-RD:
 THE POPULATION RAN AND DID ITS JOB — fuzz_tms_ird.py (arc-local, 5
 seeds × 150, distinct-salience + no-false-alpha confound controls):
 745/750 model-clean, **5 REAL = TWO findings on pre-registered
@@ -11870,3 +11891,72 @@ the A cell round (position × stated-count, SdDump) → the B cell
 round (slot straddle, update-requeue) → model re-pin FROM CELLS →
 population re-run same seeds → 0 REAL → THEN the port slab (Bryan
 gates), engine baseline 86/750.
+
+## D-208 — THE A/B CELL ROUNDS: ⚖ the ACTIVATION-BACKFILL law (Finding A dissolved — TMS keys form at the first insertLogical; pre-activation stateds get PER-HANDLE keys, last one value-mapped; the r1 kill event unchanged, PER-KEY) + ⚖ the lazy slot pinned + the D-205 exception re-phrased RULE-SHAPE + requeue REFUTED; model re-pinned FROM CELLS; POPULATION RE-RUN 0 REAL ×5 SEEDS — THE LAWS GENERALIZE (2026-07-12)
+
+Predictions first (ird-ab-predictions.md): the completed A 2×2
+({1,2}-stateds-at-belief-insert × {some,none}-stated-after; d1/d2
+new, r1/b1 the existing corners) with P-POSITION vs P-SLOT columns
++ a stop-and-dump row; the B trio (s1 slot straddle isolated from
+tuple order; s2 the witness twin/conjunction detector; s3 direct
+update-requeue with a new T0OBS observer kind).
+
+ROUND A: d1 = P-POSITION's column exactly (P-SLOT dead: pending
+forms on 2-stated keys). d2 = NEITHER column (ROBS=2/finals=1, ONE
+orphan) — the stop-and-dump row fired and the dump found what
+neither hypothesis named: **⚖ THE ACTIVATION-BACKFILL LAW** — TMS
+EqualityKeys form at TMS ACTIVATION (the session's first
+insertLogical); stated facts already in WM get PER-HANDLE keys
+(d1/d2 dumps: `STATED fhs[@2+]` + `STATED fhs[@4!@3+]` — TWO keys,
+ONE value) with only the LAST value-MAPPED; post-activation inserts
+join the mapped key; the kill/unstage/orphan event is the ORIGINAL
+r1 law PER-KEY. d1's "R-LAST-like" population read was an illusion
+of the two-key split (@2 = plain singleton kill; @3 = a 0-sibling
+r1 event); d2's single orphan = only the post-activation s3 was a
+SIBLING; r1's own dump confirms ONE key (RJ fired before RS2 —
+activation preceded the append); x129 + both other D-207 A-shapes
+fully explained. NO position-scoped kill law exists.
+
+ROUND B: s1 — RD NEVER fires ⇒ **the lazy-break lands at the
+justifier's item, beating EARLIER-QUEUED same-salience acts**
+(engine converged). s3 — RO fires t1-then-t2 ⇒ **REQUEUE REFUTED**:
+an alpha-KEEPING update leaves surviving acts IN PLACE; the
+imported D-076 commitment stays cancel-alpha-failers-only (engine
+converged). s2 — [RJ,ROBS,RJ,ROBS] with requeue dead ⇒ the second
+MIXED-tuple firing's self-break landed LAZILY ⇒ **the D-205
+exception is RULE-SHAPE-keyed (the justifier's LHS is a self-join
+on the broken fact's type), NOT tuple-bindcount** — m3/m6/m7's
+single-fact twins could not distinguish; s2 does (engine
+converged). Altitude note: a T0+T1-pattern justifier breaking its
+T0 is outside the vocabulary; the pin holds at
+self-join-on-the-type.
+
+MODEL RE-PIN (from cells only): tms_active + backfill + value_map
+(the D-206 append rule scoped to post-activation); land_break keyed
+on the dep rule's selfjoin shape; the pseudo beats same-salience
+acts (sort key (sal, lazy, -seq)); T0OBS kind. Validator **27/27**
+(all 22 priors + d1/d2/s1/s2/s3); the NEW MUTATION ROWS each fail
+exactly their pinning cells: backfill-off → {d1,d2};
+bindcount-not-shape → {s2}; slot-plain-FIFO → {s1,s2}; requeue-on
+→ {s3}; restored clean.
+
+**POPULATION RE-RUN (same five seeds): 0 REAL after 3× ON ALL FIVE
+(0 flaky)** — the five D-207 REAL cases all moved to clean; corner
+counts byte-identical (the corner space untouched, as expected);
+census unchanged **86/750 (11.5%) = the I-RD port baseline**. THE
+LAWS GENERALIZE; the pre-registered protocol (cells → re-pin FROM
+cells → re-run → 0 REAL) is COMPLETE.
+
+Receipts: lint 1765/0/0 (d1/d2 open_divergence — d1 reproduces the
+RD×2 engine anomaly family, d2 adds the no-orphan engine miss;
+s1/s2/s3 converged boundary pins), corpus 11/1124/370 + drift 59,
+cells 39/39, witnesses 26/26, model_ird 27/27, SD census 72 stands
+(no engine change). Dumps banked ×4 (d1/d2/s2/r1). NEXT: **THE
+PORT SLAB MAY OPEN (Bryan gates)** — target = model_ird.py; engine
+divergence targets d1/d2/b1/b2/l6/r1/m1/m2/m5 + baseline 86/750;
+converged boundaries s1/s2/s3/r2/m0/m3/m4/m6/m7 + the 39 sd cells
++ full receipts; the named engine anomaly (RD×2, belief never
+materializes) gets INSTRUMENTED recon first. Corner cells
+(pending-dep-break top-volume; justified-born-stated-delete
+shadowed; belief-delete-with-siblings) = a separate pre-port round
+if Bryan wants the corner space pinned first.

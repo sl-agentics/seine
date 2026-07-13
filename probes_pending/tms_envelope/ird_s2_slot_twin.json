@@ -1,0 +1,43 @@
+{
+  "_finding": "THE RULE-SHAPE re-pin (revises D-205's bindcount phrasing): the second firing's MIXED tuple (t1,t2) still lands its self-break LAZILY \u2014 the exception keys on the justifier's LHS being a self-join (>=2 patterns on the type), not on the tuple binding the fact twice. [RJ ROBS RJ ROBS] with fresh re-key. CONVERGED. Boundary pin.",
+  "drl": "rule \"RJ\"\nsalience 10\nwhen\n    $a : T0()\n    $b : T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\n    modify($b) { setF0(false) }\nend\nrule \"ROBS\"\nsalience 15\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "ird_s2_slot_twin",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "_finding": "THE LAZY SLOT pinned: the lazy-break pseudo-item beats an EARLIER-QUEUED same-salience act (RD's act on the belief cancels before it can fire => firings [RJ] only). CONVERGED (engine same). Boundary pin.",
+  "drl": "rule \"RJ\"\nsalience 10\nwhen\n    $a : T0()\n    $b : T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\n    modify($b) { setF0(false) }\nend\nrule \"RD\"\nsalience 10\nwhen\n    $p : T1(f0 == \"v\", f1 == true)\nthen\n    delete($p);\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "ird_s1_slot_straddle",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

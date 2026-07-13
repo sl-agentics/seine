@@ -1,0 +1,45 @@
+{
+  "_finding": "The 2x2 discriminator that found the backfill law: s3 (post-activation) joins the MAPPED key => the r1 event at @3's kill orphans ONLY s3 (one orphan, not two \u2014 the pre-activation @2 was never a sibling). Oracle RDx4/ROBS=2/finals 1; engine RDx3/finals 0. Both pre-registered hypotheses (P-POSITION/P-SLOT) were WRONG; the dump revealed the two-key split. Port target.",
+  "drl": "rule \"RS2\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RJ\"\nsalience 18\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RS3\"\nsalience 16\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RD\"\nsalience 5\nwhen\n    $p : T1(f0 == \"v\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_d2_2stated_belief_mid",
+  "open_divergence": true,
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

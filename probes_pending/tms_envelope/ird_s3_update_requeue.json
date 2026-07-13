@@ -1,0 +1,50 @@
+{
+  "_finding": "REQUEUE REFUTED: an alpha-KEEPING update leaves surviving queued acts IN PLACE (RO fires t1-then-t2, original FIFO). The imported D-076-family update commitment stays cancel-alpha-failers-only. CONVERGED. Boundary pin.",
+  "drl": "rule \"RB\"\nsalience 20\nwhen\n    $t : T0(f0 == true)\n    $a : T1(f0 == \"arm\", f1 == false)\nthen\n    $t.setF0(false);\n    update($t);\n    delete($a);\nend\nrule \"RO\"\nsalience 10\nwhen\n    T0($x : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "arm",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_s3_update_requeue",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

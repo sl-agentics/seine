@@ -1,32 +1,46 @@
 #!/usr/bin/env python3
-"""model_ird: executable spec of the three I-RD mechanisms (D-203..205).
+"""model_ird: executable spec of the I-RD mechanisms (D-203..205, D-208).
 
-THE LAWS AS CODE (predictions + commitments: ird-model-predictions.md):
+THE LAWS AS CODE (predictions/commitments: ird-model-predictions.md,
+ird-population-predictions.md, ird-ab-predictions.md):
  1. DYNAMIC (survive-the-delete, D-203): killing an UNSTAGE-BORN handle
     never cancels queued acts — they fire later with the dead handle's
     values. Every other kill cancels acts whose tuple contains the dead
     handle.
- 2. STATIC key lifecycle (D-203/D-205): T1/T3 are keyed, T0/T2 premise
-    types keyless. Stated inserts append WM-visible handles (key label =
-    birth status). Logical insert: no key -> JUSTIFIED key, WM-visible
-    belief; JUSTIFIED key -> dep fold; STATED-born key -> NON-WM pending
-    belief. Key-death events: (i) last dep breaks -> belief dies, stated
-    siblings ORPHAN (L6); (ii) stated delete on a stated-born MIXED key
-    -> victim dies, siblings ORPHAN, pending belief UNSTAGES WM-visible
-    unstage-born (r1; b1 = 0-sibling case). Orphans: alive, keyless,
-    UNDELETABLE (x1). Later inserts of the value re-key FRESH; orphans
-    are never adopted.
- 3. SAME-BATCH SELF-BREAK (D-205): RHS ops apply in order; a break lands
-    IMMEDIATELY (one path for same-batch-self and foreign) EXCEPT when
-    dep.act == breaking act AND the dep tuple binds the broken fact >=2x
-    (self-join): a lazy-break pseudo-item at the JUSTIFIER's salience.
+ 2. STATIC key lifecycle (D-203/D-205/D-208): T1/T3 keyed, T0/T2
+    keyless premises. ⚖ ACTIVATION-BACKFILL (D-208, d1/d2 dumps): TMS
+    EqualityKeys form at TMS ACTIVATION = the session's first
+    insertLogical. Stated facts already in WM get PER-HANDLE keys with
+    only the LAST one VALUE-MAPPED; post-activation equal-valued
+    stated inserts JOIN the mapped key; logical inserts join/create
+    the mapped key (JUSTIFIED-born: WM-visible belief; onto a
+    STATED-born key: NON-WM pending belief; onto JUSTIFIED: dep fold).
+    Key-death events, PER-KEY, both orphaning that key's remaining
+    stated siblings: (i) the last dep breaks (L6); (ii) a stated
+    delete on a stated-born MIXED key — victim dies, siblings orphan,
+    the pending belief UNSTAGES WM-visible unstage-born (r1; b1 =
+    0-sibling; d1/d2 = the two-key split, NOT a position law).
+    Orphans: alive, keyless, UNDELETABLE (x1). A dead key's map entry
+    clears — later inserts of the value re-key FRESH (L6 rebirth).
+ 3. SAME-BATCH SELF-BREAK (D-205, slot+shape re-pinned D-208): RHS ops
+    apply in order; a break lands IMMEDIATELY (same-batch-self and
+    foreign alike) EXCEPT when the breaking act IS the justifying act
+    AND the justifier's LHS is a SELF-JOIN (≥2 patterns on the broken
+    fact's type — RULE-SHAPE-keyed, s2, not tuple-bindcount): then a
+    LAZY-BREAK lands at the justifier's salience BEFORE any other
+    same-salience pop (s1 — the pseudo beats earlier-queued acts).
     Form (modify/update) and source (update/delete) never branch.
- Tie-break: equal salience pops FIFO by act creation. Breaks cascade
- through kills recursively (a2). UNPINNED corners raise AssertionError
- (three remain; the update-invalidates-act corner became a D-207
- IMPORTED commitment — see ird-population-predictions.md).
+ 4. IMPORTED commitments (engine-corpus doctrine, cell-checked here):
+    an alpha-breaking update CANCELS queued unfired acts (D-076
+    family); an alpha-KEEPING update leaves surviving acts IN PLACE —
+    no re-queue (s3).
+ Tie-break: equal salience pops FIFO by act creation; lazy-breaks beat
+ same-salience acts. Breaks cascade through kills recursively (a2).
+ UNPINNED corners raise AssertionError (three: stated-delete on a
+ justified-born mixed key; belief-delete with stated siblings; a break
+ emptying a PENDING belief's deps).
 
-Validation: `python3 model_ird.py` -> 22/22 vs truths/ird_*.ndj.
+Validation: `python3 model_ird.py` -> 27/27 vs truths/ird_*.ndj.
 """
 import json
 import os
@@ -55,6 +69,10 @@ def OBS(sal, typ="T1"):
     return dict(kind="obs", sal=sal, typ=typ)
 
 
+def T0OBS(sal):
+    return dict(kind="t0obs", sal=sal)
+
+
 def KS(sal, val, arm):
     return dict(kind="ks", sal=sal, val=val, arm=arm)
 
@@ -64,9 +82,6 @@ def KILLT0(sal, arm):
 
 
 def MIDT(sal, trig, trig_f1, val, bf1=False):
-    # bf1: the belief's f1 (default False = b2's mid). D-207
-    # parameterization for the population grammar (key sharing with
-    # JL beliefs needs f1=True); no semantic content.
     return dict(kind="midt", sal=sal, trig=trig, trig_f1=trig_f1, val=val,
                 bf1=bf1)
 
@@ -145,18 +160,32 @@ CELLS = {
         {"RJ": JL(20, brk="modify", selfjoin=True), "ROBS": OBS(25)}),
     "ird_m7_samebatch_selfjoin_update_iso": ([T0F],
         {"RJ": JL(20, brk="update", selfjoin=True), "ROBS": OBS(25)}),
+    "ird_d1_2stated_belief_last": ([T0F, V()],
+        {"RS2": ST(20), "RJ": JL(18), "RD": DEL(5, "v"), "ROBS": OBS(0)}),
+    "ird_d2_2stated_belief_mid": ([T0F, V()],
+        {"RS2": ST(20), "RJ": JL(18), "RS3": ST(16), "RD": DEL(5, "v"),
+         "ROBS": OBS(0)}),
+    "ird_s1_slot_straddle": ([T0F],
+        {"RJ": JL(10, brk="modify", selfjoin=True), "RD": DEL(10, "v")}),
+    "ird_s2_slot_twin": ([T0F, T0F],
+        {"RJ": JL(10, brk="modify", selfjoin=True), "ROBS": OBS(15)}),
+    "ird_s3_update_requeue": ([T0F, T0F, V("arm", False)],
+        {"RB": RUK(20, "arm"), "RO": T0OBS(10)}),
 }
 
 TRUTH_FILES = ["ird_oracle_r1.ndj", "ird_ladder_oracle_r1.ndj",
                "ird_l56_oracle_r1.ndj", "ird_x1_oracle_r1.ndj",
-               "ird_rm_oracle_r1.ndj", "ird_m67_oracle_r1.ndj"]
+               "ird_rm_oracle_r1.ndj", "ird_m67_oracle_r1.ndj",
+               "ird_ab_oracle_r1.ndj"]
 
 
 class Sim:
     def __init__(self, facts, rules):
         self.rules = rules
         self.h = {}
-        self.keys = {}
+        self.keys = {}       # kid -> key dict
+        self.value_map = {}  # vk -> kid (the MAPPED key per value)
+        self.tms_active = False
         self.acts = []
         self.pseudo = []
         self.seen = set()
@@ -164,6 +193,7 @@ class Sim:
         self._seq = 0
         self._hid = 0
         self._act = 0
+        self._kid = 0
         for typ, fields in facts:
             self.insert_stated(typ, dict(fields))
 
@@ -178,8 +208,27 @@ class Sim:
     def new_handle(self, typ, fields, unstage=False):
         self._hid += 1
         self.h[self._hid] = dict(typ=typ, fields=fields, alive=True,
-                                 orphan=False, unstage=unstage)
+                                 orphan=False, unstage=unstage, key=None)
         return self._hid
+
+    def new_key(self, vk, mapped, **kw):
+        self._kid += 1
+        k = dict(vk=vk, label=kw.get("label", "STATED"),
+                 stated=kw.get("stated", []), belief=kw.get("belief"),
+                 pending=kw.get("pending"), deps=kw.get("deps", []))
+        self.keys[self._kid] = k
+        for s in k["stated"]:
+            self.h[s]["key"] = self._kid
+        if k["belief"] is not None:
+            self.h[k["belief"]]["key"] = self._kid
+        if mapped:
+            self.value_map[vk] = self._kid
+        return self._kid
+
+    def drop_key(self, kid):
+        k = self.keys.pop(kid)
+        if self.value_map.get(k["vk"]) == kid:
+            del self.value_map[k["vk"]]
 
     # ---------- alphas ----------
     def _pat(self, hid, typ, **eq):
@@ -188,7 +237,6 @@ class Sim:
                 and all(h["fields"].get(k) == v for k, v in eq.items()))
 
     def patterns(self, name):
-        """Per-rule pattern predicates, one callable per LHS pattern."""
         r = self.rules[name]
         k = r["kind"]
         if k == "jl":
@@ -204,6 +252,8 @@ class Sim:
             return [lambda x: self._pat(x, "T1", f0=r["val"], f1=True)]
         if k == "obs":
             return [lambda x: self._pat(x, r["typ"])]
+        if k == "t0obs":
+            return [lambda x: self._pat(x, "T0")]
         if k == "ks":
             return [lambda x: self._pat(x, "T1", f0=r["val"], f1=True),
                     lambda x: self._pat(x, "T1", f0=r["arm"], f1=False)]
@@ -226,9 +276,7 @@ class Sim:
         for name in self.rules:
             pats = self.patterns(name)
             alive = [x for x in self.h if self.h[x]["alive"]]
-            slots = []
-            for p in pats:
-                slots.append([x for x in alive if p(x)])
+            slots = [[x for x in alive if p(x)] for p in pats]
             if not all(slots):
                 continue
             if len(pats) == 1:
@@ -249,31 +297,44 @@ class Sim:
     # ---------- WM ops ----------
     def insert_stated(self, typ, fields):
         hid = self.new_handle(typ, fields)
-        if typ in KEYED:
+        if typ in KEYED and self.tms_active:
             vk = self.vk(typ, fields)
-            k = self.keys.get(vk)
-            if k is None:
-                self.keys[vk] = dict(label="STATED", stated=[hid],
-                                     belief=None, pending=None, deps=[])
+            kid = self.value_map.get(vk)
+            if kid is None:
+                self.new_key(vk, mapped=True, stated=[hid])
             else:
-                k["stated"].append(hid)
+                self.keys[kid]["stated"].append(hid)
+                self.h[hid]["key"] = kid
         self.activate_on(hid)
         return hid
 
+    def tms_activate(self):
+        """⚖ ACTIVATION-BACKFILL (D-208, d1/d2 dumps): pre-activation
+        stated handles get PER-HANDLE keys; the LAST per value wins the
+        value map."""
+        self.tms_active = True
+        for hid in sorted(self.h):
+            h = self.h[hid]
+            if h["alive"] and h["typ"] in KEYED and h["key"] is None:
+                self.new_key(self.vk(h["typ"], h["fields"]), mapped=True,
+                             stated=[hid])
+
     def insert_logical(self, typ, fields, by):
+        if not self.tms_active:
+            self.tms_activate()
         vk = self.vk(typ, fields)
-        k = self.keys.get(vk)
         dep = dict(act=by["id"], rule=by["rule"], tup=list(by["tuple"]))
-        if k is None:
+        kid = self.value_map.get(vk)
+        if kid is None:
             hid = self.new_handle(typ, fields)
-            self.keys[vk] = dict(label="JUSTIFIED", stated=[], belief=hid,
-                                 pending=None, deps=[dep])
+            self.new_key(vk, mapped=True, label="JUSTIFIED", belief=hid,
+                         deps=[dep])
             self.activate_on(hid)
-        elif k["label"] == "JUSTIFIED":
-            k["deps"].append(dep)
+        elif self.keys[kid]["label"] == "JUSTIFIED":
+            self.keys[kid]["deps"].append(dep)
         else:
-            k["pending"] = dict(fields)
-            k["deps"].append(dep)
+            self.keys[kid]["pending"] = dict(fields)
+            self.keys[kid]["deps"].append(dep)
 
     def kill(self, hid, by, cancel):
         h = self.h[hid]
@@ -282,12 +343,12 @@ class Sim:
             for a in self.acts:
                 if a["live"] and not a["fired"] and hid in a["tuple"]:
                     a["live"] = False
-        for vk in list(self.keys):
-            k = self.keys.get(vk)
+        for kid in list(self.keys):
+            k = self.keys.get(kid)
             if not k:
                 continue
             for dep in [d for d in k["deps"] if hid in d["tup"]]:
-                self.land_break(vk, dep, by, dep["tup"].count(hid))
+                self.land_break(kid, dep, by)
 
     def rhs_delete(self, hid, by):
         h = self.h[hid]
@@ -295,37 +356,37 @@ class Sim:
             return
         if h["orphan"]:
             return  # x1: undeletable
-        typ = h["typ"]
-        if typ in KEYED:
-            vk = self.vk(typ, h["fields"])
-            k = self.keys.get(vk)
-            if k and hid in k["stated"]:
+        kid = h["key"]
+        if kid is not None:
+            k = self.keys[kid]
+            if hid in k["stated"]:
                 mixed = k["belief"] is not None or k["pending"] is not None
                 if mixed:
                     assert k["label"] != "JUSTIFIED", \
                         "UNPINNED: stated-delete on justified-born mixed key"
                     pend = k["pending"]
                     sibs = [s for s in k["stated"] if s != hid]
-                    del self.keys[vk]
+                    self.drop_key(kid)
                     self.kill(hid, by, cancel=True)
                     for s in sibs:
                         if self.h[s]["alive"]:
                             self.h[s]["orphan"] = True
-                    nb = self.new_handle(typ, dict(pend), unstage=True)
+                            self.h[s]["key"] = None
+                    nb = self.new_handle(h["typ"], dict(pend), unstage=True)
                     self.activate_on(nb)
                 else:
                     self.kill(hid, by, cancel=True)
                     k["stated"].remove(hid)
                     if not k["stated"]:
-                        del self.keys[vk]
+                        self.drop_key(kid)
                 return
-            if k and hid == k["belief"]:
+            if hid == k["belief"]:
                 assert not k["stated"], \
                     "UNPINNED: belief-delete with stated siblings"
-                del self.keys[vk]
+                self.drop_key(kid)
                 self.kill(hid, by, cancel=True)
                 return
-        # keyless: unstage-born handles, or T0/T2 premises
+        # keyless: unstage-born, pre-activation stated, or T0/T2 premises
         self.kill(hid, by, cancel=not h["unstage"])
 
     def dep_alpha_holds(self, dep):
@@ -338,29 +399,29 @@ class Sim:
             if a["live"] and not a["fired"] and hid in a["tuple"]:
                 pats = self.patterns(a["rule"])
                 if not all(p(x) for p, x in zip(pats, a["tuple"])):
-                    # D-207 IMPORTED commitment (D-076 eager-unmatch
-                    # family, engine-corpus-certified, NOT ird-cell-
-                    # pinned): an alpha-breaking update cancels queued
-                    # unfired acts. Pre-registered at-risk axis in
-                    # ird-population-predictions.md.
+                    # D-207 IMPORTED (D-076 family): alpha-breaking
+                    # update cancels queued acts. Alpha-KEEPING updates
+                    # leave survivors IN PLACE (s3, D-208 — no requeue).
                     a["live"] = False
-        for vk in list(self.keys):
-            k = self.keys.get(vk)
+        for kid in list(self.keys):
+            k = self.keys.get(kid)
             if not k:
                 continue
             for dep in [d for d in k["deps"] if hid in d["tup"]]:
                 if not self.dep_alpha_holds(dep):
-                    self.land_break(vk, dep, by, dep["tup"].count(hid))
+                    self.land_break(kid, dep, by)
 
-    def land_break(self, vk, dep, by, bindcount):
-        if dep["act"] == by["id"] and bindcount >= 2:
+    def land_break(self, kid, dep, by):
+        # ⚖ D-208 (s2): the lazy exception is RULE-SHAPE-keyed —
+        # the justifier's LHS is a self-join — not tuple-bindcount.
+        if dep["act"] == by["id"] and self.rules[dep["rule"]].get("selfjoin"):
             self.pseudo.append(dict(sal=by["sal"], seq=self.seq(),
-                                    vk=vk, dep=dep, lazy=True))
+                                    kid=kid, dep=dep, lazy=True))
         else:
-            self.finalize_break(vk, dep, by)
+            self.finalize_break(kid, dep, by)
 
-    def finalize_break(self, vk, dep, by):
-        k = self.keys.get(vk)
+    def finalize_break(self, kid, dep, by):
+        k = self.keys.get(kid)
         if not k or dep not in k["deps"]:
             return
         k["deps"].remove(dep)
@@ -371,7 +432,8 @@ class Sim:
             for s in k["stated"]:
                 if self.h[s]["alive"]:
                     self.h[s]["orphan"] = True
-            del self.keys[vk]
+                    self.h[s]["key"] = None
+            self.drop_key(kid)
             self.kill(b, by, cancel=True)
         elif k["pending"] is not None:
             raise AssertionError(
@@ -394,10 +456,7 @@ class Sim:
             self.insert_stated("T1", {"f0": r["val"], "f1": True})
         elif k == "del":
             self.rhs_delete(t[0], act)
-        elif k == "ks":
-            self.rhs_delete(t[0], act)
-            self.rhs_delete(t[1], act)
-        elif k == "killt0":
+        elif k in ("ks", "killt0"):
             self.rhs_delete(t[0], act)
             self.rhs_delete(t[1], act)
         elif k == "midt":
@@ -410,7 +469,7 @@ class Sim:
         elif k == "ru":
             self.rhs_update(t[0], {"f0": False}, act)
             self.rhs_delete(t[1], act)
-        elif k == "obs":
+        elif k in ("obs", "t0obs"):
             pass
         else:
             raise AssertionError(k)
@@ -425,10 +484,14 @@ class Sim:
             cand = live + self.pseudo
             if not cand:
                 break
-            item = max(cand, key=lambda a: (a["sal"], -a["seq"]))
+            # ⚖ D-208 (s1): a lazy-break beats same-salience acts
+            # regardless of queue seq; FIFO otherwise.
+            item = max(cand, key=lambda a: (a["sal"],
+                                            1 if a.get("lazy") else 0,
+                                            -a["seq"]))
             if item.get("lazy"):
                 self.pseudo.remove(item)
-                self.finalize_break(item["vk"], item["dep"],
+                self.finalize_break(item["kid"], item["dep"],
                                     dict(id=-1, sal=item["sal"]))
                 continue
             item["fired"] = True

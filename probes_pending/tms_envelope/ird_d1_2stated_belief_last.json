@@ -1,0 +1,45 @@
+{
+  "_finding": "ACTIVATION-BACKFILL witness (Finding A minimal, dump-armed): pre-activation stateds (initial @2 + RHS @3) get SEPARATE per-handle keys at the first insertLogical; only the LAST is value-mapped \u2014 the belief joins @3's key (fhs[@4!@3+]); @2's kill is a plain singleton delete; @3's kill = the ORIGINAL r1 event on ITS key (Delete@3+Insert@4, no siblings to orphan). Oracle RDx3/ROBS=1/finals 0; engine RDx2 (the belief never materializes \u2014 the D-205 anomaly family). Port target.",
+  "drl": "rule \"RS2\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RJ\"\nsalience 18\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RD\"\nsalience 5\nwhen\n    $p : T1(f0 == \"v\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_d1_2stated_belief_last",
+  "open_divergence": true,
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

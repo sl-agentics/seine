@@ -1,0 +1,72 @@
+== PRE-FIRE ==
+  PATH ROBS
+     seg0: null
+  JoinNode 6
+     ltm: 
+     rtm: 
+     peers: 
+  PATH RJ
+     seg0: null
+  TMS wm: @1(T0( f0=true ))key=- @2(T0( f0=true ))key=-
+  TMS keys: -
+  TMS pending: Insert@1 Insert@2
+FIRING 0 RJ  T0( f0=false ) | T0( f0=false ) | 
+  PATH ROBS
+     seg0: null
+  JoinNode 6
+     ltm: (T0( f0=true ))@-1#5556~84984 (T0( f0=false ))@-1#27720~35648 
+     rtm: (T0( f0=true ))@-1#75312~84984 (T0( f0=false ))@-1#57854~35648 
+     peers: 
+  PATH RJ
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false ))key=- @2(T0( f0=true ))key=- @3(T1( f0=v, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=false )@1,T0( f0=false )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+]lfh=@3bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=false )@1,T0( f0=false )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@3 Update@1
+FIRING 1 ROBS  T1( f0=v, f1=true ) | 
+  PATH ROBS
+     seg0: null
+  JoinNode 6
+     ltm: (T0( f0=true ))@-1#5556~84984 (T0( f0=false ))@-1#27720~35648 
+     rtm: (T0( f0=true ))@-1#75312~84984 (T0( f0=false ))@-1#57854~35648 
+     peers: 
+  PATH RJ
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false ))key=- @2(T0( f0=true ))key=- @3(T1( f0=v, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=false )@1,T0( f0=false )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@3+]lfh=@3bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=false )@1,T0( f0=false )@1) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+FIRING 2 RJ  T0( f0=false ) | T0( f0=false ) | 
+  PATH ROBS
+     seg0: null
+  JoinNode 6
+     ltm: (T0( f0=false ))@-1#5556~84984 (T0( f0=false ))@-1#27720~35648 
+     rtm: (T0( f0=false ))@-1#75312~84984 
+     peers: 
+  PATH RJ
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false ))key=- @2(T0( f0=false ))key=- @4(T1( f0=v, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=false )@1,T0( f0=false )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+]lfh=@4bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=false )@1,T0( f0=false )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: Insert@4 Update@2
+FIRING 3 ROBS  T1( f0=v, f1=true ) | 
+  PATH ROBS
+     seg0: null
+  JoinNode 6
+     ltm: (T0( f0=false ))@-1#5556~84984 (T0( f0=false ))@-1#27720~35648 
+     rtm: (T0( f0=false ))@-1#75312~84984 
+     peers: 
+  PATH RJ
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false ))key=- @2(T0( f0=false ))key=- @4(T1( f0=v, f1=true ))key=JUSTIFIEDbs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=false )@1,T0( f0=false )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS keys: JUSTIFIED fhs[@4+]lfh=@4bs[n=1 wma=-]dep{RJ act=false q=false tup=(T0( f0=false )@1,T0( f0=false )@2) just=org.drools.tms.beliefsystem.simple.SimpleBeliefS}
+  TMS pending: -
+== FIRE-BOUNDARY ==
+  PATH ROBS
+     seg0: null
+  JoinNode 6
+     ltm: (T0( f0=false ))@-1#5556~84984 (T0( f0=false ))@-1#27720~35648 
+     rtm: 
+     peers: 
+  PATH RJ
+     seg0 stagedIns[] del[] upd[]
+  TMS wm: @1(T0( f0=false ))key=- @2(T0( f0=false ))key=-
+  TMS keys: -
+  TMS pending: -
