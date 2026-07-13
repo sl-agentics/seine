@@ -1549,6 +1549,9 @@ struct Tms {
     /// ⚖ UNSTAGE-BORN handles (dump7 materializations): TMS-dropped;
     /// their deletes must NOT cancel queued acts (the dynamic law).
     unstage_born: HashSet<FactId>,
+    /// Freshly materialized facts awaiting the boundary force-eval
+    /// (D-211/F2: the act must exist before any later delete).
+    force_eval: Vec<FactId>,
     seq: u64,
     /// Keys the CURRENT firing's insertLogicals touched — drives the
     /// refire-supersede pass (fz_7777_112/74: Drools removes an
@@ -7277,6 +7280,33 @@ impl Engine {
                 }
             }
         }
+        // ⚖ D-211/F2 (the dynamic law's timing bridge, the D-201
+        // churn force-evaluate precedent): a freshly UNSTAGED fact's
+        // insert must reach every matching terminal AT THE FIRING
+        // BOUNDARY (Drools creates the act at the flush, while the
+        // fact is alive); a later delete then leaves the queued act
+        // to fire with the dead handle's values (the exempted queue
+        // cancels).
+        if !self.tms.force_eval.is_empty() {
+            let pending: Vec<FactId> = std::mem::take(&mut self.tms.force_eval);
+            for f in pending {
+                if !self.store.is_alive(f) {
+                    continue;
+                }
+                for ri in 0..self.rules.len() {
+                    let matches = self.rules[ri].patterns.iter().enumerate().any(
+                        |(pos, pat)| {
+                            pat.sub != SubRole::Inner
+                                && self.alpha_passes(ri, pos, f)
+                        },
+                    );
+                    if matches && self.nets[ri].dirty {
+                        dbg_eval("unstage-force", ri);
+                        self.evaluate_rule(ri, true, false);
+                    }
+                }
+            }
+        }
         // Agenda pop (D-008/D-043): items order by (item salience DESC,
         // decl index ASC). Static items carry their constant; DYNAMIC
         // items track their queue top (0 while empty/unevaluated) and
@@ -8212,15 +8242,23 @@ impl Engine {
                 .collect();
             let pre = self.queue_top_sal(ri).unwrap_or(0);
             let n0 = self.nets[ri].queue.len();
-            self.nets[ri]
-                .queue
-                .retain(|a| positives.iter().all(|(pos, ti)| alive[*pos].contains(&a.t[*ti])));
+            // ⚖ D-211/F2 (the dynamic law): an UNSTAGE-BORN fact's act
+            // survives the j05 deactivation prune — the queued act
+            // fires with the dead handle's values (b1/b2/4048).
+            let ub = self.tms.unstage_born.clone();
+            self.nets[ri].queue.retain(|a| {
+                positives.iter().all(|(pos, ti)| {
+                    alive[*pos].contains(&a.t[*ti]) || ub.contains(&a.t[*ti])
+                })
+            });
             if self.nets[ri].queue.len() != n0 {
                 self.update_item_salience(ri, pre);
             }
-            self.nets[ri]
-                .act_num
-                .retain(|t, _| positives.iter().all(|(pos, ti)| alive[*pos].contains(&t[*ti])));
+            self.nets[ri].act_num.retain(|t, _| {
+                positives.iter().all(|(pos, ti)| {
+                    alive[*pos].contains(&t[*ti]) || ub.contains(&t[*ti])
+                })
+            });
         }
         // Agenda-item gate: only a queued item evaluates (the just-fired
         // rule is force-evaluated, fz_42_5243).
@@ -8270,6 +8308,20 @@ impl Engine {
             self.tms.joinr_touched.clear();
             for s0 in windows {
                 for (f, o, _) in s0.del.iter().rev() {
+                    if self.tms.unstage_born.contains(f) {
+                        // ⚖ D-211/F2 THE DYNAMIC LAW (b1/b2/4048/7219/
+                        // 6368): the delete of an UNSTAGE-BORN handle
+                        // never cancels queued acts — they fire later
+                        // with the dead handle's values. The k=1
+                        // terminal consume skips whole (no deps/parks
+                        // exist on a TMS-dropped handle). k>=2
+                        // observers of unstage-born facts are outside
+                        // the pinned envelope (ird-port-plan.md).
+                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                            eprintln!("TMS key[del-survive] f{f:?} r{ri}");
+                        }
+                        continue;
+                    }
                     self.nets[ri].act_num.retain(|t, _| t[0] != *f);
                     let pre = self.queue_top_sal(ri).unwrap_or(0);
                     let n0 = self.nets[ri].queue.len();
@@ -8504,6 +8556,16 @@ impl Engine {
             eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
         }
         for (t, o, _) in src.del.iter() {
+            if t.iter().any(|x| self.tms.unstage_born.contains(x) && !self.store.is_alive(*x)) {
+                // ⚖ D-211/F2 THE DYNAMIC LAW (the general terminal
+                // consume twin of the k=1 site): a retraction caused
+                // by a dead UNSTAGE-BORN member leaves the queued act
+                // to fire with the dead handle's values.
+                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                    eprintln!("TMS key[del-survive/term] r{ri} {t:?}");
+                }
+                continue;
+            }
             self.nets[ri].act_num.remove(t);
             let pre = self.queue_top_sal(ri).unwrap_or(0);
             let n0 = self.nets[ri].queue.len();
@@ -10044,6 +10106,7 @@ impl Engine {
         // update, no by_fact. Its later delete is ordinary WM removal
         // and (the dynamic law, F2) must not cancel queued acts.
         self.tms.unstage_born.insert(f);
+        self.tms.force_eval.push(f);
         if let Some(e) = self.tms.keys.get_mut(&key) {
             e.justified = Some(f);
             e.had_justified = true;
