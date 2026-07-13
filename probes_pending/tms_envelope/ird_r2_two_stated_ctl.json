@@ -1,0 +1,44 @@
+{
+  "_finding": "Scope control: two stated handles NO belief \u2014 key loses handles one at a time, both deletes land (2/0/0 BOTH sides). The key-death-whole event is belief-dependent.",
+  "drl": "rule \"RS2\"\nsalience 16\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RD\"\nsalience 5\nwhen\n    $p : T1(f0 == \"v\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_r2_two_stated_ctl",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

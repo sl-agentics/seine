@@ -1,0 +1,44 @@
+{
+  "_finding": "Foreign row: a later-batch foreign update-break cancels the belief's queued act eagerly BOTH SIDES (0/0 converged) \u2014 the engine's lazy path never covered foreign; boundary row certified.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RU\"\nsalience 10\nwhen\n    $t : T0(f0 == true)\n    $a : T1(f0 == \"arm\", f1 == false)\nthen\n    $t.setF0(false);\n    update($t);\n    delete($a);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "arm",
+        "f1": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_m4_laterbatch_foreign_update",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

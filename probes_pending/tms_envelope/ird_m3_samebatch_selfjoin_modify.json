@@ -1,0 +1,72 @@
+{
+  "_finding": "The 2442 pin reproduced verbatim (oracle ROBS=1): self-join same-batch self-break lands LAZY \u2014 the higher-salience act fires before the retract. CONVERGED (engine right); boundary row the port must not change.",
+  "drl": "rule \"RJ\"\nwhen\n    $a : T2()\n    $b : T2(f1 == false)\nthen\n    insertLogical(new T3(true, false));\n    modify($b) { setF1(true), setF0($a.getF0()) }\nend\nrule \"ROBS\"\nsalience 7\nwhen\n    T3()\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1,
+        "f1": false
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "ird_m3_samebatch_selfjoin_modify",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T2"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T3"
+    }
+  ]
+}

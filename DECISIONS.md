@@ -11,8 +11,30 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-204 (TMS-envelope arc, I-RD: the
-CELLS (D-203) + the WITNESS DUMP-READS (D-204) are DONE. ⚖
+_Last updated: 2026-07-12, post-D-205 (TMS-envelope arc, I-RD:
+CELLS (D-203) + WITNESS DUMP-READS (D-204) + THE THIRD MECHANISM
+PINNED (D-205). ⚖ the SAME-BATCH SELF-BREAK law: a justifier's RHS
+breaking its own premise in the belief's staging batch lands the
+break IN-FLUSH (no act on the belief fires) — form- and
+source-irrelevant; EXCEPTION: a SELF-JOIN justifier (tuple binds
+the broken fact ≥2×) lands LAZY (the 2442 conflict pre-registered
+and resolved by a 2×2: m3 verbatim + m6/m7 in-vocabulary); foreign
+breaks eager BOTH sides (m4 converged). Engine wrong ONLY on
+single-binding same-batch self (m1/m2/m5 = the witness trio); port
+= narrow the current_act exclusion to tuple-binds-fact-≥2×. ⚖ the
+MIXED-KEY KILL refinement (r1 R-FIRST exact): ANY stated delete on
+a mixed key kills the key whole — belief unstages (acts survive),
+remaining stated orphan (x1-undeletable); r2 scope-guards
+belief-dependence; engine r1 anomaly minimal (RD×2 — port recon
+shape). Ten new cells (4 open_divergence r1/m1/m2/m5), truths
+banked, lint 1760/0/0, corpus/drift/census stand. Every witness
+mechanism now has a minimal open_divergence cell: dynamic {b1,b2},
+static {l6,r1}, third {m1,m2,m5}. D-203..205 committed local;
+through 728af4a PUSHED. NEXT: model extension over all three
+mechanisms → population → port validate-and-revert, Bryan gates.
+RP2 untouched, epicycle-stop standing._
+
+_Prior state (post-D-204): I-RD. ⚖
 SURVIVE-THE-DELETE pinned ORIGIN-KEYED and now OUT-OF-SAMPLE
 CONFIRMED (7219 textbook; 6368 via the deleter's own or-twin ⇒
 act-generic); ⚖ KEY-LIFECYCLE (static face) pinned via the 9902
@@ -11650,4 +11672,55 @@ Receipts: no engine change — lint 1750/0/0, corpus 11/1124/370 +
 drift 59 identical, cells 39/39, witnesses 26/26; census 72
 stands. NEXT: the 8757 refinement cell + the third-mechanism
 splitters, then the model extension over all three mechanisms,
+population, port validate-and-revert (Bryan gates).
+
+## D-205 — THE THIRD MECHANISM PINNED: ⚖ the SAME-BATCH SELF-BREAK law (in-flush landing; the 2442 SELF-JOIN exception isolated by a 2×2; foreign row converged) + ⚖ the MIXED-KEY KILL refinement (r1 = R-FIRST: key dies whole, orphan + unstage one event) (2026-07-12)
+
+Ten cells, predictions first both rounds
+(ird-refinement-predictions.md), oracle 3× identity-stable, truths
+banked (ird_rm + ird_m67). ⚠ THE 2442 CONFLICT was pre-registered
+BEFORE the runs: fz_min_42_2442 (certified) is the same
+same-batch self-break shape as the D-204 witness trio yet its pin
+has the higher-salience act FIRING — all four scenarios have
+observer>justifier salience, so the two candidate axes were FORM
+(modify-block vs setter+update) and SELF-JOIN (the justifying
+tuple binding the broken fact twice).
+
+⚖ THE SAME-BATCH SELF-BREAK LAW (pinned): when a justifier's RHS
+breaks its own premise in the firing that staged the belief's
+insert, the break lands WITHIN THE FLUSH — no act on the belief
+ever fires. FORM-irrelevant (m1=m2=0: modify ≡ setter+update) and
+SOURCE-irrelevant (m5=0: delete ≡ update). EXCEPTION: a SELF-JOIN
+justifier (the tuple binds the broken fact ≥2×) lands LAZY —
+queued higher-salience acts fire before the retract (m3 = 2442
+verbatim reproduces; m6/m7 isolate the axis in the m1/m2
+vocabulary under BOTH forms: one redundant binding flips it).
+FOREIGN breaks cancel eagerly BOTH SIDES (m4 CONVERGED — the
+engine's lazy path never covered foreign; boundary certified by
+cell). Engine status: single-binding same-batch self = WRONG
+(m1/m2/m5 divergent = the witness trio {2956,1591,5988}); self-join
++ foreign = RIGHT (m3/m4/m6/m7 converged). PORT SURFACE: NARROW
+the current_act exclusion in tms_eager_break — lazy only when the
+justifying tuple contains the broken fact ≥2×.
+
+⚖ THE MIXED-KEY KILL REFINEMENT (r1 = the pre-registered R-FIRST
+row exact: oracle ROBS=2/RD=3/finals=1): ANY stated delete on a
+mixed key (belief sibling present) kills the key WHOLE — the
+belief UNSTAGES (its queued acts survive, the dynamic law), ALL
+remaining stated siblings ORPHAN (x1-undeletable; the finals
+survivor). 4048/b1 = the degenerate single-stated instance; 8757 =
+the general one. r2 scope-guards: no belief ⇒ handles die one at a
+time (2/0/0 both sides). The static law's key-death-whole events
+are now TWO: last-justification-break (L6) and
+stated-delete-on-mixed-key (r1). ⚠ engine r1 anomaly now MINIMAL
+(RD×2, belief never materializes — hypothesis list in the results;
+port-time recon, do not armchair).
+
+Receipts: lint 1760/0/0 (10 new cells: 4 open_divergence
+r1/m1/m2/m5, 6 converged pins), corpus 11/1124/370 + drift 59
+identical, cells 39/39, witnesses 26/26; census 72 stands (no
+engine change). All witness mechanisms now have minimal
+open_divergence cells: dynamic {b1,b2}, static {l6,r1}, third
+{m1,m2,m5}. NEXT: the model extension over all three mechanisms
+(incl. both key-death events + the self-join exception),
 population, port validate-and-revert (Bryan gates).

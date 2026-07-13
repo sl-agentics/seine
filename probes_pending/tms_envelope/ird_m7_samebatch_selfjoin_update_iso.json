@@ -1,0 +1,37 @@
+{
+  "_finding": "Self-join axis, update form: ROBS=1 both sides (converged) \u2014 the exception is join-keyed under both forms.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    $a : T0()\n    $b : T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\n    $b.setF0(false);\n    update($b);\nend\nrule \"ROBS\"\nsalience 25\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "ird_m7_samebatch_selfjoin_update_iso",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

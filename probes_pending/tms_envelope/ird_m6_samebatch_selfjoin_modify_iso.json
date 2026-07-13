@@ -1,0 +1,37 @@
+{
+  "_finding": "Self-join axis isolated in the m1/m2 vocabulary (modify form): ONE redundant binding flips the landing to lazy (ROBS=1 both sides, converged). With m7: join-shape is THE axis, no form interaction.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    $a : T0()\n    $b : T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\n    modify($b) { setF0(false) }\nend\nrule \"ROBS\"\nsalience 25\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "ird_m6_samebatch_selfjoin_modify_iso",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

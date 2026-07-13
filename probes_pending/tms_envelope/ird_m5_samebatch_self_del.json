@@ -1,0 +1,38 @@
+{
+  "_finding": "Source arm: delete-own-premise same-batch self-break also lands in-flush oracle-side (0) \u2014 source-irrelevant; engine lazy fires. Port target.",
+  "drl": "rule \"RJ\"\nsalience 20\nwhen\n    $t : T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\n    delete($t);\nend\nrule \"ROBS\"\nsalience 25\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "ird_m5_samebatch_self_del",
+  "open_divergence": true,
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

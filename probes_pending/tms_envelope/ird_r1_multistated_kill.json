@@ -1,0 +1,45 @@
+{
+  "_finding": "MIXED-KEY KILL refinement witness (8757 minimal): a stated delete on a stated-born mixed key kills the key WHOLE \u2014 belief unstages (its queued acts survive, dynamic law), remaining stated siblings orphan (x1-undeletable, the finals survivor). Oracle ROBS=2/RD=3/finals=1; engine 0/2/0 (the 8757 R4x2 anomaly reproduced minimal \u2014 port recon shape).",
+  "drl": "rule \"RJ\"\nsalience 18\nwhen\n    T0(f0 == true)\nthen\n    insertLogical(new T1(\"v\", true));\nend\nrule \"RS2\"\nsalience 16\nwhen\n    T0(f0 == true)\nthen\n    insert(new T1(\"v\", true));\nend\nrule \"RD\"\nsalience 5\nwhen\n    $p : T1(f0 == \"v\", f1 == true)\nthen\n    delete($p);\nend\nrule \"ROBS\"\nwhen\n    T1($x : f0, $y : f1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "v",
+        "f1": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "ird_r1_multistated_kill",
+  "open_divergence": true,
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}
