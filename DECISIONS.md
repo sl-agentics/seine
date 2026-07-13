@@ -12863,3 +12863,27 @@ end-to-end, bare-nullable 3VL skip, int wall intact); duckdb tier
 11/11; authoring-only, engine and Drools corpus untouched. His
 point 2 (the firings audit as lending-compliance evidence) needs
 no action — it is the D-046/D-213 design doing its job.
+
+## D-231 — Bryan's ruling: RHS arithmetic is WONT, not roadmap (2026-07-13)
+
+"Thinking RHS arithmetic is against what we want to do here" — and
+the design agrees on reflection. The counter-modify idiom is
+imperative programming inside the consequence: a loop written as a
+rule, whose real semantics live in fire ordering,
+property-reactivity masks, and fire_limit rather than in the
+match. Seine already certifies the declarative forms that replace
+it — running values as LHS accumulate (recomputed, order-invariant,
+the same reasoning as the D-223 view-vs-record split), external
+computation entering as facts or Python-side update() between
+fires (the two-pass pattern the round-7 reviewer verified). The
+D-061 prereq analysis cuts the other way too: RHS arithmetic +
+insertLogical unlocks self-feeding value chains the rule-count-
+bounded TMS cascade is not built for — a hazard, not a milestone.
+
+Moved: the P2 ROADMAP row (added at `43c5020` earlier today) out
+of §2 and roadmap-acceptance.md, into §4 WONT with the rationale
+as a strength; the §3 CANT parenthetical now reads "constraint
+arithmetic ROADMAP-P3/D-061; RHS action args WONT by design".
+Constraint arithmetic (LHS declarative filtering) is unaffected
+and stays P3. The D-229 authoring wall and its remedies are now
+the permanent surface, not a stopgap. Docs-only.

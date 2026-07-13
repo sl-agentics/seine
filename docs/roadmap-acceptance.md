@@ -30,7 +30,6 @@ error).
 | Rule extends (P3) | mvel.integrationtests.ExtendsTest | 25 |
 | Named consequences (P3) | mvel.integrationtests.NamedConsequencesTest; EdgeCaseNonExecModelTest | 39 + 2 |
 | Constraint arithmetic, closed grammar (P3, D-061) | operators.MathTest (in-grammar methods), operators.FormulaTest (subset) | ~3 + ~1 — PREREQ: the D-076 TMS cascade must go iterative first (arithmetic unlocks unbounded justification chains; today's call-recursive cascade is safe only because chains are rule-count-bounded) |
-| RHS arithmetic in action args, closed grammar (P2, D-229) | mvel.integrationtests.MVELTest, Misc2Test — modify/insert methods whose RHS uses ONLY closed-grammar arithmetic (no method calls/ternaries); exact method sweep at arc-open | ~subset of 33 — same D-076 iterative-cascade PREREQ as D-061 (arithmetic + insertLogical = self-feeding value chains); plus the fire_limit/property-reactivity interaction needs pins (a counter-modify loop is the canonical non-terminating shape) |
 | Date field type (P3, D-064) | mvel.integrationtests.DateComparisonTest | 3 |
 | declare extras: defaults/@key/enums (P3) | mvel.integrationtests.TypeDeclarationTest, EnumTest; compiler.integrationtests.AnnotationsTest | 3 + 4 + 5 |
 | @watch/@classReactive/@propertyReactive (P3) | mvel.integrationtests.PropertySpecificTest, PropertyReactivityBlockerTest, PropertyReactivityTest (annotation methods) | 59 + 5 + ~20 |
