@@ -12478,3 +12478,47 @@ byte-identical (worktree baseline); lint-probes 1801/0/0; cargo
 test green; bindings 89/89 (3 new); wheel-level smoke (near-MAX ts
 event: fires at insert, survives the advance that expires the
 control). Ships on the next tag.
+
+## D-221 — the clean-install read path: to_pylist() goes native, the optional exits name their install (external review round 6, found by USE not probing) (2026-07-13)
+
+The reviewer stopped probing and ported a PL/SQL nest — and hit
+this in minute one of an ordinary program: on a clean
+`pip install seine-rs`, a Table could be FIRED but not READ.
+`Requires:` is empty (the zero-dep wheel is deliberate), yet all
+three exits imported something the wheel doesn't ship: to_pylist
+was `to_arrow().to_pylist()` (inheriting pyarrow for free, exactly
+as he guessed), to_arrow needs pyarrow by definition, to_polars
+needs polars (though NOT pyarrow — it was already a zero-copy
+C-stream import). The result surface on a clean install was an int
+and a repr. A package that declares no dependencies but cannot
+return a result without one has a HIDDEN dependency — the exact
+thing the rest of the design refuses to tolerate. His fix
+preference was taken in order:
+
+(1) to_pylist() IMPLEMENTED NATIVELY (his option 1): a direct
+RecordBatch -> list-of-dicts walk over the closed result dtype set
+(Int64, Float64, Boolean, Utf8, Decimal128 + nulls; Decimal128
+lands as stdlib decimal.Decimal, matching pyarrow's to_pylist so
+the output is identical whichever path built it). The
+dependency-free wheel reads its own results again — including
+res.firings, the provenance table, which was equally locked.
+
+(2) extras declared (his option 2): `seine-rs[arrow]`,
+`seine-rs[polars]`; and (3) the optional exits re-raise
+ModuleNotFoundError with the actionable line (his option 3),
+naming the pip command AND the free path: "to_arrow() requires
+pyarrow, which is not installed — `pip install pyarrow` (or `pip
+install 'seine-rs[arrow]'`). to_pylist() works with no extra
+install." The original error chains as __cause__.
+
+Receipts: bindings 92/92 (3 new: the clean-install simulation with
+BOTH packages hidden, the actionable-error texts, native fidelity
+across all five dtypes + null round-trip); the reviewer's exact
+minute-one repro re-run green (fire -> repr -> len -> to_pylist ->
+both errors actionable). Bindings-only; corpus untouched. Ships on
+the next tag. His second observation (salience-encoded phase
+ordering vs agenda-group two-phase structure for
+negation-over-derived-facts) is a method question for the
+conversion playbook, not an engine defect — the agenda-group
+pieces are certified (D-106), and the choice is Bryan's to make
+before the first real conversion sets the pattern.

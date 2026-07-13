@@ -20,6 +20,12 @@ classifiers = [
     "Topic :: Scientific/Engineering",
 ]
 
+# The wheel itself is dependency-free; these are the optional interop
+# exits (to_pylist() needs neither).
+[project.optional-dependencies]
+arrow = ["pyarrow"]
+polars = ["polars"]
+
 [project.urls]
 Repository = "https://github.com/sl-agentics/seine"
 

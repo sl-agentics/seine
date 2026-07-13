@@ -620,20 +620,75 @@ impl PyTable {
     /// Materialize as a `pyarrow.Table` (zero-copy C-stream import).
     fn to_arrow<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
         let py = slf.py();
-        let pa = py.import("pyarrow")?;
+        let pa = py
+            .import("pyarrow")
+            .map_err(|e| optional_dep_err(py, e, "to_arrow()", "pyarrow", "arrow"))?;
         pa.call_method1("table", (slf,))
     }
 
-    /// Materialize as a `polars.DataFrame` (zero-copy C-stream import).
+    /// Materialize as a `polars.DataFrame` (zero-copy C-stream import;
+    /// needs polars only — not pyarrow).
     fn to_polars<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
         let py = slf.py();
-        let pl = py.import("polars")?;
+        let pl = py
+            .import("polars")
+            .map_err(|e| optional_dep_err(py, e, "to_polars()", "polars", "polars"))?;
         pl.call_method1("DataFrame", (slf,))
     }
 
-    /// Materialize as a list of row dicts (via pyarrow).
-    fn to_pylist<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
-        PyTable::to_arrow(slf)?.call_method0("to_pylist")
+    /// Materialize as a list of row dicts — natively, so the
+    /// dependency-free wheel can read its own results without any
+    /// optional install. Nulls land as None; Decimal128 lands as
+    /// `decimal.Decimal` (pyarrow's to_pylist parity).
+    fn to_pylist<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyList>> {
+        use arrow_array::cast::AsArray;
+        use arrow_array::types::{Decimal128Type, Float64Type, Int64Type};
+        let py = slf.py();
+        let t = slf.borrow();
+        let schema = t.batch.schema();
+        let names: Vec<String> = schema.fields().iter().map(|f| f.name().clone()).collect();
+        let dec_cls = if t
+            .batch
+            .columns()
+            .iter()
+            .any(|c| matches!(c.data_type(), DataType::Decimal128(_, _)))
+        {
+            Some(py.import("decimal")?.getattr("Decimal")?)
+        } else {
+            None
+        };
+        let out = PyList::empty(py);
+        for i in 0..t.batch.num_rows() {
+            let row = PyDict::new(py);
+            for (ci, col) in t.batch.columns().iter().enumerate() {
+                let name = names[ci].as_str();
+                if col.is_null(i) {
+                    row.set_item(name, py.None())?;
+                    continue;
+                }
+                match col.data_type() {
+                    DataType::Int64 => {
+                        row.set_item(name, col.as_primitive::<Int64Type>().value(i))?
+                    }
+                    DataType::Float64 => {
+                        row.set_item(name, col.as_primitive::<Float64Type>().value(i))?
+                    }
+                    DataType::Boolean => row.set_item(name, col.as_boolean().value(i))?,
+                    DataType::Utf8 => row.set_item(name, col.as_string::<i32>().value(i))?,
+                    DataType::Decimal128(_, _) => {
+                        let s = col.as_primitive::<Decimal128Type>().value_as_string(i);
+                        row.set_item(name, dec_cls.as_ref().unwrap().call1((s,))?)?;
+                    }
+                    other => {
+                        return Err(PyRuntimeError::new_err(format!(
+                            "to_pylist: unsupported column type {other:?} in {name}"
+                        )))
+                    }
+                }
+            }
+            out.append(row)?;
+        }
+        Ok(out)
     }
 
     fn __repr__(&self) -> String {
@@ -1157,6 +1212,24 @@ impl PySession {
             fired: firings.len(),
         })
     }
+}
+
+/// An optional-interop import failed: re-raise as ModuleNotFoundError
+/// with the actionable install line. The wheel itself is
+/// dependency-free — to_pylist() is the built-in read path; pyarrow
+/// and polars are conveniences, and a raw ModuleNotFoundError at the
+/// result-reading step reads as a packaging bug rather than a choice.
+fn optional_dep_err(py: Python<'_>, e: PyErr, method: &str, package: &str, extra: &str) -> PyErr {
+    if !e.is_instance_of::<pyo3::exceptions::PyImportError>(py) {
+        return e;
+    }
+    let new = pyo3::exceptions::PyModuleNotFoundError::new_err(format!(
+        "{method} requires {package}, which is not installed — \
+         `pip install {package}` (or `pip install 'seine-rs[{extra}]'`). \
+         to_pylist() works with no extra install."
+    ));
+    new.set_cause(py, Some(e));
+    new
 }
 
 /// Result tables prepend the engine's fact handle under this column

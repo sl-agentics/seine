@@ -130,3 +130,53 @@ def test_handle_field_rejected_in_dict_table():
 def test_handle_field_rejected_in_arrow_table():
     with pytest.raises(Exception, match="reserved"):
         seine_rs.run(RESERVED_DRL, {"P": pa.table({"handle": [1], "v": [1]})})
+
+
+@seine_rs.fact
+class NV:
+    tag: str
+    v: "int | None"
+
+
+def test_to_pylist_is_dependency_free(res, monkeypatch):
+    # the clean-install contract: a zero-dep wheel must be able to READ
+    # its own results — to_pylist works with pyarrow AND polars absent
+    import sys
+    monkeypatch.setitem(sys.modules, "pyarrow", None)
+    monkeypatch.setitem(sys.modules, "polars", None)
+    rows = res.derived["Out"].to_pylist()
+    assert len(rows) == 2 and "handle" in rows[0] and rows[0]["v"] in (2, 3)
+
+
+def test_optional_dep_errors_are_actionable(res, monkeypatch):
+    import sys
+    monkeypatch.setitem(sys.modules, "pyarrow", None)
+    with pytest.raises(ModuleNotFoundError, match=r"pip install pyarrow"):
+        res.derived["Out"].to_arrow()
+    monkeypatch.setitem(sys.modules, "polars", None)
+    with pytest.raises(ModuleNotFoundError, match=r"pip install polars"):
+        res.derived["Out"].to_polars()
+
+
+def test_to_pylist_native_fidelity():
+    # every result dtype: i64, f64, bool, str, decimal, null
+    import decimal
+    r = seine_rs.run(
+        'rule R when P(v > 0) then end',
+        {"P": {"v": [1], "f": [1.5], "b": [True], "s": ["x"]}},
+    )
+    row = r.facts["P"].to_pylist()[0]
+    assert row["v"] == 1 and row["f"] == 1.5 and row["b"] is True and row["s"] == "x"
+
+    rule = seine_rs.Rule("n")
+    rule.when(NV)
+    s = seine_rs.Session([rule], facts={NV: {"tag": ["a"], "v": [None]}})
+    nrow = s.fire().facts["NV"].to_pylist()[0]
+    assert nrow["v"] is None and nrow["tag"] == "a"
+
+    d = seine_rs.run(
+        'rule D when M() then end',
+        {"M": pa.table({"amt": pa.array([decimal.Decimal("1.50")], pa.decimal128(10, 2))})},
+    )
+    drow = d.facts["M"].to_pylist()[0]
+    assert drow["amt"] == decimal.Decimal("1.50") and isinstance(drow["amt"], decimal.Decimal)
