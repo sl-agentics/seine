@@ -12342,3 +12342,28 @@ nested inside itself; the email-verification failure blocked that
 upload, the junk was untracked + locally gitignored, and the clean
 7-file package shipped. ⚠ hazard note: nested crates need their own
 /target gitignore BEFORE the first `git add`.
+
+## D-218 — crates.io publishing wired into the tag pipeline, same gates as PyPI (2026-07-12)
+
+Tag pushes now publish `seine-engine` to crates.io exactly as they
+publish `seine-rs` to PyPI: the new publish-crates job is
+tag-triggered, BLOCKED ON THE FULL DIFFERENTIAL JOB (the
+oracle-backed corpus gate — a release that fails the gate publishes
+nowhere), and uses crates.io Trusted Publishing via the official
+rust-lang/crates-io-auth-action (OIDC, no long-lived secret —
+mirroring the PyPI job's trusted publishing). Guards: the tag must
+equal the workspace version (catches tag/bump mismatches for the
+whole release flow), and an already-published check makes tag
+re-runs idempotent. Metadata/hygiene: the workspace `repository`
+field filled (was empty), the engine inherits it; `publish = false`
+on seine-harness and seine-py — the accident class where a bare
+`cargo publish` from the workspace targets a dev crate (hit live
+this session) is now impossible. seine-engine verifies clean as a
+standalone package (zero dependencies). ONE-TIME manual steps
+(first publish cannot use TP — configs attach to existing crates):
+Bryan publishes seine-engine once by hand, then adds the Trusted
+Publishing config on crates.io (repo sl-agentics/seine, workflow
+ci.yml, environment crates-io), then revokes the session-exposed
+token. The `seine` placeholder stays static (no CI); publishing the
+engine UNDER the reserved bare name is a future rename decision,
+deliberately not taken here.

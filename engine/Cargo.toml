@@ -4,5 +4,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Forward-chaining rule engine implementing a bounded, differentially-proven subset of Drools DRL semantics"
+repository.workspace = true
 
 [dependencies]
