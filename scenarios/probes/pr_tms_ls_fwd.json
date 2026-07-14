@@ -1,0 +1,16 @@
+{
+ "name": "pr_tms_ls_fwd",
+ "types": [
+  {"name": "T0", "fields": [{"name": "f0", "type": "bool"}]},
+  {"name": "T1", "fields": [{"name": "f0", "type": "String"}, {"name": "f1", "type": "bool"}]}
+ ],
+ "drl": "rule RJ when T0(f0 == true) then insertLogical(new T1(\"v\", true)); end\nrule ROBS when T1($x : f0, $y : f1) then end\n",
+ "facts": [
+  {"type": "T0", "fields": {"f0": true}}
+ ],
+ "epochs": [
+  {"actions": [], "facts": [{"type": "T1", "fields": {"f0": "v", "f1": true}}]},
+  {"actions": [{"op": "delete", "target": 0}], "facts": []}
+ ],
+ "_finding": "Logical THEN stated of an equal fact (external review round 15, the API-found interleaving): under the pinned identity assertBehaviour a stated insert always MINTS a new handle even onto a live justified equality-key - two T1 facts coexist (the ird_l2 recon rung, now corpus-graduated in the external-ops shape). Deleting the justification then retracts ONLY the justified one; the stated twin survives. Downstream rules genuinely see two facts in this order - order-dependence is the certified semantics, not a defect."
+}

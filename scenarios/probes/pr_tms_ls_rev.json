@@ -1,0 +1,16 @@
+{
+ "name": "pr_tms_ls_rev",
+ "types": [
+  {"name": "T0", "fields": [{"name": "f0", "type": "bool"}]},
+  {"name": "T1", "fields": [{"name": "f0", "type": "String"}, {"name": "f1", "type": "bool"}]}
+ ],
+ "drl": "rule RJ when T0(f0 == true) then insertLogical(new T1(\"v\", true)); end\nrule ROBS when T1($x : f0, $y : f1) then end\n",
+ "facts": [
+  {"type": "T1", "fields": {"f0": "v", "f1": true}}
+ ],
+ "epochs": [
+  {"actions": [], "facts": [{"type": "T0", "fields": {"f0": true}}]},
+  {"actions": [{"op": "delete", "target": 1}], "facts": []}
+ ],
+ "_finding": "Stated THEN logical of an equal fact (the reverse ordering of pr_tms_ls_fwd): insertLogical onto an already-stated equality-key is a handle no-op (the ird_l3 recon rung) - ONE T1 for the whole run, and deleting the would-be justification premise retracts nothing. The forward/reverse cardinality asymmetry (2 vs 1) is a real property of Drools identity-mode TMS, pinned here as the pair."
+}

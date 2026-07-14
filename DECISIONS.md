@@ -12992,3 +12992,44 @@ Applied: FEATURES.md §2 row (P2, deferred, recon-first, the WONT
 exit named) beside the other CEP rows; roadmap-acceptance.md row
 marked CONDITIONAL on the recon outcome; this entry supersedes
 D-233's bare "deferred to Bryan" note. Docs-only.
+
+## D-235 — the stated/logical overlap orderings adjudicated and corpus-pinned: correct-for-identity, certified (external review round 15 — the corner found black-box through the API, brought back as an oracle question) (2026-07-13)
+
+He found it exactly where the D-228 recommendation pointed and
+reported it exactly right: logical→stated of an equal fact = two
+handles (observer fires twice; deleting the justification retracts
+only the justified one), stated→logical = one handle (nothing
+retracts) — and he explicitly declined to claim it as a bug,
+because his identity-assertBehaviour explanation was an INFERENCE
+about the oracle, the D-176/min608/D-193 trap. His three
+questions, answered from the record and the oracle:
+
+(1) IS THE MODE PINNED? Yes — D-066: equality-assert mode as a
+session config is WONT; the certified setup is Drools' default
+identity assertBehaviour with the TMS value-equality MECHANISM via
+@key on every declared field on the oracle side (tms_e1/e2 pinned
+the boundary: without @key no sharing, with it equal LOGICAL
+inserts merge). The mode boundary he called load-bearing —
+logical/logical merges, logical/stated doesn't — is exactly that
+design, on the record since D-066.
+
+(2) WERE HIS ORDERINGS IN THE CORPUS? Honestly: no. They existed
+as I-RD recon rungs (ird_l2_stated_onto_justified = 3 facts,
+ird_l3_justified_onto_stated = 1 fact; oracle 3x-stable, engine
+matching, ird-ladder-results.md) — but in probes_pending, RHS-
+driven, without his external-ops interleaving or the justification
+delete. Untested-in-corpus was the right suspicion.
+
+(3) NOW THEY ARE: pr_tms_ls_fwd + pr_tms_ls_rev graduated —
+external stated arrival onto a live justified key, and the
+reverse, each with the justification delete, byte-identical to the
+oracle 3x. Forward: two T1s coexist (ROBS x2 — his "2x downstream
+firing"), the stated twin survives the delete. Reverse: one T1
+throughout, the delete retracts nothing. VERDICT: correct-for-
+identity, certified semantics, not a defect; the order-dependence
+is a real property of Drools identity-mode TMS that his divergence
+risk (an equality-MODE oracle would collapse forward to one
+handle) can never bite, because the mode is pinned WONT as config.
+
+Receipts: corpus 11/1134/397 + drift 32, lint-probes 1806/0/0.
+Scenario-only; engine and bindings untouched.
