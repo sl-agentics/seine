@@ -1,0 +1,152 @@
+{
+ "name": "stream_driver",
+ "types": [
+  {
+   "name": "Reading",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "sensor",
+     "type": "i64"
+    },
+    {
+     "name": "temp",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 6000
+   }
+  },
+  {
+   "name": "Alert",
+   "fields": [
+    {
+     "name": "sensor",
+     "type": "i64"
+    },
+    {
+     "name": "kind",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"double_spike\"\nwhen\n    $p0 : Reading(temp > 80, $b0_0 : sensor)\n    Reading(temp > 80, sensor == $b0_0, this after[1ms,5000ms] $p0)\nthen\n    insert(new Alert($b0_0, \"double_spike\"));\nend\n",
+ "facts": [
+  {
+   "type": "Reading",
+   "fields": {
+    "ts": 0,
+    "sensor": 1,
+    "temp": 70
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": [
+    {
+     "type": "Reading",
+     "fields": {
+      "ts": 1000,
+      "sensor": 1,
+      "temp": 85
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": [
+    {
+     "type": "Reading",
+     "fields": {
+      "ts": 3000,
+      "sensor": 1,
+      "temp": 88
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": [
+    {
+     "type": "Reading",
+     "fields": {
+      "ts": 4000,
+      "sensor": 2,
+      "temp": 60
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 3500
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 2000
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1500
+    }
+   ],
+   "facts": [
+    {
+     "type": "Reading",
+     "fields": {
+      "ts": 11000,
+      "sensor": 1,
+      "temp": 90
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "The demo/stream_driver.py epoch sequence, byte-checked: the rev-3 streaming-driver design (advance -> assert -> drain per epoch; heartbeats = empty-fact advances driving expiry). One double_spike alert from the two hot sensor-1 readings 2s apart; the later hot reading at t=11000 finds its would-be partners long expired and stays silent. The demo's WAL-replay determinism claim rides on exactly this sequence being oracle-identical."
+}
