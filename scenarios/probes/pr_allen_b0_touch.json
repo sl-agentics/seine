@@ -1,0 +1,58 @@
+{
+ "name": "pr_allen_b0_touch",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule Rbefore when $a : A() B(this before[0ms,1000ms] $a) then end\nrule Rmeets when $a : A() B(this meets $a) then end\nrule Rstarts when $a : A() B(this starts $a) then end\nrule Rfinishes when $a : A() B(this finishes $a) then end\nrule Rafter when $a : A() B(this after[0ms,1000ms] $a) then end\nrule Rmetby when $a : A() B(this metby $a) then end\nrule Rduring when $a : A() B(this during $a) then end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "ts": 100,
+    "dur": 100
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "ts": 0,
+    "dur": 100
+   }
+  }
+ ],
+ "epochs": [],
+ "_finding": "Corner A (external review round 24): probe B=[0,100] touches anchor A=[100,200] exactly - before[0ms,...] INCLUDES the gap-0 touching instant that meets owns, so the windowed and interval families DOUBLE-MATCH at the seam (Rbefore + Rmeets both fire). Faithful: explicit lo=0 means gap >= 0; strict-before is lo=1. Pinned so the seam convention is on the record."
+}

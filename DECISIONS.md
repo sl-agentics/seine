@@ -13480,3 +13480,47 @@ until built.
 Receipts: corpus 11/1149/397 + drift 32, lint-probes 1821/0/0,
 bindings 142/142. One scenario + one message line; engine
 untouched.
+
+## D-247 — round 24 adjudicated: the Allen seam and the degenerate-interval shatter are both faithful, pinned as three cells; the wall question answered structurally (2026-07-13)
+
+His Allen sweep on .17: the 11 bare interval relations PARTITION
+cleanly across every canonical position and single-tick boundary —
+the algebra's correctness core, verified black-box. Two corners
+for the oracle, both now adjudicated FAITHFUL (predictions 0.7,
+matched, 3x each):
+
+CORNER A — pr_allen_b0_touch: a probe ending exactly at the
+anchor's start double-matches before[0ms,...] and meets. Explicit
+lo=0 means gap >= 0, which includes the touching instant meets
+owns — the windowed and interval families overlap at the seam by
+construction. Contract line: strict-before is lo=1; mixing
+this_before(lo=0) with this_meets double-fires at gap 0.
+
+CORNER B — pr_allen_degen_start/_end: zero-length intervals
+shatter the partition at endpoints ([100,100] at the anchor start
+= before + meets + starts; [200,200] at the end = after +
+finishes + metby), identically in both engines. Allen's algebra
+partitions only PROPER intervals; points collapse endpoint
+distinctions, and Drools evaluates the same endpoint arithmetic
+with dur=0.
+
+HIS WALL-VS-FAITHFUL RULING QUESTION, answered structurally: a
+wall is not available at the right altitude. duration is a
+PER-ROW DATA field — whether an interval is degenerate is not
+statically knowable at authoring time, and rejecting dur=0 rows
+at ingestion would deviate from certified oracle behavior. So the
+disposition is DOCUMENT, not wall: the contract (points do not
+partition; the exactly-one guarantee needs proper intervals)
+lives in the cell findings and here. The negative-window
+precedent does not apply — that walled a shape the engine itself
+could not evaluate; this is certified behavior on legal data.
+
+His remaining checklist, pre-answered from the record: #6
+(interval x expiry) — an interval event expires from its END:
+the D-220 deadline is ts + dur + expires_ms (the wrapping-
+convention pin covers the sum); worth his black-box confirmation
+but not an open question. #5 (converse pairs) — unpinned as a
+systematic sweep; his to run.
+
+Receipts: corpus 11/1152/397 + drift 32, lint-probes 1824/0/0.
+Scenario-only; engine and bindings untouched.
