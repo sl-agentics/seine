@@ -1128,6 +1128,86 @@ def _lint_unstratified_negation(rules: "list[Rule]") -> None:
                 )
 
 
+def _lint_logical_cycles(rules) -> None:
+    """The logical-derivation cycle lint: a cycle of insertLogical
+    justifications across DISTINCT types (M1 -> M2 -> ... -> M1) is
+    self-supporting — truth maintenance is justification-set based (it
+    asks only whether a key's justifier set is empty, never whether the
+    support is grounded), so once the grounded root is deleted the
+    members keep each other alive PERMANENTLY, and an all-logical loop
+    has no external handle left to break it. Certified against the
+    oracle: Drools orphans such cycles identically.
+
+    Same altitude as the unstratified-negation lint: type-level, no
+    constraint or fixpoint reasoning. Edges come only from patterns
+    whose match genuinely supports the firing — plain `when` and
+    `when_exists`; negations support nothing, and accumulate/collect
+    fire even over an empty source. The load-bearing exemption is the
+    SELF-LOOP (a rule matching T that logically inserts T): constraint-
+    guarded bounded escalation over one type is a real, valid pattern,
+    and it is exactly where type-level over-approximation would bite —
+    so T -> T edges are silent by design. Like every static lint here,
+    this is a sampler, not a detector: a green result means no distinct-
+    type logical cycle exists in the TYPE graph, not that the derivation
+    is sound."""
+    # type-level edges: matched class -> logically-inserted class
+    edges: dict = {}  # cls -> list[(dst cls, rule name)]
+    for r in rules:
+        outs = [a.kw["cls"] for a in r.actions if a.kind == "insert_logical"]
+        if not outs:
+            continue
+        for p in r.patterns:
+            if p.ce not in ("", "exists"):
+                continue
+            for o in outs:
+                if o is p.cls:
+                    continue  # self-loop: bounded escalation, exempt
+                edges.setdefault(p.cls, []).append((o, r.name))
+
+    # iterative DFS, deterministic order; report the first cycle found
+    state: dict = {}  # cls -> 1 visiting / 2 done
+    def walk(start):
+        stack = [(start, iter(edges.get(start, ())))]
+        path = [(start, None)]  # (cls, rule that led here)
+        state[start] = 1
+        while stack:
+            cls, it = stack[-1]
+            step = next(it, None)
+            if step is None:
+                state[cls] = 2
+                stack.pop()
+                path.pop()
+                continue
+            nxt, rname = step
+            if state.get(nxt) == 1:
+                cyc = path[[c for c, _ in path].index(nxt):] + [(nxt, rname)]
+                arcs = " -> ".join(
+                    f"{c.__name__}"
+                    + (f' (rule "{rn}")' if rn and i > 0 else "")
+                    for i, (c, rn) in enumerate(cyc)
+                )
+                raise CompileError(
+                    f"logical derivation cycle: {arcs} — every link is an "
+                    f"insertLogical justification, so the cycle supports "
+                    f"itself: delete the grounded facts and truth "
+                    f"maintenance never retracts it (justification sets are "
+                    f"counted, not grounded), leaving the members alive as "
+                    f"permanently unreclaimable working memory with no "
+                    f"handle to break the loop. Keep logical derivation "
+                    f"DAG-shaped: derive each fact from the grounded tier "
+                    f"directly, or compute the mutually-recursive closure "
+                    f"outside the session and insert the results as stated "
+                    f"facts."
+                )
+            if state.get(nxt) is None:
+                state[nxt] = 1
+                path.append((nxt, rname))
+                stack.append((nxt, iter(edges.get(nxt, ()))))
+    for node in list(edges):
+        if state.get(node) is None:
+            walk(node)
+
+
 def compile_rules(rules) -> str:
     """Render a list of Rule objects into one DRL source string."""
     out = []
@@ -1141,4 +1221,5 @@ def compile_rules(rules) -> str:
         seen.add(r.name)
         out.append(r.to_drl())
     _lint_unstratified_negation(rules)
+    _lint_logical_cycles(rules)
     return "\n".join(out)

@@ -13113,3 +13113,42 @@ type-level check, so exemption design needs care.
 
 Receipts: corpus 11/1139/397 + drift 32, lint-probes 1811/0/0.
 Scenario-only; engine and bindings untouched.
+
+## D-238 — the logical-cycle lint built to Bryan's spec: distinct-type cycles rejected, the self-loop exemption load-bearing (2026-07-13)
+
+Bryan's directive on the D-237 candidate: "Ship the reject for
+distinct-type cycles now (the M1<->M2 / M1->M2->M3->M1 shapes —
+near-zero false positives, that's where the leak lives). Make the
+self-loop (T->T) exemption the load-bearing part."
+
+Built at the established lint altitude (D-222's): type-level, no
+constraint or fixpoint reasoning, at compile_rules() — the funnel
+Session() and run() share. Edges are matched-class ->
+logically-inserted-class, and only from patterns whose match
+genuinely SUPPORTS the firing: plain when and when_exists.
+Negations support nothing; accumulate/collect fire even over an
+empty source — neither creates an edge. Stated inserts create no
+TMS support, so a stated back-edge breaks no rule (pinned).
+Distinct-type cycles raise a CompileError that walks the cycle
+with each edge's rule named, states the D-237 contract (sets are
+counted, not grounded; the members become permanently
+unreclaimable with no handle to break the loop), and names the
+remedies (derive from the grounded tier directly, or compute the
+mutually-recursive closure outside the session and insert stated
+facts).
+
+THE SELF-LOOP EXEMPTION, per the directive the load-bearing part:
+T -> T edges are silent by design — constraint-guarded bounded
+escalation over one type (Alarm sev 1 -> sev 2) is a real, valid
+pattern, and it is exactly where type-level over-approximation
+would bite. The D-224 sampler caveat is on the docstring: green
+means no distinct-type cycle in the TYPE graph, not that the
+derivation is sound (a self-loop that never converges is still
+the author's to bound).
+
+Receipts: bindings 121/121 (4 new: the 2-cycle in BOTH declaration
+orders with rules+types+remedy asserted, the 3-cycle, acyclic +
+stated-back-edge controls, the escalation exemption). The D-237
+corpus cells (raw DRL) are unaffected — the engine keeps the
+Drools-faithful behavior; only the authoring layer refuses to
+build the footgun. Authoring-only; engine and corpus untouched.

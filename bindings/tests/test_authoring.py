@@ -496,3 +496,78 @@ def test_precedence_trap_raises_compile_error_not_type_error():
     r = Rule("ok")
     r.when(Order, (Order.amount > 10.0) & (Order.amount < 100.0))
     assert "rule" in r.to_drl()
+
+
+# --- the logical-cycle lint (round 17 / Bryan's build directive) --------
+
+@fact
+class CRoot:
+    v: int
+
+
+@fact
+class CMid:
+    k: str
+
+
+@fact
+class CLeaf:
+    k: str
+
+
+def _chain(back_edge=True, logical_back=True):
+    r1 = Rule("RM")
+    r1.when(CRoot, CRoot.v > 0)
+    r1.then_insert_logical(CMid, k="m")
+    r2 = Rule("RML")
+    r2.when(CMid, CMid.k == "m")
+    r2.then_insert_logical(CLeaf, k="l")
+    out = [r1, r2]
+    if back_edge:
+        r3 = Rule("RLM")
+        r3.when(CLeaf, CLeaf.k == "l")
+        (r3.then_insert_logical if logical_back else r3.then_insert)(CMid, k="m")
+        out.append(r3)
+    return out
+
+
+def test_distinct_type_logical_cycle_rejected_both_orders():
+    # the pr_tms_cycle contract: an all-logical cycle orphans permanently
+    # (justification sets are counted, not grounded) — reject at compile
+    for order in (_chain(), list(reversed(_chain()))):
+        with pytest.raises(CompileError, match="logical derivation cycle") as ei:
+            seine_rs.compile_rules(order)
+        msg = str(ei.value)
+        assert "RML" in msg and "RLM" in msg
+        assert "CMid" in msg and "CLeaf" in msg
+        assert "DAG" in msg  # the remedy is named
+
+
+def test_three_type_logical_cycle_rejected():
+    @fact
+    class CM3:
+        k: str
+    r1 = Rule("a"); r1.when(CMid); r1.then_insert_logical(CLeaf, k="l")
+    r2 = Rule("b"); r2.when(CLeaf); r2.then_insert_logical(CM3, k="x")
+    r3 = Rule("c"); r3.when(CM3); r3.then_insert_logical(CMid, k="m")
+    with pytest.raises(CompileError, match="logical derivation cycle"):
+        seine_rs.compile_rules([r1, r2, r3])
+
+
+def test_acyclic_chain_and_stated_back_edge_pass():
+    assert "rule" in seine_rs.compile_rules(_chain(back_edge=False))
+    # a stated back-edge creates no TMS support edge — no logical cycle
+    assert "rule" in seine_rs.compile_rules(_chain(logical_back=False))
+
+
+def test_self_loop_exempt_bounded_escalation():
+    # the load-bearing exemption: constraint-guarded escalation over ONE
+    # type is valid (and exactly where type-level over-approximation
+    # would bite) — T -> T stays silent by design
+    @fact
+    class CAlarm:
+        sev: int
+    r = Rule("esc")
+    r.when(CAlarm, CAlarm.sev == 1)
+    r.then_insert_logical(CAlarm, sev=2)
+    assert "rule" in seine_rs.compile_rules([r])
