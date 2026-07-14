@@ -12887,3 +12887,42 @@ arithmetic ROADMAP-P3/D-061; RHS action args WONT by design".
 Constraint arithmetic (LHS declarative filtering) is unaffected
 and stays P3. The D-229 authoring wall and its remedies are now
 the permanent surface, not a stopgap. Docs-only.
+
+## D-232 — the truthiness footgun: expression nodes refuse bool() (external review round 13 — silent constraint-dropping via and/or/chained comparisons) (2026-07-13)
+
+His find, and the sharpest one yet at the authoring layer:
+`10 < Order.amount < 100` silently compiled to `Order(amount <
+100)` — the lower bound GONE, no error, and the rule misfires
+(amount=5 admitted against an author who wrote 10 < amount).
+Root cause exactly as he diagnosed: Python desugars the chain to
+`(10 < x) and (x < 100)` and decides short-circuiting with
+bool(); _Constraint had default object truthiness, so `and`
+returned only the right operand. Same family: bare `and`/`or`
+between constraints each collapse to a single operand. This is
+the author-intent ↔ DRL gap — the produced DRL was certified
+grammar, just not the rule the author meant, so it sailed through
+every differential gate.
+
+The fix is his textbook one (the numpy/pandas/SQLAlchemy move),
+applied to the WHOLE expression AST, not just _Constraint: a
+raising __bool__ on FieldRef, BoundField (and thus AccResult),
+SalExpr, _Constraint, _Group, and _Temporal. FieldRef matters —
+Bryan's mid-turn catch: `Order.vip and (Order.amount > 10)`
+routes through bool(FieldRef), not bool(_Constraint), and would
+have survived a constraint-only wall. The message teaches the
+correct forms by name: combine with & / | / ~, pass several
+constraints to when(...) for AND, write a range as two
+constraints — per Bryan's second directive that the raise must
+name the fix, not just forbid.
+
+The wall immediately earned its keep INSIDE the library: four
+existing tests broke because authoring.py itself used AST-node
+truthiness (`if agg.arg`, `arg.subset_type if arg else`) — always
+true before, now loud; converted to `is not None` identity
+checks. The intended combinators never touch __bool__ and are
+pinned untouched (varargs AND, &, |, ~).
+
+Receipts: bindings 116/116 (4 new: the chained-comparison repro,
+and/or in both operand orders incl. the FieldRef boolean-field
+case, the message-names-the-forms pin, the four intended forms).
+Authoring-only; engine and corpus untouched.

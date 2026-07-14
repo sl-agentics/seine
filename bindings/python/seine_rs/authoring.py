@@ -147,6 +147,24 @@ def _reject_callable(x: Any, where: str) -> None:
         )
 
 
+def _ambiguous_bool(kind: str):
+    """A raising __bool__ for expression-AST nodes (the numpy/pandas/
+    SQLAlchemy move): Python's `and`/`or` and chained comparisons
+    (10 < x < 100 desugars to `10 < x and x < 100`) decide
+    short-circuiting with bool(), so default truthiness would silently
+    DROP one operand from the compiled rule — a misfire, not an error."""
+    def __bool__(self):
+        raise CompileError(
+            f"the truth value of a {kind} is ambiguous: Python's "
+            "`and`/`or` and chained comparisons (10 < x < 100) "
+            "short-circuit through bool() and would silently drop a "
+            "constraint. Combine with `&` / `|` / `~`, pass several "
+            "constraints to when(...) for AND, and write a range as two "
+            "constraints (x > 10, x < 100)."
+        )
+    return __bool__
+
+
 # ---------------------------------------------------------------------
 # Fact classes and field expressions
 # ---------------------------------------------------------------------
@@ -154,6 +172,8 @@ def _reject_callable(x: Any, where: str) -> None:
 class FieldRef:
     """A typed field of a fact CLASS; operator overloads build
     constraint AST nodes, never evaluate."""
+
+    __bool__ = _ambiguous_bool("field expression")
 
     def __init__(self, owner: type, name: str, subset_type: str):
         self.owner = owner
@@ -334,6 +354,8 @@ class BoundField:
     usable in later constraints, RHS args, accumulate args and salience
     expressions. Compiles to a `$binding : field` declaration."""
 
+    __bool__ = _ambiguous_bool("field expression")
+
     def __init__(self, pattern: "_Pattern", name: str, subset_type: str):
         self.pattern = pattern
         self.name = name
@@ -383,6 +405,8 @@ class BoundField:
 class SalExpr:
     """A salience expression: term or term-op-term, closed grammar."""
 
+    __bool__ = _ambiguous_bool("salience expression")
+
     def __init__(self, a, op: Optional[str] = None, b=None):
         for t in (a, b):
             if t is not None and not isinstance(t, (BoundField, int)):
@@ -411,9 +435,9 @@ class AccResult(BoundField):
         st = {
             "count": "i64",
             "average": "f64",
-            "sum": arg.subset_type if arg else "i64",
-            "min": arg.subset_type if arg else "i64",
-            "max": arg.subset_type if arg else "i64",
+            "sum": arg.subset_type if arg is not None else "i64",
+            "min": arg.subset_type if arg is not None else "i64",
+            "max": arg.subset_type if arg is not None else "i64",
         }[func]
         super().__init__(pattern, f"__acc_{func}", st)
         self.func = func
@@ -478,6 +502,8 @@ _NULL = _Null()
 
 
 class _Constraint:
+    __bool__ = _ambiguous_bool("constraint")
+
     def __init__(self, field: FieldRef, op: str, rhs: Any):
         self.field, self.op, self.rhs = field, op, rhs
 
@@ -509,6 +535,8 @@ class _Constraint:
 class _Group:
     """Inline boolean constraint group: `(a || b)`, `(a && b)`,
     `!(a)` - same-pattern fields only."""
+
+    __bool__ = _ambiguous_bool("constraint group")
 
     def __init__(self, op, children):
         for c in children:
@@ -579,6 +607,8 @@ class _Pattern:
 class _Temporal:
     """`this after[lo,hi] $anchor` / before - the certified temporal
     join. The anchor is a MATCHED event pattern from an earlier when()."""
+
+    __bool__ = _ambiguous_bool("temporal constraint")
 
     def __init__(self, op, anchor, lo_ms, hi_ms):
         if not isinstance(anchor, _Pattern) or anchor.ce != "":
@@ -774,7 +804,7 @@ class Rule:
                     f"{agg.arg.name} is {agg.arg.subset_type}"
                 )
         p = self._add_pattern(cls, constraints, "accumulate", agg)
-        arg_bf = BoundField(p, agg.arg.name, agg.arg.subset_type) if agg.arg else None
+        arg_bf = BoundField(p, agg.arg.name, agg.arg.subset_type) if agg.arg is not None else None
         return AccResult(p, agg.func, arg_bf)
 
     def collect(self, cls: type, *constraints) -> None:

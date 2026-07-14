@@ -440,3 +440,45 @@ def test_string_ops_still_walled_on_non_string():
         r.when(Person, Person.age.contains("1"))
     with pytest.raises(CompileError, match="requires a str field"):
         r.when(Person, Person.age.matches("1.*"))
+
+
+# --- the truthiness footgun (round 13) ---------------------------------
+
+def test_chained_comparison_raises_not_silently_drops():
+    # 10 < x < 100 desugars via bool(10 < x) — default truthiness kept
+    # only the right operand and the rule silently misfired (amount=5
+    # matched a "10 < amount" author intent)
+    r = Rule("band")
+    with pytest.raises(CompileError, match="truth value .* ambiguous"):
+        r.when(Order, 10 < Order.amount < 100)
+
+
+def test_and_or_between_constraints_raise():
+    with pytest.raises(CompileError, match="ambiguous"):
+        (Order.amount > 10) and (Order.amount < 100)
+    with pytest.raises(CompileError, match="ambiguous"):
+        (Order.amount > 100) or (Person.active == True)  # noqa: E712
+    # the boolean-field case routes through bool(FieldRef), not
+    # bool(_Constraint) — both classes must raise
+    with pytest.raises(CompileError, match="ambiguous"):
+        Person.active and (Order.amount > 10)
+
+
+def test_ambiguity_error_names_the_correct_forms():
+    with pytest.raises(CompileError) as ei:
+        (Order.amount > 10) and (Order.amount < 100)
+    msg = str(ei.value)
+    assert "&" in msg and "|" in msg and "when(" in msg
+
+
+def test_intended_combinators_untouched_by_bool_wall():
+    r = Rule("ok")
+    r.when(Order, Order.amount > 10.0, Order.amount < 100.0)  # varargs AND
+    r2 = Rule("ok2")
+    r2.when(Order, (Order.amount > 10.0) & (Order.amount < 100.0))
+    r3 = Rule("ok3")
+    r3.when(Order, (Order.amount > 100.0) | (Order.priority == 1))
+    r4 = Rule("ok4")
+    r4.when(Order, ~(Order.amount > 100.0))
+    for x in (r, r2, r3, r4):
+        assert "rule" in x.to_drl()
