@@ -33,6 +33,8 @@ from .authoring import (
     max_,
     min_,
     sum_,
+    collect_list,
+    collect_set,
     window_length,
     window_time,
 )
@@ -56,6 +58,8 @@ __all__ = [
     "sum_",
     "window_length",
     "window_time",
+    "collect_list",
+    "collect_set",
 ]
 
 

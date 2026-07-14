@@ -13358,3 +13358,43 @@ Authoring + bindings only; generated DRL is certified grammar;
 engine and corpus untouched. Remaining tiers per the reviewer's
 ranking: B = groupby + collectList/Set + LHS OR; C = Allen +
 @duration together; D = entry points, expires inference.
+
+## D-244 — Tier B exposure: group_by, collect_list/collect_set, when_any — plus the groupby-key RHS divergence found on the way (2026-07-13)
+
+The exposure work surfaced a real boundary before it shipped
+anything: the first groupby-downstream pin attempt used BOTH
+bindings ($k and $s) in the RHS and the ORACLE REJECTED IT —
+"Rule Compilation error: $k cannot be resolved to a variable" —
+while our engine happily bound the key. Split cleanly by a second
+probe: the AGGREGATE binding is RHS-visible (certified, the
+graduated pr_ga_downstream: one Out per group, totals 30/5, 3x);
+the KEY binding is not. Two consequences recorded: (a) the
+authoring group_by() never exposes the key (its docstring cites
+the oracle error verbatim; the accumulate-scope wall covers
+attribute access); (b) the engine ACCEPTING $k in the RHS where
+Drools compile-errors is a banked engine-accepts-more edge — an
+engine-side reject is the faithful fix, Bryan-gated, queued
+beside the D-225-era ledger notes.
+
+SHIPPED, all rendering into pinned grammar:
+- group_by(cls, *constraints, key=, agg=) -> the leading-position
+  form `groupby( T(..., $k : key, $s : arg); $k; $a : func($s) )`
+  (pr_ga3/ga8/ga9 + the new downstream pin). Result usable as an
+  RHS arg; collect functions and non-numeric aggregates walled.
+- collect_list/collect_set accumulate functions (pr_ga1/ga7/ga15
+  family). Results are OPAQUE downstream (the D-039 wall
+  generalized to a per-kind message: no certified field type
+  carries a collection; the value is visible in the firings
+  audit). collect x window walled — no pin certifies the combo.
+- when_any((A, ...), (B, ...)) -> `( A(...) or B(...) )`, the
+  certified D-070 DNF expansion (both-branches-alive = two
+  subrule firings, pinned in the test). v1 is deliberately
+  ALPHA-ONLY: same-class literal constraints, no cross-pattern
+  bindings in or out (each wall names why — a binding has no
+  meaning in the subrules built from the other branches).
+  Temporal constraints inside branches walled.
+
+Receipts: bindings 137/137 (5 new); corpus 11/1148/397 + drift 32
+(pr_ga_downstream graduated), lint-probes 1820/0/0. Authoring +
+one scenario; engine untouched. Tier C (Allen + @duration
+together) and the banked groupby-key engine reject remain queued.

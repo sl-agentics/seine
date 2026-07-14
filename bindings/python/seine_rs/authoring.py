@@ -457,22 +457,35 @@ class AccResult(BoundField):
             "sum": arg.subset_type if arg is not None else "i64",
             "min": arg.subset_type if arg is not None else "i64",
             "max": arg.subset_type if arg is not None else "i64",
+            "collectList": "List",
+            "collectSet": "Set",
         }[func]
         super().__init__(pattern, f"__acc_{func}", st)
         self.func = func
         self.arg = arg
         if func in ("min", "max") and st == "f64":
             self.opaque = True  # D-039: compiles nowhere downstream
+            self._why = (
+                f"{func}() over a float field yields an opaque Number in "
+                "Drools: it cannot be used in {use}. Aggregate an int field, "
+                "or keep the result unused."
+            )
+        elif func in ("collectList", "collectSet"):
+            # the collection value lives in the match (and the firings
+            # audit); no subset field type can carry it downstream
+            self.opaque = True
+            self._why = (
+                f"{func}() results are collections — no certified field "
+                "type can carry one into {use}. The collection is visible "
+                "in the firings audit; use count()/sum() for a scalar."
+            )
         else:
             self.opaque = False
+            self._why = ""
 
     def _guard_opaque(self, use: str):
         if self.opaque:
-            raise CompileError(
-                f"{self.func}() over a float field yields an opaque Number in "
-                f"Drools: it cannot be used in {use}. Aggregate an int field, or "
-                "keep the result unused."
-            )
+            raise CompileError(self._why.format(use=use))
 
     def _arith(self, op, other, reflected=False):
         raise CompileError(
@@ -487,6 +500,18 @@ class AccResult(BoundField):
 class _Agg:
     def __init__(self, func: str, arg: Optional[FieldRef]):
         self.func, self.arg = func, arg
+
+
+def collect_list(field: FieldRef) -> _Agg:
+    """`collectList($v)` — the ordered value collection (match-visible
+    and in the firings audit; collections have no downstream field type)."""
+    return _Agg("collectList", field)
+
+
+def collect_set(field: FieldRef) -> _Agg:
+    """`collectSet($v)` — the counted value set (a duplicate must be
+    removed as many times as it was added before the set shrinks)."""
+    return _Agg("collectSet", field)
 
 
 class _Window:
@@ -650,7 +675,7 @@ class _Pattern:
                     f"bindings inside {self.ce}() patterns do not exist in Drools "
                     "scope — match the fact with when() if you need its fields"
                 )
-            if self.ce in ("accumulate", "collect"):
+            if self.ce in ("accumulate", "collect", "groupby"):
                 raise CompileError(
                     "fields of an accumulate/collect SOURCE are scoped inside the "
                     "aggregate; use the aggregate's result instead"
@@ -739,6 +764,7 @@ class Rule:
         self.agenda_group = agenda_group
         self.patterns: list[_Pattern] = []
         self.actions: list[_RhsAction] = []
+        self.or_groups: list = []
         self._bind_seq = 0
 
     def set_salience(self, salience: Union[int, BoundField, SalExpr]) -> "Rule":
@@ -833,6 +859,52 @@ class Rule:
         """Positive pattern; returns the match for later use."""
         return self._add_pattern(cls, constraints, "")
 
+    def when_any(self, *branches) -> None:
+        """OR across patterns: `( A(...) or B(...) )` — each branch is a
+        tuple (Class, *constraints). The certified DNF expansion (each
+        branch becomes a subrule). v1 keeps branches ALPHA-ONLY: same-
+        class literal constraints, no bindings out (a binding would not
+        exist in the subrules built from the other branches)."""
+        if len(branches) < 2:
+            raise CompileError("when_any needs at least two branches")
+        parts = []
+        for b in branches:
+            if not isinstance(b, tuple) or not b or not hasattr(b[0], "__seine_fields__"):
+                raise CompileError(
+                    "when_any branches are tuples: (FactClass, *constraints)"
+                )
+            cls, cs = b[0], b[1:]
+            rendered = []
+            for c in cs:
+                _reject_callable(c, f"{cls.__name__} or-branch constraint")
+                if isinstance(c, _Temporal):
+                    raise CompileError(
+                        "temporal constraints inside when_any branches are "
+                        "not certified — lift the temporal join to its own "
+                        "pattern"
+                    )
+                if not isinstance(c, (_Constraint, _Group)):
+                    raise CompileError(
+                        f"when_any branch constraints must be field "
+                        f"constraints (got {type(c).__name__})"
+                    )
+                owners = c.owners() if isinstance(c, _Group) else {c.field.owner}
+                if owners != {cls}:
+                    raise CompileError(
+                        f"when_any branches are alpha-only: constraints must "
+                        f"be on {cls.__name__} itself (cross-pattern joins "
+                        "into or-branches are not certified)"
+                    )
+                if isinstance(c, _Constraint) and isinstance(c.rhs, BoundField):
+                    raise CompileError(
+                        "when_any branches are alpha-only: no bindings from "
+                        "other patterns (a join into one branch has no "
+                        "meaning in the subrules built from the others)"
+                    )
+                rendered.append(c)
+            parts.append((cls, rendered))
+        self.or_groups.append(parts)
+
     def when_not(self, cls: type, *constraints) -> None:
         self._add_pattern(cls, constraints, "not")
 
@@ -855,7 +927,9 @@ class Rule:
                 raise CompileError(
                     f"aggregate argument {agg.arg!r} must be a field of {cls.__name__}"
                 )
-            if agg.arg.subset_type not in ("i64", "f64") and agg.func != "count":
+            if agg.arg.subset_type not in ("i64", "f64") and agg.func not in (
+                "count", "collectList", "collectSet"
+            ):
                 raise CompileError(
                     f"{agg.func}() requires a numeric field, "
                     f"{agg.arg.name} is {agg.arg.subset_type}"
@@ -866,6 +940,12 @@ class Rule:
                     "accumulate(window=...): pass seine_rs.window_time(ms) or "
                     "seine_rs.window_length(n)"
                 )
+            if agg.func in ("collectList", "collectSet"):
+                raise CompileError(
+                    f"{agg.func}() with a window is not certified against the "
+                    "oracle — use an unwindowed collect, or a windowed scalar "
+                    "aggregate (count/sum/average/min/max)"
+                )
             if window.kind == "time" and getattr(cls, "__seine_event__", None) is None:
                 raise CompileError(
                     f"window_time over {cls.__name__}: time windows need event "
@@ -874,6 +954,39 @@ class Rule:
                 )
         p = self._add_pattern(cls, constraints, "accumulate", agg)
         p.window = window
+        arg_bf = BoundField(p, agg.arg.name, agg.arg.subset_type) if agg.arg is not None else None
+        return AccResult(p, agg.func, arg_bf)
+
+    def group_by(
+        self, cls: type, *constraints, key: FieldRef, agg: _Agg
+    ) -> AccResult:
+        """`groupby( T(..., $k : key, $s : arg); $k; $a : func($s) )` —
+        the leading-position key form (the certified slice): the rule
+        fires once per group with the aggregate bound. The RESULT is
+        usable downstream (pr_ga_downstream); the KEY BINDING is not —
+        Drools rejects it in the RHS ("$k cannot be resolved"), so the
+        authoring layer never exposes it."""
+        if not isinstance(key, FieldRef) or key.owner is not cls:
+            raise CompileError(
+                f"group_by key must be a field of {cls.__name__}"
+            )
+        if agg.func in ("collectList", "collectSet"):
+            raise CompileError(
+                "group_by with collect functions is not certified against "
+                "the oracle — use a scalar aggregate"
+            )
+        if agg.arg is not None:
+            if agg.arg.owner is not cls:
+                raise CompileError(
+                    f"aggregate argument {agg.arg!r} must be a field of {cls.__name__}"
+                )
+            if agg.arg.subset_type not in ("i64", "f64") and agg.func != "count":
+                raise CompileError(
+                    f"{agg.func}() requires a numeric field, "
+                    f"{agg.arg.name} is {agg.arg.subset_type}"
+                )
+        p = self._add_pattern(cls, constraints, "groupby", agg)
+        p.group_key = key
         arg_bf = BoundField(p, agg.arg.name, agg.arg.subset_type) if agg.arg is not None else None
         return AccResult(p, agg.func, arg_bf)
 
@@ -1079,11 +1192,31 @@ class Rule:
                 win = getattr(p, "window", None)
                 over = f" {win.render()}" if win is not None else ""
                 lhs_lines.append(f"    accumulate( {inner}{over}; {rv} : {call} )")
+            elif p.ce == "groupby":
+                rv = p.acc_result_var or f"$a{p.index}"
+                agg = p.agg
+                kvar = f"$k{p.index}"
+                body2 = list(body) + [f"{kvar} : {p.group_key.name}"]
+                if agg.arg is not None:
+                    avar = f"$s{p.index}"
+                    body2.append(f"{avar} : {agg.arg.name}")
+                    call = f"{agg.func}({avar})"
+                else:
+                    call = f"{agg.func}()"
+                inner = f"{p.type_name}({', '.join(body2)})"
+                lhs_lines.append(f"    groupby( {inner}; {kvar}; {rv} : {call} )")
             elif p.ce == "collect":
                 lhs_lines.append(f"    $l{p.index} : ArrayList() from collect( {inner} )")
             else:
                 head = f"{p.fact_var} : " if p.fact_var else ""
                 lhs_lines.append(f"    {head}{inner}")
+
+        for group in self.or_groups:
+            branches = []
+            for cls, cs in group:
+                inner = ", ".join(c.render(self) for c in cs)
+                branches.append(f"{cls.__name__}({inner})")
+            lhs_lines.append("    ( " + " or ".join(branches) + " )")
 
         if not lhs_lines:
             raise CompileError(f"rule {self.name}: no patterns")

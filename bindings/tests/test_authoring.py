@@ -630,3 +630,78 @@ def test_self_loop_group_boundary():
     r2.when(SLM, (SLM.n < 0) | (SLM.n > 10))
     r2.then_insert_logical(SLM, n=5)
     assert "rule" in seine_rs.compile_rules([r2])
+
+
+# --- Tier B exposure (round 22): group_by / collect_list/set / when_any
+
+@fact
+class GT:
+    k: int
+    v: int
+
+
+@fact
+class GOut:
+    g: int
+    total: int
+
+
+def test_group_by_result_downstream():
+    r = Rule("G")
+    tot = r.group_by(GT, key=GT.k, agg=sum_(GT.v))
+    r.then_insert(GOut, g=0, total=tot)
+    assert "groupby( GT($k0 : k, $s0 : v); $k0; $a0 : sum($s0) )" in r.to_drl()
+    res = seine_rs.run([r], {GT: {"k": [1, 1, 2], "v": [10, 20, 5]}, GOut: []})
+    assert sorted(x["total"] for x in res.derived["GOut"].to_pylist()) == [5, 30]
+
+
+def test_group_by_key_never_exposed():
+    # the oracle REJECTS the key binding in the RHS ("$k cannot be
+    # resolved", pr_ga_downstream's finding) — the API never hands it out
+    r = Rule("G")
+    r.group_by(GT, key=GT.k, agg=sum_(GT.v))
+    with pytest.raises(CompileError, match="scoped inside"):
+        r.patterns[0].k  # noqa: B018
+
+
+def test_collect_list_set_fire_only():
+    r = Rule("C")
+    lst = r.accumulate(GT, agg=seine_rs.collect_list(GT.v))
+    with pytest.raises(CompileError, match="collections"):
+        r.then_insert(GOut, g=0, total=lst)
+    r2 = Rule("C2")
+    r2.accumulate(GT, agg=seine_rs.collect_set(GT.v))
+    drl = seine_rs.compile_rules([r2])
+    assert "collectSet($s0)" in drl
+    with pytest.raises(CompileError, match="not certified"):
+        Rule("C3").accumulate(GT, agg=seine_rs.collect_list(GT.v),
+                              window=seine_rs.window_length(2))
+
+
+@fact
+class OA:
+    x: int
+
+
+@fact
+class OB:
+    y: int
+
+
+def test_when_any_or_branches():
+    r = Rule("O")
+    r.when_any((OA, OA.x > 1), (OB, OB.y == 3))
+    assert "( OA(x > 1) or OB(y == 3) )" in r.to_drl()
+    assert seine_rs.run([r], {OA: {"x": [0]}, OB: {"y": [3]}}).fired == 1
+    assert seine_rs.run([r], {OA: {"x": [5]}, OB: {"y": [0]}}).fired == 1
+    # both branches alive = two subrule firings (the DNF expansion)
+    assert seine_rs.run([r], {OA: {"x": [5]}, OB: {"y": [3]}}).fired == 2
+
+
+def test_when_any_walls():
+    r = Rule("w")
+    p = r.when(GT)
+    with pytest.raises(CompileError, match="alpha-only"):
+        r.when_any((OA, OA.x == p.k), (OB,))
+    with pytest.raises(CompileError, match="at least two"):
+        Rule("w2").when_any((OA,))

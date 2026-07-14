@@ -1,0 +1,57 @@
+{
+ "name": "pr_ga_downstream",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "g",
+     "type": "i64"
+    },
+    {
+     "name": "total",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when groupby( T($k : k, $v : v); $k; $s : sum($v) ) then insert(new Out(0, $s)); end\n",
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 1,
+    "v": 10
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 1,
+    "v": 20
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 2,
+    "v": 5
+   }
+  }
+ ],
+ "epochs": [],
+ "_finding": "groupby AGGREGATE binding used downstream (round 22 Tier B): $s feeds an RHS insert - one Out per group (totals 30 and 5). THE KEY BINDING IS NOT RHS-VISIBLE in the oracle (\"$k cannot be resolved to a variable\", rule compilation error) - the engine currently ACCEPTS $k there (engine-accepts-more edge, banked; the authoring layer walls it). Result-downstream = certified; key-downstream = out of subset."
+}
