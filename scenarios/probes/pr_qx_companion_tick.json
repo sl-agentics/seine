@@ -1,0 +1,17 @@
+{
+ "name": "pr_qx_companion_tick",
+ "types": [
+  {"name": "B", "fields": [{"name": "k", "type": "i64"}]},
+  {"name": "Tick", "fields": [{"name": "n", "type": "i64"}]},
+  {"name": "Out", "fields": [{"name": "t", "type": "i64"}, {"name": "v", "type": "i64"}]}
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    Tick($n : n)\n    ?BVals($x;)\nthen\n    insert(new Out($n, $x));\nend\n",
+ "facts": [
+  {"type": "B", "fields": {"k": 1}},
+  {"type": "Tick", "fields": {"n": 1}}
+ ],
+ "epochs": [
+  {"actions": [], "facts": [{"type": "B", "fields": {"k": 2}}, {"type": "Tick", "fields": {"n": 2}}]}
+ ],
+ "_finding": "The companion-rescue cell (round 20, pairs with pr_qx_bare_snapshot): the same pull query behind a REACTIVE companion pattern. The new Tick re-triggers evaluation and the ?query CE then sees every row including the late-arrived B(2) - the companion is the idiomatic bridge for cross-fire lateness. Row-per-activation cardinality on re-evaluation is the byte-checked observable."
+}

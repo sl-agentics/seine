@@ -13225,3 +13225,39 @@ is exactly why a careful reviewer could not tell the corner was
 pinned. Both now carry the round-19 explanation (mechanism
 included), re-verified green after annotation. Metadata-only;
 engine, bindings, corpus behavior untouched.
+
+## D-241 — the D-057 query-lifecycle corner pinned: the pull CE is non-reactive across fire boundaries, the companion rescues (external review round 20) (2026-07-13)
+
+His query round mapped the subset boundary exactly as designed —
+six teachable walls (int params, range unification vs D-051's
+==-only, := output binding, NAF-in-body, insertLogical under a
+?query rule per D-076, the push form absent from the grammar) —
+and then characterized the one open behavioral seam, the D-057
+row lifecycle: a bare ?query rule misses facts inserted after its
+first fire; a companion reactive pattern rescues them; rows map
+to activations on evaluation.
+
+THE ORACLE'S ANSWER (prediction IDENTICAL at 0.75, matched 3x):
+non-reactive pull is faithful Drools. pr_qx_bare_snapshot — the
+rule whose only CE is the query fires once for the pre-fire row
+and the externally-inserted B(2) is invisible for the rest of the
+session. pr_qx_companion_tick — the reactive companion re-triggers
+evaluation and the pull CE then sees EVERY row including the late
+one (the new Tick joins all rows: t1xv1, t2xv1, t2xv2 — the
+cardinality shape byte-checked). His divergence-risk leg (a
+reactively-relinking ?query in the pinned oracle) is refuted.
+
+COVERAGE HONESTY: the standing late-family (pr_qx2_late_pull, the
+pr_qx9_*late* cells) pins only SAME-BATCH rule-inserted lateness
+under salience ordering; no query probe crossed an epoch boundary
+before these two. Row-per-activation cardinality within one
+evaluation was already pinned (pr_qx0_multi, the qr family) — his
+third proposed cell was redundant and is not duplicated.
+
+The user-facing contract, now in the record: a bare ?query rule
+is a SNAPSHOT-AT-FIRST-FIRE; to consume late-arriving facts
+through a pull query, give the rule a reactive companion pattern
+(the Tick idiom) — or model the dependency as a plain pattern.
+
+Receipts: corpus 11/1143/397 + drift 32, lint-probes 1815/0/0.
+Scenario-only; engine and bindings untouched.

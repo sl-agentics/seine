@@ -1,0 +1,15 @@
+{
+ "name": "pr_qx_bare_snapshot",
+ "types": [
+  {"name": "B", "fields": [{"name": "k", "type": "i64"}]},
+  {"name": "Out", "fields": [{"name": "v", "type": "i64"}]}
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n\nrule R1\nwhen\n    ?BVals($x;)\nthen\n    insert(new Out($x));\nend\n",
+ "facts": [
+  {"type": "B", "fields": {"k": 1}}
+ ],
+ "epochs": [
+  {"actions": [], "facts": [{"type": "B", "fields": {"k": 2}}]}
+ ],
+ "_finding": "The bare ?query rule across a FIRE BOUNDARY (external review round 20, the D-057 lifecycle corner): a rule whose only CE is a pull query fires for rows present at its first evaluation, and a matching fact inserted EXTERNALLY AFTER that fire is invisible - the pull CE is non-reactive and nothing else in the rule re-triggers evaluation. One Out(1) for the whole run; the late B(2) never surfaces. The standing late-family (pr_qx2_late_pull, pr_qx9_*late*) pins only SAME-BATCH rule-inserted lateness; this is the cross-fire cell."
+}
