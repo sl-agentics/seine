@@ -13033,3 +13033,42 @@ handle) can never bite, because the mode is pinned WONT as config.
 
 Receipts: corpus 11/1134/397 + drift 32, lint-probes 1806/0/0.
 Scenario-only; engine and bindings untouched.
+
+## D-236 — the justification-handoff flicker adjudicated: faithful Drools, corpus-pinned with its control (external review round 16) (2026-07-13)
+
+His round: two seams verified clean on the D-228 surface (reset()
+mid-pending discards the staged retraction and restarts handles;
+one delete cascades atomically across two logical types), then the
+corner — a single update that simultaneously breaks justifier A
+and forms justifier B for an EQUAL logical fact does not
+re-justify in place: the old handle retracts (surfacing in
+deleted_handles), a new one mints, and a stated observer
+double-counts one continuously-true Flag. His controls were
+exactly right: break-one-of-two-active survives on the same handle
+(no flicker), and the flicker is salience-invariant — structural,
+at modify-propagation time, before the agenda.
+
+THE ORACLE'S ANSWER (his Q1), prediction logged at 0.75 and
+matched: pinned Drools FLICKERS THE SAME WAY — mechanism 1. A's
+tuple death propagates the TMS belief-removal at modify time; the
+equality key empties and the logical fact retracts BEFORE B's
+activation can fire its insertLogical; B then mints a fresh key.
+The pinned firing sequence is A, OBS, B, OBS — two Seen finals,
+the observer double-count byte-identical in both engines, 3x
+stable. His mechanism 2 (key persists, re-justified before the
+flush) is refuted by the oracle.
+
+(Q2) Not previously in the corpus — the two-justifier handoff via
+one external update with a stated observer existed nowhere in the
+certified tiers. (Q3) Now pinned as the pair: pr_tms_handoff_upd
+(the flicker, the double-count as the byte-checked observable) +
+pr_tms_handoff_ctl (both-active-break-one: Flag survives in
+place, one Seen — the boundary cell). VERDICT: correct-for-
+identity Drools TMS; the flicker and the double-count are
+certified semantics. Consumers keying on logical-fact handles
+across justification handoffs must treat retract+reassert as the
+contract (the D-228 delta reports it faithfully: the old handle
+appears in deleted_handles).
+
+Receipts: corpus 11/1136/397 + drift 32, lint-probes 1808/0/0.
+Scenario-only; engine and bindings untouched.

@@ -1,0 +1,16 @@
+{
+ "name": "pr_tms_handoff_ctl",
+ "types": [
+  {"name": "Ord", "fields": [{"name": "amount", "type": "i64"}, {"name": "vip", "type": "bool"}]},
+  {"name": "Flag", "fields": [{"name": "k", "type": "String"}]},
+  {"name": "Seen", "fields": [{"name": "k", "type": "String"}]}
+ ],
+ "drl": "rule A when Ord(amount > 100) then insertLogical(new Flag(\"v\")); end\nrule B when Ord(vip == true) then insertLogical(new Flag(\"v\")); end\nrule OBS when Flag($k : k) then insert(new Seen($k)); end\n",
+ "facts": [
+  {"type": "Ord", "fields": {"amount": 150, "vip": true}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "update", "target": 0, "fields": {"amount": 50, "vip": true}}], "facts": []}
+ ],
+ "_finding": "The handoff control (round 16 C1): BOTH justifiers active first, then one update breaks only A. The key keeps a live justifier throughout, the Flag survives in place, no flicker - the observer fires ONCE for the whole run (one Seen). The pair with pr_tms_handoff_upd pins the boundary: form-and-break-in-one-step flickers, break-one-of-two does not."
+}

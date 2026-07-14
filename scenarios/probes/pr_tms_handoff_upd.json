@@ -1,0 +1,16 @@
+{
+ "name": "pr_tms_handoff_upd",
+ "types": [
+  {"name": "Ord", "fields": [{"name": "amount", "type": "i64"}, {"name": "vip", "type": "bool"}]},
+  {"name": "Flag", "fields": [{"name": "k", "type": "String"}]},
+  {"name": "Seen", "fields": [{"name": "k", "type": "String"}]}
+ ],
+ "drl": "rule A when Ord(amount > 100) then insertLogical(new Flag(\"v\")); end\nrule B when Ord(vip == true) then insertLogical(new Flag(\"v\")); end\nrule OBS when Flag($k : k) then insert(new Seen($k)); end\n",
+ "facts": [
+  {"type": "Ord", "fields": {"amount": 150, "vip": false}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "update", "target": 0, "fields": {"amount": 50, "vip": true}}], "facts": []}
+ ],
+ "_finding": "Justification handoff via ONE external update (external review round 16): rule A justifies the logical Flag; a single update simultaneously breaks A and forms B for the EQUAL value. The un-justification propagates at modify-propagation time - the key empties and the logical fact retracts BEFORE B fires its insertLogical - so the handoff FLICKERS: retract-then-reassert, and the stated observer double-counts (two Seen for one continuously-true Flag). Salience-invariant (structural, pre-agenda). Correct-for-identity Drools TMS, pinned byte-identical."
+}
