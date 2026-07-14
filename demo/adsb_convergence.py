@@ -1,0 +1,203 @@
+"""ADS-B convergence — the TWO-PLANE pattern (docs/derivation-plane.md, D-249).
+
+The problem that motivated it: proximity alerting needs haversine math,
+and the certified match grammar has no arithmetic — by design. Drools
+would smuggle the math into the match with eval()/Java, the exact seam
+seine refuses to inherit. The Arrow-native answer:
+
+  DERIVATION PLANE (this file's DerivationStage, polars):
+      vectorized candidate pruning + haversine + closing-rate over
+      position columns -> Pair facts with honest FIELDS.
+      Its oracle: a pure-python reference implementation + property
+      checks (run at import; see _selfcheck).
+
+  MATCH PLANE (the certified subset, unchanged):
+      Pair(dist < 5000, closing == true)          -- plain field constraints
+      + this_after persistence over successive Pair events
+      + expiry aging the pairs out.
+      Its oracle: the pinned Drools, exactly as always. The epoch
+      sequence this demo produces is byte-checked as
+      scenarios/demo/adsb_convergence.json.
+
+Drools semantics in the match, dataframe semantics in the data. The
+driver extends demo/stream_driver.py's epoch contract by one stage:
+raw epoch -> derive -> assert -> fire; the WAL stores RAW epochs and
+replay re-derives, so determinism covers the whole pipeline.
+"""
+import math
+from collections import defaultdict
+
+import polars as pl
+
+import seine_rs as s
+
+# ------------------------------------------------------------ match plane
+
+@s.fact(event=s.Event(timestamp="ts", expires_ms=15000))
+class Pair:
+    ts: int
+    key: str
+    dist: int      # meters, derived (haversine)
+    closing: bool  # derived (distance decreasing vs previous epoch)
+
+@s.fact
+class Alert:
+    kind: str
+    key: str
+    dist: int
+
+def build_rules():
+    # the pitch line: constrain on derived values as ordinary fields
+    conv = s.Rule("converging")
+    p = conv.when(Pair, Pair.dist < 5000, Pair.closing == True)  # noqa: E712
+    conv.then_insert(Alert, kind="converging", key=p.key, dist=p.dist)
+
+    # persistence-of-convergence = the CERTIFIED temporal machinery over
+    # derived events: two closing sub-5km pairs within 10s
+    sus = s.Rule("sustained")
+    p1 = sus.when(Pair, Pair.dist < 5000, Pair.closing == True)  # noqa: E712
+    p2 = sus.when(Pair, Pair.dist < 5000, Pair.closing == True,  # noqa: E712
+                  Pair.key == p1.key, s.this_after(p1, 1, 10000))
+    sus.then_insert(Alert, kind="sustained", key=p2.key, dist=p2.dist)
+    return [conv, sus]
+
+# ------------------------------------------------------- derivation plane
+
+EARTH_R = 6_371_000.0  # meters
+
+def _haversine_ref(lat1, lon1, lat2, lon2):
+    """Independent pure-python reference — the derivation plane's oracle."""
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp, dl = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return 2 * EARTH_R * math.asin(math.sqrt(a))
+
+class DerivationStage:
+    """Columnar candidate pass + exact math + cross-epoch closing state.
+    Deterministic function of (raw batch, own state); never reads WM."""
+
+    BBOX_DEG = 0.3  # cheap candidate prune (~25km at mid-latitudes)
+
+    def __init__(self):
+        self.prev_dist = {}  # pair key -> last epoch's distance
+
+    def derive(self, ts, rows):
+        if len(rows) < 2:
+            return []
+        df = pl.DataFrame(rows)
+        a = df.rename({c: f"{c}_a" for c in df.columns})
+        b = df.rename({c: f"{c}_b" for c in df.columns})
+        cand = (
+            a.join(b, how="cross")
+            .filter(pl.col("icao_a") < pl.col("icao_b"))          # dedup a<b
+            .filter((pl.col("lat_a") - pl.col("lat_b")).abs() < self.BBOX_DEG)
+            .filter((pl.col("lon_a") - pl.col("lon_b")).abs() < self.BBOX_DEG)
+        )
+        if cand.height == 0:
+            return []
+        # vectorized haversine over the candidate columns
+        lat_a, lat_b = pl.col("lat_a").radians(), pl.col("lat_b").radians()
+        dp = (pl.col("lat_b") - pl.col("lat_a")).radians() / 2.0
+        dl = (pl.col("lon_b") - pl.col("lon_a")).radians() / 2.0
+        h = dp.sin().pow(2) + lat_a.cos() * lat_b.cos() * dl.sin().pow(2)
+        cand = cand.with_columns(
+            (2.0 * EARTH_R * h.sqrt().arcsin()).round(0).cast(pl.Int64).alias("dist"),
+            (pl.col("icao_a") + "|" + pl.col("icao_b")).alias("key"),
+        )
+        out = []
+        for key, dist in cand.select("key", "dist").iter_rows():
+            prev = self.prev_dist.get(key)
+            closing = prev is not None and dist < prev
+            self.prev_dist[key] = dist
+            out.append({"ts": ts, "key": key, "dist": dist, "closing": closing})
+        return out
+
+def _selfcheck():
+    """The derivation battery in miniature: reference cross-check +
+    properties (symmetry, identity), on fixed vectors incl. ugly ones."""
+    stage = DerivationStage()
+    cases = [
+        (40.0, -0.117, 40.0, 0.117),     # the demo's opening separation
+        (0.0, 179.9, 0.0, -179.9),       # antimeridian
+        (89.9, 0.0, 89.9, 90.0),         # near-pole
+        (40.0, 0.0, 40.0, 0.0),          # identity
+    ]
+    for lat1, lon1, lat2, lon2 in cases:
+        got = stage.derive(0, [
+            {"icao": "A", "lat": lat1, "lon": lon1},
+            {"icao": "B", "lat": lat2, "lon": lon2},
+        ])
+        ref = _haversine_ref(lat1, lon1, lat2, lon2)
+        if abs(lat1 - lat2) < stage.BBOX_DEG and abs(lon1 - lon2) < stage.BBOX_DEG:
+            assert got and abs(got[0]["dist"] - ref) <= 1.0, (got, ref)
+        sym = _haversine_ref(lat2, lon2, lat1, lon1)
+        assert abs(ref - sym) < 1e-9          # symmetry
+        stage.prev_dist.clear()
+    assert _haversine_ref(40.0, 0.1, 40.0, 0.1) == 0.0  # identity
+
+_selfcheck()
+
+# ------------------------------------------------------------- the driver
+
+class AdsbDriver:
+    """stream_driver's epoch contract + one derivation stage upstream."""
+
+    def __init__(self):
+        self.sess = s.Session(build_rules(), facts={Pair: [], Alert: []})
+        self.sess.fire()                  # arm the certified epoch shape (D-242)
+        self.derive = DerivationStage()
+        self.wal = []                     # RAW epochs; replay re-derives
+        self.outputs = []
+        self.epoch_no = 0
+        self.clock = 0
+        self.derived_log = []             # per-epoch derived Pair rows (for the scenario twin)
+
+    def consume(self, advance_to, raw_rows, label=""):
+        self.wal.append({"advance_to": advance_to, "raw": raw_rows, "label": label})
+        if advance_to > self.clock:
+            self.sess.advance(advance_to - self.clock)
+            self.clock = advance_to
+        pairs = self.derive.derive(advance_to, raw_rows)
+        self.derived_log.append(pairs)
+        for row in pairs:
+            self.sess.insert_row(Pair, row)
+        res = self.sess.fire()
+        for a in res.derived["Alert"].to_pylist():
+            self.outputs.append(
+                {"epoch": self.epoch_no, "clock": advance_to,
+                 "kind": a["kind"], "key": a["key"], "dist": a["dist"]}
+            )
+        self.epoch_no += 1
+        return pairs
+
+def scripted_feed():
+    """AC1/AC2 head-on at lat 40 (20km -> 12km -> 4.5km -> 3km); AC3 far."""
+    def ac(icao, lon):
+        return {"icao": icao, "lat": 40.0, "lon": lon}
+    return [
+        (0,     [ac("AC1", -0.1170), ac("AC2", 0.1170), ac("AC3", 5.0)], "20km apart"),
+        (5000,  [ac("AC1", -0.0702), ac("AC2", 0.0702), ac("AC3", 5.1)], "12km, closing"),
+        (10000, [ac("AC1", -0.0263), ac("AC2", 0.0263), ac("AC3", 5.2)], "4.5km -> converging"),
+        (15000, [ac("AC1", -0.0176), ac("AC2", 0.0176), ac("AC3", 5.3)], "3km -> SUSTAINED"),
+    ]
+
+def run(feed, tag):
+    d = AdsbDriver()
+    print(f"\n=== {tag} ===")
+    for advance_to, rows, label in feed:
+        pairs = d.consume(advance_to, rows, label)
+        desc = ", ".join(f"{p['key']} {p['dist']}m{' closing' if p['closing'] else ''}"
+                         for p in pairs) or "no candidates"
+        print(f"  t={advance_to:>6}  {label:<22} derived: {desc}")
+    for o in d.outputs:
+        print(f"    [epoch {o['epoch']} @ t={o['clock']}] {o['kind'].upper()} "
+              f"{o['key']} at {o['dist']}m")
+    return d
+
+if __name__ == "__main__":
+    print("seine_rs", s.__version__, "  ADS-B two-plane demo (derivation: polars)")
+    prod = run(scripted_feed(), "LIVE")
+    rep = run([(e["advance_to"], e["raw"], e["label"]) for e in prod.wal],
+              "REPLAY FROM RAW WAL (re-derives)")
+    print("\nDETERMINISM (raw WAL -> re-derive -> same alerts):",
+          prod.outputs == rep.outputs)

@@ -1,0 +1,119 @@
+{
+ "name": "adsb_convergence",
+ "types": [
+  {
+   "name": "Pair",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "key",
+     "type": "String"
+    },
+    {
+     "name": "dist",
+     "type": "i64"
+    },
+    {
+     "name": "closing",
+     "type": "bool"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 15000
+   }
+  },
+  {
+   "name": "Alert",
+   "fields": [
+    {
+     "name": "kind",
+     "type": "String"
+    },
+    {
+     "name": "key",
+     "type": "String"
+    },
+    {
+     "name": "dist",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"converging\"\nwhen\n    Pair(dist < 5000, closing == true, $b0_0 : key, $b0_1 : dist)\nthen\n    insert(new Alert(\"converging\", $b0_0, $b0_1));\nend\n\nrule \"sustained\"\nwhen\n    $p0 : Pair(dist < 5000, closing == true, $b0_2 : key)\n    Pair(dist < 5000, closing == true, key == $b0_2, this after[1ms,10000ms] $p0, $b1_0 : key, $b1_1 : dist)\nthen\n    insert(new Alert(\"sustained\", $b1_0, $b1_1));\nend\n\n",
+ "facts": [
+  {
+   "type": "Pair",
+   "fields": {
+    "ts": 0,
+    "key": "AC1|AC2",
+    "dist": 19932,
+    "closing": false
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 5000
+    }
+   ],
+   "facts": [
+    {
+     "type": "Pair",
+     "fields": {
+      "ts": 5000,
+      "key": "AC1|AC2",
+      "dist": 11959,
+      "closing": true
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 5000
+    }
+   ],
+   "facts": [
+    {
+     "type": "Pair",
+     "fields": {
+      "ts": 10000,
+      "key": "AC1|AC2",
+      "dist": 4480,
+      "closing": true
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 5000
+    }
+   ],
+   "facts": [
+    {
+     "type": "Pair",
+     "fields": {
+      "ts": 15000,
+      "key": "AC1|AC2",
+      "dist": 2998,
+      "closing": true
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "The MATCH-PLANE half of demo/adsb_convergence.py, byte-checked (D-249, the two-plane design): the derivation plane's exact outputs (haversine distances + closing flags from the polars stage, values verbatim from the demo run) asserted as Pair events; the certified subset does the rest with grammar it already had - two field constraints (dist < 5000, closing == true) plus this_after persistence. Fires converging at 4480m and 2998m, sustained on the second closing sub-5km pair. The match grammar gained ZERO productions for proximity alerting - that is the design's claim, and this cell is its receipt."
+}

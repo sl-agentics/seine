@@ -13565,3 +13565,55 @@ order under churn not yet oracle-pinned; the set always current.
 Receipts: corpus 11/1154/397 + drift 32 (two graduates),
 lint-probes 1826/0/0, bindings 142/142. Scenarios + docstring;
 engine untouched.
+
+## D-249 — the derivation plane: dataframe math upstream of the certified match — the eval question dissolved rather than answered (Bryan's Arrow directive, 2026-07-14)
+
+The ADS-B discussion hit the wall the subset was always going to
+hit: proximity alerting needs haversine, and the match grammar has
+no arithmetic — by design. The Drools answer is eval()/Java, the
+exact unverifiable seam this project exists to refuse. Bryan's
+directive: work it as ARROW. The design (docs/derivation-plane.md):
+
+TWO PLANES, TWO ORACLES. The match plane — RETE, TMS, temporal
+joins, agenda — keeps the frozen certified grammar and the pinned
+Drools oracle, byte-for-byte, and NEVER grows arithmetic. The
+derivation plane — vectorized pure functions over Arrow columns,
+upstream of assertion — computes haversine, closing rate, bbox
+candidacy, and emits FIELDS; its oracle is a reference
+implementation plus property tests, the easiest certification in
+the entire system (pure functions on columns: no interleavings,
+no epochs). Rules constrain on derived values with grammar that
+already exists: Pair(dist < 5000, closing == true). Drools
+smuggles computation INTO the match; seine keeps it OUT and hands
+the matcher honest columns.
+
+THE EPOCH CONTRACT EXTENDS WITHOUT BENDING: raw epoch -> derive
+(deterministic, declared, one-way into the match plane) -> advance
+-> assert -> fire. The WAL stores RAW epochs; replay re-derives —
+the stream_driver determinism guarantee covers the whole pipeline.
+Pair generation (the O(n^2) hazard) is the standard columnar
+shape: cheap vectorized candidate pass, exact math on survivors,
+the certified temporal machinery for everything time-shaped.
+
+SHIPPED THIS TURN, zero engine changes: docs/derivation-plane.md
+(the contract + certification battery + declaration sketch);
+demo/adsb_convergence.py (the polars derivation stage with the
+reference cross-check and property assertions run at import; the
+convergence + this_after-sustained rules; raw-WAL replay
+deterministic end-to-end); scenarios/demo/adsb_convergence.json —
+the match-plane half byte-checked 3x against the oracle, asserting
+the derivation stage's exact outputs. The receipt of the design's
+claim: proximity alerting landed and the match grammar gained ZERO
+productions.
+
+FORECLOSED ON THE RECORD: eval/computed predicates in constraints
+= WONT permanently, superseded by this design (the D-231 RHS
+reasoning extended to the LHS escape-hatch family). Constraint
+arithmetic (D-061) keeps its roadmap row on its own merits;
+proximity-class math is never its burden. POSSIBLE LATER ARC
+(gated, not scheduled): a seine_rs.derive module with Rust
+arrow-rs kernels replacing the hand-rolled polars stage — pure
+exposure of the same contract.
+
+Receipts: corpus 11/1156/397 + drift 32, lint-probes 1826/0/0,
+bindings 142/142. Docs + demo + one scenario; engine untouched.
