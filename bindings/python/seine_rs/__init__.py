@@ -158,8 +158,10 @@ class Session:
         return self._native.delete(handle)
 
     def advance(self, ms):
-        """Advance the session pseudo-clock (CEP): expired events
-        leave working memory at the next fire's quiescence."""
+        """Advance the session pseudo-clock BY ms — a DELTA, not an
+        absolute time (two advance(600) calls put the clock at 1200).
+        Expired events leave working memory at the next fire's
+        quiescence."""
         return self._native.advance(ms)
 
     def reset(self):
