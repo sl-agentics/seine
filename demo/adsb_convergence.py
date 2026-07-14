@@ -143,40 +143,46 @@ def _selfcheck():
     antimeridian / cos-lat findings) turns red instead of silently
     passing a kernel-only symmetry check."""
     stage = DerivationStage()
+    # (lat1, lon1, lat2, lon2, must_emit) — the round-27 battery vectors
+    # (reviewer-supplied), each with an explicit ground-truth emission flag
     cases = [
-        (40.0, -0.117, 40.0, 0.117),         # the demo's opening separation
-        (0.0, 179.98, 0.0, -179.98),         # ~4.5km STRADDLING the antimeridian
-        (89.9, 0.0, 89.9, 1.0),              # ~194m near the pole (lon compressed)
-        (40.0, 0.0, 40.0, 0.0),              # identity (0m)
-        (40.0, 0.0, 40.0, 1.0),              # ~85km: must NOT emit (beyond radius)
+        (40.0, -0.117, 40.0, 0.117, True),     # the demo's opening separation
+        (40.0, 0.00, 40.0, 0.04, True),        # benign control, ~3407m
+        (40.0, 179.98, 40.0, -179.98, True),   # antimeridian straddle, ~3407m
+        (89.9, 0.0, 89.9, 1.0, True),          # polar lon-compression, ~194m
+        (89.95, 0.0, 89.95, 3.0, True),        # extreme polar compression, ~291m
+        (0.0, 179.98, 0.0, -179.98, True),     # antimeridian at the equator, ~4.5km
+        (40.0, 0.0, 40.0, 0.0, True),          # identity (0m)
+        (40.0, 0.0, 40.0, 0.5, False),         # ~42.7km: comfortably outside
+        (40.0, 0.0, 40.0, 1.0, False),         # ~85km: outside
     ]
-    for lat1, lon1, lat2, lon2 in cases:
+    for lat1, lon1, lat2, lon2, must_emit in cases:
         got = stage.derive(0, [
             {"icao": "A", "lat": lat1, "lon": lon1},
             {"icao": "B", "lat": lat2, "lon": lon2},
         ])
         ref = _haversine_ref(lat1, lon1, lat2, lon2)
-        if ref <= stage.BBOX_M * 0.8:        # comfortably inside the radius
+        if must_emit:
             assert got, f"MISSED close pair (true dist {ref:.0f}m): ({lat1},{lon1})-({lat2},{lon2})"
             assert abs(got[0]["dist"] - ref) <= 1.0, (got, ref)
-        elif ref > stage.BBOX_M * 1.5:       # comfortably outside
+        else:
             assert not got, f"emitted far pair (true dist {ref:.0f}m)"
         sym = _haversine_ref(lat2, lon2, lat1, lon1)
         assert abs(ref - sym) < 1e-9          # symmetry
         stage.prev_dist.clear()
     assert _haversine_ref(40.0, 0.1, 40.0, 0.1) == 0.0  # identity
-    # closing-state TTL: a pair reappearing after the horizon is NOT
-    # compared against its stale distance
+    # the reviewer's state-TTL vector: derive, close in, long gap, closer
+    # still -> the post-gap closing MUST be False (stale prev evicted)
     stage = DerivationStage()
-    pos = [{"icao": "A", "lat": 40.0, "lon": -0.02}, {"icao": "B", "lat": 40.0, "lon": 0.02}]
-    closer = [{"icao": "A", "lat": 40.0, "lon": -0.01}, {"icao": "B", "lat": 40.0, "lon": 0.01}]
-    stage.derive(0, pos)
-    stale = stage.derive(0 + stage.STATE_TTL_MS + 1, closer)
-    assert stale and stale[0]["closing"] is False, "stale prev_dist used after TTL"
-    fresh = DerivationStage()
-    fresh.derive(0, pos)
-    live = fresh.derive(5000, closer)
-    assert live and live[0]["closing"] is True
+    def pos(dlon):
+        return [{"icao": "A", "lat": 40.0, "lon": 0.0},
+                {"icao": "B", "lat": 40.0, "lon": dlon}]
+    first = stage.derive(0, pos(0.10))
+    assert first and first[0]["closing"] is False
+    mid = stage.derive(5000, pos(0.05))
+    assert mid and mid[0]["closing"] is True, "in-horizon closing must hold"
+    post_gap = stage.derive(605_000, pos(0.04))
+    assert post_gap and post_gap[0]["closing"] is False, "stale prev_dist used after TTL"
 
 _selfcheck()
 
