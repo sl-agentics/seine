@@ -13314,3 +13314,47 @@ doc already has.
 Receipts: bindings 127/127 (walls x3, guided-flow order-
 insensitivity, reset re-arm); corpus 11/1147/397 + drift 32,
 lint-probes 1819/0/0. Bindings + scenarios; engine untouched.
+
+## D-243 — Tier A exposure: windowed accumulate + Session.query() — certified features reach the Python surface (the round-22 audit, reviewer-ranked) (2026-07-13)
+
+The audit that triggered it: the authoring/bindings surface hid a
+real slice of the certified envelope — some recoverable via raw
+DRL (Allen set, queries-in-rules, windows, collectList/Set,
+groupby, LHS OR), some unreachable from Python entirely
+(run_query, entry points, @duration, expires inference). The
+reviewer's risk-adjusted ranking put two first, and Bryan
+concurred by forwarding: (1) windows on accumulate — THE
+streaming-aggregation primitive, dead-center of the driver arc,
+pure rendering over the D-110/D-185 pins; (2) direct query
+invocation — the read-your-state use case, and the one gap raw
+DRL cannot recover (queries only ran as ?query CEs).
+
+LANDED. window_time(ms)/window_length(n) markers + accumulate(
+window=) rendering `over window:time(Nms)`/`window:length(N)` on
+the accumulate source — the certified placement; standalone
+windows stay outside the subset. Walls: n >= 1 (the D-184 zero
+throw cited), time windows demand a declared event source (the
+authoring check names the fix), non-_Window values guided.
+Verified end-to-end against the certified semantics: length-2 sum
+of [10,20,30] = 50; time(500) sum 30 at clock 0 and 20 after
+advance(600) evicts the ts=0 event.
+
+Session.query(name, *args): native run_query exposed with args
+int/float/str/bool or None-for-unbound (bool checked before int;
+oversized ints rejected loudly per the D-227 convention), rows
+returned in the pinned D-050 order as dicts keyed by the query's
+identifiers — facts as {"type", "handle", fields...}, scalars
+native, or-branch-unbound None (D-054). Wrapped through the
+Python Session delegator (the native method alone is invisible —
+Session is a thin Python wrapper; the smoke caught it).
+require_fired guards it: a pre-fire query would read the staging
+batch, the D-242 uncertified shape — queries in every certified
+scenario run post-fire.
+
+Receipts: bindings 132/132 (5 new: invocation matrix incl.
+unbound/miss/unknown-name, the pre-fire wall, both window forms
+end-to-end incl. eviction-on-advance, the three window walls).
+Authoring + bindings only; generated DRL is certified grammar;
+engine and corpus untouched. Remaining tiers per the reviewer's
+ranking: B = groupby + collectList/Set + LHS OR; C = Allen +
+@duration together; D = entry points, expires inference.

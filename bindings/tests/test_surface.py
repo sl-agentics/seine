@@ -359,3 +359,78 @@ def test_reset_rearms_the_guard():
     sess.reset()
     with pytest.raises(RuntimeError, match="certified epoch shape"):
         sess.advance(10)      # staging state again after reset
+
+# --- Tier A exposure (round 22): Session.query + windowed accumulate ---
+
+OWED_DRL = """
+query Owed(String $who, long $amt)
+    Debt(owner == $who, amount == $amt)
+end
+rule R when Debt(amount > 0) then end
+"""
+
+
+def _owed_session():
+    sess = seine_rs.Session(
+        OWED_DRL, {"Debt": {"owner": ["ada", "bea", "ada"], "amount": [10, 20, 30]}}
+    )
+    sess.fire()
+    return sess
+
+
+def test_query_direct_invocation():
+    sess = _owed_session()
+    assert sess.query("Owed", "ada", None) == [
+        {"$who": "ada", "$amt": 10},
+        {"$who": "ada", "$amt": 30},
+    ]
+    assert len(sess.query("Owed", None, None)) == 3
+    assert sess.query("Owed", "bea", 20) == [{"$who": "bea", "$amt": 20}]
+    assert sess.query("Owed", "bea", 99) == []
+    with pytest.raises(ValueError, match="does not exist"):
+        sess.query("Nope")
+
+
+def test_query_prefire_walled():
+    sess = seine_rs.Session(OWED_DRL, {"Debt": {"owner": ["x"], "amount": [1]}})
+    with pytest.raises(RuntimeError, match="certified epoch shape"):
+        sess.query("Owed", None, None)
+
+
+@seine_rs.fact(event=seine_rs.Event(timestamp="ts", expires_ms=100000))
+class WinE:
+    ts: int
+    v: int
+
+
+@seine_rs.fact
+class WinOut:
+    total: int
+
+
+def test_window_length_accumulate():
+    r = seine_rs.Rule("W")
+    tot = r.accumulate(WinE, agg=seine_rs.sum_(WinE.v), window=seine_rs.window_length(2))
+    r.then_insert(WinOut, total=tot)
+    res = seine_rs.run([r], {WinE: {"ts": [0, 10, 20], "v": [10, 20, 30]}, WinOut: []})
+    assert res.derived["WinOut"].to_pylist()[0]["total"] == 50  # last 2 of [10,20,30]
+
+
+def test_window_time_accumulate_evicts_on_advance():
+    r = seine_rs.Rule("WT")
+    tot = r.accumulate(WinE, agg=seine_rs.sum_(WinE.v), window=seine_rs.window_time(500))
+    r.then_insert(WinOut, total=tot)
+    sess = seine_rs.Session([r], {WinE: {"ts": [0, 400], "v": [10, 20]}, WinOut: []})
+    assert sess.fire().derived["WinOut"].to_pylist()[0]["total"] == 30
+    sess.advance(600)  # ts=0 leaves the 500ms window
+    assert sess.fire().derived["WinOut"].to_pylist()[0]["total"] == 20
+
+
+def test_window_walls():
+    r = seine_rs.Rule("x")
+    with pytest.raises(seine_rs.CompileError, match="event timestamps"):
+        r.accumulate(WinOut, agg=seine_rs.count(), window=seine_rs.window_time(100))
+    with pytest.raises(seine_rs.CompileError, match="n >= 1"):
+        seine_rs.window_length(0)
+    with pytest.raises(seine_rs.CompileError, match="window_time"):
+        r.accumulate(WinE, agg=seine_rs.count(), window="500ms")  # not a _Window

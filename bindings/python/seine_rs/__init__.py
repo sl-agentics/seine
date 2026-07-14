@@ -33,6 +33,8 @@ from .authoring import (
     max_,
     min_,
     sum_,
+    window_length,
+    window_time,
 )
 
 __all__ = [
@@ -52,6 +54,8 @@ __all__ = [
     "min_",
     "run",
     "sum_",
+    "window_length",
+    "window_time",
 ]
 
 
@@ -141,6 +145,15 @@ class Session:
 
     def fire(self, fire_limit=100_000, on_fire=None):
         return self._native.fire(fire_limit, on_fire)
+
+    def query(self, name, *args):
+        """Run a DRL query against current working memory (direct
+        invocation). Positional args follow the query's parameter list;
+        pass None for an UNBOUND parameter — its bindings come back in
+        the rows. Returns rows in the certified order as dicts keyed by
+        the query's identifiers: facts as {"type", "handle", fields...},
+        scalars as plain values, or-branch-unbound as None."""
+        return self._native.query(name, *args)
 
 
 def _collect_events(rules, facts):

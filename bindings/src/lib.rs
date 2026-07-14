@@ -502,6 +502,25 @@ fn py_dec_from_str(
         })
 }
 
+/// One engine Value as a native Python object (query rows). Decimals
+/// come back as decimal.Decimal via their exact string rendering.
+fn value_to_py(py: Python<'_>, v: &Value) -> PyResult<PyObject> {
+    Ok(match v {
+        Value::I64(n) => n.into_pyobject(py)?.into_any().unbind(),
+        Value::F64(x) => x.into_pyobject(py)?.into_any().unbind(),
+        Value::Bool(b) => pyo3::types::PyBool::new(py, *b).to_owned().into_any().unbind(),
+        Value::Str(t) => t.into_pyobject(py)?.into_any().unbind(),
+        Value::Null => py.None(),
+        Value::Dec { u, s } => {
+            let txt = seine_engine::dec_render(*u, *s);
+            py.import("decimal")?
+                .getattr("Decimal")?
+                .call1((txt,))?
+                .unbind()
+        }
+    })
+}
+
 // ---------------------------------------------------------------------
 // Arrow export: engine FactViews -> RecordBatch -> PyCapsule stream
 // ---------------------------------------------------------------------
@@ -1159,6 +1178,87 @@ impl PySession {
         engine
             .advance(ms)
             .map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Run a DRL query against current working memory (direct
+    /// invocation — the `session.getQueryResults` surface). Positional
+    /// args follow the query's parameter list; pass None for an UNBOUND
+    /// parameter (Drools `Variable.v`) — its bindings come back in the
+    /// rows. Rows return in the certified order, as dicts keyed by the
+    /// query's identifiers: fact values as {"type", "handle", fields...},
+    /// scalars as plain Python values, or-branch-unbound as None.
+    #[pyo3(signature = (name, *args))]
+    fn query(
+        &mut self,
+        py: Python<'_>,
+        name: String,
+        args: Bound<'_, pyo3::types::PyTuple>,
+    ) -> PyResult<Vec<Py<PyDict>>> {
+        self.ensure_built()?;
+        self.require_fired("query()")?;
+        let mut qargs: Vec<Option<Value>> = Vec::with_capacity(args.len());
+        for a in args.iter() {
+            if a.is_none() {
+                qargs.push(None);
+                continue;
+            }
+            if let Ok(b) = a.downcast::<pyo3::types::PyBool>() {
+                qargs.push(Some(Value::Bool(b.is_true())));
+                continue;
+            }
+            if let Ok(n) = a.extract::<i64>() {
+                qargs.push(Some(Value::I64(n)));
+                continue;
+            }
+            if a.downcast::<pyo3::types::PyInt>().is_ok() {
+                return Err(PyValueError::new_err(format!(
+                    "query arg {a} does not fit a 64-bit signed integer"
+                )));
+            }
+            if let Ok(f) = a.extract::<f64>() {
+                qargs.push(Some(Value::F64(f)));
+                continue;
+            }
+            if let Ok(t) = a.extract::<String>() {
+                qargs.push(Some(Value::Str(t)));
+                continue;
+            }
+            return Err(PyTypeError::new_err(format!(
+                "query args are int/float/str/bool or None (unbound), got {}",
+                a.get_type().name()?
+            )));
+        }
+        let engine = self
+            .engine
+            .as_mut()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        let out = engine
+            .run_query(&name, &qargs)
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let mut rows: Vec<Py<PyDict>> = Vec::with_capacity(out.rows.len());
+        for row in &out.rows {
+            let d = PyDict::new(py);
+            for (ident, v) in out.identifiers.iter().zip(row) {
+                let obj: PyObject = match v {
+                    seine_engine::QueryVal::Null => py.None(),
+                    seine_engine::QueryVal::Scalar(sv) => value_to_py(py, sv)?,
+                    seine_engine::QueryVal::Fact(fv) => {
+                        let fd = PyDict::new(py);
+                        fd.set_item("type", &fv.type_name)?;
+                        if fv.handle != u32::MAX {
+                            fd.set_item("handle", fv.handle as i64)?;
+                        }
+                        for (fname, fval) in &fv.fields {
+                            fd.set_item(fname, value_to_py(py, fval)?)?;
+                        }
+                        fd.into()
+                    }
+                };
+                d.set_item(ident, obj)?;
+            }
+            rows.push(d.into());
+        }
+        Ok(rows)
     }
 
     /// In-place session reset for paged batches — clears WM,

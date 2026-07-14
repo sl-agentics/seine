@@ -489,6 +489,42 @@ class _Agg:
         self.func, self.arg = func, arg
 
 
+class _Window:
+    """Sliding window on an ACCUMULATE SOURCE — the certified placement
+    (standalone-pattern windows are outside the subset). time keeps
+    events whose timestamp is within the last N ms of the pseudo-clock;
+    length keeps the N most recently inserted."""
+
+    def __init__(self, kind: str, n: int):
+        if not isinstance(n, int) or isinstance(n, bool):
+            raise CompileError(f"window_{kind}: expected an int, got {type(n).__name__}")
+        if n < 1:
+            raise CompileError(
+                f"window_{kind}({n}): needs n >= 1"
+                + (" (window:length(0) throws in Drools)" if kind == "length" else "")
+            )
+        self.kind = kind
+        self.n = n
+
+    def render(self) -> str:
+        if self.kind == "time":
+            return f"over window:time({self.n}ms)"
+        return f"over window:length({self.n})"
+
+
+def window_time(ms: int) -> _Window:
+    """`over window:time(N ms)` for an accumulate source: aggregate only
+    events whose timestamp is within the last N ms of the session clock.
+    The source class must be a declared event (@fact(event=...))."""
+    return _Window("time", ms)
+
+
+def window_length(n: int) -> _Window:
+    """`over window:length(N)` for an accumulate source: aggregate only
+    the N most recently inserted events."""
+    return _Window("length", n)
+
+
 def sum_(field: FieldRef) -> _Agg:
     return _Agg("sum", field)
 
@@ -803,7 +839,9 @@ class Rule:
     def when_exists(self, cls: type, *constraints) -> None:
         self._add_pattern(cls, constraints, "exists")
 
-    def accumulate(self, cls: type, *constraints, agg: _Agg) -> AccResult:
+    def accumulate(
+        self, cls: type, *constraints, agg: _Agg, window: "_Window | None" = None
+    ) -> AccResult:
         """Inline accumulate over a source pattern. Join constraints
         against earlier patterns are allowed (no subnetwork is built for
         inline accumulates)."""
@@ -822,7 +860,20 @@ class Rule:
                     f"{agg.func}() requires a numeric field, "
                     f"{agg.arg.name} is {agg.arg.subset_type}"
                 )
+        if window is not None:
+            if not isinstance(window, _Window):
+                raise CompileError(
+                    "accumulate(window=...): pass seine_rs.window_time(ms) or "
+                    "seine_rs.window_length(n)"
+                )
+            if window.kind == "time" and getattr(cls, "__seine_event__", None) is None:
+                raise CompileError(
+                    f"window_time over {cls.__name__}: time windows need event "
+                    "timestamps — declare @fact(event=seine_rs.Event(...)) on the "
+                    "source type"
+                )
         p = self._add_pattern(cls, constraints, "accumulate", agg)
+        p.window = window
         arg_bf = BoundField(p, agg.arg.name, agg.arg.subset_type) if agg.arg is not None else None
         return AccResult(p, agg.func, arg_bf)
 
@@ -1025,7 +1076,9 @@ class Rule:
                     call = f"{agg.func}({avar})"
                 else:
                     call = f"{agg.func}()"
-                lhs_lines.append(f"    accumulate( {inner}; {rv} : {call} )")
+                win = getattr(p, "window", None)
+                over = f" {win.render()}" if win is not None else ""
+                lhs_lines.append(f"    accumulate( {inner}{over}; {rv} : {call} )")
             elif p.ce == "collect":
                 lhs_lines.append(f"    $l{p.index} : ArrayList() from collect( {inner} )")
             else:
