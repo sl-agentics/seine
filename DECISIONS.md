@@ -13199,3 +13199,29 @@ Receipts: bindings 124/124 (A/B/copied-field reject; C +
 cross-pattern-undecidable pass; the ||-group both sides); corpus
 11/1141/397 + drift 32, lint-probes 1813/0/0. Authoring + two
 scenario cells; engine untouched.
+
+## D-240 — round 19 adjudicated from the record: the empty-group split was already certified; the cells get their discoverability annotation (2026-07-13)
+
+His accumulate sweep on 0.4.13: non-empty aggregates correct,
+average does true float division, delta re-fires textbook
+(0→10→30→110→100→0 across insert/modify/delete including the
+empty boundary), the D-076 accumulate+insertLogical wall and the
+D-039 float-min/max wall both hold with teachable messages. His
+one corner — empty-group sum/count fire with identity 0 while
+average/min/max produce no result row — came with the right
+mechanism (null result → the generated result pattern cannot bind
+→ no activation) and a ~0.7 faithful prior.
+
+ADJUDICATION: faithful, and already certified — his corpus bet
+missed this time. acc2 (sum/count/average/min over an empty
+source; fires R1/R2 only) and acc10 (sum/max; fires R1 only) have
+pinned the five-aggregate fire/no-fire split byte-identically
+since the original accumulate arc. His proposed 5-cell family
+already exists; no new cells needed.
+
+The real gap his round exposed was DISCOVERABILITY: both cells
+predate the _finding convention and carried no annotation, which
+is exactly why a careful reviewer could not tell the corner was
+pinned. Both now carry the round-19 explanation (mechanism
+included), re-verified green after annotation. Metadata-only;
+engine, bindings, corpus behavior untouched.

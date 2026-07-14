@@ -28,5 +28,6 @@
    }
   }
  ],
- "drl": "rule R1 when accumulate( P($a : v); $s : sum($a) ) then end\nrule R2 when accumulate( P($a : v); $c : count($a) ) then end\nrule R3 when accumulate( P($a : v); $m : average($a) ) then end\nrule R4 when accumulate( P($a : v); $lo : min($a) ) then end\n"
+ "drl": "rule R1 when accumulate( P($a : v); $s : sum($a) ) then end\nrule R2 when accumulate( P($a : v); $c : count($a) ) then end\nrule R3 when accumulate( P($a : v); $m : average($a) ) then end\nrule R4 when accumulate( P($a : v); $lo : min($a) ) then end\n",
+ "_finding": "Empty-group accumulate, the fire/no-fire split (annotated at external review round 19, pinned since the original accumulate arc): sum and count over an EMPTY source return their identity (0) and the rule FIRES; average and min return null, the generated result pattern cannot bind null, no activation forms, NO fire. The reviewer re-derived the mechanism black-box on 0.4.13 and it is exactly this cell."
 }

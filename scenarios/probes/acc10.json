@@ -28,5 +28,6 @@
    }
   }
  ],
- "drl": "rule R1 when accumulate( Qe($b : n); $s : sum($b) ) then end\nrule R2 when accumulate( Qe($b : n); $hi : max($b) ) then end\n"
+ "drl": "rule R1 when accumulate( Qe($b : n); $s : sum($b) ) then end\nrule R2 when accumulate( Qe($b : n); $hi : max($b) ) then end\n",
+ "_finding": "Empty-group sum vs max (annotated at round 19; the acc2 sibling): sum fires with identity 0 over the empty source; max returns null and never activates. Completes the five-aggregate empty-group family with acc2."
 }
