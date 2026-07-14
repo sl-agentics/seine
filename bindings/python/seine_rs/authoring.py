@@ -165,6 +165,23 @@ def _ambiguous_bool(kind: str):
     return __bool__
 
 
+def _precedence_trap(kind: str):
+    """Raising &/| for field expressions: `a > 10 & b < 100` parses as
+    `a > (10 & b) < 100` because &/| bind TIGHTER than comparisons —
+    the bare-field operand is always that precedence slip, never a
+    legitimate combinator (legitimate `&`/`|` join two _Constraints
+    and never touch a field expression)."""
+    def _op(self, other):
+        raise CompileError(
+            f"`&`/`|` reached a {kind}: Python's `&` and `|` bind TIGHTER "
+            "than comparisons, so `a > 10 & b < 100` parses as "
+            "`a > (10 & b) < 100`. Parenthesize each comparison — "
+            "(Order.amount > 10) & (Order.amount < 100) — and write a "
+            "bare boolean field as `field == True`."
+        )
+    return _op
+
+
 # ---------------------------------------------------------------------
 # Fact classes and field expressions
 # ---------------------------------------------------------------------
@@ -174,6 +191,7 @@ class FieldRef:
     constraint AST nodes, never evaluate."""
 
     __bool__ = _ambiguous_bool("field expression")
+    __and__ = __rand__ = __or__ = __ror__ = _precedence_trap("field expression")
 
     def __init__(self, owner: type, name: str, subset_type: str):
         self.owner = owner
@@ -355,6 +373,7 @@ class BoundField:
     expressions. Compiles to a `$binding : field` declaration."""
 
     __bool__ = _ambiguous_bool("field expression")
+    __and__ = __rand__ = __or__ = __ror__ = _precedence_trap("field expression")
 
     def __init__(self, pattern: "_Pattern", name: str, subset_type: str):
         self.pattern = pattern

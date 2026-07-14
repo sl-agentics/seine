@@ -482,3 +482,17 @@ def test_intended_combinators_untouched_by_bool_wall():
     r4.when(Order, ~(Order.amount > 100.0))
     for x in (r, r2, r3, r4):
         assert "rule" in x.to_drl()
+
+
+def test_precedence_trap_raises_compile_error_not_type_error():
+    # & / | bind tighter than comparisons: `a > 10 & b < 100` parses as
+    # `a > (10 & b) < 100` — the bare-field operand must get the
+    # teachable error, not a cryptic TypeError (round 14)
+    with pytest.raises(CompileError, match="bind TIGHTER"):
+        Order.amount > 10 & Order.amount  # noqa: B015
+    with pytest.raises(CompileError, match="bind TIGHTER"):
+        Person.active | Order.amount  # noqa: B015
+    # legitimate _Constraint & _Constraint never touches a field expression
+    r = Rule("ok")
+    r.when(Order, (Order.amount > 10.0) & (Order.amount < 100.0))
+    assert "rule" in r.to_drl()

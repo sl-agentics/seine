@@ -12926,3 +12926,40 @@ Receipts: bindings 116/116 (4 new: the chained-comparison repro,
 and/or in both operand orders incl. the FieldRef boolean-field
 case, the message-names-the-forms pin, the four intended forms).
 Authoring-only; engine and corpus untouched.
+
+## D-233 — the &/| precedence trap gets the teachable error + the negative-window archaeology (external review round 14) (2026-07-13)
+
+His scorecard after three rounds on 0.4.10: every footgun in the
+truthiness family gets a guided reject except one — `a > 10 &
+b < 100` parses as `a > (10 & b) < 100` (Python's `&`/`|` bind
+tighter than comparisons) and escaped as a cryptic TypeError
+instead of a CompileError. His fix adopted as specified, the exact
+mirror of the D-232 __bool__ move: raising __and__/__rand__/
+__or__/__ror__ on FieldRef and BoundField. His safety argument
+holds and is now load-bearing: a legitimate combinator joins two
+_Constraints and NEVER routes `&`/`|` through a field expression,
+so the trap cannot reject a correct rule. The message names the
+precedence fact and both fixes (parenthesize each comparison;
+bare boolean field = `field == True`).
+
+THE NEGATIVE-WINDOW ARCHAEOLOGY (his scope question answered
+honestly): `after[-500ms, 500ms]` — the symmetric straddle, valid
+and common in real Drools — is rejected at BOTH layers: the
+authoring wall (lo_ms/hi_ms non-negative, _Temporal) and an engine
+parse wall (duration_ms lexes a bare IntLit; a minus token is
+"expected duration"). Zero corpus scenarios exercise negative
+bounds and no prior DECISIONS entry considered them: this is
+INCIDENTAL narrowing walled off by default, not a recorded ruling.
+It is also not cleanly expressible in the subset (the straddle
+needs an OR across two temporal directions; two split rules
+double-fire the delta-0 overlap). Reject-valid-beats-accept-invalid
+holds meanwhile. Widening it would be an engine arc: negative
+duration literals in the grammar, the temporal-join lo<0 semantics
+probed against the oracle (the deadline/not_fire_time machinery
+assumes lo >= 0 today), corpus pins, full battery. SCOPE DECISION
+DEFERRED TO BRYAN — recorded here per the reviewer's own framing
+so the narrowing is at least no longer silent.
+
+Receipts: bindings 117/117 (the trap pinned in both operand
+shapes + the legitimate combinator control). Authoring-only;
+engine and corpus untouched.
