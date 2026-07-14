@@ -19,6 +19,7 @@ error).
 | CEP-as-TMS investigation (P3, D-079 — memo, not implementation) | PseudoClockEventsTest (reference behavior only; extraction blocked on CEP runtime regardless) | n/a |
 | Nested/multi-pattern not/exists (P1) | Misc2Test#testNestedNots1..3, compiler.integrationtests.FirstOrderLogicTest (not/exists group methods, ext-DRL) | ~12 |
 | forall (P2) | operators.ForAllTest | 29 |
+| Negative-lo temporal windows (P2, D-234 — deferred, recon-first) | temporal-operator suites' negative-bound methods (exact sweep at recon-open); acceptance is CONDITIONAL — the arc opens only if the probes_pending/ oracle recon shows determinate negative-lo join semantics, else WONT with receipts | ~TBD at recon |
 | Null field values (P2, D-063) | mvel.integrationtests.NullTest; NullCheckOnExistentialNodeTest (null-value methods) | 10 + ~3 |
 | Push/open/live queries (P2) | mvel.integrationtests.QueryTest (open-query methods), CepQueryTest (non-CEP methods) | ~8 |
 | Query + mutation (P2) | QueryTest (update-after-query methods) | ~5 |

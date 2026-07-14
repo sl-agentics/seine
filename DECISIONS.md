@@ -12963,3 +12963,32 @@ so the narrowing is at least no longer silent.
 Receipts: bindings 117/117 (the trap pinned in both operand
 shapes + the legitimate combinator control). Authoring-only;
 engine and corpus untouched.
+
+## D-234 — Bryan's ruling: negative-lo temporal windows go on the roadmap as a deferred, recon-first arc (2026-07-13)
+
+The D-233 disposition ("scope decision deferred to Bryan") is
+resolved: ROADMAP, not WONT — "WONT would be pretending a common
+CEP need doesn't exist." The archaeology settled the character of
+the gap: symmetric coincidence windows (within ±500ms) are a
+sensor-correlation / near-simultaneity CEP staple, and the
+straddle has NO in-subset workaround (split rules double-fire the
+delta-0 overlap), and a gap with no workaround should not be
+permanent by default.
+
+The structure is {recon → decide → arc}, gated, NOT scheduled —
+it rides behind the current correctness hardening. The hard
+precondition, drawn from the probe-first doctrine: ORACLE RECON
+BEFORE GRAMMAR. The risky heart is the lo<0 join semantics
+against the deadline/not-fire machinery, which assumes lo >= 0
+today and would be re-derived; what Drools does with negative-lo
+joins must be grafted out of the pinned oracle into
+probes_pending/ cells, never inferred from the operator's
+documented meaning. Exit condition recorded with the entry: if
+the recon shows the oracle's own negative-lo behavior is
+identity-hash/ordering-underdetermined, the ruling flips to WONT
+with receipts.
+
+Applied: FEATURES.md §2 row (P2, deferred, recon-first, the WONT
+exit named) beside the other CEP rows; roadmap-acceptance.md row
+marked CONDITIONAL on the recon outcome; this entry supersedes
+D-233's bare "deferred to Bryan" note. Docs-only.
