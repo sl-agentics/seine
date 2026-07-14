@@ -33,6 +33,8 @@ use pyo3::types::{PyAny, PyCapsule, PyDict, PyList};
 
 use seine_engine::{Engine, FactView, FieldType, TypeSchema, Value};
 
+mod derive;
+
 // ---------------------------------------------------------------------
 // Arrow ingestion: PyCapsule C-stream -> typed column pulls
 // ---------------------------------------------------------------------
@@ -626,8 +628,8 @@ fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBat
 /// correlating rows with `Result.deleted_handles`, the firings audit,
 /// and `Session.update`/`Session.delete`.
 #[pyclass(name = "Table")]
-struct PyTable {
-    batch: RecordBatch,
+pub(crate) struct PyTable {
+    pub(crate) batch: RecordBatch,
 }
 
 #[pymethods]
@@ -1455,7 +1457,7 @@ fn reject_reserved_fields(type_name: &str, fields: &[(String, FieldType)]) -> Py
 }
 
 /// Ingest either an Arrow-stream-capable object or a dict of lists.
-fn ingest_any(
+pub(crate) fn ingest_any(
     _py: Python<'_>,
     type_name: &str,
     obj: &Bound<'_, PyAny>,
@@ -1547,6 +1549,9 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTable>()?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(certification, m)?)?;
+    m.add_function(wrap_pyfunction!(derive::derive_haversine, m)?)?;
+    m.add_function(wrap_pyfunction!(derive::derive_pair_candidates, m)?)?;
+    m.add_function(wrap_pyfunction!(derive::derive_closing, m)?)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

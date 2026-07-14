@@ -13659,3 +13659,76 @@ stays green. His disposition suggestion adopted: these three cases
 (antimeridian wrap, cos-lat scaling, state TTL) are the seed
 certification cells for the future seine_rs.derive Rust module.
 Demo + docs only; engine, bindings, corpus untouched.
+
+## D-251 — the seine_rs.derive arc opened: the v1 kernel set lands (bindings-only; the derivation plane gets its Rust surface) (2026-07-14)
+
+The HANDOFF-derive.md arc, executed to its own contract: the demo's
+polars derivation stage now has a Rust/arrow-rs twin exposed as
+`seine_rs.derive`, bindings-only — engine/src/, the demo, the corpus
+and the grammar are all byte-untouched, and the wheel stays zero-dep
+(arrow-rs was already the bindings' dependency; no pyarrow/polars
+anywhere near the import path, D-221 intact).
+
+The three kernels (bindings/src/derive.rs, wrapped by
+seine_rs/derive.py — wrapper wired, the D-243 trap avoided):
+
+- `haversine(data, lat1, lon1, lat2, lon2, out="dist_m")` — columnar
+  great-circle distance, EARTH_R 6_371_000, demo-identical operation
+  order, Int64 meters rounded half-away; input columns pass through
+  with `out` appended.
+- `pair_candidates(data, id, lat, lon, radius_m=25000)` — cross-join
+  `a < b` dedup + the D-250 METRIC-space prune exactly (wrapped lon
+  delta; cos(mean-lat)-scaled threshold clipped at 1e-6, capped 180,
+  saturating to lat-only at the poles); emits {id}_a/{lat}_a/{lon}_a/
+  b-side/key in the polars cross-join row order.
+- `closing(state, ts, data, key, dist, ttl_ms=60000, out="closing")` —
+  decreasing-distance flag; state is the CALLER's plain dict
+  (key -> (dist, epoch_ts)), TTL-swept FIRST on every call, so
+  eviction stays a pure function of the raw epoch sequence and WAL
+  replay re-derives (nothing hides in module globals).
+
+All three take anything run() accepts (Arrow C-stream or dict of
+column lists) and return a seine_rs.Table, so derived batches feed
+Session/run() directly — asserted end-to-end in the battery (kernel
+output -> Cand facts -> a converging rule fires).
+
+The certification battery (bindings/tests/test_derive.py, 20 tests;
+pytest 142 -> 162): the 8fecbaf ground-truth vectors verbatim with
+UNCONDITIONAL must_emit asserts; |kernel - reference| <= 1m against
+the pure-python haversine reference (kept python — never Rust checked
+against Rust) over the vectors plus a 49-point grid; symmetry/
+identity/triangle properties; the reviewer's state-TTL sequence
+(t=0 -> t=5000 closing True -> 600s gap -> closing MUST be False);
+byte-determinism; replay-re-derives; prune-is-superset sweep; error
+paths (missing/typed/null/collision/bad-state all loud); and
+AGREEMENT with the demo's polars stage row-for-row on every vector
+AND the full scripted feed with prev_dist state parity — which is
+what lets the kernels eventually replace the stage without touching
+scenarios/demo/adsb_convergence.json (this entry does NOT swap the
+demo; that is its own Bryan-gated step).
+
+NEW FINDING, flagged not fixed: the pinned D-250 geometry has a
+narrow POLE-BAND recall gap, faithfully reproduced by both
+implementations — for mean |lat| between ~89.89 deg (below which
+over-the-pole pairs exceed 25km) and ~89.93 deg (above which the lon
+threshold saturates to 180), a near-antipodal-lon pair can sit INSIDE
+the radius over the pole yet outside the cos(lat)-scaled lon
+threshold (witness: lat -89.9/-89.9, lon -179.99/0.0 — true 22239m,
+wrapped dlon 179.99 > threshold 128.7 -> no emission, demo and kernel
+alike). Pinned as test_pole_band_antipodal_gap_is_demo_identical so
+the behavior is on the record; changing the geometry is a joint
+demo+kernel+battery+twin decision for a future round, not a
+kernel-side divergence. (Also: the battery's ~true_dist_m annotations
+are flat-earth documentation values, up to ~0.3% off the true
+haversine — the reference implementation, not the table, is the
+oracle.)
+
+One policy collision found by the suite itself: public docstrings may
+not carry D-numbers (test_no_tracker_ids_in_public_docs), so
+seine_rs/derive.py cites docs/derivation-plane.md instead.
+
+Receipts (gate output read before writing, exit codes echoed
+unmasked): corpus 11/1156/397 all passed + xfail drift 32 identical;
+lint-probes 1826 live/0 ghosts/0 inert; bindings pytest 162 passed;
+demo selfcheck exit 0 with LIVE==REPLAY determinism True. Not pushed,
+not tagged, no version bump — Bryan gates all three.

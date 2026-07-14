@@ -18,6 +18,7 @@ from seine_rs._native import (
     __version__,
 )
 
+from . import derive
 from ._rows import is_row_list, rows_to_columns
 from .authoring import (
     CompileError,
@@ -73,6 +74,7 @@ __all__ = [
     "average",
     "compile_rules",
     "count",
+    "derive",
     "fact",
     "max_",
     "min_",
