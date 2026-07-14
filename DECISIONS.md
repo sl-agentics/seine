@@ -13765,3 +13765,72 @@ selfcheck green, LIVE==REPLAY True, output byte-identical pre/post;
 bindings pytest 163 passed; corpus 11/1156/397 all passed + xfail
 drift 32 identical; lint-probes 1826/0/0. Bindings untouched this
 entry (demo + tests + docs only). Not pushed, not tagged, no bump.
+
+## D-253 — the >96-key resize RECON: Bryan's pinnability premise CONFIRMED, the full mechanism pinned 19/19 (the D-051/D-056 wall's mechanism is now known; port awaits the gate) (2026-07-14)
+
+Bryan's opening (this session): Drools 9 requires Java 11+, so hash
+order cannot vary on rebucketing — the chain reversal past 96 keys is
+pinnable Drools behavior, not JVM weather. CONFIRMED empirically and
+source-anchored; the "unmodeled" in the D-051/D-056 wall text
+("table resize re-buckets with chain reversal — unmodeled") is now
+modeled, executable, and green on 19/19 recon scenarios.
+
+DETERMINISM (the premise): oracle runs on >96-key scenarios are
+byte-identical across 3 invocations (md5-equal). Every hash input is
+a spec-fixed VALUE hash (Long/String.hashCode — identity hash never
+enters the index pipeline), and the resize algorithm is drools-core's
+own AbstractHashTable in the pinned jar — the Java 11+ floor removes
+the last JVM-variance concern. Pinnable.
+
+THE MECHANISM (each component anchored in drools-core 9.44.0.Final
+source AND confirmed by live-table dumps):
+(1) LIFO flush — staged right inserts prepend (TupleSetsImpl.addInsert)
+    and doRightInserts walks getInsertFirst: keys enter the index in
+    REVERSE arrival order.
+(2) Bulk pre-size — a staged batch >32 first calls ensureCapacity(N)
+    (PhreakJoinNode.java:133): capacity doubles (possibly repeatedly,
+    one resize call) when size+N > 0.75*cap. On first population the
+    table is EMPTY, so nothing reverses — a plain 100-key batch lands
+    in a pre-sized len-256 table with NO chain reversal at all. This
+    is the piece pure black-box fitting kept missing.
+(3) Head-insert — each new key's TupleList lands at its bucket head
+    (TupleIndexHashTable.getOrCreate).
+(4) Incremental resize WITH chain reversal — `if (size++ >= threshold)
+    resize(2*len)` post-add; resize walks each old chain head->tail
+    and head-inserts into the new table: same-new-bucket runs REVERSE;
+    buckets split (hash & (2len-1)), never merge. Watched live via the
+    SEINE_RESIZE_TRACE shadow: RESIZE 256->512 OLD b45[780 949 1186]
+    -> NEW b45[1186 780] + b301[949].
+(5) Emission — unbound-unification rows = REVERSE of the full-table
+    iteration (slots asc, chains head->tail).
+
+INSTRUMENTS (all committed): probes_pending/query_resize/ — 19 recon
+scenarios (boundary sweep 6..300 incl. 96/97 and 192/193; crafted
+low-8/low-9 hash-collision families that force multi-key chains
+through one and two resizes; a shuffled-arrival set) + model_resize.py
+(the executable spec/checker, 19/19 green; standing gate for the
+port). oracle/: QueryIndexDump.java (RunnerDump-pattern graft — dumps
+raw TupleIndexHashTable bucket/chain layout + row order) and a
+SEINE_RESIZE_TRACE diagnostic shadow of AbstractHashTable (trace-only,
+env-guarded, zero semantic change — same vendoring precedent as the
+D-163 oracle patch; full corpus re-verified green through the
+shadowed jar).
+
+BONUS FINDING: the certified <=96 region had never seen a real
+within-bucket collision — the JDK6 supplemental rehash spreads
+small/sequential values collision-free (96 sequential keys -> 0
+multi-key buckets), so every historical probe/fuzz chain was a
+singleton. rz_sub96_chain (a crafted 6-key collision chain at 86
+keys, INSIDE certified territory) PASSES make-diff — the engine's
+chain convention is right where certified, now witnessed by an actual
+chain (promoted into the recon set; runs live in lint).
+
+GATE (nothing engine-side changed): the port = model (1),(2),(4),(5)
+in queries.rs Table::build (seed/key_hash/(3) already exact), lift
+the 96-key fence, graduate the 19 scenarios to scenarios/probes/,
+unfence the generator's >=96-distinct-values exclusion, update the
+D-051/D-056 OUT lists. Engine edit => Bryan's call + the full
+battery, per standing rule. Multi-epoch/incremental-flush shapes
+(several flushes into one index, deletes shrinking size across the
+threshold) are NOT yet probed — they are the port's first new cells
+if opened.

@@ -1,0 +1,608 @@
+{
+ "name": "rz_shuf_97",
+ "engine_fenced": true,
+ "types": [
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "k": 7
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 21
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 5
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 27
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 79
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 31
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 23
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 53
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 9
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 25
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 59
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 71
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 41
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 82
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 57
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 26
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 33
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 39
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 12
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 6
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 19
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 51
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 75
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 76
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 11
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 68
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 62
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 35
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 91
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 94
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 43
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 36
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 45
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 61
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 17
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 20
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 87
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 46
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 67
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 22
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 30
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 66
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 58
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 52
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 65
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 54
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 86
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 42
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 29
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 97
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 47
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 16
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 37
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 93
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 77
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 18
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 83
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 81
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 69
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 63
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 89
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 64
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 40
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 70
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 13
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 92
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 73
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 56
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 38
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 72
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 32
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 95
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 60
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 15
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 88
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 3
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 85
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 78
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 74
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 4
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 44
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 48
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 14
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 49
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 80
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 8
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 34
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 50
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 28
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 24
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 90
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 55
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 96
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 84
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n",
+ "queries": [
+  {
+   "call": "BVals",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

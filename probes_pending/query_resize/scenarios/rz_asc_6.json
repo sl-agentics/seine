@@ -1,0 +1,61 @@
+{
+ "name": "rz_asc_6",
+ "types": [
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 3
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 4
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 5
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 6
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n",
+ "queries": [
+  {
+   "call": "BVals",
+   "args": [
+    null
+   ]
+  }
+ ]
+}
