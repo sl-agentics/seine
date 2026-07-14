@@ -1,0 +1,19 @@
+{
+ "name": "pr_tms_diamond",
+ "types": [
+  {"name": "R1", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "R2", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "Mid", "fields": [{"name": "k", "type": "String"}]},
+  {"name": "Leaf", "fields": [{"name": "k", "type": "String"}]}
+ ],
+ "drl": "rule A when R1(v > 0) then insertLogical(new Mid(\"m\")); end\nrule B when R2(v > 0) then insertLogical(new Mid(\"m\")); end\nrule C when Mid(k == \"m\") then insertLogical(new Leaf(\"l\")); end\n",
+ "facts": [
+  {"type": "R1", "fields": {"v": 1}},
+  {"type": "R2", "fields": {"v": 1}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "delete", "target": 0}], "facts": []},
+  {"actions": [{"op": "delete", "target": 1}], "facts": []}
+ ],
+ "_finding": "The DIAMOND justification graph (external review round 16/17, his clean composition pinned): two roots value-merge onto one Mid, Mid justifies Leaf. Deleting ONE root leaves both tiers in place (C1-style partial break stays flicker-free one tier down - the D-236 boundary generalizes); deleting the SECOND cascades Mid then Leaf. Multi-justifier survival composes with downstream cascade."
+}

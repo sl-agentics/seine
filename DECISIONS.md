@@ -13072,3 +13072,44 @@ appears in deleted_handles).
 
 Receipts: corpus 11/1136/397 + drift 32, lint-probes 1808/0/0.
 Scenario-only; engine and bindings untouched.
+
+## D-237 — the well-foundedness cell: logical cycles orphan in BOTH engines — faithful JTMS, corpus-pinned with control and diamond (external review round 17) (2026-07-13)
+
+His escalation sequence was the textbook arc: the diamond
+(two roots value-merging onto one Mid, Mid justifying Leaf)
+composed clean — partial break flicker-free one tier down, the
+D-236 boundary generalizing — and then the classic
+well-foundedness probe: Mid justifies Leaf, Leaf justifies Mid
+(the back-edge merging onto Mid's key as a second justifier,
+fired=3 confirming). Delete the grounded root: on seine, BOTH
+SURVIVE, deleted=[], permanently — both members are logical, so
+no external handle can break the loop; unreclaimable working
+memory. His acyclic control cascades correctly, isolating the
+orphan to circular support specifically.
+
+THE ORACLE'S ANSWER (his Q1), prediction logged at 0.7 and
+matched: pinned Drools ORPHANS THE CYCLE IDENTICALLY — finals
+[Mid, Leaf] after the root delete, 3x byte-identical. Drools'
+TMS is a justification-set mechanism (JTMS-style, tied to
+activations): a retraction removes justifiers and kills a key
+only when ITS set empties; there is no Doyle-style groundedness
+labeling, so circular support is never asked whether it is
+grounded. His mechanism 2 (well-founded retraction) refuted.
+
+(Q2) No insertLogical cycle existed anywhere in the certified
+tiers — his bet right again. (Q3, faithful branch) THE CONTRACT,
+now pinned: insertLogical cycles produce permanently-
+unreclaimable facts; keep logical derivation DAG-shaped. Three
+graduates: pr_tms_cycle (the orphan), pr_tms_cycle_ctl (same
+chain minus the back-edge — cascades to empty), pr_tms_diamond
+(his round-16/17 clean composition, byte-pinned).
+
+FOLLOW-UP CANDIDATE (Bryan-gated, not built): a D-222-altitude
+authoring lint — a type-level cycle among insertLogical rules is
+statically detectable at compile_rules(), and per the D-224
+sampler doctrine it would be an over-approximate warning naming
+this exact contract. Constraint-level acyclicity can defeat the
+type-level check, so exemption design needs care.
+
+Receipts: corpus 11/1139/397 + drift 32, lint-probes 1811/0/0.
+Scenario-only; engine and bindings untouched.

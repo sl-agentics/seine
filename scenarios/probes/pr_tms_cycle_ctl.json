@@ -1,0 +1,16 @@
+{
+ "name": "pr_tms_cycle_ctl",
+ "types": [
+  {"name": "Ord", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "Mid", "fields": [{"name": "k", "type": "String"}]},
+  {"name": "Leaf", "fields": [{"name": "k", "type": "String"}]}
+ ],
+ "drl": "rule RM when Ord(v > 0) then insertLogical(new Mid(\"m\")); end\nrule RML when Mid(k == \"m\") then insertLogical(new Leaf(\"l\")); end\n",
+ "facts": [
+  {"type": "Ord", "fields": {"v": 1}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "delete", "target": 0}], "facts": []}
+ ],
+ "_finding": "The acyclic control for pr_tms_cycle: same chain WITHOUT the cycle-closing back-edge. Deleting the root cascades the whole derivation - Mid retracts, then Leaf. Isolates the cycle cell's orphan to CIRCULAR support specifically, not to chain depth."
+}

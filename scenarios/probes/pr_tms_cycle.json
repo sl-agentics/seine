@@ -1,0 +1,16 @@
+{
+ "name": "pr_tms_cycle",
+ "types": [
+  {"name": "Ord", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "Mid", "fields": [{"name": "k", "type": "String"}]},
+  {"name": "Leaf", "fields": [{"name": "k", "type": "String"}]}
+ ],
+ "drl": "rule RM when Ord(v > 0) then insertLogical(new Mid(\"m\")); end\nrule RML when Mid(k == \"m\") then insertLogical(new Leaf(\"l\")); end\nrule RLM when Leaf(k == \"l\") then insertLogical(new Mid(\"m\")); end\n",
+ "facts": [
+  {"type": "Ord", "fields": {"v": 1}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "delete", "target": 0}], "facts": []}
+ ],
+ "_finding": "The logical-insert CYCLE (external review round 17, the well-foundedness cell): Mid justifies Leaf, Leaf justifies Mid (the back-edge merges onto Mid's key as a second justifier). Delete the grounded root and BOTH SURVIVE on circular mutual support - permanently, with no external handle to break the loop. Drools' TMS is justification-set based (JTMS), NOT well-founded: it never asks whether support is grounded, so the cycle orphans in both engines identically. The certified contract: insertLogical cycles produce permanently-unreclaimable facts; authors must keep logical derivation DAG-shaped (the acyclic control pr_tms_cycle_ctl cascades correctly)."
+}
