@@ -13617,3 +13617,45 @@ exposure of the same contract.
 
 Receipts: corpus 11/1156/397 + drift 32, lint-probes 1826/0/0,
 bindings 142/142. Docs + demo + one scenario; engine untouched.
+
+## D-250 — round 27: the three derivation-plane findings fixed — the two-plane design's first full cycle (2026-07-14)
+
+His black-box pass on the ADS-B demo split exactly along the D-249
+seam: the match plane verified flawless (converging + sustained via
+certified this_after, expiry, raw-WAL determinism, byte-stable
+across .18/.19), and all three defects landed in the plane with
+the cheap oracle — which is the design working, and the fixes
+prove the other half: each was corrected and re-verified without
+touching the engine, the corpus, or the match grammar.
+
+(1) DEGREE-SPACE PRUNE vs METRIC-SPACE THRESHOLD: the candidate
+pass compared raw lon deltas against a flat 0.3 degrees, so a
+~4.5km pair straddling the antimeridian (raw delta 359.96) and a
+194m pair at lat 89.9 (lon compressed) produced NO Pair and no
+possible alert — a silent recall cap. Fixed: the lon delta wraps
+(min(d, 360-d)) and the lon threshold is BBOX_M/(DEG_M*cos(lat)),
+clipped so the prune saturates to latitude-only at the poles. The
+prune is now metric-space (BBOX_M = 25km) end to end.
+
+(2) THE SELFCHECK TESTED THE KERNEL, NOT THE PIPELINE: its assert
+was conditioned on the bbox passing, so the named antimeridian/
+pole cases only ever checked reference symmetry. Hardened to
+ground-truth-driven: every pair whose TRUE distance is comfortably
+inside the candidate radius MUST emit with the reference distance
+(unconditional — exactly these misses now turn red), and a
+comfortably-outside pair must NOT emit.
+
+(3) CLOSING-STATE HYGIENE: prev_dist never evicted (unbounded on
+a real feed) and a pair reappearing after a long gap computed
+closing against the stale distance. Fixed: entries carry the epoch
+timestamp and expire after STATE_TTL_MS (60s), swept at the top of
+derive() — eviction is a pure function of the raw epoch sequence,
+so WAL-replay determinism is preserved (asserted in the
+selfcheck's new TTL cases, stale->False and fresh->True).
+
+The scripted feed's derived values are unchanged, so
+scenarios/demo/adsb_convergence.json needed no regeneration and
+stays green. His disposition suggestion adopted: these three cases
+(antimeridian wrap, cos-lat scaling, state TTL) are the seed
+certification cells for the future seine_rs.derive Rust module.
+Demo + docs only; engine, bindings, corpus untouched.

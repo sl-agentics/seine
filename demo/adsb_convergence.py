@@ -74,24 +74,47 @@ def _haversine_ref(lat1, lon1, lat2, lon2):
 
 class DerivationStage:
     """Columnar candidate pass + exact math + cross-epoch closing state.
-    Deterministic function of (raw batch, own state); never reads WM."""
+    Deterministic function of (raw batch, own state); never reads WM.
 
-    BBOX_DEG = 0.3  # cheap candidate prune (~25km at mid-latitudes)
+    The candidate prune is METRIC-space, not degree-space (round-27
+    findings): the longitude delta WRAPS across the antimeridian, and
+    the longitude threshold scales by cos(lat) — near the poles the
+    scaled threshold saturates and the prune falls back to latitude
+    only. Closing state carries the epoch timestamp and expires after
+    STATE_TTL_MS: a pair reappearing after a long gap does not compare
+    against a stale distance. Eviction is a pure function of the raw
+    epoch sequence, so WAL-replay determinism is unchanged."""
+
+    BBOX_M = 25_000.0          # candidate radius, meters
+    DEG_M = 111_320.0          # meters per degree latitude
+    STATE_TTL_MS = 60_000      # closing-state freshness horizon
 
     def __init__(self):
-        self.prev_dist = {}  # pair key -> last epoch's distance
+        self.prev_dist = {}    # pair key -> (distance, epoch ts)
 
     def derive(self, ts, rows):
+        # TTL sweep first: state hygiene is part of the epoch function
+        cutoff = ts - self.STATE_TTL_MS
+        self.prev_dist = {k: (d, t) for k, (d, t) in self.prev_dist.items()
+                          if t >= cutoff}
         if len(rows) < 2:
             return []
         df = pl.DataFrame(rows)
         a = df.rename({c: f"{c}_a" for c in df.columns})
         b = df.rename({c: f"{c}_b" for c in df.columns})
+        lat_thresh = self.BBOX_M / self.DEG_M
+        raw_dlon = (pl.col("lon_a") - pl.col("lon_b")).abs() % 360.0
+        wrapped_dlon = pl.min_horizontal(raw_dlon, 360.0 - raw_dlon)
+        coslat = (((pl.col("lat_a") + pl.col("lat_b")) / 2.0)
+                  .radians().cos().clip(1e-6))
+        lon_thresh = pl.min_horizontal(
+            pl.lit(180.0), self.BBOX_M / (self.DEG_M * coslat)
+        )
         cand = (
             a.join(b, how="cross")
             .filter(pl.col("icao_a") < pl.col("icao_b"))          # dedup a<b
-            .filter((pl.col("lat_a") - pl.col("lat_b")).abs() < self.BBOX_DEG)
-            .filter((pl.col("lon_a") - pl.col("lon_b")).abs() < self.BBOX_DEG)
+            .filter((pl.col("lat_a") - pl.col("lat_b")).abs() < lat_thresh)
+            .filter(wrapped_dlon < lon_thresh)
         )
         if cand.height == 0:
             return []
@@ -107,20 +130,25 @@ class DerivationStage:
         out = []
         for key, dist in cand.select("key", "dist").iter_rows():
             prev = self.prev_dist.get(key)
-            closing = prev is not None and dist < prev
-            self.prev_dist[key] = dist
+            closing = prev is not None and dist < prev[0]
+            self.prev_dist[key] = (dist, ts)
             out.append({"ts": ts, "key": key, "dist": dist, "closing": closing})
         return out
 
 def _selfcheck():
-    """The derivation battery in miniature: reference cross-check +
-    properties (symmetry, identity), on fixed vectors incl. ugly ones."""
+    """The derivation battery in miniature, GROUND-TRUTH-DRIVEN (round-27
+    hardening): every input pair whose TRUE distance is within the
+    candidate radius MUST emit a Pair with the reference distance —
+    the assert is unconditional, so a candidate-geometry miss (the
+    antimeridian / cos-lat findings) turns red instead of silently
+    passing a kernel-only symmetry check."""
     stage = DerivationStage()
     cases = [
-        (40.0, -0.117, 40.0, 0.117),     # the demo's opening separation
-        (0.0, 179.9, 0.0, -179.9),       # antimeridian
-        (89.9, 0.0, 89.9, 90.0),         # near-pole
-        (40.0, 0.0, 40.0, 0.0),          # identity
+        (40.0, -0.117, 40.0, 0.117),         # the demo's opening separation
+        (0.0, 179.98, 0.0, -179.98),         # ~4.5km STRADDLING the antimeridian
+        (89.9, 0.0, 89.9, 1.0),              # ~194m near the pole (lon compressed)
+        (40.0, 0.0, 40.0, 0.0),              # identity (0m)
+        (40.0, 0.0, 40.0, 1.0),              # ~85km: must NOT emit (beyond radius)
     ]
     for lat1, lon1, lat2, lon2 in cases:
         got = stage.derive(0, [
@@ -128,12 +156,27 @@ def _selfcheck():
             {"icao": "B", "lat": lat2, "lon": lon2},
         ])
         ref = _haversine_ref(lat1, lon1, lat2, lon2)
-        if abs(lat1 - lat2) < stage.BBOX_DEG and abs(lon1 - lon2) < stage.BBOX_DEG:
-            assert got and abs(got[0]["dist"] - ref) <= 1.0, (got, ref)
+        if ref <= stage.BBOX_M * 0.8:        # comfortably inside the radius
+            assert got, f"MISSED close pair (true dist {ref:.0f}m): ({lat1},{lon1})-({lat2},{lon2})"
+            assert abs(got[0]["dist"] - ref) <= 1.0, (got, ref)
+        elif ref > stage.BBOX_M * 1.5:       # comfortably outside
+            assert not got, f"emitted far pair (true dist {ref:.0f}m)"
         sym = _haversine_ref(lat2, lon2, lat1, lon1)
         assert abs(ref - sym) < 1e-9          # symmetry
         stage.prev_dist.clear()
     assert _haversine_ref(40.0, 0.1, 40.0, 0.1) == 0.0  # identity
+    # closing-state TTL: a pair reappearing after the horizon is NOT
+    # compared against its stale distance
+    stage = DerivationStage()
+    pos = [{"icao": "A", "lat": 40.0, "lon": -0.02}, {"icao": "B", "lat": 40.0, "lon": 0.02}]
+    closer = [{"icao": "A", "lat": 40.0, "lon": -0.01}, {"icao": "B", "lat": 40.0, "lon": 0.01}]
+    stage.derive(0, pos)
+    stale = stage.derive(0 + stage.STATE_TTL_MS + 1, closer)
+    assert stale and stale[0]["closing"] is False, "stale prev_dist used after TTL"
+    fresh = DerivationStage()
+    fresh.derive(0, pos)
+    live = fresh.derive(5000, closer)
+    assert live and live[0]["closing"] is True
 
 _selfcheck()
 
