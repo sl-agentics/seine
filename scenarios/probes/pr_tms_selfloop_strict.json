@@ -1,0 +1,15 @@
+{
+ "name": "pr_tms_selfloop_strict",
+ "types": [
+  {"name": "Ord", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "M1", "fields": [{"name": "n", "type": "i64"}]}
+ ],
+ "drl": "rule RM when Ord(v > 0) then insertLogical(new M1(0)); end\nrule ESC when M1(n < 2) then insertLogical(new M1(2)); end\n",
+ "facts": [
+  {"type": "Ord", "fields": {"v": 1}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "delete", "target": 0}], "facts": []}
+ ],
+ "_finding": "The STRICT-PROGRESS self-loop (round 18, case C - the safe side of the plateau boundary): the insert M1(2) falls OUTSIDE the guard (n < 2), so nothing self-justifies; deleting the root cascades the whole chain (M1(0) then M1(2)) to empty in both engines. The pair with pr_tms_selfloop_plateau pins the satisfiability boundary the authoring lint decides statically."
+}

@@ -1128,6 +1128,74 @@ def _lint_unstratified_negation(rules: "list[Rule]") -> None:
                 )
 
 
+def _eval_constraint_on(c, values: dict, pattern) -> Optional[bool]:
+    """Three-valued static evaluation of one pattern constraint against
+    a literal insert record: True = the inserted record satisfies it,
+    False = it cannot, None = statically unknown. Used by the logical-
+    cycle lint's self-loop boundary — only PROVEN-True results ever
+    reject, so every unknown errs toward silence."""
+    if isinstance(c, _Group):
+        vals = [_eval_constraint_on(ch, values, pattern) for ch in c.children]
+        if c.op == "!":
+            return None if vals[0] is None else (not vals[0])
+        if c.op == "&&":
+            if any(v is False for v in vals):
+                return False
+            return True if all(v is True for v in vals) else None
+        if any(v is True for v in vals):  # "||"
+            return True
+        return False if all(v is False for v in vals) else None
+    if not isinstance(c, _Constraint):
+        return None
+    if not isinstance(c.field, FieldRef) or c.field.owner is not pattern.cls:
+        return None
+    v = values.get(c.field.name)
+    if isinstance(v, BoundField):
+        # copied verbatim from the matched fact's SAME field: satisfies
+        # whatever that field satisfied at match time, by construction
+        if getattr(v, "pattern", None) is pattern and v.name == c.field.name:
+            return True
+        return None
+    if isinstance(v, (FieldRef, SalExpr)):
+        return None
+    if isinstance(c.rhs, _Null):
+        return (v is None) if c.op == "==" else (v is not None)
+    if v is None:
+        return None  # NULL vs literal: 3VL UNKNOWN never admits, but
+        # the fact could re-enter via another rule — stay silent
+    rhs = c.rhs
+    if c.op in ("in", "not in"):
+        if not all(isinstance(x, (int, float, str, bool)) for x in rhs):
+            return None
+        hit = any(type(x) is type(v) and x == v for x in rhs)
+        return hit if c.op == "in" else not hit
+    if c.op == "contains":
+        return rhs in v if isinstance(v, str) else None
+    if c.op == "matches":
+        return None  # Java regex semantics: stay out of the guessing game
+    if isinstance(rhs, (BoundField, FieldRef, SalExpr)):
+        return None
+    # scalar comparison; bool is compared only against bool
+    if isinstance(v, bool) or isinstance(rhs, bool):
+        if not (isinstance(v, bool) and isinstance(rhs, bool)):
+            return None
+        return (v == rhs) if c.op == "==" else (v != rhs) if c.op == "!=" else None
+    if isinstance(v, (int, float, _pydecimal.Decimal)) and isinstance(
+        rhs, (int, float, _pydecimal.Decimal)
+    ):
+        pass  # numeric cross-compare is well-defined
+    elif type(v) is not type(rhs):
+        return None
+    try:
+        return {
+            "==": v == rhs, "!=": v != rhs,
+            "<": v < rhs, "<=": v <= rhs,
+            ">": v > rhs, ">=": v >= rhs,
+        }.get(c.op)
+    except TypeError:
+        return None
+
+
 def _lint_logical_cycles(rules) -> None:
     """The logical-derivation cycle lint: a cycle of insertLogical
     justifications across DISTINCT types (M1 -> M2 -> ... -> M1) is
@@ -1145,11 +1213,16 @@ def _lint_logical_cycles(rules) -> None:
     fire even over an empty source. The load-bearing exemption is the
     SELF-LOOP (a rule matching T that logically inserts T): constraint-
     guarded bounded escalation over one type is a real, valid pattern,
-    and it is exactly where type-level over-approximation would bite —
-    so T -> T edges are silent by design. Like every static lint here,
-    this is a sampler, not a detector: a green result means no distinct-
-    type logical cycle exists in the TYPE graph, not that the derivation
-    is sound."""
+    and it is exactly where type-level over-approximation would bite.
+    The exemption is SATISFIABILITY-BOUNDED, not blanket (external
+    review found the blanket form leaking): a self-loop whose inserted
+    record PROVABLY re-satisfies the rule's own guard is a one-node
+    cycle — it self-justifies at the plateau and orphans exactly like
+    the multi-type shapes — so proven-live self-loops reject. Strict
+    progress (the insert falls outside the guard) and anything
+    statically undecidable stay silent. Like every static lint here,
+    this is a sampler, not a detector: a green result means no PROVEN
+    logical cycle, not that the derivation is sound."""
     # type-level edges: matched class -> logically-inserted class
     edges: dict = {}  # cls -> list[(dst cls, rule name)]
     for r in rules:
@@ -1161,7 +1234,39 @@ def _lint_logical_cycles(rules) -> None:
                 continue
             for o in outs:
                 if o is p.cls:
-                    continue  # self-loop: bounded escalation, exempt
+                    # the self-loop boundary: reject ONLY when the
+                    # inserted record provably re-satisfies every
+                    # constraint on this pattern (no guard counts as
+                    # trivially satisfied) — then it self-justifies
+                    # and orphans; otherwise silent
+                    vals = next(
+                        a.kw["values"] for a in r.actions
+                        if a.kind == "insert_logical" and a.kw["cls"] is o
+                    )
+                    verdicts = [
+                        _eval_constraint_on(c, vals, p)
+                        for c in p.constraints
+                        if not isinstance(c, _Temporal)
+                    ]
+                    if all(v is True for v in verdicts):
+                        raise CompileError(
+                            f'rule "{r.name}": self-justifying logical '
+                            f"loop on {p.cls.__name__} — the record it "
+                            f"insertLogical's satisfies the rule's own "
+                            f"matching constraints"
+                            + (" (there are none)" if not verdicts else "")
+                            + ", so the fact re-justifies itself: once "
+                            f"the grounded support is deleted, truth "
+                            f"maintenance never retracts it (justifier "
+                            f"sets are counted, not grounded) and it "
+                            f"survives as permanently unreclaimable "
+                            f"working memory. Make the escalation "
+                            f"strict — insert a value the guard "
+                            f"excludes — or derive from the grounded "
+                            f"tier, or compute the closure outside the "
+                            f"session and insert stated facts."
+                        )
+                    continue  # strict-progress or undecidable: exempt
                 edges.setdefault(p.cls, []).append((o, r.name))
 
     # iterative DFS, deterministic order; report the first cycle found

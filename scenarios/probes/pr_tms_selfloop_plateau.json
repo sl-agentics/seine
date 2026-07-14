@@ -1,0 +1,15 @@
+{
+ "name": "pr_tms_selfloop_plateau",
+ "types": [
+  {"name": "Ord", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "M1", "fields": [{"name": "n", "type": "i64"}]}
+ ],
+ "drl": "rule RM when Ord(v > 0) then insertLogical(new M1(0)); end\nrule ESC when M1(n < 2) then insertLogical(new M1(1)); end\n",
+ "facts": [
+  {"type": "Ord", "fields": {"v": 1}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "delete", "target": 0}], "facts": []}
+ ],
+ "_finding": "The PLATEAU self-loop (external review round 18, case B): the escalation's terminus M1(1) still satisfies the rule's own guard (n < 2), so it justifies ITSELF - a one-node logical cycle. Deleting the grounded root retracts M1(0) but M1(1) survives orphaned, permanently, in BOTH engines (the D-237 JTMS mechanism: justifier sets counted, never grounded). The authoring lint rejects this shape statically (proven-live self-loop); raw DRL keeps the faithful footgun."
+}

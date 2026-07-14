@@ -571,3 +571,62 @@ def test_self_loop_exempt_bounded_escalation():
     r.when(CAlarm, CAlarm.sev == 1)
     r.then_insert_logical(CAlarm, sev=2)
     assert "rule" in seine_rs.compile_rules([r])
+
+
+# --- the self-loop satisfiability boundary (round 18) ------------------
+
+@fact
+class SLM:
+    n: int
+
+
+def _self_loop(guard, insert_n):
+    r = Rule("self")
+    if guard is None:
+        r.when(SLM)
+    else:
+        r.when(SLM, guard)
+    r.then_insert_logical(SLM, n=insert_n)
+    return r
+
+
+def test_self_loop_proven_live_rejected():
+    # A: unconstrained — trivially re-satisfies (a one-node cycle)
+    with pytest.raises(CompileError, match="self-justifying"):
+        seine_rs.compile_rules([_self_loop(None, 0)])
+    # B: plateau — the terminus re-matches its own guard (n=1 < 2)
+    with pytest.raises(CompileError, match="self-justifying"):
+        seine_rs.compile_rules([_self_loop(SLM.n < 2, 1)])
+    # copied field: satisfies whatever the match satisfied, by construction
+    r = Rule("copy")
+    m = r.when(SLM, SLM.n < 2)
+    r.then_insert_logical(SLM, n=m.n)
+    with pytest.raises(CompileError, match="self-justifying"):
+        seine_rs.compile_rules([r])
+
+
+def test_self_loop_strict_progress_and_undecidable_pass():
+    # C: the insert falls OUTSIDE the guard — cascades cleanly at runtime
+    assert "rule" in seine_rs.compile_rules([_self_loop(SLM.n < 2, 2)])
+    # undecidable (value from another pattern): silence, per the
+    # dynamic-salience precedent — only PROVEN-live rejects
+    @fact
+    class SLOther:
+        v: int
+    r = Rule("x")
+    o = r.when(SLOther)
+    r.when(SLM, SLM.n < 2)
+    r.then_insert_logical(SLM, n=o.v)
+    assert "rule" in seine_rs.compile_rules([r])
+
+
+def test_self_loop_group_boundary():
+    r = Rule("g")
+    r.when(SLM, (SLM.n < 0) | (SLM.n > 10))
+    r.then_insert_logical(SLM, n=99)
+    with pytest.raises(CompileError, match="self-justifying"):
+        seine_rs.compile_rules([r])
+    r2 = Rule("g2")
+    r2.when(SLM, (SLM.n < 0) | (SLM.n > 10))
+    r2.then_insert_logical(SLM, n=5)
+    assert "rule" in seine_rs.compile_rules([r2])

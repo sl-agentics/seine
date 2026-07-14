@@ -13152,3 +13152,50 @@ stated-back-edge controls, the escalation exemption). The D-237
 corpus cells (raw DRL) are unaffected — the engine keeps the
 Drools-faithful behavior; only the authoring layer refuses to
 build the footgun. Authoring-only; engine and corpus untouched.
+
+## D-239 — the self-loop exemption tightened to the satisfiability boundary (external review round 18 — he found the blanket exemption leaking the exact shape the lint was built to stop) (2026-07-13)
+
+His follow-up on 0.4.12 was surgical: the distinct-type rejects and
+the acyclic control all verified as designed — then he probed the
+exemption boundary itself. Case A (unconstrained self-loop) built
+and orphaned at runtime; case B (plateau escalation: guard n<2,
+insert n=1 — the terminus re-matches the rule's OWN guard) built
+and orphaned M1(1) after the root delete; case C (strict progress:
+insert n=2, outside the guard) built and cascaded cleanly. His
+boundary statement is exact and decidable: a self-loop is unsafe
+IFF its insertLogical record satisfies the rule's own matching
+constraints — then it self-justifies, a one-node cycle.
+
+THE RULING QUESTION he posed (deliberate residual vs tighten):
+tightened — Bryan's original D-238 directive was "the exemption
+treatment done carefully rather than a blanket reject", and a
+blanket ALLOW is no more careful than a blanket reject. The shape
+his A/B leak through is literally the leak the lint exists for.
+
+THE IMPLEMENTATION: _eval_constraint_on — three-valued static
+evaluation of a pattern constraint against the literal insert
+record (comparisons, in/not_in, contains, is_null/is_not_null,
+&&/||/! groups composed 3VL; matches stays unknown — no guessing
+at Java regex; a value copied verbatim from the matched pattern's
+SAME field satisfies by construction). A self-loop rejects ONLY
+when every constraint evaluates PROVEN-True (no guard = trivially
+true); proven-outside and every unknown stay silent — the
+dynamic-salience precedent, so escalation patterns with
+undecidable values never false-reject. Distinct-type cycles keep
+the reject-side over-approximation per the D-238 near-zero-false-
+positive call; his suggested relaxation (admitting constraint-
+broken multi-hop DAGs) is NOT taken — asymmetry is deliberate:
+reject-side approximation costs a loud error with remedies,
+allow-side approximation costs a permanent leak.
+
+His runtime table pinned against the oracle (prediction 0.8,
+matched, 3x each): pr_tms_selfloop_plateau — M1(1) orphans
+identically in both engines after the root delete — and
+pr_tms_selfloop_strict — full cascade to empty. The satisfiability
+boundary the lint decides statically is now byte-checked at
+runtime on both sides.
+
+Receipts: bindings 124/124 (A/B/copied-field reject; C +
+cross-pattern-undecidable pass; the ||-group both sides); corpus
+11/1141/397 + drift 32, lint-probes 1813/0/0. Authoring + two
+scenario cells; engine untouched.
