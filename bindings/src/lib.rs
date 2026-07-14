@@ -860,9 +860,11 @@ struct PySession {
     /// certified epoch sequence (initial facts, fire, then act+fire)
     /// structurally never produces.
     fired_once: bool,
-    /// Event declarations (type -> (ts_field, expires_ms)),
-    /// applied before rule compilation at build time.
-    events: Vec<(String, String, i64)>,
+    /// Event declarations (type -> (ts_field, expires_ms, duration
+    /// field)), applied before rule compilation at build time. expires
+    /// None = the certified inference (D-109); duration Some = interval
+    /// event.
+    events: Vec<(String, String, Option<i64>, Option<String>)>,
     /// Handles retracted by the ENGINE between fires — the TMS cascade
     /// of an external delete()/update() (a justified fact losing its
     /// premise dies synchronously, before the next fire's before-set is
@@ -880,15 +882,9 @@ impl PySession {
         }
         let mut engine = Engine::new(self.schemas.clone())
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        for (tname, ts_field, expires_ms) in &self.events {
-            // D-109: declare_event takes Option (None ⇒ infer). The
-            // Python surface still requires explicit expiry for now;
-            // exposing inference is a follow-up with item B's windows.
-            // CEP E2 item E (D-118): `@duration` intervals are likewise not
-            // yet exposed on the Python surface (None ⇒ point event); the
-            // scenario-JSON runner carries them.
+        for (tname, ts_field, expires_ms, duration) in &self.events {
             engine
-                .declare_event(tname, ts_field, Some(*expires_ms), None)
+                .declare_event(tname, ts_field, *expires_ms, duration.as_deref())
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
         }
         engine
@@ -971,8 +967,9 @@ impl PySession {
         if let Some(ev) = events {
             for (k, v) in ev.iter() {
                 let tname: String = k.extract()?;
-                let (ts_field, expires_ms): (String, i64) = v.extract()?;
-                sess.events.push((tname, ts_field, expires_ms));
+                let (ts_field, expires_ms, duration): (String, Option<i64>, Option<String>) =
+                    v.extract()?;
+                sess.events.push((tname, ts_field, expires_ms, duration));
             }
         }
         if let Some(sd) = schemas {

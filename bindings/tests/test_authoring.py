@@ -705,3 +705,71 @@ def test_when_any_walls():
         r.when_any((OA, OA.x == p.k), (OB,))
     with pytest.raises(CompileError, match="at least two"):
         Rule("w2").when_any((OA,))
+
+
+# --- Tier C exposure (round 22): Allen operators + @duration intervals
+
+@fact(event=seine_rs.Event(timestamp="ts", duration="dur"))
+class IvA:
+    ts: int
+    dur: int
+
+
+@fact(event=seine_rs.Event(timestamp="ts", duration="dur"))
+class IvB:
+    ts: int
+    dur: int
+
+
+def test_interval_events_and_overlaps():
+    # @duration + expires inference (both certified engine machinery,
+    # D-109/D-118) reach the Python surface together with the Allen set
+    r = Rule("R")
+    a = r.when(IvA)
+    r.when(IvB, seine_rs.this_overlaps(a))
+    assert "IvB(this overlaps $p0)" in r.to_drl()
+    hit = seine_rs.run([r], {IvA: {"ts": [50], "dur": [100]}, IvB: {"ts": [0], "dur": [100]}})
+    assert hit.fired == 1
+    miss = seine_rs.run([r], {IvA: {"ts": [0], "dur": [10]}, IvB: {"ts": [50], "dur": [10]}})
+    assert miss.fired == 0
+
+
+def test_allen_params_render_and_fire():
+    r = Rule("C")
+    a = r.when(IvA)
+    r.when(IvB, seine_rs.this_coincides(a, 5))
+    assert "this coincides[5ms]" in r.to_drl()
+    res = seine_rs.run([r], {IvA: {"ts": [100], "dur": [50]}, IvB: {"ts": [103], "dur": [50]}})
+    assert res.fired == 1
+    r2 = Rule("D")
+    a2 = r2.when(IvA)
+    r2.when(IvB, seine_rs.this_during(a2, 1, 10, 1, 10))
+    assert "during[1ms,10ms,1ms,10ms]" in r2.to_drl()
+
+
+def test_allen_arity_and_param_walls():
+    r = Rule("w")
+    a = r.when(IvA)
+    with pytest.raises(CompileError, match="0/1 duration"):
+        seine_rs.this_meets(a, 1, 2, 3)
+    with pytest.raises(CompileError, match="non-negative"):
+        seine_rs.this_during(a, -1)
+    with pytest.raises(CompileError, match="0/1/2/4"):
+        seine_rs.this_during(a, 1, 2, 3)
+
+
+def test_event_duration_field_typed():
+    with pytest.raises(CompileError, match="duration field"):
+        @fact(event=seine_rs.Event(timestamp="ts", duration="tag"))
+        class BadIv:
+            ts: int
+            tag: str
+
+
+def test_expires_lint_scoped_to_after_before():
+    # Allen ops carry no [lo,hi] window — the D-219 lifetime lint must
+    # not fire on them (and inference-events have no declared expires)
+    r = Rule("ok")
+    a = r.when(IvA)
+    r.when(IvB, seine_rs.this_includes(a))
+    assert "this includes" in r.to_drl()

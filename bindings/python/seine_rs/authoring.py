@@ -291,19 +291,36 @@ class Event:
             ts: int
             value: float
 
-    `timestamp` names an int field holding the event time in ms;
-    `expires_ms` is REQUIRED (expiration inference is outside the
-    certified subset — declare the lifetime explicitly)."""
+    `timestamp` names an int field holding the event time in ms.
+    `expires_ms` declares the lifetime explicitly; omit it (None) and
+    the engine INFERS expiration from the rules' temporal constraints —
+    the certified Drools behavior. `duration` names an int field holding
+    the event's length in ms, making it an INTERVAL event: the Allen
+    operators (this_overlaps, this_during, this_coincides, ...) compare
+    interval endpoints, and over point events most of them degenerate
+    toward before/after/coincides."""
 
-    def __init__(self, timestamp: str, expires_ms: int):
+    def __init__(
+        self,
+        timestamp: str,
+        expires_ms: "int | None" = None,
+        duration: "str | None" = None,
+    ):
         if not isinstance(timestamp, str) or not timestamp:
             raise CompileError("seine_rs.Event: timestamp must name an int field")
-        if not isinstance(expires_ms, int) or isinstance(expires_ms, bool) or expires_ms < 0:
+        if expires_ms is not None and (
+            not isinstance(expires_ms, int) or isinstance(expires_ms, bool) or expires_ms < 0
+        ):
             raise CompileError(
-                "seine_rs.Event: expires_ms must be a non-negative int — expiration "
-                "inference from temporal constraints is outside the certified "
-                "subset; declare the event lifetime explicitly"
+                "seine_rs.Event: expires_ms must be a non-negative int, or None "
+                "to let the engine infer expiration from the temporal constraints"
             )
+        if duration is not None and (not isinstance(duration, str) or not duration):
+            raise CompileError(
+                "seine_rs.Event: duration must name an int field (ms) — it makes "
+                "the type an interval event"
+            )
+        self.duration = duration
         self.timestamp = timestamp
         self.expires_ms = expires_ms
 
@@ -361,7 +378,14 @@ def fact(cls: type = None, *, event: "Event | None" = None) -> type:
                 f"@fact {cls.__name__}: event timestamp field "
                 f"{event.timestamp!r} must be int (ms), it is {ts_t}"
             )
-        dc.__seine_event__ = (event.timestamp, event.expires_ms)
+        if event.duration is not None:
+            dur_t = fields.get(event.duration)
+            if dur_t != "i64":
+                raise CompileError(
+                    f"@fact {cls.__name__}: event duration field "
+                    f"{event.duration!r} must be int (ms), it is {dur_t}"
+                )
+        dc.__seine_event__ = (event.timestamp, event.expires_ms, event.duration)
     for name, st in fields.items():
         setattr(dc, name, FieldRef(dc, name, st))
     return dc
@@ -684,13 +708,27 @@ class _Pattern:
         raise AttributeError(name)
 
 
+# valid parameter counts per Allen operator (oracle-pinned, D-119):
+# after/before REQUIRE [lo,hi]; endpoint ops take a tolerance/bounds list
+_ALLEN_ARITY = {
+    "after": (2,), "before": (2,),
+    "coincides": (0, 1, 2),
+    "meets": (0, 1), "metby": (0, 1),
+    "starts": (0, 1), "startedby": (0, 1),
+    "finishes": (0, 1), "finishedby": (0, 1),
+    "overlaps": (0, 1, 2), "overlappedby": (0, 1, 2),
+    "during": (0, 1, 2, 4), "includes": (0, 1, 2, 4),
+}
+
+
 class _Temporal:
-    """`this after[lo,hi] $anchor` / before - the certified temporal
-    join. The anchor is a MATCHED event pattern from an earlier when()."""
+    """`this <op>[params] $anchor` — the certified temporal join family
+    (after/before plus the Allen interval set). The anchor is a MATCHED
+    event pattern from an earlier when()."""
 
     __bool__ = _ambiguous_bool("temporal constraint")
 
-    def __init__(self, op, anchor, lo_ms, hi_ms):
+    def __init__(self, op, anchor, params):
         if not isinstance(anchor, _Pattern) or anchor.ce != "":
             raise CompileError(
                 f"this_{op}: the anchor is a positive when() match of an "
@@ -701,29 +739,95 @@ class _Temporal:
                 f"this_{op}: anchor {anchor.type_name} is not an event type "
                 "(declare @fact(event=seine_rs.Event(...)))"
             )
-        for v, n in ((lo_ms, "lo_ms"), (hi_ms, "hi_ms")):
+        arities = _ALLEN_ARITY[op]
+        if len(params) not in arities:
+            forms = "/".join(str(a) for a in arities)
+            raise CompileError(
+                f"this_{op}: takes {forms} duration parameter(s), got {len(params)}"
+            )
+        for i, v in enumerate(params):
             if not isinstance(v, int) or isinstance(v, bool) or v < 0:
-                raise CompileError(f"this_{op}: {n} must be a non-negative int")
-        if hi_ms < lo_ms:
-            raise CompileError(f"this_{op}: hi_ms < lo_ms")
+                raise CompileError(
+                    f"this_{op}: parameter {i} must be a non-negative int (ms)"
+                )
+        if op in ("after", "before"):
+            if params[1] < params[0]:
+                raise CompileError(f"this_{op}: hi_ms < lo_ms")
+            self.lo_ms, self.hi_ms = params
         self.op = op
         self.anchor = anchor
-        self.lo_ms = lo_ms
-        self.hi_ms = hi_ms
+        self.params = tuple(params)
 
     def render(self, rule):
         var = rule._fact_var_for(self.anchor)
-        return f"this {self.op}[{self.lo_ms}ms,{self.hi_ms}ms] {var}"
+        if not self.params:
+            return f"this {self.op} {var}"
+        inner = ",".join(f"{p}ms" for p in self.params)
+        return f"this {self.op}[{inner}] {var}"
 
 
 def this_after(anchor, lo_ms, hi_ms):
     """Constraint: this event's timestamp is in [lo_ms, hi_ms] AFTER the
     anchor match's. Use inside when(EventType, ...)."""
-    return _Temporal("after", anchor, lo_ms, hi_ms)
+    return _Temporal("after", anchor, (lo_ms, hi_ms))
 
 
 def this_before(anchor, lo_ms, hi_ms):
-    return _Temporal("before", anchor, lo_ms, hi_ms)
+    return _Temporal("before", anchor, (lo_ms, hi_ms))
+
+
+def this_coincides(anchor, *devs):
+    """Allen `coincides`: both endpoints match within tolerance —
+    bare (exact), [dev] (shared), or [start_dev, end_dev]."""
+    return _Temporal("coincides", anchor, devs)
+
+
+def this_meets(anchor, *tol):
+    """Allen `meets`: this ends where the anchor starts (± tolerance)."""
+    return _Temporal("meets", anchor, tol)
+
+
+def this_metby(anchor, *tol):
+    return _Temporal("metby", anchor, tol)
+
+
+def this_overlaps(anchor, *bounds):
+    """Allen `overlaps`: this starts first and the intervals overlap —
+    bare, [max], or [min, max] on the overlap distance."""
+    return _Temporal("overlaps", anchor, bounds)
+
+
+def this_overlappedby(anchor, *bounds):
+    return _Temporal("overlappedby", anchor, bounds)
+
+
+def this_during(anchor, *bounds):
+    """Allen `during`: this lies strictly inside the anchor interval —
+    bare, [max], [min, max], or [lo1, hi1, lo2, hi2] on the start/end
+    distances."""
+    return _Temporal("during", anchor, bounds)
+
+
+def this_includes(anchor, *bounds):
+    return _Temporal("includes", anchor, bounds)
+
+
+def this_starts(anchor, *tol):
+    """Allen `starts`: same start (± tolerance), this ends first."""
+    return _Temporal("starts", anchor, tol)
+
+
+def this_startedby(anchor, *tol):
+    return _Temporal("startedby", anchor, tol)
+
+
+def this_finishes(anchor, *tol):
+    """Allen `finishes`: same end (± tolerance), this starts later."""
+    return _Temporal("finishes", anchor, tol)
+
+
+def this_finishedby(anchor, *tol):
+    return _Temporal("finishedby", anchor, tol)
 
 
 class _RhsAction:
@@ -803,12 +907,14 @@ class Rule:
                 # the certified subset — this only cross-checks the
                 # user's own explicit declarations, per constraint (no
                 # transitive/STP reasoning).
+                if c.op not in ("after", "before"):
+                    continue  # Allen interval ops: no [lo,hi] window to check
                 if c.op == "after":
                     early_cls = c.anchor.cls  # this AFTER anchor: anchor is earlier
                 else:
                     early_cls = cls           # this BEFORE anchor: this is earlier
                 ev = getattr(early_cls, "__seine_event__", None)
-                if ev is not None and ev[1] < c.hi_ms:
+                if ev is not None and ev[1] is not None and ev[1] < c.hi_ms:
                     expires = ev[1]
                     where = (
                         f"{early_cls.__name__} declares expires_ms={expires} but is the "

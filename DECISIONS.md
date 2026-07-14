@@ -13398,3 +13398,47 @@ Receipts: bindings 137/137 (5 new); corpus 11/1148/397 + drift 32
 (pr_ga_downstream graduated), lint-probes 1820/0/0. Authoring +
 one scenario; engine untouched. Tier C (Allen + @duration
 together) and the banked groupby-key engine reject remain queued.
+
+## D-245 — Tier C exposure: the Allen operator set + @duration interval events, shipped together per the reviewer's refinement (2026-07-13)
+
+His Tier-C note was the design constraint: over point events, 8 of
+the 11 Allen operators collapse toward before/after/coincides —
+shipping the vocabulary without intervals gives it nothing to bite
+on. So both land at once:
+
+- Event(timestamp, expires_ms=None, duration=None): `duration`
+  names an int-ms field, making the type an INTERVAL event (the
+  D-118 machinery); `expires_ms` becomes OPTIONAL — None routes to
+  declare_event's certified D-109 inference, which the pinned
+  interval probes themselves rely on (they declare no expires).
+  The old docstring's "inference is outside the certified subset"
+  claim was stale positioning from the pre-exposure era — the
+  inference is certified engine behavior, it was the Python
+  surface that withheld it. Duration fields are type-checked at
+  @fact like timestamps.
+
+- Eleven constructors — this_coincides/meets/metby/overlaps/
+  overlappedby/during/includes/starts/startedby/finishes/
+  finishedby — over a generalized _Temporal with the ORACLE-PINNED
+  arity table (D-119) validated at authoring time: after/before
+  exactly 2, coincides <=2, the touching-endpoint ops <=1,
+  overlaps <=2, during/includes 0/1/2/4. Bare ops render `this op
+  $var`, parameterized `this op[Nms,...] $var` — both pinned
+  grammar shapes (the pr_cep_e_ic family). Non-negative int
+  params enforced.
+
+- The D-219 expires-vs-window lint is SCOPED to after/before
+  (Allen ops carry no [lo,hi] window; the lint also now tolerates
+  inference-declared events with no explicit expires).
+
+End-to-end on the certified semantics: overlaps fires on
+overlapping intervals and not on disjoint ones; coincides[5ms]
+admits a 3ms start skew; during's 4-param form renders exactly.
+
+Receipts: bindings 142/142 (5 new: interval overlaps end-to-end,
+param render+fire, arity/negative walls, duration-field typing,
+lint scoping). Authoring + event marshalling (the bindings tuple
+grew a duration slot); generated DRL is pinned grammar; engine
+and corpus untouched. Tier D (entry points) stays deferred per
+the reviewer's ranking — expires inference shipped here as the
+interval prerequisite rather than as its own item.
