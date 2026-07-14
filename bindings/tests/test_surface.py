@@ -298,3 +298,64 @@ def test_update_driven_retraction_reaches_deleted_handles():
     res2 = sess.fire()
     assert res2.facts["Alarm"].to_pylist() == []
     assert alarm in res2.deleted_handles
+
+# --- the epoch-shape guard (round 21) -----------------------------------
+
+@seine_rs.fact(event=seine_rs.Event(timestamp="ts", expires_ms=1000))
+class EvA:
+    ts: int
+    k: int
+
+
+@seine_rs.fact(event=seine_rs.Event(timestamp="ts", expires_ms=100000))
+class EvB:
+    ts: int
+    k: int
+
+
+def _tj_session():
+    r = seine_rs.Rule("R")
+    a = r.when(EvA)
+    r.when(EvB, EvB.k == a.k, seine_rs.this_after(a, 0, 1000))
+    return seine_rs.Session([r], {EvA: [], EvB: []})
+
+
+def test_prefire_actions_walled_inserts_allowed():
+    # pre-fire external actions ran against the engine's staging batch —
+    # a shape no certified scenario produces (round 21: it flipped a
+    # temporal-join-under-expiry outcome vs the oracle). Inserts stay
+    # legal: they ARE the certified initial batch.
+    sess = _tj_session()
+    sess.insert_row(EvA, {"ts": 0, "k": 1})
+    sess.insert_row(EvB, {"ts": 500, "k": 1})
+    for act in (lambda: sess.advance(2000),
+                lambda: sess.update(0, k=2),
+                lambda: sess.delete(0)):
+        with pytest.raises(RuntimeError, match="certified epoch shape"):
+            act()
+
+
+def test_guided_flow_matches_certified_outcome():
+    # fire-then-advance = the certified epoch sequence: the join formed
+    # at insert survives the expiry-crossing advance (pr_cep_expjoin_*),
+    # REGARDLESS of insert order — the round-21 order-sensitivity was an
+    # artifact of the walled pre-fire shape
+    for order in (("A", "B"), ("B", "A")):
+        sess = _tj_session()
+        for step in order:
+            if step == "A":
+                sess.insert_row(EvA, {"ts": 0, "k": 1})
+            else:
+                sess.insert_row(EvB, {"ts": 500, "k": 1})
+        fired_initial = sess.fire().fired
+        sess.advance(2000)
+        assert fired_initial == 1 and sess.fire().fired == 0
+
+
+def test_reset_rearms_the_guard():
+    sess = _tj_session()
+    sess.fire()
+    sess.advance(10)          # fine post-fire
+    sess.reset()
+    with pytest.raises(RuntimeError, match="certified epoch shape"):
+        sess.advance(10)      # staging state again after reset

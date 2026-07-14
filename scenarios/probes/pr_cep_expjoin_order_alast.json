@@ -1,0 +1,13 @@
+{
+ "name": "pr_cep_expjoin_order_alast",
+ "types": [
+  {"name": "A", "fields": [{"name": "ts", "type": "i64"}, {"name": "k", "type": "i64"}], "event": {"timestamp": "ts", "expires_ms": 1000}},
+  {"name": "B", "fields": [{"name": "ts", "type": "i64"}, {"name": "k", "type": "i64"}], "event": {"timestamp": "ts", "expires_ms": 100000}}
+ ],
+ "drl": "rule R when $a : A($ak : k) $b : B(k == $ak, this after[0ms,1000ms] $a) then end\n",
+ "facts": [],
+ "epochs": [
+  {"actions": [{"op": "insert", "type": "B", "fields": {"ts": 500, "k": 1}}, {"op": "insert", "type": "A", "fields": {"ts": 0, "k": 1}}, {"op": "advance", "ms": 2000}], "facts": []}
+ ],
+ "_finding": "Temporal join under same-epoch anchor expiry, ANCHOR INSERTED LAST (external review round 21): B then A then advance(2000) - the advance crosses A's expiry (deadline 1000) before the drain, and the join FIRES. Same final (clock, factset) as pr_cep_expjoin_order_blast with the opposite outcome: the insert order of the two events is the sole discriminator - the black-box CEP manifestation of the pinned beta-memory physical-order laws, byte-identical in both engines."
+}

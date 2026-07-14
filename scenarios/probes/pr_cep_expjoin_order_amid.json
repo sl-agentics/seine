@@ -1,0 +1,70 @@
+{
+ "name": "pr_cep_expjoin_order_amid",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 1000
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "drl": "rule R when $a : A($ak : k) $b : B(k == $ak, this after[0ms,1000ms] $a) then end\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "A",
+     "fields": {
+      "ts": 0,
+      "k": 1
+     }
+    },
+    {
+     "op": "advance",
+     "ms": 2000
+    },
+    {
+     "op": "insert",
+     "type": "B",
+     "fields": {
+      "ts": 500,
+      "k": 1
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "_finding": "The advance-position control: A, advance(2000), B - the advance sits BETWEEN the inserts and the outcome equals the A-then-B-then-advance cell (silent). The advance's position among the inserts is irrelevant; only which event was inserted last discriminates.",
+ "expect_inert": true
+}

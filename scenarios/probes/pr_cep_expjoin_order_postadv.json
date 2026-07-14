@@ -1,0 +1,13 @@
+{
+ "name": "pr_cep_expjoin_order_postadv",
+ "types": [
+  {"name": "A", "fields": [{"name": "ts", "type": "i64"}, {"name": "k", "type": "i64"}], "event": {"timestamp": "ts", "expires_ms": 1000}},
+  {"name": "B", "fields": [{"name": "ts", "type": "i64"}, {"name": "k", "type": "i64"}], "event": {"timestamp": "ts", "expires_ms": 100000}}
+ ],
+ "drl": "rule R when $a : A($ak : k) $b : B(k == $ak, this after[0ms,1000ms] $a) then end\n",
+ "facts": [],
+ "epochs": [
+  {"actions": [{"op": "insert", "type": "B", "fields": {"ts": 500, "k": 1}}, {"op": "advance", "ms": 2000}, {"op": "insert", "type": "A", "fields": {"ts": 0, "k": 1}}], "facts": []}
+ ],
+ "_finding": "The fourth cell of the round-21 2x2: B, advance(2000), then the ANCHOR arrives already past its own deadline (ts 0, expires 1000, clock 2000 - born-expired). The join FIRES in both engines: the arriving anchor's join evaluation precedes its expiry drain. Completes the certified table: both-inserted-before-advance fires regardless of order; this-event-after-advance is silent (the anchor was already drained); anchor-after-advance fires (arrival evaluation precedes the drain)."
+}

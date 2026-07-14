@@ -836,6 +836,11 @@ struct PySession {
     schemas: Vec<TypeSchema>,
     drl: String,
     built: bool,
+    /// Set by the first fire(); external actions before it would run
+    /// against the engine's pre-build staging batch — a shape the
+    /// certified epoch sequence (initial facts, fire, then act+fire)
+    /// structurally never produces.
+    fired_once: bool,
     /// Event declarations (type -> (ts_field, expires_ms)),
     /// applied before rule compilation at build time.
     events: Vec<(String, String, i64)>,
@@ -873,6 +878,26 @@ impl PySession {
         self.engine = Some(engine);
         self.built = true;
         Ok(())
+    }
+
+    /// External actions compose action-ordered at the certified epoch
+    /// boundary — which only exists once the initial state has been
+    /// drained. Before the first fire() they would land in the engine's
+    /// staging batch instead, where clock movement and event arrival
+    /// compose differently than every certified scenario.
+    fn require_fired(&self, what: &str) -> PyResult<()> {
+        if self.fired_once {
+            return Ok(());
+        }
+        Err(PyRuntimeError::new_err(format!(
+            "{what} before the session's first fire() is outside the certified \
+            epoch shape — the initial facts are still a staging batch, and clock \
+            movement or mutation against that batch composes differently from \
+            every certified sequence. Call fire() to drain the initial state \
+            first (the certified shape is: construct with facts, fire, then per \
+            epoch: act, fire). Inserting more facts before the first fire is \
+            fine — that IS the initial batch."
+        )))
     }
 
     fn insert_columns(
@@ -920,6 +945,7 @@ impl PySession {
             schemas: Vec::new(),
             drl,
             built: false,
+            fired_once: false,
             events: Vec::new(),
             pending_retracted: Vec::new(),
         };
@@ -1081,6 +1107,7 @@ impl PySession {
             .engine
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        self.require_fired("update()")?;
         let fields = fields
             .filter(|d| !d.is_empty())
             .ok_or_else(|| PyValueError::new_err("update: no fields given"))?;
@@ -1124,6 +1151,7 @@ impl PySession {
     /// CEP: advance the pseudo-clock by ms.
     fn advance(&mut self, ms: i64) -> PyResult<()> {
         self.ensure_built()?;
+        self.require_fired("advance()")?;
         let engine = self
             .engine
             .as_mut()
@@ -1141,10 +1169,12 @@ impl PySession {
             .as_mut()
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
         self.pending_retracted.clear();
+        self.fired_once = false;
         engine.reset().map_err(|e| PyValueError::new_err(e.to_string()))
     }
 
     fn delete(&mut self, handle: i64) -> PyResult<Vec<i64>> {
+        self.require_fired("delete()")?;
         let engine = self
             .engine
             .as_mut()
@@ -1182,6 +1212,7 @@ impl PySession {
         on_fire: Option<Bound<'_, PyAny>>,
     ) -> PyResult<PyResult_> {
         self.ensure_built()?;
+        self.fired_once = true;
         let engine = self.engine.as_mut().expect("built");
         let pre_live: std::collections::HashSet<u32> =
             engine.facts().iter().map(|f| f.handle).collect();

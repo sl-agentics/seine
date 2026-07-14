@@ -13261,3 +13261,56 @@ through a pull query, give the rule a reactive companion pattern
 
 Receipts: corpus 11/1143/397 + drift 32, lint-probes 1815/0/0.
 Scenario-only; engine and bindings untouched.
+
+## D-242 — round 21: his order-sensitivity was real but it was OURS, not Drools' — the pre-fire staging shape walled, the certified 2x2 pinned (external review, CEP) (2026-07-13)
+
+His finding on 0.4.14: a temporal join whose anchor expires in the
+same epoch flipped on the INSERT ORDER of the two events (anchor-
+last fires, this-last silent), same final (clock, factset). He
+correctly refused to call it a bug and asked whether the oracle is
+order-sensitive here too.
+
+THE ADJUDICATION SPLIT THE FINDING IN TWO. (1) The certified
+semantics — pinned as the four-cell 2x2 pr_cep_expjoin_order_
+{alast,blast,amid,postadv}, every cell 3x byte-identical — is
+ORDER-INSENSITIVE for both pre-advance insert orders: activations
+formed at insert survive an expiry-crossing advance (the lazy
+expiry drain), so A,B,adv and B,A,adv BOTH fire; an event arriving
+after the advance meets a drained anchor (A,adv,B silent); an
+anchor arriving born-expired still joins on arrival
+(B,adv,A fires — the arrival evaluation precedes its own drain;
+the born-expired ledger corner now has a pinned cell). His
+mechanism map (insert does not auto-advance; alive AT the
+deadline; the lint constraining constructions) all verified.
+
+(2) His table was nevertheless REAL on the Python surface — and
+that is the finding: a fresh Session stages everything until the
+first fire() (the engine's lists build lazily in fire_all), so
+pre-fire external actions run against the STAGING BATCH — a shape
+the certified runner structurally never produces (epoch actions
+exist only after the initial fire; zero corpus scenarios could
+cover it). In that uncertified state the join outcome depended on
+which event was staged last, diverging from the oracle for
+A,B,adv. A prefire aligned every interleaving with the certified
+table, confirming the mechanism.
+
+THE FIX at the D-229 altitude: advance()/update()/delete() before
+the session's first fire() now raise the teachable epoch-shape
+error (fire the initial state first; the certified sequence is
+construct-with-facts, fire, then act+fire per epoch). Pre-fire
+INSERTS stay legal — they are the certified initial batch (D-102).
+reset() re-arms the guard (the engine rebuilds its lists). The
+guided flow lands on the certified outcome for every interleaving,
+order-insensitivity restored and pinned as a bindings test.
+
+HIS DRIVER-DESIGN COROLLARY, corrected by the adjudication: the
+epoch record's facts may stay a SET after all — within-epoch
+insert order is NOT semantically load-bearing in the certified
+shape (his set-to-sequence tightening was an artifact of the
+walled state). The WAL contract that IS load-bearing: epoch
+boundaries (advance positions relative to fact batches), which his
+doc already has.
+
+Receipts: bindings 127/127 (walls x3, guided-flow order-
+insensitivity, reset re-arm); corpus 11/1147/397 + drift 32,
+lint-probes 1819/0/0. Bindings + scenarios; engine untouched.
