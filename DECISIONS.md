@@ -13732,3 +13732,36 @@ unmasked): corpus 11/1156/397 all passed + xfail drift 32 identical;
 lint-probes 1826 live/0 ghosts/0 inert; bindings pytest 162 passed;
 demo selfcheck exit 0 with LIVE==REPLAY determinism True. Not pushed,
 not tagged, no version bump — Bryan gates all three.
+
+## D-252 — the demo swaps onto seine_rs.derive (Bryan-directed): the polars prototype retires into the battery as the independent cross-check (2026-07-14)
+
+Bryan gated the swap open. demo/adsb_convergence.py's
+DerivationStage now composes the three D-251 kernels
+(s.derive.pair_candidates -> s.derive.haversine -> s.derive.closing,
+prev_dist still the stage's own plain dict) instead of hand-rolling
+the columnar pass in polars — the demo no longer imports polars at
+all, and its printed output is BYTE-IDENTICAL to the pre-swap run
+(diffed modulo the banner line), so the scenario twin
+scenarios/demo/adsb_convergence.json needed no regeneration. The
+<2-row degenerate path keeps the TTL sweep inline (state hygiene is
+part of the epoch function even when no batch reaches the kernels).
+
+The demo's _selfcheck and _haversine_ref stay VERBATIM — the
+ground-truth vectors and the pure-python reference remain the
+import-time oracle, now exercising the kernel-backed stage.
+
+The retired polars implementation did not vanish: it moved verbatim
+into bindings/tests/test_derive.py as _PolarsStage, so the
+cross-IMPLEMENTATION agreement check (kernels vs an independent
+vectorized engine, row-for-row on every battery vector and the
+scripted feed with prev_dist state parity) survives the swap instead
+of decaying into Rust-checked-against-Rust; the old demo-agreement
+test became a polars-free wiring check (demo stage == kernel
+composition). docs/derivation-plane.md status updated to LANDED
+(design D-249, kernels D-251, swap D-252).
+
+Receipts (gate output read, exit codes unmasked): demo exit 0,
+selfcheck green, LIVE==REPLAY True, output byte-identical pre/post;
+bindings pytest 163 passed; corpus 11/1156/397 all passed + xfail
+drift 32 identical; lint-probes 1826/0/0. Bindings untouched this
+entry (demo + tests + docs only). Not pushed, not tagged, no bump.

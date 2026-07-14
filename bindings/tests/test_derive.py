@@ -261,11 +261,71 @@ def test_determinism_byte_identical():
     assert a == b
 
 
-# --------------------------------------- agreement with the polars stage
+# --------------------- agreement with the retired polars prototype
+# The demo's DerivationStage is kernel-backed since the D-252 swap, so
+# the INDEPENDENT vectorized cross-check lives here: the retired
+# polars stage, verbatim (dev-only dependency, never the wheel's).
+
+
+class _PolarsStage:
+    """demo/adsb_convergence.py's pre-swap DerivationStage, preserved
+    as the independent vectorized reference implementation."""
+
+    BBOX_M = 25_000.0
+    DEG_M = 111_320.0
+    STATE_TTL_MS = 60_000
+
+    def __init__(self):
+        import polars as pl
+        self.pl = pl
+        self.prev_dist = {}
+
+    def derive(self, ts, rows):
+        pl = self.pl
+        cutoff = ts - self.STATE_TTL_MS
+        self.prev_dist = {k: (d, t) for k, (d, t) in self.prev_dist.items()
+                          if t >= cutoff}
+        if len(rows) < 2:
+            return []
+        df = pl.DataFrame(rows)
+        a = df.rename({c: f"{c}_a" for c in df.columns})
+        b = df.rename({c: f"{c}_b" for c in df.columns})
+        lat_thresh = self.BBOX_M / self.DEG_M
+        raw_dlon = (pl.col("lon_a") - pl.col("lon_b")).abs() % 360.0
+        wrapped_dlon = pl.min_horizontal(raw_dlon, 360.0 - raw_dlon)
+        coslat = (((pl.col("lat_a") + pl.col("lat_b")) / 2.0)
+                  .radians().cos().clip(1e-6))
+        lon_thresh = pl.min_horizontal(
+            pl.lit(180.0), self.BBOX_M / (self.DEG_M * coslat)
+        )
+        cand = (
+            a.join(b, how="cross")
+            .filter(pl.col("icao_a") < pl.col("icao_b"))
+            .filter((pl.col("lat_a") - pl.col("lat_b")).abs() < lat_thresh)
+            .filter(wrapped_dlon < lon_thresh)
+        )
+        if cand.height == 0:
+            return []
+        lat_a, lat_b = pl.col("lat_a").radians(), pl.col("lat_b").radians()
+        dp = (pl.col("lat_b") - pl.col("lat_a")).radians() / 2.0
+        dl = (pl.col("lon_b") - pl.col("lon_a")).radians() / 2.0
+        h = dp.sin().pow(2) + lat_a.cos() * lat_b.cos() * dl.sin().pow(2)
+        cand = cand.with_columns(
+            (2.0 * EARTH_R * h.sqrt().arcsin()).round(0)
+            .cast(pl.Int64).alias("dist"),
+            (pl.col("icao_a") + "|" + pl.col("icao_b")).alias("key"),
+        )
+        out = []
+        for key, dist in cand.select("key", "dist").iter_rows():
+            prev = self.prev_dist.get(key)
+            closing = prev is not None and dist < prev[0]
+            self.prev_dist[key] = (dist, ts)
+            out.append({"ts": ts, "key": key, "dist": dist,
+                        "closing": closing})
+        return out
 
 
 def _load_demo():
-    pytest.importorskip("polars")
     import importlib.util
     path = Path(__file__).resolve().parents[2] / "demo" / "adsb_convergence.py"
     spec = importlib.util.spec_from_file_location("adsb_demo", path)
@@ -274,23 +334,40 @@ def _load_demo():
     return mod
 
 
-def test_agreement_with_demo_polars_stage():
-    """The two implementations agree row-for-row on every battery
-    vector and on the scripted feed — this is what lets the kernels
-    replace the polars stage without regenerating the scenario twin."""
+def test_agreement_with_polars_reference():
+    """Kernels vs the retired polars prototype, row-for-row on every
+    battery vector and on the demo's scripted feed with state parity —
+    the cross-implementation check that kept the scenario twin alive
+    through the swap."""
+    pytest.importorskip("polars")
+    demo = _load_demo()
+    for lat1, lon1, lat2, lon2, _approx, _must in VECTORS:
+        rows = [{"icao": "A", "lat": lat1, "lon": lon1},
+                {"icao": "B", "lat": lat2, "lon": lon2}]
+        assert kernel_stage({}, 0, rows) == _PolarsStage().derive(0, rows)
+    ref = _PolarsStage()
+    state = {}
+    for ts, rows, _label in demo.scripted_feed():
+        assert kernel_stage(state, ts, rows) == ref.derive(ts, rows), \
+            f"divergence at t={ts}"
+        assert state == ref.prev_dist, f"state divergence at t={ts}"
+
+
+def test_demo_stage_matches_kernel_composition():
+    """The demo's kernel-backed DerivationStage is wired exactly like
+    kernel_stage (same kernels, same params) — a wiring check, cheap
+    and polars-free."""
     demo = _load_demo()
     for lat1, lon1, lat2, lon2, _approx, _must in VECTORS:
         rows = [{"icao": "A", "lat": lat1, "lon": lon1},
                 {"icao": "B", "lat": lat2, "lon": lon2}]
         stage = demo.DerivationStage()
         assert kernel_stage({}, 0, rows) == stage.derive(0, rows)
-    # the scripted feed, cumulatively (state carried across epochs)
     stage = demo.DerivationStage()
     state = {}
     for ts, rows, _label in demo.scripted_feed():
-        assert kernel_stage(state, ts, rows) == stage.derive(ts, rows), \
-            f"divergence at t={ts}"
-        assert state == stage.prev_dist, f"state divergence at t={ts}"
+        assert kernel_stage(state, ts, rows) == stage.derive(ts, rows)
+        assert state == stage.prev_dist
 
 
 def test_arrow_input_path_matches_dict_path():

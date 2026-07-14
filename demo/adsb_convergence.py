@@ -5,11 +5,16 @@ and the certified match grammar has no arithmetic — by design. Drools
 would smuggle the math into the match with eval()/Java, the exact seam
 seine refuses to inherit. The Arrow-native answer:
 
-  DERIVATION PLANE (this file's DerivationStage, polars):
+  DERIVATION PLANE (this file's DerivationStage, seine_rs.derive —
+      the Rust/arrow-rs kernels that replaced the polars prototype,
+      D-251/D-252; zero extra dependencies):
       vectorized candidate pruning + haversine + closing-rate over
       position columns -> Pair facts with honest FIELDS.
       Its oracle: a pure-python reference implementation + property
-      checks (run at import; see _selfcheck).
+      checks (run at import; see _selfcheck) — NOT the kernels
+      themselves; the battery in bindings/tests/test_derive.py is the
+      full certification, including agreement with the retired polars
+      stage (kept there as the independent vectorized cross-check).
 
   MATCH PLANE (the certified subset, unchanged):
       Pair(dist < 5000, closing == true)          -- plain field constraints
@@ -25,9 +30,6 @@ raw epoch -> derive -> assert -> fire; the WAL stores RAW epochs and
 replay re-derives, so determinism covers the whole pipeline.
 """
 import math
-from collections import defaultdict
-
-import polars as pl
 
 import seine_rs as s
 
@@ -73,67 +75,48 @@ def _haversine_ref(lat1, lon1, lat2, lon2):
     return 2 * EARTH_R * math.asin(math.sqrt(a))
 
 class DerivationStage:
-    """Columnar candidate pass + exact math + cross-epoch closing state.
-    Deterministic function of (raw batch, own state); never reads WM.
+    """Columnar candidate pass + exact math + cross-epoch closing state,
+    composed from the seine_rs.derive Rust kernels. Deterministic
+    function of (raw batch, own state); never reads WM.
 
     The candidate prune is METRIC-space, not degree-space (round-27
-    findings): the longitude delta WRAPS across the antimeridian, and
-    the longitude threshold scales by cos(lat) — near the poles the
-    scaled threshold saturates and the prune falls back to latitude
-    only. Closing state carries the epoch timestamp and expires after
-    STATE_TTL_MS: a pair reappearing after a long gap does not compare
-    against a stale distance. Eviction is a pure function of the raw
-    epoch sequence, so WAL-replay determinism is unchanged."""
+    findings, implemented inside derive.pair_candidates): the longitude
+    delta WRAPS across the antimeridian, and the longitude threshold
+    scales by cos(lat) — near the poles the scaled threshold saturates
+    and the prune falls back to latitude only. Closing state is THIS
+    object's plain dict (the kernels hold no state), entries carry the
+    epoch timestamp, and derive.closing sweeps anything older than
+    STATE_TTL_MS before comparing: a pair reappearing after a long gap
+    does not compare against a stale distance. Eviction is a pure
+    function of the raw epoch sequence, so WAL-replay determinism is
+    unchanged."""
 
     BBOX_M = 25_000.0          # candidate radius, meters
-    DEG_M = 111_320.0          # meters per degree latitude
     STATE_TTL_MS = 60_000      # closing-state freshness horizon
 
     def __init__(self):
         self.prev_dist = {}    # pair key -> (distance, epoch ts)
 
     def derive(self, ts, rows):
-        # TTL sweep first: state hygiene is part of the epoch function
-        cutoff = ts - self.STATE_TTL_MS
-        self.prev_dist = {k: (d, t) for k, (d, t) in self.prev_dist.items()
-                          if t >= cutoff}
         if len(rows) < 2:
+            # the TTL sweep is part of the epoch function even on a
+            # degenerate batch (same hygiene derive.closing applies)
+            cutoff = ts - self.STATE_TTL_MS
+            self.prev_dist = {k: (d, t) for k, (d, t) in self.prev_dist.items()
+                              if t >= cutoff}
             return []
-        df = pl.DataFrame(rows)
-        a = df.rename({c: f"{c}_a" for c in df.columns})
-        b = df.rename({c: f"{c}_b" for c in df.columns})
-        lat_thresh = self.BBOX_M / self.DEG_M
-        raw_dlon = (pl.col("lon_a") - pl.col("lon_b")).abs() % 360.0
-        wrapped_dlon = pl.min_horizontal(raw_dlon, 360.0 - raw_dlon)
-        coslat = (((pl.col("lat_a") + pl.col("lat_b")) / 2.0)
-                  .radians().cos().clip(1e-6))
-        lon_thresh = pl.min_horizontal(
-            pl.lit(180.0), self.BBOX_M / (self.DEG_M * coslat)
-        )
-        cand = (
-            a.join(b, how="cross")
-            .filter(pl.col("icao_a") < pl.col("icao_b"))          # dedup a<b
-            .filter((pl.col("lat_a") - pl.col("lat_b")).abs() < lat_thresh)
-            .filter(wrapped_dlon < lon_thresh)
-        )
-        if cand.height == 0:
-            return []
-        # vectorized haversine over the candidate columns
-        lat_a, lat_b = pl.col("lat_a").radians(), pl.col("lat_b").radians()
-        dp = (pl.col("lat_b") - pl.col("lat_a")).radians() / 2.0
-        dl = (pl.col("lon_b") - pl.col("lon_a")).radians() / 2.0
-        h = dp.sin().pow(2) + lat_a.cos() * lat_b.cos() * dl.sin().pow(2)
-        cand = cand.with_columns(
-            (2.0 * EARTH_R * h.sqrt().arcsin()).round(0).cast(pl.Int64).alias("dist"),
-            (pl.col("icao_a") + "|" + pl.col("icao_b")).alias("key"),
-        )
-        out = []
-        for key, dist in cand.select("key", "dist").iter_rows():
-            prev = self.prev_dist.get(key)
-            closing = prev is not None and dist < prev[0]
-            self.prev_dist[key] = (dist, ts)
-            out.append({"ts": ts, "key": key, "dist": dist, "closing": closing})
-        return out
+        cand = s.derive.pair_candidates(
+            {"icao": [r["icao"] for r in rows],
+             "lat": [r["lat"] for r in rows],
+             "lon": [r["lon"] for r in rows]},
+            id="icao", radius_m=self.BBOX_M)
+        withd = s.derive.haversine(cand, lat1="lat_a", lon1="lon_a",
+                                   lat2="lat_b", lon2="lon_b", out="dist")
+        out = s.derive.closing(self.prev_dist, ts, withd,
+                               key="key", dist="dist",
+                               ttl_ms=self.STATE_TTL_MS)
+        return [{"ts": ts, "key": r["key"], "dist": r["dist"],
+                 "closing": r["closing"]} for r in out.to_pylist()]
 
 def _selfcheck():
     """The derivation battery in miniature, GROUND-TRUTH-DRIVEN (round-27
@@ -244,7 +227,7 @@ def run(feed, tag):
     return d
 
 if __name__ == "__main__":
-    print("seine_rs", s.__version__, "  ADS-B two-plane demo (derivation: polars)")
+    print("seine_rs", s.__version__, "  ADS-B two-plane demo (derivation: seine_rs.derive)")
     prod = run(scripted_feed(), "LIVE")
     rep = run([(e["advance_to"], e["raw"], e["label"]) for e in prod.wal],
               "REPLAY FROM RAW WAL (re-derives)")

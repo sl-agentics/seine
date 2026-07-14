@@ -1,8 +1,10 @@
 # The derivation plane — dataframe math upstream of the certified match
 
-**Status: DESIGN + Python-surface prototype (D-249). The pattern works
-today with zero engine changes; a Rust/arrow-rs kernel library is a
-possible later arc, gated separately.**
+**Status: LANDED (D-249 design; D-251 kernels; D-252 demo swap). The
+Rust/arrow-rs kernel library ships as `seine_rs.derive` (haversine,
+pair_candidates, closing), certified by
+bindings/tests/test_derive.py; the demo's DerivationStage runs on it.
+Zero engine changes throughout.**
 
 The pitch line: **Drools semantics in the match, dataframe semantics in
 the data.** Seine never grows an `eval`/Java escape hatch — the seam
@@ -87,10 +89,12 @@ p = rule.when(Pair, Pair.dist < 5000, Pair.closing == True)
 rule.then_insert(Alert, ...)              # grammar unchanged: two field constraints
 ```
 
-The prototype (demo/adsb_convergence.py) hand-rolls this stage in
-polars; a `seine_rs.derive` module with Rust arrow-rs kernels is the
-possible later arc. Either way the declaration is data-plane API — the
-Rule grammar above is today's certified subset, untouched.
+The demo (demo/adsb_convergence.py) composes this stage from the
+`seine_rs.derive` Rust arrow-rs kernels (it prototyped the same shape
+in polars first; that implementation survives as the independent
+vectorized cross-check inside the derive battery). Either way the
+declaration is data-plane API — the Rule grammar above is today's
+certified subset, untouched.
 
 ## What this forecloses, on the record
 
