@@ -13524,3 +13524,44 @@ systematic sweep; his to run.
 
 Receipts: corpus 11/1152/397 + drift 32, lint-probes 1824/0/0.
 Scenario-only; engine and bindings untouched.
+
+## D-248 — round 25: the collect order was already certified (and his Drools belief refuted by the standing pin); the query-churn order split two ways and found real uncertified territory (2026-07-13)
+
+ITEM 1, adjudicated from the record: the collect() CE's
+reverse-insertion rendering ([0.3, 0.2] for insertions [0.2, 0.3])
+has been byte-certified all along — acc3 and the ga family render
+the Collection's elems INSIDE the firings comparison, which the
+oracle matches identically. His "Drools collect is insertion
+order" belief is refuted by the standing pin: reverse-insertion IS
+the oracle's rendered order (the PHREAK left-tuple accumulation).
+His latent-divergence worry about the collection becoming
+consumable is thereby foreclosed — the order is already
+match-visible and certified.
+
+ITEM 2 became the real find. His churn cell pinned cleanly BOTH
+ways — pr_qx_churn_order (field unification) and
+pr_qx_churn_factbind (whole-fact binding) both certify APPEND
+order under delete-middle-reinsert (survivors in insertion order,
+the new fact last), 3x each. His [3,0,2] head-first observation
+did not reproduce on a single query call... and then did: the
+discriminator is a PRIOR QUERY CALL before the churn. The
+engine's QueryMem is the certified qx8_statemem machinery ("the
+memory order IS the arrival order"), shared between rule-side
+?query CEs and direct invocation — a repeated direct call after
+churn drains the arrival-window state instead of the fresh-call
+order. The row SET is always current; only the cross-call ORDER
+shifts.
+
+THE HONEST STATUS: the runner runs all scenario queries once, at
+the end — repeated-direct-calls-across-churn is structurally
+outside every certified scenario, and whether Drools matches
+(fresh-per-call evaluation would give append every time) CANNOT
+be probed without extending both runners with a mid-epoch query
+action. That instrumentation is the queued recon item; until it
+lands, no mechanism story gets trusted. Session.query's docstring
+now states the contract: fresh-call order certified; cross-call
+order under churn not yet oracle-pinned; the set always current.
+
+Receipts: corpus 11/1154/397 + drift 32 (two graduates),
+lint-probes 1826/0/0, bindings 142/142. Scenarios + docstring;
+engine untouched.

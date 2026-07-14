@@ -1,0 +1,62 @@
+{
+ "name": "pr_qx_churn_order",
+ "types": [
+  {
+   "name": "Ord",
+   "fields": [
+    {
+     "name": "amt",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "query AllOrds(long $a)\n    Ord(amt == $a)\nend\nrule R when Ord(amt > 0) then end\n",
+ "facts": [
+  {
+   "type": "Ord",
+   "fields": {
+    "amt": 10
+   }
+  },
+  {
+   "type": "Ord",
+   "fields": {
+    "amt": 20
+   }
+  },
+  {
+   "type": "Ord",
+   "fields": {
+    "amt": 30
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "Ord",
+     "fields": {
+      "amt": 40
+     }
+    }
+   ]
+  }
+ ],
+ "queries": [
+  {
+   "call": "AllOrds",
+   "args": [
+    null
+   ]
+  }
+ ],
+ "_finding": "Query row order UNDER CHURN (external review round 25): three facts, delete the middle, insert a fourth, then query. The reinserted fact lands at the HEAD of the row order (40, 10, 30) - not appended, not in the freed slot. The D-050 certified ordering made visible through the delete-middle-reinsert interleaving no prior query cell crossed (the query family had no epochs before round 20)."
+}

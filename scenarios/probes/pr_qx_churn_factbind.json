@@ -1,0 +1,60 @@
+{
+ "name": "pr_qx_churn_factbind",
+ "types": [
+  {
+   "name": "Ord",
+   "fields": [
+    {
+     "name": "amt",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "query AllOrds()\n    $o : Ord()\nend\nrule R when Ord(amt > 0) then end\n",
+ "facts": [
+  {
+   "type": "Ord",
+   "fields": {
+    "amt": 10
+   }
+  },
+  {
+   "type": "Ord",
+   "fields": {
+    "amt": 20
+   }
+  },
+  {
+   "type": "Ord",
+   "fields": {
+    "amt": 30
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "Ord",
+     "fields": {
+      "amt": 40
+     }
+    }
+   ]
+  }
+ ],
+ "queries": [
+  {
+   "call": "AllOrds",
+   "args": []
+  }
+ ],
+ "_finding": "Query churn order, the WHOLE-FACT-BINDING shape (round 25 pair of pr_qx_churn_order): $o : Ord() traverses HEAD-FIRST under churn - the reinserted fact leads (40, 10, 30) - while the field-unification shape appends (10, 30, 40). Two certified orders for two query shapes over the same store."
+}

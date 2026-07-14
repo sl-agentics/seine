@@ -176,9 +176,17 @@ class Session:
         """Run a DRL query against current working memory (direct
         invocation). Positional args follow the query's parameter list;
         pass None for an UNBOUND parameter — its bindings come back in
-        the rows. Returns rows in the certified order as dicts keyed by
-        the query's identifiers: facts as {"type", "handle", fields...},
-        scalars as plain values, or-branch-unbound as None."""
+        the rows. Returns rows as dicts keyed by the query's
+        identifiers: facts as {"type", "handle", fields...}, scalars as
+        plain values, or-branch-unbound as None.
+
+        ROW ORDER: certified for a query invoked against a quiescent
+        state (the fresh-call order; insertion-ordered with reinserts
+        appended). Repeated calls interleaved with insert/delete churn
+        may return the same row SET in arrival-window order instead —
+        the engine's query state memory is shared with rule-side
+        ?query conditions, whose cross-fire ordering is certified; the
+        cross-CALL ordering under churn is not yet oracle-pinned."""
         return self._native.query(name, *args)
 
 
