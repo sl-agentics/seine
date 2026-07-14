@@ -500,8 +500,9 @@ class AccResult(BoundField):
             self.opaque = True
             self._why = (
                 f"{func}() results are collections — no certified field "
-                "type can carry one into {use}. The collection is visible "
-                "in the firings audit; use count()/sum() for a scalar."
+                "type can carry one into {use}. Use count()/sum() for a "
+                "scalar, or the collect() CE if you need the collection "
+                "observable in the firings audit."
             )
         else:
             self.opaque = False

@@ -1,0 +1,14 @@
+{
+ "name": "pr_cep_winexp_align",
+ "types": [
+  {"name": "E", "fields": [{"name": "ts", "type": "i64"}, {"name": "tag", "type": "String"}], "event": {"timestamp": "ts", "expires_ms": 1000}}
+ ],
+ "drl": "rule Rw when accumulate( E() over window:time(1000ms); $c : count() ) then end\nrule Rb when $x : E() then end\n",
+ "facts": [
+  {"type": "E", "fields": {"ts": 0, "tag": "x"}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "advance", "ms": 1000}], "facts": []}
+ ],
+ "_finding": "window_time(N) vs expires_ms(N) at age EXACTLY N, in one scenario (external review round 23): the window is STRICT (the event leaves the window at age == N - the pr_cep_win_x_bare_100 boundary, so Rw re-fires with count 0) while expiry is INCLUSIVE (the event is alive AT its deadline - the pr_cep_expwin_atlo boundary, so it survives in finals). The one-instant misalignment for window_time(N) == expires_ms(N) is faithful Drools, certified from both arcs; this cell makes it observable in a single run."
+}

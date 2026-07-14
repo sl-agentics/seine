@@ -13442,3 +13442,41 @@ grew a duration slot); generated DRL is pinned grammar; engine
 and corpus untouched. Tier D (entry points) stays deferred per
 the reviewer's ranking — expires inference shipped here as the
 interval prerequisite rather than as its own item.
+
+## D-246 — round 23 adjudicated: the window-vs-expiry one-instant asymmetry is faithful and was certified from two arcs; the collect-audit claim corrected (2026-07-13)
+
+His day-one pass on the .16 exposure: all five features clean on
+the happy paths, the group_by key scope and when_any DNF
+double-fire correctly identified as faithful-with-contract-lines
+(both already in the D-244 record), and one headline corner — an
+event at age EXACTLY N is OUT of window_time(N) (strict <) but
+ALIVE under expires_ms(N) (inclusive <=).
+
+ADJUDICATION FROM THE RECORD, mostly: both halves were already
+byte-certified, from different arcs — the window's strict boundary
+by pr_cep_win_x_bare_99/100/101 (advance(99) holds, advance(100)
+evicts and the windowed accumulate re-fires; the D-110 seam
+family) and expiry's inclusive boundary by pr_cep_expwin_atlo and
+the D-242 expjoin cells (alive AT the deadline instant, the D-225
+frontier). The asymmetry is faithful Drools: different machinery,
+different boundary convention, both pinned. What was missing was
+a cell showing BOTH in one run: pr_cep_winexp_align graduated
+(3x) — window_time(1000) == expires_ms(1000), advance exactly
+1000: the accumulate re-fires to count 0 while the event survives
+in finals. The contract line users need: window_time(N) and
+expires_ms(N) do NOT align at the boundary instant; an event's
+last window tick is age N-1, its last living tick is age N.
+
+HIS UNCHASED FOLLOW-UP WAS A REAL CATCH: the D-244 wall message
+claimed collect_list/set results are "visible in the firings
+audit" — FALSE for the accumulate functions (the result match
+renders {}; no fields, no elems). The collect() CE is where the
+collection reaches the audit (Collection {"value": [...]}, the
+engine's collect_vals elems path). Message corrected to point
+there; plumbing accumulate-collect results into the audit
+rendering is possible (bindings-surface only) but not claimed
+until built.
+
+Receipts: corpus 11/1149/397 + drift 32, lint-probes 1821/0/0,
+bindings 142/142. One scenario + one message line; engine
+untouched.
