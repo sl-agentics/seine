@@ -1,0 +1,111 @@
+{
+ "name": "fz_9901_1221",
+ "open_divergence": true,
+ "_finding": "D-254 fuzz flush (no SwarmT facts): firing count engine 4 vs oracle 2 on a 4-fact composition. Reproduces on pre-port 4ee9c02 \u2014 pre-existing latent.",
+ "drl": "rule \"R0\"\nsalience 10\nagenda-group \"gb\"\nwhen\n    T1($b0_0_0 : f2)\n    T0($b0_1_0 : f1)\nthen\nend\nrule \"R1\"\nsalience 8\nwhen\n    $p1_0 : T0(f0 < -1 || f0 == -3, f1 == false)\nthen\n    $p1_0.setF1(true);\n    update($p1_0);\nend\nrule \"R2\"\nwhen\n    T1(f1 matches \"[b-t]\", f0 == false, $b2_0_0 : f0)\nthen\n    insertLogical(new T2(2, true, -1));\nend\nrule \"R3\"\nsalience -1\nwhen\n    $p3_0 : T1(f1 < \"a\", f0 == false)\nthen\n    $p3_0.setF0(true);\n    $p3_0.setF1($p3_0.getF1());\n    update($p3_0);\nend\nrule \"R4\"\nwhen\n    T1($b4_0_0 : f2)\n    $p4_1 : T0($b4_1_0 : f1)\nthen\n    drools.setFocus(\"gb\");\n    delete($p4_1);\nend\nrule \"R5\"\nwhen\n    T2(f2 != 8, $b5_0_0 : f2)\n    T2(f1 == false, f1 == false, f2 > -1 && < 8, $b5_1_0 : f1, $b5_1_1 : f1)\nthen\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 2
+    }
+   ],
+   "facts": [
+    {
+     "fields": {
+      "f0": -1000000007,
+      "f1": true
+     },
+     "type": "T0"
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": true,
+    "f1": "ab",
+    "f2": false
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": false,
+    "f1": "alpha",
+    "f2": true
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": true,
+    "f1": "a",
+    "f2": true
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 3,
+    "f1": true
+   },
+   "type": "T0"
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ],
+   "name": "T2"
+  }
+ ]
+}

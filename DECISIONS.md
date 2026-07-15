@@ -13897,3 +13897,22 @@ persistent index and deletes shrinking size across the threshold
 repeated-call/churn caveat on Session.query); rule-side beta-memory
 behavior at >96 keys (a DIFFERENT surface, deliberately not swarmed);
 the quadratic-prepend perf item; the three filed latents.
+
+## D-255 — the three D-254 latents re-filed: failures/ is a GATED directory (CI red caught the misfile); xfail quarantine + drift rebank 32->35 (2026-07-14)
+
+The v0.4.22 tag CI went red on the differential job and published
+nothing: D-254 filed its three flushed pre-existing latents in
+scenarios/failures/, which the Makefile GLOBS INTO THE PROBES TIER —
+that directory is for finds whose divergence is fixed (its 66
+residents all pass); genuinely-open divergences belong in
+scenarios/xfail/. Local `make diff` had run before the fuzz campaign
+saved the files, so the misfile was invisible until CI. Corrected:
+fz_4242_286, fz_9901_1221, fz_31337_698 moved to scenarios/xfail/
+as xf_* with open_divergence markers and _finding notes (each
+bisect-verified pre-existing at 4ee9c02; fz_31337_698 is an
+ORACLE-SIDE NullPointerException — a Drools-incoherence candidate,
+possibly upstream-reportable). Deliberate drift movement per D-187:
+make xfail-rebank 32 -> 35 witnesses. Receipts: diff 11/1176/397 all
+green + drift 35 identical; lint-probes 1846/0/0. v0.4.22 is a dead
+tag (no artifacts published); v0.4.23 is the release carrying
+D-253/D-254/D-255.
