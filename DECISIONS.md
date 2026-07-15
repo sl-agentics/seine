@@ -11,20 +11,23 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-15, post-D-260 (late-continue port LANDED
-D-258; xfail-suppression fixed D-259; binding-divergence family
-CRACKED D-260 — ports Bryan-gated; D-253..260 committed local, Bryan
+_Last updated: 2026-07-15, post-D-261 (lane 2 of the
+binding-divergence family PORTED; D-253..261 committed local, Bryan
 holds pushes)._
 
-**ACTIVE FRONTIER — the binding-divergence ports, Bryan-gated:
-COLD-START = `probes_pending/binding_divergence/HANDOFF.md`.** Both
-open binding-divergence xfails are CRACKED (D-260): fz_4242_286 =
-the D-106 halt-check materializes LAZY ga members before a sibling's
-inserts (visible via accumulate reverse-emission); fz_5150_1857 =
-the same-rule sibling-continue skips the eager flush, coalescing a
-no-loop self-join receiver's per-delta staging. 15-cell matrix +
-2 verified out-of-sample predictions; port sketches in the handoff
-(lane 2 likely smaller; ⚠ both sit in the D-106 region).
+**ACTIVE FRONTIER — binding-divergence LANE 1, Bryan-gated:
+COLD-START = `probes_pending/binding_divergence/HANDOFF.md`.**
+LANE 2 LANDED (D-261): `eager_flush()` extracted and run at the
+same-rule sibling-continue (a firing boundary, mirroring Drools'
+per-firing evaluateEagerList) — fz_5150_1857 CLOSED, plus
+fz_9103_1436 (agenda_open, dyn-salience receiver — unplanned
+out-of-sample instance of the same class) FAIL→PASS and graduated.
+Corpus 11/1195/402, drift 34, agenda_open ×16, complete TMS battery
+green (SD 72 EXACT, ird 0×5, 39/39, 6/6, 31/31, 26/26). LANE 1
+remains open, gated on this landing per Bryan: fz_4242_286 = the
+D-106 halt-check materializes LAZY ga members before a sibling's
+inserts (visible via accumulate reverse-emission); sketches in the
+handoff (⚠ touches the 88-witness halt matrix).
 
 **THE AGENDA LATE-CONTINUE LATENT IS CLOSED (D-258, Bryan-directed
 port).** The D-106 late-continue (engine.rs ~7215) now runs the D-091
@@ -14249,3 +14252,64 @@ exactly the 4 open cells FAIL; xfail drift 35 identical (finding-text
 edits only); cargo test 52/0. NO engine change in this entry — recon
 only. Not pushed, not tagged, no bump.
 — Bryan gates both ports.
+
+## D-261 — lane 2 PORTED: the eager-list flush runs at the same-rule sibling-continue (Bryan-approved red-first; complete TMS battery green; fz_5150_1857 + fz_9103_1436 close) (2026-07-15)
+
+Bryan approved lane 2 of D-260 ("red-first, validate-and-revert, full
+receipts including the complete TMS battery; lane 1 gated separately
+on lane 2's landing"). RED banked first: bd_d4 + xf_fz_5150_1857 both
+FAIL on `a782ad7`.
+
+THE EDIT: the between-firings flush — eager pass 1 (flush-pre +
+evaluate + flush-mid), pass 2 (flush-post drains +
+removeRuleAgendaItemWhenEmpty), and the D-211/F2 unstage bridge
+(engine.rs, formerly inline before the agenda pick) — is EXTRACTED to
+`eager_flush()` and now ALSO runs at the D-106 same-rule
+sibling-continue before `return Some(l)`. Rationale: the
+sibling-continue is a FIRING BOUNDARY — Drools' fireNextItem runs
+evaluateEagerList between every firing, continue or not; the engine's
+skip made a rule firing twice consecutively under focus coalesce an
+eager receiver's per-delta staging into one batch (D-260 lane 2). The
+PICK is unchanged (the executor keeps control per the certified D-106
+model) — only evaluation timing changes. The extraction is
+behaviorally inert on every other path (the corpus is byte-green).
+
+THE FLIPS: bd_d4 FAIL→PASS; fz_5150_1857 FAIL→PASS (drift movement =
+exactly this witness, nothing else); AND an unplanned out-of-sample
+instance — **fz_9103_1436** (agenda_open, D-106 disproof set)
+FAIL→PASS, 3×-oracle-stable: its receiver R2 is DYNAMIC-SALIENCE (the
+other eager-list class), coalesced across R0's consecutive gb
+firings. The mechanism predicted the class; the class delivered a
+witness it was never fitted to.
+
+GRADUATIONS: xf_fz_5150_1857 → scenarios/regressions/ (drift rebank
+35→34); fz_9103_1436 → scenarios/regressions/ (agenda_open ×17→×16 —
+⚠ receipts re-baseline again; the D-106 STANDING CAVEAT stands, its
+disproof set shrinks by 1); bd_d4 + the 4 lane-2 controls (bd_b4,
+bd_d3, bd_e1, bd_pred_b) → scenarios/probes/pr_bd_*. Corpus
+11/1190/400 → **11/1195/402**. LANE 1 (fz_4242_286, halt-check
+lazy-materialization) REMAINS OPEN and separately gated — its cells
+stay in probes_pending/binding_divergence/ (handoff updated with the
+lane-2 LANDED banner).
+
+Receipts (validate-and-revert: validate PASSED, nothing reverted):
+corpus 11/1195/402 ALL PASS + drift 34 identical post-rebank;
+lint-probes 1877/0/0; cargo test 52/0; **the complete TMS battery:
+SD census 72 EXACT (6+10+3+5+6+5+5+6+8+7+4+7) + model 0-div
+12×150/150; ird census 0-div ×5 (7001/7002/6001/6003/9001)
+model-clean 150/150 each, corners none; model_ird 31/31; witnesses
+26/26; validate_cells 39/39; interposer ladder 6/6**; agenda_open
+16/17 byte-identical vs clean `a782ad7` worktree + the 1 oracle-ward
+flip (graduated); bindings pytest 169 on the rebuilt .so; demo
+selfcheck green, LIVE==REPLAY True; release fuzz 3×2000 FRESH seeds
+(3141/6280/9424) 0 divergences, 0 xfail hits, failures/ untouched.
+Engine + scenarios + handoff. NOT pushed, NOT tagged, no bump.
+
+Still open: LANE 1 (fz_4242_286 + bd_a3/bd_min4242/bd_pred_a —
+Bryan's gate, sketches in the handoff); fz_31337_698 (oracle-side
+NPE); xf_cep_c_del_churn_exists_rule (D-138). Scope note kept from
+D-258: the LATE-continue path also returns before eager_flush — no
+witness diverges there (D-258/D-261 batteries both green through it);
+if one ever flushes, compose eager receiver × the late-continue
+trigger shape as the probe.
+— Bryan approved lane 2 (2026-07-15); lane 1 gated separately.

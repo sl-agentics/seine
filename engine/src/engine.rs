@@ -7006,6 +7006,109 @@ impl Engine {
         false
     }
 
+    /// The between-firings flush (Drools: evaluateEagerList inside
+    /// fireNextItem/haltRuleFiring, plus the D-211/F2 unstage bridge).
+    /// Runs before every agenda pick AND (D-261) at the same-rule
+    /// sibling-continue — every firing boundary, so eager receivers
+    /// stage per-delta exactly as often as Drools evaluates them.
+    fn eager_flush(&mut self) {
+        for i in 0..self.rule_order.len() {
+            let ri = self.rule_order[i];
+            // The eager list: no-loop rules AND dynamic-salience rules
+            // (RuleImpl.setSalience -> setEager(true)) — their networks
+            // evaluate per flush so item saliences are current before
+            // the agenda pop (D-043/se1).
+            if self.rules[ri].def.no_loop
+                || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
+            {
+                // D-076 flush-drain rules: NO-LOOP eager items drain
+                // only own-origin left hits (t20 dumps vs min3783);
+                // DYN-SALIENCE items drain UNCONDITIONALLY — their
+                // flush evaluation is the D-043 salience-currency
+                // machinery and Drools' dep removal rides it
+                // (fz_999_3020: the justifier's foreign-origin break
+                // lands before the witness pops).
+                let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
+                // D-196 (ip_a3 vs ip_c1/gt13): RIGHT-cause entries
+                // (self-defeat) flush-drain at the run end; LEFT-cause
+                // entries (update-break lane) drain only MID-RUN — the
+                // run's LAST break rides to the item's pop (the
+                // eval-consumption landing's (b) row: strictly-higher
+                // observers glimpse the zombie). D-201 (sdp7004x51,
+                // model land_eager mutfirst): the bit2 LATE-DEP ride
+                // exempts the bit1 lane too — a MUTFIRST self-defeat's
+                // last key rides drops[] to the pop (ip_a3's k0 entry
+                // has no bit2; unaffected).
+                self.tms_flush_drain(ri, dyn_sal, "flush-pre");
+                dbg_eval("eager", ri);
+                self.evaluate_rule(ri, false, true);
+                // D-201 (sdp7001x97, the eager decl-law): an entry
+                // pushed DURING ri's evaluation drains at ri's OWN
+                // eager-list slot — decl-AFTER deleters then receive
+                // the blocker ins+del FOLDED (gt6/x11 net-out) while
+                // decl-BEFORE ones, already evaluated, churn (x70).
+                if self.tms_flush_drain(ri, dyn_sal, "flush-mid") {
+                    self.evaluate_rule(ri, false, true);
+                }
+            }
+        }
+        // Pass 2 (D-198, sd_b4): drains produced BY the pass-1 flush
+        // evaluations run AFTER every eager rule evaluated — an
+        // or-twin's sibling branch consumes the in-firing block (its
+        // queue prunes) BEFORE the self-defeat drop un-breaks the not
+        // (Drools' one-item or semantics; evaluateEagerList inside
+        // haltRuleFiring — t20 pins pr_tms_selfbreak_flush /
+        // pr_tms_t20d unchanged).
+        for i in 0..self.rule_order.len() {
+            let ri = self.rule_order[i];
+            if self.rules[ri].def.no_loop
+                || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
+            {
+                let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
+                if self.tms_flush_drain(ri, dyn_sal, "flush-post") {
+                    self.evaluate_rule(ri, false, true);
+                }
+                // removeRuleAgendaItemWhenEmpty applies to EAGER
+                // evaluations too (fz_42_8775): an emptied item leaves
+                // the agenda and stops claiming shared-node windows.
+                // D-091: removal requires !dirty as well.
+                if self.nets[ri].queued
+                    && self.nets[ri].queue.is_empty()
+                    && !self.nets[ri].dirty
+                {
+                    self.nets[ri].queued = false;
+                }
+            }
+        }
+        // ⚖ D-211/F2 (the dynamic law's timing bridge, the D-201
+        // churn force-evaluate precedent): a freshly UNSTAGED fact's
+        // insert must reach every matching terminal AT THE FIRING
+        // BOUNDARY (Drools creates the act at the flush, while the
+        // fact is alive); a later delete then leaves the queued act
+        // to fire with the dead handle's values (the exempted queue
+        // cancels).
+        if !self.tms.force_eval.is_empty() {
+            let pending: Vec<FactId> = std::mem::take(&mut self.tms.force_eval);
+            for f in pending {
+                if !self.store.is_alive(f) {
+                    continue;
+                }
+                for ri in 0..self.rules.len() {
+                    let matches = self.rules[ri].patterns.iter().enumerate().any(
+                        |(pos, pat)| {
+                            pat.sub != SubRole::Inner
+                                && self.alpha_passes(ri, pos, f)
+                        },
+                    );
+                    if matches && self.nets[ri].dirty {
+                        dbg_eval("unstage-force", ri);
+                        self.evaluate_rule(ri, true, false);
+                    }
+                }
+            }
+        }
+    }
+
     fn next_activation(&mut self, last: Option<usize>) -> Option<usize> {
         self.spin_guard = 0; // E1-hardening: per-call non-termination budget
         if let Some(l) = last {
@@ -7237,105 +7340,22 @@ impl Engine {
                         }
                     }
                 } else if !higher && !self.focus_stack.is_empty() {
+                    // D-261 (fz_5150_1857, bd_d4): the same-rule
+                    // sibling-continue is a FIRING BOUNDARY — Drools'
+                    // fireNextItem runs evaluateEagerList between every
+                    // firing, continue or not. Without the flush here, a
+                    // rule firing twice consecutively under focus
+                    // coalesces an eager receiver's per-delta staging
+                    // into one batch (a self-join then emits
+                    // left-delta-major over the FINAL memory — bd_d4's
+                    // (N-2,N5) row before N5 existed). The pick is
+                    // unchanged: the executor keeps control (D-106).
+                    self.eager_flush();
                     return Some(l);
                 }
             }
         }
-        for i in 0..self.rule_order.len() {
-            let ri = self.rule_order[i];
-            // The eager list: no-loop rules AND dynamic-salience rules
-            // (RuleImpl.setSalience -> setEager(true)) — their networks
-            // evaluate per flush so item saliences are current before
-            // the agenda pop (D-043/se1).
-            if self.rules[ri].def.no_loop
-                || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
-            {
-                // D-076 flush-drain rules: NO-LOOP eager items drain
-                // only own-origin left hits (t20 dumps vs min3783);
-                // DYN-SALIENCE items drain UNCONDITIONALLY — their
-                // flush evaluation is the D-043 salience-currency
-                // machinery and Drools' dep removal rides it
-                // (fz_999_3020: the justifier's foreign-origin break
-                // lands before the witness pops).
-                let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
-                // D-196 (ip_a3 vs ip_c1/gt13): RIGHT-cause entries
-                // (self-defeat) flush-drain at the run end; LEFT-cause
-                // entries (update-break lane) drain only MID-RUN — the
-                // run's LAST break rides to the item's pop (the
-                // eval-consumption landing's (b) row: strictly-higher
-                // observers glimpse the zombie). D-201 (sdp7004x51,
-                // model land_eager mutfirst): the bit2 LATE-DEP ride
-                // exempts the bit1 lane too — a MUTFIRST self-defeat's
-                // last key rides drops[] to the pop (ip_a3's k0 entry
-                // has no bit2; unaffected).
-                self.tms_flush_drain(ri, dyn_sal, "flush-pre");
-                dbg_eval("eager", ri);
-                self.evaluate_rule(ri, false, true);
-                // D-201 (sdp7001x97, the eager decl-law): an entry
-                // pushed DURING ri's evaluation drains at ri's OWN
-                // eager-list slot — decl-AFTER deleters then receive
-                // the blocker ins+del FOLDED (gt6/x11 net-out) while
-                // decl-BEFORE ones, already evaluated, churn (x70).
-                if self.tms_flush_drain(ri, dyn_sal, "flush-mid") {
-                    self.evaluate_rule(ri, false, true);
-                }
-            }
-        }
-        // Pass 2 (D-198, sd_b4): drains produced BY the pass-1 flush
-        // evaluations run AFTER every eager rule evaluated — an
-        // or-twin's sibling branch consumes the in-firing block (its
-        // queue prunes) BEFORE the self-defeat drop un-breaks the not
-        // (Drools' one-item or semantics; evaluateEagerList inside
-        // haltRuleFiring — t20 pins pr_tms_selfbreak_flush /
-        // pr_tms_t20d unchanged).
-        for i in 0..self.rule_order.len() {
-            let ri = self.rule_order[i];
-            if self.rules[ri].def.no_loop
-                || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
-            {
-                let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
-                if self.tms_flush_drain(ri, dyn_sal, "flush-post") {
-                    self.evaluate_rule(ri, false, true);
-                }
-                // removeRuleAgendaItemWhenEmpty applies to EAGER
-                // evaluations too (fz_42_8775): an emptied item leaves
-                // the agenda and stops claiming shared-node windows.
-                // D-091: removal requires !dirty as well.
-                if self.nets[ri].queued
-                    && self.nets[ri].queue.is_empty()
-                    && !self.nets[ri].dirty
-                {
-                    self.nets[ri].queued = false;
-                }
-            }
-        }
-        // ⚖ D-211/F2 (the dynamic law's timing bridge, the D-201
-        // churn force-evaluate precedent): a freshly UNSTAGED fact's
-        // insert must reach every matching terminal AT THE FIRING
-        // BOUNDARY (Drools creates the act at the flush, while the
-        // fact is alive); a later delete then leaves the queued act
-        // to fire with the dead handle's values (the exempted queue
-        // cancels).
-        if !self.tms.force_eval.is_empty() {
-            let pending: Vec<FactId> = std::mem::take(&mut self.tms.force_eval);
-            for f in pending {
-                if !self.store.is_alive(f) {
-                    continue;
-                }
-                for ri in 0..self.rules.len() {
-                    let matches = self.rules[ri].patterns.iter().enumerate().any(
-                        |(pos, pat)| {
-                            pat.sub != SubRole::Inner
-                                && self.alpha_passes(ri, pos, f)
-                        },
-                    );
-                    if matches && self.nets[ri].dirty {
-                        dbg_eval("unstage-force", ri);
-                        self.evaluate_rule(ri, true, false);
-                    }
-                }
-            }
-        }
+        self.eager_flush();
         // Agenda pop (D-008/D-043): items order by (item salience DESC,
         // decl index ASC). Static items carry their constant; DYNAMIC
         // items track their queue top (0 while empty/unevaluated) and

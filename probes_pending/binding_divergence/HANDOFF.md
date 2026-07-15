@@ -1,5 +1,16 @@
 # HANDOFF — the binding-divergence family (fz_4242_286 + fz_5150_1857): TWO mechanisms pinned, ports pending
 
+**LANE 2 LANDED 2026-07-15 (D-261, Bryan-approved: red-first,
+validate-and-revert, complete TMS battery — all green, no revert).**
+The eager-list flush is extracted to `eager_flush()` and runs at the
+same-rule sibling-continue (a firing boundary). fz_5150_1857 +
+fz_9103_1436 (agenda_open, dyn-salience variant — an unplanned
+out-of-sample instance) graduated to scenarios/regressions/; bd_d4 +
+4 lane-2 controls graduated to scenarios/probes/pr_bd_*. agenda_open
+is now ×16. **LANE 1 REMAINS OPEN, gated separately** — its cells
+(bd_min4242, bd_a3, bd_pred_a + controls) stay below; fz_4242_286
+stays xfail'd. See D-261 for the landing receipts.
+
 Recon DONE (2026-07-15, session after D-258/D-259, HEAD `19a3fe2`;
 Bryan directed the arc: "Start on fz_4242_286 + fz_5150_1857"). Both
 xfail witnesses are cracked. They are the SAME probe family (agenda
