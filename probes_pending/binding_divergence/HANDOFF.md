@@ -1,15 +1,32 @@
 # HANDOFF — the binding-divergence family (fz_4242_286 + fz_5150_1857): TWO mechanisms pinned, ports pending
 
+**BOTH LANES LANDED — THE ARC IS CLOSED.**
+
+**LANE 1 LANDED 2026-07-15 (D-262, Bryan-approved with the
+no-order-pinning constraint as the deliverable).** The halt-check
+peek now walks the group's members in PICK order (item salience
+DESC, decl ASC) and STOPS at the first live item — members below it
+stay dirty and materialize at their own pop (Drools' lazy timing).
+NO ordering was encoded: the fix only narrows WHICH members the peek
+evaluates; queue construction and emission are untouched. Four
+order-pin guard cells (pr_bd_g1..g4) certify the constraint — g1
+(update re-stage), g2 (delete cancel), g3 (join-fed accumulate)
+would diverge under any synthetic merge/sort rule; g4 (receiver
+decl-first, salience-lower) discriminates decl-order walks.
+fz_4242_286 graduated to scenarios/regressions/; bonus oracle-ward
+flip fz_9105_8945 (agenda_open, lazy self-join receiver — lane 1's
+unplanned out-of-sample instance) graduated too (agenda_open ×15).
+All remaining family cells graduated to scenarios/probes/pr_bd_*;
+this HANDOFF is the arc record. See D-262.
+
 **LANE 2 LANDED 2026-07-15 (D-261, Bryan-approved: red-first,
 validate-and-revert, complete TMS battery — all green, no revert).**
 The eager-list flush is extracted to `eager_flush()` and runs at the
 same-rule sibling-continue (a firing boundary). fz_5150_1857 +
 fz_9103_1436 (agenda_open, dyn-salience variant — an unplanned
 out-of-sample instance) graduated to scenarios/regressions/; bd_d4 +
-4 lane-2 controls graduated to scenarios/probes/pr_bd_*. agenda_open
-is now ×16. **LANE 1 REMAINS OPEN, gated separately** — its cells
-(bd_min4242, bd_a3, bd_pred_a + controls) stay below; fz_4242_286
-stays xfail'd. See D-261 for the landing receipts.
+4 lane-2 controls graduated to scenarios/probes/pr_bd_*. See D-261
+for the landing receipts.
 
 Recon DONE (2026-07-15, session after D-258/D-259, HEAD `19a3fe2`;
 Bryan directed the arc: "Start on fz_4242_286 + fz_5150_1857"). Both

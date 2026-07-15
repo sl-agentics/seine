@@ -1,0 +1,64 @@
+{
+ "name": "pr_bd_g4",
+ "drl": "rule \"W\"\nagenda-group \"ga\"\nwhen\n    T1($x : f1)\n    accumulate(T0(f0 == \"zz\"); $n : count())\nthen\nend\nrule \"R2\"\nsalience 2\nagenda-group \"ga\"\nwhen\n    T0()\nthen\n    insert(new T1(7.0, 3.0, true, false));\nend\nrule \"R5\"\nwhen\n    T1($y : f2)\nthen\n    drools.setFocus(\"ga\");\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 1.5,
+    "f1": 0.5,
+    "f2": true,
+    "f3": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 6.0,
+    "f1": 0.0,
+    "f2": false,
+    "f3": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b"
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "faithful-timing GUARD: the receiver W is DECLARED BEFORE the inserter R2 but sits at LOWER salience. A decl-order peek walk would still materialize W early; Drools' salience-ordered peek stops at R2 and leaves W lazy. Discriminates pick-order vs decl-order implementations."
+}

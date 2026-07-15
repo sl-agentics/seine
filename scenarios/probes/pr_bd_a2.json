@@ -1,0 +1,64 @@
+{
+ "name": "pr_bd_a2",
+ "drl": "rule \"R2\"\nsalience 2\nagenda-group \"ga\"\nwhen\n    T0()\nthen\n    insert(new T1(6.0, 2.0, true, true));\nend\nrule \"R4\"\nagenda-group \"ga\"\nwhen\n    T1($x : f0)\n    T0()\nthen\nend\nrule \"R5\"\nwhen\n    T1($y : f2)\nthen\n    drools.setFocus(\"ga\");\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 1.5,
+    "f1": 0.5,
+    "f2": true,
+    "f3": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 6.0,
+    "f1": 0.0,
+    "f2": false,
+    "f3": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b"
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "mutation of bd_a: receiver is a 2-pattern JOIN (T1 x T0). Splits single-pattern vs join queue staging."
+}

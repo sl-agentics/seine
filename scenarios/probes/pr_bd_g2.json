@@ -1,0 +1,64 @@
+{
+ "name": "pr_bd_g2",
+ "drl": "rule \"R2\"\nsalience 4\nagenda-group \"ga\"\nwhen\n    $p : T1(f0 == 6.0, f1 == 0.0)\nthen\n    delete($p);\nend\nrule \"R6\"\nsalience 2\nagenda-group \"ga\"\nwhen\n    T0()\nthen\n    insert(new T1(7.0, 3.0, true, false));\nend\nrule \"W\"\nagenda-group \"ga\"\nwhen\n    T1($x : f1)\n    accumulate(T0(f0 == \"zz\"); $n : count())\nthen\nend\nrule \"R5\"\nwhen\n    T0($y : f0)\nthen\n    drools.setFocus(\"ga\");\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 1.5,
+    "f1": 0.5,
+    "f2": true,
+    "f3": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 6.0,
+    "f1": 0.0,
+    "f2": false,
+    "f3": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b"
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "order-pin GUARD: a peek-batch member (t1b) is DELETED before W's pop while a fresh insert lands. A pinned pre-built order must cancel-and-splice; the deferred lazy evaluation never sees t1b at all."
+}

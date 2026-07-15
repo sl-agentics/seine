@@ -1,0 +1,64 @@
+{
+ "name": "pr_bd_g1",
+ "drl": "rule \"R2\"\nsalience 4\nagenda-group \"ga\"\nwhen\n    $p : T1(f0 == 1.5)\nthen\n    modify($p) { setF1(9.0) }\nend\nrule \"R6\"\nsalience 2\nagenda-group \"ga\"\nwhen\n    T0()\nthen\n    insert(new T1(7.0, 3.0, true, false));\nend\nrule \"W\"\nagenda-group \"ga\"\nwhen\n    T1($x : f1)\n    accumulate(T0(f0 == \"zz\"); $n : count())\nthen\nend\nrule \"R5\"\nwhen\n    T0($y : f0)\nthen\n    drools.setFocus(\"ga\");\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 1.5,
+    "f1": 0.5,
+    "f2": true,
+    "f3": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 6.0,
+    "f1": 0.0,
+    "f2": false,
+    "f3": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b"
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "order-pin GUARD (D-262 deliverable): the oldest fact t1a is UPDATED (re-staged) between the peek and W's pop, plus a fresh insert. Reverse-fact-insertion, reverse-staging, and seq-sort pins all disagree here; only a genuine deferred lazy evaluation at the pop reproduces the oracle."
+}

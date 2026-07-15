@@ -7295,13 +7295,36 @@ impl Engine {
                     // MAIN-dyn} measured WORSE (77-81 vs 83) — the
                     // continue consults no other groups' queues.
                     let top_owned = top_now.to_string();
-                    let members: Vec<usize> = (0..self.rules.len())
+                    let mut members: Vec<usize> = (0..self.rules.len())
                         .filter(|&rj| {
                             self.rules[rj].def.agenda_group.as_deref().unwrap_or("MAIN")
                                 == top_owned
                         })
                         .collect();
+                    // D-262 (fz_4242_286, bd_a3/bd_g4): the peek walks the
+                    // group's items in PICK order (item salience DESC, decl
+                    // ASC — the agenda's own order) and STOPS at the first
+                    // live one. top_empty is an EXISTENCE question; members
+                    // below the stop point stay dirty and materialize at
+                    // their own pop — Drools' lazy timing, so a sibling's
+                    // later inserts land inside their single at-pop
+                    // evaluation (certified emission machinery) instead of
+                    // appending to a peek-pinned batch. NO ordering is
+                    // encoded here: the fix only narrows WHICH members the
+                    // peek evaluates; queue construction is untouched. The
+                    // all-empty (continue) case still evaluates every
+                    // member — the 88-witness halt matrix outcomes and the
+                    // D-258 late-continue below are decided by the same
+                    // boolean as before.
+                    members.sort_by_key(|&rj| {
+                        (std::cmp::Reverse(self.item_salience(rj)), self.rules[rj].def.decl_pos)
+                    });
+                    let mut top_nonempty = false;
                     for &rj in &members {
+                        if self.nets[rj].queued && !self.nets[rj].queue.is_empty() {
+                            top_nonempty = true;
+                            break;
+                        }
                         if self.nets[rj].queued
                             && self.nets[rj].queue.is_empty()
                             && self.nets[rj].dirty
@@ -7310,11 +7333,13 @@ impl Engine {
                             if self.nets[rj].queue.is_empty() && !self.nets[rj].dirty {
                                 self.nets[rj].queued = false;
                             }
+                            if !self.nets[rj].queue.is_empty() {
+                                top_nonempty = true;
+                                break;
+                            }
                         }
                     }
-                    let top_empty = !members
-                        .iter()
-                        .any(|&rj| self.nets[rj].queued && !self.nets[rj].queue.is_empty());
+                    let top_empty = !top_nonempty;
                     if top_empty && pre_force_qlen > 0 {
                         // D-258 (fz_9901_1221 + fz_9104_5192/fz_9202_2058):
                         // the late-continue is a CONTINUE path, so the D-091

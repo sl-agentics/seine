@@ -1,0 +1,64 @@
+{
+ "name": "pr_bd_b3",
+ "drl": "rule \"R2\"\nsalience 2\nwhen\n    T0()\nthen\n    insert(new T1(6.0, 2.0, true, true));\nend\nrule \"R4\"\nwhen\n    T1($x : f0)\n    accumulate(T0(f0 == \"zz\"); $n : count())\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 1.5,
+    "f1": 0.5,
+    "f2": true,
+    "f3": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 6.0,
+    "f1": 0.0,
+    "f2": false,
+    "f3": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b"
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "accumulate receiver WITHOUT setFocus: R2@2 fires first in MAIN, R4 lazy-evaluates after the insert (one batch both sides). Splits timing vs emission-regime for the accumulate lane."
+}

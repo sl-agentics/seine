@@ -11,46 +11,25 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-15, post-D-261 (lane 2 of the
-binding-divergence family PORTED; D-253..261 committed local, Bryan
-holds pushes)._
+_Last updated: 2026-07-15, post-D-262 (BOTH lanes of the
+binding-divergence family PORTED — the arc is CLOSED; D-258..261
+PUSHED (Bryan-directed, `9c4e23a..4fa7c37`); D-262 committed local,
+Bryan holds pushes)._
 
-**ACTIVE FRONTIER — binding-divergence LANE 1, Bryan-gated:
-COLD-START = `probes_pending/binding_divergence/HANDOFF.md`.**
-LANE 2 LANDED (D-261): `eager_flush()` extracted and run at the
-same-rule sibling-continue (a firing boundary, mirroring Drools'
-per-firing evaluateEagerList) — fz_5150_1857 CLOSED, plus
-fz_9103_1436 (agenda_open, dyn-salience receiver — unplanned
-out-of-sample instance of the same class) FAIL→PASS and graduated.
-Corpus 11/1195/402, drift 34, agenda_open ×16, complete TMS battery
-green (SD 72 EXACT, ird 0×5, 39/39, 6/6, 31/31, 26/26). LANE 1
-remains open, gated on this landing per Bryan: fz_4242_286 = the
-D-106 halt-check materializes LAZY ga members before a sibling's
-inserts (visible via accumulate reverse-emission); sketches in the
-handoff (⚠ touches the 88-witness halt matrix).
-
-**THE AGENDA LATE-CONTINUE LATENT IS CLOSED (D-258, Bryan-directed
-port).** The D-106 late-continue (engine.rs ~7215) now runs the D-091
-continue-path self re-evaluation before returning the just-fired rule
-— fz_9901_1221 (4→2) plus the two same-family D-106 disproof
-witnesses fz_9104_5192/fz_9202_2058 all PASS and are GRADUATED to
-scenarios/regressions/; the 9 alc_ discriminator cells + 5 new
-alc_tms_ recon cells graduated to scenarios/probes/pr_alc_*. The open
-TMS-drain-scope decision was answered NO by probe (deferred entries
-staged at the late-continue force drain at the existing pop-site
-drain; 4 lanes oracle-identical — see D-258). Corpus is now
-11/1190/400; drift bank 35→34 (graduation) →35 (the fresh-seed find
-below); agenda_open ×19→×17 (the D-106 halt-model disproof set
-shrinks by 2; the caveat itself STANDS). Battery-fuzz fresh find
-fz_5150_1857 (seed 5150): a binding divergence, bisected
-PRE-EXISTING at 9c4e23a, quarantined `xf_fz_5150_1857` —
-fz_4242_286's class. Arc record:
-`probes_pending/agenda_late_continue/HANDOFF.md` (marked LANDED).
-The handoff's last remaining item — the D-255 xf_ rename broke
-name-keyed fuzz suppression — is FIXED (D-259, harness-only; both
-name generations now suppress). Open xfail latents: fz_4242_286 + fz_5150_1857 (binding-divergence
-family), fz_31337_698 (oracle-side NPE, upstream candidate),
-xf_cep_c_del_churn_exists_rule (D-138 deferred re-entrant variant).
+**NO ACTIVE BUILD — next is Bryan's call.** The binding-divergence
+arc closed (D-260 recon, D-261 lane 2, D-262 lane 1): eager_flush at
+the sibling-continue + the salience-ordered halt-check peek walk
+(stops at the first live item; no lazy batch order pinned —
+guard-certified by pr_bd_g1..g4). Four open agenda witnesses
+resolved along the way (fz_5150_1857, fz_9103_1436, fz_4242_286,
+fz_9105_8945); agenda_open ×15 (the D-106 caveat and its core five
+stand); corpus 11/1209/404, drift 36, lint 1882/0/0. Open ledger:
+fz_7331_973 + fz_8087_1020 (fresh D-262 fuzz latents, bisected
+pre-existing, own triage); the oracle-NPE class ×2 (fz_31337_698 +
+fz_8087_1043 — upstream report candidate); the D-258 scope note
+(late-continue × eager receiver — no witness); D-106 core five;
+xf_cep_c_del_churn_exists_rule (D-138). Arc record:
+`probes_pending/binding_divergence/HANDOFF.md`.
 
 _Prior (post-D-211): (TMS-envelope arc: **THE
 I-RD PORT IS LANDED AND TOTAL** (Bryan-gated) — three families
@@ -14313,3 +14292,98 @@ witness diverges there (D-258/D-261 batteries both green through it);
 if one ever flushes, compose eager receiver × the late-continue
 trigger shape as the probe.
 — Bryan approved lane 2 (2026-07-15); lane 1 gated separately.
+
+## D-262 — lane 1 PORTED: the halt-check peek walks in pick order and stops at the first live item (Bryan-approved; THE CONSTRAINT WAS THE DELIVERABLE: no lazy batch order pinned — guard-certified; fz_4242_286 + fz_9105_8945 close; the binding-divergence arc is CLOSED) (2026-07-15)
+
+Bryan approved lane 1 with the constraint stated as the deliverable:
+halt-check emptiness WITHOUT pinning lazy batch order — "the moment
+the fix encodes an ordering the oracle never certified, you've traded
+a divergence for an overreached scope (§5.2) inside the D-106
+region"; if inexpressible without committing to an order, STOP AND
+REPORT. RED banked first: bd_a3, bd_min4242, bd_pred_a, bd_g4,
+xf_fz_4242_286 all FAIL on `4fa7c37`.
+
+THE CONSTRAINT, SATISFIED BY CONSTRUCTION: the fix encodes NO
+ordering. The D-106 halt-check peek (engine.rs ~7297) used to
+force-evaluate ALL empty+dirty members of the focused group — the
+early materialization that pinned lazy receivers' batch order before
+a sibling's inserts (D-260 lane 1). It now walks the members in PICK
+order (item salience DESC, decl ASC — the agenda's own certified
+order) and STOPS at the first live item: already-queued-nonempty
+stops without evaluating anything; an empty+dirty member that
+evaluates nonempty stops the walk below it. Members below the stop
+point stay dirty and materialize at their own pop — Drools' lazy
+timing — so a sibling's later inserts land INSIDE their single
+at-pop evaluation (the certified emission machinery, bd_b3's path)
+instead of appending to a peek-pinned batch. top_empty is the same
+boolean as before: an EXISTENCE question, now answered by the walk's
+stop. The all-empty (continue / D-258 late-continue) case still
+evaluates every member — the certified halt/continue decisions are
+unchanged by construction. Queue construction, push_activation, and
+every emission path are byte-untouched. The faithfulness argument
+rides the D-106 matrix's own result: "eval-dirty" (83/88) is exactly
+the behavioral signature of a salience-ordered peek that evaluates
+items until the first live one — evaluateNetworkIfDirty at the peek
+of EACH candidate in order, not a bulk pre-materialization.
+
+THE GUARD CELLS (the deliverable, filed as pr_bd_g1..g4): shapes
+where any fix that COMMITS to an ordering diverges from the oracle.
+g1 (a peek-batch member UPDATED/re-staged mid-window + a fresh
+insert: reverse-fact-insertion, reverse-staging, and seq-sort pins
+all disagree), g2 (a peek-batch member DELETED mid-window: a pinned
+pre-built order must cancel-and-splice), g3 (join-fed accumulate:
+"reverse insertion of WHICH fact" — any fact-based rule must choose),
+g4 (receiver DECLARED FIRST at LOWER salience: a decl-order walk
+would still peek-materialize it; FAILED on HEAD, flips under the
+salience-ordered walk — pins pick-order as the faithful walk). g1-g3
+PASS on HEAD and STAY PASS (nothing pinned); g4 was the fifth red.
+
+THE FLIPS: bd_a3, bd_min4242, bd_pred_a, bd_g4, fz_4242_286 — all
+FAIL→PASS. Plus the arc-pattern bonus: **fz_9105_8945** (agenda_open)
+FAIL→PASS, 3×-oracle-stable — a LAZY SELF-JOIN receiver below an
+insertLogical-ing sibling in gb (lane 1's timing, the bd_d3-certified
+lazy one-batch emission). Each lane's landing has now resolved one
+agenda_open witness it was never fitted to (lane 2: fz_9103_1436
+dyn-salience; lane 1: fz_9105_8945 lazy self-join).
+
+THE 88-WITNESS HALT MATRIX: byte-identical. Superset run = 99
+witnesses (scenarios/failures/ 66 halt-era + agenda_open 16 +
+graduated fz_91xx/92xx/9901 + pr_ag*): 98/99 byte-identical pre/post,
+the 1 movement = fz_9105_8945's oracle-ward flip above. agenda_open
+15/16 byte-identical + that flip (×16→×15 after graduation; the
+D-106 STANDING CAVEAT and its five core witnesses
+7397/6467/214/873/2842 stand untouched — the periphery keeps
+shrinking, the core remains).
+
+FUZZ (3 fresh seeds × 2000: 1618/7331/8087): seed 1618 CLEAN; three
+finds, ALL byte-identical on pre-edit `4fa7c37` (diff output AND
+engine run compared) — pre-existing latents, quarantined per D-255:
+xf_fz_7331_973 (firing[16]), xf_fz_8087_1020 (firing[5]),
+xf_fz_8087_1043 (**oracle-side NPE, the fz_31337_698
+Tuple.getStagedType class — upstream candidate**). Drift rebank:
+34 −1 (fz_4242_286 graduated) +3 (quarantines) = 36.
+
+GRADUATIONS: fz_4242_286 + fz_9105_8945 → scenarios/regressions/;
+the whole remaining bd family (10 cells) + the 4 guards →
+scenarios/probes/pr_bd_* — 14 files; probes_pending/
+binding_divergence/ keeps HANDOFF.md as the arc record (both lanes
+marked LANDED). **THE BINDING-DIVERGENCE ARC IS CLOSED.** Corpus
+11/1195/402 → **11/1209/404**.
+
+Receipts (validate-and-revert: validated, nothing reverted): corpus
+11/1209/404 ALL PASS + drift 36 identical post-rebank; lint-probes
+1882/0/0; cargo test 52/0; the complete TMS battery: SD census 72
+EXACT (6+10+3+5+6+5+5+6+8+7+4+7) + model 0-div 12×150/150, ird
+census 0-div ×5 model-clean corners-none, model_ird 31/31, witnesses
+26/26, validate_cells 39/39, interposer 6/6; the halt-matrix superset
+98/99 + 1 oracle-ward; bindings pytest 169 on the rebuilt .so; demo
+LIVE==REPLAY True. Engine + scenarios + handoff. NOT pushed (D-261
+push was Bryan-directed; this stays local for his review), NOT
+tagged, no bump.
+
+Still open: fz_7331_973 / fz_8087_1020 (fresh latents, own triage);
+the oracle-NPE class now ×2 (fz_31337_698 + fz_8087_1043 — upstream
+report candidate has a second witness); xf_cep_c_del_churn_exists_rule
+(D-138). The D-106 core five stand.
+— Bryan approved lane 1 with the constraint as deliverable; the
+constraint held without a stop-and-report.

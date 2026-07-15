@@ -1,0 +1,1148 @@
+{
+ "drl": "rule \"R0\"\nsalience -7\nagenda-group \"gb\"\nwhen\n    T2(f0 in (\"ab\", \"b\"), f1 >= 5.5 && f1 <= 0.5, $b0_0_0 : f2, $b0_0_1 : f0)\n    T1()\nthen\nend\nquery Q0(long $qa0_0, long $qa0_1, long $qa0_2)\n    ( $qp0_0 : T1(f0 == $qa0_0, f0 == $qa0_1, f0 < 10, $qb0_0 : f0) and $qp0_1 : T1(f0 == $qa0_2) )\n    or\n    ( $qp0_2 : T2() and $qp0_3 : T2(f2 != true, $qb0_1 : f2, $qb0_2 : f2) )\n    or\n    ( $qp0_4 : T2() )\nend\n\nrule QR0\nwhen\n    T2($qr0_b0 : f1)\n    ?Q0(10, 5, -2;)\nthen\n    insert(new QOut(1, -2, 2.5, \"alpha\", false));\nend\n\nrule QR1 salience 10\nwhen\n    T1($qr1_b0 : f0)\n    T1(f0 >= 9)\n    ?Q0(-5, $qr1_b0, $qr1_b0;)\nthen\n    insert(new QOut(2, $qr1_b0, $qr1_b0, \"b\", true));\nend\n\nrule QR2\nwhen\n    ?Q0(100, 7, 8;)\nthen\n    insert(new QOut(3, 3, 3.5, \"ab\", false));\nend\n\nquery QSwarm(long $v)\n    SwarmT(k == $v)\nend\n\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": "b",
+    "f1": 5.5,
+    "f2": true
+   },
+   "type": "T2"
+  },
+  {
+   "fields": {
+    "f0": "",
+    "f1": true
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 7
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 0
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": "",
+    "f1": -2.5,
+    "f2": false
+   },
+   "type": "T2"
+  },
+  {
+   "fields": {
+    "k": 641276
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 424428
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 962674
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 201698
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 29227
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 50302
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 716605
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 587383
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 920246
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 447067
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 953272
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 743537
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 334972
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 215623
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 505733
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 7697
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 779501
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 608194
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 452644
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 466782
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 887181
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 84487
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 713444
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 571637
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 897970
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 12711
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 859709
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 548229
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 489371
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 493991
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 967379
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 156218
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 644134
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 337514
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 302256
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 380546
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 272749
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 520702
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 446540
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 73200
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 286603
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 678677
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 493647
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 592312
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 755211
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 612682
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 9650
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 641972
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 67462
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 663728
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 171228
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 383381
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 299649
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 687832
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 258533
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 130439
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 735160
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 779911
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 961808
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 168979
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 656712
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 566807
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 582674
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 950576
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 475299
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 223379
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 329562
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 288753
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 605421
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 464480
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 229929
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 84256
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 529859
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 175185
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 762352
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 257709
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 345499
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 215282
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 170955
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 401997
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 169722
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 899563
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 185597
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 721459
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 584525
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 879091
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 718198
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 538800
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 341205
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 53923
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 612577
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 666245
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 835831
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 761558
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 67375
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 644273
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 752823
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 946956
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 641607
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 364854
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 428341
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 916587
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 285548
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 447868
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 104012
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 360841
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 281061
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 626809
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 176071
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 413201
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 202314
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 808002
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 471818
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 450897
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 771982
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 935497
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 630326
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 652752
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 25480
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 210705
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 66175
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 72499
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 344005
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 444460
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 768349
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 449589
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 86665
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 377349
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 949742
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 392769
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 716649
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 603676
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 289314
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 223378
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 170766
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 601946
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 86428
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 72904
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 792448
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 988913
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 988099
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 866125
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 318671
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 558164
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 148470
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 721833
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 508215
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 639590
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 275617
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 883610
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 789554
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 109638
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 61569
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 868722
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 515577
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 718200
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 857556
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 38520
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 763068
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 697559
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 948338
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 37231
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 903806
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 601758
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 860918
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 695962
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 926521
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 272317
+   },
+   "type": "SwarmT"
+  },
+  {
+   "fields": {
+    "k": 270666
+   },
+   "type": "SwarmT"
+  }
+ ],
+ "name": "fz_8087_1043",
+ "queries": [
+  {
+   "args": [
+    3,
+    -1000000007,
+    null
+   ],
+   "call": "Q0"
+  },
+  {
+   "args": [
+    null
+   ],
+   "call": "QSwarm"
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "i",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    },
+    {
+     "name": "z",
+     "type": "bool"
+    }
+   ],
+   "name": "QOut"
+  },
+  {
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ],
+   "name": "SwarmT"
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-262 fresh-seed population find (seed 8087 x 2000): ORACLE-SIDE NPE (Tuple.getStagedType() on null tuple) while the engine succeeds - the fz_31337_698 class (upstream candidate). Byte-identical on pre-edit 4fa7c37; engine output stable. NOT a D-262 regression."
+}
