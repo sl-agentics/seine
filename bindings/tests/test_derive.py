@@ -36,7 +36,9 @@ def haversine_ref(lat1, lon1, lat2, lon2):
 
 
 # (lat1, lon1, lat2, lon2, ~true_dist_m, must_emit) — the round-27
-# battery vectors (reviewer-supplied, commit 8fecbaf), verbatim.
+# battery vectors (reviewer-supplied, commit 8fecbaf) verbatim, plus
+# the round-28 D1/D2 vectors (the over-the-pole and boundary-shell
+# geometries the D-250 prune falsely dropped).
 VECTORS = [
     (40.0, -0.117, 40.0, 0.117, 19932, True),    # demo opening separation
     (40.0, 0.00, 40.0, 0.04, 3407, True),        # benign control
@@ -47,6 +49,15 @@ VECTORS = [
     (40.0, 0.0, 40.0, 0.0, 0, True),             # identity
     (40.0, 0.0, 40.0, 0.5, 42704, False),        # comfortably outside
     (40.0, 0.0, 40.0, 1.0, 85394, False),        # outside
+    # round 28 (D1): over-the-pole convergence geometry
+    (90.0, 0.0, 90.0, 180.0, 0, True),           # pole identity, wrapped 180
+    (89.99, 0.0, 89.99, 180.0, 2224, True),      # over the pole, cap zone
+    (-89.9, -179.99, -89.9, 0.0, 22239, True),   # the D-251 pole-band gap
+    (89.876, 0.0, 89.876, 130.0, 24996, True),   # deep band: great-circle
+                                                 # undercuts the parallel arc
+    (89.5, 0.0, 89.5, 180.0, 111195, False),     # over-pole but outside
+    # round 28 (D2): the old 111320 constant's falsely-pruned shell
+    (0.0, 0.0, 0.0, 0.224578, 24972, True),
 ]
 
 
@@ -154,11 +165,11 @@ def test_pair_candidates_int_ids():
 
 def test_pair_candidates_prune_is_superset_of_truth():
     """The prune may keep a >radius pair (it is a bbox), but must not
-    drop a <=radius pair — sweep a lat/lon grid against ground truth.
-    Grid capped at |lat| 89.5: above that sits the KNOWN pole-band gap
-    of the pinned D-250 geometry (see test_pole_band_antipodal_gap)."""
+    drop a <=radius pair — sweep a lat/lon grid against ground truth,
+    poles included (the round-28 D1 fix closed the pole-band gap the
+    old grid had to step around)."""
     import itertools
-    lats = [-89.5, -45.0, 0.0, 40.0, 89.5]
+    lats = [-90.0, -89.99, -89.9, -89.5, -45.0, 0.0, 40.0, 89.5, 89.9, 89.99, 90.0]
     lons = [-179.99, -90.0, 0.0, 0.2, 179.99]
     pts = [(la, lo) for la, lo in itertools.product(lats, lons)]
     for i, (la1, lo1) in enumerate(pts):
@@ -173,22 +184,126 @@ def test_pair_candidates_prune_is_superset_of_truth():
                     f"({la1},{lo1})-({la2},{lo2})")
 
 
-def test_pole_band_antipodal_gap_is_demo_identical():
-    """KNOWN LIMIT of the pinned D-250 geometry, reproduced exactly
-    (bit-compatibility with the demo's polars stage is this arc's
-    contract): in the narrow pole band — mean |lat| between ~89.89
-    (below which over-the-pole pairs exceed the radius) and ~89.93
-    (above which the lon threshold saturates to 180) — a
-    near-antipodal-lon pair can be INSIDE the radius over the pole yet
-    outside the cos(lat)-scaled lon threshold. Here: true dist ~22239m
-    < 25km, wrapped dlon 179.99 deg > threshold ~128.7 deg -> no
-    emission, in the demo and the kernel alike. Flagged in D-251 as a
-    candidate future-round cell; a geometry change is a joint
-    demo+kernel+battery decision, not a kernel-side fix."""
-    rows = {"icao": ["A", "B"], "lat": [-89.9, -89.9],
-            "lon": [-179.99, 0.0]}
-    assert haversine_ref(-89.9, -179.99, -89.9, 0.0) < RADIUS_M
-    assert len(derive.pair_candidates(rows, id="icao")) == 0
+def test_pole_band_gap_closed_and_superset_random_sweep():
+    """The D-251 pole-band gap is CLOSED (round 28, D1/D2): the prune's
+    contract is completeness — every pair with true haversine distance
+    <= radius emits. Verified by a fixed-seed randomized sweep biased
+    at the hard geometries (poles, antimeridian, boundary shell)."""
+    import random
+    rng = random.Random(2028)
+    checked = inside = 0
+    for _ in range(3000):
+        mode = rng.randrange(4)
+        if mode == 0:      # near-pole band, wide lons
+            la1 = rng.choice([1, -1]) * (89.7 + rng.random() * 0.3)
+            la2 = la1 + (rng.random() - 0.5) * 0.4
+            lo1, lo2 = rng.uniform(-180, 180), rng.uniform(-180, 180)
+        elif mode == 1:    # antimeridian straddle
+            la1 = rng.uniform(-89.99, 89.99); la2 = la1 + (rng.random() - 0.5) * 0.4
+            lo1 = 179.9 + rng.random() * 0.2
+            if lo1 > 180: lo1 -= 360
+            lo2 = -179.9 - rng.random() * 0.2
+            if lo2 < -180: lo2 += 360
+        elif mode == 2:    # boundary shell at random latitude
+            la1 = rng.uniform(-89.0, 89.0); la2 = la1
+            arc = RADIUS_M / 111_194.9266
+            lo1 = rng.uniform(-180, 180)
+            lo2 = lo1 + arc / max(math.cos(math.radians(la1)), 1e-6) * rng.uniform(0.9, 1.0)
+        else:              # generic near pair
+            la1 = rng.uniform(-90, 90); la2 = max(-90, min(90, la1 + (rng.random() - 0.5) * 0.5))
+            lo1 = rng.uniform(-180, 180); lo2 = lo1 + (rng.random() - 0.5) * 0.7
+        d = haversine_ref(la1, lo1, la2, lo2)
+        got = derive.pair_candidates(
+            {"icao": ["A", "B"], "lat": [la1, la2], "lon": [lo1, lo2]},
+            id="icao")
+        checked += 1
+        if d <= RADIUS_M:
+            inside += 1
+            assert len(got) == 1, (
+                f"prune dropped a {d:.0f}m pair: ({la1},{lo1})-({la2},{lo2})")
+    assert inside >= 200, f"sweep too weak: only {inside} inside-radius pairs"
+
+
+# ------------------------------------------------- round-28 pins
+
+
+def test_haversine_named_vectors_bit_match_reference():
+    """Reviewer pin: haversine bit-matches the pure-python reference
+    (half-away-from-zero rounding) on the named vectors."""
+    named = [
+        (0.0, 0.0, 0.0, 180.0),          # antipodal
+        (0.0, 0.0, 0.001, 0.0),          # ~111 m
+        (89.999, 10.0, 89.999, -170.0),  # near-pole seam
+        (51.5074, -0.1278, 48.8566, 2.3522),   # London-Paris
+        (-33.8688, 151.2093, 37.7749, -122.4194),  # Sydney-SF
+    ]
+    for la1, lo1, la2, lo2 in named:
+        t = derive.haversine({"lat1": [la1], "lon1": [lo1],
+                              "lat2": [la2], "lon2": [lo2]})
+        got = t.to_pylist()[0]["dist_m"]
+        ref = haversine_ref(la1, lo1, la2, lo2)
+        want = math.floor(ref + 0.5) if ref >= 0 else -math.floor(-ref + 0.5)
+        assert got == want, (la1, lo1, la2, lo2, got, ref)
+
+
+def test_closing_ttl_boundary_inclusive():
+    """Reviewer pin (cross-plane consistency with the expires_ms
+    convention): an entry aged EXACTLY ttl survives; one ms older is
+    swept."""
+    st = {"A|B": (1000, 0)}
+    out = derive.closing(st, 60_000, {"key": ["A|B"], "dist_m": [900]})
+    assert out.to_pylist()[0]["closing"] is True, "age==ttl must survive"
+    st = {"A|B": (1000, 0)}
+    out = derive.closing(st, 60_001, {"key": ["A|B"], "dist_m": [900]})
+    assert out.to_pylist()[0]["closing"] is False, "age==ttl+1 must sweep"
+
+
+def test_closing_within_batch_duplicate_keys_row_order():
+    """Reviewer pin: duplicate keys within one batch see row-order
+    state — [1000, 900, 950] -> [False, True, False]."""
+    out = derive.closing({}, 0, {"key": ["k", "k", "k"],
+                                 "dist_m": [1000, 900, 950]})
+    assert [r["closing"] for r in out.to_pylist()] == [False, True, False]
+
+
+def test_backwards_epoch_ts_raises():
+    """Round-28 Q1: a ts earlier than stored state errors loudly
+    instead of silently computing against future-stamped entries."""
+    st = {"A|B": (100, 5000)}
+    with pytest.raises(ValueError, match="backwards"):
+        derive.closing(st, 4000, {"key": ["A|B"], "dist_m": [50]})
+
+
+def test_nan_coordinates_rejected():
+    """Round-28 D3: NaN/inf coordinates raise — a NaN would otherwise
+    pass the prune and cast to dist_m=0, the strongest possible false
+    convergence signal."""
+    nan = float("nan")
+    with pytest.raises(ValueError, match="non-finite"):
+        derive.haversine({"lat1": [nan], "lon1": [0.0],
+                          "lat2": [0.0], "lon2": [0.0]})
+    with pytest.raises(ValueError, match="non-finite"):
+        derive.pair_candidates(
+            {"icao": ["A", "B"], "lat": [nan, 0.0], "lon": [0.0, 0.0]},
+            id="icao")
+    with pytest.raises(ValueError, match="non-finite"):
+        derive.pair_candidates(
+            {"icao": ["A", "B"], "lat": [0.0, 0.0],
+             "lon": [float("inf"), 0.0]}, id="icao")
+
+
+def test_radius_zero_inclusive_coincident_pair():
+    """Round 28: the completeness contract is INCLUSIVE (true dist <=
+    radius emits), deliberately flipping the pre-round-28 strict-<
+    pin: at radius_m=0 a coincident pair now admits."""
+    got = derive.pair_candidates(
+        {"icao": ["A", "B"], "lat": [10.0, 10.0], "lon": [20.0, 20.0]},
+        id="icao", radius_m=0.0)
+    assert len(got) == 1
+    far = derive.pair_candidates(
+        {"icao": ["A", "B"], "lat": [10.0, 10.0], "lon": [20.0, 20.001]},
+        id="icao", radius_m=0.0)
+    assert len(far) == 0
 
 
 def test_pair_candidates_empty_and_single():
@@ -269,10 +384,11 @@ def test_determinism_byte_identical():
 
 class _PolarsStage:
     """demo/adsb_convergence.py's pre-swap DerivationStage, preserved
-    as the independent vectorized reference implementation."""
+    as the independent vectorized reference implementation — its prune
+    updated in lockstep to the round-28 sound geometry (it checks the
+    SAME spec as the kernel, from an independent implementation)."""
 
     BBOX_M = 25_000.0
-    DEG_M = 111_320.0
     STATE_TTL_MS = 60_000
 
     def __init__(self):
@@ -290,19 +406,23 @@ class _PolarsStage:
         df = pl.DataFrame(rows)
         a = df.rename({c: f"{c}_a" for c in df.columns})
         b = df.rename({c: f"{c}_b" for c in df.columns})
-        lat_thresh = self.BBOX_M / self.DEG_M
+        theta = self.BBOX_M / EARTH_R
+        eps = 1e-12
+        half_pi = math.pi / 2.0
+        la, lb = pl.col("lat_a").radians(), pl.col("lat_b").radians()
+        lat_ok = (la - lb).abs() <= theta + eps
+        colat_sum = pl.min_horizontal(
+            (half_pi - la) + (half_pi - lb), (half_pi + la) + (half_pi + lb))
+        over_pole = colat_sum <= theta + eps
+        phi_m = pl.max_horizontal(la.abs(), lb.abs())
         raw_dlon = (pl.col("lon_a") - pl.col("lon_b")).abs() % 360.0
-        wrapped_dlon = pl.min_horizontal(raw_dlon, 360.0 - raw_dlon)
-        coslat = (((pl.col("lat_a") + pl.col("lat_b")) / 2.0)
-                  .radians().cos().clip(1e-6))
-        lon_thresh = pl.min_horizontal(
-            pl.lit(180.0), self.BBOX_M / (self.DEG_M * coslat)
-        )
+        wrapped = pl.min_horizontal(raw_dlon, 360.0 - raw_dlon).radians()
+        dmax = (math.sin(theta) / phi_m.cos()).clip(upper_bound=1.0).arcsin()
+        lon_ok = (phi_m + theta >= half_pi) | (wrapped <= dmax + eps)
         cand = (
             a.join(b, how="cross")
             .filter(pl.col("icao_a") < pl.col("icao_b"))
-            .filter((pl.col("lat_a") - pl.col("lat_b")).abs() < lat_thresh)
-            .filter(wrapped_dlon < lon_thresh)
+            .filter(lat_ok & (over_pole | lon_ok))
         )
         if cand.height == 0:
             return []

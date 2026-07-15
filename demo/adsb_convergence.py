@@ -79,11 +79,13 @@ class DerivationStage:
     composed from the seine_rs.derive Rust kernels. Deterministic
     function of (raw batch, own state); never reads WM.
 
-    The candidate prune is METRIC-space, not degree-space (round-27
-    findings, implemented inside derive.pair_candidates): the longitude
-    delta WRAPS across the antimeridian, and the longitude threshold
-    scales by cos(lat) — near the poles the scaled threshold saturates
-    and the prune falls back to latitude only. Closing state is THIS
+    The candidate prune is METRIC-space and COMPLETE (round-27 and
+    round-28 findings, implemented inside derive.pair_candidates): the
+    longitude delta WRAPS across the antimeridian, its bound is the
+    spherical-cap limit (skipped when the radius cap reaches a pole),
+    and over-the-pole pairs admit by colatitude-sum reachability — no
+    pair whose true distance is inside the radius is ever dropped.
+    Closing state is THIS
     object's plain dict (the kernels hold no state), entries carry the
     epoch timestamp, and derive.closing sweeps anything older than
     STATE_TTL_MS before comparing: a pair reappearing after a long gap

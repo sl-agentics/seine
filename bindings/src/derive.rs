@@ -36,9 +36,8 @@ use seine_engine::{FieldType, Value};
 
 use crate::{ingest_any, PyTable};
 
-/// Demo-identical constants (the twin's derived values depend on them).
+/// Demo-identical sphere radius (the twin's derived values depend on it).
 const EARTH_R: f64 = 6_371_000.0; // meters
-const DEG_M: f64 = 111_320.0; // meters per degree latitude
 
 fn col_index(label: &str, fields: &[(String, FieldType)], name: &str) -> PyResult<usize> {
     fields.iter().position(|(n, _)| n == name).ok_or_else(|| {
@@ -63,6 +62,23 @@ fn f64_col(label: &str, name: &str, col: &[Value]) -> PyResult<Vec<f64>> {
             ))),
         })
         .collect()
+}
+
+/// Coordinate columns reject non-finite values LOUDLY (round 28, D3):
+/// a NaN latitude would slide through the candidate prune (comparison
+/// polarity admits NaN) and the Int64 cast would turn the NaN distance
+/// into 0 meters — garbage upstream data becoming the strongest
+/// possible convergence signal. Same doctrine as the D-044 null
+/// rejection: clean the feed first.
+fn coord_col(label: &str, name: &str, col: &[Value]) -> PyResult<Vec<f64>> {
+    let xs = f64_col(label, name, col)?;
+    if let Some(row) = xs.iter().position(|x| !x.is_finite()) {
+        return Err(PyValueError::new_err(format!(
+            "{label}.{name}: non-finite coordinate (NaN/inf) at row {row} — \
+             coordinates are outside the kernel contract; drop or fill them first"
+        )));
+    }
+    Ok(xs)
 }
 
 fn reject_out_collision(
@@ -190,10 +206,10 @@ pub(crate) fn derive_haversine(
     const LABEL: &str = "derive.haversine";
     let (fields, cols) = ingest_any(py, LABEL, data, None)?;
     reject_out_collision(LABEL, &fields, out)?;
-    let la1 = f64_col(LABEL, lat1, &cols[col_index(LABEL, &fields, lat1)?])?;
-    let lo1 = f64_col(LABEL, lon1, &cols[col_index(LABEL, &fields, lon1)?])?;
-    let la2 = f64_col(LABEL, lat2, &cols[col_index(LABEL, &fields, lat2)?])?;
-    let lo2 = f64_col(LABEL, lon2, &cols[col_index(LABEL, &fields, lon2)?])?;
+    let la1 = coord_col(LABEL, lat1, &cols[col_index(LABEL, &fields, lat1)?])?;
+    let lo1 = coord_col(LABEL, lon1, &cols[col_index(LABEL, &fields, lon1)?])?;
+    let la2 = coord_col(LABEL, lat2, &cols[col_index(LABEL, &fields, lat2)?])?;
+    let lo2 = coord_col(LABEL, lon2, &cols[col_index(LABEL, &fields, lon2)?])?;
     let mut b = Int64Builder::with_capacity(la1.len());
     for i in 0..la1.len() {
         b.append_value(haversine_m(la1[i], lo1[i], la2[i], lo2[i]));
@@ -207,13 +223,33 @@ pub(crate) fn derive_haversine(
 }
 
 /// Candidate pairs from one position table (id/lat/lon columns):
-/// `a < b` dedup over the cross join, then the METRIC-space prune
-/// (D-250, exactly): |dlat| < radius_m/111320; the lon delta wraps
-/// (min(d, 360-d)) and its threshold is radius_m/(111320*cos(mean_lat))
-/// with cos clipped to 1e-6, capped at 180 degrees — saturating to a
-/// latitude-only prune at the poles. Output columns: {id}_a, {lat}_a,
-/// {lon}_a, {id}_b, {lat}_b, {lon}_b, key ("{a}|{b}"). Row order is the
-/// cross-join order (a-major), matching the polars prototype.
+/// `a < b` dedup over the cross join, then a SOUND metric-space prune
+/// (round 28, D1/D2 — supersedes the D-250 geometry): the contract is
+/// completeness — NO pair whose true haversine distance is <= radius_m
+/// is ever dropped (a prune, not the exact test; false positives are
+/// fine and filtered by `haversine`). With theta = radius_m/EARTH_R
+/// (the radius as a central angle):
+/// - latitude: |dlat| <= theta (exact meridian rate — the old 111320
+///   constant was ~0.11% tight and falsely pruned a thin
+///   within-radius shell at every latitude);
+/// - over-the-pole admission: a pair whose colatitude sum (toward
+///   either pole) is <= theta is reachable across the pole and admits
+///   regardless of longitude (the old cos(lat)-scaled test pruned
+///   same-latitude/opposite-meridian convergence geometry outright);
+/// - longitude: skipped when the radius cap can reach a pole
+///   (max|lat| + theta >= 90deg — no lon bound is sound there);
+///   otherwise the spherical-cap bound wrapped_dlon <=
+///   asin(sin theta / cos(max|lat|)), which is exact for a cap and
+///   strictly wider than the old parallel-arc scaling (whose
+///   great-circle-undercuts-the-parallel error grows as the square of
+///   the threshold angle — a band below the over-the-pole zone was
+///   falsely pruned too).
+/// Comparisons are inclusive with an fp-slack epsilon; NaN/inf
+/// coordinates are rejected loudly (D3). NOTE: ids must be unique —
+/// the a<b dedup means a duplicated id never pairs with itself.
+/// Output columns: {id}_a, {lat}_a, {lon}_a, {id}_b, {lat}_b,
+/// {lon}_b, key ("{a}|{b}"). Row order is the cross-join order
+/// (a-major), matching the retired polars prototype.
 #[pyfunction]
 #[pyo3(signature = (data, id="id", lat="lat", lon="lon", radius_m=25_000.0))]
 pub(crate) fn derive_pair_candidates(
@@ -225,6 +261,7 @@ pub(crate) fn derive_pair_candidates(
     radius_m: f64,
 ) -> PyResult<PyTable> {
     const LABEL: &str = "derive.pair_candidates";
+    const EPS: f64 = 1e-12;
     let (fields, cols) = ingest_any(py, LABEL, data, None)?;
     let idi = col_index(LABEL, &fields, id)?;
     let id_ft = fields[idi].1;
@@ -234,11 +271,12 @@ pub(crate) fn derive_pair_candidates(
         )));
     }
     let ids = &cols[idi];
-    let lats = f64_col(LABEL, lat, &cols[col_index(LABEL, &fields, lat)?])?;
-    let lons = f64_col(LABEL, lon, &cols[col_index(LABEL, &fields, lon)?])?;
+    let lats = coord_col(LABEL, lat, &cols[col_index(LABEL, &fields, lat)?])?;
+    let lons = coord_col(LABEL, lon, &cols[col_index(LABEL, &fields, lon)?])?;
     let n = ids.len();
 
-    let lat_thresh = radius_m / DEG_M;
+    let theta = radius_m / EARTH_R; // central angle, radians
+    let half_pi = std::f64::consts::FRAC_PI_2;
     let mut sel: Vec<(usize, usize)> = Vec::new();
     for i in 0..n {
         for j in 0..n {
@@ -250,16 +288,29 @@ pub(crate) fn derive_pair_candidates(
             if !a_lt_b {
                 continue;
             }
-            if (lats[i] - lats[j]).abs() >= lat_thresh {
+            let la = lats[i].to_radians();
+            let lb = lats[j].to_radians();
+            if (la - lb).abs() > theta + EPS {
                 continue;
             }
-            let raw_dlon = (lons[i] - lons[j]).abs() % 360.0;
-            let wrapped_dlon = raw_dlon.min(360.0 - raw_dlon);
-            let coslat = ((lats[i] + lats[j]) / 2.0).to_radians().cos().max(1e-6);
-            let lon_thresh = (radius_m / (DEG_M * coslat)).min(180.0);
-            if wrapped_dlon < lon_thresh {
-                sel.push((i, j));
+            // over-the-pole reachability: sum of colatitudes toward
+            // the nearer pole
+            let colat_sum = ((half_pi - la) + (half_pi - lb))
+                .min((half_pi + la) + (half_pi + lb));
+            if colat_sum > theta + EPS {
+                let phi_m = la.abs().max(lb.abs());
+                // lon prune is only sound while the radius cap stays
+                // clear of the pole
+                if phi_m + theta < half_pi {
+                    let raw_dlon = (lons[i] - lons[j]).abs() % 360.0;
+                    let wrapped = raw_dlon.min(360.0 - raw_dlon).to_radians();
+                    let dmax = (theta.sin() / phi_m.cos()).min(1.0).asin();
+                    if wrapped > dmax + EPS {
+                        continue;
+                    }
+                }
             }
+            sel.push((i, j));
         }
     }
 
@@ -349,7 +400,10 @@ pub(crate) fn derive_closing(
 ) -> PyResult<PyTable> {
     const LABEL: &str = "derive.closing";
     // TTL sweep first, unconditionally — eviction is a pure function of
-    // the raw epoch sequence (WAL-replay determinism).
+    // the raw epoch sequence (WAL-replay determinism). Epochs must be
+    // MONOTONIC (round 28, Q1): a backwards ts would silently compute
+    // closing flags against future-stamped state, so it errors loudly
+    // instead (deterministic on replay — same sequence, same error).
     let cutoff = ts - ttl_ms;
     let mut stale: Vec<PyObject> = Vec::new();
     for (k, v) in state.iter() {
@@ -358,6 +412,12 @@ pub(crate) fn derive_closing(
                 "{LABEL}: state values must be (dist, epoch_ts) tuples"
             ))
         })?;
+        if t > ts {
+            return Err(PyValueError::new_err(format!(
+                "{LABEL}: epoch ts went backwards (state holds t={t} > ts={ts}) — \
+                 epochs must be monotonic; rebuild the state for out-of-order replay"
+            )));
+        }
         if t < cutoff {
             stale.push(k.unbind());
         }

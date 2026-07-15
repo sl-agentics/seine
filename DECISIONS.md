@@ -13916,3 +13916,64 @@ make xfail-rebank 32 -> 35 witnesses. Receipts: diff 11/1176/397 all
 green + drift 35 identical; lint-probes 1846/0/0. v0.4.22 is a dead
 tag (no artifacts published); v0.4.23 is the release carrying
 D-253/D-254/D-255.
+
+## D-256 — round 28: the derive prune made SOUND (his 3 findings fixed, one beyond his sketch), 2 guards, 6 pins — the derivation plane's second full review cycle (2026-07-14)
+
+His first pass over the seine_rs.derive kernels (v0.4.23), judged
+against the plane's own oracle (reference implementation + the
+docstring contract "a prune, not the exact test"), split clean again:
+all findings in the cheap-oracle plane, all fixed bindings-only, the
+engine/corpus/twin byte-untouched.
+
+D1 (over-the-pole false negatives) + D2 (the 111320 constant ~0.11%
+tight everywhere): the prune is REWRITTEN around an explicit
+completeness contract — no pair whose true haversine distance is
+<= radius_m is ever dropped. With theta = radius_m/EARTH_R: |dlat| <=
+theta (exact meridian rate); over-the-pole admission by colatitude-sum
+<= theta; the lon bound is the spherical-cap limit
+asin(sin theta / cos(max|lat|)), SKIPPED when the cap reaches a pole;
+all comparisons inclusive + fp-epsilon. HIS FIX SKETCH WAS
+INSUFFICIENT and the entry records why: colat-sum admission + cap-skip
+alone leave the band where the great-circle undercuts the parallel
+arc BELOW the reachability zone (witness: lat 89.876 both, dlon 130
+-> true 24,996m inside a 25km radius, colat sum 0.248 deg > theta,
+old-style threshold ~104 deg < 130 — still falsely pruned). The
+parallel-arc error grows as the square of the threshold angle; the
+spherical-cap bound is exact for a cap and strictly wider. The D-251
+pole-band pin (test_pole_band_antipodal_gap_is_demo_identical) is
+RETIRED, replaced by must-emit vectors + a 3000-case fixed-seed
+randomized superset sweep biased at poles/antimeridian/boundary
+shell. DELIBERATE PIN FLIP, on the record: radius_m=0 now admits a
+coincident pair (inclusive contract; he had pinned the old strict-<).
+
+D3 (NaN -> dist_m=0): non-finite coordinates now RAISE in haversine
+and pair_candidates (coord_col; the D-044 loud-rejection doctrine —
+a NaN passed the prune's comparison polarity and the Int64 cast
+minted 0 meters, garbage becoming the strongest convergence signal).
+
+Q1: closing() raises on a backwards epoch ts (state holding t > ts)
+— monotonic epochs are the caller's contract, and the error replays
+deterministically. Q2: id-uniqueness precondition documented (a<b
+dedup means duplicate ids never self-pair).
+
+His 6 pins are all tests now: TTL age==ttl survives / ttl+1 sweeps
+(the cross-plane inclusive-expiry consistency law); equal distance
+not closing; within-batch dup keys row-order ([1000,900,950] ->
+[F,T,F]); haversine bit-matches the reference on his 5 named vectors
+(antipodal, 111m, near-pole seam, London-Paris, Sydney-SF);
+lexicographic a<b dedup + a-major order; radius 0 (flipped, above).
+
+The retired polars stage in test_derive.py (_PolarsStage) got the
+same prune in lockstep — it cross-checks the SAME spec from an
+independent vectorized implementation; kernel-vs-polars agreement
+holds row-for-row on all vectors (now 15) and the scripted feed with
+state parity. docs alignment: demo docstring updated; the OLD
+parallel-arc geometry description in derive.py replaced by the
+contract statement.
+
+Receipts: demo output BYTE-IDENTICAL pre/post (banner-only diff;
+scenarios/demo/adsb_convergence.json untouched, no regeneration);
+bindings pytest 169 (162 -> 169 net: +8 round-28 tests, -1 retired
+pin); corpus 11/1176/397 + drift 35 identical; lint-probes 1846/0/0.
+Bindings + demo + tests + docs only. Not pushed, not tagged, no bump
+— Bryan gates.
