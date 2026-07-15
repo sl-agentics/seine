@@ -128,6 +128,28 @@ struct NestedRoot {
     caller: Env,
 }
 
+/// A nested query call threads its caller through `caller: Env`, whose
+/// own `root` may be another `Root::Nested` — so a deep recursion builds
+/// an Rc-linked chain as long as the recursion depth. The default
+/// destructor descends that chain recursively and overflows the native
+/// stack (SIGSEGV, no `STEP_LIMIT` on the drop path) on cyclic data or a
+/// very deep acyclic recursion. Flatten the drop into a loop: steal each
+/// node's caller-root and null it before letting the node fall, so every
+/// nested node we free already has a `Top` root and its own drop returns
+/// immediately. A still-shared link (refcount > 1) stops the walk — its
+/// surviving owner flattens from there when it drops.
+impl Drop for NestedRoot {
+    fn drop(&mut self) {
+        let mut node = std::mem::replace(&mut self.caller.root, Root::Top);
+        while let Root::Nested(rc) = node {
+            match Rc::try_unwrap(rc) {
+                Ok(mut inner) => node = std::mem::replace(&mut inner.caller.root, Root::Top),
+                Err(_) => break,
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 struct Env {
     slots: Vec<Option<EnvVal>>,
@@ -1013,6 +1035,15 @@ struct Machine<'a> {
     /// (rowAdded/addInsert), so index 0 = newest.
     site_out: Vec<(usize, Vec<Value>)>,
     steps: usize,
+    /// Per-run memo of each fact pattern's drained arrival + built index
+    /// (keyed by site). Working memory is frozen for the duration of one
+    /// Machine run and `drain_pattern` is idempotent within it, so a
+    /// self-recursive query that re-enters the same site at every depth
+    /// would otherwise re-drain and rebuild the identical O(N) table at
+    /// each level — quadratic. Computing it once collapses that to O(N)
+    /// total; the memoized table is byte-identical to the per-level one,
+    /// so emission order and multiplicity are unchanged.
+    level_cache: HashMap<(usize, usize, usize), (Vec<FactId>, Option<Table>, Option<Vec<FactId>>)>,
 }
 
 pub fn run_query(
@@ -1053,6 +1084,7 @@ pub fn run_query(
         out: Vec::new(),
         site_out: Vec::new(),
         steps: 0,
+        level_cache: HashMap::new(),
     };
     let mut env0 = Env { slots: vec![None; q.slot_count], root: Root::Top };
     for (i, a) in args.iter().enumerate() {
@@ -1118,6 +1150,7 @@ pub fn run_site(
         out: Vec::new(),
         site_out: Vec::new(),
         steps: 0,
+        level_cache: HashMap::new(),
     };
     for (idx, args) in calls.iter().enumerate() {
         let mut env = Env { slots: vec![None; q.slot_count], root: Root::Site(idx) };
@@ -1380,25 +1413,57 @@ impl Machine<'_> {
         src: Vec<Env>,
     ) -> Result<Vec<Env>, EngineError> {
         let store = self.store;
-        let arrival: Vec<FactId> = drain_pattern(self.mem, store, site, pat);
-
-        let index_fields: Vec<usize> = pat.index.iter().map(|&i| pat.beta[i].field_idx).collect();
-        let table = if pat.index.is_empty() {
-            None
-        } else {
-            Some(Table::build(store, &arrival, &index_fields, pat.seed)?)
-        };
-        let full_order = match (&table, pat.unification_join) {
-            (Some(t), true) => Some(t.full_order()),
-            _ => None,
-        };
+        // Compute this site's drained arrival + index once per run (see
+        // `level_cache`): a self-recursive query re-enters the same site at
+        // every depth, and WM is frozen here, so the drain+build is
+        // identical each level. Take the memo out to work with owned
+        // locals (keeps `self.bump()` borrow-free in the loop), then
+        // restore it.
+        if !self.level_cache.contains_key(&site) {
+            let arrival: Vec<FactId> = drain_pattern(self.mem, store, site, pat);
+            let index_fields: Vec<usize> =
+                pat.index.iter().map(|&i| pat.beta[i].field_idx).collect();
+            let table = if pat.index.is_empty() {
+                None
+            } else {
+                Some(Table::build(store, &arrival, &index_fields, pat.seed)?)
+            };
+            let full_order = match (&table, pat.unification_join) {
+                (Some(t), true) => Some(t.full_order()),
+                _ => None,
+            };
+            self.level_cache.insert(site, (arrival, table, full_order));
+        }
+        let (arrival, table, full_order) = self.level_cache.remove(&site).unwrap();
 
         let mut trg: Vec<Env> = Vec::new();
         for env in &src {
             self.bump()?;
             let candidates: Vec<FactId> = match (&table, pat.unification_join) {
                 (None, _) => arrival.clone(),
-                (Some(_), true) => full_order.clone().unwrap(),
+                (Some(t), true) => {
+                    // A single-field unification join (index on a query
+                    // param) full-scans when the param is UNBOUND (top-level
+                    // open call binds it from each fact). When it is BOUND
+                    // — every self-recursive call threads a concrete value —
+                    // hash-bucket on it instead: all facts sharing the key
+                    // sit in one contiguous KeyList, so the bucket yields
+                    // exactly the full-order survivors in identical order,
+                    // but in O(1) rather than O(N). This is what turns the
+                    // recursive descent from O(N^2) into O(N).
+                    let key: Option<Vec<Value>> = pat
+                        .index
+                        .iter()
+                        .map(|&i| match &env.slots[operand_slot(&pat.beta[i].operand)] {
+                            Some(EnvVal::Val(v)) => Some(v.clone()),
+                            _ => None,
+                        })
+                        .collect();
+                    match key {
+                        Some(k) => t.bucket(key_hash(pat.seed, &k), &k),
+                        None => full_order.clone().unwrap(),
+                    }
+                }
                 (Some(t), false) => {
                     let key: Vec<Value> = pat
                         .index
@@ -1445,6 +1510,7 @@ impl Machine<'_> {
                 trg.insert(0, env2); // PREPEND (staged-set LIFO)
             }
         }
+        self.level_cache.insert(site, (arrival, table, full_order));
         Ok(trg)
     }
 }
@@ -1587,6 +1653,51 @@ mod tests {
         assert_eq!(out.rows.len(), 15);
         // branch-2 local $z is not an identifier (params + first branch)
         assert_eq!(out.identifiers, vec!["$x", "$y"]);
+    }
+
+    /// Round 30: an unbounded recursive query over CYCLIC data must not
+    /// take down the process. It once built a deep `Root::Nested` Rc chain
+    /// whose recursive destructor overflowed the native stack (SIGSEGV /
+    /// stack-abort) with no `STEP_LIMIT` on the drop path. The iterative
+    /// `Drop for NestedRoot` flattens that, so divergence now surfaces as
+    /// the catchable step-limit error instead. Exhaustive-enumeration bug:
+    /// crashed even when the base case proved (goal on/at the cycle), so
+    /// this exercises the follow-the-cycle direction that never bottoms.
+    #[test]
+    fn cyclic_data_no_crash() {
+        let mut store = FactStore::new(vec![TypeSchema {
+            name: "Location".into(),
+            fields: vec![
+                ("thing".into(), FieldType::Str),
+                ("location".into(), FieldType::Str),
+            ],
+            nullable: 0,
+        }]);
+        let tid = store.type_id("Location").unwrap();
+        // 3-cycle: a->b->c->a, goal "z" unreachable
+        for (t, l) in [("a", "b"), ("b", "c"), ("c", "a")] {
+            store
+                .insert(tid, vec![Value::Str(t.into()), Value::Str(l.into())])
+                .unwrap();
+        }
+        let qs = compile_all(
+            &store,
+            "query contained(String $x, String $y)\n    Location($x, $y;)\n    or\n    ( Location($z, $y;) and contained($x, $z;) )\nend\n",
+        );
+        let mut mem = QueryMem::default();
+        let res = run_query(
+            &store,
+            &qs,
+            &mut mem,
+            "contained",
+            &[None, Some(Value::Str("a".into()))],
+        );
+        match res {
+            Err(EngineError(msg)) => {
+                assert!(msg.contains("step limit"), "unexpected error: {msg}")
+            }
+            Ok(_) => panic!("cyclic query must error, not crash"),
+        }
     }
 
     /// D-055 walls reject out-of-shape recursion at compile time.

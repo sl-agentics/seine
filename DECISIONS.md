@@ -13976,4 +13976,68 @@ scenarios/demo/adsb_convergence.json untouched, no regeneration);
 bindings pytest 169 (162 -> 169 net: +8 round-28 tests, -1 retired
 pin); corpus 11/1176/397 + drift 35 identical; lint-probes 1846/0/0.
 Bindings + demo + tests + docs only. Not pushed, not tagged, no bump
+
+## D-257 — rounds 29-31: the recursive-query evaluator hardened — SIGSEGV on cyclic data killed, the O(N^2) recursion made O(N) (Bryan-gated engine edit; full battery green) (2026-07-14)
+
+Two findings surfaced by the query-corner probes (round 29-31, an
+independent Claude window driving `session.query()` over reachability
+DRL against cyclic and linear-chain data), both in `engine/queries.rs`,
+both engine-side, both fixed with the corpus byte-untouched.
+
+FINDING 1 — process death, not a fidelity question. An unbounded
+recursive query over data containing a cycle (`MoveF` a->b->c->a, query
+`reach2($s) = GoalF($s) or (MoveF($s,$n) and reach2($n))`) took down the
+whole process: exit 139 / SIGABRT stack-overflow, no catchable error.
+Repro'd 5x from Python and reproduced natively. The evaluator's DESCENT
+is the iterative `drain`/`walk` stack machine guarded by `STEP_LIMIT`, so
+it structurally cannot overflow the native stack — the crash was the
+default DESTRUCTOR. `Root::Nested(Rc<NestedRoot>)` holds `caller: Env`
+whose own root can be another `Root::Nested`, so a deep recursion builds
+an Rc-linked chain as long as the recursion depth; when the last ref to a
+deep chain drops (mid-descent, as a `batch`/`src` vec frees), the
+recursive drop walks the whole chain on the native stack and overruns it.
+No `STEP_LIMIT` on the drop path. Exhaustive-enumeration bug: it crashed
+even when the base case proved instantly (goal on/at the cycle), because
+enumeration still descends the recursive or-branch forever. FIX: an
+iterative `Drop for NestedRoot` that steals each node's caller-root and
+nulls it before the node falls (a still-shared link stops the walk; its
+surviving owner flattens from there). Divergence now surfaces as the
+existing catchable step-limit `EngineError` ("cyclic recursion data?
+D-055") — which the binding maps to `ValueError` — instead of a crash,
+and reaches it faster since each level is now O(1).
+
+FINDING 2 — the recursion was O(N^2) in fact count (0.44s@1k ->
+39.6s@10k). Two stacked O(N)-per-level costs over N levels: (a) every
+level re-drained the full pattern memory (`drain_pattern` returns
+`m.clone()` of all N facts) and rebuilt the `Table` hash index from
+scratch, though WM is frozen for the whole run so the table is identical
+each depth; (b) `MoveF($s,$n;)` compiles `src` as a single-field
+`unification_join`, whose eval FULL-SCANS the fact order (all N) and
+filters even when `$s` is bound to a concrete value — which it always is
+in a self-recursive call ("the per-frame scan doesn't index the
+unification argument"). FIX, two parts, both semantics-preserving: (a) a
+per-run `level_cache` on `Machine` memoizes each site's drained arrival +
+built table (idempotent within a run, so byte-identical to per-level);
+(b) a unification join whose index operands are all BOUND in the current
+env hash-buckets on that key instead of full-scanning — all facts sharing
+a key sit in one contiguous KeyList, so the bucket yields exactly the
+full-order survivors IN THE SAME ORDER (unbound top-level open calls still
+full-scan, unchanged). Result: clean O(N), 10.1x for 10k/1k (was 88.5x),
+~670x faster at N=4000 (21.5s -> 0.032s), 32k chain in 0.27s.
+
+Two traps the fix must not spring, both pinned PASS by the round-31
+control and re-verified here: CACHE != TABLING — `level_cache` memoizes
+the fact-side INDEX, never proof results, so diamond-graph multiplicity
+survives exact (2^6/2^8/2^10 = 64/256/1024); PER-RUN SCOPE — the cache is
+a `Machine` field and `run_query`/`run_site` build a fresh Machine per
+call, so an edge inserted between two queries lands in a new empty-cache
+run and is visible (0->1 verified). Regression test `cyclic_data_no_crash`
+banked (follow-the-cycle direction, asserts step-limit error not crash).
+
+Receipts: engine `run` over all 1630 scenarios BYTE-IDENTICAL pre/post
+(pure engine optimization, oracle-certification carries over); corpus
+11/1176/397 + drift 35 identical; cargo test 22 + integration; bindings
+pytest 169; round29 killcheck + round31 gates (safe-error / timing /
+diamond / cache-scope) all green. Engine + tests + docs. Bryan-gated
+(directed the fix and the release build).
 — Bryan gates.
