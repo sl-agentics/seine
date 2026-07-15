@@ -152,5 +152,5 @@
   }
  ],
  "open_divergence": true,
- "_finding": "D-258 fresh-seed population find (seed 5150 x 2000): binding divergence on firing[26] - R3's tuple picks different T1 facts (engine f0=-2/f2=false vs oracle f0=-1/f2=true as first pattern). Reproduces BYTE-IDENTICALLY on pre-port 9c4e23a (worktree bisect) - pre-existing latent, NOT a D-258 regression. Shape-adjacent to the fz_4242_286 binding-divergence family; open for its own triage arc."
+ "_finding": "D-258 fresh-seed population find (seed 5150 x 2000): binding divergence on firing[26] - R3's tuple picks different T1 facts (engine f0=-2/f2=false vs oracle f0=-1/f2=true as first pattern). Reproduces BYTE-IDENTICALLY on pre-port 9c4e23a (worktree bisect) - pre-existing latent, NOT a D-258 regression. Shape-adjacent to the fz_4242_286 binding-divergence family; open for its own triage arc. CRACKED 2026-07-15 (lane 2, D-260): the same-rule sibling-continue skips the eager flush, coalescing per-delta staging for a no-loop self-join receiver. Family + port checklist: probes_pending/binding_divergence/HANDOFF.md."
 }

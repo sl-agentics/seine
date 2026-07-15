@@ -1,0 +1,73 @@
+{
+ "drl": "rule \"R2\"\nagenda-group \"ga\"\nwhen\n    $p : T0()\nthen\n    insert(new T1(3.5, $p.getF1(), false, true));\nend\nrule \"R3\"\nsalience -3\nno-loop\nwhen\n    T1($x : f3)\n    T0($y : f0)\nthen\n    drools.setFocus(\"ga\");\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 11,
+    "f1": -2,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -1000000007,
+    "f1": 5,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 0.0,
+    "f1": 10,
+    "f2": false,
+    "f3": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "bd_e1",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "lane-2 axis: eager no-loop HETERO-join receiver (T1 x T0), same one-rule-two-firings ga inserter. Tests whether the eager-flush skip needs the self-join or bites any eager join receiver."
+}

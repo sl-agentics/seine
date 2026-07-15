@@ -11,9 +11,20 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-15, post-D-259 (the late-continue port LANDED
-+ the xfail-suppression lookup fixed; D-253..259 committed local,
-Bryan holds pushes). No active build — next is Bryan's call._
+_Last updated: 2026-07-15, post-D-260 (late-continue port LANDED
+D-258; xfail-suppression fixed D-259; binding-divergence family
+CRACKED D-260 — ports Bryan-gated; D-253..260 committed local, Bryan
+holds pushes)._
+
+**ACTIVE FRONTIER — the binding-divergence ports, Bryan-gated:
+COLD-START = `probes_pending/binding_divergence/HANDOFF.md`.** Both
+open binding-divergence xfails are CRACKED (D-260): fz_4242_286 =
+the D-106 halt-check materializes LAZY ga members before a sibling's
+inserts (visible via accumulate reverse-emission); fz_5150_1857 =
+the same-rule sibling-continue skips the eager flush, coalescing a
+no-loop self-join receiver's per-delta staging. 15-cell matrix +
+2 verified out-of-sample predictions; port sketches in the handoff
+(lane 2 likely smaller; ⚠ both sit in the D-106 region).
 
 **THE AGENDA LATE-CONTINUE LATENT IS CLOSED (D-258, Bryan-directed
 port).** The D-106 late-continue (engine.rs ~7215) now runs the D-091
@@ -14182,3 +14193,59 @@ Receipts: re-fuzz seed 4242 × 500 → `XFAIL fz_4242_286 (documented)`,
 tracked files, no new copies). cargo test 52/0. Harness-only — the
 engine, corpus, and drift bank are byte-untouched. No push, no tag,
 no bump.
+
+## D-260 — the binding-divergence family CRACKED: two distinct evaluation-timing mechanisms pinned (fz_4242_286 = halt-check lazy-materialization; fz_5150_1857 = the sibling-continue eager-flush skip) — recon only, ports Bryan-gated (2026-07-15)
+
+Bryan directed the arc ("Start on fz_4242_286 + fz_5150_1857"). Both
+xfail witnesses minimized (tools/minimize.py, one pass each), traced,
+matrix-discriminated (15 cells), and pinned with VERIFIED out-of-sample
+predictions. They share one skeleton — setFocus(ga), a ga rule's RHS
+inserts, a multi-activation receiver's firing order — but are TWO
+mechanisms, both evaluation-TIMING side effects of the ⚠⚠ D-106
+executor model (its halt/continue CONTROL FLOW is not implicated).
+Key frame: the engine's static-salience pop is FIFO removeFirst
+(certified D-043), so order is fully decided by WHEN a queue
+materializes and WHERE staged adds land.
+
+MECHANISM 1 (fz_4242_286): the D-106 halt-check force-eval
+(engine.rs ~7201) materializes the focused group's empty+dirty
+members BEFORE the higher-salience sibling's inserts; the late
+result tuple APPENDS. Drools evaluates a LAZY rule once at its pop,
+after the inserts — and the accumulate lane's one-batch emission is
+REVERSE-insertion, so the newest insert fires first. Engine
+t1b,t1a,NEW vs oracle NEW,t1b,t1a. Masked for plain/join receivers
+(forward emission == tail-append) and for no-loop receivers (Drools
+is eager there too and ALSO materializes early — the re-convergence
+cell bd_e2 is the matrix's prettiest row). Prediction bd_pred_a (two
+inserter siblings) verified EXACTLY: oracle NEW6,NEW2,t1b,t1a.
+
+MECHANISM 2 (fz_5150_1857): the D-106 same-rule sibling-continue
+(engine.rs ~7218) returns BEFORE the eager-list flush (~7223), so a
+ga rule firing twice CONSECUTIVELY never lets an EAGER (no-loop)
+receiver evaluate between firings — its per-delta staging coalesces
+into one evaluation whose SELF-join emission is left-delta-major
+over the FINAL memory (the (N-2,N5) row exists before N5's firing).
+Drools evaluates eager rules per firing: per-delta batches, FIFO.
+Trace-pinned (EVAL[eager] absent between the ga firings, present in
+MAIN). Needs the self-join (hetero left-only deltas coincide, bd_e1
+PASS); the lazy control bd_d3 PASSES (one-batch emission agrees).
+Prediction bd_pred_b (inserts split across two ga rules → the pick
+cycle runs the eager list → per-delta restored) verified PASS.
+
+FILED: probes_pending/binding_divergence/ — HANDOFF.md (mechanisms,
+matrix, port sketches with the D-256 insufficiency warning, env
+crumbs) + 15 scenario cells (4 FAIL/open_divergence incl. both
+minimized witnesses; 11 PASS controls certifying every neighboring
+axis: no-focus, drain-first, hetero-join, lazy self-join, eager
+re-convergence, two-rule split). Both xfail _findings now point at
+the family. Port sketches: lane 2 = run the eager flush on the
+sibling-continue path (⚠ tms_flush_drain rides the eager list — the
+P3/D-199/D-201 landing laws live there); lane 1 = halt-check
+emptiness without pinning lazy batch order (peek-eval to scratch or
+rebuild-at-pop) — touches the certified 88-witness halt matrix.
+
+Receipts: lint-probes 1876/0/0 (1861+15); family diff 11 PASS +
+exactly the 4 open cells FAIL; xfail drift 35 identical (finding-text
+edits only); cargo test 52/0. NO engine change in this entry — recon
+only. Not pushed, not tagged, no bump.
+— Bryan gates both ports.

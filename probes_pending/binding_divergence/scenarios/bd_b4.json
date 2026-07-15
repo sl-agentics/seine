@@ -1,0 +1,61 @@
+{
+ "name": "bd_b4",
+ "drl": "rule \"R2\"\nsalience 2\nwhen\n    T0()\nthen\n    insert(new T1(3.5, 1.0, false, true));\nend\nrule \"R3\"\nsalience -3\nno-loop\nwhen\n    T1($x : f0)\n    T1($y : f1)\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "a"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 0.0,
+    "f1": 10.0,
+    "f2": false,
+    "f3": true
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "self-join receiver WITHOUT setFocus: R2@2 fires both T0 activations back-to-back in MAIN, then R3 evaluates once over both staged inserts. Splits focus-composition vs plain delta-coalescing."
+}

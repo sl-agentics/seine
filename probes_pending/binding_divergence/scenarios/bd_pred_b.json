@@ -1,0 +1,73 @@
+{
+ "drl": "rule \"R2\"\nsalience 2\nagenda-group \"ga\"\nwhen\n    T0(f0 == 11)\nthen\n    insert(new T1(3.5, -2, false, true));\nend\nrule \"R2b\"\nsalience 1\nagenda-group \"ga\"\nwhen\n    T0(f0 == -1000000007)\nthen\n    insert(new T1(3.5, 5, false, true));\nend\nrule \"R3\"\nsalience -3\nno-loop\nwhen\n    T1($b3_0_0 : f3)\n    T1()\nthen\n    drools.setFocus(\"ga\");\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 11,
+    "f1": -2,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -1000000007,
+    "f1": 5,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 0.0,
+    "f1": 10,
+    "f2": false,
+    "f3": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "bd_pred_b",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "out-of-sample prediction B (lane 2): the two ga inserts split across two RULES (R2@2, R2b@1) - the pick cycle between different rules runs the eager list, so the no-loop receiver stages per-delta. Predicted PASS."
+}

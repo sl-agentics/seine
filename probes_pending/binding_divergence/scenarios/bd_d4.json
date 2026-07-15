@@ -1,0 +1,73 @@
+{
+ "drl": "rule \"R2\"\nagenda-group \"ga\"\nwhen\n    $p2_0 : T0()\nthen\n    insert(new T1(3.5, $p2_0.getF1(), $p2_0.isF2(), true));\nend\nrule \"R3\"\nsalience -3\nno-loop\nwhen\n    T1()\n    T1()\nthen\n    drools.setFocus(\"ga\");\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 11,
+    "f1": -2,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -1000000007,
+    "f1": 5,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 0.0,
+    "f1": 10,
+    "f2": false,
+    "f3": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "bd_d4",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "min_5150 verbatim (renamed): eager no-loop self-join receiver, setFocus(ga), two distinct ga inserts. FAIL = the eager per-delta staging is collapsed by the D-106 sibling-continue skipping the eager flush."
+}
