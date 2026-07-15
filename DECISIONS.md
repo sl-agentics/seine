@@ -11,8 +11,9 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-15, post-D-258 (the late-continue port LANDED,
-Bryan-directed; D-253..258 committed local, Bryan holds pushes)._
+_Last updated: 2026-07-15, post-D-259 (the late-continue port LANDED
++ the xfail-suppression lookup fixed; D-253..259 committed local,
+Bryan holds pushes). No active build — next is Bryan's call._
 
 **THE AGENDA LATE-CONTINUE LATENT IS CLOSED (D-258, Bryan-directed
 port).** The D-106 late-continue (engine.rs ~7215) now runs the D-091
@@ -31,10 +32,9 @@ fz_5150_1857 (seed 5150): a binding divergence, bisected
 PRE-EXISTING at 9c4e23a, quarantined `xf_fz_5150_1857` —
 fz_4242_286's class. Arc record:
 `probes_pending/agenda_late_continue/HANDOFF.md` (marked LANDED).
-**REMAINING from the handoff: the D-255 xf_ rename broke name-keyed
-fuzz suppression (harness/src/main.rs ~173 checks `{name}.json` only
-— fix = also try `xf_{name}.json`); next slab, own D-entry.** Other
-open xfail latents: fz_4242_286 + fz_5150_1857 (binding-divergence
+The handoff's last remaining item — the D-255 xf_ rename broke
+name-keyed fuzz suppression — is FIXED (D-259, harness-only; both
+name generations now suppress). Open xfail latents: fz_4242_286 + fz_5150_1857 (binding-divergence
 family), fz_31337_698 (oracle-side NPE, upstream candidate),
 xf_cep_c_del_churn_exists_rule (D-138 deferred re-entrant variant).
 
@@ -14158,3 +14158,27 @@ find, same class); fz_31337_698 (oracle-side NPE, upstream
 candidate).
 — Bryan directed the port (2026-07-15, "begin the work from the
 HANDOFF"); the engine edit is his gate exercised.
+
+## D-259 — the xfail fuzz-suppression lookup fixed: xf_-prefixed quarantines are visible again (the D-255 rename gap; harness-only) (2026-07-15)
+
+The D-258 handoff's side finding, verified live during the D-258
+battery: the fuzzer's name-keyed xfail suppression
+(harness/src/main.rs ~173) checked `scenarios/xfail/{name}.json`
+only, but the D-255 re-files (and D-258's fz_5150_1857 quarantine)
+are named `xf_{name}.json` — so a re-fuzz of a quarantined seed
+reported the known latent as DIVERGENCE and copied it into the GATED
+scenarios/failures/ (the exact D-255 CI trap), instead of XFAIL. The
+pre-D-255 bare-name quarantines (fz_123_*, fz_42_*, ...) were
+unaffected.
+
+Fix: the lookup now tries `{name}.json` OR `xf_{name}.json` (with a
+D-259 comment naming the trap). Naming convention unchanged — both
+generations of quarantine files stay as they are; triage_xfail.py and
+the drift gate glob the directory and never keyed by name.
+
+Receipts: re-fuzz seed 4242 × 500 → `XFAIL fz_4242_286 (documented)`,
+0 divergences, exit 0; re-fuzz seed 5150 × 2000 → `XFAIL fz_5150_1857
+(documented)`, 0 divergences; scenarios/failures/ untouched (66
+tracked files, no new copies). cargo test 52/0. Harness-only — the
+engine, corpus, and drift bank are byte-untouched. No push, no tag,
+no bump.

@@ -170,7 +170,13 @@ fn cmd_fuzz(args: &[String]) -> ExitCode {
                 Err((n, e)) => (n, Err(e)),
             };
             if let Err(msgs) = judge(&name, &engine_result, oracle_results.get(&name)) {
-                if xfail_dir.join(format!("{name}.json")).is_file() {
+                // D-259: quarantine files carry either the bare fuzz name
+                // (pre-D-255) or an xf_ prefix (the D-255 re-files) — the
+                // suppression must match both, or a re-fuzzed known latent
+                // lands in the GATED scenarios/failures/ (the D-255 CI trap).
+                if xfail_dir.join(format!("{name}.json")).is_file()
+                    || xfail_dir.join(format!("xf_{name}.json")).is_file()
+                {
                     // documented-open divergence (D-042): counted apart
                     xfails += 1;
                     println!("XFAIL {name} (documented, scenarios/xfail/)");
