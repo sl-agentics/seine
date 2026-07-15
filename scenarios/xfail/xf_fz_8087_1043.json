@@ -1144,5 +1144,5 @@
   }
  ],
  "open_divergence": true,
- "_finding": "D-262 fresh-seed population find (seed 8087 x 2000): ORACLE-SIDE NPE (Tuple.getStagedType() on null tuple) while the engine succeeds - the fz_31337_698 class (upstream candidate). Byte-identical on pre-edit 4fa7c37; engine output stable. NOT a D-262 regression."
+ "_finding": "D-262 fresh-seed population find (seed 8087 x 2000): ORACLE-SIDE NPE (Tuple.getStagedType() on null tuple) while the engine succeeds - the fz_31337_698 class (upstream candidate). Byte-identical on pre-edit 4fa7c37; engine output stable. NOT a D-262 regression. UPSTREAM CHECK (D-263, 2026-07-15): NOT outstanding \u2014 a throwaway Drools 10.1.0 oracle (scratch pom bump, vendored 9.44 shadow classes dropped) runs this scenario CLEAN, 3x byte-stable, while the pinned 9.44.0.Final oracle still NPEs (fresh same-day run). Fixed upstream somewhere in 9.44->10.1.0; nothing to file. Stays quarantined: the PINNED oracle cannot adjudicate it (permanent envelope at this oracle version); becomes adjudicable on a future oracle bump."
 }

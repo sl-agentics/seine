@@ -25,8 +25,9 @@ resolved along the way (fz_5150_1857, fz_9103_1436, fz_4242_286,
 fz_9105_8945); agenda_open ×15 (the D-106 caveat and its core five
 stand); corpus 11/1209/404, drift 36, lint 1882/0/0. Open ledger:
 fz_7331_973 + fz_8087_1020 (fresh D-262 fuzz latents, bisected
-pre-existing, own triage); the oracle-NPE class ×2 (fz_31337_698 +
-fz_8087_1043 — upstream report candidate); the D-258 scope note
+pre-existing, own triage); the oracle-NPE class ×2 RESOLVED-UPSTREAM
+(D-263: fixed by 10.1.0, nothing to file — pinned-oracle envelope,
+re-adjudicate on an oracle bump); the D-258 scope note
 (late-continue × eager receiver — no witness); D-106 core five;
 xf_cep_c_del_churn_exists_rule (D-138). Arc record:
 `probes_pending/binding_divergence/HANDOFF.md`.
@@ -14387,3 +14388,36 @@ report candidate has a second witness); xf_cep_c_del_churn_exists_rule
 (D-138). The D-106 core five stand.
 — Bryan approved lane 1 with the constraint as deliverable; the
 constraint held without a stop-and-report.
+
+## D-263 — the oracle-NPE class is NOT outstanding upstream: verified fixed on Drools 10.1.0 (throwaway oracle; both witnesses clean 3×) — no filing; the quarantines become a pinned-oracle envelope note (2026-07-15)
+
+Bryan: "see if it's still outstanding before we file anything." Method
+= the D-093 precedent (the 10.1.0 throwaway oracle, jars already in
+~/.m2 from that arc): scratch copy of oracle/, `drools.version` →
+10.1.0, the two VENDORED 9.44 shadow classes dropped
+(PhreakAccumulateNode.java — the +p1 min/max fix — and
+AbstractHashTable.java; both 9.44-specific and irrelevant to a crash
+check), offline mvn build, OracleRunner invoked directly.
+
+RESULT: the `Tuple.getStagedType()` NPE is GONE on 10.1.0. Both
+witnesses (fz_31337_698, fz_8087_1043) run CLEAN — 2 and 10 firings
+respectively, 3× byte-stable — while the pinned 9.44.0.Final oracle
+still NPEs on both (fresh same-day runs). Fixed upstream somewhere in
+9.44 → 10.1.0 (exact version not bisected — immaterial to the
+decision). **NOTHING TO FILE.**
+
+Informational only (10.1.0 is NOT the spec; the corpus stays
+certified against 9.44.0.Final+p1): the engine's fz_31337_698 output
+matches 10.1.0 on firings (2/2 exact) and final facts (multiset
+equal; raw order differs) with query rows differing; fz_8087_1043
+differs more broadly (12 vs 10 firings) — indistinguishable from
+legitimate 9.44→10 semantic drift, NOT actionable against the pinned
+oracle.
+
+LEDGER: the two xfail quarantines STAY (findings updated) —
+reclassified from "upstream report candidate" to a PINNED-ORACLE
+ENVELOPE limitation: 9.44.0.Final crashes before producing a
+reference, so these shapes are unadjudicable at this oracle version
+and become adjudicable on a future oracle bump (track then). No
+engine change, no corpus change, no drift movement (finding-text
+edits only). Scenario docs + this entry. Not pushed.
