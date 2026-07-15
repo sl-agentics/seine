@@ -1504,7 +1504,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         }
     }
 
-    let types_json: Vec<J> = types
+    let mut types_json: Vec<J> = types
         .iter()
         .map(|t| {
             json!({
@@ -1529,6 +1529,30 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 e["queries"].as_array_mut().unwrap().push(q);
             }
         }
+    }
+
+    // D-254: the >96-distinct-key resize region is IN subset — ~10% of
+    // query-bearing scenarios gain a DEDICATED swarm type + its own
+    // unification query + standalone call, sized past the 96-key
+    // threshold, so the index exercises the bulk pre-size + incremental
+    // resize + chain-reversal model against the oracle at scale.
+    // Dedicated on purpose: swarming a rule-matched type scales every
+    // join in the scenario (a 3-pattern rule over a 100+-fact swarm is
+    // millions of tuples — an effective hang on both sides of the
+    // diff, not a probe), and swarming the RelR recursion DAG can go
+    // cyclic and hang the oracle JVM (D-055). Keys draw WIDE (the
+    // standard literal pools never reach 96 distinct values).
+    if !queries_json.is_empty() && rng.chance(10) {
+        let nswarm = 90 + rng.below(120); // 90..209: crosses 96, sometimes 192
+        drl.push_str("query QSwarm(long $v)\n    SwarmT(k == $v)\nend\n\n");
+        types_json.push(json!({
+            "name": "SwarmT",
+            "fields": [{"name": "k", "type": "i64"}],
+        }));
+        for _ in 0..nswarm {
+            facts.push(json!({"type": "SwarmT", "fields": {"k": rng.below(1_000_000) as i64}}));
+        }
+        queries_json.push(json!({"call": "QSwarm", "args": [null]}));
     }
 
     let mut scenario = json!({

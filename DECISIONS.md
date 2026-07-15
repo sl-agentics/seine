@@ -13834,3 +13834,66 @@ battery, per standing rule. Multi-epoch/incremental-flush shapes
 (several flushes into one index, deletes shrinking size across the
 threshold) are NOT yet probed — they are the port's first new cells
 if opened.
+
+## D-254 — the >96-key resize PORTED: the D-051/D-056 query-index wall comes down (Bryan-gated engine edit; full battery green) (2026-07-14)
+
+Bryan gated the port open on the D-253 mechanism report. The engine
+edit is ONE function: queries.rs Table::build now models the pinned
+mechanism — (1) the drain arrival IS the LIFO flush (the pattern
+memory is already reverse-insertion ordered, the module's own
+doctrine; the first port draft double-reversed it and 18/19 exposed
+the error immediately), (2) ensureCapacity bulk pre-size for >32-
+tuple batches (empty at fresh build, so no chains move), (3) head-
+insert per new key (unchanged), (4) incremental post-add resize at
+pre-add distinct >= 0.75*capacity with the head-walk + head-insert
+reversing transfer. bucket() goes capacity-aware. The D-051 96-key
+EngineError is DELETED. The no-resize path is the certified <=96
+code path unchanged. This entry supersedes the D-051/D-056 OUT-list
+line ">=96 distinct values per indexed key ... unmodeled" — the
+region is IN subset.
+
+Probes: the 19 D-253 recon scenarios GRADUATED to scenarios/probes/
+pr_rz_* (engine_fenced flags dropped — they now run engine-side,
+byte-identical), plus a new pr_rz_dup_across_resize (240 facts / 200
+distinct: duplicate-key TupleLists carried THROUGH an incremental
+transfer; within-key fact order and the tuple-count pre-size both
+verified — passed first try). model_resize.py remains the standing
+checker (19/19 against a fresh oracle run of the graduated set).
+
+Generator: query-bearing scenarios gain a DEDICATED swarm axis (~10%:
+type SwarmT + its own unification query + standalone unbound call,
+90..209 wide-drawn keys). Two rejected designs on the record: (a)
+swarming an existing type melts the scenario — every rule join scales
+with the swarm, and a 3-pattern join over 100+ facts feeds MILLIONS
+of env rows into the query machine's prepend stage, which is
+Vec::insert(0) = QUADRATIC (a 1.26M-env insert caught live in gdb;
+effective hang on both sides of the diff); (b) bounding by query
+width missed rule-side joins feeding ?query CEs. FILED, not fixed
+here: eval_fact_level's prepend stage is quadratic in batch size — a
+PERF item (semantics-neutral) that matters the moment real query
+batches reach 10^4+ rows; candidate fix is building stages reversed
+or a VecDeque.
+
+Fuzz campaign (release harness): 3 seeds x 2000, 0 in-scope
+divergences. The 3 flushed finds (fz_4242_286, fz_9901_1221,
+fz_31337_698 — none contains a SwarmT fact; plain 4-9-fact
+compositions off the shifted RNG stream) all REPRODUCE on the
+pre-port engine at 4ee9c02 (worktree bisect, 0/3 pass) — pre-existing
+latents, filed in scenarios/failures/ for their own triage arc, NOT
+resize regressions.
+
+The full battery (engine-change protocol), all green: corpus
+11/1176/397 (+20 resize probes) + xfail drift 32 identical;
+lint-probes 1846/0/0; cargo test green; model_ird 31/31; witnesses
+26/26; agenda_open x19 byte-identical vs a clean worktree at 4ee9c02;
+SD census 72 EXACT (6+10+3+5+6+5+5+6+8+7+4+7, model 0-div
+12x150/150); ird census 0 x5 seeds, model-clean 150/150 each;
+bindings pytest 163 on the rebuilt .so; demo selfcheck green,
+LIVE==REPLAY True. Not pushed, not tagged, no bump.
+
+Still open after this entry: multi-epoch incremental flushes into one
+persistent index and deletes shrinking size across the threshold
+(fresh-call model only — same envelope as the documented
+repeated-call/churn caveat on Session.query); rule-side beta-memory
+behavior at >96 keys (a DIFFERENT surface, deliberately not swarmed);
+the quadratic-prepend perf item; the three filed latents.

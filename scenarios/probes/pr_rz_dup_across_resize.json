@@ -1,0 +1,1465 @@
+{
+ "name": "rz_dup_across_resize",
+ "types": [
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 2
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 3
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 4
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 5
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 5
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 6
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 7
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 8
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 9
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 10
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 11
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 12
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 13
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 14
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 15
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 15
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 16
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 17
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 18
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 19
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 20
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 20
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 21
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 22
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 23
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 24
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 25
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 25
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 26
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 27
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 28
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 29
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 30
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 30
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 31
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 32
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 33
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 34
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 35
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 35
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 36
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 37
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 38
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 39
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 40
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 40
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 41
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 42
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 43
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 44
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 45
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 45
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 46
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 47
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 48
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 49
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 50
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 50
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 51
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 52
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 53
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 54
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 55
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 55
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 56
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 57
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 58
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 59
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 60
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 60
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 61
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 62
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 63
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 64
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 65
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 65
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 66
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 67
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 68
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 69
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 70
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 70
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 71
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 72
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 73
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 74
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 75
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 75
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 76
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 77
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 78
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 79
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 80
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 80
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 81
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 82
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 83
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 84
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 85
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 85
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 86
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 87
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 88
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 89
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 90
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 90
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 91
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 92
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 93
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 94
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 95
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 95
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 96
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 97
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 98
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 99
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 100
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 100
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 101
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 102
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 103
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 104
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 105
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 105
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 106
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 107
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 108
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 109
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 110
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 110
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 111
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 112
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 113
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 114
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 115
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 115
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 116
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 117
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 118
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 119
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 120
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 120
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 121
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 122
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 123
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 124
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 125
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 125
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 126
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 127
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 128
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 129
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 130
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 130
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 131
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 132
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 133
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 134
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 135
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 135
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 136
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 137
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 138
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 139
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 140
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 140
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 141
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 142
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 143
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 144
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 145
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 145
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 146
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 147
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 148
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 149
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 150
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 150
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 151
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 152
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 153
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 154
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 155
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 155
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 156
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 157
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 158
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 159
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 160
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 160
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 161
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 162
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 163
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 164
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 165
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 165
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 166
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 167
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 168
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 169
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 170
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 170
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 171
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 172
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 173
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 174
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 175
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 175
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 176
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 177
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 178
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 179
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 180
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 180
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 181
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 182
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 183
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 184
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 185
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 185
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 186
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 187
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 188
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 189
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 190
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 190
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 191
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 192
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 193
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 194
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 195
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 195
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 196
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 197
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 198
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 199
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 200
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 200
+   }
+  }
+ ],
+ "drl": "query BVals(long $v)\n    B(k == $v)\nend\n",
+ "queries": [
+  {
+   "call": "BVals",
+   "args": [
+    null
+   ]
+  }
+ ]
+}

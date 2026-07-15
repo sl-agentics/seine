@@ -752,44 +752,91 @@ struct KeyList {
 
 struct Table {
     slots: Vec<Vec<KeyList>>,
+    cap: u32,
 }
 
 const TABLE_LEN: u32 = 128;
-const RESIZE_THRESHOLD: usize = 96;
 /// Backstop for cyclic recursion data (Drools HANGS there, D-055): total
 /// stack pushes across one top-level call.
 const STEP_LIMIT: usize = 1_000_000;
 
 impl Table {
+    /// Models drools-core's TupleIndexHashTable population for one
+    /// evaluation (the D-253 recon; the old >96-key fence is LIFTED):
+    ///
+    /// 1. LIFO FLUSH — staged inserts prepend and the flush walks
+    ///    insertFirst (TupleSetsImpl/PhreakJoinNode), so keys enter in
+    ///    REVERSE arrival order.
+    /// 2. BULK PRE-SIZE — a batch of >32 tuples calls
+    ///    ensureCapacity(N) first: capacity doubles from 128 while
+    ///    size+N exceeds 0.75*capacity. The table is EMPTY at build
+    ///    (fresh-call model), so this moves no chains.
+    /// 3. Each new key's list is HEAD-inserted into its bucket
+    ///    (getOrCreate).
+    /// 4. INCREMENTAL RESIZE — post-add, when pre-add distinct count
+    ///    reaches 0.75*capacity (`size++ >= threshold`): capacity
+    ///    doubles; the transfer walks each old chain head->tail and
+    ///    head-inserts (AbstractHashTable.resize), so same-new-bucket
+    ///    runs REVERSE; buckets split (hash & (2len-1)), never merge.
+    ///
+    /// `arrival` is the pattern-memory drain — ALREADY newest-first
+    /// (reverse-insertion, this module's header) — so iterating it
+    /// forward IS the LIFO flush; head-inserting it yields exactly the
+    /// physical chains the D-253 dumps show (oldest key at bucket
+    /// head), and the stack machine's prepend/append plumbing supplies
+    /// the reversed emission. The no-resize path is byte-identical to
+    /// the certified <=96 build (unchanged code path). Facts WITHIN a
+    /// key keep memory order: Drools transfers whole TupleLists, so
+    /// resize never reorders them.
     fn build(
         store: &FactStore,
         arrival: &[FactId],
         fields: &[usize],
         seed: u32,
     ) -> Result<Table, EngineError> {
-        let mut slots: Vec<Vec<KeyList>> = (0..TABLE_LEN).map(|_| Vec::new()).collect();
+        let mut cap: u32 = TABLE_LEN;
+        let mut slots: Vec<Vec<KeyList>> = (0..cap).map(|_| Vec::new()).collect();
+        let transfer = |slots: &mut Vec<Vec<KeyList>>, cap: &mut u32, newcap: u32| {
+            let mut ns: Vec<Vec<KeyList>> = (0..newcap).map(|_| Vec::new()).collect();
+            for chain in slots.drain(..) {
+                for kl in chain {
+                    // head->tail walk + head-insert: the reversing transfer
+                    ns[(kl.hash & (newcap - 1)) as usize].insert(0, kl);
+                }
+            }
+            *slots = ns;
+            *cap = newcap;
+        };
+        // bulk pre-size (empty here, so nothing reverses)
+        let n = arrival.len();
+        if n > 32 && n > (cap as usize * 3) / 4 {
+            let mut newcap = cap * 2;
+            while (newcap as usize) < n {
+                newcap *= 2;
+            }
+            transfer(&mut slots, &mut cap, newcap);
+        }
         let mut distinct = 0usize;
         for &f in arrival {
             let key: Vec<Value> = fields.iter().map(|&fi| store.value(f, fi)).collect();
             let h = key_hash(seed, &key);
-            let slot = (h & (TABLE_LEN - 1)) as usize;
+            let slot = (h & (cap - 1)) as usize;
             if let Some(kl) = slots[slot]
                 .iter_mut()
                 .find(|kl| kl.hash == h && key_eq(&kl.key, &key))
             {
                 kl.facts.push(f);
             } else {
-                distinct += 1;
-                if distinct > RESIZE_THRESHOLD {
-                    return Err(EngineError(
-                        "query index exceeds 96 distinct keys (hash-table resize is out of subset, D-051)"
-                            .into(),
-                    ));
-                }
                 slots[slot].insert(0, KeyList { hash: h, key, facts: vec![f] });
+                let presize = distinct;
+                distinct += 1;
+                if presize >= (cap as usize * 3) / 4 {
+                    let newcap = cap * 2;
+                    transfer(&mut slots, &mut cap, newcap);
+                }
             }
         }
-        Ok(Table { slots })
+        Ok(Table { slots, cap })
     }
 
     fn full_order(&self) -> Vec<FactId> {
@@ -800,7 +847,7 @@ impl Table {
     }
 
     fn bucket(&self, hash: u32, key: &[Value]) -> Vec<FactId> {
-        let slot = (hash & (TABLE_LEN - 1)) as usize;
+        let slot = (hash & (self.cap - 1)) as usize;
         self.slots[slot]
             .iter()
             .find(|kl| kl.hash == hash && key_eq(&kl.key, key))

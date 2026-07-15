@@ -48,7 +48,7 @@ and asserts the model reproduces every row order. 19/19 at pin time.
 
 Usage:
   cargo run -q -p seine-harness -- oracle \
-      probes_pending/query_resize/scenarios/*.json 2>/dev/null > /tmp/rz_out.json
+      scenarios/probes/pr_rz_*.json 2>/dev/null > /tmp/rz_out.json
   python3 probes_pending/query_resize/model_resize.py /tmp/rz_out.json
 """
 import json
@@ -154,14 +154,16 @@ def main():
                 for r in obj["result"]["queries"][0]["rows"]
             ]
     bad = 0
+    checked = 0
     for name, ks in inputs().items():
         if name not in oracle:
             print(f"{name:<18} SKIP (no oracle output)")
             continue
+        checked += 1
         good = rows(ks) == oracle[name]
         bad += not good
         print(f"{name:<18} {'MATCH' if good else 'DIFF'}")
-    print(f"{'FAIL' if bad else 'OK'}: {len(oracle) - bad}/{len(oracle)} match")
+    print(f"{'FAIL' if bad else 'OK'}: {checked - bad}/{checked} match")
     sys.exit(1 if bad else 0)
 
 
