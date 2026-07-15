@@ -1,0 +1,27 @@
+diff --git a/engine/src/engine.rs b/engine/src/engine.rs
+index 6ee04fe..5c4f07d 100644
+--- a/engine/src/engine.rs
++++ b/engine/src/engine.rs
+@@ -7213,7 +7213,21 @@ impl Engine {
+                         .iter()
+                         .any(|&rj| self.nets[rj].queued && !self.nets[rj].queue.is_empty());
+                     if top_empty && pre_force_qlen > 0 {
+-                        return Some(l);
++                        // HYPOTHESIS TEST (fz_9901_1221): the late-continue
++                        // is a CONTINUE path — run the D-091 self
++                        // re-evaluation the halt branch skipped, so a
++                        // same-firing RHS delete prunes l's queue before
++                        // the next pop.
++                        if higher && self.nets[l].dirty {
++                            dbg_eval("late-continue-force", l);
++                            self.evaluate_rule(l, true, false);
++                        }
++                        if !self.nets[l].queue.is_empty() {
++                            return Some(l);
++                        }
++                        if !self.nets[l].dirty {
++                            self.nets[l].queued = false;
++                        }
+                     }
+                 } else if !higher && !self.focus_stack.is_empty() {
+                     return Some(l);

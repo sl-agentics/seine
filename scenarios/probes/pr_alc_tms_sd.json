@@ -1,0 +1,40 @@
+{
+ "name": "pr_alc_tms_sd",
+ "drl": "rule \"R0\"\nsalience 10\nagenda-group \"gb\"\nwhen\n    Q($t : tag)\nthen\nend\nrule \"R4\"\nwhen\n    T1($a : k)\n    not Q()\nthen\n    insertLogical(new Q($a));\n    drools.setFocus(\"gb\");\nend\nrule \"WQ\"\nsalience -5\nwhen\n    $q : Q($t : tag)\nthen\nend\nrule \"WN\"\nsalience -10\nwhen\n    not Q()\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "k": "a"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "k": "b"
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "_finding": "TMS x late-continue recon: self-defeat (NOT-lane) cell. R4's insertLogical(Q) breaks its own `not Q()` (self-defeat, bit1) while the same RHS pushes gb; gb's R0 matches Q(), so its staged insert makes higher=true and the halt-check outcome hinges on whether the self-defeat retraction of Q coalesces before R0's force-eval. Pins the bit1 lane's landing across the late-continue region."
+}

@@ -11,7 +11,34 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-12, post-D-211 (TMS-envelope arc: **THE
+_Last updated: 2026-07-15, post-D-258 (the late-continue port LANDED,
+Bryan-directed; D-253..258 committed local, Bryan holds pushes)._
+
+**THE AGENDA LATE-CONTINUE LATENT IS CLOSED (D-258, Bryan-directed
+port).** The D-106 late-continue (engine.rs ~7215) now runs the D-091
+continue-path self re-evaluation before returning the just-fired rule
+— fz_9901_1221 (4→2) plus the two same-family D-106 disproof
+witnesses fz_9104_5192/fz_9202_2058 all PASS and are GRADUATED to
+scenarios/regressions/; the 9 alc_ discriminator cells + 5 new
+alc_tms_ recon cells graduated to scenarios/probes/pr_alc_*. The open
+TMS-drain-scope decision was answered NO by probe (deferred entries
+staged at the late-continue force drain at the existing pop-site
+drain; 4 lanes oracle-identical — see D-258). Corpus is now
+11/1190/400; drift bank 35→34 (graduation) →35 (the fresh-seed find
+below); agenda_open ×19→×17 (the D-106 halt-model disproof set
+shrinks by 2; the caveat itself STANDS). Battery-fuzz fresh find
+fz_5150_1857 (seed 5150): a binding divergence, bisected
+PRE-EXISTING at 9c4e23a, quarantined `xf_fz_5150_1857` —
+fz_4242_286's class. Arc record:
+`probes_pending/agenda_late_continue/HANDOFF.md` (marked LANDED).
+**REMAINING from the handoff: the D-255 xf_ rename broke name-keyed
+fuzz suppression (harness/src/main.rs ~173 checks `{name}.json` only
+— fix = also try `xf_{name}.json`); next slab, own D-entry.** Other
+open xfail latents: fz_4242_286 + fz_5150_1857 (binding-divergence
+family), fz_31337_698 (oracle-side NPE, upstream candidate),
+xf_cep_c_del_churn_exists_rule (D-138 deferred re-entrant variant).
+
+_Prior (post-D-211): (TMS-envelope arc: **THE
 I-RD PORT IS LANDED AND TOTAL** (Bryan-gated) — three families
 red-first (F1 static key model `2f76db8`; F2 dynamic law `0aef958`
 [boundary force-eval + del-consume exemptions + the j05-prune
@@ -14041,3 +14068,93 @@ pytest 169; round29 killcheck + round31 gates (safe-error / timing /
 diamond / cache-scope) all green. Engine + tests + docs. Bryan-gated
 (directed the fix and the release build).
 — Bryan gates.
+
+## D-258 — the agenda late-continue latent CLOSED: the D-091 continue-path self re-evaluation lands at the D-106 late-continue (Bryan-directed engine port; TMS-drain scope answered NO by probe; full battery green) (2026-07-15)
+
+Bryan opened the gate on the filed handoff
+(`probes_pending/agenda_late_continue/HANDOFF.md`, recon 2026-07-15).
+The engine edit is the validated 15-line candidate, applied verbatim
+from the handoff's `late-continue.patch`: at the D-106 late-continue
+(engine.rs ~7215, `top_empty && pre_force_qlen > 0`), if `higher &&
+nets[l].dirty` run `evaluate_rule(l, true, false)` — the same D-091
+self re-evaluation the halt path skipped (`higher=true` is exactly
+the condition that skipped the post-fire force, so a delete/update
+staged by the SAME firing's RHS never pruned l's queue and one stale
+activation fired). Return `Some(l)` only if the queue survives; else
+fall through with the D-091 `removeRuleAgendaItemWhenEmpty` unqueue
+when `!dirty`. Drools' `evaluateNetworkIfDirty` at each item pop
+cancels the siblings first; the engine now reconciles at the same
+point. The `!higher` sibling path below is unreachable before the
+post-fire force and stays untouched.
+
+THE OPEN SCOPE DECISION (handoff item 2 — should the late-continue
+also run the `!higher` branch's TMS deferred-drain block, engine.rs
+~7060-7136?) — ANSWERED NO, BY PROBE, not by reasoning: 4 recon
+cells, every reachable lane oracle-identical without the drain.
+(1) pr_alc_tms_fall (fall-through lane): the retraction terminal-del
+IS defer-pushed (flags=0) during the late-continue force and drains
+at the existing pop-site drain (`TMS drain[pop]`) before the next
+item pops — WQ/WN firings match the oracle. (2) pr_alc_tms_ret
+(return-Some(l) lane): the terminal-del lands IMMEDIATELY in-force
+via the eager-break lane; nothing pends across the returned pick.
+(3) pr_alc_tms_sd (pure bit1 self-defeat): CANNOT REACH the
+late-continue — its own staged logical insert makes the pushed
+group's member live, so the halt-check sees a non-empty top (and the
+oracle agrees the observer fires on the still-alive logical fact).
+(4) pr_alc_tms_sdlc (bit1 COMPOSED with the trigger shape:
+self-defeat + setFocus + premise-delete emptying the group): the
+bit1 entry defer-pushes at the late-continue force and drains at
+drain[pop] — oracle-identical. pr_alc_tms_ctl certifies the
+no-setFocus neighbor (the certified `!higher` drain path). SCOPE
+NOTE: the `exp_deferred` (expiration) lane is unreachable in this
+family (no events); it keeps its own certified drain sites — if a
+future CEP×setFocus composition flushes a divergence there, that is
+a NEW probe family, not a reopening of this entry.
+
+GRADUATIONS. xf_fz_9901_1221 (xfail, D-255) → scenarios/regressions/
+fz_9901_1221.json (open_divergence dropped, 4→2 movement re-triaged
+here; drift bank REBANKED 35→34). The two agenda_open D-106 disproof
+witnesses of this family — fz_9104_5192 (the update variant: stale
+pre-update bindings fired) and fz_9202_2058 — FAIL→PASS under the
+port and graduate to scenarios/regressions/ as certified pins.
+⚠ RECEIPT RE-BASELINE: every prior receipts line reading "agenda_open
+×19 byte-identical" now means ×17 — re-verified here (17/17
+byte-identical vs a clean worktree at 9c4e23a). The D-106 halt-model
+STANDING CAVEAT stands: the executor model remains a close
+approximation; its disproof set shrinks 19→17. The 9 alc_
+discriminator cells graduate to scenarios/probes/pr_alc_* (the 4
+pre-fix FAIL cells re-worded as pins; the 5 PASS controls certify the
+neighbors: no-setFocus, delete-only, setFocus-only, live-group,
+never-populated-group). Corpus 11/1176/397 → **11/1190/400**.
+
+FUZZ CAMPAIGN (release harness, 3 FRESH seeds × 2000 —
+5150/8642/2718): seeds 8642/2718 CLEAN; seed 5150 flushed ONE find,
+fz_5150_1857 — a BINDING divergence on firing[26] (R3's tuple picks
+different T1 facts) that reproduces BYTE-IDENTICALLY on a clean
+worktree at pre-port 9c4e23a ⇒ PRE-EXISTING latent, NOT a D-258
+regression (shape-adjacent to the fz_4242_286 binding-divergence
+family). Handled per the D-255 protocol directly: quarantined as
+`scenarios/xfail/xf_fz_5150_1857.json` (open_divergence, bisect
+receipt in _finding), REMOVED from the gated scenarios/failures/,
+drift bank rebanked 34→35.
+
+Receipts (full battery, engine-change protocol, all green): corpus
+11/1190/400 ALL PASS + xfail drift 34 identical post-graduation
+(final bank = 35 after the fz_5150_1857 quarantine above);
+lint-probes 1861/0/0; cargo test 52/0; model_ird 31/31; witnesses
+26/26; agenda_open ×17 byte-identical vs clean 9c4e23a worktree;
+SD census 72 EXACT (6+10+3+5+6+5+5+6+8+7+4+7) + model 0-div
+12×150/150; ird census 0-div ×5 seeds (7001/7002/6001/6003/9001),
+model-clean 150/150 each, corners none; bindings pytest 169 on the
+rebuilt .so; demo selfcheck green, LIVE==REPLAY True. Engine +
+scenarios + handoff marked LANDED. NOT pushed, NOT tagged, no bump.
+
+Still open after this entry: the xfail fuzz-suppression lookup
+misses the xf_-prefixed files (harness/src/main.rs ~173; the D-255
+re-files AND the new xf_fz_5150_1857 are both invisible to it — fix
++ own D-entry next); fz_4242_286 (binding-divergence family,
+byte-identical under this port); fz_5150_1857 (this entry's fresh
+find, same class); fz_31337_698 (oracle-side NPE, upstream
+candidate).
+— Bryan directed the port (2026-07-15, "begin the work from the
+HANDOFF"); the engine edit is his gate exercised.

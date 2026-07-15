@@ -1,0 +1,63 @@
+{
+ "name": "pr_alc_min_2t1",
+ "drl": "rule \"R0\"\nsalience 10\nagenda-group \"gb\"\nwhen\n    T1($a : f2)\n    T0($b : f1)\nthen\nend\nrule \"R4\"\nwhen\n    T1($a : f2)\n    $p : T0($b : f1)\nthen\n    drools.setFocus(\"gb\");\n    delete($p);\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": true,
+    "f1": "ab",
+    "f2": true
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": true,
+    "f1": "alpha",
+    "f2": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 3,
+    "f1": true
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "_finding": "D-258 pin (was FAIL 2v1): the D-106 late-continue returned the just-fired rule without the D-091 continue-path self re-evaluation, so a same-firing RHS setFocus+delete let one stale activation fire. Fixed: late-continue re-eval, engine.rs (D-258). Minimal cell: 2 activations, both fired pre-fix."
+}

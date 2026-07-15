@@ -1,0 +1,55 @@
+{
+ "name": "pr_alc_tms_ctl",
+ "drl": "rule \"R4\"\nwhen\n    T1($a : k)\n    $p : T0($b : f1)\nthen\n    insertLogical(new Q($a));\n    delete($p);\nend\nrule \"WQ\"\nsalience -5\nwhen\n    $q : Q($t : tag)\nthen\nend\nrule \"WN\"\nsalience -10\nwhen\n    not Q()\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "k": "a"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "k": "b"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": true
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "_finding": "TMS x late-continue recon control: same insertLogical+self-premise-delete WITHOUT setFocus \u2014 the !higher post-fire force + TMS deferred-drain runs (certified path). Certifies the neighbor of alc_tms_fall."
+}

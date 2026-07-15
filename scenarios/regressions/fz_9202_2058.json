@@ -1,0 +1,118 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    ( $p0_0 : T1(f1 < 10, $b0_0_0 : f2) and T0() )\n    or\n    ( $p0_0 : T1(f0 == false, $b0_0_0 : f2) and T0() )\nthen\n    drools.setFocus(\"gb\");\n    delete($p0_0);\nend\nrule \"R1\"\nsalience 7\nagenda-group \"gb\"\nwhen\n    $p1_0 : T1(f0 == true, $b1_0_0 : f2, $b1_0_1 : f2)\nthen\n    insert(new T2(8, $p1_0.getF1(), $b1_0_1));\n    insert(new T2(-3, $p1_0.getF1(), true));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T1(f0 in (false, false), f0 == false)\nthen\n    insert(new T2(2, $p2_0.getF1(), $p2_0.isF2()));\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f0": 2,
+      "f1": 3.5,
+      "f2": true
+     },
+     "op": "insert",
+     "type": "T2"
+    }
+   ],
+   "facts": [
+    {
+     "fields": {
+      "f0": true,
+      "f1": -0.5,
+      "f2": false
+     },
+     "type": "T1"
+    },
+    {
+     "fields": {
+      "f0": 0,
+      "f1": 1.0,
+      "f2": true
+     },
+     "type": "T2"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": "b",
+    "f1": 3.0
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": "zz",
+    "f1": 1.5
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": "",
+    "f1": -1.5
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": true,
+    "f1": 4.0,
+    "f2": false
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_9202_2058",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  }
+ ],
+ "_finding": "D-258 graduate (ex probes_pending/agenda_open, D-106 disproof set): setFocus + same-firing RHS mutation \u2014 one stale activation fired. PASS since the D-258 late-continue re-eval."
+}

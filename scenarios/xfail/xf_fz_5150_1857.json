@@ -1,0 +1,156 @@
+{
+ "drl": "rule \"R0\"\nsalience -10\nagenda-group \"ga\"\nwhen\n    (or T1(f0 <= 3.5, f1 != 2, $b0_0_0 : f2, $b0_0_1 : f3) T1(f0 <= 3.5, f1 != 2, $b0_0_0 : f2, $b0_0_1 : f3))\nthen\nend\nrule \"R1\"\nwhen\n    T1($b1_0_0 : f1, $b1_0_1 : f3)\n    $p1_1 : T1(f1 <= -1000000007, f1 > $b1_0_0, $b1_1_0 : f1, $b1_1_1 : f3)\nthen\n    delete($p1_1);\nend\nrule \"R2\"\nagenda-group \"ga\"\nwhen\n    $p2_0 : T0($b2_0_0 : f2)\nthen\n    insert(new T1($p2_0.getF1(), $p2_0.getF1(), $p2_0.isF2(), $p2_0.isF2()));\n    insert(new T1(3.5, $p2_0.getF1(), $p2_0.isF2(), true));\nend\nrule \"R3\"\nsalience -3\nno-loop\nwhen\n    T1($b3_0_0 : f3)\n    T1()\nthen\n    drools.setFocus(\"ga\");\nend\nrule \"R4\"\nsalience 4\nno-loop\nwhen\n    T1(f0 == 3.5 || f1 > 100, $b4_0_0 : f3)\n    T1(f2 == true, f1 not in (12), $b4_1_0 : f3)\nthen\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f0": -5,
+      "f1": 9
+     },
+     "op": "update",
+     "target": 3
+    },
+    {
+     "fields": {
+      "f1": -4
+     },
+     "op": "update",
+     "target": 3
+    }
+   ],
+   "facts": [
+    {
+     "fields": {
+      "f0": 4.0,
+      "f1": 4,
+      "f2": true,
+      "f3": false
+     },
+     "type": "T1"
+    },
+    {
+     "fields": {
+      "f0": -5,
+      "f1": 9,
+      "f2": false
+     },
+     "type": "T0"
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "fields": {
+      "f1": 7
+     },
+     "op": "update",
+     "target": 0
+    },
+    {
+     "op": "delete",
+     "target": 2
+    }
+   ],
+   "facts": [
+    {
+     "fields": {
+      "f0": 1.0,
+      "f1": -5,
+      "f2": false,
+      "f3": false
+     },
+     "type": "T1"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": 5,
+    "f1": -5,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -1.0,
+    "f1": -5,
+    "f2": true,
+    "f3": true
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 11,
+    "f1": -2,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -1000000007,
+    "f1": 5,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 0.0,
+    "f1": 10,
+    "f2": false,
+    "f3": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_5150_1857",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-258 fresh-seed population find (seed 5150 x 2000): binding divergence on firing[26] - R3's tuple picks different T1 facts (engine f0=-2/f2=false vs oracle f0=-1/f2=true as first pattern). Reproduces BYTE-IDENTICALLY on pre-port 9c4e23a (worktree bisect) - pre-existing latent, NOT a D-258 regression. Shape-adjacent to the fz_4242_286 binding-divergence family; open for its own triage arc."
+}

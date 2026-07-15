@@ -1,0 +1,46 @@
+{
+ "name": "pr_alc_tms_ret",
+ "drl": "rule \"R0\"\nsalience 10\nagenda-group \"gb\"\nwhen\n    T0(f1 == true)\nthen\nend\nrule \"R4\"\nwhen\n    $p : T0($b : f1, $t : tag)\nthen\n    insertLogical(new Q($t));\n    drools.setFocus(\"gb\");\n    delete($p);\nend\nrule \"WQ\"\nsalience -5\nwhen\n    $q : Q($t : tag)\nthen\nend\nrule \"WN\"\nsalience -10\nwhen\n    not Q()\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f1": true,
+    "tag": "p1"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": false,
+    "tag": "p2"
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "_finding": "TMS x late-continue recon (D-258 scope question): return-Some(l) cell. Each R4 firing justifies Q then setFocus(gb)+deletes its OWN premise only; after the first firing the late-continue re-eval leaves the second activation queued and returns Some(R4) with the first Q-retraction staged in tms.deferred. Pins whether the undrained retraction is observable across the returned pick."
+}

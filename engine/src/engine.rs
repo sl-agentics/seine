@@ -7213,7 +7213,28 @@ impl Engine {
                         .iter()
                         .any(|&rj| self.nets[rj].queued && !self.nets[rj].queue.is_empty());
                     if top_empty && pre_force_qlen > 0 {
-                        return Some(l);
+                        // D-258 (fz_9901_1221 + fz_9104_5192/fz_9202_2058):
+                        // the late-continue is a CONTINUE path, so the D-091
+                        // continue-path self re-evaluation applies — `higher`
+                        // skipped the post-fire force above, and without it a
+                        // delete/update staged by THIS firing's RHS never
+                        // prunes l's own queue (one stale activation fires;
+                        // Drools' evaluateNetworkIfDirty at the item pop
+                        // cancels the siblings first). Return Some(l) only if
+                        // the queue survives the re-eval; else fall through
+                        // with the D-091 removeRuleAgendaItemWhenEmpty
+                        // unqueue. The !higher sibling path below is safe —
+                        // it is only reached after the post-fire force.
+                        if higher && self.nets[l].dirty {
+                            dbg_eval("late-continue-force", l);
+                            self.evaluate_rule(l, true, false);
+                        }
+                        if !self.nets[l].queue.is_empty() {
+                            return Some(l);
+                        }
+                        if !self.nets[l].dirty {
+                            self.nets[l].queued = false;
+                        }
                     }
                 } else if !higher && !self.focus_stack.is_empty() {
                     return Some(l);

@@ -1,0 +1,55 @@
+{
+ "name": "pr_alc_tms_fall",
+ "drl": "rule \"R0\"\nsalience 10\nagenda-group \"gb\"\nwhen\n    T1($a : k)\n    T0($b : f1)\nthen\nend\nrule \"R4\"\nwhen\n    T1($a : k)\n    $p : T0($b : f1)\nthen\n    insertLogical(new Q($a));\n    drools.setFocus(\"gb\");\n    delete($p);\nend\nrule \"WQ\"\nsalience -5\nwhen\n    $q : Q($t : tag)\nthen\nend\nrule \"WN\"\nsalience -10\nwhen\n    not Q()\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "k": "a"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "k": "b"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": true
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "_finding": "TMS x late-continue recon (D-258 scope question): fall-through cell. R4's firing justifies Q logically, then setFocus(gb)+delete of its own shared premise; the late-continue re-eval empties R4's queue and falls through with the Q-retraction terminal-del staged in tms.deferred. Pins whether the logical retraction lands before WQ/WN evaluate without a drain at the late-continue."
+}

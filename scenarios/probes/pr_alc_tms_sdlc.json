@@ -1,0 +1,55 @@
+{
+ "name": "pr_alc_tms_sdlc",
+ "drl": "rule \"R0\"\nsalience 10\nagenda-group \"gb\"\nwhen\n    T1($a : k)\n    T0($b : f1)\nthen\nend\nrule \"R4\"\nwhen\n    T1($a : k)\n    $p : T0($b : f1)\n    not Q()\nthen\n    insertLogical(new Q($a));\n    drools.setFocus(\"gb\");\n    delete($p);\nend\nrule \"WQ\"\nsalience -5\nwhen\n    $q : Q($t : tag)\nthen\nend\nrule \"WN\"\nsalience -10\nwhen\n    not Q()\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "k": "a"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "k": "b"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": true
+   }
+  }
+ ],
+ "epochs": [],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "k",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "_finding": "TMS x late-continue recon: self-defeat COMPOSED with the trigger shape. R4's RHS insertLogical(Q) breaks its own `not Q()` (bit1 self-defeat) AND setFocus(gb)+delete($p) empties gb's R0 at the halt-check (staged-insert/delete coalescence) \u2014 so a bit1 deferred entry is pending exactly at the late-continue force. Pins whether that lane needs the !higher drain block there."
+}
