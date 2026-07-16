@@ -14884,3 +14884,43 @@ THE DIET LEDGER after four slabs: peak at 1M is now ~64MB stored
 join keys + ~126MB of 128B/1M-live engine entries (unattributed —
 next profile's first question) + ~320MB big flat tables + strings.
 Committed local; no push, no version bump (Bryan holds both).
+
+## D-274 — the derive EXPRESSION LAYER opens (Bryan: fill the MVEL/eval gap from Python; "custom rust per price×quantity is unacceptable"): slab 0 = the semantics oracle MEASURED before any evaluator code (2026-07-16)
+
+Design (plan of record, approved): a closed expression tree built by
+Python operator overloading — `col("price") * col("qty")` — walked and
+evaluated in Rust over Arrow RecordBatch columns with the PINNED
+arrow-rs 56.2.1 compute kernels (already non-optional in our tree —
+zero new third-party crates). Entry points `derive.with_columns(data,
+**named_exprs)` (Bryan named it; polars semantics: exprs see INPUT
+columns only) and `derive.filter(data, pred)` (SQL WHERE, null rows
+drop). SQL-style null propagation, Kleene 3VL (Bryan-settled).
+Elementwise only — NO aggregates (accumulate owns aggregation in the
+match plane). The match grammar stays frozen; general eval stays CANT.
+
+SLAB 0 (this entry): `tools/pin_derive_expr.py` (duckdb 1.5.4
+hard-asserted) MEASURED the oracle into `docs/derive-expr-pins.md` —
+and the measurement REFUTED three design-pass assumptions before they
+became code:
+  1. DuckDB `//` TRUNCATES (-7//2 = -3, C-family, div/mod identity
+     with dividend-sign `%`) — the "hand-roll FLOOR division" plan was
+     wrong; arrow's native int div already matches the oracle.
+  2. DuckDB `//` on DOUBLE is PLAIN DIVISION (7.5//2.0 = 3.75) — the
+     kernel restricts `//` to integer operands (loud type error
+     steering to `/` + `.floor()`), ledger row 7.
+  3. DOUBLE→BIGINT CAST rounds HALF-TO-EVEN (2.5→2, 3.5→4) — arrow's
+     truncating cast can't be used; hand-rolled round_ties_even +
+     range check (out-of-range/NaN/inf error, matching the oracle).
+  Plus: round(x, n) tie forensics (2.665→2.67 though the binary value
+  is 2.66499…) pin the algorithm as SHORTEST-DECIMAL half-away
+  rounding (ledger row 8; provably agrees with f64::round at n=0 — the
+  haversine kernel's rounding is untouched); sqrt(negative) ERRORS
+  (oracle + house doctrine agree); int div0 for `//`/`%` yields
+  oracle-NULL vs kernel-loud-error (ledger row 6, the ONE
+  policy-over-oracle divergence class).
+
+The decision rule, on the record in the doc: DuckDB wins VALUE
+semantics; house loud-error doctrine wins ERROR policy (no silent null
+manufacture); IEEE wins float specials. Divergence ledger rows 1-8.
+Committed local; no push. Slabs 1-4 (evaluator / DSL / battery / docs)
+follow, each gated.
