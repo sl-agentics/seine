@@ -1,5 +1,24 @@
 # HANDOFF — the memory diet (SmallVec/inline tuples): cold start
 
+## ⚡ STATE AFTER D-270 (2026-07-15, same day): step 0 + slab 1 DONE
+
+Step 0 ran and REFUTED the SmallVec attribution below: the peak
+elephant was the HARNESS's retained serde_json parse tree (72% of
+peak live at N=1M — 4M × 632B BTreeMap nodes; run_scenario borrowed
+the whole tree for the run). Slab 1 (typed one-pass parse in
+runner.rs, byte-exact, harness-only) landed with all gates green:
+RSS at 1M 3.92→1.42GB (−64%), **16GB ceiling ≥12M pairs — the crown
+is taken ≥2.5×** (Drools died in [4.5M, 4.75M), D-269). Speed
+co-gate improved (join_10000 52.5ms). See the D-270 entry for
+receipts and the REMAINING DIET list: (a) output-side FactView/ser
+streaming — engine API, BRYAN-GATED; (b) FactSpec early-drop, minor;
+(c) SmallVec Tup ≈160MB real at 1M — engine edit GATED, worktree
+prototype allowed. Measurement tool: `cargo build --release -p
+seine-harness --features alloc_stats` → "ALLOC" histogram on stderr
+(exact sizes ≤512B + pow2; live-at-peak per slot). The sections
+below are the ORIGINAL filing — still the map for the gated engine
+half, but read the sizes against D-270's post-slab-1 numbers.
+
 Filed 2026-07-15 after D-269 (the OOM endurance race). Repo state at
 filing: HEAD `2d2fc7c` (D-269), local-unpushed on top of the pushed
 `v0.4.28` (`5f6d623`). Working tree clean. Bryan named this the

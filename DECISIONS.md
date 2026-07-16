@@ -11,22 +11,30 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-15, post-D-262 (BOTH lanes of the
-binding-divergence family PORTED — the arc is CLOSED; D-258..261
-PUSHED (Bryan-directed, `9c4e23a..4fa7c37`); D-262 committed local,
-Bryan holds pushes)._
+_Last updated: 2026-07-15, post-D-270 (memory-diet step 0 + slab 1
+LANDED, committed local; D-258..261 PUSHED (`9c4e23a..4fa7c37`);
+D-262..270 local, Bryan holds pushes)._
 
-**The O(N²) hunt is COMPLETE (D-265..268): join_10000 919→72ms
-(12.7x, target exceeded), all sweeps LINEAR through 16k, the engine
-beats warm Drools on EVERY scale cell (join_10000 62 vs 89ms).
-Permanent tooling: tools/bench_oracle.py + SEINE_TIME + the
-feature-gated pprof flamegraph (--features prof, SEINE_FLAME) +
-tools/bench_oom.sh (D-269 endurance race: Drools outlasts the engine
-~6-12% at a 16GB wall via GC squeeze; engine ~20% lighter below it;
-~1.9KB/fact). NEXT FRONTIER (Bryan-named, engine edit gated): the
-MEMORY DIET — COLD-START = `probes_pending/memory_diet/HANDOFF.md`
-(measure-first protocol, alloc surface inventory, SmallVec sketch,
-crown target = 16GB ceiling past 4.75M pairs, speed co-gate).** The binding-divergence
+**THE MEMORY DIET, slab 1 (D-270): measure-first paid — the
+`--features alloc_stats` counting allocator showed 72% of peak live
+bytes was the HARNESS's retained serde_json parse tree (4M × 632B
+BTreeMap nodes at 1M facts), not engine tuples. runner.rs now parses
+once into typed structs (hand-rolled Deserialize, byte-exact by
+construction). RSS at 1M: 3.92 → 1.42GB (−64%); **16GB endurance
+ceiling [4.25M, 4.5M) → ≥12M pairs — THE CROWN IS TAKEN ≥2.5× over
+Drools' [4.5M, 4.75M)** (D-269 oracle cells stand, runner-symmetric).
+Speed co-gate GREEN and improved: join_10000 52.5ms (was 62–72),
+sweeps linear through 16k. Gates: all-2029 byte-identical, diff
+11/1209/404, drift REBANKED 37→39 (2 fresh-seed latents quarantined:
+xf_fz_31415_774, xf_fz_62831_359 — both bisected pre-existing at
+44ddd14), cargo 53, pytest 171, demo True, lint 1882/0/0. REMAINING
+DIET (measured order, D-270 tail): output-side FactView/ser
+streaming (engine API ⇒ BRYAN-GATED), FactSpec early-drop (minor),
+SmallVec Tup (~160MB real at 1M, GATED, worktree prototype allowed).
+Cold-start: `probes_pending/memory_diet/HANDOFF.md` (updated).
+Earlier: the O(N²) hunt COMPLETE (D-265..268, join_10000 919→72ms,
+12.7x); tooling: bench_oracle.py + SEINE_TIME + --features prof
+flamegraph + tools/bench_oom.sh + --features alloc_stats.** The binding-divergence
 arc closed (D-260 recon, D-261 lane 2, D-262 lane 1): eager_flush at
 the sibling-continue + the salience-ordered halt-check peek walk
 (stops at the first live item; no lazy batch order pinned —
@@ -14705,3 +14713,82 @@ built (it touches Tup's type across the whole engine; own slab, own
 gate, if wanted).
 
 No engine change; tools/bench_oom.sh + this entry. Not pushed.
+
+## D-270 — the memory diet, step 0 + slab 1: MEASURE FIRST refuted the SmallVec story — the peak elephant was the HARNESS's retained serde_json parse tree (72% of live bytes); typed one-pass parse kills it. **RSS −64% at 1M; the 16GB endurance ceiling moves from [4.25M, 4.5M) to ≥12M pairs — the crown is taken ≥2.5×** (2026-07-15)
+
+The handoff's step 0 (probes_pending/memory_diet/HANDOFF.md) was
+right to demand measurement before dieting. New permanent tooling:
+`--features alloc_stats` (harness/src/alloc_stats.rs) — a counting
+global allocator wrapping System, exact-size histogram 0..=512B +
+pow2 classes, cumulative allocs/bytes AND live-count-at-peak per
+slot (4MB-hysteresis peak snapshot), "ALLOC" dump on stderr at exit.
+The prof-feature pattern: in-process, feature-gated, zero deps
+(perf/valgrind/heaptrack remain unavailable here).
+
+STEP 0 VERDICT (D-269 workload, N=1M/side, 2M facts, peak live
+3.49GB, RSS 3.92GB):
+  - `<=1024` class: 4,000,008 blocks LIVE AT PEAK, mean 632B =
+    2.53GB = **72% of peak** — 632B is exactly a serde_json
+    BTreeMap<String,Value> leaf node; 2 per fact = the {"type",
+    "fields"} object + the fields object. runner.rs parsed the
+    scenario into a full Value tree and `run_scenario(&sc)` BORROWED
+    it for the whole run (raw text string too): the engine ran the
+    endurance race with an ~11GB parse-tree backpack at its 4.25M
+    wall.
+  - The HANDOFF's suspects (Tup one-element Vecs): 5M live × 4B =
+    20MB counted, ~160MB real after malloc chunk rounding — REAL but
+    an order of magnitude below the tree. SmallVec DEMOTED to a
+    re-measure-after-slab-1 item, per the handoff's own rule.
+  - peak_attributed 3.53GB vs RSS 3.92GB — the gap is malloc
+    overhead on ~15M live small allocs (strings 1B/2B ×8M live etc).
+
+SLAB 1 (harness-only, the D-267 deserializer sibling): runner.rs now
+parses ONCE into owned typed structs — hand-rolled Deserialize (the
+ser.rs house style, no derive dep): Scenario/FactSpec/Epoch visitors
+(known keys matched, unknown skipped via IgnoredAny, duplicate key =
+last wins); a fact's fields flatten to a sorted last-dup-wins
+Vec<(String, J)> built THROUGH a transient BTreeMap so the old
+tree's dup/iteration semantics hold BY CONSTRUCTION; leaf values
+stay serde_json::Value (same number/string handling, converted
+lazily at the same use sites — error strings and their relative
+order preserved verbatim); `types`/`queries`/epoch `actions` stay
+small J values; the raw text drops before the run. Corpus pre-scan:
+0 of 2029 scenario files exercise the shapes where typing is
+stricter than the old tolerant .get() walk.
+
+RECEIPTS. Memory (equal 16GB cgroup, same law as D-269):
+  N=1M: RSS 3916MB → 1420MB (−64%), wall 7.5s → 6.2s. ~710B/fact
+  process-wide (was ~1.9KB).
+  Ladder: 4.75M ok/6.4GB · 6M ok/7.9GB · 8M ok/11.1GB · 10M ok/13.5GB
+  · **12M ok/15.87GB** (~1.32GB per M pairs, linear). Engine ceiling
+  ≥12M vs Drools [4.5M, 4.75M) (D-269 oracle cells stand — the
+  oracle runner is untouched; it too holds a Jackson readTree, so
+  the race stays runner-symmetric). **≥2.5× the Drools ceiling.**
+Speed co-gate: join_10000 52.5ms (band was 62–72 — the typed parse
+is itself faster), alpha_10000 13.7ms, acc_10000 12.6ms, every 10k
+cell still beats warm Drools (98.6/42.4/57.7ms warm); doubling
+ratios 1k→16k all ~2.0 (alpha 2.01/2.02/2.09, join 2.07/2.07/2.13,
+acc 1.97/2.09/2.01).
+Certified gates: all-2029 byte gate BYTE-IDENTICAL; make diff
+11/1209/404 green; drift REBANKED 37→39 (deliberate, below);
+cargo test 53; pytest 171; demo LIVE==REPLAY True; lint 1882/0/0.
+Fresh fuzz 2×2000 (seeds 31415, 62831): 2 finds, BOTH bisect-verified
+byte-identical on pre-edit 44ddd14 (worktree) — pre-existing latents
+flushed by fresh seeds, NOT D-270 regressions (engine bytes untouched
+by this slab). Quarantined per D-255: xf_fz_31415_774 (firing[1],
+engine R5 vs oracle R3×3-match), xf_fz_62831_359 (count 6 vs 7,
+engine R2 vs oracle R0 [InitialFact, Long]) — open_divergence +
+_finding notes, failures/ left clean.
+
+POST-SLAB-1 PEAK (N=1M, re-measured: peak live 1.06GB): FactSpec
+fields Vecs 56B×2M (112MB, harness-retained), FactView output
+materialization 64B×2M (126MB) + engine slots 128B/32B ×1M + ~8M
+live 1–2B strings. NEXT candidates in measured order: (a) stream the
+output side (engine.facts() Vec<FactView> + ser buffer — engine API
+addition ⇒ BRYAN-GATED), (b) drop FactSpecs after their epoch's
+inserts (harness, unmeasured minor), (c) the SmallVec Tup diet
+(~160MB real at 1M — now a bigger fraction, still not dominant;
+worktree prototype allowed, engine edit GATED). The 16GB crown
+stands without any of them.
+
+Committed local; no push, no version bump (Bryan holds both).

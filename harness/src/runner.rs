@@ -14,15 +14,126 @@ pub fn run_scenario_file(path: &str) -> Result<(String, J), (String, String)> {
 pub fn run_scenario_file_parts(path: &str) -> Result<(String, RunParts), (String, String)> {
     let text = std::fs::read_to_string(path)
         .map_err(|e| (path.to_string(), format!("cannot read {path}: {e}")))?;
-    let sc: J = serde_json::from_str(&text)
+    // D-270 (the memory diet, slab 1): parse ONCE into owned typed
+    // structs — no serde_json Value tree retained across the run. The
+    // tree's per-object BTreeMap nodes were 72% of peak live bytes at
+    // 1M facts (the D-269 workload); `facts` is the only unbounded
+    // surface, so fact rows get a compact shape and everything small
+    // stays a Value. The raw text drops here too.
+    let sc: Scenario = serde_json::from_str(&text)
         .map_err(|e| (path.to_string(), format!("bad scenario JSON: {e}")))?;
-    let name = sc
-        .get("name")
-        .and_then(J::as_str)
-        .unwrap_or(path)
-        .to_string();
+    drop(text);
+    let name = sc.name.clone().unwrap_or_else(|| path.to_string());
     run_scenario(&sc).map(|r| (name.clone(), r)).map_err(|e| (name, e))
 }
+
+/// The scenario document, typed. Every field the runner reads is here;
+/// unknown keys are skipped (the old `.get()` walk ignored them too).
+/// Missing-key errors stay at the USE sites so their strings and
+/// relative order match the tree-walking code exactly.
+#[derive(Default)]
+struct Scenario {
+    name: Option<String>,
+    drl: Option<String>,
+    types: Option<J>,
+    facts: Option<Vec<FactSpec>>,
+    epochs: Option<Vec<Epoch>>,
+    queries: Option<Vec<J>>,
+}
+
+#[derive(Default)]
+struct FactSpec {
+    type_name: Option<String>,
+    fields: Option<Fields>,
+    entry_point: Option<String>,
+}
+
+#[derive(Default)]
+struct Epoch {
+    actions: Option<Vec<J>>,
+    facts: Option<Vec<FactSpec>>,
+    queries: Option<Vec<J>>,
+}
+
+/// A fact's fields, flattened to a sorted key/value Vec. Built through
+/// a TRANSIENT BTreeMap so duplicate-key (last wins) and iteration
+/// (ascending key) semantics are the old tree's by construction; only
+/// the flat Vec survives — the ~632-byte tree node does not.
+struct Fields(Vec<(String, J)>);
+
+impl<'de> serde::Deserialize<'de> for Fields {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V;
+        impl<'de> serde::de::Visitor<'de> for V {
+            type Value = Fields;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("a fields object")
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(self, mut m: A) -> Result<Fields, A::Error> {
+                let mut map = std::collections::BTreeMap::<String, J>::new();
+                while let Some((k, v)) = m.next_entry()? {
+                    map.insert(k, v);
+                }
+                Ok(Fields(map.into_iter().collect()))
+            }
+        }
+        d.deserialize_map(V)
+    }
+}
+
+/// Hand-rolled object visitors (the ser.rs D-267 style — no derive
+/// dep): match known keys, last duplicate wins (BTreeMap semantics),
+/// skip unknown values without building them.
+macro_rules! de_object {
+    ($ty:ident { $($json_key:literal => $field:ident),+ $(,)? }) => {
+        impl<'de> serde::Deserialize<'de> for $ty {
+            fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+                struct V;
+                impl<'de> serde::de::Visitor<'de> for V {
+                    type Value = $ty;
+                    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                        f.write_str(concat!("a ", stringify!($ty), " object"))
+                    }
+                    fn visit_map<A: serde::de::MapAccess<'de>>(
+                        self,
+                        mut m: A,
+                    ) -> Result<$ty, A::Error> {
+                        let mut out = $ty::default();
+                        while let Some(k) = m.next_key::<String>()? {
+                            match k.as_str() {
+                                $($json_key => out.$field = Some(m.next_value()?),)+
+                                _ => {
+                                    m.next_value::<serde::de::IgnoredAny>()?;
+                                }
+                            }
+                        }
+                        Ok(out)
+                    }
+                }
+                d.deserialize_map(V)
+            }
+        }
+    };
+}
+
+de_object!(Scenario {
+    "name" => name,
+    "drl" => drl,
+    "types" => types,
+    "facts" => facts,
+    "epochs" => epochs,
+    "queries" => queries,
+});
+de_object!(FactSpec {
+    "type" => type_name,
+    "fields" => fields,
+    "entry_point" => entry_point,
+});
+de_object!(Epoch {
+    "actions" => actions,
+    "facts" => facts,
+    "queries" => queries,
+});
 
 /// The engine-shaped result pieces, before any JSON assembly. One
 /// producer, two consumers: cmd_run serializes DIRECTLY (D-267, no
@@ -51,13 +162,14 @@ impl RunParts {
     }
 }
 
-fn run_scenario(sc: &J) -> Result<RunParts, String> {
-    let schemas = parse_types(sc.get("types").ok_or("scenario missing 'types'")?)?;
+fn run_scenario(sc: &Scenario) -> Result<RunParts, String> {
+    let types = sc.types.as_ref().ok_or("scenario missing 'types'")?;
+    let schemas = parse_types(types)?;
     let mut engine = Engine::new(schemas).map_err(|e| e.to_string())?;
     // CEP E1/E2: type-level event metadata. `expires_ms` is OPTIONAL
     // (D-109) — absent ⇒ infer the expiration reach from the temporal
     // constraints after rule compile (CEP E2 item A).
-    for t in sc.get("types").and_then(J::as_array).into_iter().flatten() {
+    for t in types.as_array().into_iter().flatten() {
         if let Some(ev) = t.get("event") {
             let tname = t.get("name").and_then(J::as_str).unwrap_or_default();
             let ts = ev
@@ -71,28 +183,11 @@ fn run_scenario(sc: &J) -> Result<RunParts, String> {
             engine.declare_event(tname, ts, exp, dur).map_err(|e| e.to_string())?;
         }
     }
-    let drl = sc
-        .get("drl")
-        .and_then(J::as_str)
-        .ok_or("scenario missing 'drl'")?;
+    let drl = sc.drl.as_deref().ok_or("scenario missing 'drl'")?;
     engine.add_rules_drl(drl).map_err(|e| e.to_string())?;
 
-    for fact in sc
-        .get("facts")
-        .and_then(J::as_array)
-        .ok_or("scenario missing 'facts'")?
-    {
-        let type_name = fact
-            .get("type")
-            .and_then(J::as_str)
-            .ok_or("fact missing 'type'")?;
-        let fields_obj = fact
-            .get("fields")
-            .and_then(J::as_object)
-            .ok_or("fact missing 'fields'")?;
-        let fields = json_fields_to_values(fields_obj)?;
-        let ep = fact.get("entry_point").and_then(J::as_str);
-        engine.insert_into(type_name, fields, ep).map_err(|e| e.to_string())?;
+    for fact in sc.facts.as_deref().ok_or("scenario missing 'facts'")? {
+        insert_fact_spec(&mut engine, fact, "fact")?;
     }
 
     let mut firings = engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?;
@@ -101,9 +196,9 @@ fn run_scenario(sc: &J) -> Result<RunParts, String> {
     // global-insertion-index), then legacy "facts" inserts, then fires
     // again; the firing log continues.
     let mut queries_out = Vec::new();
-    if let Some(epochs) = sc.get("epochs").and_then(J::as_array) {
+    if let Some(epochs) = &sc.epochs {
         for epoch in epochs {
-            for action in epoch.get("actions").and_then(J::as_array).unwrap_or(&Vec::new()) {
+            for action in epoch.actions.as_deref().unwrap_or_default() {
                 let op = action.get("op").and_then(J::as_str).ok_or("action missing 'op'")?;
                 match op {
                     "insert" => {
@@ -157,23 +252,13 @@ fn run_scenario(sc: &J) -> Result<RunParts, String> {
                     other => return Err(format!("unknown epoch action op {other:?}")),
                 }
             }
-            for fact in epoch.get("facts").and_then(J::as_array).unwrap_or(&Vec::new()) {
-                let type_name = fact
-                    .get("type")
-                    .and_then(J::as_str)
-                    .ok_or("epoch fact missing 'type'")?;
-                let fields_obj = fact
-                    .get("fields")
-                    .and_then(J::as_object)
-                    .ok_or("epoch fact missing 'fields'")?;
-                let fields = json_fields_to_values(fields_obj)?;
-                let ep = fact.get("entry_point").and_then(J::as_str);
-                engine.insert_into(type_name, fields, ep).map_err(|e| e.to_string())?;
+            for fact in epoch.facts.as_deref().unwrap_or_default() {
+                insert_fact_spec(&mut engine, fact, "epoch fact")?;
             }
             firings.extend(engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?);
             // Arc 5 (D-107): per-epoch query invocation — queries run
             // against the WM as of THIS epoch's quiescence
-            if let Some(eq) = epoch.get("queries").and_then(J::as_array) {
+            if let Some(eq) = &epoch.queries {
                 run_query_calls(&mut engine, eq, &mut queries_out)?;
             }
         }
@@ -181,11 +266,22 @@ fn run_scenario(sc: &J) -> Result<RunParts, String> {
     // Query phase (D-049): ordered calls against the final WM. JSON null
     // arg = unbound (Variable.v on the oracle side).
 
-    if let Some(queries) = sc.get("queries").and_then(J::as_array) {
+    if let Some(queries) = &sc.queries {
         run_query_calls(&mut engine, queries, &mut queries_out)?;
     }
 
     Ok(RunParts { facts: engine.facts(), firings, queries: queries_out })
+}
+
+/// Insert one typed fact row. `what` = "fact" | "epoch fact" so the
+/// missing-key error strings match the old tree walk byte for byte.
+fn insert_fact_spec(engine: &mut Engine, fact: &FactSpec, what: &str) -> Result<(), String> {
+    let type_name = fact.type_name.as_deref().ok_or(format!("{what} missing 'type'"))?;
+    let flat = fact.fields.as_ref().ok_or(format!("{what} missing 'fields'"))?;
+    let fields = json_fields_to_values(flat.0.iter().map(|(k, v)| (k, v)))?;
+    let ep = fact.entry_point.as_deref();
+    engine.insert_into(type_name, fields, ep).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 fn run_query_calls(
@@ -307,7 +403,9 @@ fn parse_types(types: &J) -> Result<Vec<TypeSchema>, String> {
     Ok(out)
 }
 
-fn json_fields_to_values(obj: &Map<String, J>) -> Result<Vec<(String, Value)>, String> {
+fn json_fields_to_values<'a>(
+    obj: impl IntoIterator<Item = (&'a String, &'a J)>,
+) -> Result<Vec<(String, Value)>, String> {
     let mut out = Vec::new();
     for (k, v) in obj {
         let val = match v {

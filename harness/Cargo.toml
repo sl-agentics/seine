@@ -15,3 +15,5 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 [features]
 # D-267 follow-up: signal-based profiling (perf_event is sysctl-blocked here)
 prof = ["dep:pprof"]
+# Memory-diet step 0 (D-270): counting global allocator, histogram on stderr
+alloc_stats = []

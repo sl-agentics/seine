@@ -11,11 +11,17 @@
 //!   - matched facts within one firing are compared as a multiset
 //!   - f64 equality is IEEE-754 bit equality; i64 exact
 
+#[cfg(feature = "alloc_stats")]
+mod alloc_stats;
 mod canon;
 mod gen;
 mod oracle;
 mod runner;
 mod ser;
+
+#[cfg(feature = "alloc_stats")]
+#[global_allocator]
+static COUNTING_ALLOC: alloc_stats::CountingAlloc = alloc_stats::CountingAlloc;
 
 use std::process::ExitCode;
 
@@ -38,6 +44,8 @@ fn main() -> ExitCode {
         .ok();
     #[cfg(feature = "prof")]
     let _flush = ProfDump(_prof);
+    #[cfg(feature = "alloc_stats")]
+    let _alloc_dump = alloc_stats::AllocDump;
     match cmd {
         "run" => cmd_run(&paths),
         "oracle" => cmd_oracle(&paths),
