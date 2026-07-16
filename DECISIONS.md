@@ -11,12 +11,33 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-v0.4.29 (THE MEMORY-DIET ARC IS
-COMPLETE AND RELEASED: D-269..273 + bump PUSHED (`2d2fc7c..4d6a189`),
-tag v0.4.29 → PyPI 0.4.29 live, GH release + wheels attached,
-differential CI green; publish-crates failed on the missing
-crates.io TP config as at every tag since v0.4.5 — Bryan's one-time
-crates.io steps remain the sole outstanding infra item)._
+_Last updated: 2026-07-16, post-D-278 (THE DERIVE EXPRESSION-LAYER ARC
+IS COMPLETE, D-274..278 committed local; v0.4.29 released earlier
+today — memory-diet arc — PyPI live; publish-crates still blocked on
+Bryan's one-time crates.io TP config)._
+
+**THE DERIVE EXPRESSION LAYER (D-274..278, Bryan: fill the MVEL/eval
+gap from Python; plan-approved): `with_columns(orders,
+total=col("price") * col("qty"))` + `filter(data, pred)` — a closed
+expression tree built by Python operator overloading, evaluated in
+Rust over Arrow columns with the pinned arrow-rs 56.2.1 compute
+kernels (zero new third-party deps). SQL null propagation + Kleene
+3VL; polars input-only visibility; loud errors (overflow/div0/casts
+never manufacture nulls). SEMANTICS MEASURED FIRST: DuckDB 1.5.4
+oracle → tools/pin_derive_expr.py → docs/derive-expr-pins.md with an
+11-row divergence ledger (measurement killed 3 design assumptions:
+// truncates, float-// is plain division → operator restricted to
+ints, f64→i64 cast rounds half-even → hand-rolled; round = shortest-
+decimal half-away). Certified THREE-WAY (Rust / pure-python RefEval /
+DuckDB SQL, 500-tree typed fuzzer + vectors,
+bindings/tests/test_derive_expr.py) — the battery caught 2 real
+kernel bugs pre-certification: arrow zip's values-buffer mask trap
+(kernel-computed null masks picked the then-branch) and arrow cmp's
+totalOrder floats (-0.0 != 0.0) → both fixed, pinned, ledgered
+(rows 9-11). Bindings-only; engine byte-untouched; corpus never
+reopened. Receipts: diff 11/1209/404 + drift 41 identical, lint
+1882/0/0, pytest 214, cargo 54, demo True. Committed local
+(be8f0c0..D-278), NO push.**
 
 **THE MEMORY DIET IS DONE (D-270..273, Bryan un-gated "do the rest"
 mid-arc): at 1M fact-pairs RSS went 3.92GB → 845MB (−78%); the 16GB
@@ -15031,3 +15052,25 @@ THE BATTERY'S CATCHES (both fixed in expr.rs, both now pinned):
 Ledger rows 9-11 added (eager if_else/fill_null branches vs lazy SQL
 CASE; the float-comparison decision; i64::MIN % -1). Pins doc
 regenerated. Committed local.
+
+## D-278 — the derive expression-layer arc CLOSES: docs + the full gate battery. `price × quantity` is one line of Python, certified three ways (2026-07-16)
+
+docs/derivation-plane.md gains the expression-layer section (the
+grammar, the measured-semantics doctrine, the three-way certification,
+the v2 ledger); status header now names D-274..277.
+
+FINAL RECEIPTS (the whole arc): make diff 11/1209/404 + drift 41
+identical; lint-probes 1882/0/0; pytest 214 (171 + 43); cargo test 54;
+demo selfcheck exit 0. Bindings-only throughout — engine/src untouched,
+the certified corpus never reopened. The arc's shape, for the record:
+measure the oracle FIRST (D-274 killed three design assumptions),
+evaluator second (D-275), surface third (D-276), battery last —
+which promptly caught two real kernel bugs the smoke tests missed
+(D-277). Four slabs, four commits, no push (Bryan holds it).
+
+What a user now writes:
+    from seine_rs.derive import col, with_columns, filter
+    orders = with_columns(orders, total=col("price") * col("qty"))
+    orders = filter(orders, col("total").is_not_null())
+— and the match plane constrains on `total` with the frozen certified
+grammar. No MVEL, no eval, no custom Rust, no release cycle.

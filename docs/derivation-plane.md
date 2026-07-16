@@ -1,10 +1,13 @@
 # The derivation plane — dataframe math upstream of the certified match
 
-**Status: LANDED (D-249 design; D-251 kernels; D-252 demo swap). The
-Rust/arrow-rs kernel library ships as `seine_rs.derive` (haversine,
-pair_candidates, closing), certified by
-bindings/tests/test_derive.py; the demo's DerivationStage runs on it.
-Zero engine changes throughout.**
+**Status: LANDED (D-249 design; D-251 kernels; D-252 demo swap;
+D-274..277 the expression layer). `seine_rs.derive` ships the bespoke
+kernels (haversine, pair_candidates, closing — certified by
+bindings/tests/test_derive.py) AND the general expression layer
+(`with_columns` / `filter` / `col`/`lit`/`if_else`/`Expr` — certified
+three-way by bindings/tests/test_derive_expr.py against a pure-python
+reference and DuckDB, semantics measured into
+docs/derive-expr-pins.md). Zero engine changes throughout.**
 
 The pitch line: **Drools semantics in the match, dataframe semantics in
 the data.** Seine never grows an `eval`/Java escape hatch — the seam
@@ -72,6 +75,43 @@ compute. All-pairs is O(n²); the answer is the standard columnar shape:
   which is what lets the WAL store raw epochs.
 - The derivation battery is **separate from `make diff`** and never
   gates on the Drools oracle: Drools has no opinion about column math.
+
+## The expression layer (row-wise column math, no Rust per derivation)
+
+The MVEL/eval gap, made usable: users declare row math in Python and a
+CLOSED expression tree evaluates in Rust over Arrow columns — no user
+code in the eval path, so determinism and WAL-replay re-derivation
+survive by construction.
+
+```python
+from seine_rs.derive import col, if_else, with_columns, filter
+
+orders = with_columns(orders,
+    total=col("price") * col("qty"),
+    band=if_else(col("qty") > 100, "bulk", "retail"))
+orders = filter(orders, col("total").is_not_null())
+# -> assert; the match plane constrains on `total`/`band` with the
+#    grammar it already has
+```
+
+- Grammar (closed, v1): `+ - * / // % **`, comparisons, `& | ~` (SQL
+  three-valued logic), `if_else`, `is_null`/`fill_null`, `abs/floor/
+  ceil/round/sqrt`, `cast("i64"|"f64")`, core string ops
+  (`concat`, `str_contains/starts/ends/len`). No aggregates — the match
+  plane's certified `accumulate` owns aggregation. NULLs propagate
+  SQL-style (the expression plane HAS null semantics; the match plane's
+  loud-reject at insert is unchanged).
+- Semantics are MEASURED, not designed by argument: DuckDB is the
+  data-plane oracle (tools/pin_derive_expr.py → docs/derive-expr-pins.md,
+  version-pinned), with a three-clause decision rule — oracle wins value
+  semantics; the loud-error doctrine wins error policy (overflow/div0/
+  failed casts never manufacture nulls); IEEE wins float specials. Every
+  deliberate divergence is a numbered ledger row in the pins doc.
+- Certification is three-way: the Rust kernels vs an independent
+  pure-python reference vs DuckDB SQL over the same data — fixed-seed
+  typed fuzzing plus vector pins (bindings/tests/test_derive_expr.py).
+- Out of v1, on the ledger: regex (dialect pinning campaign), casts
+  to/from utf8/bool, typed null literals, decimal columns, aggregates.
 
 ## Declaration shape (prototype-level, Python)
 
