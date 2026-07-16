@@ -14659,3 +14659,44 @@ D-043 semantics needs a cached top/heap if it ever shows up in a
 profile — noted, not built). Engine + harness tooling. Not pushed.
 — Bryan's methodology call (measure the fork, then name the box —
 no bindings theorizing) is what found both.
+
+## D-269 — who OOMs first: the memory endurance race (equal 16GB kernel cgroup caps, disjoint-join fact pressure) — DROOLS OUTLASTS THE ENGINE by ~6-12% at the wall; the engine is LIGHTER everywhere below it (2026-07-15)
+
+Bryan: "let's find out who OOMs first." Protocol (tools/bench_oom.sh):
+identical scenario files (disjoint join, N facts/side, ZERO firings =
+pure fact/alpha/beta-memory pressure, no fire-limit ceiling), each
+process under `systemd-run --user -p MemoryMax=16G` — TOTAL RSS is the
+law for both sides (the first round used ulimit -v vs -Xmx and was
+UNFAIR: -Xmx caps only the heap and Drools rode ~1GB of native
+overhead past its budget; rematch under cgroups).
+
+THE CURVE (both linear in N):
+  N/side   engine RSS   drools RSS    engine wall  drools wall
+  250k        958MB       1315MB        1.3s         2.4s
+  1M         3824MB       4724MB        6.5s         6.6s
+  2M         7647MB       9488MB       13.8s        11.8s
+  4M        15292MB      15751MB       28.9s        27.1s
+  4.25M     16201MB ok      —
+  4.5M      KILLED       15968MB ok
+  4.75M        —         KILLED
+  5M        KILLED       KILLED
+
+VERDICT: the ENGINE OOMs FIRST — ceiling ∈ [4.25M, 4.5M) pairs vs
+Drools ∈ [4.5M, 4.75M) at 16GB. Below the wall the engine is ~20%
+LIGHTER at every N (3.8 vs 4.7GB at 1M); Drools wins only AT the wall
+because G1 compacts/squeezes under pressure (note its 4M RSS ≈ its
+4.5M RSS — the GC eats the growth) while the engine's allocator
+holds its layout and dies allocation-hard. Two survival strategies:
+rigid-and-lean vs elastic-and-heavier.
+
+THE ENGINEERING NOTE THE RACE SURFACED: ~1.9KB of engine RSS per
+single-i64-field fact. The per-fact overhead is dominated by small
+heap allocations — Tup = Vec<FactId> per left tuple, the
+Option<Vec<Value>> join key per memory entry, the D-266 seen
+HashSets, left_sseq/act_num HashMap entries keyed by fresh Vecs.
+A memory diet (SmallVec/inline 1-2-fact tuples, interned keys) could
+plausibly halve it and take the endurance crown — LEDGER ITEM, not
+built (it touches Tup's type across the whole engine; own slab, own
+gate, if wanted).
+
+No engine change; tools/bench_oom.sh + this entry. Not pushed.
