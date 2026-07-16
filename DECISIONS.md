@@ -11,10 +11,31 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-278 (THE DERIVE EXPRESSION-LAYER ARC
-IS COMPLETE, D-274..278 committed local; v0.4.29 released earlier
-today — memory-diet arc — PyPI live; publish-crates still blocked on
+_Last updated: 2026-07-16, post-D-283 (TIER 1 OF THE BOUNDARY REDRAW
+LANDED: RHS computed insert args are certified subset — the first
+computed values born inside the fixpoint. D-274..283 committed local;
+v0.4.30 released earlier today; publish-crates still blocked on
 Bryan's one-time crates.io TP config)._
+
+**THE BOUNDARY REDRAW (D-280..283, Bryan's doctrine: the match
+grammar never grows a Java/MVEL INTERPRETER — arithmetic is certified
+like everything else): `insert(new Total($price * $qty))` is now
+in-subset.** Probe-first (25+4 oracle probes, 3×-stable,
+probes_pending/arith_grammar/PINS.md): RHS = clean Java (wrap, trunc
+div, dividend-sign %, IEEE, / by zero throws); LHS division = a
+coercion swamp (comparand-literal int-representability + 1 unresolved
+div0 cell — needs its own 2×2 before any LHS port); the 9.44
+field+lit*lit eval throw = defect we do NOT copy (⚖ D-281). Tier plan
+by probe (D-282): plain-insert tier has NO D-076 exposure; stratified
+insertLogical tier needs only a cycle CompileError; unbounded waits
+for the iterative cascade. D-283 receipts: 2033 byte-identical, 7/7
+probes green, 5 graduated (corpus 11/1214/404, drift 41, lint
+1911/0/0 with 24 fences), fuzz 2×2000 clean on the new axis,
+model_ird 31/31, agenda_open ×15 identical, IRD 0-div ×5, **SD census
+72 EXACT**. Partially supersedes D-231 (modify-with-computation stays
+WONT). NEXT (all Bryan-gated): authoring.py sugar; the LHS-swamp 2×2
+campaign; Tier 2 stratification check; D-076 iterative cascade for
+the unbounded tier.**
 
 **THE DERIVE EXPRESSION LAYER (D-274..278, Bryan: fill the MVEL/eval
 gap from Python; plan-approved): `with_columns(orders,
