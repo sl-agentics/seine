@@ -11,13 +11,12 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-283 (TIER 1 OF THE BOUNDARY REDRAW
-LANDED: RHS computed insert args are certified subset — the first
-computed values born inside the fixpoint. D-274..283 committed local;
-v0.4.30 released earlier today; publish-crates still blocked on
-Bryan's one-time crates.io TP config)._
+_Last updated: 2026-07-16, post-D-284 (TIER 2 LANDED: computed
+insertLogical under stratification. D-274..284 committed local;
+v0.4.30 released; publish-crates still blocked on Bryan's one-time
+crates.io TP config)._
 
-**THE BOUNDARY REDRAW (D-280..283, Bryan's doctrine: the match
+**THE BOUNDARY REDRAW (D-280..284, Bryan's doctrine: the match
 grammar never grows a Java/MVEL INTERPRETER — arithmetic is certified
 like everything else): `insert(new Total($price * $qty))` is now
 in-subset.** Probe-first (25+4 oracle probes, 3×-stable,
@@ -33,9 +32,16 @@ probes green, 5 graduated (corpus 11/1214/404, drift 41, lint
 1911/0/0 with 24 fences), fuzz 2×2000 clean on the new axis,
 model_ird 31/31, agenda_open ×15 identical, IRD 0-div ×5, **SD census
 72 EXACT**. Partially supersedes D-231 (modify-with-computation stays
-WONT). NEXT (all Bryan-gated): authoring.py sugar; the LHS-swamp 2×2
-campaign; Tier 2 stratification check; D-076 iterative cascade for
-the unbounded tier.**
+WONT). TIER 2 (D-284): computed insertLogical under the
+STRATIFICATION pass (computed edge in a derivation cycle =
+CompileError; copy cycles stay legal+certified; cascade depth guard
+8192) — 6 more probes graduated (corpus 11/1220/406, drift 42, lint
+1918/0/0); the fuzz axis caught the JAVA INT-LITERAL gap (32-bit
+wrapping arithmetic for literal-only ops — ArithTy lattice, 6-cell
+pin pr_ar_rhs_int_literal_wrap, 2 graduated regressions); SD census
+72 EXACT + IRD 0-div ×5 twice over. NEXT (all Bryan-gated): updates/
+setters with computation (Bryan: next up); the LHS-swamp 2×2
+campaign; D-076 iterative cascade (unbounded tier); authoring sugar.**
 
 **THE DERIVE EXPRESSION LAYER (D-274..278, Bryan: fill the MVEL/eval
 gap from Python; plan-approved): `with_columns(orders,
