@@ -14803,3 +14803,24 @@ strings + 72B inline struct × 2M) duplicating data the engine already
 owns. Harness-only. Receipts: all-2031 byte gate BYTE-IDENTICAL
 (fresh baseline captured at 7f2982b); cargo test 53; N=1M RSS
 1420 → 1030MB, wall 6.2 → 5.0s. Committed local; no push.
+
+## D-272 — memory diet slab 3: the output side STREAMS — `Engine::facts_iter()` (pure API addition), RunParts carries the engine, ser pulls one FactView at a time, stdout writes through one BufWriter. RSS at 1M: 1030 → 935MB (2026-07-16)
+
+Bryan opened the engine gate ("do the rest"). The addition is
+minimal and identity-proof: `facts()` was an iterator chain ending in
+.collect() — `facts_iter()` IS that chain, and `facts()` now collects
+it (same items, same order, by construction). Harness: RunParts holds
+the Engine instead of a materialized Vec<FactView>; ser.rs FvStream
+serializes facts straight off `facts_iter()` (serde_json ignores the
+seq len hint — no byte can differ); to_value() collects the same
+iterator for the diff/fuzz judge; cmd_run drops the per-line Vec<u8>
+line buffer for one BufWriter over stdout (a 2M-fact line no longer
+coexists with its FactView sources). ser's unit pin refit: the corner
+fixture (handles/elems/"value" key/NaN/decimals) compares
+FvJson/FiringJson against fact_view_to_json directly, plus a NEW
+whole-line pin through a real engine run (cargo test 53 → 54).
+
+Receipts: all-2031 byte gate BYTE-IDENTICAL; cargo test 54; N=1M RSS
+1030 → 935MB, wall 5.0 → 4.6s — the remaining peak is now the
+ENGINE's own steady state (~470B/fact process-wide), i.e. the
+D-273 SmallVec slab's target. Committed local; no push.

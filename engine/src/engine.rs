@@ -10955,6 +10955,14 @@ impl Engine {
     }
 
     pub fn facts(&self) -> Vec<FactView> {
+        self.facts_iter().collect()
+    }
+
+    /// D-272 (the memory diet): the same WM dump as `facts()`, lazily —
+    /// callers that serialize can stream one FactView at a time instead
+    /// of materializing the whole Vec (identical items, identical order,
+    /// by construction: `facts()` is this iterator collected).
+    pub fn facts_iter(&self) -> impl Iterator<Item = FactView> + '_ {
         let mut hidden: Vec<TypeId> = RESERVED_TYPES
             .iter()
             .filter_map(|n| self.store.type_id(n))
@@ -10963,13 +10971,12 @@ impl Engine {
         hidden.extend(self.gbrow_tids.iter().copied());
         self.store
             .live_facts()
-            .filter(|f| !hidden.contains(&self.store.fact_type(*f)))
+            .filter(move |f| !hidden.contains(&self.store.fact_type(*f)))
             // CEP E2 item D: `session.getObjects()` returns only DEFAULT-EP
             // objects; named-EP facts live in separate partitions and are
             // not part of the default WM dump.
             .filter(|f| self.fact_ep(*f) == 0)
             .map(|f| self.store.render(f))
-            .collect()
     }
 
     /// Run a DRL query against the current WM (Phase Q0). `None` args are

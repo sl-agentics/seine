@@ -138,8 +138,12 @@ de_object!(Epoch {
 /// The engine-shaped result pieces, before any JSON assembly. One
 /// producer, two consumers: cmd_run serializes DIRECTLY (D-267, no
 /// Value tree); diff/fuzz build the comparison Value via to_value().
+/// D-272: the final WM dump is not materialized here — the ENGINE
+/// rides along and consumers pull `facts_iter()` (cmd_run streams it;
+/// to_value collects it), so 2M-fact dumps never coexist with their
+/// serialized bytes.
 pub struct RunParts {
-    pub facts: Vec<FactView>,
+    pub engine: Engine,
     pub firings: Vec<seine_engine::Firing>,
     pub queries: Vec<J>,
 }
@@ -149,7 +153,7 @@ impl RunParts {
     /// judge's comparison shape.
     pub fn to_value(&self) -> J {
         json!({
-            "facts": self.facts.iter().map(fact_view_to_json).collect::<Vec<J>>(),
+            "facts": self.engine.facts_iter().map(|fv| fact_view_to_json(&fv)).collect::<Vec<J>>(),
             "firings": self.firings
                 .iter()
                 .map(|f| json!({
@@ -279,7 +283,7 @@ fn run_scenario(mut sc: Scenario) -> Result<RunParts, String> {
         run_query_calls(&mut engine, queries, &mut queries_out)?;
     }
 
-    Ok(RunParts { facts: engine.facts(), firings, queries: queries_out })
+    Ok(RunParts { engine, firings, queries: queries_out })
 }
 
 /// Insert one typed fact row. `what` = "fact" | "epoch fact" so the
@@ -438,7 +442,7 @@ fn json_fields_to_values<'a>(
     Ok(out)
 }
 
-fn fact_view_to_json(fv: &FactView) -> J {
+pub(crate) fn fact_view_to_json(fv: &FactView) -> J {
     let mut fields = Map::new();
     // u32::MAX marks synthetic views (QueryArgs arrays, boxed scalars) —
     // the oracle emits no __h for those either (D-056).
