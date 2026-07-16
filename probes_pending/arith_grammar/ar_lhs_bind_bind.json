@@ -1,0 +1,36 @@
+{
+ "name": "ar_lhs_bind_bind",
+ "drl": "rule \"TwoBind\"\nwhen\n    T($a : k)\n    T($b : k, k != $a)\n    T(k == $a + $b)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 5
+   }
+  }
+ ],
+ "epochs": []
+}

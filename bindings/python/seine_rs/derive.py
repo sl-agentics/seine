@@ -5,10 +5,10 @@ semantics in the match, dataframe semantics in the data. These are
 pure columnar functions over Arrow data — anything ``run()`` accepts
 (``__arrow_c_stream__`` tables or dicts of column lists) in, a
 ``seine_rs.Table`` out — producing honest FIELDS upstream of
-assertion; the certified match grammar never grows arithmetic. Their
-oracle is an independent pure-python reference + the property battery
-in bindings/tests/test_derive.py; the Drools oracle has no opinion
-about column math.
+assertion; the certified match grammar never grows a Java or MVEL
+interpreter. Their oracle is an independent pure-python reference +
+the property battery in bindings/tests/test_derive.py; the Drools
+oracle has no opinion about column math.
 
 Epoch contract: derivation runs inside the epoch, upstream of
 assertion, as a deterministic function of (raw batch, caller-owned

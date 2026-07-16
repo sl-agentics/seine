@@ -1,0 +1,36 @@
+{
+ "name": "ar_lhs_binding_arith",
+ "drl": "rule \"BindArith\"\nwhen\n    T($a : k)\n    T(k > $a + 1, k != $a)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 5
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 4
+   }
+  }
+ ],
+ "epochs": []
+}

@@ -1,0 +1,34 @@
+{
+ "name": "ar_lhs_ieee_sum",
+ "drl": "rule \"Exact03\"\nwhen\n    T(x + y == z)\nthen\nend\nrule \"IeeeSum\"\nwhen\n    T(x + y == 0.30000000000000004)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    },
+    {
+     "name": "y",
+     "type": "f64"
+    },
+    {
+     "name": "z",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "x": 0.1,
+    "y": 0.2,
+    "z": 0.3
+   }
+  }
+ ],
+ "epochs": []
+}

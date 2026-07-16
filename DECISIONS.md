@@ -15104,3 +15104,48 @@ demo green. NOTE: workspace-wide `strip` was considered and REJECTED —
 the prof feature's flamegraphs (SEINE_FLAME) need symbols in
 seine-harness, and per-package strip overrides don't exist.
 cargo-bloat installed as permanent tooling. Committed local.
+
+## D-280 — ⚖ THE BOUNDARY REDRAW OPENS (Bryan): "the match grammar never grows a Java or MVEL interpreter" REPLACES "never grows arithmetic" — and the arithmetic probe battery maps what certification would sign up for (2026-07-16)
+
+Bryan's ruling, verbatim doctrine: the certification boundary was
+drawn to make the corpus green, not to match where inference needs
+arithmetic — the engine can chain matches but no computed value can be
+BORN inside the fixpoint (LHS constraint arithmetic unbuilt at D-061
+P3; RHS insert args are Lit|Var|Getter; accumulate is the lone
+certified in-loop computation). The two-plane doctrine's defensible
+line was always the INTERPRETER, not arithmetic. Doctrine line updated
+in docs/derivation-plane.md + derive.py.
+
+STEP 0, probe-first (25 oracle-only probes,
+probes_pending/arith_grammar/, 3× byte-stable; PINS.md is the record):
+
+**RHS arithmetic is CLEAN JAVA** — precedence, dividend-sign %, unary
+minus, long overflow WRAPS silently, int division truncates, mixed
+promotes, RHS 1/0 throws ConsequenceException, 1.0/0.0 → Infinity
+(which the oracle RENDERS as a JSON STRING — a serializer pin for any
+port). f64 arithmetic and comparisons are bit-identical to the derive
+plane's kernels; NaN != NaN even in constraints (standard IEEE, not
+totalOrder). Binding arithmetic works in constraints today: $a + $b,
+-$a, $a * 2, k - 1.
+
+**LHS division is a COERCION SWAMP** — the same fact fires BOTH
+`k / 2 == 3` AND `k / 2 == 3.5` (k=7): the comparand literal's
+int-representability appears to select integer vs real division
+(hypothesis fits 8 of 9 cells; the ninth — `k / z > 0` firing at z=0
+where `k / z == 0` silently no-fires — is UNRESOLVED, needs its own
+2×2 before any LHS-division port). Plus a genuine 9.44 compiler
+defect: bare `field + lit * lit` throws ConstraintEvaluationException
+at EVAL time while parenthesized/reordered shapes evaluate correctly —
+a fence candidate.
+
+THE PORT SHAPE (Bryan-gated, NOT started): (1) RHS computed insert
+args first — clean Java, supersedes the D-231 WONT for pure computed
+fields on NEW facts only (modify-with-computation stays WONT); i64
+wrap-to-match-oracle inside the match plane is the byte-certifiable
+choice (the derive plane keeps loud errors — two planes, two
+overflow policies, both on the record). (2) LHS arithmetic as the
+COHERENT SUBSET (same-type operands; division restricted or
+comparand-pinned; swamp cells fenced with authoring-lint steering).
+(3) Standing prereq first: the D-076 TMS cascade goes ITERATIVE
+(arithmetic unlocks unbounded justification chains). Committed local;
+no push.

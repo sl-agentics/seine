@@ -1,0 +1,24 @@
+{
+ "name": "ar_lhs_int_div",
+ "drl": "rule \"TruncEq3\"\nwhen\n    T(k / 2 == 3)\nthen\nend\nrule \"PromoteEq35\"\nwhen\n    T(k / 2 == 3.5)\nthen\nend\nrule \"GtDouble\"\nwhen\n    T(k / 2 > 3.0)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

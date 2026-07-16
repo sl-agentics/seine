@@ -1,0 +1,33 @@
+{
+ "name": "ar_rhs_dbl_div",
+ "drl": "rule \"DblDiv\"\nwhen\n    T($a : k)\nthen\n    insert(new V($a / 2.0));\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "V",
+   "fields": [
+    {
+     "name": "w",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

@@ -22,7 +22,7 @@ with grammar it already has.
 | | Match plane | Derivation plane |
 |---|---|---|
 | What | RETE/PHREAK, TMS, temporal joins, agenda, queries | Vectorized pure functions over Arrow columns |
-| Grammar | The frozen certified subset — **never grows arithmetic** | Anything expressible as `columns -> columns` |
+| Grammar | The frozen certified subset — **never grows a Java or MVEL interpreter** (closed-grammar arithmetic is a roadmap feature, certified like everything else) | Anything expressible as `columns -> columns` |
 | Oracle | Pinned Drools 9.44.0.Final+p1, byte-for-byte | Reference implementation + property tests |
 | Hard part | Interleavings, epochs, belief revision — already certified | Nothing: pure functions on columns have no interleavings |
 
@@ -100,7 +100,12 @@ orders = filter(orders, col("total").is_not_null())
   (`concat`, `str_contains/starts/ends/len`). No aggregates — the match
   plane's certified `accumulate` owns aggregation. NULLs propagate
   SQL-style (the expression plane HAS null semantics; the match plane's
-  loud-reject at insert is unchanged).
+  loud-reject at insert is unchanged). The expression layer is the RIM:
+  it computes upstream of assertion. In-chain arithmetic (computed
+  values born inside the fixpoint — LHS constraint arithmetic, computed
+  insert args) is a MATCH-plane roadmap arc, certified against the
+  Drools oracle like every match feature; the probe pins live in
+  probes_pending/arith_grammar/PINS.md.
 - Semantics are MEASURED, not designed by argument: DuckDB is the
   data-plane oracle (tools/pin_derive_expr.py → docs/derive-expr-pins.md,
   version-pinned), with a three-clause decision rule — oracle wins value

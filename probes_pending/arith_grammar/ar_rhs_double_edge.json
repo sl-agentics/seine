@@ -1,0 +1,43 @@
+{
+ "name": "ar_rhs_double_edge",
+ "drl": "rule \"InfRHS\"\nwhen\n    T($x : x, $y : y)\nthen\n    insert(new V($x / $y));\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    },
+    {
+     "name": "y",
+     "type": "f64"
+    },
+    {
+     "name": "z",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "V",
+   "fields": [
+    {
+     "name": "w",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "x": 1.0,
+    "y": 0.0,
+    "z": 0.0
+   }
+  }
+ ],
+ "epochs": []
+}

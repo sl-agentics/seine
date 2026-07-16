@@ -1,0 +1,38 @@
+{
+ "name": "ar_rhs_div_zero",
+ "drl": "rule \"Boom\"\nwhen\n    T($a : k, $z : z)\nthen\n    insert(new U($a / $z));\nend\nrule \"Sentinel\"\nwhen\n    T(k == 1)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 1,
+    "z": 0
+   }
+  }
+ ],
+ "epochs": []
+}

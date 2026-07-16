@@ -1,0 +1,33 @@
+{
+ "name": "ar_rhs_insert_arith",
+ "drl": "rule \"Compute\"\nwhen\n    $t : T($a : k)\nthen\n    insert(new U($a / 2));\n    insert(new U($a + 1));\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

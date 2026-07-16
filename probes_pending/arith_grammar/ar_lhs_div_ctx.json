@@ -1,0 +1,24 @@
+{
+ "name": "ar_lhs_div_ctx",
+ "drl": "rule \"EqInt3\"\nwhen\n    T(k / 2 == 3)\nthen\nend\nrule \"EqDbl30\"\nwhen\n    T(k / 2 == 3.0)\nthen\nend\nrule \"GeDbl35\"\nwhen\n    T(k / 2 >= 3.5)\nthen\nend\nrule \"LtInt4\"\nwhen\n    T(k / 2 < 4)\nthen\nend\nrule \"GtInt3\"\nwhen\n    T(k / 2 > 3)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

@@ -1,0 +1,29 @@
+{
+ "name": "ar_lhs_cross_type_eq",
+ "drl": "rule \"LossyEq\"\nwhen\n    T(l == d)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "l",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "l": 9007199254740993,
+    "d": 9007199254740992.0
+   }
+  }
+ ],
+ "epochs": []
+}
