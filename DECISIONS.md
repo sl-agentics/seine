@@ -11,9 +11,12 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-273 (THE MEMORY-DIET ARC IS
-COMPLETE, 4 slabs D-270..273 committed local; D-258..261 PUSHED
-(`9c4e23a..4fa7c37`); D-262..273 local, Bryan holds pushes)._
+_Last updated: 2026-07-16, post-v0.4.29 (THE MEMORY-DIET ARC IS
+COMPLETE AND RELEASED: D-269..273 + bump PUSHED (`2d2fc7c..4d6a189`),
+tag v0.4.29 → PyPI 0.4.29 live, GH release + wheels attached,
+differential CI green; publish-crates failed on the missing
+crates.io TP config as at every tag since v0.4.5 — Bryan's one-time
+crates.io steps remain the sole outstanding infra item)._
 
 **THE MEMORY DIET IS DONE (D-270..273, Bryan un-gated "do the rest"
 mid-arc): at 1M fact-pairs RSS went 3.92GB → 845MB (−78%); the 16GB
