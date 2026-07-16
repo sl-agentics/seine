@@ -2054,39 +2054,52 @@ struct RuleNet {
 impl RuleNet {
     /// Window-aware k=1 staging (D-047): TupleSets folds span windows.
     fn s0_add_ins(&mut self, f: FactId, o: Origin) {
-        if self.s0.iter().any(|w| {
-            w.ins.iter().any(|(x, _, _)| *x == f) || w.upd.iter().any(|(x, _, _)| *x == f)
-        }) {
+        // D-267: a seen-miss on every window PROVES f is unstaged (the
+        // cross-window walk was O(staged) per insert = O(N²) per flush,
+        // the 78% flamegraph box); a stale-positive hit falls back to
+        // the exact scan.
+        if self.s0.iter().any(|w| w.maybe_contains(&f))
+            && self.s0.iter().any(|w| {
+                w.ins.iter().any(|(x, _, _)| *x == f) || w.upd.iter().any(|(x, _, _)| *x == f)
+            })
+        {
             return;
         }
         self.s0.last_mut().unwrap().add_ins(f, o);
     }
 
     fn s0_add_upd(&mut self, f: FactId, o: Origin) {
-        if self.s0.iter().any(|w| {
-            w.ins.iter().any(|(x, _, _)| *x == f)
-                || w.upd.iter().any(|(x, _, _)| *x == f)
-                || w.del.iter().any(|(x, _, _)| *x == f)
-        }) {
+        // D-267: same seen-miss fast path as s0_add_ins.
+        if self.s0.iter().any(|w| w.maybe_contains(&f))
+            && self.s0.iter().any(|w| {
+                w.ins.iter().any(|(x, _, _)| *x == f)
+                    || w.upd.iter().any(|(x, _, _)| *x == f)
+                    || w.del.iter().any(|(x, _, _)| *x == f)
+            })
+        {
             return;
         }
         self.s0.last_mut().unwrap().add_upd(f, o);
     }
 
     fn s0_add_del(&mut self, f: FactId, o: Origin) {
-        for w in self.s0.iter_mut() {
-            if let Some(i) = w.ins.iter().position(|(x, _, _)| *x == f) {
-                w.ins.remove(i); // never materialized: cancel
+        // D-267: same seen-miss fast path — a miss everywhere skips all
+        // three cancel/dedup walks (the lists provably hold no f).
+        if self.s0.iter().any(|w| w.maybe_contains(&f)) {
+            for w in self.s0.iter_mut() {
+                if let Some(i) = w.ins.iter().position(|(x, _, _)| *x == f) {
+                    w.ins.remove(i); // never materialized: cancel
+                    return;
+                }
+            }
+            for w in self.s0.iter_mut() {
+                if let Some(i) = w.upd.iter().position(|(x, _, _)| *x == f) {
+                    w.upd.remove(i);
+                }
+            }
+            if self.s0.iter().any(|w| w.del.iter().any(|(x, _, _)| *x == f)) {
                 return;
             }
-        }
-        for w in self.s0.iter_mut() {
-            if let Some(i) = w.upd.iter().position(|(x, _, _)| *x == f) {
-                w.upd.remove(i);
-            }
-        }
-        if self.s0.iter().any(|w| w.del.iter().any(|(x, _, _)| *x == f)) {
-            return;
         }
         self.s0.last_mut().unwrap().add_del(f, o);
     }
@@ -9605,7 +9618,15 @@ impl Engine {
                 self.act_seq
             }
         };
-        let pre = self.queue_top_sal(ri).unwrap_or(0);
+        // D-267: the pre-change top feeds update_item_salience, which
+        // only reads it for DYN-salience rules (RuleExecutor.updateSalience,
+        // D-043) — for static rules the full-queue scan was pure waste,
+        // O(queue) per push = O(N²) per flush (the 60% flamegraph box).
+        let pre = if matches!(self.rules[ri].salience, EngineSalience::Dyn { .. }) {
+            self.queue_top_sal(ri).unwrap_or(0)
+        } else {
+            0
+        };
         self.nets[ri].queue.push_back(Act { t, sal, seq });
         self.update_item_salience(ri, pre);
     }

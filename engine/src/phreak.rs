@@ -240,6 +240,13 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
         self.seen.insert(t.clone());
     }
 
+    /// D-267: stale-positive membership probe — `false` PROVES t is in
+    /// none of ins/upd/del (seen ⊇ lists); `true` means "maybe", and the
+    /// caller falls back to its exact scan.
+    pub fn maybe_contains(&self, t: &T) -> bool {
+        self.seen.contains(t)
+    }
+
     /// Segment propagation to the FIRST-built sink (D-036/D-037/D-041):
     /// TupleSetsImpl.addAll is a BLIND tail concatenation — batches stack
     /// FIFO for a lagging first sink (fz_42_580) and cross-window clashes

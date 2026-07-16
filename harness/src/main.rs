@@ -30,6 +30,14 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    #[cfg(feature = "prof")]
+    let _prof = pprof::ProfilerGuardBuilder::default()
+        .frequency(997)
+        .blocklist(&["libc", "libgcc", "pthread", "vdso"])
+        .build()
+        .ok();
+    #[cfg(feature = "prof")]
+    let _flush = ProfDump(_prof);
     match cmd {
         "run" => cmd_run(&paths),
         "oracle" => cmd_oracle(&paths),
@@ -258,6 +266,25 @@ fn judge(
                 Err(vec![format!(
                     "both sides errored (scenario likely out of subset): engine={e}; oracle={oe}"
                 )])
+            }
+        }
+    }
+}
+
+#[cfg(feature = "prof")]
+struct ProfDump(Option<pprof::ProfilerGuard<'static>>);
+
+#[cfg(feature = "prof")]
+impl Drop for ProfDump {
+    fn drop(&mut self) {
+        if let Some(g) = self.0.take() {
+            if let Ok(report) = g.report().build() {
+                let path = std::env::var("SEINE_FLAME")
+                    .unwrap_or_else(|_| "flame.svg".into());
+                if let Ok(f) = std::fs::File::create(&path) {
+                    let _ = report.flamegraph(f);
+                    eprintln!("FLAMEGRAPH {path}");
+                }
             }
         }
     }

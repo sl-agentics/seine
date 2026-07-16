@@ -16,12 +16,12 @@ binding-divergence family PORTED — the arc is CLOSED; D-258..261
 PUSHED (Bryan-directed, `9c4e23a..4fa7c37`); D-262 committed local,
 Bryan holds pushes)._
 
-**The O(N²) hunt: slabs 1+2 LANDED (D-266 engine quadratics + D-267
-harness serializer) — join_10000 919→~110ms (8.4x), engine BEATS warm
-Drools everywhere at scale except the 10k join (1.3x behind, was
-10.4x). Strict 10x is ~15-25ms of diffuse residue (renders /
-evaluate_rule bookkeeping / scenario parse) — Bryan's call whether to
-chase it. Otherwise no active build.** The binding-divergence
+**The O(N²) hunt is COMPLETE (D-265..268): join_10000 919→72ms
+(12.7x, target exceeded), all sweeps LINEAR through 16k, the engine
+beats warm Drools on EVERY scale cell (join_10000 62 vs 89ms).
+Permanent tooling: tools/bench_oracle.py + SEINE_TIME + the
+feature-gated pprof flamegraph (--features prof, SEINE_FLAME). No
+active build — next is Bryan's call.** The binding-divergence
 arc closed (D-260 recon, D-261 lane 2, D-262 lane 1): eager_flush at
 the sibling-continue + the salience-ordered halt-check peek walk
 (stops at the first live item; no lazy batch order pinned —
@@ -14605,3 +14605,57 @@ shape), evaluate_rule per-pop bookkeeping, scenario-JSON parse.
 Diminishing returns; Bryan's call whether the last fraction matters
 — the product surface (bindings, no harness JSON at all) was already
 at parity after slab 1. Not pushed.
+
+## D-268 — the O(N²) hunt, slab 3 (Bryan's two moves executed in order): the doubling-ratio fork, then the flamegraph — two more quadratics named and killed; **THE 10x TARGET IS EXCEEDED: join_10000 919→72ms (12.7x), the engine now beats warm Drools on EVERY scale cell** (2026-07-15)
+
+Bryan's directive, verbatim order: (1) doubling-ratio check on the
+post-fix sweep — that's the fork; (2) if it smells non-linear, a
+native bench with no Python plus a flamegraph to name the tall box —
+no theorizing about the bindings before those two data points.
+
+MOVE 1 — THE FORK: best-of-3 sweeps at 1k..16k, three columns.
+Zero-firings (disjoint join): ratios 2.03/2.18/2.08/2.04 — LINEAR
+(D-266/267's memory+serializer work held). Both FIRING columns bent:
+matching join 2.12→2.85, pure alpha 2.49→3.45 — the residual
+quadratic lived in the shared FIRING machinery, worst on the
+simplest path. (Python exonerated by construction: SEINE_TIME stamps
+inside the Rust binary; no bindings in the loop.)
+
+MOVE 2 — THE FLAMEGRAPH: perf_event is sysctl-blocked here
+(perf_event_paranoid=4, ptrace_scope=1), so the harness gained a
+FEATURE-GATED signal profiler (`--features prof`, pprof-rs, SEINE_FLAME
+=out.svg — kept as permanent tooling; zero cost when off). It named
+two boxes, one per round:
+
+1. push_activation 60.2%: `queue_top_sal` — a FULL-QUEUE max scan —
+   ran before EVERY push to compute the pre-change top... which
+   update_item_salience only reads for DYN-salience rules
+   (RuleExecutor.updateSalience, D-043). For static rules the scan
+   was dead weight, O(queue) per push. Fix: compute it only for dyn.
+   Join went linear (2.08 flat); alpha still bent.
+2. on_insert 77.8% (self, inlined): per-insert cost measured GROWING
+   (1051ns@4k → 3885ns@16k — a temp counter, removed). The box:
+   s0_add_ins/upd/del's CROSS-WINDOW dedup scan walks every staged
+   entry in every window per insert — outside Staged's methods, so
+   D-266's seen fast path never engaged. Fix: Staged::maybe_contains
+   (the stale-positive probe: false PROVES absence, true falls back
+   to the exact scan) — a seen-miss on every window skips the walk.
+   Alpha went linear (2.03/2.05/2.07 flat).
+
+RECEIPTS: all-2028 byte-identity after EACH of the two fixes and at
+the end; corpus 11/1209/404 + drift 37 identical; cargo test 53/0;
+bindings pytest 171 on the rebuilt .so; demo LIVE==REPLAY True; fresh
+fuzz 2×2000 (8888/3333) CLEAN.
+
+NUMBERS: join_10000 72ms standalone / 62ms in-batch (from 919
+pre-D-266: **12.7-14.8x** — the 92ms target beaten); alpha_all_10000
+234→27ms; sweeps LINEAR through 16k on all three columns. vs warm
+Drools (bench_oracle --scale): the engine now wins EVERY cell —
+join_10000 62 vs 89ms, join_5000 27 vs 55, alpha_10000 16 vs 44,
+acc_1000 21x, alpha_1000 12x. Bindings surface: 10k×10k join + 10k
+RHS inserts = 72ms. Remaining known super-linear residue: none
+measured ≤16k; dyn-salience rules keep the per-push top scan (the
+D-043 semantics needs a cached top/heap if it ever shows up in a
+profile — noted, not built). Engine + harness tooling. Not pushed.
+— Bryan's methodology call (measure the fork, then name the box —
+no bindings theorizing) is what found both.
