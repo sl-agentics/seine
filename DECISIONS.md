@@ -14924,3 +14924,40 @@ semantics; house loud-error doctrine wins ERROR policy (no silent null
 manufacture); IEEE wins float specials. Divergence ledger rows 1-8.
 Committed local; no push. Slabs 1-4 (evaluator / DSL / battery / docs)
 follow, each gated.
+
+## D-275 — derive expression layer slab 1: the Rust evaluator lands (bindings/src/expr.rs) — batch-native, pinned-kernel, pins-doc-faithful (2026-07-16)
+
+~1150 lines, bindings-only. The closed tree (col/lit + 32 ops) parses
+straight off nested Python dicts (native literals — bool-before-int,
+oversized-int loud, non-finite float lits rejected; depth cap 256),
+typechecks UPFRONT (errors name the output column and a rendered
+sub-expression before any kernel runs; one shared promote() for check
+and eval), then evaluates over Arrow buffers: Datum-based kernels take
+scalars without materializing N-row literal arrays; scalar⊕scalar folds
+to len-1; passthrough columns cross as Arc clones. NEW ingest seam
+`ingest_batch` (ingest_any untouched — the legacy kernels' certified
+path never reopens): arrow-stream → RecordBatch (+concat), dict-of-
+lists → builders directly; canonicalize widens to i64/f64/bool/utf8;
+NULLS ACCEPTED (the commented divergence from D-044 — this plane HAS
+null semantics); `handle` legal as INPUT (the result→filter→
+handle-aligned delete pipeline), reserved as OUTPUT. Computed columns
+nullable=true (engine ingestion checks actual null_count, so the
+compute→insert happy path holds).
+
+Pins-doc fidelity (D-274 measured, all smoke-verified): // = arrow's
+truncating int div (i64-only by typecheck, float → steering error);
+/ always f64; % dividend-sign; f64→i64 cast HAND-ROLLED round_ties_even
++ range check (arrow's cast truncates — wrong vs the oracle); round =
+hand-rolled SHORTEST-DECIMAL half-away (2.675→2.68, 2.665→2.67,
+0.125→0.13 all match the oracle's tie forensics); sqrt(negative) loud
+domain error; if_else null-cond → otherwise (zip's null-mask→falsy IS
+SQL CASE); and/or Kleene; int overflow/div0 loud with .cast("f64")
+steering. Cargo.toml: arrow-arith/ord/select/string "56" direct (all
+already in-lock as non-optional meta-crate deps — zero new third-party
+crates). lib.rs: mod expr, import_stream pub(crate), two pymodule
+registrations (derive_with_columns, derive_filter).
+
+Receipts: cargo build clean; cargo test 54; existing pytest 171 green
+(no Python surface yet — slab 2); smoke battery: price×qty with null
+propagation, filter, overflow voice, Kleene tables, empty-batch typing,
+scalar broadcast, missing-column/type-error voices. Committed local.

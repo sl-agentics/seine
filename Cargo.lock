@@ -1070,11 +1070,15 @@ name = "seine-py"
 version = "0.4.29"
 dependencies = [
  "arrow",
+ "arrow-arith",
  "arrow-array",
  "arrow-buffer",
  "arrow-cast",
  "arrow-data",
+ "arrow-ord",
  "arrow-schema",
+ "arrow-select",
+ "arrow-string",
  "pyo3",
  "seine-engine",
  "serde_json",

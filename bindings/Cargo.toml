@@ -17,6 +17,13 @@ arrow-schema = "56"
 arrow-data = "56"
 arrow-buffer = "56"
 arrow-cast = "56"
+# derive expression layer: the compute kernels (these are non-optional
+# deps of the arrow meta-crate below — direct spellings only, zero new
+# third-party crates)
+arrow-arith = "56"
+arrow-ord = "56"
+arrow-select = "56"
+arrow-string = "56"
 serde_json = "1"
 # C data interface (PyCapsule interop) lives in arrow-array::ffi /
 # arrow-array::ffi_stream via the `ffi` feature

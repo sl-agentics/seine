@@ -34,6 +34,7 @@ use pyo3::types::{PyAny, PyCapsule, PyDict, PyList};
 use seine_engine::{Engine, FactView, FieldType, TypeSchema, Value};
 
 mod derive;
+mod expr;
 
 // ---------------------------------------------------------------------
 // Arrow ingestion: PyCapsule C-stream -> typed column pulls
@@ -41,7 +42,9 @@ mod derive;
 
 /// Import an Arrow stream from any object implementing
 /// `__arrow_c_stream__` (polars, pyarrow, pandas>=2.2, arro3, ...).
-fn import_stream(obj: &Bound<'_, PyAny>) -> PyResult<arrow::ffi_stream::ArrowArrayStreamReader> {
+pub(crate) fn import_stream(
+    obj: &Bound<'_, PyAny>,
+) -> PyResult<arrow::ffi_stream::ArrowArrayStreamReader> {
     if !obj.hasattr("__arrow_c_stream__")? {
         return Err(PyTypeError::new_err(
             "expected an Arrow-compatible table (anything implementing __arrow_c_stream__: \
@@ -1568,6 +1571,8 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTable>()?;
     m.add_function(wrap_pyfunction!(run, m)?)?;
     m.add_function(wrap_pyfunction!(certification, m)?)?;
+    m.add_function(wrap_pyfunction!(expr::derive_with_columns, m)?)?;
+    m.add_function(wrap_pyfunction!(expr::derive_filter, m)?)?;
     m.add_function(wrap_pyfunction!(derive::derive_haversine, m)?)?;
     m.add_function(wrap_pyfunction!(derive::derive_pair_candidates, m)?)?;
     m.add_function(wrap_pyfunction!(derive::derive_closing, m)?)?;
