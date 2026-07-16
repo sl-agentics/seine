@@ -15074,3 +15074,33 @@ What a user now writes:
     orders = filter(orders, col("total").is_not_null())
 — and the match plane constrains on `total` with the frozen certified
 grammar. No MVEL, no eval, no custom Rust, no release cycle.
+
+## D-279 — the wheel diet, cargo-bloat-directed: arrow_cast's type-pair matrix (2.9MiB, 30% of .text) and arrow_string's regex family (~1.1MiB) hand-rolled out. `.so` 17 → 9.8MB; .text 9.7 → 5.4MiB (2026-07-16)
+
+Bryan: "cargo bloat it?" — the answer changed the diagnosis. The D-278
+size flag guessed regex; cargo-bloat showed the elephant was
+arrow_cast: `cast_with_options` is ONE dynamic function carrying the
+entire type-pair matrix (decimal/temporal/list/dictionary parsers,
+lexical-core, chrono paths), so one call site links ~3MiB the linker
+cannot prune. The expression layer's actual cast needs are four
+trivial conversions. Hand-rolled (battery-certified, 214 green):
+  - i64→f64 promotion: arity::unary `x as f64` (bit-identical to the
+    cast kernel — round-to-nearest);
+  - canonicalize widenings: per-source-type arity::unary (Int8..UInt32
+    → i64 exact, Float32 → f64 exact) + builder loops for
+    LargeUtf8/Utf8View → Utf8;
+  - str_len: builder loop (BYTE length, unchanged);
+  - contains/starts_with/ends_with/concat: `str_bin`/`str_pred`
+    helpers — Rust str ops with null-union + scalar broadcast (the
+    arrow_string::like module links regex_automata/regex_syntax/
+    aho_corasick for predicates that never use them).
+arrow-string dropped from Cargo.toml; arrow-cast stays declared
+(pre-arc dep) but is no longer linked. f64→i64 was already
+hand-rolled (D-275). Receipts: cargo-bloat before 9.7MiB .text /
+20.1MiB file → after 5.4MiB / 13.1MiB; installed .so 17.0 → 9.8MB
+(pre-arc 4.9MB — the remaining +4.9MB is arrow_arith + arrow_select +
+arrow_ord + the evaluator: the feature's real cost); pytest 214;
+demo green. NOTE: workspace-wide `strip` was considered and REJECTED —
+the prof feature's flamegraphs (SEINE_FLAME) need symbols in
+seine-harness, and per-package strip overrides don't exist.
+cargo-bloat installed as permanent tooling. Committed local.

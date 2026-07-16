@@ -1078,7 +1078,6 @@ dependencies = [
  "arrow-ord",
  "arrow-schema",
  "arrow-select",
- "arrow-string",
  "pyo3",
  "seine-engine",
  "serde_json",

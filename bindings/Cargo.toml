@@ -23,7 +23,7 @@ arrow-cast = "56"
 arrow-arith = "56"
 arrow-ord = "56"
 arrow-select = "56"
-arrow-string = "56"
+
 serde_json = "1"
 # C data interface (PyCapsule interop) lives in arrow-array::ffi /
 # arrow-array::ffi_stream via the `ffi` feature

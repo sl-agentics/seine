@@ -679,18 +679,67 @@ fn str_arr(ev: &Ev) -> &StringArray {
     ev.array().as_any().downcast_ref::<StringArray>().expect("typechecked utf8")
 }
 
-/// Promote an evaluated numeric node to f64 if it is i64.
-fn to_f64(label: &str, ex: &Ex, ev: Ev) -> PyResult<Ev> {
+/// Promote an evaluated numeric node to f64 if it is i64. Hand-rolled
+/// (`x as f64` = round-to-nearest, identical to arrow's cast) — going
+/// through arrow_cast::cast_with_options links its ENTIRE type-pair
+/// matrix (~3MiB of .text; the wheel-size finding), for four trivial
+/// conversions this module actually needs.
+fn to_f64(_label: &str, _ex: &Ex, ev: Ev) -> PyResult<Ev> {
     if ev.array().data_type() == &DataType::Float64 {
         return Ok(ev);
     }
-    let cast = arrow_cast::cast::cast_with_options(
-        ev.array().as_ref(),
-        &DataType::Float64,
-        &arrow_cast::cast::CastOptions { safe: false, ..Default::default() },
+    let out = arrow_arith::arity::unary::<Int64Type, _, Float64Type>(
+        i64_arr(&ev),
+        |x| x as f64,
+    );
+    Ok(map_un(ev, Arc::new(out)))
+}
+
+/// Elementwise binary string op with null union and scalar broadcast
+/// (replaces the arrow_string kernels, whose `like` module links the
+/// whole regex family for predicates that never use it).
+fn str_bin<T, B>(
+    l: &Ev,
+    r: &Ev,
+    nrows: usize,
+    mut push: impl FnMut(&mut B, &str, &str),
+    mut builder: B,
+    finish: impl FnOnce(B) -> T,
+    mut push_null: impl FnMut(&mut B),
+) -> Ev
+where
+    T: Array + 'static,
+{
+    let (la, ra) = (str_arr(l), str_arr(r));
+    let both_scalar = l.is_scalar() && r.is_scalar();
+    let n = if both_scalar { 1 } else { nrows };
+    let idx = |ev: &Ev, i: usize| if ev.is_scalar() { 0 } else { i };
+    for i in 0..n {
+        let (li, ri) = (idx(l, i), idx(r, i));
+        if la.is_null(li) || ra.is_null(ri) {
+            push_null(&mut builder);
+        } else {
+            push(&mut builder, la.value(li), ra.value(ri));
+        }
+    }
+    let out = Arc::new(finish(builder)) as ArrayRef;
+    if both_scalar {
+        Ev::Scl(out)
+    } else {
+        Ev::Arr(out)
+    }
+}
+
+fn str_pred(l: &Ev, r: &Ev, nrows: usize, f: impl Fn(&str, &str) -> bool) -> Ev {
+    str_bin(
+        l,
+        r,
+        nrows,
+        |b: &mut BooleanBuilder, x, y| b.append_value(f(x, y)),
+        BooleanBuilder::new(),
+        |mut b| b.finish(),
+        |b| b.append_null(),
     )
-    .map_err(|e| arrow_err(label, ex, e))?;
-    Ok(map_un(ev, cast))
 }
 
 /// round(x, n): round the SHORTEST-DECIMAL representation of x half away
@@ -836,11 +885,18 @@ fn eval(label: &str, ex: &Ex, ctx: &Ctx) -> PyResult<Ev> {
                     Ok(map_un(av, Arc::new(out)))
                 }
                 Un::StrLen => {
-                    let n = arrow_string::length::length(av.array().as_ref())
-                        .map_err(|e| arrow_err(label, ex, e))?;
-                    let out = arrow_cast::cast::cast(n.as_ref(), &DataType::Int64)
-                        .map_err(|e| arrow_err(label, ex, e))?;
-                    Ok(map_un(av, out))
+                    // BYTE length (utf8), i64 out — matches the oracle's
+                    // strlen(); hand-rolled to avoid arrow_string
+                    let s = str_arr(&av);
+                    let mut b = Int64Builder::with_capacity(s.len());
+                    for i in 0..s.len() {
+                        if s.is_null(i) {
+                            b.append_null();
+                        } else {
+                            b.append_value(s.value(i).len() as i64);
+                        }
+                    }
+                    Ok(map_un(av, Arc::new(b.finish())))
                 }
             }
         }
@@ -958,29 +1014,20 @@ fn eval(label: &str, ex: &Ex, ctx: &Ctx) -> PyResult<Ev> {
                     let out = Arc::new(out) as ArrayRef;
                     Ok(if scalar_out { Ev::Scl(out) } else { Ev::Arr(out) })
                 }
-                Bin::Contains => cmp_kernel(label, ex, &lv, &rv, |a, c| {
-                    arrow_string::like::contains(a, c)
-                }),
-                Bin::StartsWith => cmp_kernel(label, ex, &lv, &rv, |a, c| {
-                    arrow_string::like::starts_with(a, c)
-                }),
-                Bin::EndsWith => cmp_kernel(label, ex, &lv, &rv, |a, c| {
-                    arrow_string::like::ends_with(a, c)
-                }),
-                // concat_elements is typed (not Datum): broadcast scalars
-                Bin::Concat => {
-                    let n = if lv.is_scalar() && rv.is_scalar() { 1 } else { ctx.nrows };
-                    let scalar_out = lv.is_scalar() && rv.is_scalar();
-                    let la = lv.broadcast(label, n)?;
-                    let ra = rv.broadcast(label, n)?;
-                    let out = arrow_string::concat_elements::concat_elements_utf8(
-                        la.as_any().downcast_ref::<StringArray>().expect("typechecked utf8"),
-                        ra.as_any().downcast_ref::<StringArray>().expect("typechecked utf8"),
-                    )
-                    .map_err(|e| arrow_err(label, ex, e))?;
-                    let out = Arc::new(out) as ArrayRef;
-                    Ok(if scalar_out { Ev::Scl(out) } else { Ev::Arr(out) })
-                }
+                Bin::Contains => Ok(str_pred(&lv, &rv, ctx.nrows, |a, b| a.contains(b))),
+                Bin::StartsWith => Ok(str_pred(&lv, &rv, ctx.nrows, |a, b| a.starts_with(b))),
+                Bin::EndsWith => Ok(str_pred(&lv, &rv, ctx.nrows, |a, b| a.ends_with(b))),
+                Bin::Concat => Ok(str_bin(
+                    &lv,
+                    &rv,
+                    ctx.nrows,
+                    |b: &mut StringBuilder, x, y| {
+                        b.append_value(format!("{x}{y}"));
+                    },
+                    StringBuilder::new(),
+                    |mut b| b.finish(),
+                    |b| b.append_null(),
+                )),
                 Bin::FillNull => {
                     // zip(a.is_not_null(), a, b)
                     let n = if lv.is_scalar() && rv.is_scalar() { 1 } else { ctx.nrows };
@@ -1199,23 +1246,68 @@ fn canonicalize(label: &str, batch: RecordBatch) -> PyResult<RecordBatch> {
         };
         let (dt, arr) = match target {
             None => (field.data_type().clone(), arr.clone()),
-            Some(t) => {
-                let cast = arrow_cast::cast::cast_with_options(
-                    arr.as_ref(),
-                    &t,
-                    &arrow_cast::cast::CastOptions { safe: false, ..Default::default() },
-                )
-                .map_err(|e| {
-                    PyValueError::new_err(format!("{label}.{}: widening failed: {e}", field.name()))
-                })?;
-                (t, cast)
-            }
+            Some(t) => (t, widen(label, field.name(), arr)?),
         };
         fields.push(Field::new(field.name(), dt, field.is_nullable()));
         arrays.push(arr);
     }
     RecordBatch::try_new(Arc::new(Schema::new(fields)), arrays)
         .map_err(|e| PyValueError::new_err(format!("{label}: batch build failed: {e}")))
+}
+
+/// Exact widening to the canonical types, hand-rolled per source type
+/// (arrow_cast's general cast would link its whole type-pair matrix).
+fn widen(label: &str, name: &str, arr: &ArrayRef) -> PyResult<ArrayRef> {
+    use arrow_arith::arity::unary;
+    use arrow_array::types::{
+        Float32Type, Int16Type, Int32Type, Int8Type, UInt16Type, UInt32Type, UInt8Type,
+    };
+    fn prim<T: arrow_array::ArrowPrimitiveType>(a: &ArrayRef) -> &arrow_array::PrimitiveArray<T> {
+        a.as_any().downcast_ref().expect("dtype-matched")
+    }
+    let out: ArrayRef = match arr.data_type() {
+        DataType::Int8 => Arc::new(unary::<Int8Type, _, Int64Type>(prim(arr), |x| x as i64)),
+        DataType::Int16 => Arc::new(unary::<Int16Type, _, Int64Type>(prim(arr), |x| x as i64)),
+        DataType::Int32 => Arc::new(unary::<Int32Type, _, Int64Type>(prim(arr), |x| x as i64)),
+        DataType::UInt8 => Arc::new(unary::<UInt8Type, _, Int64Type>(prim(arr), |x| x as i64)),
+        DataType::UInt16 => Arc::new(unary::<UInt16Type, _, Int64Type>(prim(arr), |x| x as i64)),
+        DataType::UInt32 => Arc::new(unary::<UInt32Type, _, Int64Type>(prim(arr), |x| x as i64)),
+        DataType::Float32 => {
+            Arc::new(unary::<Float32Type, _, Float64Type>(prim(arr), |x| x as f64))
+        }
+        DataType::LargeUtf8 => {
+            let s: &arrow_array::LargeStringArray =
+                arr.as_any().downcast_ref().expect("dtype-matched");
+            let mut b = StringBuilder::new();
+            for i in 0..s.len() {
+                if s.is_null(i) {
+                    b.append_null();
+                } else {
+                    b.append_value(s.value(i));
+                }
+            }
+            Arc::new(b.finish())
+        }
+        DataType::Utf8View => {
+            let s: &arrow_array::StringViewArray =
+                arr.as_any().downcast_ref().expect("dtype-matched");
+            let mut b = StringBuilder::new();
+            for i in 0..s.len() {
+                if s.is_null(i) {
+                    b.append_null();
+                } else {
+                    b.append_value(s.value(i));
+                }
+            }
+            Arc::new(b.finish())
+        }
+        other => {
+            return Err(PyValueError::new_err(format!(
+                "{label}.{name}: widening from {other} failed"
+            )))
+        }
+    };
+    Ok(out)
 }
 
 /// Dict-of-lists -> RecordBatch, building arrow arrays directly (None ->
