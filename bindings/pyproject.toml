@@ -25,6 +25,7 @@ classifiers = [
 [project.optional-dependencies]
 arrow = ["pyarrow"]
 polars = ["polars"]
+pandas = ["pandas>=2.0", "pyarrow"]
 
 [project.urls]
 Repository = "https://github.com/sl-agentics/seine"

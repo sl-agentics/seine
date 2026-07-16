@@ -38,9 +38,35 @@ def test_table_to_polars(res):
     assert df.height == 2
 
 
+def test_table_to_pandas(res):
+    pd = pytest.importorskip("pandas")
+    df = res.derived["Out"].to_pandas()
+    assert isinstance(df, pd.DataFrame)
+    assert len(df) == 2
+    # Arrow-backed dtypes (types_mapper=pd.ArrowDtype), not the classic
+    # NaN-forcing object/float64 conversion
+    assert all(isinstance(dt, pd.ArrowDtype) for dt in df.dtypes)
+    assert sorted(df["v"].tolist()) == [2, 3]
+
+
+def test_table_to_pandas_null_stays_null():
+    pd = pytest.importorskip("pandas")
+    sess = seine_rs.Session(
+        "rule R when T(v > 2) then end",
+        schemas={"T": {"v": "i64?"}},
+    )
+    sess.insert_row("T", {"v": 2})
+    sess.insert_row("T", {"v": None})
+    df = sess.fire().facts["T"].to_pandas()
+    # Int64 stays integer-typed with a real null — no float upcast
+    assert str(df["v"].dtype) == "int64[pyarrow]"
+    assert df["v"].isna().sum() == 1
+    assert df["v"].dropna().tolist() == [2]
+
+
 def test_table_discoverable(res):
     t = res.firings
-    assert "to_arrow" in dir(t) and "to_polars" in dir(t)
+    assert "to_arrow" in dir(t) and "to_polars" in dir(t) and "to_pandas" in dir(t)
     assert "seine_rs.Table" in repr(t)
 
 

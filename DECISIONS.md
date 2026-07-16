@@ -14421,3 +14421,19 @@ reference, so these shapes are unadjudicable at this oracle version
 and become adjudicable on a future oracle bump (track then). No
 engine change, no corpus change, no drift movement (finding-text
 edits only). Scenario docs + this entry. Not pushed.
+
+## D-264 — Table.to_pandas(): the pandas convenience reader (Bryan-directed; bindings-only) (2026-07-15)
+
+Bryan: a `.to_pandas` convenience for
+`res.facts[T].to_arrow().to_pandas(types_mapper=pd.ArrowDtype)`. Added
+to PyTable beside to_arrow/to_polars/to_pylist, same lazy-import +
+optional_dep_err pattern (message names to_pandas()/pandas and the new
+`seine-rs[pandas]` extra = pandas>=2.0 + pyarrow). ArrowDtype-mapped by
+design: Int64 stays integer-typed with real nulls — no NaN-forced
+float upcast (pinned by test: an i64? column with a null reads back as
+int64[pyarrow] with isna==1). Tests 169→171 (dtype mapping + null
+preservation; discoverability assert extended). Missing-dep path
+verified (sys.modules block → ModuleNotFoundError with install hint).
+Bindings-only; engine, corpus, book untouched (the book gains a
+one-sentence aside in ch02, uncommitted with the rest of seine_book).
+No push, no tag, no bump.

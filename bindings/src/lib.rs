@@ -621,7 +621,8 @@ fn batch_for_type(schema: &TypeSchema, rows: &[&FactView]) -> PyResult<RecordBat
 
 /// A one-batch Arrow table. Consume it zero-copy via the PyCapsule
 /// C-stream interface: `t.to_arrow()` (pyarrow.Table), `t.to_polars()`
-/// (polars.DataFrame), `t.to_pylist()` (list of dicts), or hand it
+/// (polars.DataFrame), `t.to_pandas()` (pandas.DataFrame, Arrow-backed
+/// dtypes), `t.to_pylist()` (list of dicts), or hand it
 /// directly to anything accepting `__arrow_c_stream__`
 /// (`pyarrow.table(t)`, `polars.DataFrame(t)`, pandas>=2.2, arro3, ...).
 /// Fact tables carry a `handle` column: the engine's fact handle,
@@ -670,6 +671,24 @@ impl PyTable {
             .import("polars")
             .map_err(|e| optional_dep_err(py, e, "to_polars()", "polars", "polars"))?;
         pl.call_method1("DataFrame", (slf,))
+    }
+
+    /// Materialize as a `pandas.DataFrame` with Arrow-backed dtypes —
+    /// `to_arrow().to_pandas(types_mapper=pandas.ArrowDtype)`, so nulls
+    /// stay nulls and Int64 stays integer instead of the classic
+    /// NaN-forced float upcast. Needs pandas + pyarrow.
+    fn to_pandas<'py>(slf: &Bound<'py, Self>) -> PyResult<Bound<'py, PyAny>> {
+        let py = slf.py();
+        let pd = py
+            .import("pandas")
+            .map_err(|e| optional_dep_err(py, e, "to_pandas()", "pandas", "pandas"))?;
+        let pa = py
+            .import("pyarrow")
+            .map_err(|e| optional_dep_err(py, e, "to_pandas()", "pyarrow", "pandas"))?;
+        let at = pa.call_method1("table", (slf,))?;
+        let kwargs = PyDict::new(py);
+        kwargs.set_item("types_mapper", pd.getattr("ArrowDtype")?)?;
+        at.call_method("to_pandas", (), Some(&kwargs))
     }
 
     /// Materialize as a list of row dicts — natively, so the
