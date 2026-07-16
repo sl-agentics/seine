@@ -15149,3 +15149,18 @@ comparand-pinned; swamp cells fenced with authoring-lint steering).
 (3) Standing prereq first: the D-076 TMS cascade goes ITERATIVE
 (arithmetic unlocks unbounded justification chains). Committed local;
 no push.
+
+## D-281 — ⚖ Bryan's ruling on the 9.44 precedence defect: the engine will NOT copy the broken order of operations (2026-07-16)
+
+The D-280 probe find — bare `field + lit * lit` throws
+ConstraintEvaluationException at eval while parenthesized/reordered
+spellings evaluate with correct precedence — is a SELF-INCONSISTENT
+oracle defect, and Bryan ruled it lands on doctrine axis 2
+(D-093/D-095): correct in the engine, never reproduced. When the
+arithmetic grammar ports, the engine evaluates every grammar shape
+with standard precedence; the defect shape gets opposite-polarity
+expected-divergence witnesses in xfail/, a generator gate excluding
+the surface, re-adjudication on any oracle bump (may already be fixed
+upstream — the D-263 resolved-upstream path), and an upstream draft if
+not. PINS.md updated. No engine change (nothing to change yet — the
+grammar is unbuilt); ruling recorded so the port inherits it.

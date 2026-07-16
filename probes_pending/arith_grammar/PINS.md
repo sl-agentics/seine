@@ -60,11 +60,17 @@ real division → Infinity) while `k / z == 0` silently no-fires
 (ar_lhs_div_zero_eqint — suggests integer division → exception →
 false). Unresolved; needs its own 2×2 before any LHS-division port.
 
-Compiler defect to fence: bare `k + 2 * 3 == 13` throws
+Compiler defect — ⚖ Bryan's ruling on the record: **we are NOT copying
+the broken order of operations.** Bare `k + 2 * 3 == 13` throws
 **ConstraintEvaluationException at EVAL time** (ar_lhs_precedence),
 while `k + (2 * 3) == 13`, `2 * 3 + k == 13`, and `k * 2 + 3 == 17`
-all evaluate correctly (ar_lhs_prec2). The certified grammar must
-exclude or normalize the broken shape.
+all evaluate correctly (ar_lhs_prec2) — a self-inconsistent 9.44
+defect, not a semantic. Handling is the established defect doctrine
+(the accumulate stale-min/max precedent): the engine evaluates the
+shape with CORRECT precedence; expected-divergence witnesses of
+opposite polarity go to xfail/; the fuzz generator excludes the defect
+surface; re-adjudicate against a newer oracle on any bump (it may be
+fixed upstream) and draft an upstream report if not.
 
 ## The port shape this implies (Bryan-gated, not started)
 
