@@ -17,7 +17,7 @@ BASELINE    := $(shell find scenarios/baseline -name '*.json' 2>/dev/null | sort
 PROBES      := $(shell find scenarios/probes scenarios/phase0 scenarios/phase1 scenarios/phase2 scenarios/demo scenarios/failures -name '*.json' 2>/dev/null | sort)
 REGRESSIONS := $(shell find scenarios/regressions -name '*.json' 2>/dev/null | sort)
 
-.PHONY: diff diff-baseline diff-probes diff-regressions test oracle fuzz all xfail-drift xfail-rebank
+.PHONY: diff diff-baseline diff-probes diff-regressions test oracle fuzz all xfail-drift xfail-rebank lint-book
 
 all: test diff
 
@@ -50,6 +50,10 @@ diff-duckdb:
 # D-102: probe liveness + engine-validity + fence-regression audit
 lint-probes:
 	python3 tools/lint_probes.py
+
+# seine_book liveness: every chapter code block runs; shown output is real
+lint-book:
+	.venv/bin/python tools/lint_book.py
 
 diff-baseline: oracle
 	cargo run -q -p seine-harness -- diff $(BASELINE)
