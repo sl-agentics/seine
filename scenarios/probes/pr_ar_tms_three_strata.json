@@ -1,0 +1,77 @@
+{
+ "name": "pr_ar_tms_three_strata",
+ "drl": "rule \"S1\"\nwhen\n    A($k : k)\nthen\n    insertLogical(new U($k + 1));\nend\nrule \"S2\"\nwhen\n    U($v : v)\nthen\n    insertLogical(new V($v * 2));\nend\nrule \"S3\"\nwhen\n    V($w : w)\nthen\n    insertLogical(new X($w - 3));\nend\nrule \"WAll\"\nwhen\n    P(tag == \"e1\")\n    not U()\n    not V()\n    not X()\nthen\nend\n",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "V",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "X",
+   "fields": [
+    {
+     "name": "y",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "k": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "tag": "e1"
+     }
+    }
+   ]
+  }
+ ]
+}

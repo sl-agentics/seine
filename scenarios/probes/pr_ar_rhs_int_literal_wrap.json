@@ -1,0 +1,33 @@
+{
+ "name": "pr_ar_rhs_int_literal_wrap",
+ "drl": "rule \"R\"\nwhen\n    T($a : k)\nthen\n    insert(new U(-1000000007 * 3));\n    insert(new U(2000000000 + 2000000000));\n    insert(new U(-2147483648 / -1));\n    insert(new U(-2147483648 % -1));\n    insert(new U($a + 2000000000 + 2000000000));\n    insert(new U(1000000000 * 3 + $a));\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 1
+   }
+  }
+ ],
+ "epochs": []
+}

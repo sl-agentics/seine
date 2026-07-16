@@ -15257,3 +15257,58 @@ Not in this slab: authoring.py sugar for computed args (the Python
 rule builder still emits atom args — follow-on); LHS constraint
 arithmetic (the coercion swamp needs its own 2×2 campaign, D-280);
 Tier 2 stratified computed insertLogical. Committed local; no push.
+
+## D-284 — TIER 2 LANDS: computed insertLogical under STRATIFICATION — TMS-justified computed facts; derivation cycles that compound values are a compile error; and the fuzz axis caught a REAL Java-typing gap (int-literal 32-bit arithmetic) before any user did (2026-07-16)
+
+Bryan: "start on insertLogical before looking at updates."
+
+PROBES FIRST (3 new, 3×-stable, all differentially GREEN post-port and
+GRADUATED with the two D-282 pins — corpus probes 1214 → 1220):
+pr_ar_tms_update_rederive (A.k 1→5: the old computed U(2) auto-
+retracts, U(6) re-derives), pr_ar_tms_three_strata (3-level computed
+chain tears down completely on root delete), pr_ar_tms_stated_computed
+(a stated twin survives its logical sibling's retraction — the
+tms_w1/w5 identity-mode law holds for computed values),
+pr_ar_tms_computed_dedup, pr_ar_tms_computed_cascade.
+
+ENGINE: CompiledAction::InsertLogical carries CExpr args (the tier
+wall replaced); the execute arm evaluates via eval_cexpr. THE
+STRATIFICATION PASS (add_rules_drl, cross-rule, re-runs per unit):
+edge S→T = a rule matches S anywhere in its LHS and insertLogicals
+into T; a COMPUTED edge whose target reaches back to its source
+through logical edges = CompileError (D-222 voice, names the rule,
+steers: stratify / plain insert / wait for the unbounded tier).
+Copy-only cycles STAY LEGAL — value-keyed dedup bounds them (probe:
+the U↔V copy cycle compiles, terminates, and diffs GREEN vs the
+oracle). Fence probes: self-loop + two-type computed cycles both
+reject (ar_tms_runaway_logical, ar_tms_cycle_two_type,
+engine_fenced). Belt-and-suspenders: tms.cascade_depth counter —
+the recursive cascade panics with a named message at 8192 instead of
+overflowing the stack if the stratification proof is ever wrong.
+
+THE FUZZ CATCH (the new axis extended to logical inserts — gen shapes
+are acyclic by construction): seed 577215 flushed 2 REAL divergences
+in the port — `-1000000007 * 3` is INT×INT in Java: 32-BIT WRAPPING
+arithmetic for literal-only subexpressions, promoted to long only
+when an i64 operand joins the op. Pinned by 6-cell probe
+(pr_ar_rhs_int_literal_wrap: 2000000000+2000000000 → -294967296;
+-2147483648/-1 → -2147483648; %-1 → 0; $a+2e9+2e9 → 4000000001 —
+left-assoc promotes at the first op; all exact). Fix: CExpr nodes
+carry ArithTy {I32, I64, F64} computed at compile with javac's
+promotion; I32 ops wrap at 32 bits. Both finds graduated to
+regressions (fz_577215_1014 plain, fz_577215_270 logical) — corpus
+regressions 404 → 406. PINS.md §D.
+
+RECEIPTS: gold byte gate 2033 BYTE-IDENTICAL (spanning Tier 1 + Tier
+2 + the ArithTy fix); diff 11/1220/406 green; drift REBANKED 42
+(fz_662607_47 quarantined: a collectSet element-order latent of the
+fz_4649_1144 class, NO computed args, bisected byte-identical on
+pre-Tier-2 62191fc); lint 1918/0/0; cargo 54; pytest 214; demo ok;
+fuzz: finding-seed 577215 re-runs CLEAN, fresh 141213 clean, 662607
+clean post-quarantine; model_ird 31/31; agenda_open ×15
+byte-identical vs 62191fc; IRD census 0-div ×5; SD census 72 EXACT.
+
+REMAINING (Bryan-gated): setters/update with computation (D-231's
+core WONT — "looking at updates" is next per Bryan); LHS arithmetic
+(the coercion-swamp 2×2 campaign); the unbounded tier (D-076
+iterative cascade); authoring.py sugar. Committed local; no push.

@@ -102,3 +102,17 @@ behind a stratification CompileError) keeps chain depth rule-count-
 bounded, preserving the recursive cascade's existing safety argument.
 Unbounded (cyclic computed logical) waits for the D-076 iterative
 rewrite.
+
+## D. Java INT-literal typing (D-284; found by the computed-args fuzz axis)
+
+The fuzz axis found it before any user did: `-1000000007 * 3` in an
+insert arg is INT×INT in Java — 32-bit WRAPPING arithmetic — while the
+engine computed in i64. The model, pinned by pr_ar_rhs_int_literal_wrap
+(all six cells exact): an int-range literal is an INT; literal-only ops
+wrap at 32 bits (`2000000000 + 2000000000` → -294967296; `-2147483648 /
+-1` → -2147483648; `% -1` → 0); ONE long operand (an i64 field/binding)
+promotes that op to long (`$a + 2000000000 + 2000000000` → 4000000001,
+left-assoc promotes at the FIRST op). The engine's CExpr carries a
+per-node ArithTy {I32, I64, F64} computed at compile with exactly
+javac's promotion. Graduated regressions: fz_577215_1014 (plain
+insert), fz_577215_270 (computed insertLogical).

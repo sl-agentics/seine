@@ -1,0 +1,65 @@
+{
+ "name": "pr_ar_tms_stated_computed",
+ "drl": "rule \"R1\"\nwhen\n    A($k : k)\nthen\n    insertLogical(new U($k + 1));\nend\nrule \"W1\"\nwhen\n    P(tag == \"e1\")\n    U($v : v)\nthen\nend\n",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "U",
+   "fields": {
+    "v": 2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "tag": "e1"
+     }
+    }
+   ]
+  }
+ ]
+}

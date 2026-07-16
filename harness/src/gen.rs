@@ -753,15 +753,16 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 let tgt_fields = types[tgt_ti].fields.clone();
                 for (_, tft) in &tgt_fields {
                     let base = gen_arg(&mut rng, &types, &mut pats, ri, *tft, false);
-                    // D-283 Tier 1 axis: computed args on PLAIN inserts
-                    // only (computed logical is walled). Typed so javac
-                    // agrees: int arithmetic into i64 fields, any-numeric
-                    // into f64. Divisors are NONZERO literals (div0 is
-                    // judge-parity agreement but wastes the scenario).
-                    if !is_logical
-                        && matches!(*tft, Ft::I64 | Ft::F64)
-                        && rng.chance(5)
-                    {
+                    // D-283/D-284 axis: computed args on plain inserts AND
+                    // logical inserts (gen shapes are acyclic by
+                    // construction — targets always have higher type
+                    // indices than premises — so the stratification pass
+                    // never trips). Typed so javac agrees: int arithmetic
+                    // into i64 fields, any-numeric into f64. Divisors are
+                    // NONZERO literals (div0 is judge-parity agreement but
+                    // wastes the scenario).
+                    let _ = is_logical;
+                    if matches!(*tft, Ft::I64 | Ft::F64) && rng.chance(5) {
                         let op = ['+', '-', '*', '/', '%'][rng.below(5)];
                         let rhs = match (op, *tft) {
                             ('/' | '%', Ft::I64) => format!("{}", rng.below(9) + 1),

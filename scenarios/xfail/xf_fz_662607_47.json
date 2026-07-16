@@ -1,0 +1,125 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T0(f1 <= 2, f1 != 7, $b0_0_0 : f1, $b0_0_1 : f0)\nthen\nend\nrule \"R1\"\nsalience -10\nno-loop\nwhen\n    T1(f1 == 5.0, f2 matches \"p\", f0 contains \"ab\" || f3 == true, $b1_0_0 : f1, $b1_0_1 : f3)\nthen\nend\nrule \"R2\"\nsalience 9\nagenda-group \"gb\"\nwhen\n    accumulate( T0(f1 != 100, f1 > -2); $a2_0 : count() )\nthen\n    drools.setFocus(\"gb\");\n    insert(new T1(\"b\", -2.0, \"b\", true));\n    insert(new T1(\"ab\", $a2_0, \"zz\", true));\nend\nrule \"R3\"\nsalience($b3_0_0 + $b3_0_0)\nwhen\n    T1($b3_0_0 : f1)\nthen\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0($b4_0_0 : f1, $b4_0_1 : f0)\nthen\n    insert(new T1(\"b\", $b4_0_0, \"a\", true));\n    insert(new T1(\"alpha\", $p4_0.getF0(), \"ab\", true));\nend\nrule \"R5\"\nwhen\n    accumulate( T1($s5_0 : f1); $a5_0 : collectSet($s5_0) )\nthen\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f1": 1.0,
+      "f2": "b"
+     },
+     "op": "update",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "fields": {
+      "f0": "alpha",
+      "f1": 2.0,
+      "f2": "beta",
+      "f3": false
+     },
+     "type": "T1"
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "fields": {
+      "f0": -1.0,
+      "f1": 6
+     },
+     "type": "T0"
+    },
+    {
+     "fields": {
+      "f0": 5.5,
+      "f1": -1000000007
+     },
+     "type": "T0"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": "beta",
+    "f1": 1.0,
+    "f2": "a",
+    "f3": false
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 2.5,
+    "f1": 1
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 2.5,
+    "f1": -4
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 0.5,
+    "f1": 4
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -1.0,
+    "f1": -4
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_662607_47",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-284 fresh-seed population find (seed 662607 x 2000): SetCollection element-ORDER divergence (two doubles swapped) - the collectSet/List element-order family (fz_4649_1144 class, D-268). NO computed args in the scenario; reproduces BYTE-IDENTICALLY on pre-Tier-2 62191fc (worktree bisect) - pre-existing latent, NOT a D-284 regression. Open for the collect-order family's triage."
+}

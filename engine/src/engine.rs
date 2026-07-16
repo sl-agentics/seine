@@ -372,18 +372,32 @@ struct CompiledAcc {
 /// i64 wraps, `/` truncates, `%` keeps the dividend's sign, div by
 /// zero errors at fire time; any f64 operand promotes both to IEEE
 /// doubles. Atoms reuse Src (snapshot semantics per fz_7_2525).
+#[derive(Clone, Copy, PartialEq)]
+enum ArithTy {
+    /// Java int: literal-only subexpressions in [-2^31, 2^31) compute
+    /// in WRAPPING 32-bit arithmetic (pr_ar_rhs_int_literal_wrap:
+    /// 2000000000 + 2000000000 -> -294967296) until a long operand
+    /// promotes the op. Values still travel as Value::I64.
+    I32,
+    I64,
+    F64,
+}
+
 #[derive(Clone)]
 enum CExpr {
     Atom(Src),
-    Neg(Box<CExpr>),
-    Bin(char, Box<CExpr>, Box<CExpr>),
+    Neg(Box<CExpr>, ArithTy),
+    Bin(char, Box<CExpr>, Box<CExpr>, ArithTy),
 }
 
 enum CompiledAction {
     Insert { type_id: TypeId, args: Vec<CExpr> },
-    /// D-076: TMS-justified insert. Args stay ATOMS — computed logical
-    /// args are the stratified tier (D-282), walled at compile.
-    InsertLogical { type_id: TypeId, args: Vec<Src> },
+    /// D-076: TMS-justified insert. Computed args are legal under the
+    /// STRATIFICATION check (D-284): a derivation cycle carrying a
+    /// computed edge is a compile error — copy-only cycles stay legal
+    /// (value-keyed dedup bounds them), so the recursive cascade keeps
+    /// its rule-count depth bound.
+    InsertLogical { type_id: TypeId, args: Vec<CExpr> },
     Set { pos: usize, field_idx: usize, arg: Src },
     Update { pos: usize },
     Delete { pos: usize },
@@ -1540,6 +1554,12 @@ struct EqKeyEntry {
 /// substrate; retraction is derived from it, not the other way around.
 #[derive(Default)]
 struct Tms {
+    /// D-284 belt-and-suspenders: the retraction cascade is call-
+    /// recursive (drop deps -> on_delete -> deeper drops); the
+    /// stratification pass bounds chain depth ≤ strata, so this
+    /// counter can only trip on a WRONG proof — panic with a message
+    /// instead of overflowing the stack.
+    cascade_depth: u32,
     /// Value-equality keys over ALL declared fields (D-066).
     keys: HashMap<(TypeId, Vec<KeyVal>), EqKeyEntry>,
     /// Every live fact of a logical type -> its key.
@@ -2644,6 +2664,58 @@ impl Engine {
                 return Err(EngineError(
                     "insertLogical requires rules to be added before any facts (D-076)".into(),
                 ));
+            }
+            // (4) D-284 STRATIFICATION: a computed insertLogical edge
+            // inside a derivation cycle compounds values without bound —
+            // justification chain depth IS teardown stack depth (D-282),
+            // and the recursive cascade's safety bound is chain depth ≤
+            // strata. Copy-only cycles stay legal: value-keyed dedup
+            // bounds them (the t10 family). Edge S→T = some rule matches
+            // S in its LHS and insertLogicals into T; a COMPUTED edge in
+            // a cycle (T reaches S back through logical edges) is the
+            // compile error.
+            {
+                let mut edges: Vec<(TypeId, TypeId, bool, &str)> = Vec::new();
+                for r in &self.rules {
+                    for a in &r.actions {
+                        if let CompiledAction::InsertLogical { type_id: t, args } = a {
+                            let computed = args.iter().any(|c| !matches!(c, CExpr::Atom(_)));
+                            for p in &r.patterns {
+                                edges.push((p.type_id, *t, computed, r.def.name.as_str()));
+                            }
+                        }
+                    }
+                }
+                let reaches = |from: TypeId, to: TypeId| -> bool {
+                    let mut seen: HashSet<TypeId> = HashSet::new();
+                    let mut stack = vec![from];
+                    while let Some(s) = stack.pop() {
+                        if s == to {
+                            return true;
+                        }
+                        if !seen.insert(s) {
+                            continue;
+                        }
+                        for (a, b, _, _) in &edges {
+                            if *a == s {
+                                stack.push(*b);
+                            }
+                        }
+                    }
+                    false
+                };
+                for (s, t, computed, rname) in &edges {
+                    if *computed && reaches(*t, *s) {
+                        return Err(EngineError(format!(
+                            "rule {rname}: computed insertLogical closes a derivation \
+                             CYCLE (the derived type feeds back into the rule's own \
+                             premises through logical derivations) — computed values \
+                             would compound without bound. Stratify the derivation, \
+                             use a plain insert, or wait for the unbounded tier \
+                             (D-284/D-282)"
+                        )));
+                    }
+                }
             }
         }
         self.rule_order = (0..self.rules.len()).collect();
@@ -4379,18 +4451,11 @@ impl Engine {
                             srcs.push(CExpr::Atom(src));
                             continue;
                         }
-                        // D-283 Tier 1: a COMPUTED arg. Plain insert only —
-                        // computed insertLogical is the stratified tier
-                        // (D-282); modify-with-computation stays WONT
-                        // (D-231).
-                        if logical {
-                            return Err(err(format!(
-                                "insert new {type_name}: computed insertLogical args are \
-                                 outside the certified subset (the stratified tier, D-282) \
-                                 — compute via a plain insert"
-                            )));
-                        }
-                        let (ce, expr_ft) = self.compile_cexpr(
+                        // D-283/D-284: a COMPUTED arg (plain insert, or
+                        // insertLogical under the stratification check —
+                        // the cross-rule pass at the end of add_rules_drl).
+                        // modify-with-computation stays WONT (D-231).
+                        let (ce, expr_aty) = self.compile_cexpr(
                             &rname,
                             aexpr,
                             &fact_binds,
@@ -4399,6 +4464,10 @@ impl Engine {
                             &def,
                             &patterns,
                         )?;
+                        let expr_ft = match expr_aty {
+                            ArithTy::F64 => FieldType::F64,
+                            _ => FieldType::I64, // int widens like long
+                        };
                         if !assignable(expr_ft, ftype) {
                             return Err(err(format!(
                                 "insert new {type_name}: computed arg for {fname} has type \
@@ -4427,15 +4496,7 @@ impl Engine {
                                 "insertLogical from rules with not/exists GROUP CEs is out of subset (D-089/D-076)".into(),
                             ));
                         }
-                        // all atoms by construction: the computed-arg wall above
-                        let atoms = srcs
-                            .into_iter()
-                            .map(|c| match c {
-                                CExpr::Atom(s) => s,
-                                _ => unreachable!("computed insertLogical walled at compile"),
-                            })
-                            .collect();
-                        actions.push(CompiledAction::InsertLogical { type_id: tid, args: atoms });
+                        actions.push(CompiledAction::InsertLogical { type_id: tid, args: srcs });
                     } else {
                         actions.push(CompiledAction::Insert { type_id: tid, args: srcs });
                     }
@@ -4682,10 +4743,12 @@ impl Engine {
         }
     }
 
-    /// D-283 Tier 1: compile an RHS insert-arg arithmetic expression.
-    /// Numeric only (i64/f64), non-nullable operands only; the result
-    /// type follows Java promotion (any f64 operand -> f64). The oracle
-    /// semantics are pinned in probes_pending/arith_grammar/PINS.md §A.
+    /// D-283/D-284: compile an RHS insert-arg arithmetic expression.
+    /// Numeric only (i64/f64), non-nullable operands only. Typing is
+    /// JAVA's: int-range literals are 32-bit ints (wrapping arithmetic)
+    /// until a long or double operand promotes the op — the oracle
+    /// semantics are pinned in probes_pending/arith_grammar/PINS.md §A
+    /// and pr_ar_rhs_int_literal_wrap.
     #[allow(clippy::too_many_arguments)]
     fn compile_cexpr(
         &self,
@@ -4696,19 +4759,8 @@ impl Engine {
         acc_opaque: &HashSet<String>,
         def: &RuleDef,
         patterns: &[CompiledPattern],
-    ) -> Result<(CExpr, FieldType), EngineError> {
+    ) -> Result<(CExpr, ArithTy), EngineError> {
         use crate::drl::RhsExpr;
-        let numeric = |ft: FieldType, what: &str| -> Result<(), EngineError> {
-            if matches!(ft, FieldType::I64 | FieldType::F64) {
-                Ok(())
-            } else {
-                Err(EngineError(format!(
-                    "rule {rname}: RHS arithmetic over a {} operand ({what}) is outside \
-                     the subset — arithmetic is i64/f64 only",
-                    ft_name(ft)
-                )))
-            }
-        };
         match e {
             RhsExpr::Atom(arg) => {
                 if matches!(arg, RhsArg::Lit(Literal::Null)) {
@@ -4719,7 +4771,13 @@ impl Engine {
                 }
                 let (src, ft) =
                     self.compile_arg(rname, arg, fact_binds, field_binds, acc_opaque, def, patterns)?;
-                numeric(ft, &format!("{arg:?}"))?;
+                if !matches!(ft, FieldType::I64 | FieldType::F64) {
+                    return Err(EngineError(format!(
+                        "rule {rname}: RHS arithmetic over a {} operand ({arg:?}) is \
+                         outside the subset — arithmetic is i64/f64 only",
+                        ft_name(ft)
+                    )));
+                }
                 // Nullable field operands are walled: Java would NPE
                 // unboxing; fill or guard upstream instead.
                 let nullable_bit = match arg {
@@ -4745,24 +4803,35 @@ impl Engine {
                          upstream (D-097)"
                     )));
                 }
-                Ok((CExpr::Atom(src), ft))
+                // Java literal typing: int-range literals are INTs;
+                // i64 fields/bindings are longs.
+                let aty = match (&src, ft) {
+                    (_, FieldType::F64) => ArithTy::F64,
+                    (Src::Lit(Value::I64(v)), _)
+                        if *v >= i32::MIN as i64 && *v <= i32::MAX as i64 =>
+                    {
+                        ArithTy::I32
+                    }
+                    _ => ArithTy::I64,
+                };
+                Ok((CExpr::Atom(src), aty))
             }
             RhsExpr::Neg(a) => {
-                let (ca, ft) =
+                let (ca, ty) =
                     self.compile_cexpr(rname, a, fact_binds, field_binds, acc_opaque, def, patterns)?;
-                Ok((CExpr::Neg(Box::new(ca)), ft))
+                Ok((CExpr::Neg(Box::new(ca), ty), ty))
             }
             RhsExpr::Bin(op, a, b) => {
-                let (ca, fa) =
+                let (ca, ta) =
                     self.compile_cexpr(rname, a, fact_binds, field_binds, acc_opaque, def, patterns)?;
-                let (cb, fb) =
+                let (cb, tb) =
                     self.compile_cexpr(rname, b, fact_binds, field_binds, acc_opaque, def, patterns)?;
-                let ft = if fa == FieldType::F64 || fb == FieldType::F64 {
-                    FieldType::F64
-                } else {
-                    FieldType::I64
+                let ty = match (ta, tb) {
+                    (ArithTy::F64, _) | (_, ArithTy::F64) => ArithTy::F64,
+                    (ArithTy::I64, _) | (_, ArithTy::I64) => ArithTy::I64,
+                    _ => ArithTy::I32,
                 };
-                Ok((CExpr::Bin(*op, Box::new(ca), Box::new(cb)), ft))
+                Ok((CExpr::Bin(*op, Box::new(ca), Box::new(cb), ty), ty))
             }
         }
     }
@@ -9959,11 +10028,13 @@ impl Engine {
                     let tid = *type_id;
                     let values: Vec<Value> = {
                         let schema = self.store.schema(tid).clone();
+                        let rname = self.rules[ri].def.name.clone();
                         args.clone()
                             .iter()
                             .zip(schema.fields.iter())
                             .map(|(a, (_, ft))| {
-                                coerce(self.eval_src(a, tuple, &snapshot), *ft).ok_or_else(|| {
+                                let v = self.eval_cexpr(&rname, a, tuple, &snapshot)?;
+                                coerce(v, *ft).ok_or_else(|| {
                                     EngineError("RHS insertLogical: arg type mismatch".into())
                                 })
                             })
@@ -10110,18 +10181,35 @@ impl Engine {
         };
         match e {
             CExpr::Atom(s) => Ok(self.eval_src(s, tuple, snapshot)),
-            CExpr::Neg(a) => {
+            CExpr::Neg(a, ty) => {
                 let v = self.eval_cexpr(rname, a, tuple, snapshot)?;
-                Ok(match num(v) {
-                    (Some(n), _) => Value::I64(n.wrapping_neg()),
-                    (None, x) => Value::F64(-x),
+                Ok(match (ty, num(v)) {
+                    (ArithTy::I32, (Some(n), _)) => {
+                        Value::I64((n as i32).wrapping_neg() as i64)
+                    }
+                    (_, (Some(n), _)) => Value::I64(n.wrapping_neg()),
+                    (_, (None, x)) => Value::F64(-x),
                 })
             }
-            CExpr::Bin(op, a, b) => {
+            CExpr::Bin(op, a, b, ty) => {
                 let va = self.eval_cexpr(rname, a, tuple, snapshot)?;
                 let vb = self.eval_cexpr(rname, b, tuple, snapshot)?;
-                match (num(va), num(vb)) {
-                    ((Some(x), _), (Some(y), _)) => {
+                match ty {
+                    ArithTy::F64 => {
+                        let (_, x) = num(va);
+                        let (_, y) = num(vb);
+                        Ok(Value::F64(match op {
+                            '+' => x + y,
+                            '-' => x - y,
+                            '*' => x * y,
+                            '/' => x / y,
+                            '%' => x % y,
+                            _ => unreachable!("parser admits + - * / %"),
+                        }))
+                    }
+                    ArithTy::I64 => {
+                        let x = num(va).0.expect("typechecked i64");
+                        let y = num(vb).0.expect("typechecked i64");
                         if matches!(op, '/' | '%') && y == 0 {
                             return Err(EngineError(format!(
                                 "rule {rname:?}: java.lang.ArithmeticException: / by zero"
@@ -10136,14 +10224,25 @@ impl Engine {
                             _ => unreachable!("parser admits + - * / %"),
                         }))
                     }
-                    ((_, x), (_, y)) => Ok(Value::F64(match op {
-                        '+' => x + y,
-                        '-' => x - y,
-                        '*' => x * y,
-                        '/' => x / y,
-                        '%' => x % y,
-                        _ => unreachable!("parser admits + - * / %"),
-                    })),
+                    // Java INT arithmetic: 32-bit wrapping (literal-only
+                    // subexpressions; pr_ar_rhs_int_literal_wrap)
+                    ArithTy::I32 => {
+                        let x = num(va).0.expect("typechecked i32") as i32;
+                        let y = num(vb).0.expect("typechecked i32") as i32;
+                        if matches!(op, '/' | '%') && y == 0 {
+                            return Err(EngineError(format!(
+                                "rule {rname:?}: java.lang.ArithmeticException: / by zero"
+                            )));
+                        }
+                        Ok(Value::I64(match op {
+                            '+' => x.wrapping_add(y),
+                            '-' => x.wrapping_sub(y),
+                            '*' => x.wrapping_mul(y),
+                            '/' => x.wrapping_div(y),
+                            '%' => x.wrapping_rem(y),
+                            _ => unreachable!("parser admits + - * / %"),
+                        } as i64))
+                    }
                 }
             }
         }
@@ -11120,6 +11219,12 @@ impl Engine {
         }
         to_retract.sort_by_key(|(s, f)| (*s, f.0));
         let mut out = Vec::new();
+        self.tms.cascade_depth += 1;
+        assert!(
+            self.tms.cascade_depth < 8192,
+            "TMS cascade depth exceeded 8192 — the D-284 stratification bound \
+             was violated (an engine bug, not a rule error): file with the DRL"
+        );
         for (_, jf) in to_retract {
             if self.store.is_alive(jf) {
                 self.store.kill(jf);
@@ -11127,6 +11232,7 @@ impl Engine {
                 out.push(jf);
             }
         }
+        self.tms.cascade_depth -= 1;
         out
     }
 

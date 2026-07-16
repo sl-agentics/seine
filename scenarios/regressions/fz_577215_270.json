@@ -1,0 +1,97 @@
+{
+  "drl": "rule \"R0\"\nsalience($b0_0_1 - $b0_0_1)\nno-loop\nwhen\n    $p0_0 : T1(f0 in (-1, 100), f2 <= -3, $b0_0_0 : f2, $b0_0_1 : f2)\nthen\n    insertLogical(new T2($p0_0.getF0(), $p0_0.getF0(), -1000000007 * 5));\n    insertLogical(new T2(8, $b0_0_1, $b0_0_1));\nend\nrule \"R1\"\nwhen\n    T0(f0 > 2.0)\n    T0()\nthen\nend\nrule \"R2\"\nwhen\n    T0(f3 != true, f3 != false)\n    $p2_1 : T1(f2 < 7, $b2_1_0 : f1, $b2_1_1 : f0)\nthen\n    insertLogical(new T2(-4, $p2_1.getF0(), 8));\n    insertLogical(new T2($p2_1.getF0(), 1, -2));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 11,
+        "f1": "a",
+        "f2": -2
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 100,
+        "f1": "b",
+        "f2": -1000000007
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 6.0,
+        "f1": true,
+        "f2": false,
+        "f3": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 6.0,
+        "f1": true,
+        "f2": true,
+        "f3": true
+      },
+      "type": "T0"
+    }
+  ],
+  "name": "fz_577215_270",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "String"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}
