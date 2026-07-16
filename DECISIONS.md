@@ -20,8 +20,13 @@ Bryan holds pushes)._
 (12.7x, target exceeded), all sweeps LINEAR through 16k, the engine
 beats warm Drools on EVERY scale cell (join_10000 62 vs 89ms).
 Permanent tooling: tools/bench_oracle.py + SEINE_TIME + the
-feature-gated pprof flamegraph (--features prof, SEINE_FLAME). No
-active build — next is Bryan's call.** The binding-divergence
+feature-gated pprof flamegraph (--features prof, SEINE_FLAME) +
+tools/bench_oom.sh (D-269 endurance race: Drools outlasts the engine
+~6-12% at a 16GB wall via GC squeeze; engine ~20% lighter below it;
+~1.9KB/fact). NEXT FRONTIER (Bryan-named, engine edit gated): the
+MEMORY DIET — COLD-START = `probes_pending/memory_diet/HANDOFF.md`
+(measure-first protocol, alloc surface inventory, SmallVec sketch,
+crown target = 16GB ceiling past 4.75M pairs, speed co-gate).** The binding-divergence
 arc closed (D-260 recon, D-261 lane 2, D-262 lane 1): eager_flush at
 the sibling-continue + the salience-ordered halt-check peek walk
 (stops at the first live item; no lazy batch order pinned —
