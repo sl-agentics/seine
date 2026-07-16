@@ -14824,3 +14824,58 @@ Receipts: all-2031 byte gate BYTE-IDENTICAL; cargo test 54; N=1M RSS
 1030 → 935MB, wall 5.0 → 4.6s — the remaining peak is now the
 ENGINE's own steady state (~470B/fact process-wide), i.e. the
 D-273 SmallVec slab's target. Committed local; no push.
+
+## D-273 — memory diet slab 4 (the ENGINE edit, Bryan-authorized): `Tup = SmallVec<[FactId; 4]>` — k≤4 tuples cost zero heap blocks at the same 24-byte struct size. RSS at 1M: 935 → 845MB, wall 4.6 → 3.0s; **16GB ceiling = [20M, 24M) pairs — >4.2× Drools** (2026-07-16)
+
+The engine's first dependency: smallvec 1 (already in-lock via pprof).
+phreak.rs:24 `pub type Tup` swaps to `SmallVec<[FactId; 4]>` — the
+inline arm is 16 bytes, exactly the size of Vec's (ptr, cap), so
+FOUR ids ride inline at the same 24-byte footprint the handoff's
+sketch assumed for two. Hash/Eq/Ord all defer to the slice exactly
+like Vec's, so Tup-keyed maps are representation-compatible (the
+alias is the only spelling — every key swapped together). Mechanics
+as the handoff predicted: 23 compile-flagged sites, all constructor-
+shaped — `vec![f]` → `smallvec![f]` (14 across the s0 folds,
+left_sseq/upd_lsseq/pending_lmoves, TMS park/unpark, push_activation),
+slice→Tup at the two query-prefix sites + execute_rhs's tms_act +
+tms_insert_logical, and PUBLIC SupportView.tuple KEPT Vec<FactId>
+(exported in lib.rs) via one to_vec() at the boundary. Every
+substitution occurrence-counted before applying.
+
+Step-0 discipline held: the post-D-272 alloc snapshot showed slot-4
+(the one-element Tup blocks) at ~5M live as the TOP small-alloc
+consumer; post-swap it reads EIGHT live. The handoff's candidate #2
+(join keys Option<Vec<Value>> → SmallVec<[Value;1]>) was measured
+and SKIPPED: slot-32 keys are 2M live = ~110MB real, but the inline
+variant grows every lefts/rights entry by 24 bytes (Some AND None)
+= +48MB back, net ~−60MB (7%) for a sweep across ~25 spellings
+including the key_of_left/right trait surface — poor value; noted
+for a future slab only if key pressure ever dominates a profile.
+
+RECEIPTS (all at 7f2982b-lineage HEAD, engine now byte-equivalent
+by the gold gate, not by construction):
+  Memory: N=1M RSS 935 → 845MB, wall 4.6 → 3.0s (killing ~10M heap
+  allocs pays in time too). Ladder (16GB cgroup): 12M ok/8.4GB ·
+  16M ok/13.2GB · 20M ok/14.9GB · 24M KILLED — ceiling [20M, 24M)
+  vs Drools [4.5M, 4.75M) (D-269): **>4.2×**. ~372B/fact at 20M.
+  ARC TOTAL (D-269 → D-273): 3.92GB → 845MB at 1M (−78%), ceiling
+  [4.25M, 4.5M) → [20M, 24M) (~4.7×).
+  Speed co-gate: join_10000 46.0ms (72 pre-arc, 52.5 post-D-270),
+  alpha 13.2ms, acc 12.7ms — every cell beats warm Drools; doubling
+  ratios 1k→16k ~2.0 (alpha 2.02/1.98/2.04, join 2.12/1.99/2.11,
+  acc 1.99/2.01/2.06).
+  Gates: all-2031 byte gate BYTE-IDENTICAL; diff 11/1209/404 green;
+  cargo test 54; pytest 171 (bindings rebuilt on the smallvec
+  engine, .so committed per D-266/268 convention); demo LIVE==REPLAY
+  True; lint 1882/0/0.
+  Fresh fuzz 2×2000 (seeds 141421, 173205): 173205 CLEAN; 141421
+  flushed 2 — BOTH bisect byte-identical on pre-arc 44ddd14 ⇒
+  pre-existing latents, quarantined per D-255 (xf_fz_141421_123:
+  same-rule same-shape stale-vs-updated f1 value at firing[141];
+  xf_fz_141421_1206: engine R1×1 vs oracle R0×2 at firing[2]);
+  drift REBANKED 39 → 41, re-gated identical.
+
+THE DIET LEDGER after four slabs: peak at 1M is now ~64MB stored
+join keys + ~126MB of 128B/1M-live engine entries (unattributed —
+next profile's first question) + ~320MB big flat tables + strings.
+Committed local; no push, no version bump (Bryan holds both).

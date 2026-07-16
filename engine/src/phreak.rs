@@ -21,7 +21,14 @@ use std::collections::{HashMap, HashSet};
 
 use crate::store::{FactId, Value};
 
-pub type Tup = Vec<FactId>;
+/// D-273 (the memory diet): tuples inline up to 4 fact ids — the same
+/// 24-byte struct footprint as Vec<FactId> (the union arm is 16 bytes
+/// either way), but k<=4 tuples cost ZERO heap blocks where every
+/// 1-2-element Vec was a malloc chunk (~32 bytes real) per tuple, per
+/// map key, per child. Hash/Eq/Ord go through the slice exactly like
+/// Vec's, so Tup-keyed maps are representation-compatible as long as
+/// every key swaps together (they do: this alias is the only spelling).
+pub type Tup = smallvec::SmallVec<[FactId; 4]>;
 pub type Origin = Option<usize>;
 
 /// TupleSets: three LIFO lists (index 0 = most recently staged) with the

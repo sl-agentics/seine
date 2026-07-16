@@ -7,3 +7,7 @@ description = "Forward-chaining rule engine implementing a bounded, differential
 repository.workspace = true
 
 [dependencies]
+# D-273 (the memory diet): inline small tuples — k<=4 join tuples and
+# key vecs live in-struct (same 24-byte footprint as Vec) instead of
+# as one heap block per tuple.
+smallvec = "1"

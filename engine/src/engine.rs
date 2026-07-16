@@ -1460,6 +1460,7 @@ impl PxShadow {
 }
 
 use crate::phreak::{self, Origin, Staged, Tup};
+use smallvec::smallvec;
 
 /// TMS equality-key value: Value with Java-equals semantics for doubles
 /// (Double.equals = bit comparison: NaN==NaN, +0.0 != -0.0 — tms_u6).
@@ -6202,7 +6203,7 @@ impl Engine {
                 self.trie[ni].node.s_right.ins = sr;
                 self.trie[ni].node.s_left.ins = sl;
                 let s0_folds: Vec<(Tup, Origin, u8)> =
-                    s0.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
+                    s0.into_iter().map(|(f, o, p)| (smallvec![f], o, p)).collect();
                 let mut node = std::mem::replace(
                     &mut self.trie[ni].node,
                     phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
@@ -6264,7 +6265,7 @@ impl Engine {
                 let s0_folds: Vec<(Tup, Origin, u8)> =
                     std::mem::take(&mut self.trie[ni].s0_in.ins)
                         .into_iter()
-                        .map(|(f, o, p)| (vec![f], o, p))
+                        .map(|(f, o, p)| (smallvec![f], o, p))
                         .collect();
                 let mut node = std::mem::replace(
                     &mut self.trie[ni].node,
@@ -7646,7 +7647,7 @@ impl Engine {
                 for i in 0..self.lias[li].children.len() {
                     let c = self.lias[li].children[i];
                     self.stage_seq += 1;
-                    self.trie[c].node.left_sseq.insert(vec![f], self.stage_seq);
+                    self.trie[c].node.left_sseq.insert(smallvec![f], self.stage_seq);
                     self.trie[c].s0_in.add_ins(f, origin);
                 }
                 self.note_link_effects_ex(&mut was, Some(f));
@@ -7790,7 +7791,7 @@ impl Engine {
                     0 => {}
                     1 => {
                         self.stage_seq += 1;
-                        self.trie[c].node.left_sseq.insert(vec![f], self.stage_seq);
+                        self.trie[c].node.left_sseq.insert(smallvec![f], self.stage_seq);
                         self.trie[c].s0_in.add_ins(f, origin)
                     }
                     2 => self.trie[c].s0_in.add_del(f, origin),
@@ -7799,10 +7800,10 @@ impl Engine {
                             self.stage_seq += 1;
                             let s = self.stage_seq;
                             if !self.trie[c].s0_in.upd.iter().any(|(x, _, _)| *x == f) {
-                                self.trie[c].node.upd_lsseq.insert(vec![f], s);
+                                self.trie[c].node.upd_lsseq.insert(smallvec![f], s);
                             }
                             if self.rules[self.trie[c].env.0].patterns.len() == 2 {
-                                self.trie[c].node.pending_lmoves.push((vec![f], s));
+                                self.trie[c].node.pending_lmoves.push((smallvec![f], s));
                             }
                         }
                         self.trie[c].s0_in.add_upd(f, origin)
@@ -8432,8 +8433,8 @@ impl Engine {
                     if self.nets[ri].queue.len() != n0 {
                         self.update_item_salience(ri, pre);
                     }
-                    self.tms_on_terminal_del(ri, &vec![*f]);
-                    self.tms_parked_del(ri, &vec![*f], *o);
+                    self.tms_on_terminal_del(ri, &smallvec![*f]);
+                    self.tms_parked_del(ri, &smallvec![*f], *o);
                 }
                 for (f, o, _) in s0.upd.iter().rev() {
                     let queued = self.nets[ri].queue.iter().any(|a| a.t[0] == *f);
@@ -8443,17 +8444,17 @@ impl Engine {
                     if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                         continue; // own update does not re-activate (j04)
                     }
-                    self.tms_unpark_upd(ri, &vec![*f]);
-                    self.push_activation(ri, vec![*f]);
+                    self.tms_unpark_upd(ri, &smallvec![*f]);
+                    self.push_activation(ri, smallvec![*f]);
                 }
                 for (f, o, _) in s0.ins.iter().rev() {
                     if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
                         continue;
                     }
-                    if self.tms_parked_ins(ri, &vec![*f]) {
+                    if self.tms_parked_ins(ri, &smallvec![*f]) {
                         continue;
                     }
-                    self.push_activation(ri, vec![*f]);
+                    self.push_activation(ri, smallvec![*f]);
                 }
             }
             self.nets[ri].dirty = false; // evaluateNetwork -> setDirty(false)
@@ -8503,9 +8504,9 @@ impl Engine {
                 self.tms.left_touched.extend(
                     s0.upd.iter().chain(s0.del.iter()).map(|(f, o, _)| (*f, *o)),
                 );
-                fresh.ins = s0.ins.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
-                fresh.upd = s0.upd.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
-                fresh.del = s0.del.into_iter().map(|(f, o, p)| (vec![f], o, p)).collect();
+                fresh.ins = s0.ins.into_iter().map(|(f, o, p)| (smallvec![f], o, p)).collect();
+                fresh.upd = s0.upd.into_iter().map(|(f, o, p)| (smallvec![f], o, p)).collect();
+                fresh.del = s0.del.into_iter().map(|(f, o, p)| (smallvec![f], o, p)).collect();
             }
             let pending = slw;
             let src = Staged::merge_into_pending(pending, fresh);
@@ -8731,7 +8732,7 @@ impl Engine {
         // --- rightIns (before leftIns, "so 'not' knows if there are
         // matches before creating the child") ---
         for (s, o, _) in sr.ins.iter() {
-            let p: Tup = s[..plen.min(s.len())].to_vec();
+            let p: Tup = Tup::from_slice(&s[..plen.min(s.len())]);
             let m = node.sn_matches.entry(p.clone()).or_default();
             if m.contains(s) {
                 continue; // value-identity idempotency (re-delivered peer)
@@ -8765,7 +8766,7 @@ impl Engine {
         // --- rightUpd: NO-OP ("does nothing; here before, here now") ---
         // --- rightDel (late, so nothing staged here is then unstaged) ---
         for (s, o, _) in sr.del.iter() {
-            let p: Tup = s[..plen.min(s.len())].to_vec();
+            let p: Tup = Tup::from_slice(&s[..plen.min(s.len())]);
             let Some(m) = node.sn_matches.get_mut(&p) else { continue };
             if let Some(i) = m.iter().position(|x| x == s) {
                 m.remove(i);
@@ -9760,7 +9761,7 @@ impl Engine {
         // D-076 refire-supersede prologue: snapshot this activation's
         // prior support keys; deps not re-established by THIS firing are
         // removed in the epilogue (fz_7777_112/74, dump-c).
-        let tms_act = (ri, tuple.to_vec());
+        let tms_act = (ri, Tup::from_slice(tuple));
         let tms_prev: Vec<(TypeId, Vec<KeyVal>)> = self
             .tms
             .by_act
@@ -9825,7 +9826,7 @@ impl Engine {
                             })
                             .collect::<Result<_, _>>()?
                     };
-                    self.tms_insert_logical(ri, &tuple.to_vec(), tid, values)?;
+                    self.tms_insert_logical(ri, &Tup::from_slice(tuple), tid, values)?;
                 }
                 CompiledAction::Set { pos, field_idx, arg } => {
                     let f = tuple[*pos];
@@ -10933,7 +10934,7 @@ impl Engine {
                 .iter()
                 .map(|j| SupportView {
                     rule: self.rules[j.ri].def.name.clone(),
-                    tuple: j.tuple.clone(),
+                    tuple: j.tuple.to_vec(),
                     seq: j.seq,
                 })
                 .collect();
