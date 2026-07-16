@@ -176,6 +176,35 @@ bottom of this file.
 - `t_w(v) = [1, NULL, 5]`; `WHERE v > 2` -> rows: [5]
   (NULL predicate rows DROP — derive.filter matches this.)
 
+## M. The calculator row (D-285): trig / logs / exp
+
+| expression | result |
+|---|---|
+| `sin(0.5)` | 0.479425538604203 |
+| `cos(0.5)` | 0.8775825618903728 |
+| `tan(0.5)` | 0.5463024898437905 |
+| `atan(1.0)` | 0.7853981633974483 |
+| `sin(CAST('NaN' AS DOUBLE))` | nan |
+| `sin(CAST('Infinity' AS DOUBLE))` | ERROR: Out of Range Error: input value inf is out of range for numeric function |
+| `asin(0.5)` | 0.5235987755982989 |
+| `asin(2.0)` | ERROR: Invalid Input Error: ASIN is undefined outside [-1,1] |
+| `asin(CAST('NaN' AS DOUBLE))` | nan |
+| `acos(-2.0)` | ERROR: Invalid Input Error: ACOS is undefined outside [-1,1] |
+| `atan(CAST('Infinity' AS DOUBLE))` | 1.5707963267948966 |
+| `ln(2.718281828459045)` | 1.0 |
+| `ln(0.0)` | ERROR: Out of Range Error: cannot take logarithm of zero |
+| `ln(-1.0)` | ERROR: Out of Range Error: cannot take logarithm of a negative number |
+| `ln(CAST('Infinity' AS DOUBLE))` | inf |
+| `ln(CAST('NaN' AS DOUBLE))` | nan |
+| `log10(1000.0)` | 3.0 |
+| `log10(0.0)` | ERROR: Out of Range Error: cannot take logarithm of zero |
+| `exp(1.0)` | 2.718281828459045 |
+| `exp(1000.0)` | inf |
+| `exp(-1000.0)` | 0.0 |
+| `exp(CAST('NaN' AS DOUBLE))` | nan |
+| `degrees(3.141592653589793)` | 180.0 |
+| `radians(180.0)` | 3.141592653589793 |
+
 ## The divergence ledger (deliberate, on the record)
 
 | # | surface | oracle (measured above) | the kernels | why |
@@ -188,7 +217,7 @@ bottom of this file.
 | 6 | `//` `%` by zero (int) | NULL (section B) | loud error | ledger row 4's policy applied; the battery maps oracle-NULL-on-zero-divisor to the kernels' error for these two ops. |
 | 7 | `//` on DOUBLE | plain division (7.5 // 2.0 = 3.75, section A) | `//` is INTEGER-ONLY — a float operand is a loud type error steering to `/` + `.floor()` | DuckDB's float `//` quirk answers no user question; restricting the operator keeps it honest. On the integer domain kernels and oracle agree (truncation; C-family div/mod identity with `%`). Python's FLOORED `//` divergence is documented in the docstring. |
 | 8 | `round(x, n)` algorithm | rounds the SHORTEST-DECIMAL representation half-away (2.675 -> 2.68 though the binary value is 2.67499...; all fp-tie forensics in section E consistent) | same, by construction | kernels + pure-python reference both implement shortest-roundtrip-decimal rounding (Rust fmt / Python repr are both shortest-roundtrip); agrees with f64::round half-away at n=0, so the shipped haversine kernel's rounding is unchanged. |
-| 9 | `if_else`/`fill_null` branch evaluation | SQL CASE is LAZY (an error in the untaken branch never surfaces) | EAGER — both branches evaluate vectorized over every row; a row-level error (div0, overflow) in either branch errors the batch even where that branch is not selected | dataframe-engine reality (polars behaves the same); the battery accepts oracle-ok/kernel-div0-error for exactly this class. Guard divisors before dividing. |
+| 9 | `if_else`/`fill_null` branch evaluation | SQL CASE/COALESCE is LAZY (an error in the untaken branch never surfaces) | EAGER — both branches evaluate vectorized over every row; a row-level error (div0, overflow, domain — e.g. fill_null(x, y.asin())) in either branch errors the batch even where that branch is not selected | dataframe-engine reality (polars behaves the same); the battery accepts oracle-ok/kernel-error for exactly this class. Guard operands before applying partial functions. |
 | 10 | float comparison semantics | NaN equals itself and sorts LAST (NaN = NaN TRUE, NaN < inf FALSE — section K); ±0 equal | STANDARD IEEE via native f64 operators: NaN != everything including itself; -0.0 == 0.0 | the arrow cmp kernels use totalOrder (-0.0 != 0.0, NaN == NaN) and are NOT used for f64 — the kernels hand-roll IEEE, matching the oracle at ±0 and the published contract at NaN. The battery's IEEE side-battery (NaN/inf column data) excludes the oracle. |
 | 11 | `i64::MIN % -1` | error (section C: overflow in division) | 0 (arrow's rem; mathematically exact — the overflow is an artifact of computing the quotient) | the fuzz pools carry no i64::MIN so the class is pinned by vector, not fuzzed. |
 

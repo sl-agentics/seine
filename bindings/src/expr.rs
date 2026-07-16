@@ -99,6 +99,21 @@ enum Un {
     Ceil,
     Sqrt,
     StrLen,
+    // the calculator row (D-285; semantics measured in the pins doc
+    // §M): trig propagates NaN but errors on infinite input; asin/acos
+    // are domain-checked; ln/log10 error at <= 0; exp/atan/degrees/
+    // radians are total
+    Sin,
+    Cos,
+    Tan,
+    Asin,
+    Acos,
+    Atan,
+    Ln,
+    Log10,
+    Exp,
+    Degrees,
+    Radians,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -138,7 +153,8 @@ enum Ex {
 
 const SUPPORTED_OPS: &str = "col, lit, add, sub, mul, div, floordiv, rem, pow, neg, \
      eq, neq, lt, lt_eq, gt, gt_eq, and, or, not, is_null, is_not_null, fill_null, \
-     if_else, abs, floor, ceil, round, sqrt, cast, str_contains, str_starts_with, \
+     if_else, abs, floor, ceil, round, sqrt, sin, cos, tan, asin, acos, atan, \
+     ln, log10, exp, degrees, radians, cast, str_contains, str_starts_with, \
      str_ends_with, str_len, concat";
 
 // ---------------------------------------------------------------------
@@ -231,6 +247,17 @@ fn parse(label: &str, obj: &Bound<'_, PyAny>, depth: usize) -> PyResult<Ex> {
         "floor" => unary(Un::Floor),
         "ceil" => unary(Un::Ceil),
         "sqrt" => unary(Un::Sqrt),
+        "sin" => unary(Un::Sin),
+        "cos" => unary(Un::Cos),
+        "tan" => unary(Un::Tan),
+        "asin" => unary(Un::Asin),
+        "acos" => unary(Un::Acos),
+        "atan" => unary(Un::Atan),
+        "ln" => unary(Un::Ln),
+        "log10" => unary(Un::Log10),
+        "exp" => unary(Un::Exp),
+        "degrees" => unary(Un::Degrees),
+        "radians" => unary(Un::Radians),
         "str_len" => unary(Un::StrLen),
         "if_else" => {
             let a = args(3)?;
@@ -353,6 +380,17 @@ fn render(ex: &Ex) -> String {
             Un::Floor => format!("{}.floor()", render(a)),
             Un::Ceil => format!("{}.ceil()", render(a)),
             Un::Sqrt => format!("{}.sqrt()", render(a)),
+            Un::Sin => format!("{}.sin()", render(a)),
+            Un::Cos => format!("{}.cos()", render(a)),
+            Un::Tan => format!("{}.tan()", render(a)),
+            Un::Asin => format!("{}.asin()", render(a)),
+            Un::Acos => format!("{}.acos()", render(a)),
+            Un::Atan => format!("{}.atan()", render(a)),
+            Un::Ln => format!("{}.ln()", render(a)),
+            Un::Log10 => format!("{}.log10()", render(a)),
+            Un::Exp => format!("{}.exp()", render(a)),
+            Un::Degrees => format!("{}.degrees()", render(a)),
+            Un::Radians => format!("{}.radians()", render(a)),
             Un::StrLen => format!("{}.str_len()", render(a)),
         },
         Ex::Bin(b, l, r) => match b {
@@ -426,7 +464,18 @@ fn check(label: &str, ex: &Ex, ctx: &Ctx) -> PyResult<Ty> {
                     }
                     Ok(t) // floor/ceil of i64 is the identity
                 }
-                Un::Sqrt => {
+                Un::Sqrt
+                | Un::Sin
+                | Un::Cos
+                | Un::Tan
+                | Un::Asin
+                | Un::Acos
+                | Un::Atan
+                | Un::Ln
+                | Un::Log10
+                | Un::Exp
+                | Un::Degrees
+                | Un::Radians => {
                     if !t.numeric() {
                         return Err(type_err(label, ex, format!("needs a numeric operand, got {}", t.name())));
                     }
@@ -882,6 +931,105 @@ fn eval(label: &str, ex: &Ex, ctx: &Ctx) -> PyResult<Ev> {
                         },
                     )
                     .map_err(|e| arrow_err(label, ex, e))?;
+                    Ok(map_un(av, Arc::new(out)))
+                }
+                // The calculator row (D-285): domain semantics measured
+                // against the oracle (pins §M) — trig propagates NaN but
+                // errors on ±inf; asin/acos are range-checked; ln/log10
+                // error at <= 0 and pass NaN/+inf through; exp, atan,
+                // degrees, radians are total.
+                Un::Sin | Un::Cos | Un::Tan => {
+                    let av = to_f64(label, ex, av)?;
+                    let f = match u {
+                        Un::Sin => f64::sin,
+                        Un::Cos => f64::cos,
+                        _ => f64::tan,
+                    };
+                    let out = arity::try_unary::<Float64Type, _, Float64Type>(
+                        f64_arr(&av),
+                        |x| {
+                            if x.is_infinite() {
+                                Err(ArrowError::ComputeError(format!(
+                                    "trig of an infinite input ({x})"
+                                )))
+                            } else {
+                                Ok(f(x)) // NaN propagates
+                            }
+                        },
+                    )
+                    .map_err(|e| arrow_err(label, ex, e))?;
+                    Ok(map_un(av, Arc::new(out)))
+                }
+                Un::Asin | Un::Acos => {
+                    let av = to_f64(label, ex, av)?;
+                    let (f, name): (fn(f64) -> f64, &str) = match u {
+                        Un::Asin => (f64::asin, "asin"),
+                        _ => (f64::acos, "acos"),
+                    };
+                    let out = arity::try_unary::<Float64Type, _, Float64Type>(
+                        f64_arr(&av),
+                        |x| {
+                            if x < -1.0 || x > 1.0 {
+                                Err(ArrowError::ComputeError(format!(
+                                    "{name} is undefined outside [-1, 1] (got {x})"
+                                )))
+                            } else {
+                                Ok(f(x)) // NaN fails neither bound: propagates
+                            }
+                        },
+                    )
+                    .map_err(|e| arrow_err(label, ex, e))?;
+                    Ok(map_un(av, Arc::new(out)))
+                }
+                Un::Atan => {
+                    let av = to_f64(label, ex, av)?;
+                    let out =
+                        arity::unary::<Float64Type, _, Float64Type>(f64_arr(&av), f64::atan);
+                    Ok(map_un(av, Arc::new(out)))
+                }
+                Un::Ln | Un::Log10 => {
+                    let av = to_f64(label, ex, av)?;
+                    let (f, name): (fn(f64) -> f64, &str) = match u {
+                        Un::Ln => (f64::ln, "ln"),
+                        _ => (f64::log10, "log10"),
+                    };
+                    let out = arity::try_unary::<Float64Type, _, Float64Type>(
+                        f64_arr(&av),
+                        |x| {
+                            if x == 0.0 {
+                                Err(ArrowError::ComputeError(format!(
+                                    "{name} of zero is undefined"
+                                )))
+                            } else if x < 0.0 {
+                                Err(ArrowError::ComputeError(format!(
+                                    "{name} of a negative ({x}) is undefined"
+                                )))
+                            } else {
+                                Ok(f(x)) // NaN and +inf propagate
+                            }
+                        },
+                    )
+                    .map_err(|e| arrow_err(label, ex, e))?;
+                    Ok(map_un(av, Arc::new(out)))
+                }
+                Un::Exp => {
+                    let av = to_f64(label, ex, av)?;
+                    let out =
+                        arity::unary::<Float64Type, _, Float64Type>(f64_arr(&av), f64::exp);
+                    Ok(map_un(av, Arc::new(out)))
+                }
+                Un::Degrees => {
+                    let av = to_f64(label, ex, av)?;
+                    let out = arity::unary::<Float64Type, _, Float64Type>(f64_arr(&av), |x| {
+                        x * (180.0 / std::f64::consts::PI)
+                    });
+                    Ok(map_un(av, Arc::new(out)))
+                }
+                Un::Radians => {
+                    let av = to_f64(label, ex, av)?;
+                    let out = arity::unary::<Float64Type, _, Float64Type>(f64_arr(&av), |x| {
+                        x * (std::f64::consts::PI / 180.0)
+                    });
                     Ok(map_un(av, Arc::new(out)))
                 }
                 Un::StrLen => {

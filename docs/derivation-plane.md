@@ -96,7 +96,9 @@ orders = filter(orders, col("total").is_not_null())
 
 - Grammar (closed, v1): `+ - * / // % **`, comparisons, `& | ~` (SQL
   three-valued logic), `if_else`, `is_null`/`fill_null`, `abs/floor/
-  ceil/round/sqrt`, `cast("i64"|"f64")`, core string ops
+  ceil/round/sqrt`, the calculator row (`sin/cos/tan/asin/acos/atan/
+  ln/log10/exp/degrees/radians` — domain errors are loud, matching the
+  oracle), `cast("i64"|"f64")`, core string ops
   (`concat`, `str_contains/starts/ends/len`). No aggregates — the match
   plane's certified `accumulate` owns aggregation. NULLs propagate
   SQL-style (the expression plane HAS null semantics; the match plane's

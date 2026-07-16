@@ -26,7 +26,8 @@ operator overloading and evaluated in Rust (no Python in the loop):
 - ``filter(data, pred)`` — keep rows where the predicate is TRUE.
 - ``col`` / ``lit`` / ``if_else`` / :class:`Expr` — the closed
   expression grammar (arithmetic, comparisons, SQL three-valued
-  boolean logic, conditionals, casts, core string ops). Nulls
+  boolean logic, conditionals, casts, core string ops, and the
+  calculator row: trig, ln/log10, exp, degrees/radians). Nulls
   propagate SQL-style; semantics are measured against the data-plane
   oracle in docs/derive-expr-pins.md.
 
@@ -382,6 +383,56 @@ class Expr:
         """Square root (always f64). A NEGATIVE operand raises — a
         silent NaN would flow into every downstream comparison."""
         return self._unary("sqrt", f"{self._repr}.sqrt()")
+
+    def sin(self):
+        """Sine (radians; always f64). NaN propagates; an INFINITE
+        operand raises, matching the data-plane oracle."""
+        return self._unary("sin", f"{self._repr}.sin()")
+
+    def cos(self):
+        """Cosine (radians; always f64). NaN propagates; infinite raises."""
+        return self._unary("cos", f"{self._repr}.cos()")
+
+    def tan(self):
+        """Tangent (radians; always f64). NaN propagates; infinite raises."""
+        return self._unary("tan", f"{self._repr}.tan()")
+
+    def asin(self):
+        """Arcsine (radians; always f64). Raises outside [-1, 1]."""
+        return self._unary("asin", f"{self._repr}.asin()")
+
+    def acos(self):
+        """Arccosine (radians; always f64). Raises outside [-1, 1]."""
+        return self._unary("acos", f"{self._repr}.acos()")
+
+    def atan(self):
+        """Arctangent (radians; always f64). Total — infinities map to
+        ±π/2."""
+        return self._unary("atan", f"{self._repr}.atan()")
+
+    def ln(self):
+        """Natural logarithm (always f64). Raises at zero or negative;
+        NaN and +inf propagate."""
+        return self._unary("ln", f"{self._repr}.ln()")
+
+    def log10(self):
+        """Base-10 logarithm (always f64). Raises at zero or negative;
+        NaN and +inf propagate."""
+        return self._unary("log10", f"{self._repr}.log10()")
+
+    def exp(self):
+        """e**x (always f64). Total IEEE: overflow yields inf,
+        underflow yields 0.0."""
+        return self._unary("exp", f"{self._repr}.exp()")
+
+    def degrees(self):
+        """Radians -> degrees (always f64)."""
+        return self._unary("degrees", f"{self._repr}.degrees()")
+
+    def radians(self):
+        """Degrees -> radians (always f64)."""
+        return self._unary("radians", f"{self._repr}.radians()")
+
 
     def round(self, ndigits=0):
         """Round half AWAY from zero on the shortest decimal

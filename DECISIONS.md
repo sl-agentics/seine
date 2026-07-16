@@ -15318,3 +15318,35 @@ REMAINING (Bryan-gated): setters/update with computation (D-231's
 core WONT — "looking at updates" is next per Bryan); LHS arithmetic
 (the coercion-swamp 2×2 campaign); the unbounded tier (D-076
 iterative cascade); authoring.py sugar. Committed local; no push.
+
+## D-285 — the derive expression layer grows the CALCULATOR ROW: sin/cos/tan, asin/acos/atan, ln/log10, exp, degrees/radians — measured, three-way certified. Factorial DROPPED mid-slab (Bryan: "kind of useless"; nCr/nPr noted as unlikely in rules — neither built) (2026-07-16)
+
+Bindings-only; measurement first, as always. The oracle's model
+(pins doc §M, all cells measured): trig propagates NaN but ERRORS on
+infinite input; asin/acos are domain-checked outside [-1, 1];
+ln/log10 error at zero and negative but pass NaN and +inf through;
+exp/atan/degrees/radians are total (exp overflow → inf, atan(±inf) →
+±π/2). Every domain-error cell matches the sqrt(-1) precedent — loud,
+never a silent NaN poisoning downstream comparisons. The kernels
+hand-roll via arity::unary/try_unary over glibc libm — bit-identical
+to both the pure-python reference (same libm) and DuckDB (same libm)
+in the three-way battery, no tolerance rows needed.
+
+Factorial was implemented, measured (the oracle returns HUGEINT —
+21! succeeds where i64 can't hold it), then REMOVED on Bryan's
+mid-slab call before the battery landed; the pins section and ledger
+row were retracted with it.
+
+THE FUZZ CATCH (round 2 of the eager-branch class): seed-15's
+`fill_null(fb, asin(fa))` — the oracle's COALESCE evaluates the
+fallback LAZILY (only on null rows, where asin(0.0) is fine); our
+kernels evaluate branches vectorized-eager and hit asin(2.675).
+Rust and reference agreed (both eager) — ledger row 9 extended to
+name domain errors alongside div0/overflow, and the battery's
+acceptance widened to the full class.
+
+Receipts: pytest 214 (curated three-way vectors incl. the
+sin²+cos² composition, fuzzer ops extended with the trig/log family,
+3 new live sentinels); make diff 11/1220/406 + drift 42 identical;
+lint 1918/0/0; demo green. derivation-plane.md + derive.py docstrings
+name the row. Committed local; no push.

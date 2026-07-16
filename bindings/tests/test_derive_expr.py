@@ -124,6 +124,9 @@ def _ref_type(tree, schema):
         return "bool"
     if op in ("neg", "abs", "floor", "ceil", "round"):
         return a[0]
+    if op in ("sin", "cos", "tan", "asin", "acos", "atan", "ln", "log10",
+              "exp", "degrees", "radians"):
+        return "f64"
     if op == "cast":
         return tree["to"]
     if op == "if_else":
@@ -285,6 +288,38 @@ def ref_eval_row(tree, row, schema):
         if a is None or styp(0) == "i64":
             return a
         return _round_shortest_decimal(a, tree["ndigits"])
+    if op in ("sin", "cos", "tan", "asin", "acos", "atan", "ln", "log10",
+              "exp", "degrees", "radians"):
+        a = sub(0)
+        if a is None:
+            return None
+        a = float(a)
+        if a != a and op not in ():  # NaN propagates through the whole row
+            return a
+        if op in ("sin", "cos", "tan"):
+            if a in (float("inf"), float("-inf")):
+                raise RefErr("domain")
+            return getattr(math, op)(a)
+        if op in ("asin", "acos"):
+            if a < -1.0 or a > 1.0:
+                raise RefErr("domain")
+            return getattr(math, op)(a)
+        if op == "atan":
+            return math.atan(a)
+        if op in ("ln", "log10"):
+            if a == 0.0 or a < 0.0:
+                raise RefErr("domain")
+            if a == float("inf"):
+                return a
+            return math.log(a) if op == "ln" else math.log10(a)
+        if op == "exp":
+            try:
+                return math.exp(a)
+            except OverflowError:
+                return float("inf")
+        if op == "degrees":
+            return a * (180.0 / math.pi)
+        return a * (math.pi / 180.0)
     if op == "cast":
         a = sub(0)
         if a is None:
@@ -354,6 +389,9 @@ def _err_kind(msg):
         return "cast"
     if "square root of a negative" in m:
         return "domain"
+    if ("trig of an infinite" in m or "is undefined outside" in m
+            or "of zero is undefined" in m or ") is undefined" in m):
+        return "domain"
     return f"other:{m[:60]}"
 
 
@@ -410,7 +448,8 @@ def to_sql(tree):
         return f"(CASE WHEN {a[0]} THEN {a[1]} ELSE {a[2]} END)"
     if op == "neg":
         return f"(-({a[0]}))"
-    if op in ("abs", "floor", "ceil", "sqrt"):
+    if op in ("abs", "floor", "ceil", "sqrt", "sin", "cos", "tan", "asin",
+              "acos", "atan", "ln", "log10", "exp", "degrees", "radians"):
         return f"{op}({a[0]})"
     if op == "round":
         return f"round({a[0]}, {tree['ndigits']})"
@@ -786,10 +825,12 @@ def _three_way(expr, data, schema, duckdb):
     if rust[0] == "ok" and duck[0] == "ok":
         assert _values_match(rust[1], duck[1]), (repr(expr), rust[1], duck[1])
     elif rust[0] == "err" and duck[0] == "ok":
-        # ledger rows 4/6: the kernels error the whole BATCH loudly
-        # where the oracle yields per-ROW NULL for //-and-% by zero
-        # (the only rust-err/oracle-ok class the pools can produce)
-        assert rust[1] == "div0", (repr(expr), rust, duck)
+        # ledger rows 4/6/9: the kernels error the whole BATCH loudly
+        # where the oracle yields per-ROW NULL (// and % by zero) or
+        # evaluates branches LAZILY (COALESCE/CASE skip errors in rows
+        # that never select the branch — our fill_null/if_else are
+        # vectorized-eager)
+        assert rust[1] in ("div0", "domain", "overflow"), (repr(expr), rust, duck)
     # rust ok + duck err: only the documented MIN%-1 class; the fuzz
     # pools cannot produce it (no i64::MIN literal/column value)
 
@@ -812,6 +853,13 @@ def test_curated_three_way():
         if_else(col("fa") > 0, lit("pos"), lit("nonpos")),
         (col("ia") + col("ib")) * col("inn") - 3,
         col("inn") ** 2,
+        col("fnn").sin(), col("fnn").cos(), col("fnn").tan(),
+        col("fa").atan(), col("inn").atan(), col("fnn").exp(),
+        col("fnn").degrees(), col("fa").radians(),
+        col("fnn").abs().fill_null(1.0).ln(),
+        (col("inn").abs() * 100).log10(),
+        (col("fa").abs() / 10.0).asin(),
+        col("fnn").sin() ** 2 + col("fnn").cos() ** 2,
     ]
     for e in exprs:
         _three_way(e, DATA, SCHEMA, duckdb)
@@ -868,7 +916,8 @@ def gen_expr(rng, want, depth):
     if want == "f64":
         k = rng.choice(["add", "sub", "mul", "div", "rem", "pow", "sqrt",
                         "floor", "ceil", "round", "neg", "abs", "if_else",
-                        "fill_null", "cast"])
+                        "fill_null", "cast", "sin", "cos", "tan", "atan",
+                        "exp", "degrees", "radians", "asin", "ln"])
         a, b = g("f64"), num()
         if k == "add":
             return a + b
@@ -884,6 +933,12 @@ def gen_expr(rng, want, depth):
             return a ** lit(rng.choice([1, 2, 0.5]))
         if k == "sqrt":
             return a.abs().sqrt() if rng.random() < 0.7 else a.sqrt()
+        if k in ("sin", "cos", "tan", "atan", "exp", "degrees", "radians"):
+            return getattr(a, k)()
+        if k == "asin":
+            return a.asin()  # domain errors compare three-way
+        if k == "ln":
+            return a.ln()
         if k == "floor":
             return a.floor()
         if k == "ceil":
@@ -1021,6 +1076,9 @@ def test_sentinel_pins_still_measure_true():
         ("CAST(CAST(3.5 AS DOUBLE) AS BIGINT)", 4),
         ("CASE WHEN CAST(NULL AS BOOLEAN) THEN 'a' ELSE 'b' END", "b"),
         ("CAST(1.0 AS DOUBLE) / CAST(0.0 AS DOUBLE)", float("inf")),
+        ("sin(CAST(0.5 AS DOUBLE))", 0.479425538604203),
+        ("ln(CAST(2.718281828459045 AS DOUBLE))", 1.0),
+        ("degrees(CAST(3.141592653589793 AS DOUBLE))", 180.0),
     ]
     for sql, want in sentinels:
         got = con.sql(f"SELECT {sql}").fetchall()[0][0]
