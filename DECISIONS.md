@@ -14987,3 +14987,47 @@ total=col("price")*col("qty")) → seine_rs.run(rule on `total > 100.0`)
 → fires with the derived row. Wire-format and bool-vs-int lifting
 pinned by probe; pytest 171 green (battery lands next slab).
 Committed local.
+
+## D-277 — derive expression layer slab 3: the certification battery — and it CAUGHT TWO REAL EVALUATOR BUGS before certification (2026-07-16)
+
+bindings/tests/test_derive_expr.py (43 tests; suite 171 → 214): RefEval
+(the independent pure-python tree walker implementing the pins doc
+literally — errors as values, explicit i64 range checks, Kleene tables
+as dicts, shortest-decimal rounding mirrored); to_sql (the DuckDB
+translator — BIGINT-cast int literals to pin widths, `||` never
+concat(), strlen() never length() [bytes vs chars]); the typed
+expression fuzzer (type-directed recursive descent, depth ≤ 4, 20
+seeds × 25 trees, 10-row null-seeded fixture) three-way comparing
+Rust/reference/oracle; the IEEE side-battery (NaN/inf column data,
+Rust-vs-reference only); filter-vs-WHERE fuzz (60 predicates);
+Kleene 3×3 tables; null-propagation vectors per op family; the
+division-family pins incl. the div/mod identity; rounding + half-even
+cast vectors; trap-guard and error-voice vectors; wire-format
+dict-equality pins; input-only visibility pin (+ the chaining
+pattern); determinism; empty-batch typing; sentinel drift alarm
+(8 live re-measurements against duckdb 1.5.4); polars cross-check
+(7 curated exprs incl. the if_else null-cond fix-up); the
+derive → filter → Session.run() pipeline test.
+
+THE BATTERY'S CATCHES (both fixed in expr.rs, both now pinned):
+  1. **The zip mask trap**: arrow_select::zip DOCUMENTS null→falsy but
+     walks the mask's raw VALUES buffer (SlicesIterator ignores
+     validity) — a null slot in a KERNEL-COMPUTED mask (~, ==) carries
+     a garbage/flipped bit and silently picked the then-branch; a raw
+     column mask passed only because builders zero null slots. Fix:
+     if_else preps the mask (prep_null_mask_filter, null→literal
+     false) before zip. Found by the string-CASE fuzz case where
+     reference and oracle agreed against the kernel.
+  2. **totalOrder comparisons**: arrow_ord::cmp on f64 is IEEE
+     totalOrder (NaN == NaN TRUE, -0.0 != 0.0) — contradicting the
+     oracle at ±0 and the published IEEE contract at NaN. Fix: f64
+     comparisons hand-rolled with native operators (ledger row 10).
+     Found by the fuzzer's `0.0 == -0.0` corner (row 6 of the fixture).
+  Plus three reference-evaluator bugs the differential exposed (ceil/
+  floor/fmod of IEEE specials; float-div-by-zero NaN dividend; python
+  ** raising where powf yields NaN) — the reference is code too, and
+  three-way disagreement localizes whose bug it is.
+
+Ledger rows 9-11 added (eager if_else/fill_null branches vs lazy SQL
+CASE; the float-comparison decision; i64::MIN % -1). Pins doc
+regenerated. Committed local.

@@ -922,6 +922,16 @@ fn eval(label: &str, ex: &Ex, ctx: &Ctx) -> PyResult<Ev> {
                     };
                     Ok(wrap(&lv, &rv, out))
                 }
+                // Floats compare with the NATIVE IEEE operators, not
+                // arrow_ord::cmp — the arrow kernels use totalOrder
+                // (-0.0 != 0.0, NaN == NaN), which contradicts both the
+                // oracle's value semantics at ±0 and the published IEEE
+                // contract at NaN (pins ledger row 1).
+                Bin::Eq | Bin::Neq | Bin::Lt | Bin::LtEq | Bin::Gt | Bin::GtEq
+                    if lv.array().data_type() == &DataType::Float64 =>
+                {
+                    Ok(cmp_f64_ieee(*b, &lv, &rv, ctx.nrows))
+                }
                 Bin::Eq => cmp_kernel(label, ex, &lv, &rv, |a, c| arrow_ord::cmp::eq(a, c)),
                 Bin::Neq => cmp_kernel(label, ex, &lv, &rv, |a, c| arrow_ord::cmp::neq(a, c)),
                 Bin::Lt => cmp_kernel(label, ex, &lv, &rv, |a, c| arrow_ord::cmp::lt(a, c)),
@@ -999,10 +1009,21 @@ fn eval(label: &str, ex: &Ex, ctx: &Ctx) -> PyResult<Ev> {
             }
             let all_scalar = cv.is_scalar() && tv.is_scalar() && fv.is_scalar();
             let n = if all_scalar { 1 } else { ctx.nrows };
-            // zip: a null mask slot takes the falsy side = SQL CASE
-            // (pins §G: CASE WHEN NULL -> else)
+            // A null condition takes the falsy side = SQL CASE (pins §G).
+            // zip DOCUMENTS null->falsy but actually walks the mask's raw
+            // VALUES buffer (SlicesIterator ignores validity) — a null
+            // slot in a KERNEL-COMPUTED mask (~, ==, ...) can carry a
+            // garbage bit and silently pick the then-branch. Rewrite
+            // nulls to literal false first, honoring validity.
             let ca = cv.broadcast(label, n)?;
             let mask = ca.as_any().downcast_ref::<BooleanArray>().expect("typechecked bool");
+            let prepped;
+            let mask = if mask.null_count() > 0 {
+                prepped = arrow_select::filter::prep_null_mask_filter(mask);
+                &prepped
+            } else {
+                mask
+            };
             let run = |t: &dyn Datum, f: &dyn Datum| {
                 arrow_select::zip::zip(mask, t, f).map_err(|e| arrow_err(label, ex, e))
             };
@@ -1071,6 +1092,42 @@ fn pow_scalar(ev: &Ev) -> Option<f64> {
         None
     } else {
         Some(a.value(0))
+    }
+}
+
+/// Standard IEEE-754 f64 comparisons (Rust's native operators):
+/// -0.0 == 0.0, NaN != anything including itself. Null propagates.
+fn cmp_f64_ieee(op: Bin, l: &Ev, r: &Ev, nrows: usize) -> Ev {
+    let f = |a: f64, b: f64| -> bool {
+        match op {
+            Bin::Eq => a == b,
+            Bin::Neq => a != b,
+            Bin::Lt => a < b,
+            Bin::LtEq => a <= b,
+            Bin::Gt => a > b,
+            Bin::GtEq => a >= b,
+            _ => unreachable!(),
+        }
+    };
+    let (la, ra) = (f64_arr(l), f64_arr(r));
+    let both_scalar = l.is_scalar() && r.is_scalar();
+    let n = if both_scalar { 1 } else { nrows };
+    let idx = |ev: &Ev, i: usize| if ev.is_scalar() { 0 } else { i };
+    let out: BooleanArray = (0..n)
+        .map(|i| {
+            let (li, ri) = (idx(l, i), idx(r, i));
+            if la.is_null(li) || ra.is_null(ri) {
+                None
+            } else {
+                Some(f(la.value(li), ra.value(ri)))
+            }
+        })
+        .collect();
+    let out = Arc::new(out) as ArrayRef;
+    if both_scalar {
+        Ev::Scl(out)
+    } else {
+        Ev::Arr(out)
     }
 }
 
