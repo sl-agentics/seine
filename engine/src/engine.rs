@@ -368,9 +368,21 @@ struct CompiledAcc {
     window_len: Option<i64>,
 }
 
+/// Compiled RHS insert-arg expression (D-283 Tier 1): Java semantics —
+/// i64 wraps, `/` truncates, `%` keeps the dividend's sign, div by
+/// zero errors at fire time; any f64 operand promotes both to IEEE
+/// doubles. Atoms reuse Src (snapshot semantics per fz_7_2525).
+#[derive(Clone)]
+enum CExpr {
+    Atom(Src),
+    Neg(Box<CExpr>),
+    Bin(char, Box<CExpr>, Box<CExpr>),
+}
+
 enum CompiledAction {
-    Insert { type_id: TypeId, args: Vec<Src> },
-    /// D-076: TMS-justified insert.
+    Insert { type_id: TypeId, args: Vec<CExpr> },
+    /// D-076: TMS-justified insert. Args stay ATOMS — computed logical
+    /// args are the stratified tier (D-282), walled at compile.
     InsertLogical { type_id: TypeId, args: Vec<Src> },
     Set { pos: usize, field_idx: usize, arg: Src },
     Update { pos: usize },
@@ -4318,49 +4330,85 @@ impl Engine {
                         )));
                     }
                     let nullable_mask = schema.nullable;
-                    let mut srcs = Vec::new();
-                    for (i, (arg, (fname, ftype))) in
+                    let mut srcs: Vec<CExpr> = Vec::new();
+                    for (i, (aexpr, (fname, ftype))) in
                         args.iter().zip(schema.fields.clone()).enumerate()
                     {
-                        // D-097: a null literal arg needs a nullable
-                        // target field (checked here); a null VALUE
-                        // flowing through a binding into a non-nullable
-                        // field errors loudly at runtime (store push).
-                        if matches!(arg, RhsArg::Lit(Literal::Null)) {
-                            if nullable_mask >> i & 1 != 1 {
-                                return Err(err(format!(
-                                    "insert new {type_name}: null arg for non-nullable field {fname} (D-097)"
-                                )));
-                            }
-                            srcs.push(Src::Lit(Value::Null));
-                            continue;
-                        }
-                        if let (RhsArg::Lit(l), FieldType::Dec { .. }) = (arg, ftype) {
-                            if !matches!(l, Literal::Str(_)) {
-                                let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
-                                    err(format!(
-                                        "insert new {type_name}: arg for {fname} is not an exact decimal (D-098)"
-                                    ))
-                                })?;
-                                srcs.push(Src::Lit(v));
+                        // The atom path is the pre-arithmetic contract,
+                        // byte-unchanged (null-lit D-097, decimal-lit
+                        // D-098, assignability).
+                        if let crate::drl::RhsExpr::Atom(arg) = aexpr {
+                            // D-097: a null literal arg needs a nullable
+                            // target field (checked here); a null VALUE
+                            // flowing through a binding into a non-nullable
+                            // field errors loudly at runtime (store push).
+                            if matches!(arg, RhsArg::Lit(Literal::Null)) {
+                                if nullable_mask >> i & 1 != 1 {
+                                    return Err(err(format!(
+                                        "insert new {type_name}: null arg for non-nullable field {fname} (D-097)"
+                                    )));
+                                }
+                                srcs.push(CExpr::Atom(Src::Lit(Value::Null)));
                                 continue;
                             }
+                            if let (RhsArg::Lit(l), FieldType::Dec { .. }) = (arg, ftype) {
+                                if !matches!(l, Literal::Str(_)) {
+                                    let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
+                                        err(format!(
+                                            "insert new {type_name}: arg for {fname} is not an exact decimal (D-098)"
+                                        ))
+                                    })?;
+                                    srcs.push(CExpr::Atom(Src::Lit(v)));
+                                    continue;
+                                }
+                            }
+                            let (src, src_ft) = self.compile_arg(
+                                &rname,
+                                arg,
+                                &fact_binds,
+                                &field_binds,
+                                &acc_opaque,
+                                &def,
+                                &patterns,
+                            )?;
+                            if !assignable(src_ft, ftype) {
+                                return Err(err(format!(
+                                    "insert new {type_name}: arg for {fname} has wrong type"
+                                )));
+                            }
+                            srcs.push(CExpr::Atom(src));
+                            continue;
                         }
-                        let (src, src_ft) = self.compile_arg(
+                        // D-283 Tier 1: a COMPUTED arg. Plain insert only —
+                        // computed insertLogical is the stratified tier
+                        // (D-282); modify-with-computation stays WONT
+                        // (D-231).
+                        if logical {
+                            return Err(err(format!(
+                                "insert new {type_name}: computed insertLogical args are \
+                                 outside the certified subset (the stratified tier, D-282) \
+                                 — compute via a plain insert"
+                            )));
+                        }
+                        let (ce, expr_ft) = self.compile_cexpr(
                             &rname,
-                            arg,
+                            aexpr,
                             &fact_binds,
                             &field_binds,
                             &acc_opaque,
                             &def,
                             &patterns,
                         )?;
-                        if !assignable(src_ft, ftype) {
+                        if !assignable(expr_ft, ftype) {
                             return Err(err(format!(
-                                "insert new {type_name}: arg for {fname} has wrong type"
+                                "insert new {type_name}: computed arg for {fname} has type \
+                                 {} but the field needs {} (a double expression cannot \
+                                 narrow into a long field)",
+                                ft_name(expr_ft),
+                                ft_name(ftype)
                             )));
                         }
-                        srcs.push(src);
+                        srcs.push(ce);
                     }
                     if logical {
                         // D-076 walls: justifying-tuple revalidation
@@ -4379,7 +4427,15 @@ impl Engine {
                                 "insertLogical from rules with not/exists GROUP CEs is out of subset (D-089/D-076)".into(),
                             ));
                         }
-                        actions.push(CompiledAction::InsertLogical { type_id: tid, args: srcs });
+                        // all atoms by construction: the computed-arg wall above
+                        let atoms = srcs
+                            .into_iter()
+                            .map(|c| match c {
+                                CExpr::Atom(s) => s,
+                                _ => unreachable!("computed insertLogical walled at compile"),
+                            })
+                            .collect();
+                        actions.push(CompiledAction::InsertLogical { type_id: tid, args: atoms });
                     } else {
                         actions.push(CompiledAction::Insert { type_id: tid, args: srcs });
                     }
@@ -4622,6 +4678,91 @@ impl Engine {
                     EngineError(format!("rule {rname}: no field {field} behind getter on {var}"))
                 })?;
                 Ok((Src::Field(pos, fi), self.store.field_type(tid, fi)))
+            }
+        }
+    }
+
+    /// D-283 Tier 1: compile an RHS insert-arg arithmetic expression.
+    /// Numeric only (i64/f64), non-nullable operands only; the result
+    /// type follows Java promotion (any f64 operand -> f64). The oracle
+    /// semantics are pinned in probes_pending/arith_grammar/PINS.md §A.
+    #[allow(clippy::too_many_arguments)]
+    fn compile_cexpr(
+        &self,
+        rname: &str,
+        e: &crate::drl::RhsExpr,
+        fact_binds: &HashMap<String, (usize, TypeId)>,
+        field_binds: &HashMap<String, (usize, usize, FieldType)>,
+        acc_opaque: &HashSet<String>,
+        def: &RuleDef,
+        patterns: &[CompiledPattern],
+    ) -> Result<(CExpr, FieldType), EngineError> {
+        use crate::drl::RhsExpr;
+        let numeric = |ft: FieldType, what: &str| -> Result<(), EngineError> {
+            if matches!(ft, FieldType::I64 | FieldType::F64) {
+                Ok(())
+            } else {
+                Err(EngineError(format!(
+                    "rule {rname}: RHS arithmetic over a {} operand ({what}) is outside \
+                     the subset — arithmetic is i64/f64 only",
+                    ft_name(ft)
+                )))
+            }
+        };
+        match e {
+            RhsExpr::Atom(arg) => {
+                if matches!(arg, RhsArg::Lit(Literal::Null)) {
+                    return Err(EngineError(format!(
+                        "rule {rname}: null inside RHS arithmetic — a computed value \
+                         cannot be null (D-097)"
+                    )));
+                }
+                let (src, ft) =
+                    self.compile_arg(rname, arg, fact_binds, field_binds, acc_opaque, def, patterns)?;
+                numeric(ft, &format!("{arg:?}"))?;
+                // Nullable field operands are walled: Java would NPE
+                // unboxing; fill or guard upstream instead.
+                let nullable_bit = match arg {
+                    RhsArg::Lit(_) => false,
+                    RhsArg::Var(v) => {
+                        let (pi, fi, _) = field_binds[v];
+                        patterns
+                            .iter()
+                            .find(|p| p.tpos == Some(pi))
+                            .map(|p| self.store.schema(p.type_id).nullable >> fi & 1 == 1)
+                            .unwrap_or(false)
+                    }
+                    RhsArg::Getter { var, field } => {
+                        let (_, tid) = fact_binds[var];
+                        let fi = self.store.field_index(tid, field).unwrap();
+                        self.store.schema(tid).nullable >> fi & 1 == 1
+                    }
+                };
+                if nullable_bit {
+                    return Err(EngineError(format!(
+                        "rule {rname}: RHS arithmetic over a NULLABLE field operand \
+                         ({arg:?}) is outside the subset — guard or fill the null \
+                         upstream (D-097)"
+                    )));
+                }
+                Ok((CExpr::Atom(src), ft))
+            }
+            RhsExpr::Neg(a) => {
+                let (ca, ft) =
+                    self.compile_cexpr(rname, a, fact_binds, field_binds, acc_opaque, def, patterns)?;
+                Ok((CExpr::Neg(Box::new(ca)), ft))
+            }
+            RhsExpr::Bin(op, a, b) => {
+                let (ca, fa) =
+                    self.compile_cexpr(rname, a, fact_binds, field_binds, acc_opaque, def, patterns)?;
+                let (cb, fb) =
+                    self.compile_cexpr(rname, b, fact_binds, field_binds, acc_opaque, def, patterns)?;
+                let ft = if fa == FieldType::F64 || fb == FieldType::F64 {
+                    FieldType::F64
+                } else {
+                    FieldType::I64
+                };
+                Ok((CExpr::Bin(*op, Box::new(ca), Box::new(cb)), ft))
             }
         }
     }
@@ -9792,11 +9933,13 @@ impl Engine {
                     let tid = *type_id;
                     let values: Vec<Value> = {
                         let schema = self.store.schema(tid).clone();
+                        let rname = self.rules[ri].def.name.clone();
                         args.clone()
                             .iter()
                             .zip(schema.fields.iter())
                             .map(|(a, (_, ft))| {
-                                coerce(self.eval_src(a, tuple, &snapshot), *ft).ok_or_else(|| {
+                                let v = self.eval_cexpr(&rname, a, tuple, &snapshot)?;
+                                coerce(v, *ft).ok_or_else(|| {
                                     EngineError("RHS insert: arg type mismatch".into())
                                 })
                             })
@@ -9939,6 +10082,70 @@ impl Engine {
             Src::Lit(v) => v.clone(),
             Src::Field(pi, fi) => self.store.value(tuple[*pi], *fi),
             Src::SnapField(pi, fi) => snapshot[*pi][*fi].clone(),
+        }
+    }
+
+    /// D-283 Tier 1: evaluate a compiled RHS arithmetic expression with
+    /// JAVA semantics (PINS.md §A): i64 wraps on overflow (MIN/-1 wraps
+    /// to MIN, MIN%-1 is 0 — Long semantics), `/` truncates, `%` keeps
+    /// the dividend's sign, division by zero errors ("/ by zero", the
+    /// oracle's ArithmeticException text — the diff judge treats
+    /// both-sides-"/ by zero" as agreement); any f64 operand promotes
+    /// both sides to IEEE doubles (x/0.0 -> ±inf, 0.0/0.0 -> NaN).
+    fn eval_cexpr(
+        &self,
+        rname: &str,
+        e: &CExpr,
+        tuple: &[FactId],
+        snapshot: &[Vec<Value>],
+    ) -> Result<Value, EngineError> {
+        let num = |v: Value| -> (Option<i64>, f64) {
+            match v {
+                Value::I64(n) => (Some(n), n as f64),
+                Value::F64(x) => (None, x),
+                // unreachable: compile_cexpr admits numeric non-nullable
+                // operands only
+                other => unreachable!("non-numeric in RHS arithmetic: {other:?}"),
+            }
+        };
+        match e {
+            CExpr::Atom(s) => Ok(self.eval_src(s, tuple, snapshot)),
+            CExpr::Neg(a) => {
+                let v = self.eval_cexpr(rname, a, tuple, snapshot)?;
+                Ok(match num(v) {
+                    (Some(n), _) => Value::I64(n.wrapping_neg()),
+                    (None, x) => Value::F64(-x),
+                })
+            }
+            CExpr::Bin(op, a, b) => {
+                let va = self.eval_cexpr(rname, a, tuple, snapshot)?;
+                let vb = self.eval_cexpr(rname, b, tuple, snapshot)?;
+                match (num(va), num(vb)) {
+                    ((Some(x), _), (Some(y), _)) => {
+                        if matches!(op, '/' | '%') && y == 0 {
+                            return Err(EngineError(format!(
+                                "rule {rname:?}: java.lang.ArithmeticException: / by zero"
+                            )));
+                        }
+                        Ok(Value::I64(match op {
+                            '+' => x.wrapping_add(y),
+                            '-' => x.wrapping_sub(y),
+                            '*' => x.wrapping_mul(y),
+                            '/' => x.wrapping_div(y),
+                            '%' => x.wrapping_rem(y),
+                            _ => unreachable!("parser admits + - * / %"),
+                        }))
+                    }
+                    ((_, x), (_, y)) => Ok(Value::F64(match op {
+                        '+' => x + y,
+                        '-' => x - y,
+                        '*' => x * y,
+                        '/' => x / y,
+                        '%' => x % y,
+                        _ => unreachable!("parser admits + - * / %"),
+                    })),
+                }
+            }
         }
     }
 
@@ -11076,6 +11283,16 @@ fn lit_type(l: &Literal) -> FieldType {
 }
 
 /// Java-style: exact match, or i64 widening into f64.
+fn ft_name(ft: FieldType) -> &'static str {
+    match ft {
+        FieldType::I64 => "i64",
+        FieldType::F64 => "f64",
+        FieldType::Str => "String",
+        FieldType::Bool => "bool",
+        FieldType::Dec { .. } => "decimal",
+    }
+}
+
 fn assignable(src: FieldType, dst: FieldType) -> bool {
     if let (FieldType::Dec { .. }, FieldType::Dec { .. }) = (src, dst) {
         return true; // runtime rescale + precision check in coerce (D-098)

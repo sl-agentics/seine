@@ -110,7 +110,10 @@ impl Serialize for FvJson<'_> {
     }
 }
 
-/// A leaf value with json!'s exact semantics (non-finite f64 -> null).
+/// A leaf value with fact_view_to_json's exact semantics. Non-finite
+/// f64 renders as Java's Double.toString strings ("Infinity"/
+/// "-Infinity"/"NaN") matching the oracle's output — reachable since
+/// computed RHS args (D-283).
 struct Leaf<'a>(&'a Value);
 
 impl Serialize for Leaf<'_> {
@@ -120,8 +123,12 @@ impl Serialize for Leaf<'_> {
             Value::F64(n) => {
                 if n.is_finite() {
                     s.serialize_f64(*n)
+                } else if n.is_nan() {
+                    s.serialize_str("NaN")
+                } else if *n > 0.0 {
+                    s.serialize_str("Infinity")
                 } else {
-                    s.serialize_unit() // json!(non-finite f64) == null
+                    s.serialize_str("-Infinity")
                 }
             }
             Value::Str(v) => s.serialize_str(v),

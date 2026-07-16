@@ -64,5 +64,6 @@
     }
    ]
   }
- ]
+ ],
+ "engine_fenced": true
 }

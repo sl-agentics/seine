@@ -354,7 +354,9 @@ fn query_val_to_json(v: &QueryVal) -> J {
         // identifier unbound in this row's or-branch (D-054)
         QueryVal::Null => J::Null,
         QueryVal::Scalar(Value::I64(n)) => json!({"type": "Long", "fields": {"value": n}}),
-        QueryVal::Scalar(Value::F64(n)) => json!({"type": "Double", "fields": {"value": n}}),
+        QueryVal::Scalar(Value::F64(n)) => {
+            json!({"type": "Double", "fields": {"value": f64_to_json(*n)}})
+        }
         QueryVal::Scalar(Value::Str(s)) => json!({"type": "String", "fields": {"value": s}}),
         QueryVal::Scalar(Value::Bool(b)) => json!({"type": "Boolean", "fields": {"value": b}}),
         // unreachable: nullable types are walled from queries (D-097)
@@ -442,6 +444,23 @@ fn json_fields_to_values<'a>(
     Ok(out)
 }
 
+/// Non-finite doubles render as Java's Double.toString strings —
+/// "Infinity"/"-Infinity"/"NaN" — matching the oracle's Jackson output
+/// (D-283; computed RHS args make non-finite REACHABLE: 1.0/0.0). The
+/// old json!(NaN) -> null path was a latent divergence no corpus
+/// scenario could reach (JSON has no non-finite literals).
+pub(crate) fn f64_to_json(n: f64) -> J {
+    if n.is_finite() {
+        json!(n)
+    } else if n.is_nan() {
+        json!("NaN")
+    } else if n > 0.0 {
+        json!("Infinity")
+    } else {
+        json!("-Infinity")
+    }
+}
+
 pub(crate) fn fact_view_to_json(fv: &FactView) -> J {
     let mut fields = Map::new();
     // u32::MAX marks synthetic views (QueryArgs arrays, boxed scalars) —
@@ -452,7 +471,7 @@ pub(crate) fn fact_view_to_json(fv: &FactView) -> J {
     for (name, v) in &fv.fields {
         let jv = match v {
             Value::I64(n) => json!(n),
-            Value::F64(n) => json!(n),
+            Value::F64(n) => f64_to_json(*n),
             Value::Str(s) => json!(s),
             Value::Bool(b) => json!(b),
             Value::Null => J::Null,

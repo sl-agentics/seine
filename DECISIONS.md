@@ -15183,3 +15183,56 @@ CompileError on cycles through computed-logical edges, the D-222 lint
 shape) preserves the recursive cascade's existing rule-count bound
 verbatim. Bryan directed: probes first (this entry), then the gated
 Tier 1 port (next). PINS.md §C.
+
+## D-283 — TIER 1 LANDS: RHS computed insert args — the first computed value born inside the fixpoint. `insert(new Total($price * $qty))` is certified subset (2026-07-16)
+
+The boundary redraw's first engine port (Bryan directed at D-282; this
+PARTIALLY SUPERSEDES D-231's WONT: computed fields on NEW facts via
+plain `insert` are now in-subset; modify-with-computation stays WONT;
+computed insertLogical is the stratified tier, walled loudly at
+compile naming D-282).
+
+ENGINE (first engine/src edit since D-268): drl.rs — the lexer learns
+'/' and '%' (comments lex first; '//' stays a comment, as in Java);
+RhsExpr grammar (additive/multiplicative/unary-minus/parens, standard
+precedence everywhere per D-281 — we do not copy the oracle's bare
+a+b*c eval throw; signed literals keep the D-226 IntMinLit path via
+peek_at(1)). engine.rs — CExpr compile (numeric-only, non-nullable
+operands, Java promotion, assignability: computed f64 cannot narrow
+into an i64 field, mirroring javac) + eval_cexpr with JAVA semantics
+per the D-280 pins: i64 wrapping add/sub/mul/neg, wrapping_div
+(MIN/-1 → MIN) and wrapping_rem (MIN%-1 → 0) — Long semantics; '/'
+and '%' by zero → "java.lang.ArithmeticException: / by zero" at fire
+time; any f64 operand promotes both to IEEE doubles.
+
+HARNESS: judge grows the "/ by zero" parity clause (the D-013
+fire-limit precedent — both sides throw Java's shape, wrappers
+differ); non-finite doubles render as Java's Double.toString strings
+("Infinity"/"-Infinity"/"NaN") in fact_view_to_json + ser::Leaf +
+query scalars — the old json!(NaN)→null path was a latent divergence
+no JSON scenario could reach; computed args make it reachable, and
+the corpus byte gate proves nothing else moves. gen.rs grows the
+computed-args fuzz axis (plain inserts only; typed so javac agrees;
+nonzero literal divisors).
+
+RECEIPTS — the FULL engine battery:
+- Gold byte gate: 2033 scenarios BYTE-IDENTICAL through lexer/parser/
+  engine changes.
+- 7/7 arith probes differentially GREEN and 5 GRADUATED (pr_ar_rhs_
+  insert_arith / long_wrap / more / dbl_div / double_edge — corpus
+  11/1214/404); div-zero + runaway stay as engine_fenced recon with
+  the LHS-swamp and TMS-wall probes (lint 1911/0/0, 24 fences).
+- make diff green + drift 41 identical; cargo 54; pytest 214; demo ok.
+- Fresh fuzz 2×2000 (seeds 271828, 161803) with the new axis: ZERO
+  divergences, zero xfail hits.
+- model_ird 31/31; agenda_open ×15 byte-identical vs the pre-port
+  worktree (03e6ee5).
+- IRD census: 0-divergent ×5 seeds (7001/7002/6001/6003/9001),
+  model-clean 150/150 each. SD census: model-clean 150/150 ×12,
+  engine-vs-oracle divergent = 6+10+3+5+6+5+5+6+8+7+4+7 = **72
+  EXACT** — the certified floor, cell-for-cell untouched.
+
+Not in this slab: authoring.py sugar for computed args (the Python
+rule builder still emits atom args — follow-on); LHS constraint
+arithmetic (the coercion swamp needs its own 2×2 campaign, D-280);
+Tier 2 stratified computed insertLogical. Committed local; no push.

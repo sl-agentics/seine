@@ -1,6 +1,6 @@
 {
- "name": "ar_rhs_more",
- "drl": "rule \"Prec\"\nwhen\n    T($a : k)\nthen\n    insert(new U($a + 2 * 3));\n    insert(new U($a % 3));\n    insert(new U(-$a));\nend\n",
+ "name": "pr_ar_rhs_insert_arith",
+ "drl": "rule \"Compute\"\nwhen\n    $t : T($a : k)\nthen\n    insert(new U($a / 2));\n    insert(new U($a + 1));\nend\n",
  "types": [
   {
    "name": "T",
@@ -25,7 +25,7 @@
   {
    "type": "T",
    "fields": {
-    "k": -7
+    "k": 7
    }
   }
  ],

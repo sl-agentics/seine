@@ -269,8 +269,13 @@ fn judge(
         }
         (Err(e), oracle::OracleEntry::Error(oe)) => {
             // Non-termination parity (D-013/j21): both engines hitting the
-            // fire limit is agreement, not divergence.
+            // fire limit is agreement, not divergence. Same for a
+            // consequence division by zero (D-283: computed RHS args) —
+            // both sides throw Java's "/ by zero" shape; the message
+            // wrappers differ (ConsequenceException vs EngineError).
             if e.contains("fire limit") && oe.contains("fire limit") {
+                Ok(())
+            } else if e.contains("/ by zero") && oe.contains("/ by zero") {
                 Ok(())
             } else {
                 Err(vec![format!(

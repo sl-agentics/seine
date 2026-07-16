@@ -1,5 +1,5 @@
 {
- "name": "ar_rhs_dbl_div",
+ "name": "pr_ar_rhs_dbl_div",
  "drl": "rule \"DblDiv\"\nwhen\n    T($a : k)\nthen\n    insert(new V($a / 2.0));\nend\n",
  "types": [
   {

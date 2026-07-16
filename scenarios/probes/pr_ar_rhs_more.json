@@ -1,6 +1,6 @@
 {
- "name": "ar_rhs_long_wrap",
- "drl": "rule \"WrapRHS\"\nwhen\n    T($a : k)\nthen\n    insert(new U($a + 1));\nend\n",
+ "name": "pr_ar_rhs_more",
+ "drl": "rule \"Prec\"\nwhen\n    T($a : k)\nthen\n    insert(new U($a + 2 * 3));\n    insert(new U($a % 3));\n    insert(new U(-$a));\nend\n",
  "types": [
   {
    "name": "T",
@@ -25,7 +25,7 @@
   {
    "type": "T",
    "fields": {
-    "k": 9223372036854775807
+    "k": -7
    }
   }
  ],

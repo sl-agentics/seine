@@ -301,12 +301,35 @@ pub enum RhsArg {
     Getter { var: String, field: String },
 }
 
+/// An RHS insert argument expression (D-283 Tier 1): a closed
+/// arithmetic grammar — `+ - * / %`, unary minus, parens — over
+/// literals, bindings, and getters. Java semantics at evaluation
+/// (probes_pending/arith_grammar/PINS.md §A): i64 wraps on overflow,
+/// `/` truncates, `%` takes the dividend's sign, division by zero is a
+/// runtime error; mixed operands promote to f64 (IEEE). Precedence is
+/// STANDARD everywhere — the 9.44 eval-throw on bare `a + b * c` is a
+/// self-inconsistent oracle defect we do not copy (D-281).
+#[derive(Debug, Clone, PartialEq)]
+pub enum RhsExpr {
+    Atom(RhsArg),
+    Neg(Box<RhsExpr>),
+    Bin(char, Box<RhsExpr>, Box<RhsExpr>),
+}
+
+impl RhsExpr {
+    pub fn is_atom(&self) -> bool {
+        matches!(self, RhsExpr::Atom(_))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
-    Insert { type_name: String, args: Vec<RhsArg> },
+    Insert { type_name: String, args: Vec<RhsExpr> },
     /// `insertLogical(new T(...));` (D-076): TMS-justified insert — the
     /// fact auto-retracts when its last justification unmatches.
-    InsertLogical { type_name: String, args: Vec<RhsArg> },
+    /// Args stay ATOMS (computed logical args are the stratified tier,
+    /// walled at compile until then — D-282).
+    InsertLogical { type_name: String, args: Vec<RhsExpr> },
     /// `$p.setX(arg);` — mutates immediately, contributes X to the pending
     /// modification mask consumed by the next `update($p)`.
     Set { var: String, field: String, arg: RhsArg },
@@ -603,6 +626,11 @@ fn lex(src: &str) -> Result<(Vec<Tok>, Vec<u32>), DrlError> {
                     '-' => "-",
                     '+' => "+",
                     '*' => "*",
+                    // '/' after comment lexing: a lone slash is division
+                    // (D-283 RHS arithmetic); '//' stays a comment, as in
+                    // Java. '%' is the Java remainder.
+                    '/' => "/",
+                    '%' => "%",
                     '?' => "?",
                     '[' => "[",
                     ']' => "]",
@@ -1679,7 +1707,7 @@ impl Parser {
                 let mut args = Vec::new();
                 if !matches!(self.peek(), Some(Tok::Sym(")"))) {
                     loop {
-                        args.push(self.rhs_arg()?);
+                        args.push(self.rhs_expr()?);
                         match self.next()? {
                             Tok::Sym(",") => continue,
                             Tok::Sym(")") => break,
@@ -1790,6 +1818,62 @@ impl Parser {
             Ok(id)
         } else {
             Err(self.perr_prev(format!("expected $binding, got {id}")))
+        }
+    }
+
+    /// Insert-arg expression: additive over multiplicative over factor.
+    /// Standard precedence, left-associative (D-281: we do not copy the
+    /// oracle's bare `a + b * c` eval defect — witnesses in xfail/).
+    fn rhs_expr(&mut self) -> Result<RhsExpr, DrlError> {
+        let mut e = self.rhs_term()?;
+        loop {
+            match self.peek() {
+                Some(Tok::Sym(s @ ("+" | "-"))) => {
+                    let op = s.chars().next().unwrap();
+                    self.next()?;
+                    e = RhsExpr::Bin(op, Box::new(e), Box::new(self.rhs_term()?));
+                }
+                _ => return Ok(e),
+            }
+        }
+    }
+
+    fn rhs_term(&mut self) -> Result<RhsExpr, DrlError> {
+        let mut e = self.rhs_factor()?;
+        loop {
+            match self.peek() {
+                Some(Tok::Sym(s @ ("*" | "/" | "%"))) => {
+                    let op = s.chars().next().unwrap();
+                    self.next()?;
+                    e = RhsExpr::Bin(op, Box::new(e), Box::new(self.rhs_factor()?));
+                }
+                _ => return Ok(e),
+            }
+        }
+    }
+
+    fn rhs_factor(&mut self) -> Result<RhsExpr, DrlError> {
+        match self.peek() {
+            Some(Tok::Sym("(")) => {
+                self.next()?;
+                let e = self.rhs_expr()?;
+                self.expect_sym(")")?;
+                Ok(e)
+            }
+            Some(Tok::Sym("-")) => {
+                // `-3` stays a signed literal (the literal() path owns the
+                // IntMinLit magnitude case); `-$a` / `-( … )` is negation.
+                if matches!(
+                    self.peek_at(1),
+                    Some(Tok::IntLit(_) | Tok::FloatLit(_) | Tok::IntMinLit)
+                ) {
+                    Ok(RhsExpr::Atom(self.rhs_arg()?))
+                } else {
+                    self.next()?;
+                    Ok(RhsExpr::Neg(Box::new(self.rhs_factor()?)))
+                }
+            }
+            _ => Ok(RhsExpr::Atom(self.rhs_arg()?)),
         }
     }
 
@@ -2111,7 +2195,10 @@ mod tests {
             r.actions,
             vec![Action::Insert {
                 type_name: "Adult".into(),
-                args: vec![RhsArg::Getter { var: "$p".into(), field: "name".into() }],
+                args: vec![RhsExpr::Atom(RhsArg::Getter {
+                    var: "$p".into(),
+                    field: "name".into()
+                })],
             }]
         );
     }
