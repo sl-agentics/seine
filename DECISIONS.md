@@ -14792,3 +14792,14 @@ worktree prototype allowed, engine edit GATED). The 16GB crown
 stands without any of them.
 
 Committed local; no push, no version bump (Bryan holds both).
+
+## D-271 — memory diet slab 2 (Bryan: "do the rest"): FactSpec EARLY-DROP — fact rows die at their insert, not at end of run. RSS at 1M: 1420 → 1030MB (2026-07-16)
+
+run_scenario now takes the Scenario BY VALUE: the top-level fact rows
+are `take()`n and dropped as soon as the insert loop finishes; epochs
+iterate by value so each epoch's rows drop as its epoch completes.
+The parsed rows were ~250MB of live peak at 1M/side (56B fields Vec +
+strings + 72B inline struct × 2M) duplicating data the engine already
+owns. Harness-only. Receipts: all-2031 byte gate BYTE-IDENTICAL
+(fresh baseline captured at 7f2982b); cargo test 53; N=1M RSS
+1420 → 1030MB, wall 6.2 → 5.0s. Committed local; no push.

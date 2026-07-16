@@ -24,7 +24,7 @@ pub fn run_scenario_file_parts(path: &str) -> Result<(String, RunParts), (String
         .map_err(|e| (path.to_string(), format!("bad scenario JSON: {e}")))?;
     drop(text);
     let name = sc.name.clone().unwrap_or_else(|| path.to_string());
-    run_scenario(&sc).map(|r| (name.clone(), r)).map_err(|e| (name, e))
+    run_scenario(sc).map(|r| (name.clone(), r)).map_err(|e| (name, e))
 }
 
 /// The scenario document, typed. Every field the runner reads is here;
@@ -162,7 +162,12 @@ impl RunParts {
     }
 }
 
-fn run_scenario(sc: &Scenario) -> Result<RunParts, String> {
+// D-271: takes the scenario BY VALUE so fact rows can be dropped the
+// moment they are inserted — top-level facts after the initial insert
+// loop, each epoch's facts as its epoch completes. At 1M facts/side
+// the retained FactSpecs were ~250MB of live peak for data the engine
+// already owns.
+fn run_scenario(mut sc: Scenario) -> Result<RunParts, String> {
     let types = sc.types.as_ref().ok_or("scenario missing 'types'")?;
     let schemas = parse_types(types)?;
     let mut engine = Engine::new(schemas).map_err(|e| e.to_string())?;
@@ -186,9 +191,11 @@ fn run_scenario(sc: &Scenario) -> Result<RunParts, String> {
     let drl = sc.drl.as_deref().ok_or("scenario missing 'drl'")?;
     engine.add_rules_drl(drl).map_err(|e| e.to_string())?;
 
-    for fact in sc.facts.as_deref().ok_or("scenario missing 'facts'")? {
+    let facts = sc.facts.take().ok_or("scenario missing 'facts'")?;
+    for fact in &facts {
         insert_fact_spec(&mut engine, fact, "fact")?;
     }
+    drop(facts);
 
     let mut firings = engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?;
     // Multi-fire epochs (D-046) + external WM actions (D-047): each
@@ -196,7 +203,9 @@ fn run_scenario(sc: &Scenario) -> Result<RunParts, String> {
     // global-insertion-index), then legacy "facts" inserts, then fires
     // again; the firing log continues.
     let mut queries_out = Vec::new();
-    if let Some(epochs) = &sc.epochs {
+    if let Some(epochs) = sc.epochs.take() {
+        // By-value iteration: each epoch's rows drop as their epoch
+        // completes, not at end of run.
         for epoch in epochs {
             for action in epoch.actions.as_deref().unwrap_or_default() {
                 let op = action.get("op").and_then(J::as_str).ok_or("action missing 'op'")?;
