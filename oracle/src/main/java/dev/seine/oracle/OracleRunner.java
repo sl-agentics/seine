@@ -49,7 +49,12 @@ public final class OracleRunner {
             System.err.println("usage: OracleRunner <scenario.json>...");
             System.exit(2);
         }
+        // SEINE_TIME=1: per-scenario wall time on stderr ("TIME <name> <ms>",
+        // parse+compile+run+serialize) for tools/bench_oracle.py. stderr-only,
+        // env-gated — the NDJSON contract on stdout is untouched.
+        boolean timed = System.getenv("SEINE_TIME") != null;
         for (String arg : args) {
+            long t0 = timed ? System.nanoTime() : 0L;
             ObjectNode out = M.createObjectNode();
             String name = arg;
             try {
@@ -62,6 +67,9 @@ public final class OracleRunner {
                 out.put("error", t.getClass().getSimpleName() + ": " + String.valueOf(t.getMessage()));
             }
             System.out.println(M.writeValueAsString(out));
+            if (timed) {
+                System.err.println("TIME " + name + " " + (System.nanoTime() - t0) / 1_000_000.0);
+            }
         }
     }
 

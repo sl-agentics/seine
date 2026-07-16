@@ -43,14 +43,26 @@ fn main() -> ExitCode {
 }
 
 fn cmd_run(paths: &[String]) -> ExitCode {
+    // SEINE_TIME=1: per-scenario wall time on stderr ("TIME <name> <ms>",
+    // parse+build+run+serialize) — the oracle runner emits the same shape,
+    // so tools/bench_oracle.py can compare like for like.
+    let timed = std::env::var("SEINE_TIME").is_ok();
     for path in paths {
-        let line = match runner::run_scenario_file(path) {
+        let t0 = std::time::Instant::now();
+        let (name, line) = match runner::run_scenario_file(path) {
             Ok((name, result)) => {
-                serde_json::json!({"scenario": name, "result": result})
+                let l = serde_json::json!({"scenario": name, "result": result});
+                (name, l)
             }
-            Err((name, e)) => serde_json::json!({"scenario": name, "error": e}),
+            Err((name, e)) => {
+                let l = serde_json::json!({"scenario": name, "error": e});
+                (name, l)
+            }
         };
         println!("{line}");
+        if timed {
+            eprintln!("TIME {name} {:.3}", t0.elapsed().as_secs_f64() * 1e3);
+        }
     }
     ExitCode::SUCCESS
 }

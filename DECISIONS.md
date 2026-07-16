@@ -14437,3 +14437,51 @@ verified (sys.modules block → ModuleNotFoundError with install hint).
 Bindings-only; engine, corpus, book untouched (the book gains a
 one-sentence aside in ch02, uncommitted with the rest of seine_book).
 No push, no tag, no bump.
+
+## D-265 — comparative benchmarks, engine vs oracle (SEINE_TIME instrumentation + tools/bench_oracle.py) — and the finding they flushed: the rule-side equality join is O(N²) (crossover ~1.5k facts; fix Bryan-gated) (2026-07-15)
+
+Bryan asked for engine-vs-oracle comparative benchmarks. Both runners
+now emit per-scenario wall times ("TIME <name> <ms>", parse + build/
+compile + run + serialize) on stderr under SEINE_TIME=1 — env-gated,
+stderr-only, the NDJSON stdout contract untouched (corpus 11/1209/404
++ drift 36 + cargo test 52/0 re-run green on the instrumented
+runners). tools/bench_oracle.py feeds the same file list to both
+sides in one process each, passes it R times so JVM JIT warmup is
+visible (pass 1 = cold, last = warm), and reports totals, startup
+overhead, cold/warm distributions, and per-scenario ratios. Workloads:
+--corpus N (seeded sample of the certified corpus), --scale
+(parametric alpha/join/accumulate at growing fact counts), explicit
+paths.
+
+RESULTS (this machine, 3 passes):
+- corpus sample ×300: engine total 39.6ms (median 0.08ms/scenario);
+  oracle warm total 4652ms (median 14.0ms) — median ratio ~170x,
+  range 9-425x. HONEST FRAME: corpus scenarios are tiny, so the
+  oracle's per-scenario DRL compile + KieBase/session build (~14ms)
+  dominates — that is the true cost of the harness's per-scenario
+  usage, but production Drools amortizes compilation; the scale suite
+  is the runtime-vs-runtime lens.
+- scale suite: small n favors the engine (alpha_100 33x, join_100
+  14x, acc_100 9x). At large n the story FLIPS on the join:
+  join_1000/2000/4000/8000/10000 = 17.9/53.9/174/598/919ms engine —
+  ×3.0-3.4 per doubling, O(N²) — vs oracle-warm 37/46/46/82/88ms
+  (near-flat). Crossover ≈1.5k facts. alpha_10000: engine 87ms vs
+  oracle 33ms (mostly serialization volume; minor). acc scales fine.
+
+THE FINDING: the rule-side variable-equality beta join
+(`T0($k : k) T1(k == $k)`) full-scans the opposite memory per left —
+the same class D-257 fixed for the QUERY plane (bound unification
+joins now hash-bucket on the key) and D-254 filed for the query
+prepend stage. The rule plane never got the bucket: real Drools
+hash-indexes equality joins (which is why the oracle stays flat).
+Fix sketch = index rule beta memories on equality-join keys the way
+queries.rs post-D-257 does; SEMANTICS HAZARD: join emission ORDER is
+certified behavior (D-260/D-262 pinned that order = queue order for
+receivers) — any index must yield the SAME emission order as the
+full scan (the D-257 bucket preserved order because same-key facts
+sit contiguous; the rule-side equivalent needs the same property
+proven). Engine edit = Bryan-gated; the benchmark suite is the
+red-first harness (join_8000 <100ms = the target).
+
+Tooling + instrumentation only; no engine change. Not pushed.
+— Bryan gates the join-index port.
