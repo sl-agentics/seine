@@ -27,10 +27,10 @@ pub type Origin = Option<usize>;
 /// TupleSets: three LIFO lists (index 0 = most recently staged) with the
 /// upstream fold rules.
 #[derive(Clone)]
-pub struct Staged<T: Clone + PartialEq> {
-    pub ins: Vec<(T, Origin, u8)>,
-    pub upd: Vec<(T, Origin, u8)>,
-    pub del: Vec<(T, Origin, u8)>,
+pub struct Staged<T: Clone + PartialEq + Eq + std::hash::Hash> {
+    pub ins: std::collections::VecDeque<(T, Origin, u8)>,
+    pub upd: std::collections::VecDeque<(T, Origin, u8)>,
+    pub del: std::collections::VecDeque<(T, Origin, u8)>,
     /// NORMALIZED deletes (D-041/fz_123_2748): a delete that cancelled a
     /// pending INSERT at the first sink still reaches the PEERS as a
     /// delete (TupleSetsImpl normalizedDeleteFirst / processPeerDeletes).
@@ -51,23 +51,31 @@ pub struct Staged<T: Clone + PartialEq> {
     /// instead of the head.
     pub slot_memory: bool,
     cancelled_slots: Vec<(T, usize)>,
+    /// D-266: stale-positive membership accelerator — every element in
+    /// ins/upd/del IS in `seen` (removed elements may linger; a hit just
+    /// routes to the exact scans). A miss proves absence from all three
+    /// lists, so the add_* dedup walk is skipped. EVERY site that puts
+    /// an element into ins/upd/del must seen_add it — the grep audit in
+    /// D-266 enumerates them.
+    seen: HashSet<T>,
 }
 
-impl<T: Clone + PartialEq> Default for Staged<T> {
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> Default for Staged<T> {
     fn default() -> Self {
         Staged {
-            ins: Vec::new(),
-            upd: Vec::new(),
-            del: Vec::new(),
+            ins: std::collections::VecDeque::new(),
+            upd: std::collections::VecDeque::new(),
+            del: std::collections::VecDeque::new(),
             norm_del: Vec::new(),
             peer_upd: Vec::new(),
             slot_memory: false,
             cancelled_slots: Vec::new(),
+            seen: HashSet::new(),
         }
     }
 }
 
-impl<T: Clone + PartialEq> Staged<T> {
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
     pub fn is_empty(&self) -> bool {
         self.ins.is_empty()
             && self.upd.is_empty()
@@ -97,6 +105,13 @@ impl<T: Clone + PartialEq> Staged<T> {
     /// phase created the entry: 0 = left-insert, 1 = right-insert,
     /// 2 = update-derived (terminal block ordering, D-027).
     pub fn add_ins_ph(&mut self, t: T, origin: Origin, phase: u8) {
+        // D-266 fast path: a `seen` miss proves t is in NO list (and, since
+        // cancelled_slots entries were once staged, not there either).
+        if !self.seen.contains(&t) {
+            self.seen.insert(t.clone());
+            self.ins.push_front((t, origin, phase));
+            return;
+        }
         if self.upd.iter().any(|(x, _, _)| *x == t) || self.ins.iter().any(|(x, _, _)| *x == t) {
             return;
         }
@@ -108,7 +123,7 @@ impl<T: Clone + PartialEq> Staged<T> {
                 return;
             }
         }
-        self.ins.insert(0, (t, origin, phase));
+        self.ins.push_front((t, origin, phase));
     }
 
     pub fn add_upd(&mut self, t: T, origin: Origin) {
@@ -117,13 +132,18 @@ impl<T: Clone + PartialEq> Staged<T> {
 
     pub fn add_upd_ph(&mut self, t: T, origin: Origin, phase: u8) {
         // TupleSetsImpl.addUpdate: already staged (any list) -> no-op.
+        if !self.seen.contains(&t) {
+            self.seen.insert(t.clone()); // D-266 fast path (see add_ins_ph)
+            self.upd.push_front((t, origin, phase));
+            return;
+        }
         if self.ins.iter().any(|(x, _, _)| *x == t)
             || self.upd.iter().any(|(x, _, _)| *x == t)
             || self.del.iter().any(|(x, _, _)| *x == t)
         {
             return;
         }
-        self.upd.insert(0, (t, origin, phase));
+        self.upd.push_front((t, origin, phase));
     }
 
     /// Merge a downstream node's PENDING staging with a fresh trg batch.
@@ -138,8 +158,9 @@ impl<T: Clone + PartialEq> Staged<T> {
         }
         for (t, o, ph) in trg.upd.into_iter().rev() {
             if let Some(i) = pending.ins.iter().position(|(x, _, _)| *x == t) {
-                let e = pending.ins.remove(i);
-                pending.ins.insert(0, e); // stays an insert, moves to head
+                if let Some(e) = pending.ins.remove(i) {
+                    pending.ins.push_front(e); // stays an insert, moves to head
+                }
                 continue;
             }
             if let Some(i) = pending.upd.iter().position(|(x, _, _)| *x == t) {
@@ -148,14 +169,28 @@ impl<T: Clone + PartialEq> Staged<T> {
             if pending.del.iter().any(|(x, _, _)| *x == t) {
                 continue;
             }
-            pending.upd.insert(0, (t, o, ph));
+            pending.seen_add(&t);
+            pending.upd.push_front((t, o, ph));
         }
-        for (t, o, ph) in trg.ins.into_iter().rev() {
-            if pending.ins.iter().any(|(x, _, _)| *x == t) {
+        // D-266: O(N+P) form of the per-element `.rev()` head-prepend walk
+        // this replaces — the walk's result is exactly [trg.ins entries
+        // not already pending, in trg order] ++ [pending.ins unchanged],
+        // with the growing-list dedup also skipping intra-trg repeats
+        // (the set absorbs kept keys). Byte-order-identical.
+        let mut dedup: HashSet<T> =
+            pending.ins.iter().map(|(x, _, _)| x.clone()).collect();
+        let mut merged: std::collections::VecDeque<(T, Origin, u8)> =
+            std::collections::VecDeque::with_capacity(trg.ins.len() + pending.ins.len());
+        for (t, o, ph) in trg.ins.into_iter() {
+            if dedup.contains(&t) {
                 continue;
             }
-            pending.ins.insert(0, (t, o, ph));
+            dedup.insert(t.clone());
+            pending.seen_add(&t);
+            merged.push_back((t, o, ph));
         }
+        merged.extend(pending.ins.drain(..));
+        pending.ins = merged;
         pending
     }
 
@@ -178,6 +213,11 @@ impl<T: Clone + PartialEq> Staged<T> {
     }
 
     pub fn add_del(&mut self, t: T, origin: Origin) {
+        if !self.seen.contains(&t) {
+            self.seen.insert(t.clone()); // D-266 fast path (see add_ins_ph)
+            self.del.push_front((t, origin, 0));
+            return;
+        }
         if let Some(i) = self.ins.iter().position(|(x, _, _)| *x == t) {
             self.ins.remove(i); // never materialized: cancel
             if self.slot_memory {
@@ -191,7 +231,13 @@ impl<T: Clone + PartialEq> Staged<T> {
         if self.del.iter().any(|(x, _, _)| *x == t) {
             return;
         }
-        self.del.insert(0, (t, origin, 0));
+        self.del.push_front((t, origin, 0));
+    }
+
+    /// D-266: external staging sites that push into ins/upd/del directly
+    /// must register the element here (see the `seen` invariant).
+    pub fn seen_add(&mut self, t: &T) {
+        self.seen.insert(t.clone());
     }
 
     /// Segment propagation to the FIRST-built sink (D-036/D-037/D-041):
@@ -200,6 +246,10 @@ impl<T: Clone + PartialEq> Staged<T> {
     /// were already resolved at child-touch time inside do_node against
     /// this pending (updateChildLeftTuple, fz_123_8822).
     pub fn append_into_pending(mut pending: Staged<T>, fresh: Staged<T>) -> Staged<T> {
+        // D-266: cross-Staged concatenation — register with pending's seen.
+        for (t, _, _) in fresh.ins.iter().chain(fresh.del.iter()).chain(fresh.upd.iter()) {
+            pending.seen_add(t);
+        }
         pending.ins.extend(fresh.ins);
         pending.del.extend(fresh.del);
         pending.upd.extend(fresh.upd);
@@ -246,6 +296,48 @@ pub enum Index {
     None,
     Eq,
     Cmp(crate::drl::CmpOp),
+}
+
+/// D-266: hashable single-element key for the transient drain index.
+#[derive(PartialEq, Eq, Hash)]
+pub(crate) enum EqKey {
+    I(i64),
+    S(String),
+    B(bool),
+}
+
+/// D-266: the transient per-drain-loop index (see Node::build_eq_idx).
+pub(crate) struct EqIdx {
+    class: u8, // 0=I64 1=Str 2=Bool 3=empty memory
+    map: std::collections::HashMap<EqKey, Vec<usize>>,
+}
+
+const EMPTY_POS: &Vec<usize> = &Vec::new();
+
+impl EqIdx {
+    /// Memory positions matching the probe, ascending — or None when the
+    /// probe's keys_match arm is not pure post-coercion equality (caller
+    /// falls back to the linear filter).
+    fn positions(&self, probe: Option<&Vec<Value>>) -> Option<&Vec<usize>> {
+        let Some(p) = probe else { return Some(EMPTY_POS) }; // no key: eq never matches
+        let [v] = p.as_slice() else { return Some(EMPTY_POS) }; // len mismatch: no match
+        let ek = match (self.class, v) {
+            (_, Value::Null) => return Some(EMPTY_POS), // null never equi-joins (D-097 pin F)
+            (0, Value::I64(x)) => EqKey::I(*x),
+            // stored I64 vs F64 probe: keys_match is `a == b as i64`
+            (0, Value::F64(x)) => EqKey::I(*x as i64),
+            (1, Value::Str(s)) => EqKey::S(s.clone()),
+            (2, Value::Bool(b)) => EqKey::B(*b),
+            (3, _) => return Some(EMPTY_POS), // empty memory
+            // Dec probes (dec_cmp arms) or cross-class probes that the
+            // match arms decide non-trivially: decline, caller filters.
+            (0, Value::Dec { .. }) => return None,
+            // remaining cross-class combinations are plain `a == b` on
+            // different variants = false
+            _ => return Some(EMPTY_POS),
+        };
+        Some(self.map.get(&ek).unwrap_or(EMPTY_POS))
+    }
 }
 
 /// One child tuple of a node (join: left extended by the right fact;
@@ -527,7 +619,7 @@ impl Node {
             let rkey = env.key_of_right(node_idx, *f);
             self.rights.push((*f, rkey));
         }
-        self.s_right.ins = keep;
+        self.s_right.ins = keep.into();
     }
 
     /// D-102 (drain_t): an UNLINKED temporal node's per-insert flush
@@ -674,7 +766,8 @@ impl Node {
                 || pending.upd.iter().any(|(x, _, _)| x == t)
                 || pending.del.iter().any(|(x, _, _)| x == t);
             if !staged {
-                pending.upd.insert(0, (t.clone(), *o, *ph));
+                pending.seen_add(t);
+                pending.upd.push_front((t.clone(), *o, *ph));
             }
         }
         for (t, o, ph) in &fresh.ins {
@@ -686,18 +779,20 @@ impl Node {
                     || pending.upd.iter().any(|(x, _, _)| x == t)
                     || pending.del.iter().any(|(x, _, _)| x == t);
                 if !staged {
-                    pending.upd.insert(0, (t.clone(), *o, *ph));
+                    pending.seen_add(t);
+                    pending.upd.push_front((t.clone(), *o, *ph));
                 }
                 continue;
             }
             if let Some(i) = pending.ins.iter().position(|(x, _, _)| x == t) {
-                let e = pending.ins.remove(i);
-                pending.ins.insert(0, e);
+                if let Some(e) = pending.ins.remove(i) {
+                    pending.ins.push_front(e);
+                }
                 continue;
             }
             if let Some(i) = pending.upd.iter().position(|(x, _, _)| x == t) {
                 pending.upd.remove(i);
-                pending.upd.insert(0, (t.clone(), *o, *ph));
+                pending.upd.push_front((t.clone(), *o, *ph));
                 continue;
             }
             if let Some(i) = self.lefts.iter().position(|(x, _)| x == t) {
@@ -705,7 +800,8 @@ impl Node {
                 self.lefts.push(e);
                 continue;
             }
-            pending.ins.insert(0, (t.clone(), *o, *ph));
+            pending.seen_add(t);
+            pending.ins.push_front((t.clone(), *o, *ph));
         }
         self.s_left = pending;
     }
@@ -865,6 +961,77 @@ impl Node {
 
     fn left_key(&self, l: &Tup) -> Option<&Vec<Value>> {
         self.lefts.iter().find(|(t, _)| t == l).and_then(|(_, k)| k.as_ref())
+    }
+
+    /// D-266: an order-preserving transient index over one side's memory
+    /// for the flush-drain probe loops. Built ONCE per drain loop while
+    /// the probed memory is static (the staged-rights loop only pushes
+    /// rights, so the lefts memory it probes is fixed, and vice versa).
+    /// Scope is deliberately narrow so the semantics are EXACTLY the
+    /// linear filter's: eq-indexed nodes, single-element stored keys,
+    /// one homogeneous class (I64 / Str / Bool — F64/Dec/Null stored
+    /// keys fall back), and only probe classes whose keys_match arm is
+    /// a pure equality after the certified coercion (an I64-class probe
+    /// may be I64 or F64 — `a == b as i64`, the same truncation; a Dec
+    /// or other probe returns None = caller falls back). Bucket vecs
+    /// hold memory POSITIONS in ascending order, so emission order is
+    /// the filter's memory order, byte for byte.
+    fn build_eq_idx<'a, I: Iterator<Item = &'a Option<Vec<Value>>>>(
+        &self,
+        keys: I,
+    ) -> Option<EqIdx> {
+        if !self.eq_indexed() {
+            return None;
+        }
+        let mut class: Option<u8> = None; // 0=I64 1=Str 2=Bool
+        let mut map: std::collections::HashMap<EqKey, Vec<usize>> =
+            std::collections::HashMap::new();
+        for (pos, k) in keys.enumerate() {
+            let Some(k) = k else { continue }; // None-keyed: never eq-matches
+            let [v] = k.as_slice() else { return None }; // multi-element: fall back
+            let (c, ek) = match v {
+                Value::I64(x) => (0u8, EqKey::I(*x)),
+                Value::Str(s) => (1u8, EqKey::S(s.clone())),
+                Value::Bool(b) => (2u8, EqKey::B(*b)),
+                _ => return None, // F64/Dec/Null stored: fall back
+            };
+            match class {
+                None => class = Some(c),
+                Some(pc) if pc != c => return None, // mixed classes: fall back
+                _ => {}
+            }
+            map.entry(ek).or_default().push(pos);
+        }
+        Some(EqIdx { class: class.unwrap_or(3), map })
+    }
+
+    pub(crate) fn build_lefts_eq_idx(&self) -> Option<EqIdx> {
+        self.build_eq_idx(self.lefts.iter().map(|(_, k)| k))
+    }
+
+    pub(crate) fn build_rights_eq_idx(&self) -> Option<EqIdx> {
+        self.build_eq_idx(self.rights.iter().map(|(_, k)| k))
+    }
+
+    /// lefts_bucket through a transient index when it can answer exactly;
+    /// the linear filter otherwise. Same output, same order, always.
+    fn lefts_bucket_idx(&self, idx: Option<&EqIdx>, key: Option<&Vec<Value>>) -> Vec<Tup> {
+        if let Some(ix) = idx {
+            if let Some(hits) = ix.positions(key) {
+                return hits.iter().map(|&p| self.lefts[p].0.clone()).collect();
+            }
+        }
+        self.lefts_bucket(key)
+    }
+
+    /// rights_bucket through a transient index (see lefts_bucket_idx).
+    fn rights_bucket_idx(&self, idx: Option<&EqIdx>, key: Option<&Vec<Value>>) -> Vec<FactId> {
+        if let Some(ix) = idx {
+            if let Some(hits) = ix.positions(key) {
+                return hits.iter().map(|&p| self.rights[p].0).collect();
+            }
+        }
+        self.rights_bucket(key)
     }
 
     /// Lefts matching a probe key (indexed) or all lefts, memory order.
@@ -1036,7 +1203,7 @@ pub trait JoinEnv {
     }
 }
 
-fn sr_ins_iter<T>(v: &[T]) -> Box<dyn Iterator<Item = &T> + '_> {
+fn sr_ins_iter<T>(v: &std::collections::VecDeque<T>) -> Box<dyn Iterator<Item = &T> + '_> {
     if std::env::var("SEINE_JSR").map(|x| x == "tail").unwrap_or(false) {
         Box::new(v.iter().rev())
     } else {
@@ -1096,7 +1263,8 @@ impl<'a> Out<'a> {
         {
             return;
         }
-        self.trg.upd.insert(0, (t, o, ph));
+        self.trg.seen_add(&t);
+        self.trg.upd.push_front((t, o, ph));
     }
 
     pub(crate) fn child_del(&mut self, t: Tup, o: Origin) {
@@ -1348,7 +1516,8 @@ fn temporal_upd_replay<E: JoinEnv>(
             {
                 continue;
             }
-            out.trg.ins.push((t, o, ph));
+            out.trg.seen_add(&t);
+            out.trg.ins.push_back((t, o, ph));
         }
         for (t, o, ph) in op_trg.upd {
             if out.trg.ins.iter().any(|(x, _, _)| *x == t)
@@ -1362,7 +1531,8 @@ fn temporal_upd_replay<E: JoinEnv>(
                 }
                 out.trg.upd.remove(i); // A' steals the slot
             }
-            out.trg.upd.push((t, o, ph));
+            out.trg.seen_add(&t);
+            out.trg.upd.push_back((t, o, ph));
         }
     }
     // UPDATE-ENTRY right re-inserts (ph=1): the certified late pass.
@@ -1782,7 +1952,7 @@ fn do_join_node<E: JoinEnv>(
                 node.lefts.push((l.clone(), lkey));
                 let _ = f;
             }
-            let origin = sl.ins.first().map(|(_, o, _)| *o).unwrap_or(None);
+            let origin = sl.ins.front().map(|(_, o, _)| *o).unwrap_or(None);
             // rights enter MEMORY in ARRIVAL order (853 fire-2: the
             // next fire's leftIns x memory iterates arrival)
             for (_, fid) in facts.iter().rev() {
@@ -1938,6 +2108,13 @@ fn do_join_node<E: JoinEnv>(
         // certified head-first walk (cloud + pure-post batches)
         sr.ins.iter().filter(|(_, _, ph)| *ph != 1).collect()
     };
+    // D-266: one transient index over the (static) lefts memory for the
+    // whole staged-rights walk — the loop only pushes rights.
+    let lefts_idx = if ordered.len() >= 16 && node.lefts.len() >= 64 {
+        node.build_lefts_eq_idx()
+    } else {
+        None
+    };
     for (f, o, _) in ordered {
         let rkey = env.key_of_right(node_idx, *f);
         node.rights.push((*f, rkey.clone()));
@@ -1948,7 +2125,7 @@ fn do_join_node<E: JoinEnv>(
         if env.is_expired(*f) {
             continue;
         }
-        for l in node.lefts_bucket(rkey.as_ref()) {
+        for l in node.lefts_bucket_idx(lefts_idx.as_ref(), rkey.as_ref()) {
             if l.iter().any(|lf| env.is_expired(*lf)) {
                 continue; // D-102: corpse lefts make no NEW pairs
             }
@@ -1964,6 +2141,13 @@ fn do_join_node<E: JoinEnv>(
     for (l, _, _) in sl.ins.iter().rev() {
         node.stamp_left_seq(l);
     }
+    // D-266: one transient index over the (static) rights memory for the
+    // whole staged-lefts walk — the loop only pushes lefts.
+    let rights_idx = if sl.ins.len() >= 16 && node.rights.len() >= 64 {
+        node.build_rights_eq_idx()
+    } else {
+        None
+    };
     for (l, o, _) in &sl.ins {
         node.lefts.push((l.clone(), env.key_of_left(node_idx, l)));
         // D-179/D-180 (fe2/fe6): the walking left tuple is corpse-checked
@@ -1972,7 +2156,7 @@ fn do_join_node<E: JoinEnv>(
             continue;
         }
         let lkey = node.lefts.last().and_then(|(_, k)| k.clone());
-        for f in node.rights_bucket(lkey.as_ref()) {
+        for f in node.rights_bucket_idx(rights_idx.as_ref(), lkey.as_ref()) {
             if env.is_expired(f) {
                 continue; // D-102: corpse rights make no NEW pairs
             }

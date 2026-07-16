@@ -16,7 +16,10 @@ binding-divergence family PORTED — the arc is CLOSED; D-258..261
 PUSHED (Bryan-directed, `9c4e23a..4fa7c37`); D-262 committed local,
 Bryan holds pushes)._
 
-**NO ACTIVE BUILD — next is Bryan's call.** The binding-divergence
+**ACTIVE: the O(N²) hunt (D-266, Bryan's 10x-at-10k target) — slab 1
+LANDED (3.6x harness / bindings ≈ Drools parity; all-2028 byte-gate);
+slab 2 = harness serializer + render path (~110+45ms mapped) if the
+harness-surface 10x is wanted. Otherwise no active build.** The binding-divergence
 arc closed (D-260 recon, D-261 lane 2, D-262 lane 1): eager_flush at
 the sibling-continue + the salience-ordered halt-check peek walk
 (stops at the first live item; no lazy batch order pinned —
@@ -14485,3 +14488,76 @@ red-first harness (join_8000 <100ms = the target).
 
 Tooling + instrumentation only; no engine change. Not pushed.
 — Bryan gates the join-index port.
+
+## D-266 — the O(N²) hunt, slab 1 (Bryan-directed: "10x at 10,000×10,000"): three quadratics dead — transient drain index, Staged VecDeque+seen, agenda-queue VecDeque — join_10000 915→257ms (3.6x), bindings path 119ms ≈ Drools parity; ALL 2028 scenarios byte-identical (2026-07-15)
+
+Bryan set the target: engine 10x faster at the 10k×10k join (919ms →
+~92ms = warm-Drools parity on the harness surface). Method: decompose
+by construction (disjoint-key join = pure scan cost; alpha_all = the
+firing/serialize floor; asymmetric L/R workloads split the terms),
+then temporary env-gated accumulators (SEINE_PROF, removed before
+this commit) since perf_event_paranoid=4 and ptrace_scope=1 block
+perf/gdb on this host. THREE quadratics found and killed, none of
+them where D-265's sketch pointed (the drain probes were only ~40%):
+
+1. THE DRAIN PROBES (~365ms): lefts_bucket/rights_bucket linear-filter
+   the whole opposite memory per staged item. Fix: EqIdx — a transient
+   ORDER-PRESERVING hash index built once per drain loop while the
+   probed memory is static (the staged-rights walk only pushes rights,
+   and vice versa; positions ascending = the filter's memory order,
+   byte for byte). Scope guarantees exactness: eq-indexed nodes,
+   single-element homogeneous stored keys (I64/Str/Bool only —
+   F64/Dec/mixed fall back), probe classes whose keys_match arm is
+   pure post-coercion equality (I64-class probes may be I64 or F64,
+   the same `as i64` truncation; Dec probes decline → linear filter).
+   Size-gated (staged≥16, memory≥64) so tiny scenarios never build it.
+
+2. THE STAGING LISTS (~250ms at 10k): Staged.ins/upd/del were Vecs
+   with per-add DEDUP SCANS + insert(0) PREPENDS — O(N²) per staging
+   batch, worst in merge_into_pending (87ms measured) and the
+   child-tuple adds (195ms in the join). Fix: (a) the lists are now
+   VecDeques (push_front O(1)); (b) a private stale-positive `seen`
+   HashSet per Staged — every element in the lists IS in seen, removed
+   elements may linger; a MISS proves absence and skips the dedup walk
+   entirely, a hit routes to the exact scans. Every direct external
+   add site (enumerated by type-error sweep + grep audit — the merge
+   fns, append_into_pending, the k1 cross-window restore, tj_epoch and
+   query-children direct assignments, out.trg pushes) registers via
+   seen_add; same-Staged round-trips (stash split_off → extend back)
+   need nothing by construction. merge_into_pending's ins loop is
+   additionally rewritten O(N+P) (set-filter + one splice — the
+   .rev()-prepend walk's result reproduced exactly).
+
+3. THE AGENDA QUEUE: nets[ri].queue was a Vec popped with remove(0) —
+   O(N) memmove per firing. Now a VecDeque.
+
+RECEIPTS (the gold gate first): engine `run` over ALL 2028 scenario
+files (corpus + xfail + duckdb + probes_pending + demo) BYTE-IDENTICAL
+pre/post — re-verified after EVERY step, so each fix is individually
+order-exact. make diff 11/1209/404 + drift identical; cargo test 52/0;
+bindings pytest 171 on the rebuilt .so; demo LIVE==REPLAY True; fresh
+fuzz 2×2000 (seeds 4649/7532): one find, fz_4649_1144, a collectList
+ELEMENT-ORDER divergence that reproduces BYTE-IDENTICALLY on
+pre-change f760138 — pre-existing latent, quarantined
+xf_fz_4649_1144, drift rebank 36→37.
+
+NUMBERS (harness surface, end-to-end incl. JSON): join_10000
+915→257ms (3.6x), join_5000 261→101, jL10000_R10 177→53, disjoint
+618→106, alpha_all_10000 234→167. vs warm Drools: everything ≤1000
+facts the engine now WINS (acc_1000 5x, alpha_1000 4x); at 10k the
+gap is 2.9x-slower (was 10.4x). THE BINDINGS PATH (the product
+surface, Arrow in/out, no harness JSON): 10k×10k join + 10k RHS
+inserts = **119ms** ≈ warm-Drools parity already.
+
+TARGET STATUS: 10x NOT yet reached on the harness surface — the
+MAPPED remainder of join_10000's 257ms: ~110ms harness JSON
+serialization (Value-tree build + stringify; harness-only fix,
+byte-gate makes it safe — the bindings never pay this), ~45ms
+evaluate_rule bookkeeping across 20k calls (2 per firing, mostly
+early-return overhead), ~45ms base insert path, remainder firing
+records (store.render clones). Slab 2, if Bryan wants the harness
+number too: direct-Serialize the result (alphabetical key order
+reproduced), then the render path. Engine + harness + scenarios.
+Not pushed.
+— Bryan directed the target; the engine edits rode the all-scenarios
+byte-identity gate per the D-257 pure-optimization protocol.

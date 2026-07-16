@@ -1993,7 +1993,7 @@ struct RuleNet {
     /// the SAME fact relocates them behind its fresh inserts. Cleared
     /// at the fire boundary.
     act_movable: HashMap<Tup, FactId>,
-    queue: Vec<Act>,
+    queue: std::collections::VecDeque<Act>,
     /// STICKY RuleAgendaItem salience (D-043/fz_27182_862): dynamic
     /// items keep their last value across empty->removed->relinked
     /// cycles; updateSalience only rewrites it when the queue top
@@ -2120,26 +2120,30 @@ impl RuleNet {
                 || pending.upd.iter().any(|(x, _, _)| x == t)
                 || pending.del.iter().any(|(x, _, _)| x == t);
             if !staged {
-                pending.upd.insert(0, (t.clone(), *o, *ph));
+                pending.seen_add(t);
+                pending.upd.push_front((t.clone(), *o, *ph));
             }
         }
         for (t, o, ph) in &fresh.ins {
             if let Some(i) = pending.ins.iter().position(|(x, _, _)| x == t) {
-                let e = pending.ins.remove(i);
-                pending.ins.insert(0, e);
+                if let Some(e) = pending.ins.remove(i) {
+                    pending.ins.push_front(e);
+                }
                 continue;
             }
             if let Some(i) = pending.upd.iter().position(|(x, _, _)| x == t) {
                 pending.upd.remove(i);
-                pending.upd.insert(0, (t.clone(), *o, *ph));
+                pending.upd.push_front((t.clone(), *o, *ph));
                 continue;
             }
             if self.peer_live.contains(t) {
-                pending.upd.insert(0, (t.clone(), *o, *ph));
+                pending.seen_add(t);
+                pending.upd.push_front((t.clone(), *o, *ph));
                 continue;
             }
             self.peer_live.insert(t.clone());
-            pending.ins.insert(0, (t.clone(), *o, *ph));
+            pending.seen_add(t);
+            pending.ins.push_front((t.clone(), *o, *ph));
         }
         self.term_pending = pending;
     }
@@ -3007,7 +3011,7 @@ impl Engine {
                 term_pending: Staged::default(),
                 peer_live: HashSet::new(),
                 act_movable: HashMap::new(),
-                queue: Vec::new(),
+                queue: std::collections::VecDeque::new(),
                 item_sal: 0,
                 act_num: HashMap::new(),
                 queued: false,
@@ -5880,9 +5884,9 @@ impl Engine {
         // rights (delta included — rights never flush-pair) and held
         // (pre-tail) lefts; DELTA lefts still flush (v2's IF).
         // TEMPORAL joins and existential nodes stash nothing.
-        let mut stash: Vec<(Vec<(FactId, Origin, u8)>, Vec<(FactId, Origin, u8)>, Vec<(Tup, Origin, u8)>)> =
+        let mut stash: Vec<(std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(Tup, Origin, u8)>)> =
             Vec::with_capacity(self.trie.len());
-        let mut dstash: Vec<(Vec<(FactId, Origin, u8)>, Vec<(Tup, Origin, u8)>, Vec<(FactId, Origin, u8)>)> =
+        let mut dstash: Vec<(std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(Tup, Origin, u8)>, std::collections::VecDeque<(FactId, Origin, u8)>)> =
             Vec::with_capacity(self.trie.len());
         // per-rule PRE-LINK staging check BEFORE the stash empties it
         // (if_flush = pair_unless_held, u1c/987)
@@ -5926,9 +5930,9 @@ impl Engine {
         // loop. `None` = keep the certified pop-time path.
         let mut shared_tj_stash: Vec<
             Option<(
-                Vec<(FactId, Origin, u8)>,
-                Vec<(FactId, Origin, u8)>,
-                Vec<(Tup, Origin, u8)>,
+                std::collections::VecDeque<(FactId, Origin, u8)>,
+                std::collections::VecDeque<(FactId, Origin, u8)>,
+                std::collections::VecDeque<(Tup, Origin, u8)>,
             )>,
         > = (0..self.trie.len()).map(|_| None).collect();
         for (ni, p) in pre.0.iter().enumerate() {
@@ -5959,7 +5963,7 @@ impl Engine {
             let scan_n = if t.node.temporal { t.s0_in.ins.len() } else { fresh_ins };
             if scan_n > 0 && !s0_dtail.is_empty() {
                 let fresh: Vec<FactId> =
-                    t.s0_in.ins[..scan_n].iter().map(|(f, _, _)| *f).collect();
+                    t.s0_in.ins.iter().take(scan_n).map(|(f, _, _)| *f).collect();
                 let mut keep: Vec<(FactId, Origin, u8)> = Vec::new();
                 s0_dtail.retain(|e| {
                     if fresh.contains(&e.0) {
@@ -5999,9 +6003,9 @@ impl Engine {
                         .contains_key(&self.rules[t.env.0].patterns[t.env.1].type_id)
                 {
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
-                    stash.push((sr_all, Vec::new(), Vec::new()));
+                    stash.push((sr_all, std::collections::VecDeque::new(), std::collections::VecDeque::new()));
                 } else {
-                    stash.push((Vec::new(), Vec::new(), Vec::new()));
+                    stash.push((std::collections::VecDeque::new(), std::collections::VecDeque::new(), std::collections::VecDeque::new()));
                 }
                 continue;
             }
@@ -6050,7 +6054,7 @@ impl Engine {
                     let s0_all = std::mem::take(&mut t.s0_in.ins);
                     let sl_all = std::mem::take(&mut t.node.s_left.ins);
                     shared_tj_stash[ni] = Some((sr_all, s0_all, sl_all));
-                    stash.push((Vec::new(), Vec::new(), Vec::new()));
+                    stash.push((std::collections::VecDeque::new(), std::collections::VecDeque::new(), std::collections::VecDeque::new()));
                 } else if node_linked[ni] && node_shared[ni] {
                     // legacy pop-time bail (non-clean shared temporal node)
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
@@ -6060,7 +6064,7 @@ impl Engine {
                     );
                     stash.push((sr_all, s0_all, sl_all));
                 } else {
-                    stash.push((Vec::new(), Vec::new(), Vec::new()));
+                    stash.push((std::collections::VecDeque::new(), std::collections::VecDeque::new(), std::collections::VecDeque::new()));
                 }
                 continue;
             }
@@ -6084,7 +6088,7 @@ impl Engine {
             let toggles_now = !pre.2[t.env.0] && node_linked[ni];
             let relink = pre.3.get(t.env.0).copied().unwrap_or(false);
             if toggled && toggles_now && has_ph4 && relink {
-                stash.push((Vec::new(), Vec::new(), Vec::new()));
+                stash.push((std::collections::VecDeque::new(), std::collections::VecDeque::new(), std::collections::VecDeque::new()));
                 continue;
             }
             let sr_all = std::mem::take(&mut t.node.s_right.ins);
@@ -6097,10 +6101,10 @@ impl Engine {
         // k=1 window DELS/UPDS are never the insert-trigger's own effect
         // — stash them ALL for the fire (expiration deletes batch to the
         // fire; cf5x17's k=1 justifier teardown must not run at a flush)
-        let mut k1_stash: Vec<Vec<(usize, Vec<(FactId, Origin, u8)>, Vec<(FactId, Origin, u8)>)>> =
+        let mut k1_stash: Vec<Vec<(usize, std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(FactId, Origin, u8)>)>> =
             Vec::with_capacity(self.nets.len());
         for (ri, net) in self.nets.iter_mut().enumerate() {
-            let mut per: Vec<(usize, Vec<(FactId, Origin, u8)>, Vec<(FactId, Origin, u8)>)> =
+            let mut per: Vec<(usize, std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(FactId, Origin, u8)>)> =
                 Vec::new();
             for (wi, w) in net.s0.iter_mut().enumerate() {
                 // D-166: stash only PRE-EXISTING upds (the tail — staging
@@ -6142,6 +6146,14 @@ impl Engine {
                     self.nets[ri].s0[wi].del.extend(dels);
                     self.nets[ri].s0[wi].upd.extend(upds);
                 } else if let Some(w) = self.nets[ri].s0.last_mut() {
+                    // D-266: CROSS-Staged restore (window gone) — register
+                    // with the target's seen set.
+                    for (f, _, _) in &dels {
+                        w.seen_add(f);
+                    }
+                    for (f, _, _) in &upds {
+                        w.seen_add(f);
+                    }
                     w.del.extend(dels);
                     w.upd.extend(upds);
                 }
@@ -6684,7 +6696,11 @@ impl Engine {
                 continue;
             }
             let mut trg: Staged<Tup> = Staged::default();
-            trg.ins = std::mem::take(&mut self.trie[ni].node.tj_epoch);
+            let epoch = std::mem::take(&mut self.trie[ni].node.tj_epoch);
+            for (t, _, _) in &epoch {
+                trg.seen_add(t); // D-266: direct ins assignment below
+            }
+            trg.ins = epoch.into();
             let sinks = self.trie[ni].sinks.clone();
             for (si, sink) in sinks.into_iter().enumerate() {
                 if let Sink::Term(rb) = sink {
@@ -6859,7 +6875,7 @@ impl Engine {
                     .map(|(i, _)| i)
                     .unwrap_or(0),
             };
-            let tuple = self.nets[ri].queue.remove(idx).t;
+            let tuple = self.nets[ri].queue.remove(idx).expect("pick idx in queue").t;
             self.execute_rhs(ri, &tuple)?;
             // Mid-firing item resort (RuleExecutor.fire, D-043): after
             // the flush, a dynamic item whose queue top no longer
@@ -9319,7 +9335,8 @@ impl Engine {
                 for fid in rows {
                     let mut child = t.clone();
                     child.push(fid);
-                    pre.del.push((child, *o, *ph));
+                    pre.seen_add(&child);
+                    pre.del.push_back((child, *o, *ph));
                     self.store.kill(fid);
                 }
             }
@@ -9334,13 +9351,17 @@ impl Engine {
                 for fid in rows {
                     let mut child = t.clone();
                     child.push(fid);
-                    pre.del.push((child, *o, *ph));
+                    pre.seen_add(&child);
+                    pre.del.push_back((child, *o, *ph));
                     self.store.kill(fid);
                 }
             }
             upd_ins.push((t.clone(), *o, *ph));
         }
         let mut src = src;
+        for (t, _, _) in &upd_ins {
+            src.seen_add(t); // D-266: fresh child tuples entering src.ins
+        }
         src.ins.extend(upd_ins);
         // src head→tail = real staged order (full LIFO across windows,
         // qx6_windows); bound args read the left tuple.
@@ -9391,7 +9412,10 @@ impl Engine {
             children.reverse(); // QueryTupleSets.addTo re-reversal (D-056)
         }
         let mut trg: Staged<Tup> = pre;
-        trg.ins = children;
+        for (t, _, _) in &children {
+            trg.seen_add(t); // D-266: direct ins assignment below
+        }
+        trg.ins = children.into();
         Ok(trg)
     }
 
@@ -9582,7 +9606,7 @@ impl Engine {
             }
         };
         let pre = self.queue_top_sal(ri).unwrap_or(0);
-        self.nets[ri].queue.push(Act { t, sal, seq });
+        self.nets[ri].queue.push_back(Act { t, sal, seq });
         self.update_item_salience(ri, pre);
     }
 
