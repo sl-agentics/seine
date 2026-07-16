@@ -14961,3 +14961,29 @@ Receipts: cargo build clean; cargo test 54; existing pytest 171 green
 (no Python surface yet — slab 2); smoke battery: price×qty with null
 propagation, filter, overflow voice, Kleene tables, empty-batch typing,
 scalar broadcast, missing-column/type-error voices. Committed local.
+
+## D-276 — derive expression layer slab 2: the Python DSL — `with_columns(orders, total=col("price") * col("qty"))` is live end to end (2026-07-16)
+
+seine_rs/derive.py gains the expression surface: `Expr` (operator
+overloading builds the closed tree, never evaluates — the authoring.py
+proxy doctrine), `col`/`lit`/`if_else`, `with_columns(data,
+**named_exprs)`, `filter(data, pred)`. Literal lifting checks bool
+BEFORE int (a Python bool never becomes an i64), range-checks ints,
+rejects non-finite float literals and None (steering to
+.is_null()/.fill_null()). Trap guards, all verified by probe (17
+cases): raising __bool__ (kills and/or/chained comparisons), the
+ADAPTED precedence trap (& | here are the legitimate Kleene
+combinators, so the trap fires only when a bare numeric/str operand
+reaches them — `a > 10 & col("b")` is always the precedence slip,
+zero false positives), __hash__ = None (an overloaded __eq__ makes
+hashing a silent trap), `in` steering to .str_contains(), `^` to !=,
+== None to .is_null(). Python divergences documented in docstrings
+(// truncates; % dividend-sign; round half-away) — no D-numbers in
+public docs (lint-checked). Module docstring reframed: expression
+layer + bespoke kernels.
+
+THE MISSION LINE WORKS: with_columns({"price","qty"} table,
+total=col("price")*col("qty")) → seine_rs.run(rule on `total > 100.0`)
+→ fires with the derived row. Wire-format and bool-vs-int lifting
+pinned by probe; pytest 171 green (battery lands next slab).
+Committed local.
