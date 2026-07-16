@@ -15350,3 +15350,37 @@ sin²+cos² composition, fuzzer ops extended with the trig/log family,
 3 new live sentinels); make diff 11/1220/406 + drift 42 identical;
 lint 1918/0/0; demo green. derivation-plane.md + derive.py docstrings
 name the row. Committed local; no push.
+
+## D-286 — ADS-B WITHOUT the bespoke kernels: the composability proof — pairing is the MATCH plane's job, haversine is one expression (bit-identical), closing is caller-state + one compare (2026-07-16)
+
+Bryan: "can you do ADS-B without the bespoke kernels?" Yes — and the
+decomposition lands exactly on the certified primitives
+(bindings/tests/test_derive_expr_adsb.py, 6 tests):
+
+- **pair_candidates → the match plane.** Pairing is a self-join —
+  `Position($i1 : icao) Position(icao > $i1)` gives the a<b dedup as
+  ONE CONSTRAINT, and the copies into PairRaw are certified insert
+  args. The candidate PRUNE dissolves entirely: it existed to keep
+  O(n²) scalar haversine off the hot path, but the expression layer
+  vectorizes the exact distance, so the pipeline computes all pairs
+  and `filter(dist <= radius)`s — proven equal to the kernel's
+  candidates∩radius set (the completeness contract in reverse).
+- **haversine → one expression** on the D-285 calculator row, written
+  in the kernel's exact fp operation order — the meters are
+  BIT-IDENTICAL on every round-27/28 battery vector (pole band,
+  antimeridian, over-the-pole cap zone included), not approximately
+  equal. Same libm, same order, same round-half-away → same i64.
+- **closing → the kernel's own contract, decomposed**: caller-owned
+  state dict (sweep-first, monotonic-ts), the comparison as
+  `(dist < prev).fill_null(False)`. TTL-feed lockstep with the kernel
+  INCLUDING state parity per epoch.
+- **End to end**: positions → match-plane pairing → expression
+  haversine → filter → closing → the convergence RULE fires on the
+  computed fields. Two alerts on the closing feed, distances match
+  the pure-python reference.
+
+The bespoke kernels stay (the demo twin's bit-compat contract lives
+there, and pair_candidates' prune geometry still matters at scale) —
+but they are now an OPTIMIZATION, not a capability: nothing about
+ADS-B requires hand-written Rust anymore. Suite 214 → 220; demo
+untouched and green. Committed local; no push.
