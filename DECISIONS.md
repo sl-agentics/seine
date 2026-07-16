@@ -11,30 +11,32 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-15, post-D-270 (memory-diet step 0 + slab 1
-LANDED, committed local; D-258..261 PUSHED (`9c4e23a..4fa7c37`);
-D-262..270 local, Bryan holds pushes)._
+_Last updated: 2026-07-16, post-D-273 (THE MEMORY-DIET ARC IS
+COMPLETE, 4 slabs D-270..273 committed local; D-258..261 PUSHED
+(`9c4e23a..4fa7c37`); D-262..273 local, Bryan holds pushes)._
 
-**THE MEMORY DIET, slab 1 (D-270): measure-first paid — the
-`--features alloc_stats` counting allocator showed 72% of peak live
-bytes was the HARNESS's retained serde_json parse tree (4M × 632B
-BTreeMap nodes at 1M facts), not engine tuples. runner.rs now parses
-once into typed structs (hand-rolled Deserialize, byte-exact by
-construction). RSS at 1M: 3.92 → 1.42GB (−64%); **16GB endurance
-ceiling [4.25M, 4.5M) → ≥12M pairs — THE CROWN IS TAKEN ≥2.5× over
-Drools' [4.5M, 4.75M)** (D-269 oracle cells stand, runner-symmetric).
-Speed co-gate GREEN and improved: join_10000 52.5ms (was 62–72),
-sweeps linear through 16k. Gates: all-2029 byte-identical, diff
-11/1209/404, drift REBANKED 37→39 (2 fresh-seed latents quarantined:
-xf_fz_31415_774, xf_fz_62831_359 — both bisected pre-existing at
-44ddd14), cargo 53, pytest 171, demo True, lint 1882/0/0. REMAINING
-DIET (measured order, D-270 tail): output-side FactView/ser
-streaming (engine API ⇒ BRYAN-GATED), FactSpec early-drop (minor),
-SmallVec Tup (~160MB real at 1M, GATED, worktree prototype allowed).
-Cold-start: `probes_pending/memory_diet/HANDOFF.md` (updated).
-Earlier: the O(N²) hunt COMPLETE (D-265..268, join_10000 919→72ms,
-12.7x); tooling: bench_oracle.py + SEINE_TIME + --features prof
-flamegraph + tools/bench_oom.sh + --features alloc_stats.** The binding-divergence
+**THE MEMORY DIET IS DONE (D-270..273, Bryan un-gated "do the rest"
+mid-arc): at 1M fact-pairs RSS went 3.92GB → 845MB (−78%); the 16GB
+endurance ceiling went [4.25M, 4.5M) → [20M, 24M) pairs — the crown
+over Drools' [4.5M, 4.75M) is >4.2×, and every slab also made the
+engine FASTER (join_10000 72 → 46ms, sweeps linear through 16k).
+Measure-first paid twice: (D-270) 72% of peak was the HARNESS's
+retained serde_json tree — typed one-pass parse killed it; then
+(D-271) fact rows early-drop, (D-272) `Engine::facts_iter()` output
+streaming + one stdout BufWriter, (D-273) `Tup = SmallVec<[FactId;4]>`
+(engine's first dep; the 23 constructor sites; public SupportView
+kept Vec; join-key SmallVec measured MARGINAL and skipped). Every
+slab all-2031 byte-identical; diff 11/1209/404 + drift 41 identical;
+cargo 54, pytest 171, demo True, lint 1882/0/0; fresh fuzz 4×2000
+(31415/62831/141421/173205) → 4 finds ALL bisected pre-existing at
+44ddd14, quarantined per D-255 (xf_fz_31415_774, xf_fz_62831_359,
+xf_fz_141421_123, xf_fz_141421_1206), drift 37→41. Diet ledger
+(what's left at 1M): ~64MB stored join keys, ~126MB unattributed
+128B×1M-live engine entries (next profile's first question), ~320MB
+flat tables. Tooling: --features alloc_stats (counting allocator) +
+--features prof + bench_oracle.py + bench_oom.sh. Cold-start:
+`probes_pending/memory_diet/HANDOFF.md` (arc-complete block atop).
+Earlier: the O(N²) hunt COMPLETE (D-265..268, 919→72ms, 12.7x).** The binding-divergence
 arc closed (D-260 recon, D-261 lane 2, D-262 lane 1): eager_flush at
 the sibling-continue + the salience-ordered halt-check peek walk
 (stops at the first live item; no lazy batch order pinned —

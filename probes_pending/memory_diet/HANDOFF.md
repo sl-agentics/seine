@@ -1,23 +1,22 @@
 # HANDOFF — the memory diet (SmallVec/inline tuples): cold start
 
-## ⚡ STATE AFTER D-270 (2026-07-15, same day): step 0 + slab 1 DONE
+## ✅ ARC COMPLETE (2026-07-16, D-270..273): all four slabs landed
 
-Step 0 ran and REFUTED the SmallVec attribution below: the peak
-elephant was the HARNESS's retained serde_json parse tree (72% of
-peak live at N=1M — 4M × 632B BTreeMap nodes; run_scenario borrowed
-the whole tree for the run). Slab 1 (typed one-pass parse in
-runner.rs, byte-exact, harness-only) landed with all gates green:
-RSS at 1M 3.92→1.42GB (−64%), **16GB ceiling ≥12M pairs — the crown
-is taken ≥2.5×** (Drools died in [4.5M, 4.75M), D-269). Speed
-co-gate improved (join_10000 52.5ms). See the D-270 entry for
-receipts and the REMAINING DIET list: (a) output-side FactView/ser
-streaming — engine API, BRYAN-GATED; (b) FactSpec early-drop, minor;
-(c) SmallVec Tup ≈160MB real at 1M — engine edit GATED, worktree
-prototype allowed. Measurement tool: `cargo build --release -p
-seine-harness --features alloc_stats` → "ALLOC" histogram on stderr
-(exact sizes ≤512B + pow2; live-at-peak per slot). The sections
-below are the ORIGINAL filing — still the map for the gated engine
-half, but read the sizes against D-270's post-slab-1 numbers.
+Bryan un-gated the engine half ("do the rest") after D-270. Final
+state: 1M-pair RSS 3.92GB → 845MB (−78%); 16GB ceiling [4.25M, 4.5M)
+→ **[20M, 24M) pairs (>4.2× Drools' [4.5M, 4.75M))**; join_10000
+72 → 46ms, all sweeps linear. The slabs: D-270 typed one-pass parse
+(the 72% parse-tree elephant — step 0 REFUTED this file's SmallVec
+attribution), D-271 FactSpec early-drop, D-272 facts_iter output
+streaming, D-273 `Tup = SmallVec<[FactId; 4]>` (this file's sketch,
+executed at inline-4 — same 24B footprint as inline-2; the join-key
+candidate #2 was MEASURED MARGINAL: ~−60MB net at 1M for a ~25-site
+sweep — skipped, revisit only if keys ever dominate a profile).
+Receipts and the residual ledger live in the D-270..273 entries.
+Measurement tool (permanent): `--features alloc_stats` → "ALLOC"
+histogram on stderr (exact ≤512B + pow2 classes, live-at-peak per
+slot). The sections below are the ORIGINAL 2026-07-15 filing, kept
+for the record.
 
 Filed 2026-07-15 after D-269 (the OOM endurance race). Repo state at
 filing: HEAD `2d2fc7c` (D-269), local-unpushed on top of the pushed
