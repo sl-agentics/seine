@@ -1050,11 +1050,11 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
 name = "seine-engine"
-version = "0.4.27"
+version = "0.4.28"
 
 [[package]]
 name = "seine-harness"
-version = "0.4.27"
+version = "0.4.28"
 dependencies = [
  "pprof",
  "seine-engine",
@@ -1064,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "seine-py"
-version = "0.4.27"
+version = "0.4.28"
 dependencies = [
  "arrow",
  "arrow-array",
