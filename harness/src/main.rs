@@ -15,6 +15,7 @@ mod canon;
 mod gen;
 mod oracle;
 mod runner;
+mod ser;
 
 use std::process::ExitCode;
 
@@ -47,19 +48,28 @@ fn cmd_run(paths: &[String]) -> ExitCode {
     // parse+build+run+serialize) — the oracle runner emits the same shape,
     // so tools/bench_oracle.py can compare like for like.
     let timed = std::env::var("SEINE_TIME").is_ok();
+    let stdout = std::io::stdout();
     for path in paths {
         let t0 = std::time::Instant::now();
-        let (name, line) = match runner::run_scenario_file(path) {
-            Ok((name, result)) => {
-                let l = serde_json::json!({"scenario": name, "result": result});
-                (name, l)
+        // D-267: serialize the OK path directly from the engine-shaped
+        // parts — no intermediate Value tree. Byte-identical to the old
+        // json! assembly (see ser.rs); errors keep the cold json! path.
+        let mut buf: Vec<u8> = Vec::with_capacity(4096);
+        let name = match runner::run_scenario_file_parts(path) {
+            Ok((name, parts)) => {
+                serde_json::to_writer(&mut buf, &ser::LineOk { name: &name, parts: &parts })
+                    .expect("result serialization");
+                name
             }
             Err((name, e)) => {
                 let l = serde_json::json!({"scenario": name, "error": e});
-                (name, l)
+                serde_json::to_writer(&mut buf, &l).expect("result serialization");
+                name
             }
         };
-        println!("{line}");
+        buf.push(b'\n');
+        use std::io::Write;
+        stdout.lock().write_all(&buf).expect("stdout write");
         if timed {
             eprintln!("TIME {name} {:.3}", t0.elapsed().as_secs_f64() * 1e3);
         }

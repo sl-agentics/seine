@@ -7,6 +7,11 @@ use serde_json::{json, Map, Value as J};
 const FIRE_LIMIT: usize = 100_000;
 
 pub fn run_scenario_file(path: &str) -> Result<(String, J), (String, String)> {
+    run_scenario_file_parts(path)
+        .map(|(name, parts)| { let v = parts.to_value(); (name, v) })
+}
+
+pub fn run_scenario_file_parts(path: &str) -> Result<(String, RunParts), (String, String)> {
     let text = std::fs::read_to_string(path)
         .map_err(|e| (path.to_string(), format!("cannot read {path}: {e}")))?;
     let sc: J = serde_json::from_str(&text)
@@ -19,7 +24,34 @@ pub fn run_scenario_file(path: &str) -> Result<(String, J), (String, String)> {
     run_scenario(&sc).map(|r| (name.clone(), r)).map_err(|e| (name, e))
 }
 
-fn run_scenario(sc: &J) -> Result<J, String> {
+/// The engine-shaped result pieces, before any JSON assembly. One
+/// producer, two consumers: cmd_run serializes DIRECTLY (D-267, no
+/// Value tree); diff/fuzz build the comparison Value via to_value().
+pub struct RunParts {
+    pub facts: Vec<FactView>,
+    pub firings: Vec<seine_engine::Firing>,
+    pub queries: Vec<J>,
+}
+
+impl RunParts {
+    /// The pre-D-267 Value assembly, byte/structure-identical — the
+    /// judge's comparison shape.
+    pub fn to_value(&self) -> J {
+        json!({
+            "facts": self.facts.iter().map(fact_view_to_json).collect::<Vec<J>>(),
+            "firings": self.firings
+                .iter()
+                .map(|f| json!({
+                    "rule": f.rule,
+                    "matches": f.matches.iter().map(fact_view_to_json).collect::<Vec<J>>(),
+                }))
+                .collect::<Vec<J>>(),
+            "queries": self.queries,
+        })
+    }
+}
+
+fn run_scenario(sc: &J) -> Result<RunParts, String> {
     let schemas = parse_types(sc.get("types").ok_or("scenario missing 'types'")?)?;
     let mut engine = Engine::new(schemas).map_err(|e| e.to_string())?;
     // CEP E1/E2: type-level event metadata. `expires_ms` is OPTIONAL
@@ -153,17 +185,7 @@ fn run_scenario(sc: &J) -> Result<J, String> {
         run_query_calls(&mut engine, queries, &mut queries_out)?;
     }
 
-    Ok(json!({
-        "facts": engine.facts().iter().map(fact_view_to_json).collect::<Vec<J>>(),
-        "firings": firings
-            .iter()
-            .map(|f| json!({
-                "rule": f.rule,
-                "matches": f.matches.iter().map(fact_view_to_json).collect::<Vec<J>>(),
-            }))
-            .collect::<Vec<J>>(),
-        "queries": queries_out,
-    }))
+    Ok(RunParts { facts: engine.facts(), firings, queries: queries_out })
 }
 
 fn run_query_calls(

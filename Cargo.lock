@@ -735,6 +735,7 @@ name = "seine-harness"
 version = "0.4.27"
 dependencies = [
  "seine-engine",
+ "serde",
  "serde_json",
 ]
 

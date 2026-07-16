@@ -16,10 +16,12 @@ binding-divergence family PORTED — the arc is CLOSED; D-258..261
 PUSHED (Bryan-directed, `9c4e23a..4fa7c37`); D-262 committed local,
 Bryan holds pushes)._
 
-**ACTIVE: the O(N²) hunt (D-266, Bryan's 10x-at-10k target) — slab 1
-LANDED (3.6x harness / bindings ≈ Drools parity; all-2028 byte-gate);
-slab 2 = harness serializer + render path (~110+45ms mapped) if the
-harness-surface 10x is wanted. Otherwise no active build.** The binding-divergence
+**The O(N²) hunt: slabs 1+2 LANDED (D-266 engine quadratics + D-267
+harness serializer) — join_10000 919→~110ms (8.4x), engine BEATS warm
+Drools everywhere at scale except the 10k join (1.3x behind, was
+10.4x). Strict 10x is ~15-25ms of diffuse residue (renders /
+evaluate_rule bookkeeping / scenario parse) — Bryan's call whether to
+chase it. Otherwise no active build.** The binding-divergence
 arc closed (D-260 recon, D-261 lane 2, D-262 lane 1): eager_flush at
 the sibling-continue + the salience-ordered halt-check peek walk
 (stops at the first live item; no lazy batch order pinned —
@@ -14561,3 +14563,45 @@ reproduced), then the render path. Engine + harness + scenarios.
 Not pushed.
 — Bryan directed the target; the engine edits rode the all-scenarios
 byte-identity gate per the D-257 pure-optimization protocol.
+
+## D-267 — the O(N²) hunt, slab 2: the harness Value-tree serializer dies — join_10000 919→~110ms (8.4x); the engine now BEATS warm Drools on every scale workload except the 10k join (1.3x, was 10.4x); harness-only, engine byte-untouched (2026-07-15)
+
+Slab 2 of Bryan's 10x target. ONE change: cmd_run no longer builds a
+serde_json Value tree (BTreeMap maps, per-field String keys, a second
+pass to stringify) — `harness/src/ser.rs` serializes the engine-shaped
+RunParts (facts / firings / queries) STRAIGHT to bytes via custom
+serde impls. Byte-exactness is reproduced explicitly: alphabetical key
+emission everywhere (what the BTreeMap did implicitly), last-write-
+wins on duplicate keys (a user field literally named "value" vs the
+elems array), json!'s NaN/inf→null, decimals via dec_render, all leaf
+formatting through serde_json's own Serializer (escaping + ryu f64
+identical by construction), SEINE_HANDLES __h read once via OnceLock.
+One producer, two consumers: run_scenario now returns RunParts;
+cmd_run serializes directly; diff/fuzz keep the OLD Value assembly
+(RunParts::to_value, verbatim the previous json! block) so the
+judge's comparison shape is untouched. A permanent unit test
+(ser::tests::direct_matches_value_tree) pins the two paths byte-equal
+on the corners the corpus gate may not exercise under every env
+(__h, elems, dup-"value", NaN, Dec). Rejected: thin LTO +
+codegen-units=1 measured 0.3% — not worth the build-time cost.
+
+RECEIPTS: all-2028-scenarios engine output BYTE-IDENTICAL to the
+D-266 state; make diff 11/1209/404 + drift 37 identical; cargo test
+53/0 (the new equivalence test rides); engine crate UNTOUCHED this
+slab (no bindings rebuild needed).
+
+NUMBERS (tools/bench_oracle.py --scale, 3 passes): join_10000
+engine ~106-116ms (from 919 pre-D-266 = **8-8.7x**; slab 2 alone
+257→116). vs warm Drools: the engine now WINS every scale cell
+except join_10000 — acc_1000 21x, alpha_1000 12x, acc_5000 5x,
+join_5000 36 vs 52ms, alpha_10000 32 vs 39ms; join_10000 106 vs 82ms
+= 1.3x behind (was 10.4x). Scale-suite median: engine 3x FASTER
+than warm Drools.
+
+TARGET STATUS: the strict 10x (92ms) is ~15-25ms away; the mapped
+residue is diffuse — firing-record renders (~15ms of per-field
+String clones in store.render; a fix touches the public FactView
+shape), evaluate_rule per-pop bookkeeping, scenario-JSON parse.
+Diminishing returns; Bryan's call whether the last fraction matters
+— the product surface (bindings, no harness JSON at all) was already
+at parity after slab 1. Not pushed.
