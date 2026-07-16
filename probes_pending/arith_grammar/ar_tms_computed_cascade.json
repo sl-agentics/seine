@@ -1,0 +1,68 @@
+{
+ "name": "ar_tms_computed_cascade",
+ "drl": "rule \"S1\"\nwhen\n    A($k : k)\nthen\n    insertLogical(new U($k + 1));\nend\nrule \"S2\"\nwhen\n    U($v : v)\nthen\n    insertLogical(new V($v + 1));\nend\nrule \"WGone\"\nwhen\n    P(tag == \"e1\")\n    not U()\n    not V()\nthen\nend\nrule \"WAlive\"\nwhen\n    P(tag == \"e1\")\n    V($w : w)\nthen\nend\n",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "V",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "k": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "tag": "e1"
+     }
+    }
+   ]
+  }
+ ]
+}

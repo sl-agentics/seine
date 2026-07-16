@@ -1,0 +1,90 @@
+{
+ "name": "ar_tms_computed_dedup",
+ "drl": "rule \"R1\"\nwhen\n    A($k : k)\nthen\n    insertLogical(new U($k + 1));\nend\nrule \"R2\"\nwhen\n    B($k : k)\nthen\n    insertLogical(new U($k + 1));\nend\nrule \"W1\"\nwhen\n    P(tag == \"e1\")\n    U($v : v)\nthen\nend\nrule \"W2\"\nwhen\n    P(tag == \"e2\")\n    U($v : v)\nthen\nend\nrule \"W2N\"\nwhen\n    P(tag == \"e2\")\n    not U()\nthen\nend\n",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "k": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "tag": "e1"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "tag": "e2"
+     }
+    }
+   ]
+  }
+ ]
+}

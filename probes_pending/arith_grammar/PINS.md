@@ -85,3 +85,20 @@ fixed upstream) and draft an upstream report if not.
    (arithmetic unlocks unbounded justification chains).
 4. Rendering: oracle emits Infinity/NaN as JSON strings in fact output;
    our serializer emits null — must be pinned before any byte gate.
+
+## C. Tier-boundary probes (D-282; the shippability question)
+
+| probe | pin |
+|---|---|
+| ar_fl_runaway_computed | runaway computed PLAIN-insert chain → oracle errors "fire limit 100000 reached (non-terminating?)" — the D-013/j21 parity clause (both-sides-fire-limit = agreement) already covers the differential; no hang |
+| ar_tms_runaway_logical | runaway computed LOGICAL chain → same clean fire-limit error (oracle-side; the unbounded tier stays walled in-engine regardless) |
+| ar_tms_computed_dedup | `insertLogical(new U($k + 1))` from two premises = TWO justifications on ONE value-keyed belief: delete premise 1 → U survives (W1 fired); delete premise 2 → U retracts (W2N fired). Computed values are ordinary TMS values |
+| ar_tms_computed_cascade | 2-stratum computed chain U($k+1) → V($v+1): deleting the root retracts the whole chain (WGone fired, WAlive silent) |
+
+Tier plan confirmed by probe: Tier 1 (computed args on plain `insert`)
+creates no justification chains — no D-076 exposure at all; fire-limit
++ D-117 spin guard govern generation. Tier 2 (computed `insertLogical`
+behind a stratification CompileError) keeps chain depth rule-count-
+bounded, preserving the recursive cascade's existing safety argument.
+Unbounded (cyclic computed logical) waits for the D-076 iterative
+rewrite.

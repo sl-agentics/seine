@@ -15164,3 +15164,22 @@ the surface, re-adjudication on any oracle bump (may already be fixed
 upstream — the D-263 resolved-upstream path), and an upstream draft if
 not. PINS.md updated. No engine change (nothing to change yet — the
 grammar is unbuilt); ruling recorded so the port inherits it.
+
+## D-282 — the tier plan holds by probe: RHS computed insert args ship WITHOUT the D-076 rewrite — plain-insert tier has no cascade exposure; stratified-logical tier keeps the rule-count bound; fire-limit parity already covers runaway chains (2026-07-16)
+
+Bryan's question ("can it ship bounded, behind the existing
+fire-limit?") answered by four probes (probes_pending/arith_grammar/,
+timeout-guarded singles for the runaways): (1) runaway computed chains
+— plain AND logical — hit the oracle's fire limit CLEANLY with the
+exact "fire limit" error string the D-013/j21 judge parity clause
+already treats as agreement; no JVM hang. (2) Computed-value
+insertLogical is ORDINARY value-keyed TMS: two premises deriving
+U($k+1) = two justifications on one belief (survives first delete,
+dies with last); cascades retract computed chains completely. The
+D-076 prerequisite therefore scopes to the UNBOUNDED tier only (cyclic
+computed logical — teardown stack depth), NOT to the feature: Tier 1
+(plain insert) creates no justifications; Tier 2 (stratification
+CompileError on cycles through computed-logical edges, the D-222 lint
+shape) preserves the recursive cascade's existing rule-count bound
+verbatim. Bryan directed: probes first (this entry), then the gated
+Tier 1 port (next). PINS.md §C.
