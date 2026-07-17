@@ -146,6 +146,14 @@ docs-lint (no D-numbers in public docstrings) does.
 - **Collect-order latent family**: xf_fz_662607_47 + fz_4649_1144
   class (SetCollection/collectList element ORDER, pre-existing, no
   computed args). Own triage someday; drift bank carries them.
+- **xf_fz_606060_555 + xf_min_606060_555** (D-291 fuzz flush,
+  bisected PRE-EXISTING — pre/post-D-291 engines byte-identical on
+  the min repro): FIRE-COUNT divergence (oracle 8, engine 6) on a
+  3-rule shape — acc(sum) + bare join + acc(count) rule, a
+  setFocus+insert rule, an agenda-group not-CE rule; ZERO
+  arithmetic. Smells D-106-adjacent (agenda/focus × accumulate
+  re-eval), NOT the collect-order class. Min witness is
+  drift-banked; own triage someday.
 - **Open divergences in xfail/** (all bisect-verified pre-existing):
   xf_fz_31415_774, xf_fz_62831_359, xf_fz_141421_123,
   xf_fz_141421_1206 — plus the older ledger (fz_7331_973 etc.).
