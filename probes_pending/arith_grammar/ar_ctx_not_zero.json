@@ -1,0 +1,30 @@
+{
+ "name": "ar_ctx_not_zero",
+ "drl": "rule \"NotZ\"\nwhen\n    not N(k / z > 0)\nthen\nend\nrule \"NotZMiss\"\nwhen\n    not N(k / z < 0)\nthen\nend\nrule \"Sent\"\nwhen\n    N(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "N",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "N",
+   "fields": {
+    "k": 7,
+    "z": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

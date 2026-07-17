@@ -328,3 +328,28 @@ Shipped as §F implied, plus the two hardening requirements:
   (xf_fz_606060_555, acc/setFocus/agenda-group latent family).
 - Re-adjudicate the whole §F table on any oracle bump (jit behavior
   is engine-version-specific).
+
+## G. The fenced contexts, probed (ar_ctx_*, 5 probes, 3×-stable — D-292)
+
+Bryan's scope check after D-291: the not/exists, accumulate-source,
+group, and query fences were walls of IGNORANCE (loud, doctrine-legal,
+unprobed). Measured now — **the mode-1 model is CONTEXT-INVARIANT**:
+
+| probe | pin |
+|---|---|
+| ar_ctx_not_exists | `not T(k / 2 == 3)` blocks at k=7 (narrow 3==3 matches); `not (== 4)` fires; exists mirrors — the cell semantics compose into CEs unchanged |
+| ar_ctx_not_zero | `not N(k / z > 0)` at z=0 BLOCKS ((long)+Inf = MAX > 0 matches inside the CE); `not (< 0)` fires — the narrowing cast reaches through negation |
+| ar_ctx_acc | source-pattern division filters the accumulate: k∈{7,6,9} → quotients {3,3,4} → count()==2 and sum==13 both fire |
+| ar_ctx_group | `k / 2 == 3 \|\| k == 0` fires (left disjunct); `== 4 \|\|` silent; `!(k / 2 > 3)` fires — same cells inside `\|\|`/`!` composites |
+| ar_ctx_query | `query qdiv() $t : T(k / 2 == 3)` returns exactly the k=7 row (k=9's quotient 4 excluded) |
+
+No build errors, no context-specific coercion anywhere: the walls sit
+on MODEL-CONSISTENT ground — they are scope cuts, not divergence
+covers. Lifting any of them is ordinary Bryan-gated port work (the
+join-level eval paths already handle Test::Arith; not/exists is a
+compile-arm allowance; groups need AExpr inside the GExpr grammar;
+queries need queries.rs plumbing), and the D-291 agree-subset
+restrictions + mode-1 residency precondition would carry over
+unchanged (the jit race lives in the same constraint machinery
+regardless of context). Probes stay here as engine_fenced recon —
+the walls must keep rejecting until a lift is gated.

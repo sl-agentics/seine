@@ -11,14 +11,16 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-291 (LHS ARITHMETIC LANDED — the
-agree-subset port, mode-1 residency logged as precondition, volume
-detector live). The boundary-redraw arc is now: updates DONE
-(D-287/288/289), swamp DONE (D-290 map → D-291 port). 5 local
-commits atop v0.4.32/8b3210b, UNPUSHED. NEXT = queue (3) D-076
-iterative cascade → unbounded tier, (4) authoring sugar (owns the
-stale `_rhs_arg` wall message, the D-289 SalExpr-skip removal, and
-now LHS-arith authoring surface). **COLD-START =
+_Last updated: 2026-07-16, post-D-292. The boundary-redraw arc:
+updates DONE (D-287/288/289), swamp DONE (D-290 map → D-291
+agree-subset port, mode-1 residency precondition + volume detector),
+fenced contexts PROBED (D-292: not/exists, acc sources, groups,
+queries all MODEL-CONSISTENT — the walls are scope cuts, not
+divergence covers; PINS.md §G). Pushed through 4cb325d
+(Bryan-directed); D-292 is a local probes+docs commit. NEXT = queue
+(3) D-076 iterative cascade → unbounded tier, (4) authoring sugar
+(owns the stale `_rhs_arg` wall message, the D-289 SalExpr-skip
+removal, and the LHS-arith authoring surface). **COLD-START =
 `probes_pending/arith_grammar/HANDOFF.md`**._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
@@ -15803,3 +15805,27 @@ oracle bump re-adjudicates §F (jit behavior is version-specific);
 (both modes throw — deferred, not doctrine); authoring.py cannot
 express LHS arithmetic yet (queue item 4 owns the sugar + its two
 recorded refreshes). Committed local; no push.
+
+## D-292 — the fenced contexts probed (Bryan's scope check): LHS division inside not/exists, accumulate sources, groups, and queries is MODEL-CONSISTENT — the D-291 walls are scope cuts, not divergence covers (2026-07-16)
+
+Bryan: "so we haven't probed lhs division on not/exists, accumulate
+sources, groups, queries?" Correct — every D-290/D-291 cell sat on
+positive plain patterns; those fences were walls of ignorance.
+Measured now: 5 oracle probes (ar_ctx_*, 3×-stable, predictions
+written first, 12/12 cells hit). The mode-1 model (double quotient +
+(long) narrowing by comparand class) is CONTEXT-INVARIANT: the
+narrowing cast reaches through `not` (z=0 blocks via (long)+Inf=MAX >
+0 INSIDE the CE), source-pattern division filters accumulates
+(quotients {3,3,4} from k∈{7,6,9} → count 2, sum 13), `||`/`!`
+composites and query bodies carry the same cell values. No build
+errors, no context-specific coercion.
+
+Consequence for the record: the D-291 fences on these contexts are
+pure SCOPE CUTS on now-probed, model-consistent ground. Lifting any
+is ordinary gated port work (allowed/allowed_ce already evaluate
+Test::Arith; not/exists = a compile-arm allowance; groups = AExpr
+inside GExpr; queries = queries.rs plumbing), with the agree-subset
+restrictions and the mode-1 residency precondition carrying over
+unchanged. Probes stay engine_fenced in the recon dir (lint 44/0/0 —
+the walls keep rejecting until a lift is gated). PINS.md §G.
+Probes+docs only; engine untouched. Committed local; no push.

@@ -1,0 +1,25 @@
+{
+ "name": "ar_ctx_not_exists",
+ "drl": "rule \"NotDiv\"\nwhen\n    not T(k / 2 == 3)\nthen\nend\nrule \"NotDivMiss\"\nwhen\n    not T(k / 2 == 4)\nthen\nend\nrule \"ExDiv\"\nwhen\n    exists T(k / 2 == 3)\nthen\nend\nrule \"ExDivMiss\"\nwhen\n    exists T(k / 2 == 4)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

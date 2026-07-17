@@ -1,0 +1,25 @@
+{
+ "name": "ar_ctx_group",
+ "drl": "rule \"GrpOr\"\nwhen\n    T(k / 2 == 3 || k == 0)\nthen\nend\nrule \"GrpOrMiss\"\nwhen\n    T(k / 2 == 4 || k == 0)\nthen\nend\nrule \"GrpNot\"\nwhen\n    T(!(k / 2 > 3))\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

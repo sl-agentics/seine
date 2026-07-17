@@ -1,0 +1,67 @@
+{
+ "name": "ar_ctx_acc",
+ "drl": "rule \"AccCnt\"\nwhen\n    accumulate( T(k / 2 == 3); $c : count() )\n    U(u == $c)\nthen\nend\nrule \"AccSum\"\nwhen\n    accumulate( T(k / 2 == 3, $s : k); $a : sum($s) )\n    V(v == $a)\nthen\nend\nrule \"Sent\"\nwhen\n    U(u == 2)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "u",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "V",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 6
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 9
+   }
+  },
+  {
+   "type": "U",
+   "fields": {
+    "u": 2
+   }
+  },
+  {
+   "type": "V",
+   "fields": {
+    "v": 13
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

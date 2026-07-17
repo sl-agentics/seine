@@ -1,0 +1,37 @@
+{
+ "name": "ar_ctx_query",
+ "drl": "query qdiv()\n    $t : T(k / 2 == 3)\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 9
+   }
+  }
+ ],
+ "queries": [
+  {
+   "call": "qdiv",
+   "args": []
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}
