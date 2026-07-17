@@ -1,0 +1,30 @@
+{
+ "name": "ar_upd_narrowing_wall",
+ "drl": "rule \"Narrow\"\nwhen\n    $c : C($d : d, k == 0)\nthen\n    modify($c) { setK($d + 0.5) }\nend\n",
+ "types": [
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "k": 0,
+    "d": 1.5
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

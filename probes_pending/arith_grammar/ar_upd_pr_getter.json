@@ -1,0 +1,30 @@
+{
+ "name": "ar_upd_pr_getter",
+ "drl": "rule \"Inc\"\nwhen\n    $c : C(a > 0)\nthen\n    modify($c) { setB($c.getB() + 1) }\nend\nrule \"Down\"\nwhen\n    C(b == 1)\nthen\nend\n",
+ "types": [
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    },
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "a": 1,
+    "b": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

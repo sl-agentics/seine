@@ -5,6 +5,8 @@ record: **the match grammar never grows a Java or MVEL interpreter** —
 it may grow certified arithmetic). 25 probes in this directory,
 oracle-only (`seine-harness oracle`), each batch run 3× byte-identical.
 The engine parses none of these DRLs today — that is the point.
+(§E adds the 18-probe ar_upd_* round: updates/setters with
+computation, the D-231 re-examination.)
 
 ## A. RHS arithmetic (insert args): CLEAN JAVA, certifiable
 
@@ -116,3 +118,86 @@ left-assoc promotes at the FIRST op). The engine's CExpr carries a
 per-node ArithTy {I32, I64, F64} computed at compile with exactly
 javac's promotion. Graduated regressions: fz_577215_1014 (plain
 insert), fz_577215_270 (computed insertLogical).
+
+## E. Updates/setters with computation (ar_upd_*, 18 probes, 3×-stable — the D-231 re-examination)
+
+All engine_fenced (17 by the rhs_arg atom wall, ar_upd_same_value_runaway
+by both-sides fire limit — its shape is atom-only and legal TODAY).
+Runaways + error walls run as timeout-guarded singles, never batched.
+
+### E1. Setter args are the SAME clean Java as insert args
+
+| probe | pin |
+|---|---|
+| ar_upd_java_int | in setter position the §D ArithTy lattice holds verbatim: `setW(2000000000 + 2000000000)` → **-294967296** (int wrap, widened to long); `setD($x / 2)` x=7 → 3; `setR(-7 % 3)` → -1; `setP($x + 2000000000 + 2000000000)` → **4000000007** (left-assoc promotes at the first op) |
+| ar_upd_dbl | `setA($x / 2.0)` → 3.5; `setB(0.1 + 0.2)` → 0.30000000000000004; `setI(1.0 / 0.0)` → Infinity, rendered as the JSON **string "Infinity"** (the D-283 serializer pins already cover this path) |
+| ar_upd_div_zero | `setN($n / 0)` → **ConsequenceException: java.lang.ArithmeticException: / by zero** at fire — the D-283 judge parity clause covers it |
+| ar_upd_narrowing_wall | `setK($d + 0.5)` k:long → **BUILD error** "The method setK(long) in the type C is not applicable for the arguments (double)" — javac assignability, the mirror of D-283's compile rule (computed f64 cannot narrow into i64) |
+
+### E2. Eval sources — the fz_7_2525 law composes into arithmetic
+
+| probe | pin |
+|---|---|
+| ar_upd_snap_bind | `setK(100); setM($k + 1);` k=5 → **m=6** — a BINDING inside arithmetic is the consequence-entry SNAPSHOT |
+| ar_upd_getter_live | `setK(100); setM($p.getK() + 1);` → **m=101** — a GETTER reads LIVE, sees the just-set value |
+| ar_upd_mix_snap_live | `setM($k + $p.getK())` after setK(100) → **m=105** — both sources compose in ONE expression (the out-of-sample prediction cell: predicted, then measured) |
+| ar_upd_block_seq | `modify($p) { setK(100), setM($p.getK() + 1), setW($k + 1) }` → m=101, w=6 — the modify block is sugar for SEQUENTIAL statements; bindings stay snapshot inside it |
+
+Engine mirror already exists: `Src::SnapField` (bindings) vs
+`Src::Field` (getters), and `CExpr::Atom` reuses `Src` — the computed
+port inherits the certified two-source model with no new machinery.
+
+### E3. The mask model
+
+| probe | pin |
+|---|---|
+| ar_upd_form_parity | modify-block and setter+update are behaviorally IDENTICAL with computed args (m=16 both facts, one fire each, no loops) — the oracle property-masks a bare `update()` from the setters textually preceding it, exactly the engine's pending-mask model |
+| ar_upd_same_value_runaway | `C(n == 0) => modify { setN(0) }` → **fire limit** — the mask is DECLARED (setters-called), never value-diffed. ATOM-only: this runaway is in-subset TODAY, on both sides |
+
+(Completing pins from the standing record: bare update with NO setters
+= ALL-SET mask, class-reactive, refires even empty-listen patterns —
+fz_42_3311/j13; EXTERNAL update = CHANGED-FIELDS mask — D-047.)
+
+### E4. Re-trigger algebra — the D-231 hazard, mapped
+
+| probe | pin |
+|---|---|
+| ar_upd_pr_getter | `C(a > 0) => modify { setB($c.getB() + 1) }` → fires ONCE, b=1; watcher on b==1 fires after. Getter reads do NOT listen; **written ∩ own-listened = ∅ ⇒ self-modify terminates** (statically decidable) |
+| ar_upd_pr_bind_runaway | same increment but with `$b : b` BOUND in the LHS → **fire limit**. Bound fields ARE listened (the engine's line-3956 model, oracle-confirmed) |
+| ar_upd_bounded_counter | `C($n : n, n < 5) => modify { setN($n + 1) }` → exactly **5 fires**, n=5 — guard falsification terminates the listened case, but the bound is DYNAMIC (not statically checkable) |
+| ar_upd_noloop_self | no-loop + `setN($n + 1)` unguarded → **1 fire, n=1** — no-loop suppresses the rule's OWN re-activation |
+| ar_upd_noloop_pingpong | two no-loop rules both incrementing n → **fire limit** — no-loop never blocks cross-rule cycles |
+| ar_upd_setter_arith | cross-fact computed modify: `A($x : x) C(n == 0) => modify($c) { setN($x * 2 + 1) }` → n=15, one fire, downstream watcher fires — the USEFUL case (computed value feeds a different rule's LHS) is ordinary propagation |
+
+### E5. TMS + no-propagation edges
+
+| probe | pin |
+|---|---|
+| ar_upd_tms_rederive | RHS computed modify drives re-derivation exactly like the external-update pin (pr_ar_tms_update_rederive): Derive→U(2), W2, Bump modifies A.k 1→5, Derive RE-FIRES → U(6) justified and **U(2) refire-superseded** (retracted); W6 fires; final = U(6) only |
+| ar_upd_set_no_update | setter with NO update(): object mutated (final view m=15) but **zero propagation** — the watcher never fires. Oracle serializer and engine store agree by construction |
+
+### The port shape §E implies (Bryan-gated, NOT started)
+
+1. Grammar: both setter sites (`modify` body + standalone `$p.setX(...)`)
+   move from `rhs_arg` to `rhs_expr`; `CompiledAction::Set.arg` becomes
+   CExpr. D-283's compile_cexpr/eval_cexpr apply VERBATIM (same snapshot
+   plumbing, same ArithTy, same assignability CompileError mirroring the
+   oracle's build error).
+2. The D-231 WONT decomposes on this evidence: the imperative-loop
+   hazard is the SELF-FEEDING shape (written ∩ own-listened ≠ ∅), and it
+   is reachable TODAY with atom args (ar_upd_same_value_runaway) —
+   computed args add expressiveness, not the hazard. The discriminator
+   is static, per rule, at compile. Options: (a) no new restriction
+   (fire limit + D-117 spin guard govern, as for atom modifies today);
+   (b) authoring-lint steering on self-feeding computed setters (D-222
+   voice); (c) CompileError — noting atoms stay legal, so a computed-only
+   wall is asymmetric.
+3. Cross-rule modify cycles stay fire-limit-governed for atoms today; an
+   update-edge cycle check (the D-284 stratification shape over
+   written→listened edges) is available if parity with the logical tier
+   is wanted.
+4. Nothing new for serializer/judge: Infinity strings, "/ by zero", and
+   fire-limit parity all landed with D-283.
+5. No parser distinction between the two syntactic forms (E3).
+6. Post-port fuzz: extend the gen.rs modify emission with computed
+   setter args under the existing guard-field discipline.

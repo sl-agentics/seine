@@ -35,24 +35,29 @@ mechanism report → gate → port → full battery, per [[seine-workflow]].
 
 ## THE QUEUE (Bryan's stated order: updates next)
 
-### 1. Updates/setters with computation — D-231's core, NOT yet probed
+### 1. Updates/setters with computation — PROBED (D-287), AT BRYAN'S GATE
 
-Bryan sequenced this immediately after insertLogical. D-231 ruled
-modify-with-computation WONT because self-referential counters
-(`modify($c){ setN($c.getN() + 1) }`) are imperative loops. The
-re-examination needs its own probe round FIRST:
-- What Drools does with `$p.setX($a + 1); update($p)` — arithmetic in
-  SETTER args (the engine's Action::Set arg is still atom-only).
-- The no-loop/property-reactivity interaction when the computed value
-  feeds the rule's own LHS (the loop hazard D-231 named) vs a
-  DIFFERENT rule's LHS (the useful case).
-- Whether a narrower opening exists: computed setter args allowed
-  when the rule cannot re-trigger itself (a static check like the
-  stratification pass — "self-feeding computed modify" = the D-222
-  lint shape again).
-- Fire-limit as the backstop, same as Tiers 1/2 (D-282 showed the
-  parity clause covers runaway loops).
-Probes go in this directory (ar_upd_*); oracle 3×; PINS.md gets a §E.
+Probe round DONE 2026-07-16: 18 ar_upd_* probes in this directory,
+3×-stable, 18/18 predictions hit — PINS.md §E is the record, D-287
+the log entry. Answers to the four questions this section asked:
+- Setter args are the SAME clean Java as insert args (ArithTy §D
+  verbatim; narrowing = build error; div0 = parity shape). Bindings
+  snapshot / getters live composes into arithmetic (fz_7_2525 law).
+- The loop hazard is EXACTLY the self-feeding shape: written ∩
+  own-listened ≠ ∅ (bound fields count as listened; getter reads do
+  not). Self-modify of an unlistened field terminates WITHOUT
+  no-loop; the useful case (feeding another rule's LHS) is ordinary.
+- The narrower opening EXISTS and is static: per-rule compile check
+  on written ∩ own-listened; note the hazard shape is atom-legal
+  TODAY (ar_upd_same_value_runaway), so a computed-only wall is
+  asymmetric. no-loop covers self only, never cross-rule ping-pong.
+- Fire limit backstops every runaway cleanly (parity clause).
+BRYAN DECIDES the restriction level: (a) none / (b) authoring lint /
+(c) CompileError on self-feeding computed setters, ± the update-edge
+cycle check (D-284 stratification shape). Port shape in PINS.md §E
+(mechanical: rhs_arg → rhs_expr both setter sites, Set carries CExpr,
+D-283 machinery verbatim; fuzz = computed setter args under the
+guard-field discipline). Full engine battery applies when ported.
 
 ### 2. LHS constraint arithmetic — the coercion swamp (D-280 §B)
 

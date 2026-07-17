@@ -1,0 +1,40 @@
+{
+ "name": "ar_upd_setter_arith",
+ "drl": "rule \"Compute\"\nwhen\n    A($x : x)\n    $c : C(n == 0)\nthen\n    modify($c) { setN($x * 2 + 1) }\nend\nrule \"Watch\"\nwhen\n    C(n == 15)\nthen\nend\n",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "x",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "x": 7
+   }
+  },
+  {
+   "type": "C",
+   "fields": {
+    "n": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

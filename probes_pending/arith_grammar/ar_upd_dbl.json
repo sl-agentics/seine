@@ -1,0 +1,45 @@
+{
+ "name": "ar_upd_dbl",
+ "drl": "rule \"Dbls\"\nwhen\n    $c : C(g == true, $x : x)\nthen\n    modify($c) { setG(false), setA($x / 2.0), setB(0.1 + 0.2), setI(1.0 / 0.0) }\nend\n",
+ "types": [
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "g",
+     "type": "bool"
+    },
+    {
+     "name": "x",
+     "type": "i64"
+    },
+    {
+     "name": "a",
+     "type": "f64"
+    },
+    {
+     "name": "b",
+     "type": "f64"
+    },
+    {
+     "name": "i",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "g": true,
+    "x": 7,
+    "a": 0.0,
+    "b": 0.0,
+    "i": 0.0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

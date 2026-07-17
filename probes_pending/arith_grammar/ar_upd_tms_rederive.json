@@ -1,0 +1,54 @@
+{
+ "name": "ar_upd_tms_rederive",
+ "drl": "rule \"Derive\"\nsalience 10\nwhen\n    A($k : k)\nthen\n    insertLogical(new U($k + 1));\nend\nrule \"W2\"\nsalience 8\nwhen\n    U(v == 2)\nthen\nend\nrule \"W6\"\nsalience 8\nwhen\n    U(v == 6)\nthen\nend\nrule \"Bump\"\nsalience 5\nwhen\n    G(t == true)\n    $a : A(tag == 0)\nthen\n    modify($a) { setK($a.getK() + 4) }\nend\n",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "G",
+   "fields": [
+    {
+     "name": "t",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "U",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "k": 1,
+    "tag": 0
+   }
+  },
+  {
+   "type": "G",
+   "fields": {
+    "t": true
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

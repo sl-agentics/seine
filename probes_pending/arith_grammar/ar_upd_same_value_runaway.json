@@ -1,0 +1,25 @@
+{
+ "name": "ar_upd_same_value_runaway",
+ "drl": "rule \"Same\"\nwhen\n    $c : C(n == 0)\nthen\n    modify($c) { setN(0) }\nend\n",
+ "types": [
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "n": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

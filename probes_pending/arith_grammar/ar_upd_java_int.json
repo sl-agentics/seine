@@ -1,0 +1,50 @@
+{
+ "name": "ar_upd_java_int",
+ "drl": "rule \"Ints\"\nwhen\n    $c : C(g == true, $x : x)\nthen\n    modify($c) { setG(false), setW(2000000000 + 2000000000), setD($x / 2), setR(-7 % 3), setP($x + 2000000000 + 2000000000) }\nend\n",
+ "types": [
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "g",
+     "type": "bool"
+    },
+    {
+     "name": "x",
+     "type": "i64"
+    },
+    {
+     "name": "w",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "i64"
+    },
+    {
+     "name": "r",
+     "type": "i64"
+    },
+    {
+     "name": "p",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "g": true,
+    "x": 7,
+    "w": 0,
+    "d": 0,
+    "r": 0,
+    "p": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

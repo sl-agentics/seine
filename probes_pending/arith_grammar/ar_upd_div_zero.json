@@ -1,0 +1,25 @@
+{
+ "name": "ar_upd_div_zero",
+ "drl": "rule \"Dz\"\nwhen\n    $c : C($n : n, n == 7)\nthen\n    modify($c) { setN($n / 0) }\nend\n",
+ "types": [
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "n": 7
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

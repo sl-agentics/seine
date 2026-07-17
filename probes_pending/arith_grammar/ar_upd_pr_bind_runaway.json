@@ -1,0 +1,30 @@
+{
+ "name": "ar_upd_pr_bind_runaway",
+ "drl": "rule \"IncB\"\nwhen\n    $c : C(a > 0, $b : b)\nthen\n    modify($c) { setB($b + 1) }\nend\n",
+ "types": [
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    },
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "a": 1,
+    "b": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

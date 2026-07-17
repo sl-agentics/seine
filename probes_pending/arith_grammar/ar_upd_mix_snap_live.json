@@ -1,0 +1,30 @@
+{
+ "name": "ar_upd_mix_snap_live",
+ "drl": "rule \"Mix\"\nwhen\n    $p : P($k : k, k == 5)\nthen\n    $p.setK(100);\n    $p.setM($k + $p.getK());\n    update($p);\nend\nrule \"See\"\nwhen\n    P(k == 100)\nthen\nend\n",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "k": 5,
+    "m": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

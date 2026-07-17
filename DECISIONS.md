@@ -11,14 +11,29 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-286 + v0.4.32 RELEASED (PyPI live;
-D-274..286 all pushed). **COLD-START =
-`probes_pending/arith_grammar/HANDOFF.md`** — the queue: (1) updates/
-setters with computation (Bryan-sequenced next; probe round first),
-(2) LHS constraint arithmetic (the coercion-swamp 2×2 — the div0
-anomaly cell blocks any division port), (3) D-076 iterative cascade →
-unbounded tier, (4) authoring.py computed-args sugar; plus the
-standing ledger (crates.io TP, collect-order latents, derive v2)._
+_Last updated: 2026-07-16, post-D-287 (updates-with-computation PROBE
+ROUND done — **AT BRYAN'S GATE**). Repo: v0.4.32 released/pushed
+(8b3210b); D-287 is probes+docs only, working tree carries the 18 new
+ar_upd_* probes + PINS.md §E + this entry, UNCOMMITTED. **COLD-START =
+`probes_pending/arith_grammar/HANDOFF.md`**._
+
+**D-287 (the gate on the table): updates/setters with computation
+probed — 18 ar_upd_* probes, 3×-stable, 18/18 predictions hit
+(PINS.md §E). The model: setter args = insert args (ArithTy verbatim,
+IEEE, div0 parity, narrowing = BUILD error); bindings snapshot vs
+getters live composes into arithmetic (out-of-sample cell 105 hit);
+both syntactic forms identical; mask is declared-not-diffed; **the
+D-231 hazard is the SELF-FEEDING shape only (written ∩ own-listened
+≠ ∅ — statically decidable per rule), already reachable TODAY with
+atom args**; no-loop blocks self only; fire-limit backstops all
+runaways; TMS re-derivation composes (refire-supersede). Port is
+mechanical (rhs_arg → rhs_expr at both setter sites, Set carries
+CExpr, D-283 machinery verbatim). BRYAN DECIDES: restriction level —
+(a) none (parity with atom modifies), (b) authoring lint, (c)
+CompileError on self-feeding computed setters; ± the update-edge
+cycle check. THEN: queue (2) LHS-swamp 2×2, (3) D-076 iterative,
+(4) authoring sugar; standing ledger (crates.io TP, collect-order
+latents, derive v2).**
 
 **Since D-284: D-285 (the derive CALCULATOR ROW — sin/cos/tan/asin/
 acos/atan/ln/log10/exp/degrees/radians, measured + three-way
@@ -15399,3 +15414,73 @@ there, and pair_candidates' prune geometry still matters at scale) —
 but they are now an OPTIMIZATION, not a capability: nothing about
 ADS-B requires hand-written Rust anymore. Suite 214 → 220; demo
 untouched and green. Committed local; no push.
+
+## D-287 — PROBE ROUND: updates/setters with computation — the D-231 hazard decomposes into a STATIC discriminator (written ∩ own-listened), and the arg semantics are the same clean Java as insert args. Awaiting Bryan's gate; no engine change (2026-07-16)
+
+Queue item 1 of the boundary-redraw handoff (Bryan sequenced updates
+immediately after insertLogical). 18 oracle probes (ar_upd_*,
+probes_pending/arith_grammar/, all 3×-byte-stable; runaways and error
+walls as timeout-guarded singles). PINS.md §E is the record; the
+mechanism model in five parts:
+
+M1 — SETTER ARGS ARE INSERT ARGS: the §D ArithTy lattice holds
+verbatim in setter position (int-literal 32-bit wrap → -294967296;
+long trunc div; dividend-sign %; left-assoc promotion → 4000000007);
+doubles are IEEE with Infinity rendered as the JSON string; `/ by
+zero` throws the D-283 parity shape at fire; narrowing f64→long is a
+BUILD error ("setK(long) not applicable for (double)") — the javac
+assignability rule D-283 already implements for insert args.
+
+M2 — THE fz_7_2525 LAW COMPOSES INTO ARITHMETIC: bindings are
+consequence-entry SNAPSHOTS ($k+1 after setK(100) → 6), getters read
+LIVE ($p.getK()+1 → 101), both compose in one expression (the
+out-of-sample prediction cell: $k + $p.getK() → 105, predicted then
+measured), and the modify block is sugar for sequential statements
+(in-block getter sees the in-block write; in-block binding stays
+snapshot). The engine's Src::SnapField/Src::Field split ALREADY
+encodes this — CExpr::Atom inherits it unchanged.
+
+M3 — MASK MODEL: modify-block and setter+update are behaviorally
+IDENTICAL with computed args (form-parity probe); the mask is
+DECLARED (setters-called), never value-diffed (same-value write to a
+listened field → fire limit — and that runaway is ATOM-ONLY, in-subset
+TODAY, both sides). Standing pins complete the model: bare no-setter
+update = ALL-SET class-reactive (fz_42_3311/j13); external =
+CHANGED-FIELDS (D-047).
+
+M4 — RE-TRIGGER ALGEBRA (the D-231 hazard, mapped): listened = cmp ∪
+BOUND fields (bind-the-incremented-field → fire limit) and getter
+reads do NOT listen — so `C(a > 0) => modify { setB(getB() + 1) }`
+fires ONCE: **self-modify terminates iff written ∩ own-listened = ∅,
+a per-rule compile-time check**. Guard falsification bounds the
+listened case dynamically (the bounded counter fires exactly 5) but
+is not static. no-loop suppresses exactly the rule's own
+re-activation (1 fire) and never cross-rule ping-pong (fire limit).
+The useful case — computed value feeding a DIFFERENT rule's LHS — is
+ordinary propagation.
+
+M5 — TMS: RHS computed modify drives re-derivation exactly like the
+D-284 external-update pin — Derive re-fires on the bumped premise,
+U(6) justified, U(2) refire-superseded and retracted. Setter WITHOUT
+update stays a silent mutation (final view changes, zero
+propagation).
+
+THE GATE QUESTION FOR BRYAN: the port is mechanical (both setter
+sites move rhs_arg → rhs_expr; CompiledAction::Set carries CExpr;
+compile_cexpr/eval_cexpr verbatim, assignability CompileError
+mirroring the oracle's build error; serializer/judge complete since
+D-283). The D-231 WONT decomposes on the evidence: the imperative-
+loop hazard is the SELF-FEEDING shape, it exists TODAY for atom args,
+and computed args add expressiveness, not the hazard. Options on the
+table: (a) no new restriction — fire limit + D-117 spin guard govern,
+exactly as for atom modifies today; (b) authoring-lint steering on
+self-feeding computed setters (D-222 voice); (c) CompileError (noting
+atoms stay legal — a computed-only wall is asymmetric); optionally an
+update-edge cycle check (the D-284 stratification shape) for
+cross-rule ping-pong parity with the logical tier. Post-port fuzz:
+computed setter args under the existing guard-field discipline.
+
+Receipts: 18/18 predictions hit on first contact, 3× stable; lint on
+the dir 41 live / 0 ghosts / 0 inert (all 18 fences hold — 17 parse
+walls + 1 loud fire-limit). Probes-and-docs only; engine, corpus, and
+bindings untouched.

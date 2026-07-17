@@ -1,0 +1,25 @@
+{
+ "name": "ar_upd_noloop_self",
+ "drl": "rule \"IncN\"\nno-loop\nwhen\n    $c : C($n : n)\nthen\n    modify($c) { setN($n + 1) }\nend\n",
+ "types": [
+  {
+   "name": "C",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "C",
+   "fields": {
+    "n": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

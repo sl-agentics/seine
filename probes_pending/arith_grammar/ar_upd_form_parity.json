@@ -1,0 +1,43 @@
+{
+ "name": "ar_upd_form_parity",
+ "drl": "rule \"FormA\"\nwhen\n    $p : P(id == 1, k == 5)\nthen\n    modify($p) { setM($p.getK() * 3 + 1) }\nend\nrule \"FormB\"\nwhen\n    $q : P(id == 2, k == 5)\nthen\n    $q.setM($q.getK() * 3 + 1);\n    update($q);\nend\nrule \"See\"\nwhen\n    P($i : id, m == 16)\nthen\nend\n",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "id": 1,
+    "k": 5,
+    "m": 0
+   }
+  },
+  {
+   "type": "P",
+   "fields": {
+    "id": 2,
+    "k": 5,
+    "m": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

@@ -1,0 +1,30 @@
+{
+ "name": "ar_upd_getter_live",
+ "drl": "rule \"Live\"\nwhen\n    $p : P(k == 5)\nthen\n    $p.setK(100);\n    $p.setM($p.getK() + 1);\n    update($p);\nend\nrule \"See\"\nwhen\n    P(k == 100)\nthen\nend\n",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "k": 5,
+    "m": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}
