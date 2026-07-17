@@ -11,22 +11,26 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-17, mid-slab. **D-076 STEP A LANDED (D-293):
-the recursive TMS teardown is now an order-preserving LIFO worklist**
-(tms_drop_act_deps machine + Tms.cascade_collect; the 8192 assert
-stays, frame-carried; recursion map in
-probes_pending/d076_iterative/RECURSION-MAP.md). Full battery green —
-byte gate 2132 identical, diff 11/1257/406 + drift 46, SD census
-**72 EXACT cell-for-cell** (the order gate), IRD 0-div ×5, fuzz
-2×2000 ×2 clean, cargo 54/pytest 229/demo True/model_ird 31/31/
-agenda_open ×15. **STEP B IN FLIGHT: unbounded-tier probe round**
-(9 ub_* engine_fenced probes in probes_pending/d076_iterative/,
-predictions registered in PINS.md, oracle rounds next — cyclic
-scenarios are GUARDED SINGLES, never batched) → mechanism report →
-**Bryan's GATE** before lifting the D-284 stratification CompileError
-(engine.rs ~2812) / removing the assert. Pushed through 4cb325d;
-local unpushed: f13be11 + handoff + D-293. Queue item 4 (authoring
-sugar) still waits behind this slab._
+_Last updated: 2026-07-17. **D-076 BOTH STEPS' SESSION WORK DONE —
+AT BRYAN'S GATE.** Step A LANDED (D-293): the recursive TMS teardown
+is an order-preserving LIFO worklist (tms_drop_act_deps machine +
+Tms.cascade_collect; 8192 assert stays, frame-carried; map in
+probes_pending/d076_iterative/RECURSION-MAP.md). Battery green: byte
+gate 2132 identical, diff 11/1257/406 + drift 46, **SD census 72
+EXACT cell-for-cell**, IRD 0-div ×5, fuzz 2×2000 ×2 clean, cargo 54 /
+pytest 229 / demo True / model_ird 31/31 / agenda_open ×15. Step B
+PROBED (D-294, 13 ub_* engine_fenced probes, 3×-stable, 8/8
+predictions hit; lint 1989/0/0): fixpoint algebra pins clean
+(dedup-bounded finite cycles, anchors, pending-at-depth, supersede
+re-rooting, ⚖ ungrounded clusters SURVIVE root deletion); THE
+FINDING — **Drools' own teardown recursion StackOverflows ≈[300,400]
+deep** (growth is iterative, 1000 fine; SOE = clean scenario error;
+resource ceiling, no -Xss pinned). **GATE ITEMS: lift the D-284
+CompileError (engine.rs ~2812) + teardown-depth ≤200 residency
+precondition for byte-certification; the 8192 assert goes WITH the
+lift; gen.rs stays acyclic.** Pushed through 4cb325d; local unpushed:
+f13be11 + handoff + D-293 + D-294. Queue item 4 (authoring sugar)
+waits behind the gate._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -15874,3 +15878,44 @@ meant the refactor changed teardown order); fresh fuzz 2×2000 seeds
 293001/293002 both 0-divergence. Engine edit is step A ONLY — no
 semantic change, the stratification wall stays up; the unbounded tier
 (step B) is probed separately and gates with Bryan.
+
+## D-294 — D-076 step B probe round: the fixpoint algebra pins clean, and the oracle's OWN teardown is call-recursive — deep teardowns are oracle-UNOBSERVABLE (2026-07-17)
+
+13 ub_* probes (probes_pending/d076_iterative/, all engine_fenced,
+all timeout-guarded SINGLES, all 3×-byte-stable; predictions
+registered first, 8/8 predicted probes hit exactly). PINS.md carries
+the full tables.
+
+Semantics (§1): bounded fixpoints terminate at the guard, one firing
+per derived value; external root delete tears the whole chain;
+teardown not-unblocks land as ONE quiescence batch (equal-salience
+observers fire in DECL order — teardown propagation order is
+agenda-invisible); multi-justified keys anchor the teardown;
+the D-211 pending model composes at depth (logical value onto a
+stated fact = pending, no re-fire; root delete clears it, the anchor
+chain survives); refire-supersede RE-ROOTS a chain at the
+re-established key; grow/shrink cycles over a FINITE value set
+terminate by value-keyed dedup; ⚖ UNGROUNDED mutual-support clusters
+SURVIVE root deletion (Drools TMS is support-counting, not
+well-founded — the engine's value-keyed act model reproduces this
+naturally).
+
+THE FINDING (§2): chain GROWTH is agenda-iterative (1000 fine) but
+Drools' removeLogicalDependencies teardown RECURSES — external
+teardown completes at 200/300 and StackOverflows at 400/500/1000/9000
+(default JVM stack, no -Xss pinned by the runner: a resource ceiling,
+not a semantic constant; RHS-caused deletes are the same recursion
+class, 300 OK ×3). The SOE is a clean scenario-level error. The
+runaway ceiling re-pin holds: "fire limit 100000 reached" ×3,
+error-vs-error parity (D-013/j21).
+
+Gate items for Bryan (the step-B port shape): (1) lift = the D-284
+CompileError removal + a TEARDOWN-DEPTH RESIDENCY precondition for
+byte-certification (≤200, the stable side of the bracket — D-290
+mode-1-residency precedent); deeper = engine-guaranteed with the
+SOE-vs-success divergence class documented (opposite-polarity
+witnesses, engine outlives oracle); (2) the 8192 assert goes WITH the
+lift (post-lift a legitimate deep fixpoint would false-panic it; the
+worklist already removed the stack it protected) — soft diagnostics
+counter = Bryan's call; (3) gen.rs stays ACYCLIC. Probes+docs only;
+engine untouched this commit. AT BRYAN'S GATE.

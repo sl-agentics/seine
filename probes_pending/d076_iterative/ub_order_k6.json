@@ -1,0 +1,60 @@
+{
+ "name": "ub_order_k6",
+ "drl": "rule \"Grow\"\nwhen\n    T($n : n, n < 6)\nthen\n    insertLogical(new T($n + 1));\nend\nrule \"Obs4\"\nwhen\n    P(tag == \"e1\")\n    not T(n == 4)\nthen\n    insert(new Mark(4));\nend\nrule \"Obs1\"\nwhen\n    P(tag == \"e1\")\n    not T(n == 1)\nthen\n    insert(new Mark(1));\nend\nrule \"Obs6\"\nwhen\n    P(tag == \"e1\")\n    not T(n == 6)\nthen\n    insert(new Mark(6));\nend\nrule \"Obs3\"\nwhen\n    P(tag == \"e1\")\n    not T(n == 3)\nthen\n    insert(new Mark(3));\nend\nrule \"Obs2\"\nwhen\n    P(tag == \"e1\")\n    not T(n == 2)\nthen\n    insert(new Mark(2));\nend\nrule \"Obs5\"\nwhen\n    P(tag == \"e1\")\n    not T(n == 5)\nthen\n    insert(new Mark(5));\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Mark",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "n": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "tag": "e1"
+     }
+    }
+   ]
+  }
+ ],
+ "engine_fenced": true
+}

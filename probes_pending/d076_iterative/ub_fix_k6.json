@@ -1,0 +1,25 @@
+{
+ "name": "ub_fix_k6",
+ "drl": "rule \"Grow\"\nwhen\n    T($n : n, n < 6)\nthen\n    insertLogical(new T($n + 1));\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "n": 1
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

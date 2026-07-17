@@ -1,0 +1,35 @@
+{
+ "name": "ub_ungrounded",
+ "drl": "rule \"Grow\"\nwhen\n    T($n : n, n < 5)\nthen\n    insertLogical(new T($n + 1));\nend\nrule \"Shrink\"\nwhen\n    T($m : n, n > 3)\nthen\n    insertLogical(new T($m - 1));\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "n": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "engine_fenced": true
+}
