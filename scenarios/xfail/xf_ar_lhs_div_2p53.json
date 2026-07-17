@@ -1,0 +1,39 @@
+{
+ "name": "xf_ar_lhs_div_2p53",
+ "drl": "rule \"PDiv\"\nwhen\n    P(k / 1 == 9007199254740992)\nthen\nend\nrule \"PDivB\"\nwhen\n    P(k / 1 == 9007199254740993)\nthen\nend\nrule \"MinDiv\"\nwhen\n    Q(k / -1 == -9223372036854775808)\nthen\nend\nrule \"Sent\"\nwhen\n    P(k > 0)\nthen\nend\n",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "k": 9007199254740993
+   }
+  },
+  {
+   "type": "Q",
+   "fields": {
+    "k": -9223372036854775808
+   }
+  }
+ ],
+ "epochs": []
+}

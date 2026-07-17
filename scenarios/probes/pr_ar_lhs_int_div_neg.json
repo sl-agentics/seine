@@ -1,0 +1,24 @@
+{
+ "name": "pr_ar_lhs_int_div_neg",
+ "drl": "rule \"Trunc\"\nwhen\n    T(k / 2 == -3)\nthen\nend\nrule \"Floor\"\nwhen\n    T(k / 2 == -4)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": -7
+   }
+  }
+ ],
+ "epochs": []
+}

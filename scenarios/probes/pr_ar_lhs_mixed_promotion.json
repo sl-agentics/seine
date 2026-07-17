@@ -1,0 +1,24 @@
+{
+ "name": "pr_ar_lhs_mixed_promotion",
+ "drl": "rule \"Promotes\"\nwhen\n    T(k + 0.5 == 7.5)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

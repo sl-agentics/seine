@@ -1,0 +1,34 @@
+{
+ "name": "pr_ar_lhs_nan_ne",
+ "drl": "rule \"NanNe\"\nwhen\n    T(x / y != x / y)\nthen\nend\nrule \"NanGe\"\nwhen\n    T(x / y >= x / y)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 1)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "x",
+     "type": "f64"
+    },
+    {
+     "name": "y",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 1,
+    "x": 0.0,
+    "y": 0.0
+   }
+  }
+ ],
+ "epochs": []
+}

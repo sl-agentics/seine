@@ -1,0 +1,29 @@
+{
+ "name": "pr_ar_lhs_double_arith",
+ "drl": "rule \"DblMul\"\nwhen\n    T(x * 2.0 > y)\nthen\nend\nrule \"DblSub\"\nwhen\n    T(y - x == 1.5)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "x",
+     "type": "f64"
+    },
+    {
+     "name": "y",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "x": 1.0,
+    "y": 2.5
+   }
+  }
+ ],
+ "epochs": []
+}

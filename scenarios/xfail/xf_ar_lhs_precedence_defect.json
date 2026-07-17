@@ -1,0 +1,24 @@
+{
+ "name": "xf_ar_lhs_precedence_defect",
+ "drl": "rule \"BareFire\"\nwhen\n    T(k + 2 * 3 == 13)\nthen\nend\nrule \"BareSilent\"\nwhen\n    T(k + 2 * 3 == 14)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

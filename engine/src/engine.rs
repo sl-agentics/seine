@@ -116,6 +116,146 @@ enum Test {
     /// literals NOT applied — composites keep written literals — and
     /// referenced var names with positions).
     Group { g: GExpr, cross_var: bool, key: String },
+    /// D-291 (the agree-subset LHS arithmetic port): `k + 1 > 5`,
+    /// `k == $a + $b`, `x / y > 1e6`. Whole-slot; evaluated per-fact
+    /// when `cross` is false, at join level otherwise (like Cmp with
+    /// Src::Field cross refs). `f64_cmp` = either side's ArithTy is
+    /// F64 → IEEE double comparison (NaN: ==/</> false, != true);
+    /// else i64. Total: int `/` and `%` carry compile-checked NONZERO
+    /// int literal divisors (D-290 — the oracle's zero-divisor cells
+    /// sit on the mode-1/mode-2 jit race and are fenced). `key` is
+    /// the D-037/D-113 identity text (field and BINDING NAMES + ops +
+    /// literals — names are identity-significant, ne_t13/ne_t14).
+    Arith { left: AExprC, op: CmpOp, right: AExprC, f64_cmp: bool, cross: bool, key: String },
+}
+
+/// D-291: compiled LHS arithmetic operand. Atoms carry tuple positions
+/// like Src::Field. Literal ints type I64 — the LHS lattice is MVEL's
+/// (int literals promote to long, ar_dz_lhs_i32/i32b), NOT the RHS's
+/// javac I32 (D-284). Arithmetic is Java-typed: i64 wraps, `/`
+/// truncates, `%` keeps the dividend's sign, F64 is IEEE.
+#[derive(Clone)]
+enum AExprC {
+    Lit(Value),
+    /// (tuple position, field idx) — own pattern's tpos or an earlier
+    /// pattern's for cross refs.
+    Field(usize, usize),
+    Neg(Box<AExprC>, ArithTy),
+    Bin(char, Box<AExprC>, Box<AExprC>, ArithTy),
+}
+
+/// Evaluate a compiled LHS arithmetic expression against candidate
+/// fact `f`; `l` is the left tuple for cross refs (None in alpha
+/// contexts, where cross tests are deferred); `tpos` resolves own
+/// atoms to `f`. TOTAL by construction (compile guarantees nonzero
+/// literal divisors for int `/` `%`; nullable operands are walled).
+fn eval_aexpr(
+    e: &AExprC,
+    store: &FactStore,
+    f: FactId,
+    l: Option<&Tup>,
+    tpos: Option<usize>,
+) -> Value {
+    let num = |v: &Value| -> (Option<i64>, f64) {
+        match v {
+            Value::I64(n) => (Some(*n), *n as f64),
+            Value::F64(x) => (None, *x),
+            other => unreachable!("non-numeric in LHS arithmetic: {other:?}"),
+        }
+    };
+    match e {
+        AExprC::Lit(v) => v.clone(),
+        AExprC::Field(pos, fi) => {
+            let fact = if Some(*pos) == tpos {
+                f
+            } else {
+                l.expect("cross arith test evaluated without a left tuple")[*pos]
+            };
+            store.value(fact, *fi)
+        }
+        AExprC::Neg(a, ty) => {
+            let v = eval_aexpr(a, store, f, l, tpos);
+            match (ty, num(&v)) {
+                (ArithTy::I32, (Some(n), _)) => Value::I64((n as i32).wrapping_neg() as i64),
+                (_, (Some(n), _)) => Value::I64(n.wrapping_neg()),
+                (_, (None, x)) => Value::F64(-x),
+            }
+        }
+        AExprC::Bin(op, a, b, ty) => {
+            let va = eval_aexpr(a, store, f, l, tpos);
+            let vb = eval_aexpr(b, store, f, l, tpos);
+            match ty {
+                ArithTy::F64 => {
+                    let (_, x) = num(&va);
+                    let (_, y) = num(&vb);
+                    Value::F64(match op {
+                        '+' => x + y,
+                        '-' => x - y,
+                        '*' => x * y,
+                        '/' => x / y,
+                        '%' => x % y,
+                        _ => unreachable!("parser admits + - * / %"),
+                    })
+                }
+                _ => {
+                    let x = num(&va).0.expect("typechecked int");
+                    let y = num(&vb).0.expect("typechecked int");
+                    let wide = match op {
+                        '+' => x.wrapping_add(y),
+                        '-' => x.wrapping_sub(y),
+                        '*' => x.wrapping_mul(y),
+                        // compile guarantees y != 0 (nonzero literal)
+                        '/' => x.wrapping_div(y),
+                        '%' => x.wrapping_rem(y),
+                        _ => unreachable!("parser admits + - * / %"),
+                    };
+                    Value::I64(if matches!(ty, ArithTy::I32) {
+                        (wide as i32) as i64
+                    } else {
+                        wide
+                    })
+                }
+            }
+        }
+    }
+}
+
+/// D-291: the arithmetic comparison — i64 exact, or IEEE double when
+/// either side is F64 (NaN: Eq/relational false, Ne true — matching
+/// both oracle modes on the admitted grid).
+fn eval_acmp(op: CmpOp, va: &Value, vb: &Value, f64_cmp: bool) -> bool {
+    if f64_cmp {
+        let x = match va {
+            Value::I64(n) => *n as f64,
+            Value::F64(x) => *x,
+            _ => unreachable!("non-numeric in LHS arithmetic compare"),
+        };
+        let y = match vb {
+            Value::I64(n) => *n as f64,
+            Value::F64(x) => *x,
+            _ => unreachable!("non-numeric in LHS arithmetic compare"),
+        };
+        match op {
+            CmpOp::Eq => x == y,
+            CmpOp::Ne => x != y,
+            CmpOp::Lt => x < y,
+            CmpOp::Le => x <= y,
+            CmpOp::Gt => x > y,
+            CmpOp::Ge => x >= y,
+        }
+    } else {
+        let (Value::I64(x), Value::I64(y)) = (va, vb) else {
+            unreachable!("typechecked i64 compare")
+        };
+        match op {
+            CmpOp::Eq => x == y,
+            CmpOp::Ne => x != y,
+            CmpOp::Lt => x < y,
+            CmpOp::Le => x <= y,
+            CmpOp::Gt => x > y,
+            CmpOp::Ge => x >= y,
+        }
+    }
 }
 
 /// Compiled inline-group expression tree (D-073).
@@ -3150,6 +3290,23 @@ impl Engine {
                 if let Test::Cmp { rhs: Src::Field(0, fi), .. } = &c.test {
                     gate |= 1 << fi;
                 }
+                // D-291: cross arithmetic referencing pattern 0 gates
+                // the collect the same way a join constraint does.
+                if let Test::Arith { left, right, .. } = &c.test {
+                    fn p0_fields(e: &AExprC, gate: &mut u64) {
+                        match e {
+                            AExprC::Field(0, fi) => *gate |= 1 << *fi,
+                            AExprC::Neg(a, _) => p0_fields(a, gate),
+                            AExprC::Bin(_, a, b, _) => {
+                                p0_fields(a, gate);
+                                p0_fields(b, gate);
+                            }
+                            _ => {}
+                        }
+                    }
+                    p0_fields(left, &mut gate);
+                    p0_fields(right, &mut gate);
+                }
             }
             *self.trie[first].collect_left_gate.get_or_insert(0) |= gate;
         }
@@ -3422,6 +3579,12 @@ impl Engine {
                 Test::Contains(n) => {
                     let _ = write!(s, "c{n}");
                 }
+                Test::Arith { key, .. } => {
+                    // D-291: the full expression structure — atoms by
+                    // NAME (ne_t13/ne_t14), ops, literals — is the
+                    // identity (D-113: a missing key field mis-shares).
+                    let _ = write!(s, "{key}");
+                }
                 Test::Group { key, .. } => {
                     let _ = write!(s, "{key}");
                 }
@@ -3523,6 +3686,14 @@ impl Engine {
                                 prefix.push_str(&format!("{key};"));
                             }
                         }
+                        Test::Arith { cross, key, .. } => {
+                            // D-291: like groups — alpha-chain members
+                            // when own-only, never eq-group members;
+                            // cross tests are beta.
+                            if !cross {
+                                prefix.push_str(&format!("{key};"));
+                            }
+                        }
                     }
                 }
             }
@@ -3547,6 +3718,184 @@ impl Engine {
                     node_lit[&key].clone() // shared node's original literal
                 };
                 pat.cmps[ci].test = Test::Cmp { op: CmpOp::Eq, rhs: Src::Lit(new_lit) };
+            }
+        }
+    }
+
+    /// D-291: compile one side of an LHS arithmetic comparison.
+    /// LHS lattice: int literals are I64 (MVEL long promotion,
+    /// ar_dz_lhs_i32/i32b) — NOT the RHS's javac I32. Fences (D-290
+    /// agree subset): numeric non-nullable operands only; int `/` and
+    /// `%` take NONZERO INT LITERAL divisors; an int-int division
+    /// never composes into surrounding arithmetic (the interpreted
+    /// oracle carries the fractional quotient — `k/2 + k/2 == 7`
+    /// fires there and not in java); `%` over doubles is unprobed.
+    #[allow(clippy::too_many_arguments)]
+    fn compile_aexpr(
+        &self,
+        rname: &str,
+        e: &crate::drl::AExpr,
+        type_id: TypeId,
+        type_name: &str,
+        tpos: Option<usize>,
+        field_binds: &HashMap<String, (usize, usize, FieldType)>,
+        patterns: &[CompiledPattern],
+        listen_mask: &mut u64,
+        own_fi: &mut Option<usize>,
+        cross: &mut bool,
+        has_var: &mut bool,
+        int_div: &mut bool,
+        key: &mut String,
+    ) -> Result<(AExprC, ArithTy), EngineError> {
+        use crate::drl::AExpr;
+        use std::fmt::Write as _;
+        let err = |m: String| EngineError(format!("rule {rname}: {m}"));
+        match e {
+            AExpr::Lit(l) => {
+                if matches!(l, Literal::Null) {
+                    return Err(err(
+                        "null inside LHS arithmetic — a computed operand cannot be null (D-097)"
+                            .into(),
+                    ));
+                }
+                let v = lit_value(l);
+                let ty = match &v {
+                    // LHS lattice: int literals compute as LONG (mode-1
+                    // MVEL; ar_dz_lhs_i32b) — unlike RHS javac I32.
+                    Value::I64(_) => ArithTy::I64,
+                    Value::F64(_) => ArithTy::F64,
+                    _ => {
+                        return Err(err(format!(
+                            "LHS arithmetic literal {l:?} is not numeric — arithmetic is i64/f64 only (D-291)"
+                        )))
+                    }
+                };
+                let _ = write!(key, "L{v:?}");
+                Ok((AExprC::Lit(v), ty))
+            }
+            AExpr::Field(name) => {
+                let own_t = tpos.ok_or_else(|| {
+                    err("arithmetic constraints inside not/exists patterns are out of subset (D-291) — match the fact positively".into())
+                })?;
+                let fi = self
+                    .store
+                    .field_index(type_id, name)
+                    .ok_or_else(|| err(format!("{type_name} has no field {name}")))?;
+                let ft = self.store.field_type(type_id, fi);
+                if !matches!(ft, FieldType::I64 | FieldType::F64) {
+                    return Err(err(format!(
+                        "LHS arithmetic over a {} field ({name}) is outside the subset — arithmetic is i64/f64 only (D-291)",
+                        ft_name(ft)
+                    )));
+                }
+                if self.store.schema(type_id).nullable >> fi & 1 == 1 {
+                    return Err(err(format!(
+                        "LHS arithmetic over the NULLABLE field {name} is outside the subset — guard or fill the null upstream (D-097)"
+                    )));
+                }
+                *listen_mask |= 1 << fi;
+                own_fi.get_or_insert(fi);
+                let _ = write!(key, "f{name}");
+                Ok((AExprC::Field(own_t, fi), if ft == FieldType::F64 { ArithTy::F64 } else { ArithTy::I64 }))
+            }
+            AExpr::Var(v) => {
+                let (bpi, bfi, bft) = field_binds
+                    .get(v)
+                    .copied()
+                    .ok_or_else(|| err(format!("unknown binding {v} (must be declared before use)")))?;
+                if !matches!(bft, FieldType::I64 | FieldType::F64) {
+                    return Err(err(format!(
+                        "LHS arithmetic over a {} binding ({v}) is outside the subset — arithmetic is i64/f64 only (D-291)",
+                        ft_name(bft)
+                    )));
+                }
+                let src_tid = if Some(bpi) == tpos {
+                    type_id
+                } else {
+                    *cross = true;
+                    patterns
+                        .iter()
+                        .rev()
+                        .find(|q| q.tpos == Some(bpi))
+                        .map(|q| q.type_id)
+                        .ok_or_else(|| err(format!("binding {v}: source pattern not found")))?
+                };
+                if self.store.schema(src_tid).nullable >> bfi & 1 == 1 {
+                    return Err(err(format!(
+                        "LHS arithmetic over the NULLABLE binding {v} is outside the subset — guard or fill the null upstream (D-097)"
+                    )));
+                }
+                *has_var = true;
+                // binding NAME + position are identity-significant
+                let _ = write!(key, "v{v}@{bpi}.{bfi}");
+                Ok((AExprC::Field(bpi, bfi), if bft == FieldType::F64 { ArithTy::F64 } else { ArithTy::I64 }))
+            }
+            AExpr::Neg(a) => {
+                key.push_str("-(");
+                let inner_div_before = *int_div;
+                let (c, t) = self.compile_aexpr(
+                    rname, a, type_id, type_name, tpos, field_binds, patterns,
+                    listen_mask, own_fi, cross, has_var, int_div, key,
+                )?;
+                key.push(')');
+                if *int_div && !inner_div_before {
+                    return Err(err(
+                        "an integer division cannot compose into further arithmetic (D-290/D-291): the interpreted oracle carries the fractional quotient — restructure, or make an operand a double".into(),
+                    ));
+                }
+                Ok((AExprC::Neg(Box::new(c), t), t))
+            }
+            AExpr::Bin(op, a, b) => {
+                key.push('(');
+                let div_before = *int_div;
+                let (ca, ta) = self.compile_aexpr(
+                    rname, a, type_id, type_name, tpos, field_binds, patterns,
+                    listen_mask, own_fi, cross, has_var, int_div, key,
+                )?;
+                key.push(*op);
+                let (cb, tb) = self.compile_aexpr(
+                    rname, b, type_id, type_name, tpos, field_binds, patterns,
+                    listen_mask, own_fi, cross, has_var, int_div, key,
+                )?;
+                key.push(')');
+                if *int_div && !div_before {
+                    // a nested int-int division under ANY operation
+                    return Err(err(
+                        "an integer division cannot compose into further arithmetic (D-290/D-291): the interpreted oracle carries the fractional quotient (k/2 + k/2 == 7 fires there, not in java) — restructure, or make an operand a double".into(),
+                    ));
+                }
+                let ty = if ta == ArithTy::F64 || tb == ArithTy::F64 {
+                    ArithTy::F64
+                } else {
+                    ArithTy::I64
+                };
+                if *op == '%' && ty == ArithTy::F64 {
+                    return Err(err(
+                        "'%' over double operands is unprobed — out of subset (D-291)".into(),
+                    ));
+                }
+                if matches!(op, '/' | '%') && ty != ArithTy::F64 {
+                    // int-int division family: the divisor must be a
+                    // NONZERO INT LITERAL (D-290: at divisor 0 the two
+                    // oracle modes split silent-Infinity vs throw)
+                    match &cb {
+                        AExprC::Lit(Value::I64(n)) if *n != 0 => {}
+                        AExprC::Lit(Value::I64(_)) => {
+                            return Err(err(format!(
+                                "'{op}' by the literal zero is fenced (D-290): the oracle's zero-divisor semantics sit on an async jit race — no divisor may be zero"
+                            )));
+                        }
+                        _ => {
+                            return Err(err(format!(
+                                "integer '{op}' needs a NONZERO INT LITERAL divisor (D-290/D-291): a field or binding divisor can be zero at runtime, where the oracle's two modes diverge (silent IEEE vs throw) — guard upstream or use a double operand"
+                            )));
+                        }
+                    }
+                    if *op == '/' {
+                        *int_div = true;
+                    }
+                }
+                Ok((AExprC::Bin(*op, Box::new(ca), Box::new(cb), ty), ty))
             }
         }
     }
@@ -4040,6 +4389,64 @@ impl Engine {
                             rhs_var,
                         });
                     }
+                    Constraint::ArithCmp { left, op, right } => {
+                        // D-291 agree-subset walls: positive plain
+                        // patterns only (probed surface).
+                        if p.acc.is_some() {
+                            return Err(err(
+                                "arithmetic constraints inside accumulate/collect sources are out of subset (D-291)".into(),
+                            ));
+                        }
+                        if role != SubRole::None {
+                            return Err(err(
+                                "arithmetic constraints inside group CEs are out of subset (D-291)".into(),
+                            ));
+                        }
+                        let mut cross = false;
+                        let mut own_fi: Option<usize> = None;
+                        let (mut l_var, mut l_div) = (false, false);
+                        let (mut r_var, mut r_div) = (false, false);
+                        let mut key = String::from("ar(");
+                        let (cl, tl) = self.compile_aexpr(
+                            &rname, left, type_id, &p.type_name, tpos, &field_binds,
+                            &patterns, &mut listen_mask, &mut own_fi, &mut cross,
+                            &mut l_var, &mut l_div, &mut key,
+                        )?;
+                        let _ = std::fmt::Write::write_fmt(&mut key, format_args!("{op:?}"));
+                        let (cr, tr) = self.compile_aexpr(
+                            &rname, right, type_id, &p.type_name, tpos, &field_binds,
+                            &patterns, &mut listen_mask, &mut own_fi, &mut cross,
+                            &mut r_var, &mut r_div, &mut key,
+                        )?;
+                        key.push(')');
+                        let own_fi = own_fi.ok_or_else(|| {
+                            err("an arithmetic constraint must reference at least one field of its own pattern (D-291)".into())
+                        })?;
+                        // D-290: a double comparand distinguishes the
+                        // interpreted double quotient (3.5) from the
+                        // jitted long quotient (3) — mode-divergent.
+                        if (l_div && tr == ArithTy::F64) || (r_div && tl == ArithTy::F64) {
+                            return Err(err(
+                                "a double comparand on an integer division is mode-divergent (D-290) — write an integer comparand or make a division operand double".into(),
+                            ));
+                        }
+                        // D-290: equality between an int division and a
+                        // binding never matches interpreted (boxed
+                        // Double vs Long) and would match jitted.
+                        if matches!(op, CmpOp::Eq | CmpOp::Ne)
+                            && ((l_div && r_var) || (r_div && l_var))
+                        {
+                            return Err(err(
+                                "equality between an integer division and a binding never matches in the oracle (D-290 boxed comparison) — compare a field or literal, or use a relational operator".into(),
+                            ));
+                        }
+                        let f64_cmp = tl == ArithTy::F64 || tr == ArithTy::F64;
+                        cmps.push(CompiledCmp {
+                            field_idx: own_fi,
+                            test: Test::Arith { left: cl, op: *op, right: cr, f64_cmp, cross, key },
+                            rhs_var: None,
+                        });
+                    }
                     Constraint::Matches { field, regex } => {
                         let fi = self
                             .store
@@ -4325,6 +4732,7 @@ impl Engine {
                 matches!(c.test, Test::Cmp { rhs: Src::Field(..), .. })
                     || matches!(c.test, Test::Group { cross_var: true, .. })
                     || matches!(c.test, Test::Temporal { .. })
+                    || matches!(c.test, Test::Arith { cross: true, .. })
             });
             let (pindex, index_ci) = {
                 let var_cmps: Vec<(usize, CmpOp, usize, usize)> = cmps
@@ -9988,6 +10396,14 @@ impl Engine {
                 return *cross_var
                     || eval_gexpr(g, &self.store, f, None, pat.tpos) == Some(true);
             }
+            if let Test::Arith { left, op, right, f64_cmp, cross, .. } = &c.test {
+                // D-291: cross tests evaluate at join time.
+                return *cross || {
+                    let va = eval_aexpr(left, &self.store, f, None, pat.tpos);
+                    let vb = eval_aexpr(right, &self.store, f, None, pat.tpos);
+                    eval_acmp(*op, &va, &vb, *f64_cmp)
+                };
+            }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
                 Test::IsNull { negated } => lhs.is_null() != *negated,
@@ -10816,6 +11232,12 @@ impl Engine {
                                 || eval_gexpr(g, &self.store, f, None, pat.tpos)
                                     == Some(true);
                         }
+                        if let Test::Arith { .. } = &c.test {
+                            // D-291: arith is fenced inside not/exists
+                            // patterns at compile — this walk only
+                            // examines Not patterns.
+                            unreachable!("arith constraints are fenced in not/exists (D-291)");
+                        }
                         let lhs = self.store.value(f, c.field_idx);
                         match &c.test {
                             Test::IsNull { negated } => lhs.is_null() != *negated,
@@ -11558,6 +11980,11 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             if let Test::Group { g, .. } = &c.test {
                 return eval_gexpr(g, self.store, f, Some(l), pat.tpos) == Some(true);
             }
+            if let Test::Arith { left, op, right, f64_cmp, .. } = &c.test {
+                let va = eval_aexpr(left, self.store, f, Some(l), pat.tpos);
+                let vb = eval_aexpr(right, self.store, f, Some(l), pat.tpos);
+                return eval_acmp(*op, &va, &vb, *f64_cmp);
+            }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
                 Test::IsNull { negated } => lhs.is_null() != *negated,
@@ -11665,6 +12092,11 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             if let Test::Group { g, .. } = &c.test {
                 return eval_gexpr(g, self.store, f, Some(l), pat.tpos) == Some(true);
             }
+            if let Test::Arith { left, op, right, f64_cmp, .. } = &c.test {
+                let va = eval_aexpr(left, self.store, f, Some(l), pat.tpos);
+                let vb = eval_aexpr(right, self.store, f, Some(l), pat.tpos);
+                return eval_acmp(*op, &va, &vb, *f64_cmp);
+            }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
                 Test::IsNull { negated } => lhs.is_null() != *negated,
@@ -11730,6 +12162,9 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             .filter(|c| {
                 matches!(&c.test, Test::Cmp { rhs: Src::Field(ti, _), .. } if Some(*ti) != pat.tpos)
                     || matches!(&c.test, Test::Group { cross_var: true, .. })
+                    // D-291: a cross arithmetic test is a beta constraint
+                    // (and never an equality-indexed one below)
+                    || matches!(&c.test, Test::Arith { cross: true, .. })
             })
             .collect();
         betas.len() <= 1
@@ -11866,6 +12301,7 @@ fn eval_alpha_test(lhs: &Value, test: &Test) -> bool {
         Test::Cmp { .. } => unreachable!("Cmp handled by callers"),
         Test::Group { .. } => unreachable!("Group handled by callers"),
         Test::Temporal { .. } => unreachable!("Temporal is beta-only (D-101)"),
+        Test::Arith { .. } => unreachable!("Arith handled by callers (D-291)"),
     }
 }
 

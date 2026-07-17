@@ -1,0 +1,30 @@
+{
+ "name": "pr_ar_lhs_bind_mul",
+ "drl": "rule \"BindMul\"\nwhen\n    T($a : k)\n    T(k > $a * 2, k != $a)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

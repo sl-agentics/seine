@@ -1,0 +1,24 @@
+{
+ "name": "pr_ar_dz_mod_prec",
+ "drl": "rule \"MP\"\nwhen\n    P(k % 9007199254740992 == 1)\nthen\nend\nrule \"Sent\"\nwhen\n    P(k > 0)\nthen\nend\n",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "k": 9007199254740993
+   }
+  }
+ ],
+ "epochs": []
+}

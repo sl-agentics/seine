@@ -137,6 +137,9 @@ fn cmd_diff(paths: &[String]) -> ExitCode {
                 for m in msgs {
                     println!("     {m}");
                 }
+                if let Some(tag) = mode1_residency_tag(path) {
+                    println!("     {tag}");
+                }
             }
         }
     }
@@ -147,6 +150,93 @@ fn cmd_diff(paths: &[String]) -> ExitCode {
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// D-290/D-291 mode-1 residency: a conservative static bound on how
+/// often an LHS-division constraint could be evaluated. Above the
+/// oracle's jit threshold (~20) the constraint may flip to jitted
+/// java semantics MID-RUN, nondeterministically (the D-290 race:
+/// 5000-fact prefix cliffs at 127/128/135; zero divisors start
+/// throwing) — so a divergence on such a scenario is RACE-SUSPECT
+/// and must be volume-triaged before it is read as an engine defect.
+/// The certified corpus and the generator live far below the bound
+/// (≤6 facts + small epochs); this tag exists so a future volume
+/// scenario cannot masquerade as a clean red gate.
+fn mode1_residency_tag(path: &str) -> Option<String> {
+    use seine_engine::drl::{AExpr, Constraint};
+    fn has_div(e: &AExpr) -> bool {
+        match e {
+            AExpr::Bin(op, a, b) => *op == '/' || has_div(a) || has_div(b),
+            AExpr::Neg(a) => has_div(a),
+            _ => false,
+        }
+    }
+    let txt = std::fs::read_to_string(path).ok()?;
+    let doc: serde_json::Value = serde_json::from_str(&txt).ok()?;
+    let drl = doc.get("drl")?.as_str()?;
+    let rules = seine_engine::drl::parse_rules(drl).ok()?;
+    let mut div_types: std::collections::HashSet<&str> = Default::default();
+    for r in &rules {
+        for p in &r.patterns {
+            for c in &p.constraints {
+                if let Constraint::ArithCmp { left, right, .. } = c {
+                    if has_div(left) || has_div(right) {
+                        div_types.insert(p.type_name.as_str());
+                    }
+                }
+            }
+        }
+    }
+    if div_types.is_empty() {
+        return None;
+    }
+    let count_of = |t: &str| -> usize {
+        let in_facts = |v: Option<&serde_json::Value>| {
+            v.and_then(|f| f.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter(|x| x.get("type").and_then(|v| v.as_str()) == Some(t))
+                        .count()
+                })
+                .unwrap_or(0)
+        };
+        let base = in_facts(doc.get("facts"));
+        let ep: usize = doc
+            .get("epochs")
+            .and_then(|e| e.as_array())
+            .map(|es| {
+                es.iter()
+                    .map(|e| {
+                        in_facts(e.get("facts"))
+                            + e.get("actions")
+                                .and_then(|a| a.as_array())
+                                .map(|a| {
+                                    a.iter()
+                                        .filter(|x| {
+                                            x.get("op").and_then(|v| v.as_str()) == Some("update")
+                                        })
+                                        .count()
+                                })
+                                .unwrap_or(0)
+                    })
+                    .sum()
+            })
+            .unwrap_or(0);
+        base + ep
+    };
+    const RESIDENCY_BOUND: usize = 16; // conservative vs the oracle's ~20
+    for t in div_types {
+        let n = count_of(t);
+        if n >= RESIDENCY_BOUND {
+            return Some(format!(
+                "MODE1-RESIDENCY EXCEEDED (D-290 jit-race suspect): type {t} reaches ~{n} \
+                 evaluations of an LHS-division constraint (oracle jit threshold ~20; \
+                 RHS-driven updates add more) — the oracle may have flipped to jitted \
+                 java semantics mid-run; triage VOLUME before engine"
+            ));
+        }
+    }
+    None
 }
 
 /// `gen <count> [seed]`: print generated scenarios as NDJSON (grammar
@@ -228,6 +318,9 @@ fn cmd_fuzz(args: &[String]) -> ExitCode {
                 println!("DIVERGENCE {name} (saved to scenarios/failures/)");
                 for m in msgs {
                     println!("     {m}");
+                }
+                if let Some(tag) = mode1_residency_tag(path) {
+                    println!("     {tag}");
                 }
                 if failures >= MAX_FAILURES {
                     println!("--- stopping early: {failures} divergences");

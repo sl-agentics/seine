@@ -11,28 +11,38 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-290 (the DIV0 ANOMALY RESOLVED +
-the swamp MAPPED — **AT BRYAN'S GATE on the LHS-division port
-shape**). Updates arc done (D-287/288/289); D-290 is probes+docs
-only. 4 local commits atop v0.4.32/8b3210b, UNPUSHED. **COLD-START =
+_Last updated: 2026-07-16, post-D-291 (LHS ARITHMETIC LANDED — the
+agree-subset port, mode-1 residency logged as precondition, volume
+detector live). The boundary-redraw arc is now: updates DONE
+(D-287/288/289), swamp DONE (D-290 map → D-291 port). 5 local
+commits atop v0.4.32/8b3210b, UNPUSHED. NEXT = queue (3) D-076
+iterative cascade → unbounded tier, (4) authoring sugar (owns the
+stale `_rhs_arg` wall message, the D-289 SalExpr-skip removal, and
+now LHS-arith authoring surface). **COLD-START =
 `probes_pending/arith_grammar/HANDOFF.md`**._
 
-**D-290 (the gate on the table): LHS division has NO integer mode
-interpreted — quotient always IEEE double (div0 → Inf/NaN, never
-throws), comparison applies a Java (long) NARROWING CAST (int-typed
-comparands): (long)+Inf=MAX explains `k/z > 0` firing, MAX==0 the
-silent `== 0`; (long)NaN=0 makes `0/0 == 0` FIRE. Eq-family narrows
-by literal VALUE / field TYPE; binding-eq is boxed-strict
-(always-false); relational by TYPE (`> 3` no, `> 3.0` yes). `+ - *
-%` long-exact (`% 0` throws loud). AND: an async MVEL→java jit RACE
-flips constraints to java semantics at volume, run-
-nondeterministically (5000-fact prefix cliffs 127/128/135; z=0
-errors) — volume `/` is NOT byte-certifiable. AGREE SUBSET (both
-modes): `+ - * %` + `/` with int-typed comparands, <2^53, nonzero
-LITERAL divisor. Fences: double comparands on /, field/binding
-divisors, expr==binding, huge operands. PINS.md §F. BRYAN DECIDES
-the port shape. THEN: D-076 iterative, authoring sugar; standing
-ledger.**
+**D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
+Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
+FIRE; no integer mode exists interpreted) and the swamp's floor
+found: an async MVEL→java jit RACE flips constraints to java
+semantics at volume, run-nondeterministically (prefix cliffs
+127/128/135 at 5000 facts) — volume `/` is NOT byte-certifiable.
+D-291 ports the AGREE SUBSET (both modes provably identical):
+`+ - * %` over i64/f64 + cross bindings; int-int `/` whole-side
+with int comparand + nonzero int literal divisor; f64 `/` free;
+every mode-divergent cell FENCED with steering. ⚖ MODE-1 RESIDENCY
+= the logged certification precondition (all receipts are ≤6-fact
+mode-1 evidence; admitted grid mode-invariant by construction +
+volume-confirmed); the harness diff/fuzz failure paths TAG
+`/`-bearing divergences at ≥16 est. evaluations as jit-race
+suspects. LHS literal lattice = I64 (MVEL) vs RHS I32 (javac) —
+both on record. Receipts: byte gate 2060 identical, 24 probes
+graduated (corpus 11/1257/406), drift 45 (2 new witness pairs + 1
+pre-existing latent quarantined: xf_fz_606060_555, zero-arith
+acc/setFocus shape, bisected pre/post-identical), lint 1971/0/0,
+cargo 54, pytest 229, demo True, fuzz 2×2000 ×2 (one find = the
+quarantined latent; finding seed re-runs clean), model_ird 31/31,
+agenda_open ×15 identical, IRD 0-div ×5, SD census 72 EXACT.**
 
 **D-287/D-288: the D-231 re-examination CLOSED. Probe round: 18
 ar_upd_* probes 3×-stable, 18/18 predictions hit (PINS.md §E) — the
@@ -15690,3 +15700,106 @@ DESIGNED race witness (line 18, ar_dz_jit_zero — the 3-fire-1-throw
 record IS the pin); mod_zero's loud error stable ×3; race probes
 stay recon-only, never promoted (fz_42_84 quarantine precedent).
 Probes+docs only; engine, corpus, bindings untouched.
+
+## D-291 — THE AGREE-SUBSET LHS ARITHMETIC PORT LANDS: `k + 1 > $x`, `k % 3 == -1`, `k / 2 == 3`, `x / y > 1e6` are certified subset — with MODE-1 RESIDENCY logged as the certification precondition and a VOLUME DETECTOR on the jit-race quarantine (Bryan's directive, verbatim requirements) (2026-07-16)
+
+The port certifies exactly the D-290 agree subset — the cells where
+the oracle's two modes provably coincide — and the engine computes
+plain exact arithmetic (long wrapping / IEEE double), bit-identical
+to BOTH modes on every admitted cell.
+
+GRAMMAR (drl.rs): ArithCmp is a WHOLE-SLOT constraint like Temporal
+— `aexpr cmpop aexpr` over own fields, $bindings, and numeric
+literals, with `+ - * / %`, unary minus, parens, standard precedence
+(D-281 stands: the oracle's bare a+b*c eval throw is a defect we do
+not copy — xf_ar_lhs_precedence_defect banks both polarities). The
+arith-slot detector is a token scan that leaves every legacy slot
+byte-for-byte untouched — negative literals, in-lists, temporal
+params, groups all stay on the old path (the 2060-scenario byte gate
+is the proof). No composition into `&&`/`||`, no bind-prefix.
+
+ENGINE (engine.rs): compile_aexpr — the LHS literal lattice is I64
+(MVEL long promotion, pr_ar_dz_lhs_i32/i32b), NOT the RHS's javac
+I32 (D-284): the two planes carry different literal lattices, each
+matching its oracle path, both on the record. Test::Arith carries
+the D-037/D-113 identity key (binding NAMES included, ne_t13/14),
+joins the beta classification, the alpha-chain prefix, the
+collect_left_gate walk, and the left_update_optimization count; the
+eq-hash rewrite and index_ci never see it. Eval is TOTAL — the
+nonzero-int-literal divisor rule for int `/` and `%` is
+compile-checked, so no error path threads the constraint walk.
+NaN compares Java-style (==/relational false, != TRUE — probed:
+pr_ar_lhs_nan_ne fires, not assumed from eval_cmp's ord-None arm).
+
+FENCES (all CompileError with steering, all verified loud):
+int-int `/` composed into surrounding arithmetic (the interpreted
+oracle carries the fractional quotient: k/2 + k/2 == 7 fires there,
+6 ≠ 7 in java — whole-side-only rule); double comparands on int
+division (the race_eq35 cliff class); field/binding/zero divisors
+(silent-IEEE vs throw at z=0); division==binding equality (boxed
+strictness); `%` over doubles (unprobed); bind-with-arith slots;
+`in`/matches over expressions; not/exists, accumulate/collect
+sources, group CEs, query bodies.
+
+⚖ THE PRECONDITION, ON THE RECORD (Bryan's first requirement):
+every differential receipt below is MODE-1 EVIDENCE — the corpus,
+probes, and generator all live at ≤6 facts per type, far under the
+oracle's ~20-evaluation jit threshold. The admitted grid is
+mode-invariant by construction and volume-confirmed on the ==-int
+cell (pr_ar_dz_jit_eq3 agrees in both modes at any volume); every
+mode-divergent cell is fenced. Certification of this feature is
+therefore CONDITIONAL on mode-1 residency, and any future
+`/`-bearing divergence at volume is RACE-SUSPECT BEFORE it is an
+engine suspect.
+
+THE VOLUME DETECTOR (Bryan's second requirement): the harness's
+diff-FAIL and fuzz-DIVERGENCE paths now compute a conservative
+static evaluation bound for every LHS-division constraint
+(insertions of the pattern's type + epoch updates) and tag failures
+at ≥16 with "MODE1-RESIDENCY EXCEEDED (D-290 jit-race suspect) —
+triage VOLUME before engine". The quarantine class detects its own
+members; the cleanest finding of the night cannot become next
+month's flaky gate. Verified live on ar_dz_race_zero (the tag
+prints under the FAIL). gen.rs grows the LHS-arith axis
+(agree-subset single-op shapes, cross-binding comparands at 30%,
+`/` always literal-comparand — its eq-binding fence is
+generator-unreachable) under the structural residency cap.
+
+RECEIPTS — the full engine battery:
+- Byte gate: 2060 pre-existing scenario outputs BYTE-IDENTICAL
+  through the parser/engine changes (pre-port worktree c1a69b5).
+- 24 probes graduated on first differential contact (pr_ar_lhs_
+  binding_arith / bind_bind / bind_mul / neg_bind / ieee_sum /
+  long_overflow / rem_sign / mixed_promotion / double_div_zero /
+  double_arith / int_div_neg / prec2 / prec_addmul / nan_ne /
+  div_int / div_bindrel / div_fieldcmp / mod_compose + pr_ar_dz_
+  eb_add / eb_dbl / lhs_i32 / lhs_i32b / mod_prec / jit_eq3) —
+  corpus 11/1257/406. Fence probes stay engine_fenced with the NEW
+  loud shapes; ar_lhs_precedence superseded by the xfail pair.
+- Expected-divergence witnesses banked (drift 42 → 45):
+  xf_ar_lhs_div_2p53 (2^53 double-transit + MIN/-1 saturation,
+  opposite polarities), xf_ar_lhs_precedence_defect (D-281, both
+  polarities), xf_fz_606060_555 (see below).
+- make diff green + drift 45 identical; lint 1971/0/0; cargo 54;
+  pytest 229; demo True.
+- Fresh fuzz 2×2000 (seeds 606060, 909090) with the LHS axis: ONE
+  find — minimized to ZERO arithmetic (acc + setFocus +
+  agenda-group not-CE) and bisected PRE-EXISTING (pre/post engines
+  byte-identical on the repro; both diverge from the oracle) →
+  quarantined per D-255 as xf_fz_606060_555 (the widened axis
+  flushed a latent, exactly the doctrine's prediction); finding
+  seed re-runs CLEAN (1 xfail draw = suppression live).
+- model_ird 31/31; agenda_open ×15 byte-identical vs c1a69b5;
+  IRD census 0-div ×5 seeds; SD census divergent
+  6+10+3+5+6+5+5+6+8+7+4+7 = **72 EXACT**.
+- Docs: FEATURES.md P3 row → LANDED; the §3 boundary row and the §4
+  RHS-arithmetic WONT row updated to the D-280..291 reality;
+  roadmap-acceptance.md D-061 row → LANDED with the narrowed D-076
+  prereq (D-282).
+
+Remaining on this frontier: the fenced cells stay fenced until an
+oracle bump re-adjudicates §F (jit behavior is version-specific);
+`%`-with-field-divisor is admittable later with an eval error path
+(both modes throw — deferred, not doctrine); authoring.py cannot
+express LHS arithmetic yet (queue item 4 owns the sugar + its two
+recorded refreshes). Committed local; no push.

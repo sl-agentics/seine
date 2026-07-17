@@ -1,0 +1,24 @@
+{
+ "name": "pr_ar_dz_lhs_i32b",
+ "drl": "rule \"WrapB\"\nwhen\n    T(2000000000 + 2000000000 + k == -294967289)\nthen\nend\nrule \"LongB\"\nwhen\n    T(2000000000 + 2000000000 + k == 4000000007)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

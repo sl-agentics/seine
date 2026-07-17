@@ -1,0 +1,90 @@
+{
+  "drl": "rule \"R0\"\nsalience 8\nwhen\n    accumulate( T0(f1 > 100, f2 != false, $s0_0 : f1); $a0_0 : sum($s0_0) )\n    T1(f0 != $a0_0, f2 * 1 <= 2)\n    accumulate( T1(f1 != $a0_0); $a0_2 : count() )\nthen\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0()\nthen\n    drools.setFocus(\"ga\");\n    insert(new T1($p1_0.getF1(), 8, 7));\nend\nrule \"R2\"\nagenda-group \"ga\"\nwhen\n    not T1(f1 in (6, 2), f2 > -4, f0 > 3.0 || f2 <= -1 || !(f2 in (9)))\nthen\nend\nrule \"R3\"\nwhen\n    $p3_0 : T0(f1 <= -3.0, $b3_0_0 : f2, $b3_0_1 : f1)\nthen\n    insert(new T1($p3_0.getF1(), 1 / 7, -1));\n    insert(new T1(-2.5, -5, 4));\nend\nrule \"R4\"\nwhen\n    T0()\nthen\nend\nrule \"R5\"\nwhen\n    T1(f1 == 1)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": -1.0,
+        "f1": 10,
+        "f2": 9
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "alpha",
+        "f1": 5.5,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": -0.5,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3.5,
+        "f1": 6,
+        "f2": -1
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 5.0,
+        "f1": -1000000007,
+        "f2": 1
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 1.5,
+        "f1": 100,
+        "f2": 1
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_606060_555",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "f64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "i64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

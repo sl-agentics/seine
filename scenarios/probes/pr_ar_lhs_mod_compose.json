@@ -1,0 +1,24 @@
+{
+ "name": "pr_ar_lhs_mod_compose",
+ "drl": "rule \"MC\"\nwhen\n    T(k % 3 + 1 == 1)\nthen\nend\nrule \"MD\"\nwhen\n    T(k % 3 - 1 == -2)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == -3)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": -3
+   }
+  }
+ ],
+ "epochs": []
+}

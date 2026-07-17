@@ -542,6 +542,72 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     }
                 }
             }
+            // D-291 axis: LHS arithmetic, AGREE SUBSET only — single-op
+            // expressions (never the bare a+b*c defect surface, D-281);
+            // int '/' and '%' take nonzero int literal divisors and int
+            // comparands; f64 shapes are free. Residency (D-290): gen
+            // scenarios cap at 6 facts + small epochs, far under the
+            // ~20-eval jit threshold — every emitted constraint lives
+            // its whole life in mode 1.
+            if pats[pi].ce == 0 && rng.chance(6) {
+                let numeric: Vec<(String, Ft)> = types[pats[pi].ti]
+                    .fields
+                    .iter()
+                    .filter(|(_, ft)| matches!(ft, Ft::I64 | Ft::F64))
+                    .cloned()
+                    .collect();
+                if !numeric.is_empty() {
+                    let (fname, ft) = rng.pick(&numeric).clone();
+                    let cmp = *rng.pick(OPS_ORD);
+                    // 30%: an earlier same-class binding as the comparand
+                    // (the cross beta path). The '/' variant keeps a
+                    // LITERAL comparand — eq/ne between an int division
+                    // and a binding is fenced (D-290 boxed comparison).
+                    let earlier: Vec<String> = pats[..pi]
+                        .iter()
+                        .flat_map(|p| {
+                            p.bindings
+                                .iter()
+                                .filter(|(_, _, bft)| *bft == ft)
+                                .map(|(v, _, _)| v.clone())
+                        })
+                        .collect();
+                    let bind_cmp = !earlier.is_empty() && rng.chance(30);
+                    let c = match ft {
+                        Ft::I64 => {
+                            let rhs = if bind_cmp {
+                                rng.pick(&earlier).clone()
+                            } else {
+                                format!("{}", rng.below(9))
+                            };
+                            match rng.below(5) {
+                                0 => format!("{fname} + {} {cmp} {rhs}", rng.below(7)),
+                                1 => format!("{fname} - {} {cmp} {rhs}", rng.below(7)),
+                                2 => format!("{fname} * {} {cmp} {rhs}", rng.below(5)),
+                                3 => format!("{fname} % {} {cmp} {rhs}", rng.below(8) + 1),
+                                _ => format!(
+                                    "{fname} / {} {cmp} {}",
+                                    rng.below(8) + 1,
+                                    rng.below(5)
+                                ),
+                            }
+                        }
+                        _ => {
+                            let rhs = if bind_cmp {
+                                rng.pick(&earlier).clone()
+                            } else {
+                                format!("{}.0", rng.below(9))
+                            };
+                            match rng.below(3) {
+                                0 => format!("{fname} + {}.5 {cmp} {rhs}", rng.below(5)),
+                                1 => format!("{fname} * {}.0 {cmp} {rhs}", rng.below(4) + 1),
+                                _ => format!("{fname} / {}.5 {cmp} {rhs}", rng.below(4)),
+                            }
+                        }
+                    };
+                    pats[pi].constraints.push(c);
+                }
+            }
             // Field bindings (positive patterns only — D-031).
             if pats[pi].ce == 0 {
                 let nbind = rng.below(3);

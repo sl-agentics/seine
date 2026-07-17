@@ -1,0 +1,39 @@
+{
+ "name": "pr_ar_dz_eb_dbl",
+ "drl": "rule \"EBdbl\"\nwhen\n    B($b : b)\n    D(d + 0.5 == $b)\nthen\nend\nrule \"Sent\"\nwhen\n    D(d == 3.0)\nthen\nend\n",
+ "types": [
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "b": 3.5
+   }
+  },
+  {
+   "type": "D",
+   "fields": {
+    "d": 3.0
+   }
+  }
+ ],
+ "epochs": []
+}

@@ -1,0 +1,39 @@
+{
+ "name": "pr_ar_lhs_div_bindrel",
+ "drl": "rule \"BRGt\"\nwhen\n    A($a : a)\n    T(k / 2 > $a)\nthen\nend\nrule \"BRGe\"\nwhen\n    A($a : a)\n    T(k / 2 >= $a)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": []
+}

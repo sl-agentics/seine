@@ -71,7 +71,18 @@ cycle check (D-284 stratification shape). Port shape in PINS.md §E
 D-283 machinery verbatim; fuzz = computed setter args under the
 guard-field discipline). Full engine battery applies when ported.
 
-### 2. LHS constraint arithmetic — ANOMALY RESOLVED + SWAMP MAPPED (D-290), AT BRYAN'S GATE
+### 2. LHS constraint arithmetic — DONE (D-290 map → D-291 agree-subset port)
+
+Bryan directed the agree-subset port with mode-1 residency logged as
+a precondition and a volume detector on the quarantine. LANDED: see
+PINS.md §F "The port — LANDED" for the full record (grammar, fences,
+residency precondition, detector, witnesses, receipts). Remaining
+LHS surface = the fenced cells (each a mode-divergence, each with
+steering) and the §F re-adjudication note on oracle bump.
+
+Original D-290 record below, for the mechanism map:
+
+### 2-record. The D-290 round (was: AT BRYAN'S GATE)
 
 Probe round DONE 2026-07-16: 29 ar_dz_* probes (25 deterministic
 3×-stable + 4 designed race witnesses), 7/7 out-of-sample

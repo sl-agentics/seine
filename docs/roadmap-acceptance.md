@@ -30,7 +30,7 @@ error).
 | groupby (P3) | drools-model GroupByTest | module |
 | Rule extends (P3) | mvel.integrationtests.ExtendsTest | 25 |
 | Named consequences (P3) | mvel.integrationtests.NamedConsequencesTest; EdgeCaseNonExecModelTest | 39 + 2 |
-| Constraint arithmetic, closed grammar (P3, D-061) | operators.MathTest (in-grammar methods), operators.FormulaTest (subset) | ~3 + ~1 — PREREQ: the D-076 TMS cascade must go iterative first (arithmetic unlocks unbounded justification chains; today's call-recursive cascade is safe only because chains are rule-count-bounded) |
+| Constraint arithmetic, closed grammar (P3, D-061) | operators.MathTest (in-grammar methods), operators.FormulaTest (agree-subset rows) | **LANDED (D-290/D-291)**: the agree subset of the oracle's two modes — `+ - * %` over i64/f64 + restricted `/`; mode-divergent cells fenced; mode-1 residency logged as the certification precondition. The D-076 prereq was narrowed by probe (D-282) to the unbounded LOGICAL tier only — LHS arithmetic adds no justification chains |
 | Date field type (P3, D-064) | mvel.integrationtests.DateComparisonTest | 3 |
 | declare extras: defaults/@key/enums (P3) | mvel.integrationtests.TypeDeclarationTest, EnumTest; compiler.integrationtests.AnnotationsTest | 3 + 4 + 5 |
 | @watch/@classReactive/@propertyReactive (P3) | mvel.integrationtests.PropertySpecificTest, PropertyReactivityBlockerTest, PropertyReactivityTest (annotation methods) | 59 + 5 + ~20 |

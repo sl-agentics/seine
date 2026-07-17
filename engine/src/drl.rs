@@ -170,12 +170,31 @@ pub enum CmpRhs {
     Var(String),
 }
 
+/// An LHS arithmetic operand expression (D-291, the agree-subset port):
+/// `+ - * / %`, unary minus, parens, over own fields, $bindings, and
+/// numeric literals. Whole-slot only (never composes into `&&`/`||`
+/// groups); int `/` and `%` take NONZERO INT LITERAL divisors and an
+/// int-int division must be the ENTIRE side of the comparison (D-290:
+/// the interpreted oracle carries the fractional quotient into any
+/// surrounding arithmetic — composing it is mode-divergent).
+#[derive(Debug, Clone, PartialEq)]
+pub enum AExpr {
+    Field(String),
+    Var(String),
+    Lit(Literal),
+    Neg(Box<AExpr>),
+    Bin(char, Box<AExpr>, Box<AExpr>),
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Constraint {
     /// `$a : age`
     Bind { var: String, field: String },
     /// `age > 18` or `age > $a`
     Cmp { field: String, op: CmpOp, rhs: CmpRhs },
+    /// D-291: `k + 1 > 5`, `k == $a + $b`, `x / y > 1000000.0` — an
+    /// arithmetic comparison, whole-slot (like Temporal).
+    ArithCmp { left: AExpr, op: CmpOp, right: AExpr },
     /// `name matches "a.*"` — full-string java.util.regex semantics (D-030)
     Matches { field: String, regex: String },
     /// `name contains "ab"` — String substring test (D-030)
@@ -1498,10 +1517,123 @@ impl Parser {
     /// tops stay ONE composite Group (in-like semantics, ib21..ib23).
     /// A leading `$v : field` binding may carry a restriction expression
     /// over that field (`$v : b > 0 || b < -5`, ib29/ib12).
+    /// D-291: does the CURRENT slot contain arithmetic? Scans to the
+    /// slot end (depth-0 ',' or the pattern-closing ')') for `+ * / %`
+    /// at any depth, or a '-' that reads as BINARY minus (previous
+    /// token is an operand or ')') or as unary negation of an
+    /// identifier (`-$a`, `-k`). A '-' introducing a negative LITERAL
+    /// (`k > -5`, in-list members, temporal params) stays on the
+    /// legacy path byte-for-byte.
+    fn slot_has_arith(&self) -> bool {
+        let mut depth = 0i32;
+        let mut n = 0usize;
+        loop {
+            let Some(t) = self.peek_at(n) else { return false };
+            match t {
+                Tok::Sym("(") => depth += 1,
+                Tok::Sym(")") => {
+                    if depth == 0 {
+                        return false;
+                    }
+                    depth -= 1;
+                }
+                Tok::Sym(",") if depth == 0 => return false,
+                Tok::Sym("+") | Tok::Sym("*") | Tok::Sym("/") | Tok::Sym("%") => return true,
+                Tok::Sym("-") => {
+                    let prev_operand = n > 0
+                        && matches!(
+                            self.peek_at(n - 1),
+                            Some(Tok::Ident(_))
+                                | Some(Tok::IntLit(_))
+                                | Some(Tok::FloatLit(_))
+                                | Some(Tok::Sym(")"))
+                        );
+                    let next_ident = matches!(self.peek_at(n + 1), Some(Tok::Ident(_)));
+                    if prev_operand || next_ident {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+            n += 1;
+        }
+    }
+
+    /// D-291 arithmetic comparison operand: additive over
+    /// multiplicative over factor, atoms = own field | $binding |
+    /// numeric literal. Standard precedence, left-assoc (D-281 — the
+    /// oracle's bare `a + b * c` eval throw is a defect we do not
+    /// copy; witnesses in xfail/).
+    fn aexpr(&mut self) -> Result<AExpr, DrlError> {
+        let mut e = self.aterm()?;
+        loop {
+            match self.peek() {
+                Some(Tok::Sym(s @ ("+" | "-"))) => {
+                    let op = s.chars().next().unwrap();
+                    self.next()?;
+                    e = AExpr::Bin(op, Box::new(e), Box::new(self.aterm()?));
+                }
+                _ => return Ok(e),
+            }
+        }
+    }
+
+    fn aterm(&mut self) -> Result<AExpr, DrlError> {
+        let mut e = self.afactor()?;
+        loop {
+            match self.peek() {
+                Some(Tok::Sym(s @ ("*" | "/" | "%"))) => {
+                    let op = s.chars().next().unwrap();
+                    self.next()?;
+                    e = AExpr::Bin(op, Box::new(e), Box::new(self.afactor()?));
+                }
+                _ => return Ok(e),
+            }
+        }
+    }
+
+    fn afactor(&mut self) -> Result<AExpr, DrlError> {
+        match self.peek() {
+            Some(Tok::Sym("(")) => {
+                self.next()?;
+                let e = self.aexpr()?;
+                self.expect_sym(")")?;
+                Ok(e)
+            }
+            Some(Tok::Sym("-")) => {
+                // `-3` stays a signed literal (the literal() path owns
+                // the IntMinLit magnitude case); `-$a` / `-k` / `-(…)`
+                // is negation.
+                if matches!(
+                    self.peek_at(1),
+                    Some(Tok::IntLit(_) | Tok::FloatLit(_) | Tok::IntMinLit)
+                ) {
+                    Ok(AExpr::Lit(self.literal()?))
+                } else {
+                    self.next()?;
+                    Ok(AExpr::Neg(Box::new(self.afactor()?)))
+                }
+            }
+            Some(Tok::Ident(w)) if w.starts_with('$') => Ok(AExpr::Var(self.ident()?)),
+            Some(Tok::Ident(_)) => Ok(AExpr::Field(self.ident()?)),
+            _ => Ok(AExpr::Lit(self.literal()?)),
+        }
+    }
+
     fn constraint_slot(&mut self) -> Result<Vec<Constraint>, DrlError> {
         let mut out = Vec::new();
         let mut cur_field: Option<String> = None;
+        // D-291: arithmetic slots are WHOLE-SLOT constraints (like
+        // Temporal) — no bind prefix, no `&&`/`||` composition.
+        let arith = self.slot_has_arith();
         if matches!(self.peek(), Some(Tok::Ident(w)) if w.starts_with('$')) {
+            if arith {
+                return Err(self.perr(
+                    "a binding cannot carry an arithmetic restriction (D-291) — \
+                     bind the field in its own slot and write the arithmetic \
+                     as a separate constraint",
+                ));
+            }
             let var = self.ident()?;
             self.expect_sym(":")?;
             let field = self.ident()?;
@@ -1544,6 +1676,32 @@ impl Parser {
             }
             let var = self.dollar_ident()?;
             out.push(Constraint::Temporal { op, params, var });
+            return Ok(out);
+        }
+        if arith {
+            let left = self.aexpr()?;
+            let op = match self.next()? {
+                Tok::Sym("==") => CmpOp::Eq,
+                Tok::Sym("!=") => CmpOp::Ne,
+                Tok::Sym("<") => CmpOp::Lt,
+                Tok::Sym("<=") => CmpOp::Le,
+                Tok::Sym(">") => CmpOp::Gt,
+                Tok::Sym(">=") => CmpOp::Ge,
+                other => {
+                    return Err(self.perr_prev(format!(
+                        "expected comparison operator in arithmetic constraint, got {other}"
+                    )))
+                }
+            };
+            let right = self.aexpr()?;
+            if !matches!(self.peek(), Some(Tok::Sym(",")) | Some(Tok::Sym(")"))) {
+                return Err(self.perr(
+                    "arithmetic comparisons are whole-slot constraints (D-291) — \
+                     they do not compose with '&&'/'||'; write separate \
+                     comma-joined constraints",
+                ));
+            }
+            out.push(Constraint::ArithCmp { left, op, right });
             return Ok(out);
         }
         let e = self.cexpr_or(&mut cur_field)?;

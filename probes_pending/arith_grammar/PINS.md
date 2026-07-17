@@ -287,19 +287,44 @@ corpus and fuzz population) are pure mode 1 and fully deterministic.
   (mode-1 degenerate always-false); `/` with a runtime-zero-reachable
   divisor; `/` at ≥2^53 operands.
 
-### The port shape this implies (Bryan-gated, NOT started)
+### The port — LANDED (D-291, Bryan's directive: agree subset + residency precondition + volume detector)
 
-1. Certify the agree subset: `+ - * %` (with `% 0` as a loud parity
-   error) and `/` restricted to int-typed comparands, nonzero LITERAL
-   divisors (statically zero-free), operands bounded below 2^53 by
-   authoring lint/static check. Engine computes plain long arithmetic
-   — bit-identical to BOTH oracle modes on every admitted cell.
-2. Fence with steering: double-typed comparands on `/`; field/binding
-   divisors (runtime-zero reach = mode-divergent); expression-vs-
-   binding equality; huge-operand division.
-3. The race itself: quarantine-and-document as oracle nondeterminism
-   (the fz_42_84 precedent) — recon witnesses stay in this dir, never
-   promoted, generator never emits `/` shapes outside the agree
-   subset.
-4. Re-adjudicate the whole §F table on any oracle bump (jit behavior
-   is engine-version-specific).
+Shipped as §F implied, plus the two hardening requirements:
+- Grammar: ArithCmp whole-slot constraints (drl.rs aexpr; the legacy
+  slot grammar byte-preserved — 2060-scenario byte gate). Engine:
+  compile_aexpr (LHS lattice: int literals are I64 per
+  pr_ar_dz_lhs_i32/i32b — NOT the RHS javac I32) + Test::Arith with
+  the D-037/D-113 identity key; eval is TOTAL (nonzero literal
+  divisors compile-checked). `+ - * %` free (incl. `%` composition);
+  int-int `/` = whole-side only, int comparand, nonzero int literal
+  divisor; f64 `/` free (IEEE, any divisor). NaN: ==/rel false, !=
+  true (pr_ar_lhs_nan_ne — probed, not assumed).
+- Fences (CompileError with steering, all verified loudly): double
+  comparands on int division; field/binding divisors; literal-zero
+  divisors; division==binding equality; composed int division; `%`
+  on doubles; bind-with-arith slots; `in`/matches over expressions;
+  not/exists/accumulate/group-CE/query contexts.
+- **⚖ MODE-1 RESIDENCY IS A LOGGED PRECONDITION**: every
+  differential receipt for this feature is mode-1 evidence (the
+  corpus and generator live at ≤6 facts, far under the ~20-eval jit
+  threshold). The admitted grid is mode-invariant BY CONSTRUCTION +
+  volume-confirmed on the == int cell (pr_ar_dz_jit_eq3, both modes
+  agree at any volume); everything mode-divergent is fenced. A
+  future `/`-bearing divergence at volume is RACE-SUSPECT first.
+- **The volume detector**: harness diff + fuzz failure paths tag
+  divergences whose LHS-division constraints could exceed ~16
+  evaluations ("MODE1-RESIDENCY EXCEEDED (D-290 jit-race suspect)"),
+  so the quarantine class detects its own members instead of
+  presenting as a flaky gate. Generator: agree-subset single-op
+  shapes only, structural residency cap.
+- Expected-divergence witnesses (drift-banked): xf_ar_lhs_div_2p53
+  (the ≥2^53 double-transit corner + MIN/-1 saturation, opposite
+  polarities) and xf_ar_lhs_precedence_defect (the D-281 bare
+  `a + b * c` eval throw, both polarities). Race witnesses stay here
+  as engine_fenced recon, never promoted.
+- 24 probes graduated (pr_ar_lhs_* / pr_ar_dz_*); corpus
+  11/1257/406; the one fuzz find (fz_606060_555) minimized to ZERO
+  arithmetic and bisected PRE-EXISTING → quarantined
+  (xf_fz_606060_555, acc/setFocus/agenda-group latent family).
+- Re-adjudicate the whole §F table on any oracle bump (jit behavior
+  is engine-version-specific).

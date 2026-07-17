@@ -541,6 +541,12 @@ fn compile_query(
                                 .into(),
                         )
                     }
+                    Constraint::ArithCmp { .. } => {
+                        return err(
+                            "arithmetic constraints in query bodies are out of subset (D-291)"
+                                .into(),
+                        )
+                    }
                     Constraint::Bind { var, field } => {
                         let fi = store.field_index(tid, field).ok_or_else(|| {
                             EngineError(format!("query {}: {} has no field {field}", def.name, elem.name))

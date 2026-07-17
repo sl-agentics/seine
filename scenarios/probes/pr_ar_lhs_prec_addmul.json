@@ -1,0 +1,24 @@
+{
+ "name": "pr_ar_lhs_prec_addmul",
+ "drl": "rule \"PAdd\"\nwhen\n    P(k + 1 == 9007199254740994)\nthen\nend\nrule \"PMul\"\nwhen\n    P(k * 2 == 18014398509481986)\nthen\nend\nrule \"Sent\"\nwhen\n    P(k > 0)\nthen\nend\n",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "k": 9007199254740993
+   }
+  }
+ ],
+ "epochs": []
+}

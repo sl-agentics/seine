@@ -1,0 +1,29 @@
+{
+ "name": "pr_ar_lhs_div_fieldcmp",
+ "drl": "rule \"FCEq\"\nwhen\n    T(k / 2 == m)\nthen\nend\nrule \"FCGt\"\nwhen\n    T(k / 2 > m)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7,
+    "m": 3
+   }
+  }
+ ],
+ "epochs": []
+}
