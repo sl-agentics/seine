@@ -31,13 +31,367 @@ use crate::store::{FactId, Value};
 pub type Tup = smallvec::SmallVec<[FactId; 4]>;
 pub type Origin = Option<usize>;
 
+/// D-298: order-preserving indexed staging storage — the list type behind
+/// `Staged`'s ins/upd/del. Drools' staged tuples are intrusive
+/// doubly-linked (removeFromStaging is O(1)); the port's VecDeques made
+/// every add_* dedup/cancel walk the list, quadratic on deep teardowns
+/// (ub_deep_99k: 99k cancels against a lazy not-window's 99k unconsumed
+/// staged inserts). Storage: an entry arena + a live-order id deque
+/// (arena None = tombstone) + per-key id lists kept in LIST order (a
+/// front push prepends, a back push appends), so first-occurrence-by-key
+/// is a key-list head — O(1) find/cancel/dedup. Every public op maps 1:1
+/// onto the VecDeque op it replaced, restricted to the live subsequence;
+/// iteration order (certified staging order) is the live order. Ends are
+/// trimmed on removal; amortized compaction (dead*2 > order len, floor
+/// 64) rebuilds all three parts in live order.
+#[derive(Clone)]
+pub struct StagedList<T: Clone + PartialEq + Eq + std::hash::Hash> {
+    arena: Vec<Option<(T, Origin, u8)>>,
+    order: std::collections::VecDeque<u32>,
+    keys: HashMap<T, smallvec::SmallVec<[u32; 2]>>,
+    dead: usize,
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> Default for StagedList<T> {
+    fn default() -> Self {
+        StagedList {
+            arena: Vec::new(),
+            order: std::collections::VecDeque::new(),
+            keys: HashMap::new(),
+            dead: 0,
+        }
+    }
+}
+
+pub struct StagedIter<'a, T> {
+    order: std::collections::vec_deque::Iter<'a, u32>,
+    arena: &'a [Option<(T, Origin, u8)>],
+}
+
+impl<'a, T> Iterator for StagedIter<'a, T> {
+    type Item = &'a (T, Origin, u8);
+    fn next(&mut self) -> Option<Self::Item> {
+        for &id in self.order.by_ref() {
+            if let Some(e) = self.arena[id as usize].as_ref() {
+                return Some(e);
+            }
+        }
+        None
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for StagedIter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        while let Some(&id) = self.order.next_back() {
+            if let Some(e) = self.arena[id as usize].as_ref() {
+                return Some(e);
+            }
+        }
+        None
+    }
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> StagedList<T> {
+    pub fn with_capacity(n: usize) -> Self {
+        StagedList {
+            arena: Vec::with_capacity(n),
+            order: std::collections::VecDeque::with_capacity(n),
+            keys: HashMap::new(),
+            dead: 0,
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.order.len() - self.dead
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn iter(&self) -> StagedIter<'_, T> {
+        StagedIter { order: self.order.iter(), arena: &self.arena }
+    }
+
+    pub fn front(&self) -> Option<&(T, Origin, u8)> {
+        self.iter().next()
+    }
+
+    pub fn push_front(&mut self, e: (T, Origin, u8)) {
+        let id = self.arena.len() as u32;
+        self.keys.entry(e.0.clone()).or_default().insert(0, id);
+        self.arena.push(Some(e));
+        self.order.push_front(id);
+    }
+
+    pub fn push_back(&mut self, e: (T, Origin, u8)) {
+        let id = self.arena.len() as u32;
+        self.keys.entry(e.0.clone()).or_default().push(id);
+        self.arena.push(Some(e));
+        self.order.push_back(id);
+    }
+
+    /// First-occurrence-by-key probe — O(1); the exact predicate the old
+    /// `.iter().any(|(x, _, _)| *x == t)` scans computed.
+    pub fn contains_key(&self, t: &T) -> bool {
+        self.keys.contains_key(t)
+    }
+
+    /// Remove the FIRST live occurrence of key `t` — the entry the old
+    /// `position` + `remove(i)` pair found and removed. O(1) amortized.
+    pub fn remove_first_by_key(&mut self, t: &T) -> Option<(T, Origin, u8)> {
+        let (id, now_empty) = {
+            let ids = self.keys.get_mut(t)?;
+            let id = ids.remove(0);
+            (id, ids.is_empty())
+        };
+        if now_empty {
+            self.keys.remove(t);
+        }
+        let e = self.arena[id as usize].take().expect("stale key id");
+        self.dead += 1;
+        self.trim_ends();
+        self.maybe_compact();
+        Some(e)
+    }
+
+    /// remove_first_by_key plus the LIVE index the entry sat at (slot
+    /// memory bookkeeping). The rank walk is O(position) and runs only
+    /// on the rare slot_memory path.
+    pub fn remove_first_by_key_indexed(&mut self, t: &T) -> Option<((T, Origin, u8), usize)> {
+        let id = *self.keys.get(t)?.first()?;
+        let mut rank = 0usize;
+        for &oid in self.order.iter() {
+            if oid == id {
+                break;
+            }
+            if self.arena[oid as usize].is_some() {
+                rank += 1;
+            }
+        }
+        let e = self.remove_first_by_key(t)?;
+        Some((e, rank))
+    }
+
+    /// Remove the entry at LIVE index `at` (VecDeque::remove semantics).
+    pub fn remove(&mut self, at: usize) -> Option<(T, Origin, u8)> {
+        let mut live = 0usize;
+        for i in 0..self.order.len() {
+            let id = self.order[i];
+            if self.arena[id as usize].is_some() {
+                if live == at {
+                    let e = self.arena[id as usize].take().unwrap();
+                    self.key_prune(&e.0, id);
+                    self.dead += 1;
+                    self.trim_ends();
+                    self.maybe_compact();
+                    return Some(e);
+                }
+                live += 1;
+            }
+        }
+        None
+    }
+
+    /// Insert at LIVE index `at` (VecDeque::insert semantics; the rare
+    /// slot-restore path). The key-list position is recovered by rank.
+    pub fn insert(&mut self, at: usize, e: (T, Origin, u8)) {
+        if at == 0 {
+            self.push_front(e);
+            return;
+        }
+        if at >= self.len() {
+            self.push_back(e);
+            return;
+        }
+        let id = self.arena.len() as u32;
+        let mut live = 0usize;
+        let mut pos = self.order.len();
+        let mut key_rank = 0usize;
+        for i in 0..self.order.len() {
+            let oid = self.order[i];
+            if let Some(ent) = self.arena[oid as usize].as_ref() {
+                if live == at {
+                    pos = i;
+                    break;
+                }
+                if ent.0 == e.0 {
+                    key_rank += 1;
+                }
+                live += 1;
+            }
+        }
+        self.keys.entry(e.0.clone()).or_default().insert(key_rank, id);
+        self.arena.push(Some(e));
+        self.order.insert(pos, id);
+    }
+
+    /// Split off the tail from LIVE index `at` (VecDeque::split_off
+    /// semantics); the tail leaves the structure as a plain deque.
+    pub fn split_off(&mut self, at: usize) -> std::collections::VecDeque<(T, Origin, u8)> {
+        let mut live = 0usize;
+        let mut pos = self.order.len();
+        for i in 0..self.order.len() {
+            if self.arena[self.order[i] as usize].is_some() {
+                if live == at {
+                    pos = i;
+                    break;
+                }
+                live += 1;
+            }
+        }
+        let tail_ids = self.order.split_off(pos);
+        let mut out = std::collections::VecDeque::with_capacity(tail_ids.len());
+        for id in tail_ids {
+            if let Some(e) = self.arena[id as usize].take() {
+                self.key_prune(&e.0, id);
+                out.push_back(e);
+            } else {
+                self.dead -= 1;
+            }
+        }
+        self.trim_ends();
+        self.maybe_compact();
+        out
+    }
+
+    pub fn drain(&mut self, _: std::ops::RangeFull) -> std::vec::IntoIter<(T, Origin, u8)> {
+        let all: Vec<(T, Origin, u8)> = std::mem::take(self).into_iter().collect();
+        all.into_iter()
+    }
+
+    fn key_prune(&mut self, t: &T, id: u32) {
+        let now_empty = if let Some(ids) = self.keys.get_mut(t) {
+            if let Some(p) = ids.iter().position(|&x| x == id) {
+                ids.remove(p);
+            }
+            ids.is_empty()
+        } else {
+            false
+        };
+        if now_empty {
+            self.keys.remove(t);
+        }
+    }
+
+    fn trim_ends(&mut self) {
+        while let Some(&id) = self.order.front() {
+            if self.arena[id as usize].is_some() {
+                break;
+            }
+            self.order.pop_front();
+            self.dead -= 1;
+        }
+        while let Some(&id) = self.order.back() {
+            if self.arena[id as usize].is_some() {
+                break;
+            }
+            self.order.pop_back();
+            self.dead -= 1;
+        }
+    }
+
+    fn maybe_compact(&mut self) {
+        if self.order.len() >= 64 && self.dead * 2 > self.order.len() {
+            let live = self.len();
+            let mut arena = Vec::with_capacity(live);
+            let mut order = std::collections::VecDeque::with_capacity(live);
+            let mut keys: HashMap<T, smallvec::SmallVec<[u32; 2]>> = HashMap::new();
+            for &oid in self.order.iter() {
+                if let Some(e) = self.arena[oid as usize].take() {
+                    let id = arena.len() as u32;
+                    keys.entry(e.0.clone()).or_default().push(id);
+                    arena.push(Some(e));
+                    order.push_back(id);
+                }
+            }
+            self.arena = arena;
+            self.order = order;
+            self.keys = keys;
+            self.dead = 0;
+        }
+    }
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> IntoIterator for StagedList<T> {
+    type Item = (T, Origin, u8);
+    type IntoIter = std::vec::IntoIter<(T, Origin, u8)>;
+    fn into_iter(mut self) -> Self::IntoIter {
+        let mut out = Vec::with_capacity(self.len());
+        for &id in self.order.iter() {
+            if let Some(e) = self.arena[id as usize].take() {
+                out.push(e);
+            }
+        }
+        out.into_iter()
+    }
+}
+
+impl<'a, T: Clone + PartialEq + Eq + std::hash::Hash> IntoIterator for &'a StagedList<T> {
+    type Item = &'a (T, Origin, u8);
+    type IntoIter = StagedIter<'a, T>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> FromIterator<(T, Origin, u8)> for StagedList<T> {
+    fn from_iter<I: IntoIterator<Item = (T, Origin, u8)>>(it: I) -> Self {
+        let mut s = StagedList::default();
+        for e in it {
+            s.push_back(e);
+        }
+        s
+    }
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> Extend<(T, Origin, u8)> for StagedList<T> {
+    fn extend<I: IntoIterator<Item = (T, Origin, u8)>>(&mut self, it: I) {
+        for e in it {
+            self.push_back(e);
+        }
+    }
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> From<std::collections::VecDeque<(T, Origin, u8)>>
+    for StagedList<T>
+{
+    fn from(v: std::collections::VecDeque<(T, Origin, u8)>) -> Self {
+        v.into_iter().collect()
+    }
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> From<Vec<(T, Origin, u8)>> for StagedList<T> {
+    fn from(v: Vec<(T, Origin, u8)>) -> Self {
+        v.into_iter().collect()
+    }
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash> std::ops::Index<usize> for StagedList<T> {
+    type Output = (T, Origin, u8);
+    /// Live-rank resolution — O(index); only rare paths index directly.
+    fn index(&self, at: usize) -> &Self::Output {
+        self.iter().nth(at).expect("StagedList index out of range")
+    }
+}
+
+impl<T: Clone + PartialEq + Eq + std::hash::Hash + std::fmt::Debug> std::fmt::Debug
+    for StagedList<T>
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
+}
+
 /// TupleSets: three LIFO lists (index 0 = most recently staged) with the
 /// upstream fold rules.
 #[derive(Clone)]
 pub struct Staged<T: Clone + PartialEq + Eq + std::hash::Hash> {
-    pub ins: std::collections::VecDeque<(T, Origin, u8)>,
-    pub upd: std::collections::VecDeque<(T, Origin, u8)>,
-    pub del: std::collections::VecDeque<(T, Origin, u8)>,
+    // D-298: indexed order-preserving lists (see StagedList) — the
+    // VecDeque surface (iter/len/extend/split_off/...) is preserved.
+    pub ins: StagedList<T>,
+    pub upd: StagedList<T>,
+    pub del: StagedList<T>,
     /// NORMALIZED deletes (D-041/fz_123_2748): a delete that cancelled a
     /// pending INSERT at the first sink still reaches the PEERS as a
     /// delete (TupleSetsImpl normalizedDeleteFirst / processPeerDeletes).
@@ -70,9 +424,9 @@ pub struct Staged<T: Clone + PartialEq + Eq + std::hash::Hash> {
 impl<T: Clone + PartialEq + Eq + std::hash::Hash> Default for Staged<T> {
     fn default() -> Self {
         Staged {
-            ins: std::collections::VecDeque::new(),
-            upd: std::collections::VecDeque::new(),
-            del: std::collections::VecDeque::new(),
+            ins: StagedList::default(),
+            upd: StagedList::default(),
+            del: StagedList::default(),
             norm_del: Vec::new(),
             peer_upd: Vec::new(),
             slot_memory: false,
@@ -119,7 +473,7 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
             self.ins.push_front((t, origin, phase));
             return;
         }
-        if self.upd.iter().any(|(x, _, _)| *x == t) || self.ins.iter().any(|(x, _, _)| *x == t) {
+        if self.upd.contains_key(&t) || self.ins.contains_key(&t) {
             return;
         }
         if self.slot_memory {
@@ -144,10 +498,7 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
             self.upd.push_front((t, origin, phase));
             return;
         }
-        if self.ins.iter().any(|(x, _, _)| *x == t)
-            || self.upd.iter().any(|(x, _, _)| *x == t)
-            || self.del.iter().any(|(x, _, _)| *x == t)
-        {
+        if self.ins.contains_key(&t) || self.upd.contains_key(&t) || self.del.contains_key(&t) {
             return;
         }
         self.upd.push_front((t, origin, phase));
@@ -164,16 +515,12 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
             let _ = ph;
         }
         for (t, o, ph) in trg.upd.into_iter().rev() {
-            if let Some(i) = pending.ins.iter().position(|(x, _, _)| *x == t) {
-                if let Some(e) = pending.ins.remove(i) {
-                    pending.ins.push_front(e); // stays an insert, moves to head
-                }
+            if let Some(e) = pending.ins.remove_first_by_key(&t) {
+                pending.ins.push_front(e); // stays an insert, moves to head
                 continue;
             }
-            if let Some(i) = pending.upd.iter().position(|(x, _, _)| *x == t) {
-                pending.upd.remove(i);
-            }
-            if pending.del.iter().any(|(x, _, _)| *x == t) {
+            let _ = pending.upd.remove_first_by_key(&t);
+            if pending.del.contains_key(&t) {
                 continue;
             }
             pending.seen_add(&t);
@@ -186,8 +533,8 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
         // (the set absorbs kept keys). Byte-order-identical.
         let mut dedup: HashSet<T> =
             pending.ins.iter().map(|(x, _, _)| x.clone()).collect();
-        let mut merged: std::collections::VecDeque<(T, Origin, u8)> =
-            std::collections::VecDeque::with_capacity(trg.ins.len() + pending.ins.len());
+        let mut merged: StagedList<T> =
+            StagedList::with_capacity(trg.ins.len() + pending.ins.len());
         for (t, o, ph) in trg.ins.into_iter() {
             if dedup.contains(&t) {
                 continue;
@@ -204,19 +551,11 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
     /// Unstage a pending INSERT of `t` (true when found) — the
     /// cross-window clash primitive (updateChildLeftTuple, D-041).
     pub fn remove_ins(&mut self, t: &T) -> bool {
-        if let Some(i) = self.ins.iter().position(|(x, _, _)| x == t) {
-            self.ins.remove(i);
-            return true;
-        }
-        false
+        self.ins.remove_first_by_key(t).is_some()
     }
 
     pub fn remove_upd(&mut self, t: &T) -> bool {
-        if let Some(i) = self.upd.iter().position(|(x, _, _)| x == t) {
-            self.upd.remove(i);
-            return true;
-        }
-        false
+        self.upd.remove_first_by_key(t).is_some()
     }
 
     pub fn add_del(&mut self, t: T, origin: Origin) {
@@ -225,17 +564,16 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
             self.del.push_front((t, origin, 0));
             return;
         }
-        if let Some(i) = self.ins.iter().position(|(x, _, _)| *x == t) {
-            self.ins.remove(i); // never materialized: cancel
-            if self.slot_memory {
-                self.cancelled_slots.push((t, i));
+        if self.slot_memory {
+            if let Some((_, i)) = self.ins.remove_first_by_key_indexed(&t) {
+                self.cancelled_slots.push((t, i)); // never materialized: cancel
+                return;
             }
-            return;
+        } else if self.ins.remove_first_by_key(&t).is_some() {
+            return; // never materialized: cancel
         }
-        if let Some(i) = self.upd.iter().position(|(x, _, _)| *x == t) {
-            self.upd.remove(i);
-        }
-        if self.del.iter().any(|(x, _, _)| *x == t) {
+        let _ = self.upd.remove_first_by_key(&t);
+        if self.del.contains_key(&t) {
             return;
         }
         self.del.push_front((t, origin, 0));
@@ -1217,7 +1555,9 @@ pub trait JoinEnv {
     }
 }
 
-fn sr_ins_iter<T>(v: &std::collections::VecDeque<T>) -> Box<dyn Iterator<Item = &T> + '_> {
+fn sr_ins_iter<T: Clone + PartialEq + Eq + std::hash::Hash>(
+    v: &StagedList<T>,
+) -> Box<dyn Iterator<Item = &(T, Origin, u8)> + '_> {
     if std::env::var("SEINE_JSR").map(|x| x == "tail").unwrap_or(false) {
         Box::new(v.iter().rev())
     } else {

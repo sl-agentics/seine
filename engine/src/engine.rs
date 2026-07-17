@@ -6633,7 +6633,7 @@ impl Engine {
         // rights (delta included — rights never flush-pair) and held
         // (pre-tail) lefts; DELTA lefts still flush (v2's IF).
         // TEMPORAL joins and existential nodes stash nothing.
-        let mut stash: Vec<(std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(Tup, Origin, u8)>)> =
+        let mut stash: Vec<(phreak::StagedList<FactId>, phreak::StagedList<FactId>, phreak::StagedList<Tup>)> =
             Vec::with_capacity(self.trie.len());
         let mut dstash: Vec<(std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(Tup, Origin, u8)>, std::collections::VecDeque<(FactId, Origin, u8)>)> =
             Vec::with_capacity(self.trie.len());
@@ -6679,9 +6679,9 @@ impl Engine {
         // loop. `None` = keep the certified pop-time path.
         let mut shared_tj_stash: Vec<
             Option<(
-                std::collections::VecDeque<(FactId, Origin, u8)>,
-                std::collections::VecDeque<(FactId, Origin, u8)>,
-                std::collections::VecDeque<(Tup, Origin, u8)>,
+                phreak::StagedList<FactId>,
+                phreak::StagedList<FactId>,
+                phreak::StagedList<Tup>,
             )>,
         > = (0..self.trie.len()).map(|_| None).collect();
         for (ni, p) in pre.0.iter().enumerate() {
@@ -6752,9 +6752,9 @@ impl Engine {
                         .contains_key(&self.rules[t.env.0].patterns[t.env.1].type_id)
                 {
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
-                    stash.push((sr_all, std::collections::VecDeque::new(), std::collections::VecDeque::new()));
+                    stash.push((sr_all, phreak::StagedList::default(), phreak::StagedList::default()));
                 } else {
-                    stash.push((std::collections::VecDeque::new(), std::collections::VecDeque::new(), std::collections::VecDeque::new()));
+                    stash.push((phreak::StagedList::default(), phreak::StagedList::default(), phreak::StagedList::default()));
                 }
                 continue;
             }
@@ -6803,7 +6803,7 @@ impl Engine {
                     let s0_all = std::mem::take(&mut t.s0_in.ins);
                     let sl_all = std::mem::take(&mut t.node.s_left.ins);
                     shared_tj_stash[ni] = Some((sr_all, s0_all, sl_all));
-                    stash.push((std::collections::VecDeque::new(), std::collections::VecDeque::new(), std::collections::VecDeque::new()));
+                    stash.push((phreak::StagedList::default(), phreak::StagedList::default(), phreak::StagedList::default()));
                 } else if node_linked[ni] && node_shared[ni] {
                     // legacy pop-time bail (non-clean shared temporal node)
                     let sr_all = std::mem::take(&mut t.node.s_right.ins);
@@ -6813,7 +6813,7 @@ impl Engine {
                     );
                     stash.push((sr_all, s0_all, sl_all));
                 } else {
-                    stash.push((std::collections::VecDeque::new(), std::collections::VecDeque::new(), std::collections::VecDeque::new()));
+                    stash.push((phreak::StagedList::default(), phreak::StagedList::default(), phreak::StagedList::default()));
                 }
                 continue;
             }
@@ -6837,7 +6837,7 @@ impl Engine {
             let toggles_now = !pre.2[t.env.0] && node_linked[ni];
             let relink = pre.3.get(t.env.0).copied().unwrap_or(false);
             if toggled && toggles_now && has_ph4 && relink {
-                stash.push((std::collections::VecDeque::new(), std::collections::VecDeque::new(), std::collections::VecDeque::new()));
+                stash.push((phreak::StagedList::default(), phreak::StagedList::default(), phreak::StagedList::default()));
                 continue;
             }
             let sr_all = std::mem::take(&mut t.node.s_right.ins);
@@ -6845,15 +6845,15 @@ impl Engine {
             let s0_tail = t.s0_in.ins.split_off(d0);
             let dl = t.node.s_left.ins.len() - p.1.min(t.node.s_left.ins.len());
             let sl_tail = t.node.s_left.ins.split_off(dl);
-            stash.push((sr_all, s0_tail, sl_tail));
+            stash.push((sr_all, s0_tail.into(), sl_tail.into()));
         }
         // k=1 window DELS/UPDS are never the insert-trigger's own effect
         // — stash them ALL for the fire (expiration deletes batch to the
         // fire; cf5x17's k=1 justifier teardown must not run at a flush)
-        let mut k1_stash: Vec<Vec<(usize, std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(FactId, Origin, u8)>)>> =
+        let mut k1_stash: Vec<Vec<(usize, phreak::StagedList<FactId>, std::collections::VecDeque<(FactId, Origin, u8)>)>> =
             Vec::with_capacity(self.nets.len());
         for (ri, net) in self.nets.iter_mut().enumerate() {
-            let mut per: Vec<(usize, std::collections::VecDeque<(FactId, Origin, u8)>, std::collections::VecDeque<(FactId, Origin, u8)>)> =
+            let mut per: Vec<(usize, phreak::StagedList<FactId>, std::collections::VecDeque<(FactId, Origin, u8)>)> =
                 Vec::new();
             for (wi, w) in net.s0.iter_mut().enumerate() {
                 // D-166: stash only PRE-EXISTING upds (the tail — staging

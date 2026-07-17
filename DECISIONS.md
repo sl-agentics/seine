@@ -11,38 +11,38 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-17. **THE D-076 ARC IS CLOSED (D-293..296) —
-Bryan gated the lift and it LANDED.** The chain: D-293 worklist
-teardown (order-preserving machine, SD 72 EXACT), D-294 probe round
-(fixpoint algebra pins, ungrounded-cluster survival, the teardown-SOE
-finding), D-295 oracle -Xss1g pin (99k-deep teardown
-oracle-observable), **D-296 THE LIFT: the D-284 stratification
-CompileError and the 8192 assert are GONE — cyclic computed
-insertLogical (fixpoint numerics, transitive closure) is in-subset,**
-certified by 12 graduated pr_ub_* corpus probes + the bench_slow deep
-witnesses (ub_deep_99k PASSES engine-vs-oracle at 99,000 deep).
-Receipts: byte gate 2130 identical, diff 11/**1269**/406 + drift 49
-(3 fresh-seed fuzz finds ALL bisected PRE-EXISTING → xf_fz_296*
-quarantined, seeds re-run clean), lint 1986/0/0, cargo 54, pytest
-229, demo True, model_ird 31/31, agenda_open ×15, IRD 0-div ×5, SD
-census 72 EXACT. **D-297 (Bryan: "do by_act perf slab"): the by_act
-quadratic is FIXED — ByAct, an order-preserving indexed act table**
-(tombstoned slot vec + act→slot + fact→slots, amortized compaction;
-9000-deep 15.5s→0.77s, 99k ~70min→~52s, runaway diffs ~4.5s).
-pr_ub_deep_9000 GRADUATED (corpus 11/**1270**/406), the two arith
-runaways RETURNED to probes_pending/arith_grammar (fenced by the
-runtime fire-limit wall, diffed PASS), bench_slow keeps ONE resident
-(ub_deep_99k, ~52s). Receipts: byte gate 2146 IDENTICAL vs 8fc3184,
-diff 11/1270/406 + drift 49, lint 1989/0/0, cargo 54, pytest 229,
-demo True, model_ird 31/31, agenda_open ×15, IRD 0-div ×5, SD 72
-EXACT, fuzz 2×2000 seeds 297001/297002 CLEAN. **NEXT NAMED PERF
-ITEM: the staged del-dedup scan** (phreak Staged::add_del
-del.iter().any per teardown delete; stale-positive del_set sketch +
-the ~9 del-merge-site audit on identity-model-law surface —
-bench_slow README carries the map). Authoring cycle lint untouched
-(queue item 4, FOUR refreshes). Pushed through 4cb325d; local
-unpushed: f13be11 + handoff + D-293..297. NEXT: queue item 4
-(authoring sugar) or the staged-del perf slab — Bryan's pick._
+_Last updated: 2026-07-17. **THE D-076 ARC IS CLOSED (D-293..296)
+AND ITS PERF LEDGER IS CLEAR (D-297/D-298).** The chain: D-293
+worklist teardown (order-preserving machine, SD 72 EXACT), D-294
+probe round (fixpoint algebra pins, ungrounded-cluster survival, the
+teardown-SOE finding), D-295 oracle -Xss1g pin, **D-296 THE LIFT:
+the D-284 stratification CompileError and the 8192 assert are GONE —
+cyclic computed insertLogical (fixpoint numerics, transitive
+closure) is in-subset.** **D-297: the by_act quadratic FIXED**
+(ByAct, order-preserving indexed act table; 9000-deep 15.5s→0.77s,
+99k ~70min→~52s). **D-298 (Bryan: "begin with the staged-del
+slab"): the staged-scan quadratic FIXED and the diagnosis FLIPPED —
+the residual was the INS-CANCEL scan (a lazy unlinked not-window
+holding 99k unconsumed staged inserts, cancelled oldest-first at
+teardown), not the del-dedup scan; the sketched del_set was built,
+measured ZERO, and reverted. Fix = StagedList** (Staged's
+ins/upd/del: entry arena + live-order id deque + per-key id lists in
+list order — first-occurrence-by-key O(1), VecDeque surface mimicked
+so engine sites compile verbatim, every op 1:1 on the live
+subsequence): **99k 52s→4.69s byte-identical, now ~LINEAR.**
+ub_deep_99k GRADUATED (pr_ub_deep_99k, diff PASS 9s wall; corpus
+11/**1271**/406), **scenarios/bench_slow/ DELETED** (tier empty). NO
+deep-teardown perf item remains. D-298 receipts: byte gate
+**2149/2149 IDENTICAL** vs 6483f68 — FULL sweep, first gate with
+ZERO exclusions; diff 11/1271/406 + drift 50; lint 1990/0/0; cargo
+54; pytest 229; demo True; model_ird 31/31; agenda_open ×15 both
+binaries; IRD 0-div ×5; SD 72 EXACT; fuzz 2×2000 seeds
+298001/298002 (one find bisected PRE-EXISTING → xf_fz_298001_1216 +
+rebank 50, seed re-run clean). Map: probes_pending/staged_del/
+MAP.md. Authoring cycle lint untouched (queue item 4, FOUR
+refreshes). Pushed through 4cb325d; local unpushed: f13be11 +
+handoff + D-293..298. NEXT: queue item 4 (authoring sugar) — the
+sole named open slab; Bryan's call._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16068,3 +16068,67 @@ grinders); make diff 11/1270/406 + drift 49 identical; lint 1989/0/0
 model_ird 31/31; agenda_open ×15 identical both binaries; deep-scale
 diffs PASS (pr_ub_deep_9000, ub_deep_99k, both runaways); IRD 0-div
 ×5; SD census 72 EXACT cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7); fresh fuzz 2×2000 seeds 297001/297002 both CLEAN (0 divergences, 0 xfail hits).
+
+## D-298 — the staged-scan quadratic falls, and the diagnosis FLIPS: not the del-dedup scan but the INS-CANCEL scan; StagedList, indexed order-preserving staging (99k 52s → 4.7s, ~linear); ub_deep_99k GRADUATES, the bench_slow tier is DELETED (2026-07-17)
+
+Bryan: "Let's begin with the staged-del slab." THE FLIP: the D-297
+residual was named "the staged del-dedup scan" from a single gdb
+sample. The sketched fix (stale-positive del_set, D-266/267 pattern,
+registration mirroring seen_add at the cross-Staged sites) was BUILT,
+was provably behavior-identical (set ⊇ del ⟹ contains && any ≡ any) —
+and measured ZERO: 99k stayed 52.1s. Multi-sample gdb + a 30-frame
+trace then named the true mechanism: add_del closure#0 = the
+INS-CANCEL position scan, under delete_fact → tms_eager_break →
+tms_drop_act_deps → on_delete → on_delete_ex → Staged<FactId>::
+add_del. ub_deep_99k's WGone (`P(tag=="e1") not T()`) is UNLINKED
+through the grow (no P yet), so its T staging holds 99,000 UNCONSUMED
+ins entries; the teardown cancels them oldest-first — every cancel a
+HIT at the far end of the deque. A membership set cannot skip a hit
+that must yield a position; the del_set was REVERTED (subsumed) and
+the structural fix went in instead. (Why del never mattered: drained
+windows are take()n whole — fresh `seen` — so teardown dels there ride
+the D-266 seen-miss O(1) path; only UNDRAINED stagings are fat, and
+what they hold is ins. Lesson banked: single-sample gdb names the
+FRAME, not the CLOSURE — multi-sample before naming a residual.)
+
+THE STRUCTURE (phreak.rs, StagedList<T> — Staged's ins/upd/del):
+Drools' staged tuples are intrusive doubly-linked (removeFromStaging
+is O(1)); the port's VecDeques scanned. Now: entry arena + live-order
+id deque (None = tombstone; live order = certified staging order) +
+per-key id lists kept in LIST order (front push prepends, back push
+appends) — first-occurrence-by-key, the exact entry every old
+position/any scan selected, is a key-list head: O(1) find/cancel/
+dedup, duplicate keys exact (blind concats CAN stage a key twice —
+back-probe tricks were unsound). Ends trimmed on removal; amortized
+compaction (dead*2 > order len, floor 64) rebuilds arena+order+keys in
+live order. The public surface mimics VecDeque (iter/len/is_empty/
+extend/split_off/drain/insert/remove/Index/From/FromIterator/Debug) so
+the raw engine sites compile verbatim; split tails leave as plain
+VecDeques and re-enter via extend; live-rank walks confined to rare
+paths (slot-memory rank, qce [call_idx]). Every op maps 1:1 onto the
+VecDeque op it replaced on the live subsequence. O(1) rewrites inside
+Staged: add_del (remove_first_by_key + _indexed for the slot_memory
+rank), add_ins_ph/add_upd_ph clash checks, merge_into_pending
+move-to-head + del check, remove_ins/remove_upd. Engine-side .any key
+scans left verbatim (contains_key candidates only if ever measured).
+`seen` (D-266) STAYS — cheapest exit, invariant untouched; retirement
+would be a separate cleanup. Map: probes_pending/staged_del/MAP.md.
+
+MEASURED (debug): ub_deep_99k 52.1s → **4.69s** (11×), output
+byte-identical, now ~LINEAR (11.4× time for 11× depth vs deep_9000);
+pr_ub_deep_9000 0.78s → **0.41s**; runaway diffs ~4.2s. Tier moves:
+**ub_deep_99k GRADUATES** (scenarios/probes/pr_ub_deep_99k, diff PASS
+9.0s wall; corpus 11/1271/406); **scenarios/bench_slow/ DELETED** —
+the tier is empty; every D-296 grinder now lives in the ordinary
+tiers. No deep-teardown perf item remains open.
+
+Receipts: byte gate **2149/2149 IDENTICAL** vs 6483f68 worktree — the
+FULL sweep, first gate with ZERO exclusions (pr_ub_deep_99k + both
+runaways included); make diff 11/1271/406 + drift 50; lint 1990/0/0;
+cargo 54; pytest 229; demo True; model_ird 31/31; agenda_open ×15
+identical both binaries; IRD 0-div ×5; SD census 72 EXACT
+cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7); fresh fuzz 2×2000: seed
+298001 ONE find → bisected PRE-EXISTING (pre-edit engine
+byte-identical) → xf_fz_298001_1216 quarantined + rebank 49→50, seed
+re-run CLEAN (1 xfail hit); seed 298002 CLEAN. NEXT: queue item 4
+(authoring sugar, four refreshes) — the D-076/perf ledger is clear.
