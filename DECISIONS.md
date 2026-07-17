@@ -11,17 +11,19 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-292. The boundary-redraw arc:
-updates DONE (D-287/288/289), swamp DONE (D-290 map → D-291
-agree-subset port, mode-1 residency precondition + volume detector),
-fenced contexts PROBED (D-292: not/exists, acc sources, groups,
-queries all MODEL-CONSISTENT — the walls are scope cuts, not
-divergence covers; PINS.md §G). Pushed through 4cb325d
-(Bryan-directed); D-292 is a local probes+docs commit. NEXT = queue
-(3) D-076 iterative cascade → unbounded tier, (4) authoring sugar
-(owns the stale `_rhs_arg` wall message, the D-289 SalExpr-skip
-removal, and the LHS-arith authoring surface). **COLD-START =
-`probes_pending/arith_grammar/HANDOFF.md`**._
+_Last updated: 2026-07-16, session close (D-287..292 done). The
+boundary-redraw arc: updates DONE (D-287/288/289), swamp DONE
+(D-290 map → D-291 agree-subset port, mode-1 residency precondition
++ volume detector), fenced contexts PROBED (D-292 — walls are scope
+cuts; PINS.md §G). Pushed through 4cb325d; local unpushed: f13be11
+(D-292) + the handoff commit. **NEXT SLAB = D-076 iterative cascade
+→ unbounded tier. COLD-START =
+`probes_pending/d076_iterative/HANDOFF.md`** (two gated steps:
+recursion→worklist refactor with SD-72-EXACT as the order gate,
+then the unbounded-tier probe round → stratification lift). The
+arith-grammar record stays in probes_pending/arith_grammar/
+(HANDOFF + PINS §A–G); queue item 4 (authoring sugar, three
+recorded refreshes) waits behind D-076._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`

@@ -115,15 +115,13 @@ BRYAN DECIDES the port shape (PINS.md §F "port shape" block). Race
 witnesses stay recon-only (fz_42_84 quarantine precedent);
 re-adjudicate the table on any oracle bump.
 
-### 3. D-076 iterative cascade → the unbounded tier
+### 3. D-076 iterative cascade → the unbounded tier — HANDED OFF
 
-The recursive TMS cascade (engine.rs tms_drop_act_deps → on_delete
-recursion) is rule-count-bounded today; the stratification pass
-keeps it that way. Going iterative (explicit worklist) unlocks cyclic
-computed insertLogical (recursive derivations: transitive closure
-with computed values, fixpoint numerics). The cascade_depth guard
-(panic at 8192) marks every entry point. This is a standalone
-engine slab with the FULL battery incl. both censuses.
+Own cold-start file: **`probes_pending/d076_iterative/HANDOFF.md`**
+(filed 2026-07-16 — two gated steps: A. recursion→worklist
+behavior-preserving refactor with the full battery incl. SD 72
+EXACT; B. unbounded-tier probe round → lift the D-284 stratification
+CompileError for computed cycles). CURRENT STATE points there.
 
 ### 4. authoring.py sugar for computed args
 
