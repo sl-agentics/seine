@@ -176,28 +176,26 @@ fz_42_3311/j13; EXTERNAL update = CHANGED-FIELDS mask — D-047.)
 | ar_upd_tms_rederive | RHS computed modify drives re-derivation exactly like the external-update pin (pr_ar_tms_update_rederive): Derive→U(2), W2, Bump modifies A.k 1→5, Derive RE-FIRES → U(6) justified and **U(2) refire-superseded** (retracted); W6 fires; final = U(6) only |
 | ar_upd_set_no_update | setter with NO update(): object mutated (final view m=15) but **zero propagation** — the watcher never fires. Oracle serializer and engine store agree by construction |
 
-### The port shape §E implies (Bryan-gated, NOT started)
+### The port — LANDED (D-288, Bryan's gate: (a) + symmetric (b); not (c); (d) not built)
 
-1. Grammar: both setter sites (`modify` body + standalone `$p.setX(...)`)
-   move from `rhs_arg` to `rhs_expr`; `CompiledAction::Set.arg` becomes
-   CExpr. D-283's compile_cexpr/eval_cexpr apply VERBATIM (same snapshot
-   plumbing, same ArithTy, same assignability CompileError mirroring the
-   oracle's build error).
-2. The D-231 WONT decomposes on this evidence: the imperative-loop
-   hazard is the SELF-FEEDING shape (written ∩ own-listened ≠ ∅), and it
-   is reachable TODAY with atom args (ar_upd_same_value_runaway) —
-   computed args add expressiveness, not the hazard. The discriminator
-   is static, per rule, at compile. Options: (a) no new restriction
-   (fire limit + D-117 spin guard govern, as for atom modifies today);
-   (b) authoring-lint steering on self-feeding computed setters (D-222
-   voice); (c) CompileError — noting atoms stay legal, so a computed-only
-   wall is asymmetric.
-3. Cross-rule modify cycles stay fire-limit-governed for atoms today; an
-   update-edge cycle check (the D-284 stratification shape over
-   written→listened edges) is available if parity with the logical tier
-   is wanted.
-4. Nothing new for serializer/judge: Infinity strings, "/ by zero", and
-   fire-limit parity all landed with D-283.
-5. No parser distinction between the two syntactic forms (E3).
-6. Post-port fuzz: extend the gen.rs modify emission with computed
-   setter args under the existing guard-field discipline.
+Shipped exactly as §E implied: both setter sites `rhs_arg` →
+`rhs_expr`; `CompiledAction::Set` carries CExpr (atoms =
+CExpr::Atom, byte-identical eval_src passthrough); computed args via
+compile_cexpr + the javac assignability CompileError; gen.rs setter
+axis under the guard-field discipline. 13 probes GRADUATED
+(pr_ar_upd_*); the 5 runaway/error walls stay here as engine_fenced
+recon (narrowing wall now rejects with the assignability error;
+div_zero and the 3 fire-limit runaways error loudly on both sides).
+
+⚖ The restriction ruling (Bryan, after counter-review): NO engine
+wall — walls are legal where an ENGINE BOUND exists (D-284's
+CompileError protects the recursive TMS cascade's rule-count depth
+bound); the update loop is agenda-iterative under fire limit + the
+D-117 spin guard, so there is nothing to protect. The cross-rule
+update-edge cycle check is NOT built (D-284's pass GATES, so
+"matching its contract" would re-create (c) one rule-count out; the
+D-219/D-222 authoring altitude — per-rule, local, no chain
+reasoning — rules out the advisory form). Authoring-layer guidance
+is D-289: the D-222 template (blocking-with-exemptions at
+compile_rules), SYMMETRIC over atom and computed self-feeds, with
+the falsifying-write carve-out for the corpus's guard-flip idiom.

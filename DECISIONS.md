@@ -11,29 +11,32 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-287 (updates-with-computation PROBE
-ROUND done — **AT BRYAN'S GATE**). Repo: v0.4.32 released/pushed
-(8b3210b); D-287 is probes+docs only, working tree carries the 18 new
-ar_upd_* probes + PINS.md §E + this entry, UNCOMMITTED. **COLD-START =
-`probes_pending/arith_grammar/HANDOFF.md`**._
+_Last updated: 2026-07-16, post-D-288 (COMPUTED SETTER ARGS LANDED —
+Bryan gated (a)+(b) after the counter-review: faithful port, no
+engine restriction, symmetric authoring guidance; not (c); (d) not
+built). D-288 committed local, unpushed. IN FLIGHT: the D-289
+authoring self-feed check (the (b) commit — D-222 template,
+blocking-with-exemptions, atom+computed symmetric, falsifying-write
+carve-out). **COLD-START = `probes_pending/arith_grammar/HANDOFF.md`**._
 
-**D-287 (the gate on the table): updates/setters with computation
-probed — 18 ar_upd_* probes, 3×-stable, 18/18 predictions hit
-(PINS.md §E). The model: setter args = insert args (ArithTy verbatim,
-IEEE, div0 parity, narrowing = BUILD error); bindings snapshot vs
-getters live composes into arithmetic (out-of-sample cell 105 hit);
-both syntactic forms identical; mask is declared-not-diffed; **the
-D-231 hazard is the SELF-FEEDING shape only (written ∩ own-listened
-≠ ∅ — statically decidable per rule), already reachable TODAY with
-atom args**; no-loop blocks self only; fire-limit backstops all
-runaways; TMS re-derivation composes (refire-supersede). Port is
-mechanical (rhs_arg → rhs_expr at both setter sites, Set carries
-CExpr, D-283 machinery verbatim). BRYAN DECIDES: restriction level —
-(a) none (parity with atom modifies), (b) authoring lint, (c)
-CompileError on self-feeding computed setters; ± the update-edge
-cycle check. THEN: queue (2) LHS-swamp 2×2, (3) D-076 iterative,
-(4) authoring sugar; standing ledger (crates.io TP, collect-order
-latents, derive v2).**
+**D-287/D-288: the D-231 re-examination CLOSED. Probe round: 18
+ar_upd_* probes 3×-stable, 18/18 predictions hit (PINS.md §E) — the
+hazard is the SELF-FEEDING shape only (written ∩ own-listened,
+statically decidable, atom-legal today); setter args = insert args;
+fz_7_2525 two-source law composes; forms identical; mask
+declared-not-diffed; no-loop self-only; fire limit backstops. Port
+(D-288): rhs_arg → rhs_expr both setter sites, Set carries CExpr
+(atoms = CExpr::Atom byte-identical passthrough), javac
+assignability CompileError, gen.rs setter axis under guard
+discipline. ⚖ Rationale on record: walls are legal where an ENGINE
+BOUND exists (D-284's recursive-cascade bound) — the update loop is
+agenda-iterative with no bound, so no wall. Receipts: byte gate 2047
+identical, corpus 11/1233/406 + drift 42, lint 1936/0/0, cargo 54,
+pytest 220, demo True, fuzz 2×2000 ×2 fresh seeds CLEAN with the new
+axis, model_ird 31/31, agenda_open ×15 identical, IRD 0-div ×5, SD
+census 72 EXACT. THEN: queue (2) LHS-swamp 2×2, (3) D-076 iterative,
+(4) authoring sugar (owns the now-stale `_rhs_arg` wall message);
+standing ledger (crates.io TP, collect-order latents, derive v2).**
 
 **Since D-284: D-285 (the derive CALCULATOR ROW — sin/cos/tan/asin/
 acos/atan/ln/log10/exp/degrees/radians, measured + three-way
@@ -15484,3 +15487,74 @@ Receipts: 18/18 predictions hit on first contact, 3× stable; lint on
 the dir 41 live / 0 ghosts / 0 inert (all 18 fences hold — 17 parse
 walls + 1 loud fire-limit). Probes-and-docs only; engine, corpus, and
 bindings untouched.
+
+## D-288 — COMPUTED SETTER ARGS LAND (Bryan's gate on D-287: ship the faithful behavior, no new engine restriction): `modify($c) { setN($n + 1) }` and `$p.setX($a * 2); update($p)` are certified subset (2026-07-16)
+
+Bryan's ruling, after the counter-review he commissioned: (a) the
+port with NO new engine restriction — Drools compiles and runs
+self-feeding modify to the fire limit, so anything else diverges;
+(b) authoring-layer guidance done SYMMETRICALLY over atom and
+computed self-feeds (next commit, D-289); NOT (c) — and the reason
+on the record is the CAPABILITY-BOUND one, not the fidelity one: a
+loud subset wall is legal doctrine (D-284's stratification
+CompileError walls cyclic computed insertLogical, which Drools also
+runs to the fire limit — the wall protects the RECURSIVE TMS
+cascade's rule-count depth bound, with the 8192 panic backstop).
+The update loop has NO analogous bound — it is agenda-ITERATIVE,
+governed by fire limit + the D-117 spin guard, and the engine
+already runs the atom-only hazard to its fire limit cleanly
+(ar_upd_same_value_runaway). Nothing for a wall to protect ⇒ no
+wall. (d) a cross-rule update-edge cycle check is NOT BUILT: D-284's
+pass GATES the build, so "matching its contract" would gate — (c)
+one rule-count out — and the authoring-altitude rule (D-219/D-222:
+per-rule, local, no chain reasoning) rules out the advisory form.
+Cross-rule ping-pong stays fire-limit-governed on both sides, which
+is the pinned oracle behavior.
+
+ENGINE (mechanical, as the D-287 report promised): drl.rs — both
+setter sites (modify-block body + standalone `$p.setX(...)`) move
+`rhs_arg` → `rhs_expr`; `Action::Set.arg` is an RhsExpr; the header
+grammar gains the shared `expr` production; the stale D-282
+InsertLogical atom note replaced with the D-284 reality. engine.rs —
+`CompiledAction::Set.arg` is a CExpr: atoms wrap as CExpr::Atom and
+ride eval_cexpr's Atom passthrough (eval_src verbatim — the null-lit
+D-097, decimal-lit D-098, and assignability contracts byte-
+unchanged); computed args go compile_cexpr + the javac assignability
+CompileError ("computed arg has type f64 but the field needs i64" —
+the oracle's build-error mirror, ar_upd_narrowing_wall) and evaluate
+with the full D-283 Java semantics (ArithTy wrap, "/ by zero" fire
+error — ar_upd_div_zero shape). The Set execute arm evaluates via
+eval_cexpr against tuple + consequence-entry snapshot, so the
+fz_7_2525 two-source law (bindings snapshot, getters live) composes
+into arithmetic with ZERO new machinery. gen.rs — the modify
+emission grows the computed-setter-arg axis (insert-axis shape
+verbatim: typed so javac agrees, nonzero literal divisors; the guard
+setter stays atom-true, preserving the guard-flip termination
+invariant).
+
+RECEIPTS — the full engine battery:
+- All-scenarios byte gate: 2047 outputs BYTE-IDENTICAL vs the
+  pre-port worktree (1070f7d) — everything outside the feature dir
+  untouched.
+- 13/13 ar_upd probes differentially GREEN on first contact and
+  GRADUATED (pr_ar_upd_setter_arith / java_int / dbl / snap_bind /
+  getter_live / mix_snap_live / form_parity / pr_getter /
+  bounded_counter / noloop_self / tms_rederive / set_no_update /
+  block_seq) — corpus 11/1233/406, drift 42 identical. The 5
+  runaway/error walls stay engine_fenced recon (narrowing wall now
+  rejects with the NEW assignability error; div_zero errors with the
+  parity shape; 3 fire-limit runaways loud on both sides).
+- make lint-probes 1936/0/0. cargo 54. pytest 220. demo True.
+- Fresh fuzz 2×2000 (seeds 393939, 515151) with the setter axis:
+  ZERO divergences, zero xfail draws.
+- model_ird 31/31; agenda_open ×15 byte-identical vs 1070f7d.
+- IRD census 0-divergent ×5 seeds (7001/7002/6001/6003/9001),
+  model-clean 150/150 each. SD census model-clean 150/150 ×12,
+  divergent 6+10+3+5+6+5+5+6+8+7+4+7 = **72 EXACT**.
+
+Supersedes the D-231 WONT entirely for setter/update computation
+(D-283 took new-fact insert args; this takes the rest). The
+authoring layer still emits atom-only args and its `_rhs_arg` wall
+message now overstates the boundary ("RHS arithmetic is outside the
+certified subset" — false for DRL since D-283/D-288); queue item 4
+(authoring sugar) owns that refresh. Committed local; no push.

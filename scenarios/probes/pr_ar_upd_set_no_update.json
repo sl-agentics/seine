@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_set_no_update",
+ "name": "pr_ar_upd_set_no_update",
  "drl": "rule \"SetOnly\"\nwhen\n    $p : P($k : k, k == 5)\nthen\n    $p.setM($k * 3);\nend\nrule \"See\"\nwhen\n    P(m == 15)\nthen\nend\n",
  "types": [
   {
@@ -25,6 +25,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

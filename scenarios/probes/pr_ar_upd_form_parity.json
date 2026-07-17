@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_form_parity",
+ "name": "pr_ar_upd_form_parity",
  "drl": "rule \"FormA\"\nwhen\n    $p : P(id == 1, k == 5)\nthen\n    modify($p) { setM($p.getK() * 3 + 1) }\nend\nrule \"FormB\"\nwhen\n    $q : P(id == 2, k == 5)\nthen\n    $q.setM($q.getK() * 3 + 1);\n    update($q);\nend\nrule \"See\"\nwhen\n    P($i : id, m == 16)\nthen\nend\n",
  "types": [
   {
@@ -38,6 +38,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

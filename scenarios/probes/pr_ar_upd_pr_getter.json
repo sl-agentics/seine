@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_pr_getter",
+ "name": "pr_ar_upd_pr_getter",
  "drl": "rule \"Inc\"\nwhen\n    $c : C(a > 0)\nthen\n    modify($c) { setB($c.getB() + 1) }\nend\nrule \"Down\"\nwhen\n    C(b == 1)\nthen\nend\n",
  "types": [
   {
@@ -25,6 +25,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

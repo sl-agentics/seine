@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_dbl",
+ "name": "pr_ar_upd_dbl",
  "drl": "rule \"Dbls\"\nwhen\n    $c : C(g == true, $x : x)\nthen\n    modify($c) { setG(false), setA($x / 2.0), setB(0.1 + 0.2), setI(1.0 / 0.0) }\nend\n",
  "types": [
   {
@@ -40,6 +40,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

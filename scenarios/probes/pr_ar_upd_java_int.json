@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_java_int",
+ "name": "pr_ar_upd_java_int",
  "drl": "rule \"Ints\"\nwhen\n    $c : C(g == true, $x : x)\nthen\n    modify($c) { setG(false), setW(2000000000 + 2000000000), setD($x / 2), setR(-7 % 3), setP($x + 2000000000 + 2000000000) }\nend\n",
  "types": [
   {
@@ -45,6 +45,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_mix_snap_live",
+ "name": "pr_ar_upd_mix_snap_live",
  "drl": "rule \"Mix\"\nwhen\n    $p : P($k : k, k == 5)\nthen\n    $p.setK(100);\n    $p.setM($k + $p.getK());\n    update($p);\nend\nrule \"See\"\nwhen\n    P(k == 100)\nthen\nend\n",
  "types": [
   {
@@ -25,6 +25,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

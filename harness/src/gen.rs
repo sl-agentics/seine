@@ -814,7 +814,21 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     continue;
                 }
                 let (fname, ft) = fs[fi].clone();
-                let arg = gen_arg(&mut rng, &types, &mut pats, ri, ft, true);
+                let mut arg = gen_arg(&mut rng, &types, &mut pats, ri, ft, true);
+                // D-288 axis: computed setter args, the insert-axis shape
+                // verbatim (typed so javac agrees; nonzero literal
+                // divisors). The guard setter stays atom-true, so the
+                // guard-flip termination invariant is untouched.
+                if matches!(ft, Ft::I64 | Ft::F64) && rng.chance(5) {
+                    let op = ['+', '-', '*', '/', '%'][rng.below(5)];
+                    let rhs = match (op, ft) {
+                        ('/' | '%', Ft::I64) => format!("{}", rng.below(9) + 1),
+                        ('/' | '%', _) => format!("{}.5", rng.below(9)),
+                        (_, Ft::I64) => format!("{}", rng.below(7)),
+                        _ => format!("{}.0", rng.below(7)),
+                    };
+                    arg = format!("{arg} {op} {rhs}");
+                }
                 setters.push((accessor(&fname, ft, "set"), arg));
             }
             if rng.chance(50) {

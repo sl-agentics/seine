@@ -35,12 +35,15 @@
 //!             | IDENT ["not"] "in" "(" literal ("," literal)* ")"
 //! cmpop      := "==" | "!=" | "<" | "<=" | ">" | ">="
 //! literal    := ["-"] INT | ["-"] FLOAT | STRING | "true" | "false"
-//! action     := "insert" "(" "new" IDENT "(" [arg ("," arg)*] ")" ")" ";"
-//!             | "$id" "." "set" IDENT "(" arg ")" ";"
+//! action     := "insert" "(" "new" IDENT "(" [expr ("," expr)*] ")" ")" ";"
+//!             | "$id" "." "set" IDENT "(" expr ")" ";"
 //!             | "update" "(" "$id" ")" ";"
 //!             | ("delete"|"retract") "(" "$id" ")" ";"
-//!             | "modify" "(" "$id" ")" "{" [ "set"IDENT "(" arg ")" ("," ...)* ] "}"
+//!             | "modify" "(" "$id" ")" "{" [ "set"IDENT "(" expr ")" ("," ...)* ] "}"
 //!               (desugars to setters followed by update)
+//! expr       := ["-"] (arg | "(" expr ")") [("+"|"-"|"*"|"/"|"%") expr]
+//!               (closed arithmetic over args — D-283 insert args,
+//!                D-288 setter args; standard precedence, left-assoc)
 //! arg        := literal | "$id" | "$id" "." ("get"|"is") IDENT "(" ")"
 //! ```
 
@@ -301,8 +304,9 @@ pub enum RhsArg {
     Getter { var: String, field: String },
 }
 
-/// An RHS insert argument expression (D-283 Tier 1): a closed
-/// arithmetic grammar — `+ - * / %`, unary minus, parens — over
+/// An RHS insert/setter argument expression (D-283 Tier 1; setter
+/// args D-288): a closed arithmetic grammar — `+ - * / %`, unary
+/// minus, parens — over
 /// literals, bindings, and getters. Java semantics at evaluation
 /// (probes_pending/arith_grammar/PINS.md §A): i64 wraps on overflow,
 /// `/` truncates, `%` takes the dividend's sign, division by zero is a
@@ -327,12 +331,13 @@ pub enum Action {
     Insert { type_name: String, args: Vec<RhsExpr> },
     /// `insertLogical(new T(...));` (D-076): TMS-justified insert — the
     /// fact auto-retracts when its last justification unmatches.
-    /// Args stay ATOMS (computed logical args are the stratified tier,
-    /// walled at compile until then — D-282).
+    /// Computed args are legal under the D-284 stratification pass (a
+    /// computed edge in a derivation cycle is a compile error).
     InsertLogical { type_name: String, args: Vec<RhsExpr> },
-    /// `$p.setX(arg);` — mutates immediately, contributes X to the pending
-    /// modification mask consumed by the next `update($p)`.
-    Set { var: String, field: String, arg: RhsArg },
+    /// `$p.setX(expr);` — mutates immediately, contributes X to the pending
+    /// modification mask consumed by the next `update($p)`. Computed args
+    /// (D-288) evaluate with the same Java semantics as insert args.
+    Set { var: String, field: String, arg: RhsExpr },
     /// `update($p);`
     Update { var: String },
     /// `delete($p);` / `retract($p);`
@@ -1755,7 +1760,7 @@ impl Parser {
                         let setter = self.ident()?;
                         let field = setter_field(&setter)?;
                         self.expect_sym("(")?;
-                        let arg = self.rhs_arg()?;
+                        let arg = self.rhs_expr()?;
                         self.expect_sym(")")?;
                         out.push(Action::Set { var: var.clone(), field, arg });
                         match self.next()? {
@@ -1800,7 +1805,7 @@ impl Parser {
                 let setter = self.ident()?;
                 let field = setter_field(&setter)?;
                 self.expect_sym("(")?;
-                let arg = self.rhs_arg()?;
+                let arg = self.rhs_expr()?;
                 self.expect_sym(")")?;
                 self.expect_sym(";")?;
                 Ok(vec![Action::Set { var, field, arg }])
@@ -1821,7 +1826,8 @@ impl Parser {
         }
     }
 
-    /// Insert-arg expression: additive over multiplicative over factor.
+    /// Insert- and setter-arg expression (D-283/D-288): additive over
+    /// multiplicative over factor.
     /// Standard precedence, left-associative (D-281: we do not copy the
     /// oracle's bare `a + b * c` eval defect — witnesses in xfail/).
     fn rhs_expr(&mut self) -> Result<RhsExpr, DrlError> {
@@ -2238,7 +2244,7 @@ mod tests {
             Action::Set {
                 var: "$p".into(),
                 field: "t".into(),
-                arg: RhsArg::Lit(Literal::Bool(true))
+                arg: RhsExpr::Atom(RhsArg::Lit(Literal::Bool(true)))
             }
         );
         assert_eq!(r.actions[5], Action::Update { var: "$p".into() });

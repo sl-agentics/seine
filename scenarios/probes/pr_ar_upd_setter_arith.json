@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_setter_arith",
+ "name": "pr_ar_upd_setter_arith",
  "drl": "rule \"Compute\"\nwhen\n    A($x : x)\n    $c : C(n == 0)\nthen\n    modify($c) { setN($x * 2 + 1) }\nend\nrule \"Watch\"\nwhen\n    C(n == 15)\nthen\nend\n",
  "types": [
   {
@@ -35,6 +35,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

@@ -35,7 +35,19 @@ mechanism report → gate → port → full battery, per [[seine-workflow]].
 
 ## THE QUEUE (Bryan's stated order: updates next)
 
-### 1. Updates/setters with computation — PROBED (D-287), AT BRYAN'S GATE
+### 1. Updates/setters with computation — DONE (D-287 probes → D-288 port; D-289 authoring check)
+
+Bryan gated (a)+(b) after counter-review: faithful port, no engine
+restriction (⚖ capability-bound rationale in D-288 — walls only
+where an engine bound exists), symmetric authoring-layer check
+(D-289). 13 probes graduated; 5 walls stay fenced here; full
+battery green (byte gate 2047, corpus 11/1233/406, fuzz clean with
+the setter axis, SD 72 EXACT). Remaining §1 surface = queue item 4
+(authoring sugar owns the stale `_rhs_arg` wall message).
+
+Original probe-round record below, for the mechanism map:
+
+### 1-record. The D-287 probe round (was: PROBED, AT BRYAN'S GATE)
 
 Probe round DONE 2026-07-16: 18 ar_upd_* probes in this directory,
 3×-stable, 18/18 predictions hit — PINS.md §E is the record, D-287

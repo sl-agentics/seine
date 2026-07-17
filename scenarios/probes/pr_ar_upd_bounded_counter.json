@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_bounded_counter",
+ "name": "pr_ar_upd_bounded_counter",
  "drl": "rule \"Count\"\nwhen\n    $c : C($n : n, n < 5)\nthen\n    modify($c) { setN($n + 1) }\nend\n",
  "types": [
   {
@@ -20,6 +20,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

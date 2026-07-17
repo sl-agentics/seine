@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_noloop_self",
+ "name": "pr_ar_upd_noloop_self",
  "drl": "rule \"IncN\"\nno-loop\nwhen\n    $c : C($n : n)\nthen\n    modify($c) { setN($n + 1) }\nend\n",
  "types": [
   {
@@ -20,6 +20,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

@@ -1,6 +1,6 @@
 {
- "name": "ar_upd_getter_live",
- "drl": "rule \"Live\"\nwhen\n    $p : P(k == 5)\nthen\n    $p.setK(100);\n    $p.setM($p.getK() + 1);\n    update($p);\nend\nrule \"See\"\nwhen\n    P(k == 100)\nthen\nend\n",
+ "name": "pr_ar_upd_snap_bind",
+ "drl": "rule \"Snap\"\nwhen\n    $p : P($k : k, k == 5)\nthen\n    $p.setK(100);\n    $p.setM($k + 1);\n    update($p);\nend\nrule \"See\"\nwhen\n    P(k == 100)\nthen\nend\n",
  "types": [
   {
    "name": "P",
@@ -25,6 +25,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

@@ -398,7 +398,10 @@ enum CompiledAction {
     /// (value-keyed dedup bounds them), so the recursive cascade keeps
     /// its rule-count depth bound.
     InsertLogical { type_id: TypeId, args: Vec<CExpr> },
-    Set { pos: usize, field_idx: usize, arg: Src },
+    /// Setter: atoms arrive as CExpr::Atom (the pre-D-288 contract,
+    /// byte-unchanged through eval_cexpr's Atom passthrough); computed
+    /// args (D-288) share the insert-arg Java semantics.
+    Set { pos: usize, field_idx: usize, arg: CExpr },
     Update { pos: usize },
     Delete { pos: usize },
     /// D-106: push the group on the focus stack (relocate if present).
@@ -4454,7 +4457,6 @@ impl Engine {
                         // D-283/D-284: a COMPUTED arg (plain insert, or
                         // insertLogical under the stratification check —
                         // the cross-rule pass at the end of add_rules_drl).
-                        // modify-with-computation stays WONT (D-231).
                         let (ce, expr_aty) = self.compile_cexpr(
                             &rname,
                             aexpr,
@@ -4510,36 +4512,73 @@ impl Engine {
                         .field_index(tid, field)
                         .ok_or_else(|| err(format!("no field {field} for setter on {var}")))?;
                     let ftype = self.store.field_type(tid, fi);
-                    if matches!(arg, RhsArg::Lit(Literal::Null)) {
-                        if self.store.schema(tid).nullable >> fi & 1 != 1 {
-                            return Err(err(format!(
-                                "setter {var}.{field}: null for a non-nullable field (D-097)"
-                            )));
-                        }
-                        actions.push(CompiledAction::Set {
-                            pos,
-                            field_idx: fi,
-                            arg: Src::Lit(Value::Null),
-                        });
-                        continue;
-                    }
-                    if let (RhsArg::Lit(l), FieldType::Dec { .. }) = (arg, ftype) {
-                        if !matches!(l, Literal::Str(_)) {
-                            let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
-                                err(format!(
-                                    "setter {var}.{field}: not an exact decimal literal (D-098)"
-                                ))
-                            })?;
-                            actions.push(CompiledAction::Set { pos, field_idx: fi, arg: Src::Lit(v) });
+                    // The atom path is the pre-arithmetic contract,
+                    // byte-unchanged (null-lit D-097, decimal-lit D-098,
+                    // assignability) — wrapped as CExpr::Atom.
+                    if let crate::drl::RhsExpr::Atom(arg) = arg {
+                        if matches!(arg, RhsArg::Lit(Literal::Null)) {
+                            if self.store.schema(tid).nullable >> fi & 1 != 1 {
+                                return Err(err(format!(
+                                    "setter {var}.{field}: null for a non-nullable field (D-097)"
+                                )));
+                            }
+                            actions.push(CompiledAction::Set {
+                                pos,
+                                field_idx: fi,
+                                arg: CExpr::Atom(Src::Lit(Value::Null)),
+                            });
                             continue;
                         }
+                        if let (RhsArg::Lit(l), FieldType::Dec { .. }) = (arg, ftype) {
+                            if !matches!(l, Literal::Str(_)) {
+                                let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
+                                    err(format!(
+                                        "setter {var}.{field}: not an exact decimal literal (D-098)"
+                                    ))
+                                })?;
+                                actions.push(CompiledAction::Set {
+                                    pos,
+                                    field_idx: fi,
+                                    arg: CExpr::Atom(Src::Lit(v)),
+                                });
+                                continue;
+                            }
+                        }
+                        let (src, src_ft) =
+                            self.compile_arg(&rname, arg, &fact_binds, &field_binds, &acc_opaque, &def, &patterns)?;
+                        if !assignable(src_ft, ftype) {
+                            return Err(err(format!("setter {var}.{field}: wrong arg type")));
+                        }
+                        actions.push(CompiledAction::Set { pos, field_idx: fi, arg: CExpr::Atom(src) });
+                        continue;
                     }
-                    let (src, src_ft) =
-                        self.compile_arg(&rname, arg, &fact_binds, &field_binds, &acc_opaque, &def, &patterns)?;
-                    if !assignable(src_ft, ftype) {
-                        return Err(err(format!("setter {var}.{field}: wrong arg type")));
+                    // D-288 (Bryan-gated at D-287): a COMPUTED setter arg —
+                    // the D-283 insert-arg machinery verbatim (PINS.md §E:
+                    // setter args are insert args; the oracle's build error
+                    // for narrowing becomes this CompileError).
+                    let (ce, expr_aty) = self.compile_cexpr(
+                        &rname,
+                        arg,
+                        &fact_binds,
+                        &field_binds,
+                        &acc_opaque,
+                        &def,
+                        &patterns,
+                    )?;
+                    let expr_ft = match expr_aty {
+                        ArithTy::F64 => FieldType::F64,
+                        _ => FieldType::I64, // int widens like long
+                    };
+                    if !assignable(expr_ft, ftype) {
+                        return Err(err(format!(
+                            "setter {var}.{field}: computed arg has type {} but the \
+                             field needs {} (a double expression cannot narrow into \
+                             a long field)",
+                            ft_name(expr_ft),
+                            ft_name(ftype)
+                        )));
                     }
-                    actions.push(CompiledAction::Set { pos, field_idx: fi, arg: src });
+                    actions.push(CompiledAction::Set { pos, field_idx: fi, arg: ce });
                 }
                 Action::Update { var } => {
                     let (pos, _) = *fact_binds
@@ -10047,7 +10086,13 @@ impl Engine {
                     let fi = *field_idx;
                     let tid = self.store.fact_type(f);
                     let ft = self.store.field_type(tid, fi);
-                    let v = coerce(self.eval_src(&arg.clone(), tuple, &snapshot), ft)
+                    // Atoms pass straight through eval_cexpr (byte-identical
+                    // to the pre-D-288 eval_src path); computed args get the
+                    // D-283 Java semantics incl. the "/ by zero" fire error.
+                    let arg = arg.clone();
+                    let rname = self.rules[ri].def.name.clone();
+                    let v = self.eval_cexpr(&rname, &arg, tuple, &snapshot)?;
+                    let v = coerce(v, ft)
                         .ok_or_else(|| EngineError("RHS setter: arg type mismatch".into()))?;
                     self.store.set_value(f, fi, v).map_err(EngineError)?;
                     *pending.entry(f).or_insert(0) |= 1 << fi;

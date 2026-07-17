@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_block_seq",
+ "name": "pr_ar_upd_block_seq",
  "drl": "rule \"Seq\"\nwhen\n    $p : P($k : k, k == 5)\nthen\n    modify($p) { setK(100), setM($p.getK() + 1), setW($k + 1) }\nend\nrule \"See\"\nwhen\n    P(k == 100)\nthen\nend\n",
  "types": [
   {
@@ -30,6 +30,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }

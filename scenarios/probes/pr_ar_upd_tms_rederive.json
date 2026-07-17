@@ -1,5 +1,5 @@
 {
- "name": "ar_upd_tms_rederive",
+ "name": "pr_ar_upd_tms_rederive",
  "drl": "rule \"Derive\"\nsalience 10\nwhen\n    A($k : k)\nthen\n    insertLogical(new U($k + 1));\nend\nrule \"W2\"\nsalience 8\nwhen\n    U(v == 2)\nthen\nend\nrule \"W6\"\nsalience 8\nwhen\n    U(v == 6)\nthen\nend\nrule \"Bump\"\nsalience 5\nwhen\n    G(t == true)\n    $a : A(tag == 0)\nthen\n    modify($a) { setK($a.getK() + 4) }\nend\n",
  "types": [
   {
@@ -49,6 +49,5 @@
    }
   }
  ],
- "epochs": [],
- "engine_fenced": true
+ "epochs": []
 }
