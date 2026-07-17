@@ -1697,12 +1697,13 @@ struct EqKeyEntry {
 /// substrate; retraction is derived from it, not the other way around.
 #[derive(Default)]
 struct Tms {
-    /// D-284 belt-and-suspenders: the retraction cascade is call-
-    /// recursive (drop deps -> on_delete -> deeper drops); the
-    /// stratification pass bounds chain depth ≤ strata, so this
-    /// counter can only trip on a WRONG proof — panic with a message
-    /// instead of overflowing the stack.
-    cascade_depth: u32,
+    /// D-293 (D-076 step A): Some while a teardown worklist machine is
+    /// draining in tms_drop_act_deps — tms_eager_break then APPENDS
+    /// broken acts here (the old recursion's one cycle edge) instead
+    /// of re-entering. The machine's frame depth keeps the D-284
+    /// belt-and-suspenders assert: stratification bounds chain depth
+    /// ≤ strata, so the 8192 bound can only trip on a WRONG proof.
+    cascade_collect: Option<Vec<(usize, Tup)>>,
     /// Value-equality keys over ALL declared fields (D-066).
     keys: HashMap<(TypeId, Vec<KeyVal>), EqKeyEntry>,
     /// Every live fact of a logical type -> its key.
@@ -11102,6 +11103,13 @@ impl Engine {
                 }
                 continue;
             }
+            // D-293: inside an active cascade machine the broken act
+            // joins the worklist at the finding victim's frame (the
+            // old recursion's DFS order) instead of recursing.
+            if let Some(buf) = self.tms.cascade_collect.as_mut() {
+                buf.push(act);
+                continue;
+            }
             self.tms_drop_act_deps(&act);
         }
     }
@@ -11644,62 +11652,102 @@ impl Engine {
         }
     }
 
+    /// D-293 (D-076 step A): the call-recursive teardown (drop deps ->
+    /// on_delete -> eager-break -> deeper drops) is an explicit LIFO
+    /// worklist replaying the recursion's exact depth-first order: an
+    /// act's victims retract in per-level (seq, fact-id) order, and
+    /// each victim's own broken acts (its on_delete's eager-break
+    /// finds, in by_act scan order) cascade to completion before the
+    /// victim's next sibling. Machines never nest — tms_eager_break
+    /// runs only inside a victim's on_delete here (collected, not
+    /// recursed) or outside any machine (starts one); asserted below.
+    /// Returns the LEVEL-1 victims alive at their turn, in order (the
+    /// tms_on_terminal_del self-blocker walk's contract).
     fn tms_drop_act_deps(&mut self, act: &(usize, Tup)) -> Vec<FactId> {
-        let keys = match self.tms.by_act.iter().position(|(a, _)| a == act) {
-            Some(i) => self.tms.by_act.remove(i).1,
-            None => return Vec::new(),
-        };
-        let mut to_retract: Vec<(u64, FactId)> = Vec::new();
-        for key in keys {
-            let Some(e) = self.tms.keys.get_mut(&key) else { continue };
-            e.beliefs.retain(|j| !(j.ri == act.0 && j.tuple == act.1));
-            if e.beliefs.is_empty() {
-                if let Some(jf) = e.justified.take() {
-                    self.tms.by_fact.remove(&jf);
-                    to_retract.push((self.tms.seq, jf));
-                    // ⚖ D-211 THE L6-EVENT (l5/l6/x1/9902): the last
-                    // dep's break kills the key WHOLE — stated siblings
-                    // ORPHAN (undeletable, WM-alive); a later
-                    // re-justification re-keys FRESH with a WM-visible
-                    // handle (the l6 rebirth).
-                    let sibs: Vec<FactId> = e.stated.drain(..).collect();
-                    for sb in sibs {
-                        self.tms.by_fact.remove(&sb);
-                        self.tms.orphans.insert(sb);
-                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-                            eprintln!("TMS key[l6-orphan] f{sb:?} key={key:?}");
+        enum Step {
+            Act((usize, Tup), u32),
+            Victim(FactId, u32),
+        }
+        assert!(
+            self.tms.cascade_collect.is_none(),
+            "TMS cascade machine re-entered — the D-293 non-nesting \
+             invariant was violated (an engine bug, not a rule error): \
+             file with the DRL"
+        );
+        self.tms.cascade_collect = Some(Vec::new());
+        let mut stack: Vec<Step> = vec![Step::Act(act.clone(), 1)];
+        let mut out = Vec::new();
+        while let Some(step) = stack.pop() {
+            match step {
+                Step::Act(act, depth) => {
+                    assert!(
+                        depth < 8192,
+                        "TMS cascade depth exceeded 8192 — the D-284 stratification bound \
+                         was violated (an engine bug, not a rule error): file with the DRL"
+                    );
+                    let keys = match self.tms.by_act.iter().position(|(a, _)| *a == act) {
+                        Some(i) => self.tms.by_act.remove(i).1,
+                        None => continue,
+                    };
+                    let mut to_retract: Vec<(u64, FactId)> = Vec::new();
+                    for key in keys {
+                        let Some(e) = self.tms.keys.get_mut(&key) else { continue };
+                        e.beliefs.retain(|j| !(j.ri == act.0 && j.tuple == act.1));
+                        if e.beliefs.is_empty() {
+                            if let Some(jf) = e.justified.take() {
+                                self.tms.by_fact.remove(&jf);
+                                to_retract.push((self.tms.seq, jf));
+                                // ⚖ D-211 THE L6-EVENT (l5/l6/x1/9902): the last
+                                // dep's break kills the key WHOLE — stated siblings
+                                // ORPHAN (undeletable, WM-alive); a later
+                                // re-justification re-keys FRESH with a WM-visible
+                                // handle (the l6 rebirth).
+                                let sibs: Vec<FactId> = e.stated.drain(..).collect();
+                                for sb in sibs {
+                                    self.tms.by_fact.remove(&sb);
+                                    self.tms.orphans.insert(sb);
+                                    if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                                        eprintln!("TMS key[l6-orphan] f{sb:?} key={key:?}");
+                                    }
+                                }
+                                self.tms.keys.remove(&key);
+                            } else if e.pending_vals.is_some() {
+                                // ⚖ D-211 PENDING-CLEAR (c2/c3/c4): deps-empty on a
+                                // NON-WM pending belief clears the bookkeeping; the
+                                // key survives as pure stated.
+                                e.pending_vals = None;
+                                if e.stated.is_empty() {
+                                    self.tms.keys.remove(&key);
+                                }
+                            } else if e.stated.is_empty() {
+                                self.tms.keys.remove(&key); // fz_42_1395: fresh start
+                            }
                         }
                     }
-                    self.tms.keys.remove(&key);
-                } else if e.pending_vals.is_some() {
-                    // ⚖ D-211 PENDING-CLEAR (c2/c3/c4): deps-empty on a
-                    // NON-WM pending belief clears the bookkeeping; the
-                    // key survives as pure stated.
-                    e.pending_vals = None;
-                    if e.stated.is_empty() {
-                        self.tms.keys.remove(&key);
+                    to_retract.sort_by_key(|(s, f)| (*s, f.0));
+                    for (_, jf) in to_retract.into_iter().rev() {
+                        stack.push(Step::Victim(jf, depth));
                     }
-                } else if e.stated.is_empty() {
-                    self.tms.keys.remove(&key); // fz_42_1395: fresh start
+                }
+                Step::Victim(jf, depth) => {
+                    if !self.store.is_alive(jf) {
+                        continue;
+                    }
+                    self.store.kill(jf);
+                    self.on_delete(jf, None);
+                    let found = std::mem::take(
+                        self.tms.cascade_collect.as_mut().expect("machine active"),
+                    );
+                    for a in found.into_iter().rev() {
+                        stack.push(Step::Act(a, depth + 1));
+                    }
+                    if depth == 1 {
+                        out.push(jf);
+                    }
                 }
             }
         }
-        to_retract.sort_by_key(|(s, f)| (*s, f.0));
-        let mut out = Vec::new();
-        self.tms.cascade_depth += 1;
-        assert!(
-            self.tms.cascade_depth < 8192,
-            "TMS cascade depth exceeded 8192 — the D-284 stratification bound \
-             was violated (an engine bug, not a rule error): file with the DRL"
-        );
-        for (_, jf) in to_retract {
-            if self.store.is_alive(jf) {
-                self.store.kill(jf);
-                self.on_delete(jf, None);
-                out.push(jf);
-            }
-        }
-        self.tms.cascade_depth -= 1;
+        self.tms.cascade_collect = None;
         out
     }
 

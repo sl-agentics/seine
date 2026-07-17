@@ -11,19 +11,22 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, session close (D-287..292 done). The
-boundary-redraw arc: updates DONE (D-287/288/289), swamp DONE
-(D-290 map → D-291 agree-subset port, mode-1 residency precondition
-+ volume detector), fenced contexts PROBED (D-292 — walls are scope
-cuts; PINS.md §G). Pushed through 4cb325d; local unpushed: f13be11
-(D-292) + the handoff commit. **NEXT SLAB = D-076 iterative cascade
-→ unbounded tier. COLD-START =
-`probes_pending/d076_iterative/HANDOFF.md`** (two gated steps:
-recursion→worklist refactor with SD-72-EXACT as the order gate,
-then the unbounded-tier probe round → stratification lift). The
-arith-grammar record stays in probes_pending/arith_grammar/
-(HANDOFF + PINS §A–G); queue item 4 (authoring sugar, three
-recorded refreshes) waits behind D-076._
+_Last updated: 2026-07-17, mid-slab. **D-076 STEP A LANDED (D-293):
+the recursive TMS teardown is now an order-preserving LIFO worklist**
+(tms_drop_act_deps machine + Tms.cascade_collect; the 8192 assert
+stays, frame-carried; recursion map in
+probes_pending/d076_iterative/RECURSION-MAP.md). Full battery green —
+byte gate 2132 identical, diff 11/1257/406 + drift 46, SD census
+**72 EXACT cell-for-cell** (the order gate), IRD 0-div ×5, fuzz
+2×2000 ×2 clean, cargo 54/pytest 229/demo True/model_ird 31/31/
+agenda_open ×15. **STEP B IN FLIGHT: unbounded-tier probe round**
+(9 ub_* engine_fenced probes in probes_pending/d076_iterative/,
+predictions registered in PINS.md, oracle rounds next — cyclic
+scenarios are GUARDED SINGLES, never batched) → mechanism report →
+**Bryan's GATE** before lifting the D-284 stratification CompileError
+(engine.rs ~2812) / removing the assert. Pushed through 4cb325d;
+local unpushed: f13be11 + handoff + D-293. Queue item 4 (authoring
+sugar) still waits behind this slab._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -15831,3 +15834,43 @@ restrictions and the mode-1 residency precondition carrying over
 unchanged. Probes stay engine_fenced in the recon dir (lint 44/0/0 —
 the walls keep rejecting until a lift is gated). PINS.md §G.
 Probes+docs only; engine untouched. Committed local; no push.
+
+## D-293 — D-076 step A: the recursive TMS teardown becomes an order-preserving worklist (the last rule-count-bounded recursion is gone) (2026-07-17)
+
+The map first (probes_pending/d076_iterative/RECURSION-MAP.md): the
+recursion is confined to ONE cycle — tms_drop_act_deps → per-victim
+on_delete → tms_eager_break → tms_drop_act_deps (the 11105 edge,
+return discarded); every other on_delete_ex callee is staging or
+bookkeeping, and expiration drains / halt re-adds reach teardown only
+through the deferred lists at agenda level, never nested. Machines
+cannot nest (tms_eager_break runs only inside a victim's on_delete or
+outside any cascade; on_update is never called from on_delete_ex).
+Scope = exactly the TMS cascade, as the handoff assumed.
+
+The rewrite: tms_drop_act_deps is an explicit LIFO stack machine over
+two frame kinds — Act(act, depth) pops to the verbatim belief-break/
+collect/(seq, fact-id)-sort body and pushes its victims reversed;
+Victim(jf, depth) pops to kill + on_delete, whose eager-break now
+APPENDS broken acts to a collect buffer (Tms.cascade_collect,
+replacing cascade_depth) instead of recursing; the buffer drains onto
+the stack reversed at depth+1. LIFO + reverse-push replays the old
+recursion's exact DFS order: per-level victim sort preserved, each
+victim's discovered acts cascade to completion before its next
+sibling. Return value (level-1 victims, tms_on_terminal_del's
+self-blocker contract) unchanged. The D-284 8192 assert stays,
+carried as frame depth (trip condition identical; it now checks at
+frame entry rather than after the frame's belief-breaks — observable
+only mid-panic). NEW loud invariant: machine re-entry asserts (the
+non-nesting map fact is now a check, not an assumption).
+
+Receipts: all-scenarios byte gate 2132/2132 IDENTICAL vs the pre-edit
+worktree (e8d0c7f); make diff 11/1257/406 + drift bank 46 identical;
+lint 1976/0/0 (1985/0/0 with the step-B recon probes in place); cargo
+54; pytest 229; demo True; model_ird 31/31; agenda_open ×15
+byte-identical across runs AND binaries; IRD census 0-div ×5
+(7001/7002/6001/6003/9001); **SD census 72 EXACT cell-for-cell**
+(6+10+3+5+6+5+5+6+8+7+4+7 — the order gate: any drift would have
+meant the refactor changed teardown order); fresh fuzz 2×2000 seeds
+293001/293002 both 0-divergence. Engine edit is step A ONLY — no
+semantic change, the stratification wall stays up; the unbounded tier
+(step B) is probed separately and gates with Bryan.
