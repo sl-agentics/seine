@@ -1692,6 +1692,125 @@ struct EqKeyEntry {
     pending_vals: Option<Vec<Value>>,
 }
 
+/// D-297: the TMS act table, order-preserving and indexed. by_act
+/// ORDER is certified surface — the eager-break scan order feeds the
+/// D-293 worklist's DFS — so the store is an insertion-ordered slot
+/// vec with TOMBSTONES (every mutation maps 1:1 onto the old plain
+/// Vec's op restricted to the live subsequence), plus two hash
+/// indexes killing the D-296 quadratic: act → slot for the per-firing
+/// point lookups, and fact → slots (ascending, deduped per tuple) for
+/// the per-fact break scans. Slots are never reused; compaction
+/// (amortized, live*2 < len) rebuilds all three in live order.
+#[derive(Default)]
+struct ByAct {
+    slots: Vec<Option<((usize, Tup), Vec<(TypeId, Vec<KeyVal>)>)>>,
+    idx: HashMap<(usize, Tup), usize>,
+    fact_slots: HashMap<FactId, Vec<usize>>,
+    live: usize,
+}
+
+impl ByAct {
+    fn is_empty(&self) -> bool {
+        self.live == 0
+    }
+
+    fn contains(&self, act: &(usize, Tup)) -> bool {
+        self.idx.contains_key(act)
+    }
+
+    fn get(&self, act: &(usize, Tup)) -> Option<&Vec<(TypeId, Vec<KeyVal>)>> {
+        self.idx
+            .get(act)
+            .map(|&i| &self.slots[i].as_ref().expect("idx points at live slot").1)
+    }
+
+    fn get_mut(&mut self, act: &(usize, Tup)) -> Option<&mut Vec<(TypeId, Vec<KeyVal>)>> {
+        let i = *self.idx.get(act)?;
+        Some(&mut self.slots[i].as_mut().expect("idx points at live slot").1)
+    }
+
+    /// The tms_add site: append `key` to the act's list (dedup'd), or
+    /// append a fresh entry — insertion order = the old Vec push.
+    fn add_key(&mut self, act: (usize, Tup), key: (TypeId, Vec<KeyVal>)) {
+        match self.idx.get(&act) {
+            Some(&i) => {
+                let ks = &mut self.slots[i].as_mut().expect("idx points at live slot").1;
+                if !ks.contains(&key) {
+                    ks.push(key);
+                }
+            }
+            None => {
+                let slot = self.slots.len();
+                for f in &act.1 {
+                    let fs = self.fact_slots.entry(*f).or_default();
+                    if fs.last() != Some(&slot) {
+                        fs.push(slot); // dedup a twice-bound fact in one tuple
+                    }
+                }
+                self.idx.insert(act.clone(), slot);
+                self.slots.push(Some((act, vec![key])));
+                self.live += 1;
+            }
+        }
+    }
+
+    fn remove(&mut self, act: &(usize, Tup)) -> Option<Vec<(TypeId, Vec<KeyVal>)>> {
+        let i = self.idx.remove(act)?;
+        let (_, ks) = self.slots[i].take().expect("idx points at live slot");
+        self.live -= 1;
+        self.maybe_compact();
+        Some(ks)
+    }
+
+    /// The eager-break candidates: live acts whose tuple contains `f`,
+    /// in slot (= insertion = old scan) order. Stale index entries are
+    /// filtered on the tombstone check; slots never change acts.
+    fn acts_containing(&self, f: FactId) -> Vec<(usize, Tup)> {
+        let Some(fs) = self.fact_slots.get(&f) else {
+            return Vec::new();
+        };
+        fs.iter()
+            .filter_map(|&i| self.slots[i].as_ref())
+            .map(|(a, _)| a.clone())
+            .collect()
+    }
+
+    /// The route-delete sweep: drop `key` from every act's list, then
+    /// drop entries whose list emptied (the old retain pair).
+    fn sweep_key(&mut self, key: &(TypeId, Vec<KeyVal>)) {
+        for i in 0..self.slots.len() {
+            let Some((_, ks)) = self.slots[i].as_mut() else { continue };
+            ks.retain(|k| k != key);
+            if ks.is_empty() {
+                let (act, _) = self.slots[i].take().expect("checked live");
+                self.idx.remove(&act);
+                self.live -= 1;
+            }
+        }
+        self.maybe_compact();
+    }
+
+    fn maybe_compact(&mut self) {
+        if self.slots.len() < 64 || self.live * 2 >= self.slots.len() {
+            return;
+        }
+        let old = std::mem::take(&mut self.slots);
+        self.slots = old.into_iter().flatten().map(Some).collect();
+        self.idx.clear();
+        self.fact_slots.clear();
+        for (i, s) in self.slots.iter().enumerate() {
+            let (act, _) = s.as_ref().expect("compacted slots are live");
+            self.idx.insert(act.clone(), i);
+            for f in &act.1 {
+                let fs = self.fact_slots.entry(*f).or_default();
+                if fs.last() != Some(&i) {
+                    fs.push(i);
+                }
+            }
+        }
+    }
+}
+
 /// The truth-maintenance state — kept FIRST-CLASS and queryable (D-076
 /// design constraint): the justification graph IS the why-engine's
 /// substrate; retraction is derived from it, not the other way around.
@@ -1708,8 +1827,9 @@ struct Tms {
     keys: HashMap<(TypeId, Vec<KeyVal>), EqKeyEntry>,
     /// Every live fact of a logical type -> its key.
     by_fact: HashMap<FactId, (TypeId, Vec<KeyVal>)>,
-    /// Activation -> keys it currently supports, in support order.
-    by_act: Vec<((usize, Tup), Vec<(TypeId, Vec<KeyVal>)>)>,
+    /// Activation -> keys it currently supports, in support order
+    /// (D-297: indexed, order-preserving — see ByAct).
+    by_act: ByAct,
     /// Types that appear in any insertLogical (the mutation wall's and
     /// the bookkeeping's scope).
     logical_tids: HashSet<TypeId>,
@@ -10388,9 +10508,8 @@ impl Engine {
         let tms_prev: Vec<(TypeId, Vec<KeyVal>)> = self
             .tms
             .by_act
-            .iter()
-            .find(|(a, _)| *a == tms_act)
-            .map(|(_, ks)| ks.clone())
+            .get(&tms_act)
+            .cloned()
             .unwrap_or_default();
         self.tms.firing_keys.clear();
         self.tms.current_act = Some(tms_act.clone());
@@ -10515,11 +10634,10 @@ impl Engine {
             .collect();
         if !stale.is_empty() {
             let mut to_retract: Vec<FactId> = Vec::new();
-            if let Some(i) = self.tms.by_act.iter().position(|(a, _)| *a == tms_act) {
-                let (_, keys) = &mut self.tms.by_act[i];
+            if let Some(keys) = self.tms.by_act.get_mut(&tms_act) {
                 keys.retain(|k| !stale.contains(k));
                 if keys.is_empty() {
-                    self.tms.by_act.remove(i);
+                    self.tms.by_act.remove(&tms_act);
                 }
             }
             for key in &stale {
@@ -10805,14 +10923,7 @@ impl Engine {
         if late && !self.tms.late_acts.iter().any(|a| *a == act) {
             self.tms.late_acts.push(act.clone());
         }
-        match self.tms.by_act.iter_mut().find(|(a, _)| *a == act) {
-            Some((_, keys)) => {
-                if !keys.contains(&key) {
-                    keys.push(key);
-                }
-            }
-            None => self.tms.by_act.push((act, vec![key])),
-        }
+        self.tms.by_act.add_key(act, key);
         if let Some(f) = inserted {
             self.on_insert(f, Some(ri));
         }
@@ -10870,10 +10981,7 @@ impl Engine {
                 self.tms.by_fact.remove(&sb);
                 self.tms.orphans.insert(sb);
             }
-            for (_, keys) in self.tms.by_act.iter_mut() {
-                keys.retain(|k| *k != key);
-            }
-            self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
+            self.tms.by_act.sweep_key(&key);
             self.tms.keys.remove(&key);
             return (Some(jf), None);
         }
@@ -10902,10 +11010,7 @@ impl Engine {
                 self.tms.by_fact.remove(sb);
                 self.tms.orphans.insert(*sb);
             }
-            for (_, keys) in self.tms.by_act.iter_mut() {
-                keys.retain(|k| *k != key);
-            }
-            self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
+            self.tms.by_act.sweep_key(&key);
             self.tms.keys.remove(&key);
             return (Some(f), Some((key.0, vals)));
         }
@@ -10933,10 +11038,7 @@ impl Engine {
         // stated deletes and starved the unstage gate.
         if e.stated.is_empty() {
             e.beliefs.clear(); // stated-only key dies with its handles (tms_e6)
-            for (_, keys) in self.tms.by_act.iter_mut() {
-                keys.retain(|k| *k != key);
-            }
-            self.tms.by_act.retain(|(_, keys)| !keys.is_empty());
+            self.tms.by_act.sweep_key(&key);
             if self.tms.keys.get(&key).map(|e| e.justified.is_none() && e.stated.is_empty()).unwrap_or(false) {
                 self.tms.keys.remove(&key);
             }
@@ -10990,11 +11092,15 @@ impl Engine {
         let stream_del_land = from_delete
             && !self.in_expiration_drain
             && self.event_specs.contains_key(&self.store.fact_type(f));
+        // D-297: candidates come from the fact→slots inverse index in
+        // slot (= old scan) order — every act whose tuple contains f,
+        // exactly the entries the full-scan predicate could pass.
         let broken: Vec<(usize, Tup)> = self
             .tms
             .by_act
-            .iter()
-            .filter(|((ri, tuple), _)| {
+            .acts_containing(f)
+            .into_iter()
+            .filter(|(ri, tuple)| {
                 // ⚖ D-211/F3 (the rule-shape law, D-208 s2): a
                 // justifier breaking its OWN tuple mid-firing lands
                 // LAZY only when its LHS is a SELF-JOIN on the broken
@@ -11035,7 +11141,6 @@ impl Engine {
                     }
                 }
             })
-            .map(|(a, _)| a.clone())
             .collect();
         for act in broken {
             if std::env::var("SEINE_TMS_DEBUG").is_ok() {
@@ -11123,7 +11228,7 @@ impl Engine {
             return;
         }
         let act = (ri, tuple.clone());
-        if !self.tms.by_act.iter().any(|(a, _)| *a == act) {
+        if !self.tms.by_act.contains(&act) {
             return;
         }
         if self.tms.defer_mode {
@@ -11465,7 +11570,7 @@ impl Engine {
     /// Read-only peek: the justified facts this act's drop WOULD
     /// retract (tms_drop_act_deps' emptiness pre-check, no mutation).
     fn tms_act_drop_victims(&self, act: &(usize, Tup)) -> Vec<FactId> {
-        let Some((_, keys)) = self.tms.by_act.iter().find(|(a, _)| a == act) else {
+        let Some(keys) = self.tms.by_act.get(act) else {
             return Vec::new();
         };
         let mut out = Vec::new();
@@ -11641,8 +11746,8 @@ impl Engine {
                     // lifted and a legitimate fixpoint teardown reaches
                     // ~100k deep (pr_ub_deep_99k); the worklist is heap-
                     // bounded, depth only feeds the level-1 return.
-                    let keys = match self.tms.by_act.iter().position(|(a, _)| *a == act) {
-                        Some(i) => self.tms.by_act.remove(i).1,
+                    let keys = match self.tms.by_act.remove(&act) {
+                        Some(ks) => ks,
                         None => continue,
                     };
                     let mut to_retract: Vec<(u64, FactId)> = Vec::new();

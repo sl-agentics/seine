@@ -1,5 +1,5 @@
 {
- "name": "ub_deep_9000",
+ "name": "pr_ub_deep_9000",
  "drl": "rule \"Grow\"\nwhen\n    T($n : n, n < 9000)\nthen\n    insertLogical(new T($n + 1));\nend\nrule \"WGone\"\nwhen\n    P(tag == \"e1\")\n    not T()\nthen\nend\n",
  "types": [
   {

@@ -25,14 +25,24 @@ Receipts: byte gate 2130 identical, diff 11/**1269**/406 + drift 49
 (3 fresh-seed fuzz finds ALL bisected PRE-EXISTING → xf_fz_296*
 quarantined, seeds re-run clean), lint 1986/0/0, cargo 54, pytest
 229, demo True, model_ird 31/31, agenda_open ×15, IRD 0-div ×5, SD
-census 72 EXACT. **NEW NAMED OPEN ITEM: the by_act QUADRATIC**
-(execute_rhs:~10392 linear find per firing; 0.22s@1k → 15.5s@9k →
-~70min@99k debug; fix = order-preserving index, a future perf slab;
-scenarios/bench_slow/ holds the slow witnesses OUTSIDE lint/diff/
-byte-gates — see its README). Authoring cycle lint untouched (queue
-item 4, now FOUR refreshes). Pushed through 4cb325d; local unpushed:
-f13be11 + handoff + D-293..296. NEXT: queue item 4 (authoring sugar)
-or the by_act perf slab — Bryan's pick._
+census 72 EXACT. **D-297 (Bryan: "do by_act perf slab"): the by_act
+quadratic is FIXED — ByAct, an order-preserving indexed act table**
+(tombstoned slot vec + act→slot + fact→slots, amortized compaction;
+9000-deep 15.5s→0.77s, 99k ~70min→~52s, runaway diffs ~4.5s).
+pr_ub_deep_9000 GRADUATED (corpus 11/**1270**/406), the two arith
+runaways RETURNED to probes_pending/arith_grammar (fenced by the
+runtime fire-limit wall, diffed PASS), bench_slow keeps ONE resident
+(ub_deep_99k, ~52s). Receipts: byte gate 2146 IDENTICAL vs 8fc3184,
+diff 11/1270/406 + drift 49, lint 1989/0/0, cargo 54, pytest 229,
+demo True, model_ird 31/31, agenda_open ×15, IRD 0-div ×5, SD 72
+EXACT, fuzz 2×2000 seeds 297001/297002 CLEAN. **NEXT NAMED PERF
+ITEM: the staged del-dedup scan** (phreak Staged::add_del
+del.iter().any per teardown delete; stale-positive del_set sketch +
+the ~9 del-merge-site audit on identity-model-law surface —
+bench_slow README carries the map). Authoring cycle lint untouched
+(queue item 4, FOUR refreshes). Pushed through 4cb325d; local
+unpushed: f13be11 + handoff + D-293..297. NEXT: queue item 4
+(authoring sugar) or the staged-del perf slab — Bryan's pick._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16009,3 +16019,52 @@ updated (boundary redraw complete through the unbounded tier).
 D-076's arc closes: the last rule-count-bounded recursion (D-293) and
 the last derivation wall (D-296) are both gone. NEXT: queue item 4
 (authoring sugar, four refreshes) + the by_act perf item.
+
+## D-297 — the by_act quadratic falls: ByAct, an order-preserving indexed act table (9000-deep 15.5s → 0.77s, 99k ~70min → ~52s); ub_deep_9000 graduates, the runaways go home; the RESIDUAL staged del-dedup scan is the next named item (2026-07-17)
+
+Bryan: "do by_act perf slab." The D-296 item: every firing did a
+linear tms.by_act find (execute_rhs prologue), every fact event a
+full-table scan (tms_eager_break), every teardown act a position+
+remove — O(n²) over deep chains.
+
+THE STRUCTURE (engine.rs, ByAct): by_act ORDER is certified surface
+(the eager-break scan order feeds the D-293 worklist DFS), so the
+store is an insertion-ordered SLOT VEC with TOMBSTONES — every
+mutation maps 1:1 onto the old Vec's op restricted to the live
+subsequence — plus two hash indexes: act → slot (per-firing point
+lookups: prologue get, epilogue retain/remove, tms_add add_key,
+terminal-del contains, drop-victims get, machine remove) and fact →
+slots, ascending + deduped per tuple (acts_containing: the
+eager-break candidates in slot = old-scan order; the verbatim
+predicate then filters). Slots are never reused; compaction
+(amortized, live*2 < len, floor 64) rebuilds all three in live
+order. The route-delete full sweeps stay sweeps (sweep_key — rare
+path, order-preserving). 9 site classes converted; no other by_act
+consumers (grep).
+
+MEASURED (debug engine, bench_slow): ub_deep_9000 15.5s → **0.77s**
+(20×); ub_deep_99k ~70min → **~52s** (~80×); the arith runaways'
+100k-fire grinds → **~4.5s** diffs. Tier moves the numbers now
+support: **pr_ub_deep_9000 GRADUATES** (corpus 11/1270/406);
+ar_tms_runaway_logical + ar_tms_cycle_two_type RETURN to
+probes_pending/arith_grammar (engine_fenced by the runtime
+fire-limit wall, diffed PASS = error-vs-error parity); bench_slow
+keeps ONE resident (README rewritten).
+
+THE RESIDUAL — the staged del-dedup scan (named for the next slab):
+gdb mid-99k names phreak::Staged::add_del (phreak.rs:228) —
+`del.iter().any(...)` walks the accumulated del list per teardown
+delete; the D-266 `seen` fast path can't help (consumed facts stay
+seen), so 99k stays ~52s (~n^1.75 tail). Fix sketch = a
+stale-positive del_set (the D-266/D-267 pattern), BUT del lists are
+merged wholesale at ~9 sites (del.extend/push, engine.rs 6725/6867/
+6895/6906/7069-71/9244 + qce raw pushes) on identity-model-law
+surface — that audit is its own gated slab, not a rider on this one.
+
+Receipts: byte gate **2146/2146 IDENTICAL** vs 8fc3184 worktree
+(includes deep_9000; excluded = only the 3 pre-side-infeasible
+grinders); make diff 11/1270/406 + drift 49 identical; lint 1989/0/0
+(1986 + 2 restored + 1 graduated); cargo 54; pytest 229; demo True;
+model_ird 31/31; agenda_open ×15 identical both binaries; deep-scale
+diffs PASS (pr_ub_deep_9000, ub_deep_99k, both runaways); IRD 0-div
+×5; SD census 72 EXACT cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7); fresh fuzz 2×2000 seeds 297001/297002 both CLEAN (0 divergences, 0 xfail hits).

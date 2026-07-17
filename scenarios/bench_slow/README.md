@@ -1,29 +1,29 @@
 # bench_slow — correct-but-slow deep-scale witnesses (NOT corpus, NOT linted)
 
 This dir is deliberately OUTSIDE the lint scan set (tools/lint_probes.py)
-and the make-diff tier globs, and byte-gate recipes must EXCLUDE it:
-these scenarios are certified correct but engine-side QUADRATIC until
-the by_act scaling item lands (D-296 open item: execute_rhs's
-refire-supersede prologue does a linear `tms.by_act` find PER FIRING —
-O(n²) over a deep chain; debug timings 0.22s @ 1000-deep, 15.5s @
-9000-deep, ~36 min @ 99k-deep).
+and the make-diff tier globs, and byte-gate recipes must EXCLUDE it.
 
-- `ub_deep_9000.json` — 9000-deep fixpoint + complete teardown.
+History: D-296 parked four cyclic grinders here under the by_act
+quadratic. **D-297 fixed by_act** (order-preserving ByAct index) —
+ub_deep_9000 graduated to scenarios/probes/pr_ub_deep_9000 (0.77s) and
+the two arith_grammar runaways went home (≈4.5s diffs, error-vs-error
+parity). One resident remains:
+
 - `ub_deep_99k.json` — the fire-limit-maximal class (98,999 grows +
-  99,000-deep teardown). THE no-assert witness (D-296).
-- `ar_tms_runaway_logical.json` / `ar_tms_cycle_two_type.json` —
-  moved from probes_pending/arith_grammar (their D-282 PINS rows
-  stand): unbounded cyclic-logical runaways. Post-lift both sides
-  run to "fire limit 100000 reached" (error-vs-error parity,
-  D-013/j21) — but the engine side grinds the same quadratic by_act
-  scan on the way there, so they cannot sit in a linted tree.
+  99,000-deep teardown; the D-296 no-assert witness). Engine ~52s
+  debug under the RESIDUAL quadratic (the D-297 open item): the
+  staged del-dedup scan — `phreak::Staged::add_del`'s
+  `del.iter().any(...)` walks the accumulated del list per teardown
+  delete (the `seen` fast path can't help: consumed facts stay seen).
+  Fix sketch = a stale-positive `del_set` (the D-266/D-267 pattern),
+  but del lists are MERGED wholesale at ~9 sites (grep
+  `del.extend|del.push`) on identity-model-law surface — that audit
+  is its own gated slab.
 
 Run manually at slab boundaries (oracle needs the D-295 -Xss1g pin,
 already in harness/src/oracle.rs):
 
-    cargo run -q -p seine-harness -- diff scenarios/bench_slow/ub_deep_9000.json
-    cargo run -q -p seine-harness -- diff scenarios/bench_slow/ub_deep_99k.json   # ~36 min engine-side (debug)
+    cargo run -q -p seine-harness -- diff scenarios/bench_slow/ub_deep_99k.json   # ~60s wall
 
-When a perf slab indexes by_act (order-preserving — by_act ORDER is
-the certified eager-break scan order, D-293), graduate both into
+When the staged-del item lands, graduate this file into
 scenarios/probes/ and delete this dir.
