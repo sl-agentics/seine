@@ -32,23 +32,61 @@ probes hit exactly; the deep tier produced the round's FINDING.
 | (scratch bisect, this env) | 300 OK / 400 SOE | ceiling ≈ [300, 400] on the DEFAULT JVM stack — the runner sets no -Xss, so the ceiling is a JVM-config RESOURCE LIMIT, not a semantic constant |
 | ar_tms_runaway_logical (re-run ×3) | "IllegalStateException: fire limit 100000 reached (non-terminating?)" ×3 | the fire limit is the only INFINITE-cycle governor; the whole scenario errors (batch state discarded) → parity is error-vs-error (D-013/j21). Engine twins: fire limit + D-117 spin guard |
 
-Consequences for the step-B port (Bryan's gate):
+## §2b. The stack-bump round (Bryan's directive 2026-07-17: "try bumping stack space on the oracle")
 
-1. **Drools cannot witness deep teardowns.** RemoveLogicalDependencies
-   recurses; beyond ≈350 frames (env-dependent) the oracle SOEs. The
-   "legitimate 100k-fire fixpoint tears down 100k deep" scenario is
-   REAL on the growth side (fire limit permits it) but its teardown is
-   oracle-UNOBSERVABLE. Post-lift certification therefore needs a
-   **teardown-depth residency precondition** (the D-290 mode-1
-   residency precedent): byte-certified cells live at depth ≤ 200
-   (conservative, stable side of the bracket); deeper cells are
-   engine-guaranteed (worklist boundedness) with the oracle divergence
-   class DOCUMENTED (SOE-vs-success — the engine outliving the oracle,
-   opposite-polarity witnesses like ub_teardown_500).
+Mechanism: `JDK_JAVA_OPTIONS` (JDK 21 launcher env, no code change)
+for the experiments. Predictions registered PRE-RUN: with `-Xss1g`,
+ub_teardown_500 / ub_deep_1000 / ub_deep_9000 and a NEW
+fire-limit-class ub_deep_99k (guard n < 99000 — 98,999 grows, the
+maximal legitimate single-fireAllRules chain is ~100k) ALL complete:
+WGone fires once, final = P only, 3×-byte-stable; time ~linear in
+depth; the SOE bracket was pure stack arithmetic (≈2.6–3.3 KB/level
+from the default-1MB [300,400] bracket ⇒ 1g covers ≈350k levels,
+3× margin over the fire-limit max).
+
+### Results — ALL PREDICTIONS HIT; the ceiling was pure stack arithmetic
+
+Sanity: `-Xss64m` completes ub_teardown_500 (default SOE'd ×3) — the
+launcher runs fireAllRules on a thread the flag governs.
+
+| probe (`-Xss1g`, 3× each) | result | wall | maxRSS |
+|---|---|---|---|
+| ub_teardown_500 | OK ×3: 500 firings, WGone, final = P | ~1.1s | ~250 MB |
+| ub_deep_1000 | OK ×3: complete 1000-deep teardown | ~1.1s | ~250 MB |
+| ub_deep_9000 | OK ×3: complete 9000-deep teardown | ~1.2s | ~270 MB |
+| ub_deep_99k (NEW: guard n < 99000 — the fire-limit-maximal class) | OK ×3: 98,999 grows + WGone, final = P, complete **99,000-deep teardown** | ~3s | ~600 MB |
+
+All 3×-byte-stable; semantics identical to the shallow pins (complete
+teardown, WGone once, final = P only). Time ~linear, memory modest —
+no cliff anywhere. **The §2 SOE rows are the DEFAULT-STACK record**
+(historical: what a stock `java` invocation does; reproduce by
+removing the runner pin).
+
+**RUNNER PINNED (D-295)**: `harness/src/oracle.rs` now passes
+`-Xss1g` unconditionally. Receipts: pinned-runner outputs
+byte-identical to the env-var runs on all 4 deep probes; full
+`make diff` 11/1257/406 green + drift bank 46 IDENTICAL (the pin
+changes nothing banked); lint 1990/0/0; cargo 54. Deep teardowns are
+now oracle-OBSERVABLE through the ordinary runner up to ≥99k —
+covering the whole fire-limit-reachable envelope with ~3× stack
+margin (≈2.6–3.3 KB/level × 100k ≈ 300 MB ≪ 1 GB).
+
+Consequences for the step-B port (Bryan's gate) — REVISED after the
+stack bump (the original ≤200-residency proposal is in git history;
+it is OBSOLETE):
+
+1. **No depth residency precondition needed.** With the pinned
+   runner, teardown at the fire-limit-maximal depth (~100k) is
+   byte-certifiable directly — growth, teardown, and belief state are
+   all oracle-observable. The one certification note that remains:
+   the oracle's teardown depth ceiling is a JVM-config resource limit
+   (now pinned at 1g in-repo), not a semantic constant — record the
+   pin next to any deep-cell receipts.
 2. **The 8192 assert goes WITH the lift, not before.** Under the wall
    it stays unreachable (D-284's bound); post-lift a legitimate deep
-   fixpoint teardown would false-panic it. The worklist already
-   removed the thing the assert protected (engine stack).
+   fixpoint teardown (ub_deep_99k is 99k deep) would false-panic it.
+   The worklist already removed the thing the assert protected
+   (engine stack).
 3. **Semantics the lift must certify** (all pinned above, all already
    natural under the engine's value-keyed act model): guard
    termination, whole-chain teardown, multi-justifier anchors,

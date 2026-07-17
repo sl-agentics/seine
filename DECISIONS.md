@@ -20,17 +20,20 @@ gate 2132 identical, diff 11/1257/406 + drift 46, **SD census 72
 EXACT cell-for-cell**, IRD 0-div ×5, fuzz 2×2000 ×2 clean, cargo 54 /
 pytest 229 / demo True / model_ird 31/31 / agenda_open ×15. Step B
 PROBED (D-294, 13 ub_* engine_fenced probes, 3×-stable, 8/8
-predictions hit; lint 1989/0/0): fixpoint algebra pins clean
-(dedup-bounded finite cycles, anchors, pending-at-depth, supersede
-re-rooting, ⚖ ungrounded clusters SURVIVE root deletion); THE
-FINDING — **Drools' own teardown recursion StackOverflows ≈[300,400]
-deep** (growth is iterative, 1000 fine; SOE = clean scenario error;
-resource ceiling, no -Xss pinned). **GATE ITEMS: lift the D-284
-CompileError (engine.rs ~2812) + teardown-depth ≤200 residency
-precondition for byte-certification; the 8192 assert goes WITH the
-lift; gen.rs stays acyclic.** Pushed through 4cb325d; local unpushed:
-f13be11 + handoff + D-293 + D-294. Queue item 4 (authoring sugar)
-waits behind the gate._
+predictions hit): fixpoint algebra pins clean (dedup-bounded finite
+cycles, anchors, pending-at-depth, supersede re-rooting, ⚖ ungrounded
+clusters SURVIVE root deletion); the D-294 SOE finding RESOLVED by
+D-295 (Bryan's stack-bump directive): the ≈[300,400] teardown ceiling
+was pure JVM stack arithmetic — **-Xss1g now PINNED in
+harness/src/oracle.rs**, the fire-limit-maximal **99k-deep teardown
+completes 3×-stable** (ub_deep_99k, ~3s/600MB), make diff 11/1257/406
++ drift 46 IDENTICAL under the pin, lint 1990/0/0. **GATE ITEMS
+(revised): lift the D-284 CompileError (engine.rs ~2812) — NO depth
+residency needed (deep cells byte-certifiable under the pinned
+runner); the 8192 assert goes WITH the lift; gen.rs stays acyclic.**
+Pushed through 4cb325d; local unpushed: f13be11 + handoff + D-293 +
+D-294 + D-295. Queue item 4 (authoring sugar) waits behind the
+gate._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -15919,3 +15922,35 @@ lift (post-lift a legitimate deep fixpoint would false-panic it; the
 worklist already removed the stack it protected) — soft diagnostics
 counter = Bryan's call; (3) gen.rs stays ACYCLIC. Probes+docs only;
 engine untouched this commit. AT BRYAN'S GATE.
+
+## D-295 — the oracle stack bump (Bryan's directive): the deep-teardown SOE ceiling was pure JVM stack arithmetic — `-Xss1g` pinned in the runner, the fire-limit-maximal 99k-deep teardown is now oracle-OBSERVABLE and 3×-stable (2026-07-17)
+
+Bryan: "can you try bumping stack space on the oracle and trying
+again? This machine has 128 gigs." Experiments first via
+JDK_JAVA_OPTIONS (JDK 21, no code change), predictions registered
+pre-run in PINS.md §2b — all hit. Sanity: -Xss64m completes
+ub_teardown_500 (default SOE'd ×3) — the flag governs the
+fireAllRules thread. Ladder at -Xss1g, 3× each, all byte-stable:
+500 / 1000 / 9000 complete (~1.1–1.2s wall, ~250–270MB RSS), and the
+NEW ub_deep_99k (guard n < 99000 = the fire-limit-maximal
+single-fireAllRules chain class) completes a 99,000-deep teardown —
+98,999 grows + WGone, final = P only (~3s, ~600MB). Semantics
+identical to the shallow pins; time ~linear; no cliff. The D-294 SOE
+rows stand as the DEFAULT-STACK record.
+
+THE PIN: harness/src/oracle.rs now passes -Xss1g unconditionally
+(≈2.6–3.3 KB/frame × 100k fire-limit max ≈ 300MB, ~3× margin).
+Receipts: pinned-runner outputs byte-identical to the env-var runs on
+all 4 deep probes; full make diff 11/1257/406 green + drift bank 46
+IDENTICAL — the pin changes NOTHING banked; lint 1990/0/0 (ub_deep_99k
+joins); cargo 54. Harness-only, one arg, trivially revertible.
+
+GATE-ITEM REVISION (supersedes D-294's item 1): the teardown-depth
+≤200 residency precondition is OBSOLETE — deep teardowns are
+byte-certifiable through the ordinary runner across the whole
+fire-limit-reachable envelope. Remaining note: the ceiling is
+JVM-config (now pinned in-repo), not semantic — record the pin next
+to deep-cell receipts. Items 2–4 unchanged (8192 assert goes WITH the
+lift — ub_deep_99k at 99k deep would false-panic it; semantics list;
+gen.rs acyclic). STILL AT BRYAN'S GATE for the stratification lift
+itself.

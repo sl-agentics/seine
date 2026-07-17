@@ -27,6 +27,11 @@ pub fn run_oracle(paths: &[String]) -> Result<Vec<String>, String> {
         cp.trim()
     );
     let out = Command::new("java")
+        // D-295: Drools' removeLogicalDependencies teardown is call-
+        // recursive — the default thread stack SOEs ~[300,400] levels
+        // deep (ub_teardown_500). 1g covers the fire-limit-maximal
+        // ~100k chain with ~3x margin (≈2.6–3.3 KB/level measured).
+        .arg("-Xss1g")
         .arg("-cp")
         .arg(&classpath)
         .arg("dev.seine.oracle.OracleRunner")
