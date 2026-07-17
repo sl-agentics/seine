@@ -11,13 +11,12 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-288 (COMPUTED SETTER ARGS LANDED —
-Bryan gated (a)+(b) after the counter-review: faithful port, no
-engine restriction, symmetric authoring guidance; not (c); (d) not
-built). D-288 committed local, unpushed. IN FLIGHT: the D-289
-authoring self-feed check (the (b) commit — D-222 template,
-blocking-with-exemptions, atom+computed symmetric, falsifying-write
-carve-out). **COLD-START = `probes_pending/arith_grammar/HANDOFF.md`**._
+_Last updated: 2026-07-16, post-D-289. THE UPDATES ARC IS DONE
+(D-287 probes → D-288 port → D-289 authoring check), all committed
+local on main, UNPUSHED (3 commits atop v0.4.32/8b3210b). NEXT =
+queue item 2: the LHS-swamp 2×2 (the div0 anomaly cell blocks any
+LHS-division port). **COLD-START =
+`probes_pending/arith_grammar/HANDOFF.md`**._
 
 **D-287/D-288: the D-231 re-examination CLOSED. Probe round: 18
 ar_upd_* probes 3×-stable, 18/18 predictions hit (PINS.md §E) — the
@@ -34,9 +33,15 @@ agenda-iterative with no bound, so no wall. Receipts: byte gate 2047
 identical, corpus 11/1233/406 + drift 42, lint 1936/0/0, cargo 54,
 pytest 220, demo True, fuzz 2×2000 ×2 fresh seeds CLEAN with the new
 axis, model_ird 31/31, agenda_open ×15 identical, IRD 0-div ×5, SD
-census 72 EXACT. THEN: queue (2) LHS-swamp 2×2, (3) D-076 iterative,
-(4) authoring sugar (owns the now-stale `_rhs_arg` wall message);
-standing ledger (crates.io TP, collect-order latents, derive v2).**
+census 72 EXACT. D-289 (the (b) commit): _lint_self_feeding_modify
+at compile_rules — D-222 altitude, symmetric atom+computed,
+falsifying-write carve-out (the corpus guard-flip idiom),
+bound-fields-listen, no_loop exempt, undecidable silent, SalExpr
+defers to the arithmetic wall (sugar item removes the skip); pytest
+229. THEN: queue (2) LHS-swamp 2×2, (3) D-076 iterative,
+(4) authoring sugar (owns the now-stale `_rhs_arg` wall message AND
+the D-289 SalExpr-skip removal); standing ledger (crates.io TP,
+collect-order latents, derive v2).**
 
 **Since D-284: D-285 (the derive CALCULATOR ROW — sin/cos/tan/asin/
 acos/atan/ln/log10/exp/degrees/radians, measured + three-way
@@ -15558,3 +15563,48 @@ authoring layer still emits atom-only args and its `_rhs_arg` wall
 message now overstates the boundary ("RHS arithmetic is outside the
 certified subset" — false for DRL since D-283/D-288); queue item 4
 (authoring sugar) owns that refresh. Committed local; no push.
+
+## D-289 — the (b) commit: the SELF-FEEDING MODIFY check at the authoring layer — D-222 template, symmetric over atom and computed values, the falsifying-write carve-out for the corpus's own idiom (2026-07-16)
+
+Bryan's gate at D-288 specified the guidance surface: symmetric (a
+computed-only check re-creates the rejected (c) asymmetry one layer
+quieter), non-gating for the certified DRL surface, and never
+touching the byte-stream. The repo's own precedent is the vehicle:
+the D-222/D-219 altitude — a blocking CompileError at
+compile_rules() (the single authoring funnel), per-rule, per-action,
+LOCAL, with named-idiom exemptions, while raw DRL keeps
+Drools-faithful behavior.
+
+_lint_self_feeding_modify: for each modify(), written = the set
+fields; listened = the target pattern's constrained fields ∪ its
+BOUND fields (a field is bound the moment its BoundField is used
+anywhere in the rule — actions, salience, comparands; the
+ar_upd_pr_bind_runaway pin). written ∩ listened = ∅ → silent (the
+pr_ar_upd_pr_getter law). Otherwise a three-valued still-matching
+eval via the existing _eval_constraint_on: unwritten fields read as
+same-field copies ("satisfies what it satisfied"), written fields
+carry the new values. Any constraint proven-False → EXEMPT (the
+falsifying write — nb6's setT(false) under t == true, the fuzz's
+guard discipline, the existing Boost test's total=90.0 under
+total < 90.0: the corpus idiom the naive predicate would have
+wolf-cried on). Any unknown → silent (only PROVEN outcomes act).
+All proven-True → CompileError naming the rule, class, hot fields,
+and the remedies in modeling order (falsify a guard / no_loop=True /
+LHS accumulate / Python between passes). no_loop rules are exempt
+(pr_ar_upd_noloop_self: own re-activation suppressed). Temporal
+constraints skipped (under-listen errs to silence). SalExpr values
+defer to the to_drl arithmetic wall's steering message — with a loud
+note that the authoring-sugar item must remove that skip so computed
+self-feeds land here. Cross-rule ping-pong stays unjudged BY DESIGN
+(fire-limit-governed on both engines; a cycle check would gate what
+the subset runs — the D-288 rationale).
+
+Receipts: pytest 229 (9 new: same-value reject with all three
+remedies named; guard-flip pass; still-true-numeric reject;
+falsifying-numeric pass; bound-only reject with the
+no-constraint-to-exit note; no_loop exempt; unlistened pass;
+cross-field-copy silence; arithmetic-wall-speaks-first pin for the
+sugar handoff). Existing 220 untouched — the Boost and arc3 modify
+shapes pass through the exemptions, the D-222/cycle lints
+unaffected. Authoring-layer only; engine, corpus, and .so untouched.
+Committed local; no push.

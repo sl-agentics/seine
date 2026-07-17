@@ -1606,6 +1606,121 @@ def _lint_logical_cycles(rules) -> None:
             walk(node)
 
 
+def _lint_self_feeding_modify(rules) -> None:
+    """The self-feeding modify check: a modify() re-evaluates every
+    pattern on the modified class that LISTENS to a written field —
+    listened means constrained OR bound (a field is bound the moment
+    its BoundField is used anywhere in the rule). If the written
+    values provably leave the rule's own match intact, the rule
+    re-triggers itself and loops to the fire limit — oracle and engine
+    identically, because the shape is certified-runnable; that is
+    exactly why the authoring layer refuses to write it silently, and
+    the check fires the same on literal and computed values (the
+    hazard is the mask, not the arithmetic).
+
+    Same altitude as the neighbors above: per-rule, per-action, local.
+    Only the modify's own target pattern is judged — no cross-rule or
+    cross-instance reasoning (cross-rule ping-pong is fire-limit-
+    governed on both engines by design; a cycle check here would gate
+    what the certified subset runs). Exemptions, each a certified
+    idiom:
+    - the FALSIFYING WRITE — the guard-flip that terminates the match
+      (write true under `g == False`, write 90.0 under `total < 90.0`):
+      proven-False post-write means the rule exits its own match;
+    - no_loop=True — the engine suppresses the rule's own
+      re-activation, so an unguarded self-write fires once per match;
+    - anything statically undecidable stays silent (three-valued eval;
+      only PROVEN outcomes act). Temporal constraints are skipped
+      (under-listening errs toward silence).
+    Like the neighbors, a sampler, not a detector: green means no
+    PROVEN self-feed, not that firing is bounded."""
+    def cfields(c, cls, out):
+        if isinstance(c, _Group):
+            for ch in c.children:
+                cfields(ch, cls, out)
+        elif isinstance(c, _Constraint) and isinstance(c.field, FieldRef) \
+                and c.field.owner is cls:
+            out.add(c.field.name)
+
+    for r in rules:
+        if r.no_loop:
+            continue  # own re-activation suppressed: fires once per match
+        # fields of each positive pattern bound BY USE anywhere in the rule
+        def note(v, p, out):
+            if isinstance(v, BoundField) and getattr(v, "pattern", None) is p:
+                out.add(v.name)
+            elif isinstance(v, SalExpr):
+                note(v.a, p, out)
+                note(v.b, p, out)
+        def rhs_walk(c, p, out):
+            if isinstance(c, _Group):
+                for ch in c.children:
+                    rhs_walk(ch, p, out)
+            elif isinstance(c, _Constraint):
+                note(c.rhs, p, out)
+        for a in r.actions:
+            if a.kind != "modify":
+                continue
+            p = a.kw["pattern"]
+            vals = a.kw["values"]
+            if any(isinstance(v, SalExpr) for v in vals.values()):
+                # Not renderable today — to_drl's arithmetic wall already
+                # rejected this rule with the steering message. WHEN
+                # AUTHORING COMPUTED ARGS LAND (the boundary-redraw
+                # roadmap's authoring-sugar item), remove this skip so
+                # computed self-feeds are judged right here.
+                continue
+            written = set(vals)
+            listened = set()
+            for c in p.constraints:
+                cfields(c, p.cls, listened)
+            for act in r.actions:
+                for v in act.kw.get("values", {}).values():
+                    note(v, p, listened)
+            note(r.salience, p, listened)
+            for q in r.patterns:
+                for c in q.constraints:
+                    rhs_walk(c, p, listened)
+            if not (written & listened):
+                continue  # unlistened write: the modify cannot re-stage its own match
+            # still-matching, three-valued: unwritten fields keep their
+            # matched values (the same-field BoundField reads as
+            # "satisfies what it satisfied"), written fields carry the
+            # new values
+            probe_vals = {
+                f: getattr(p, f)
+                for f in p.cls.__seine_fields__ if f not in written
+            }
+            probe_vals.update(vals)
+            verdicts = [
+                _eval_constraint_on(c, probe_vals, p)
+                for c in p.constraints
+                if not isinstance(c, _Temporal)
+            ]
+            if any(v is False for v in verdicts):
+                continue  # falsifying write: the rule exits its own match
+            if any(v is None for v in verdicts):
+                continue  # undecidable: stay silent
+            hot = ", ".join(sorted(written & listened))
+            raise CompileError(
+                f'rule "{r.name}": self-feeding modify on {p.cls.__name__} '
+                f"— it writes {hot}, which its own when() listens to (a "
+                f"constrained or bound field), and the written values "
+                f"provably leave the rule still matching"
+                + (" (there is no constraint to exit through)" if not verdicts else "")
+                + ", so it re-triggers itself and loops to the fire limit. "
+                f"First decide what one firing means: if the write should "
+                f"END the match, write a value the rule's own constraint "
+                f"excludes (flip a guard field — the terminating idiom); "
+                f"if one firing per match is the intent, set no_loop=True; "
+                f"if you are accumulating a running value, that is LHS "
+                f"work — acc_sum/acc_count and insert the result, or "
+                f"update() from Python between session passes. Raw DRL "
+                f"keeps Drools-faithful behavior (both engines run this "
+                f"shape to the fire limit)."
+            )
+
+
 def compile_rules(rules) -> str:
     """Render a list of Rule objects into one DRL source string."""
     out = []
@@ -1620,4 +1735,5 @@ def compile_rules(rules) -> str:
         out.append(r.to_drl())
     _lint_unstratified_negation(rules)
     _lint_logical_cycles(rules)
+    _lint_self_feeding_modify(rules)
     return "\n".join(out)

@@ -632,6 +632,139 @@ def test_self_loop_group_boundary():
     assert "rule" in seine_rs.compile_rules([r2])
 
 
+# --- the self-feeding modify lint (the D-231 hazard, mapped by probe:
+# --- written ∩ own-listened + a write that provably keeps matching)
+
+
+def test_self_feeding_modify_same_value_rejected():
+    # write a listened field a value that provably keeps the rule
+    # matching -> the rule re-triggers itself to the fire limit
+    @fact
+    class SFC1:
+        n: int
+
+    r = Rule("same")
+    c = r.when(SFC1, SFC1.n == 0)
+    r.then_modify(c, n=0)
+    with pytest.raises(CompileError) as ei:
+        seine_rs.compile_rules([r])
+    msg = str(ei.value)
+    assert "same" in msg and "SFC1" in msg and "re-triggers itself" in msg
+    # every exemption the lint knows is offered as a remedy
+    assert "no_loop" in msg and "acc_sum" in msg and "guard" in msg
+
+
+def test_self_feeding_modify_guard_flip_passes():
+    # the corpus idiom: the write falsifies the rule's own constraint,
+    # so the rule exits its own match (setG(true) under g == False)
+    @fact
+    class SFC2:
+        g: bool
+
+    r = Rule("flip")
+    c = r.when(SFC2, SFC2.g == False)  # noqa: E712 — authoring constraint
+    r.then_modify(c, g=True)
+    assert "rule" in seine_rs.compile_rules([r])
+
+
+def test_self_feeding_modify_still_true_numeric_rejected():
+    @fact
+    class SFC3:
+        n: int
+
+    r = Rule("still")
+    c = r.when(SFC3, SFC3.n > 5)
+    r.then_modify(c, n=7)  # 7 > 5: provably still matching
+    with pytest.raises(CompileError, match="re-triggers itself"):
+        seine_rs.compile_rules([r])
+
+
+def test_self_feeding_modify_falsifying_numeric_passes():
+    @fact
+    class SFC4:
+        n: int
+
+    r = Rule("exit")
+    c = r.when(SFC4, SFC4.n == 0)
+    r.then_modify(c, n=1)  # 1 == 0 is False: exits the match
+    assert "rule" in seine_rs.compile_rules([r])
+
+
+def test_self_feeding_modify_bound_only_rejected():
+    # bound fields are listened: using c.n as an insert arg binds it,
+    # and with no constraint to exit through the write is a proven loop
+    @fact
+    class SFC5:
+        n: int
+
+    @fact
+    class SFOut5:
+        v: int
+
+    r = Rule("bound")
+    c = r.when(SFC5)
+    r.then_insert(SFOut5, v=c.n)
+    r.then_modify(c, n=5)
+    with pytest.raises(CompileError, match="no constraint to exit"):
+        seine_rs.compile_rules([r])
+
+
+def test_self_feeding_modify_no_loop_exempt():
+    # the engine suppresses the rule's own re-activation: fires once
+    @fact
+    class SFC6:
+        n: int
+
+    r = Rule("once", no_loop=True)
+    c = r.when(SFC6, SFC6.n == 0)
+    r.then_modify(c, n=0)
+    assert "rule" in seine_rs.compile_rules([r])
+
+
+def test_self_feeding_modify_unlistened_passes():
+    # writing a field the rule neither constrains nor binds cannot
+    # re-stage its own match
+    @fact
+    class SFC7:
+        a: int
+        b: int
+
+    r = Rule("quiet")
+    c = r.when(SFC7, SFC7.a > 0)
+    r.then_modify(c, b=5)
+    assert "rule" in seine_rs.compile_rules([r])
+
+
+def test_self_feeding_modify_undecidable_silent():
+    # cross-field copy: statically unknowable -> silence (only PROVEN
+    # outcomes act, the shared three-valued bias)
+    @fact
+    class SFC8:
+        n: int
+        m: int
+
+    r = Rule("copy8")
+    c = r.when(SFC8, SFC8.n > 5)
+    r.then_modify(c, n=c.m)
+    assert "rule" in seine_rs.compile_rules([r])
+
+
+def test_self_feeding_modify_arith_wall_speaks_first():
+    # c.n + 1 is not renderable from authoring yet: the arithmetic wall
+    # message must win. When authoring computed args land, this shape
+    # becomes the self-feed lint's case (see the lint's skip note).
+    @fact
+    class SFC9:
+        n: int
+
+    r = Rule("inc9")
+    c = r.when(SFC9)
+    r.then_modify(c, n=c.n + 1)
+    with pytest.raises(CompileError, match="RHS arithmetic") as ei:
+        seine_rs.compile_rules([r])
+    assert "re-triggers itself" not in str(ei.value)
+
+
 # --- Tier B exposure (round 22): group_by / collect_list/set / when_any
 
 @fact
