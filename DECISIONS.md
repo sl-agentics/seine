@@ -11,10 +11,25 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-284 (TIER 2 LANDED: computed
-insertLogical under stratification. D-274..284 committed local;
-v0.4.30 released; publish-crates still blocked on Bryan's one-time
-crates.io TP config)._
+_Last updated: 2026-07-16, post-D-286 + v0.4.32 RELEASED (PyPI live;
+D-274..286 all pushed). **COLD-START =
+`probes_pending/arith_grammar/HANDOFF.md`** — the queue: (1) updates/
+setters with computation (Bryan-sequenced next; probe round first),
+(2) LHS constraint arithmetic (the coercion-swamp 2×2 — the div0
+anomaly cell blocks any division port), (3) D-076 iterative cascade →
+unbounded tier, (4) authoring.py computed-args sugar; plus the
+standing ledger (crates.io TP, collect-order latents, derive v2)._
+
+**Since D-284: D-285 (the derive CALCULATOR ROW — sin/cos/tan/asin/
+acos/atan/ln/log10/exp/degrees/radians, measured + three-way
+certified bit-exact; factorial dropped mid-slab by Bryan; ledger row
+9 extended to domain errors in eager branches) and D-286 (ADS-B
+WITHOUT the bespoke kernels — pairing via match-plane self-join,
+haversine as ONE expression with BIT-IDENTICAL meters, closing as
+caller-state + fill_null compare; the kernels are an optimization,
+not a capability; suite 220). v0.4.31 + v0.4.32 released same day
+(the v0.4.31 sdist reds were GitHub-outage setup failures —
+HttpClientError before any build step; artifacts all published).**
 
 **THE BOUNDARY REDRAW (D-280..284, Bryan's doctrine: the match
 grammar never grows a Java/MVEL INTERPRETER — arithmetic is certified
