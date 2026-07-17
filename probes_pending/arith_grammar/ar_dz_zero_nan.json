@@ -1,0 +1,30 @@
+{
+ "name": "ar_dz_zero_nan",
+ "drl": "rule \"NNe\"\nwhen\n    N(k / z != 0)\nthen\nend\nrule \"NEq\"\nwhen\n    N(k / z == 0)\nthen\nend\nrule \"NGe\"\nwhen\n    N(k / z >= 0)\nthen\nend\nrule \"Sent\"\nwhen\n    N(k == 0)\nthen\nend\n",
+ "types": [
+  {
+   "name": "N",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "N",
+   "fields": {
+    "k": 0,
+    "z": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

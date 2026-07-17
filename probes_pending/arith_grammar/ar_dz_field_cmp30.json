@@ -1,0 +1,30 @@
+{
+ "name": "ar_dz_field_cmp30",
+ "drl": "rule \"CFEqD30\"\nwhen\n    T(k / 2 == d2)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "d2",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7,
+    "d2": 3.0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

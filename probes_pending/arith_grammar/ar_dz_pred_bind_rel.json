@@ -1,0 +1,40 @@
+{
+ "name": "ar_dz_pred_bind_rel",
+ "drl": "rule \"PBGe\"\nwhen\n    B($b : b)\n    T(k / 2 >= $b)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "B",
+   "fields": {
+    "b": 3.5
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

@@ -1,0 +1,30 @@
+{
+ "name": "ar_dz_zero_ops",
+ "drl": "rule \"ZGt\"\nwhen\n    T(k / z > 0)\nthen\nend\nrule \"ZGe\"\nwhen\n    T(k / z >= 0)\nthen\nend\nrule \"ZLt\"\nwhen\n    T(k / z < 0)\nthen\nend\nrule \"ZLe\"\nwhen\n    T(k / z <= 0)\nthen\nend\nrule \"ZEq\"\nwhen\n    T(k / z == 0)\nthen\nend\nrule \"ZNe\"\nwhen\n    T(k / z != 0)\nthen\nend\nrule \"ZGtH\"\nwhen\n    T(k / z > 0.5)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7,
+    "z": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

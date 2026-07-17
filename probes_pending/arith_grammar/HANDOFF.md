@@ -71,28 +71,38 @@ cycle check (D-284 stratification shape). Port shape in PINS.md §E
 D-283 machinery verbatim; fuzz = computed setter args under the
 guard-field discipline). Full engine battery applies when ported.
 
-### 2. LHS constraint arithmetic — the coercion swamp (D-280 §B)
+### 2. LHS constraint arithmetic — ANOMALY RESOLVED + SWAMP MAPPED (D-290), AT BRYAN'S GATE
 
-The certifiable prize (`k > $a + 1` works in Drools TODAY — binding
-arithmetic probes all green). Blockers, in order:
-- The UNRESOLVED div0 cell: `k / z > 0` with z=0 FIRES while
-  `k / z == 0` silently no-fires. Needs its own 2×2 (operator ×
-  literal-representability × zero-divisor) before ANY division port.
-- The comparand-literal hypothesis (int-representability selects
-  integer vs real division; fits 8/9 cells — the SAME FACT fires
-  both `k/2 == 3` AND `k/2 == 3.5`) needs the remaining cells:
-  binding comparands (`k / 2 == $a`), field comparands, `!=`, `in`.
-- Port shape: the COHERENT SUBSET — same-type operands, division
-  restricted or comparand-pinned; swamp cells FENCED with
-  authoring-lint steering. ⚖ D-281: the engine does NOT copy the
-  9.44 `field + lit * lit` eval-throw (correct precedence everywhere;
-  opposite-polarity xfail witnesses; generator gate; re-adjudicate on
-  oracle bump).
-- Prereq note from roadmap-acceptance.md:33 — D-061 lists the D-076
-  iterative cascade as prerequisite for arithmetic generally; D-282's
-  probes narrowed that to the UNBOUNDED tier only, but re-verify the
-  reasoning if LHS arithmetic composes with insertLogical justifiers.
-- Acceptance battery: Drools MathTest/FormulaTest (already mapped).
+Probe round DONE 2026-07-16: 29 ar_dz_* probes (25 deterministic
+3×-stable + 4 designed race witnesses), 7/7 out-of-sample
+predictions hit. PINS.md §F is the full model; §B's hypothesis is
+struck. The answers:
+- NO integer division exists interpreted: `/` is always IEEE double
+  (div0 never throws, even literal `k / 0`); the "integer" cells
+  were a Java (long) NARROWING CAST at the comparison ((long)3.5=3,
+  (long)+Inf=MAX, (long)NaN=0 — `0/0 == 0` FIRES). Both anomaly
+  cells fall out of one rule.
+- Comparison typing: eq-family by literal VALUE / field TYPE;
+  binding-eq TYPE-STRICT (always-false — its own fence quadrant);
+  relational by comparand TYPE (`> 3` no-fires, `> 3.0` fires).
+  `+ - * %` long-exact; `% 0` throws LOUDLY (parity shape).
+- THE FLOOR: an async MVEL→java jit RACE — constraints flip to java
+  semantics (trunc div, div0 THROWS, 3L==3.5 false) after ~20+
+  evaluations, run-nondeterministically (prefix cliffs 127/128/135
+  at 5000 facts; z=0 volume errors every run). Volume `/` is NOT
+  byte-certifiable against this oracle config.
+- AGREE SUBSET (both modes identical — the certifiable core):
+  `+ - * %` (+ `% 0` loud parity error) and `/` with int-typed
+  comparands, |operands| < 2^53, nonzero LITERAL divisor. Fences:
+  double comparands on `/`, field/binding divisors, expr==binding,
+  huge operands. ⚖ D-281 (precedence defect not copied) stands.
+- D-076 prereq: unchanged (unbounded tier only, D-282); re-verify if
+  LHS arithmetic composes with insertLogical justifiers at port.
+- Acceptance battery: Drools MathTest/FormulaTest (mapped) — filter
+  to the agree subset at port time.
+BRYAN DECIDES the port shape (PINS.md §F "port shape" block). Race
+witnesses stay recon-only (fz_42_84 quarantine precedent);
+re-adjudicate the table on any oracle bump.
 
 ### 3. D-076 iterative cascade → the unbounded tier
 

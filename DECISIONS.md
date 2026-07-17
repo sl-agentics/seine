@@ -11,12 +11,28 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-16, post-D-289. THE UPDATES ARC IS DONE
-(D-287 probes → D-288 port → D-289 authoring check), all committed
-local on main, UNPUSHED (3 commits atop v0.4.32/8b3210b). NEXT =
-queue item 2: the LHS-swamp 2×2 (the div0 anomaly cell blocks any
-LHS-division port). **COLD-START =
+_Last updated: 2026-07-16, post-D-290 (the DIV0 ANOMALY RESOLVED +
+the swamp MAPPED — **AT BRYAN'S GATE on the LHS-division port
+shape**). Updates arc done (D-287/288/289); D-290 is probes+docs
+only. 4 local commits atop v0.4.32/8b3210b, UNPUSHED. **COLD-START =
 `probes_pending/arith_grammar/HANDOFF.md`**._
+
+**D-290 (the gate on the table): LHS division has NO integer mode
+interpreted — quotient always IEEE double (div0 → Inf/NaN, never
+throws), comparison applies a Java (long) NARROWING CAST (int-typed
+comparands): (long)+Inf=MAX explains `k/z > 0` firing, MAX==0 the
+silent `== 0`; (long)NaN=0 makes `0/0 == 0` FIRE. Eq-family narrows
+by literal VALUE / field TYPE; binding-eq is boxed-strict
+(always-false); relational by TYPE (`> 3` no, `> 3.0` yes). `+ - *
+%` long-exact (`% 0` throws loud). AND: an async MVEL→java jit RACE
+flips constraints to java semantics at volume, run-
+nondeterministically (5000-fact prefix cliffs 127/128/135; z=0
+errors) — volume `/` is NOT byte-certifiable. AGREE SUBSET (both
+modes): `+ - * %` + `/` with int-typed comparands, <2^53, nonzero
+LITERAL divisor. Fences: double comparands on /, field/binding
+divisors, expr==binding, huge operands. PINS.md §F. BRYAN DECIDES
+the port shape. THEN: D-076 iterative, authoring sugar; standing
+ledger.**
 
 **D-287/D-288: the D-231 re-examination CLOSED. Probe round: 18
 ar_upd_* probes 3×-stable, 18/18 predictions hit (PINS.md §E) — the
@@ -15608,3 +15624,69 @@ sugar handoff). Existing 220 untouched — the Boost and arc3 modify
 shapes pass through the exemptions, the D-222/cycle lints
 unaffected. Authoring-layer only; engine, corpus, and .so untouched.
 Committed local; no push.
+
+## D-290 — THE DIV0 ANOMALY RESOLVED: LHS division has NO integer mode in the interpreted path (it is IEEE double + a Java (long) NARROWING CAST at the comparison) — and the swamp's real floor is a TWO-MODE async-jit RACE. The coercion swamp is mapped; the agree-subset port shape is on the table (2026-07-16)
+
+Bryan: "resolve the div0-in-LHS anomaly, then the coercion-swamp
+opens behind it." 29 new probes (ar_dz_*, probes_pending/
+arith_grammar/): 25 deterministic 3×-byte-stable, 4 designed race
+witnesses; predictions recorded BEFORE every run (gen script
+comments); 7/7 out-of-sample prediction cells hit, then two volume
+confirmations. PINS.md §F is the record; §B's hypothesis paragraph
+is struck and superseded.
+
+THE RESOLUTION. The original pair (`k / z > 0` fires at z=0,
+`k / z == 0` silently no-fires) needed no exception path, no
+operand-source split, no hidden state: in the interpreted path the
+quotient is ALWAYS IEEE double (div0 → ±Inf/NaN, never throws —
+even `k / 0` with a literal zero), and the COMPARISON narrows with
+a Java (long) cast when the comparand is int-typed: (long)+Inf =
+Long.MAX > 0 fires; Long.MAX == 0 is false, silently. The smoking
+gun is (long)NaN = 0: **`0/0 == 0` FIRES and `0/0 != 0` does not**
+(ar_dz_zero_nan), and the same NaN fact fires `k/z < 1` but not
+`k/z < 1.0` (pred_nan_rel — predicted, then measured).
+
+THE MODE-1 MODEL (every cell of the old §B table + both anomaly
+cells + all 25 deterministic probes): `/` → double, divisor source
+irrelevant (field ≡ literal ≡ binding); `+ - * %` → long-exact
+(precision cells at 2^53+1; `% 0` throws LOUDLY even at one
+evaluation — the parity-clause shape); equality family narrows by
+the LITERAL comparand's VALUE-integrality (3 and 3.0 narrow, 3.5
+doubles), field comparands by declared TYPE (the 3.0-valued f64
+cell no-fires — value-representability is literal-only), binding
+comparands are TYPE-STRICT boxed equals (`k / 2 == $a` fires for
+NEITHER i64=3 nor f64=3.5 — a degenerate always-false quadrant);
+relational family narrows by comparand TYPE (`> 3` no-fires while
+`> 3.0` fires on the same fact — the old table's "integer division"
+readings were the cast, proven by PDiv: `k / 1 == 2^53` FIRES at
+k=2^53+1, impossible under true long division).
+
+THE RACE (why the swamp resisted modeling). Volume probes: 30-fact
+`k / z > 0` (z=0) fired 30/30 in 3 of 4 recorded runs and THREW
+ConstraintEvaluationException mid-scenario in the fourth — same
+input, two outcomes. 5000-fact confirmations: `k / 2 == 3.5` fires
+a CONTIGUOUS PREFIX (ids 1..128 / 1..127 / 1..135 across three
+runs) then stops cold — the async MVEL→java jit lands and mode 2
+(java typing: long trunc-div, div0 THROWS, 3L == 3.5 false) takes
+the constraint over; `k / z > 0` at 5000 facts errors every run.
+LHS `/` semantics at volume are NOT byte-certifiable against this
+oracle; small scenarios (the entire corpus + fuzz population) are
+pure mode 1 and fully deterministic.
+
+THE AGREE SUBSET (both modes identical — the certifiable core):
+`+ - *` (long both modes); `%` (long both modes, `% 0` a loud
+parity error); `/` with INT-TYPED comparands, |operands| < 2^53,
+divisor a NONZERO LITERAL — there (long)(a/(double)b) ≡ a/b
+including negatives. Fence candidates (mode-divergent): double-
+typed comparands on `/` (the race_eq35 cliff), field/binding
+divisors (runtime zero = silent-vs-throw), expression==binding
+equality, ≥2^53 operands. Port shape + fences in PINS.md §F —
+Bryan-gated, NOT started. Re-adjudicate the table on any oracle
+bump (jit behavior is version-specific).
+
+Receipts: lint 55/0/0 on the dir (all 29 new fences hold); the
+stability batch is byte-identical ×3 on all 26 lines except the
+DESIGNED race witness (line 18, ar_dz_jit_zero — the 3-fire-1-throw
+record IS the pin); mod_zero's loud error stable ×3; race probes
+stay recon-only, never promoted (fz_42_84 quarantine precedent).
+Probes+docs only; engine, corpus, bindings untouched.

@@ -1,0 +1,30 @@
+{
+ "name": "ar_dz_zero_neg",
+ "drl": "rule \"MLt\"\nwhen\n    M(k / z < 0)\nthen\nend\nrule \"MGt\"\nwhen\n    M(k / z > 0)\nthen\nend\nrule \"Sent\"\nwhen\n    M(k == -7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "k": -7,
+    "z": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

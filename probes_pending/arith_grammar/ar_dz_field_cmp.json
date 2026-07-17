@@ -1,0 +1,35 @@
+{
+ "name": "ar_dz_field_cmp",
+ "drl": "rule \"CFEqI\"\nwhen\n    T(k / 2 == m)\nthen\nend\nrule \"CFGtI\"\nwhen\n    T(k / 2 > m)\nthen\nend\nrule \"CFEqD\"\nwhen\n    T(k / 2 == d)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "m",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7,
+    "m": 3,
+    "d": 3.5
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

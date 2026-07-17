@@ -1,0 +1,25 @@
+{
+ "name": "ar_dz_pred_narrow",
+ "drl": "rule \"PGt4\"\nwhen\n    T(k / 2 > 4)\nthen\nend\nrule \"PGe45\"\nwhen\n    T(k / 2 >= 4.5)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 9)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 9
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

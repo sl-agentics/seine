@@ -1,0 +1,40 @@
+{
+ "name": "ar_dz_zero_bind",
+ "drl": "rule \"ZB\"\nwhen\n    Q($q : q)\n    T(k / $q > 0)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "Q",
+   "fields": [
+    {
+     "name": "q",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Q",
+   "fields": {
+    "q": 0
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

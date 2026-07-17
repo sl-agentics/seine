@@ -1,0 +1,55 @@
+{
+ "name": "ar_dz_bind_cmp",
+ "drl": "rule \"CBEqI\"\nwhen\n    A($a : a)\n    T(k / 2 == $a)\nthen\nend\nrule \"CBGtI\"\nwhen\n    A($a : a)\n    T(k / 2 > $a)\nthen\nend\nrule \"CBEqD\"\nwhen\n    B($b : b)\n    T(k / 2 == $b)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "b",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 3
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "b": 3.5
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 7
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

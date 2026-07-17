@@ -1,0 +1,30 @@
+{
+ "name": "ar_dz_field_ops",
+ "drl": "rule \"FGt3\"\nwhen\n    T(k / z > 3)\nthen\nend\nrule \"FEq3\"\nwhen\n    T(k / z == 3)\nthen\nend\nrule \"FEq35\"\nwhen\n    T(k / z == 3.5)\nthen\nend\nrule \"FNe3\"\nwhen\n    T(k / z != 3)\nthen\nend\nrule \"FGe35\"\nwhen\n    T(k / z >= 3.5)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7,
+    "z": 2
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

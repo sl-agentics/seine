@@ -55,12 +55,18 @@ The swamp — division semantics depend on the COMPARAND LITERAL
 | `-7: k / 2 == -3.5` | YES | real |
 | `-7: k / 2 == -3.0` | YES | integer (trunc) — **again both** |
 
-Working hypothesis (fits every cell above): the literal's
-int-representability selects integer vs real division. ONE ANOMALY
-REMAINS: `k / z > 0` with z=0 FIRES (ar_lhs_div_zero_int — suggests
-real division → Infinity) while `k / z == 0` silently no-fires
-(ar_lhs_div_zero_eqint — suggests integer division → exception →
-false). Unresolved; needs its own 2×2 before any LHS-division port.
+~~Working hypothesis: the literal's int-representability selects
+integer vs real division; ONE ANOMALY REMAINS (`k / z > 0` fires at
+z=0, `k / z == 0` silently no-fires).~~ **RESOLVED — superseded by
+§F (the ar_dz_* matrix, D-290): there is no integer division in the
+interpreted path at all.** The quotient is ALWAYS IEEE double; what
+looked like integer division is a Java `(long)` NARROWING CAST
+applied at the comparison when the comparand is int-typed/int-valued
+((long)3.5 = 3, (long)+Inf = Long.MAX, (long)NaN = 0). Both anomaly
+cells fall out of one rule: `k/z > 0` → (long)+Inf = Long.MAX > 0
+fires; `k/z == 0` → Long.MAX == 0 is false, silently. And the table
+above is MODE-1 ONLY — a second, jitted java mode engages
+nondeterministically at evaluation volume (§F).
 
 Compiler defect — ⚖ Bryan's ruling on the record: **we are NOT copying
 the broken order of operations.** Bare `k + 2 * 3 == 13` throws
@@ -199,3 +205,101 @@ reasoning — rules out the advisory form). Authoring-layer guidance
 is D-289: the D-222 template (blocking-with-exemptions at
 compile_rules), SYMMETRIC over atom and computed self-feeds, with
 the falsifying-write carve-out for the corpus's guard-flip idiom.
+
+## F. LHS division: the TWO-MODE model — the div0 anomaly resolved, the swamp mapped (ar_dz_*, 29 probes, D-290)
+
+25 deterministic probes 3×-byte-stable; 4 probes are DESIGNED race
+witnesses (marked). All engine_fenced (LHS arithmetic is unparseable
+engine-side — this family is the future port's battery). Every
+prediction cell was written before its first run; 7/7 out-of-sample
+predictions hit, plus the two mode-2 volume confirmations.
+
+### The model
+
+**MODE 1 — MVEL-interpreted** (every evaluation until the async jit
+lands; ALL small scenarios live here entirely):
+- `/` over integer operands computes in **IEEE double** — divisor
+  source irrelevant (literal / same-fact field / cross-fact binding
+  all identical: ar_dz_field_ops ≡ ar_dz_lit_ops ≡ ar_dz_bind_div).
+  Division by zero NEVER throws: ±Inf/NaN per IEEE (even `k / 0`
+  with a LITERAL zero: ar_dz_zero_lit fires, no error).
+- `+ - * %` stay **long-exact** (ar_dz_prec: k=2^53+1 → `k + 1 ==
+  2^53+2` and `k * 2 == 2^54+2` both fire — a double path would lose
+  the +1; ar_dz_mod_prec: `k % 2^53 == 1` fires). `% 0` THROWS
+  ConstraintEvaluationException even at a single evaluation
+  (ar_dz_mod_zero — a LOUD error, the "/ by zero"-style parity shape).
+- The COMPARISON then picks a representation:
+  - **equality family (== / != / in)**: literal comparand with
+    integral VALUE (3, 3.0) → narrow BOTH sides with a Java `(long)`
+    cast and compare as longs; non-integral literal (3.5) → double
+    compare. FIELD comparand → by declared TYPE (i64 narrows, f64
+    doubles — ar_dz_field_cmp30: `== d2` with d2=3.0 f64 NO-fires,
+    so value-representability is LITERAL-only). BINDING comparand →
+    **TYPE-STRICT boxed equals: `k / 2 == $a` fires for NEITHER an
+    i64=3 nor an f64=3.5 binding** (ar_dz_bind_cmp) — the beta
+    equality never coerces; its own fence-worthy quadrant.
+  - **relational family (> >= < <=)**: narrow-to-long iff the
+    comparand's TYPE is integral (literal 3, i64 field/binding);
+    double-typed comparands (3.0! 3.5, f64) compare as doubles —
+    `k / 2 > 3` no-fires while `k / 2 > 3.0` FIRES on the same fact.
+    Binding relational coerces normally (pred_bind_rel: `>= $b`
+    fires) — strictness is equality-only.
+  - The narrowing cast is Java's: (long)3.5=3, (long)+Inf=Long.MAX,
+    (long)−Inf=Long.MIN, **(long)NaN=0 — so `0/0 == 0` FIRES and
+    `0/0 != 0` does not** (ar_dz_zero_nan), and the same NaN fact
+    fires `k/z < 1` but NOT `k/z < 1.0` (pred_nan_rel).
+- The PDiv precision cell proves the quotient always transits double:
+  `k / 1 == 9007199254740992` FIRES at k=2^53+1 (true long division
+  would keep the +1 and no-fire).
+
+**MODE 2 — jitted java** (per-constraint, after ~jitThreshold
+evaluations + async compile latency): full java typing — long
+division truncates and **THROWS on zero** (ConstraintEvaluation-
+Exception, batch-fatal); long==double promotes java-style (3L ==
+3.5 false).
+
+**THE RACE (the reason the swamp resisted modeling):** the mode
+switch is asynchronous and run-NONDETERMINISTIC. Witnesses:
+- ar_dz_jit_zero (30 facts, `k / z > 0`, z=0): fired 30/30 in 3 of
+  4 recorded runs; run 2 of the stability batch THREW mid-scenario —
+  same input, two outcomes.
+- ar_dz_race_eq35 (5000 facts, `k / 2 == 3.5`): fires a CONTIGUOUS
+  PREFIX then stops cold — ids 1..128 / 1..127 / 1..135 across three
+  runs (mode-1 fires, mode-2 refuses, cut point = compile latency).
+- ar_dz_race_zero (5000 facts, `k / z > 0`, z=0): ERRORS all 3 runs
+  (the jit always lands within 5000 evaluations; mode-2 throws).
+Volume semantics for `/` are therefore NOT byte-certifiable against
+this oracle configuration; small-scenario semantics (the entire
+corpus and fuzz population) are pure mode 1 and fully deterministic.
+
+### The AGREE subset (both modes give identical outcomes) — the certifiable core
+
+- `+ - *` int operands: long both modes ✓ (the already-green binding
+  arithmetic family).
+- `%`: long both modes; `% 0` throws LOUDLY in both → a judge parity
+  clause covers it (the D-283 "/ by zero" precedent).
+- `/` with INT-TYPED comparands (eq and rel): mode-1 (long)(a/(double)b)
+  ≡ mode-2 a/b for all |operands| < 2^53 and b ≠ 0 (cast and
+  trunc-div agree, including negatives — both truncate toward zero).
+  DISAGREE at ≥2^53 (PDiv) and at b = 0 (silent table vs throw).
+- DISAGREE generically (fence candidates): `/` with double-typed
+  comparands (the race_eq35 cliff class); expression == binding
+  (mode-1 degenerate always-false); `/` with a runtime-zero-reachable
+  divisor; `/` at ≥2^53 operands.
+
+### The port shape this implies (Bryan-gated, NOT started)
+
+1. Certify the agree subset: `+ - * %` (with `% 0` as a loud parity
+   error) and `/` restricted to int-typed comparands, nonzero LITERAL
+   divisors (statically zero-free), operands bounded below 2^53 by
+   authoring lint/static check. Engine computes plain long arithmetic
+   — bit-identical to BOTH oracle modes on every admitted cell.
+2. Fence with steering: double-typed comparands on `/`; field/binding
+   divisors (runtime-zero reach = mode-divergent); expression-vs-
+   binding equality; huge-operand division.
+3. The race itself: quarantine-and-document as oracle nondeterminism
+   (the fz_42_84 precedent) — recon witnesses stay in this dir, never
+   promoted, generator never emits `/` shapes outside the agree
+   subset.
+4. Re-adjudicate the whole §F table on any oracle bump (jit behavior
+   is engine-version-specific).

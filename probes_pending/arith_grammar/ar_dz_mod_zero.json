@@ -1,0 +1,30 @@
+{
+ "name": "ar_dz_mod_zero",
+ "drl": "rule \"MZEq\"\nwhen\n    T(k % z == 0)\nthen\nend\nrule \"MZNe\"\nwhen\n    T(k % z != 0)\nthen\nend\nrule \"Sent\"\nwhen\n    T(k == 7)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "k": 7,
+    "z": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

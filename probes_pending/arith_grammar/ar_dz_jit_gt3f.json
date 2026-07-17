@@ -1,0 +1,267 @@
+{
+ "name": "ar_dz_jit_gt3f",
+ "drl": "rule \"J\"\nwhen\n    T($i : id, k / z > 3)\nthen\nend\nrule \"Sent\"\nwhen\n    T(id == 1)\nthen\nend\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "id": 1,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 2,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 3,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 4,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 5,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 6,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 7,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 8,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 9,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 10,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 11,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 12,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 13,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 14,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 15,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 16,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 17,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 18,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 19,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 20,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 21,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 22,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 23,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 24,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 25,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 26,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 27,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 28,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 29,
+    "k": 7,
+    "z": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "id": 30,
+    "k": 7,
+    "z": 2
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}

@@ -1,0 +1,30 @@
+{
+ "name": "ar_dz_pred_nan_rel",
+ "drl": "rule \"PLt1\"\nwhen\n    N(k / z < 1)\nthen\nend\nrule \"PLt10\"\nwhen\n    N(k / z < 1.0)\nthen\nend\nrule \"Sent\"\nwhen\n    N(k == 0)\nthen\nend\n",
+ "types": [
+  {
+   "name": "N",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "N",
+   "fields": {
+    "k": 0,
+    "z": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "engine_fenced": true
+}
