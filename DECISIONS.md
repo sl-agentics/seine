@@ -11,29 +11,28 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-17. **D-076 BOTH STEPS' SESSION WORK DONE —
-AT BRYAN'S GATE.** Step A LANDED (D-293): the recursive TMS teardown
-is an order-preserving LIFO worklist (tms_drop_act_deps machine +
-Tms.cascade_collect; 8192 assert stays, frame-carried; map in
-probes_pending/d076_iterative/RECURSION-MAP.md). Battery green: byte
-gate 2132 identical, diff 11/1257/406 + drift 46, **SD census 72
-EXACT cell-for-cell**, IRD 0-div ×5, fuzz 2×2000 ×2 clean, cargo 54 /
-pytest 229 / demo True / model_ird 31/31 / agenda_open ×15. Step B
-PROBED (D-294, 13 ub_* engine_fenced probes, 3×-stable, 8/8
-predictions hit): fixpoint algebra pins clean (dedup-bounded finite
-cycles, anchors, pending-at-depth, supersede re-rooting, ⚖ ungrounded
-clusters SURVIVE root deletion); the D-294 SOE finding RESOLVED by
-D-295 (Bryan's stack-bump directive): the ≈[300,400] teardown ceiling
-was pure JVM stack arithmetic — **-Xss1g now PINNED in
-harness/src/oracle.rs**, the fire-limit-maximal **99k-deep teardown
-completes 3×-stable** (ub_deep_99k, ~3s/600MB), make diff 11/1257/406
-+ drift 46 IDENTICAL under the pin, lint 1990/0/0. **GATE ITEMS
-(revised): lift the D-284 CompileError (engine.rs ~2812) — NO depth
-residency needed (deep cells byte-certifiable under the pinned
-runner); the 8192 assert goes WITH the lift; gen.rs stays acyclic.**
-Pushed through 4cb325d; local unpushed: f13be11 + handoff + D-293 +
-D-294 + D-295. Queue item 4 (authoring sugar) waits behind the
-gate._
+_Last updated: 2026-07-17. **THE D-076 ARC IS CLOSED (D-293..296) —
+Bryan gated the lift and it LANDED.** The chain: D-293 worklist
+teardown (order-preserving machine, SD 72 EXACT), D-294 probe round
+(fixpoint algebra pins, ungrounded-cluster survival, the teardown-SOE
+finding), D-295 oracle -Xss1g pin (99k-deep teardown
+oracle-observable), **D-296 THE LIFT: the D-284 stratification
+CompileError and the 8192 assert are GONE — cyclic computed
+insertLogical (fixpoint numerics, transitive closure) is in-subset,**
+certified by 12 graduated pr_ub_* corpus probes + the bench_slow deep
+witnesses (ub_deep_99k PASSES engine-vs-oracle at 99,000 deep).
+Receipts: byte gate 2130 identical, diff 11/**1269**/406 + drift 49
+(3 fresh-seed fuzz finds ALL bisected PRE-EXISTING → xf_fz_296*
+quarantined, seeds re-run clean), lint 1986/0/0, cargo 54, pytest
+229, demo True, model_ird 31/31, agenda_open ×15, IRD 0-div ×5, SD
+census 72 EXACT. **NEW NAMED OPEN ITEM: the by_act QUADRATIC**
+(execute_rhs:~10392 linear find per firing; 0.22s@1k → 15.5s@9k →
+~70min@99k debug; fix = order-preserving index, a future perf slab;
+scenarios/bench_slow/ holds the slow witnesses OUTSIDE lint/diff/
+byte-gates — see its README). Authoring cycle lint untouched (queue
+item 4, now FOUR refreshes). Pushed through 4cb325d; local unpushed:
+f13be11 + handoff + D-293..296. NEXT: queue item 4 (authoring sugar)
+or the by_act perf slab — Bryan's pick._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -15954,3 +15953,59 @@ to deep-cell receipts. Items 2–4 unchanged (8192 assert goes WITH the
 lift — ub_deep_99k at 99k deep would false-panic it; semantics list;
 gen.rs acyclic). STILL AT BRYAN'S GATE for the stratification lift
 itself.
+
+## D-296 — THE LIFT (Bryan's gate cleared): cyclic computed insertLogical is in-subset — the D-284 stratification CompileError and the 8192 assert are gone; 12 pr_ub_* probes graduate; the deep grinders expose a named by_act quadratic (bench_slow tier) (2026-07-17)
+
+Bryan: "go ahead with the lift." Engine edits: (1) the D-284
+stratification block (add_rules_drl item 4) removed — replaced by a
+comment recording the lift rationale (worklist teardown, fire-limit +
+D-117 parity, dedup/ungrounded pins); (2) the 8192 depth assert
+removed from the tms_drop_act_deps machine (depth now only feeds the
+level-1 return contract; the D-293 non-nesting assert STAYS); comment
+refreshes in Tms.cascade_collect, drl.rs Action::InsertLogical,
+gen.rs (acyclic stays a DIRECTIVE, not a wall). The authoring-layer
+"logical derivation cycle" lint is UNTOUCHED — it is the older
+pr_tms_cycle ungrounded-orphaning contract at authoring altitude, a
+different rationale from D-284; its fate belongs to queue item 4
+(now FOUR recorded authoring refreshes).
+
+Certification: all 14 ub_* probes ran engine-vs-oracle. 12 PASS and
+GRADUATE to scenarios/probes/pr_ub_* (fix_k6, teardown_k6, order_k6,
+anchor_belief, tworoot_pend, supersede_chain, ungrounded, grow_1000,
+teardown_200, teardown_rhs300, teardown_500, deep_1000) — the engine's
+existing machinery (value-keyed dedup, D-211 pending, supersede
+epilogue, D-293 worklist) generalized with ZERO additional engine
+code, exactly as the D-282 tier analysis predicted. ub_deep_99k also
+PASSES (the no-assert witness: engine completes the 99,000-deep
+teardown byte-identical to the pinned oracle) — receipt: the 7-probe deep diff PASSES 7/7 incl. ub_deep_99k (engine wall ~70 min debug — the quadratic below).
+
+THE NEW NAMED OPEN ITEM — the by_act quadratic: gdb on the grinding
+diff named engine.rs:10392 — execute_rhs's refire-supersede PROLOGUE
+does a linear tms.by_act find PER FIRING (plus point scans in tms_add/
+drop_act_deps/terminal_del). Debug scaling: 0.22s @ 1000-deep, 15.5s
+@ 9000, ~36 min @ 99k. Correct, quadratic. Fix = an order-preserving
+index (by_act ORDER is the certified eager-break scan order, D-293)
+— a future perf slab. Until then scenarios/bench_slow/ (NOT linted,
+NOT in diff tiers, EXCLUDED from byte gates — README) holds
+ub_deep_9000, ub_deep_99k, and arith_grammar's two cyclic runaways
+(ar_tms_runaway_logical, ar_tms_cycle_two_type — post-lift they run
+100k fires into the same grind; their D-282 PINS rows stand).
+
+Receipts: byte gate 2130/2130 IDENTICAL vs pre-lift worktree
+(5b07c3e; excluded = exactly the 16 deliberately-changed cyclic
+files); make diff 11/1269/406 green (12 new pr_ub_* corpus members
+PASS) + drift gate 49 identical post-rebank; lint 1986/0/0
+(1990 − 14 + 12 − 2);
+cargo 54; pytest 229 (authoring cycle tests untouched); demo True;
+model_ird 31/31; agenda_open ×15; IRD 0-div ×5; SD census 72 EXACT cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7);
+fresh fuzz 2×2000 seeds 296001/296002: THREE finds
+(fz_296001_1704, fz_296002_1494, fz_296002_626 — query-flavored
+shapes), each BISECTED pre-existing (pre-lift engine byte-identical
+on all three) → quarantined scenarios/xfail/xf_fz_296* per D-255,
+drift REBANKED 46→49, both finding seeds re-run CLEAN (0 div).
+Lesson banked: scenarios/failures/ is part of the PROBES diff tier —
+open latents must MOVE to xfail/, not linger there. FEATURES.md row
+updated (boundary redraw complete through the unbounded tier).
+D-076's arc closes: the last rule-count-bounded recursion (D-293) and
+the last derivation wall (D-296) are both gone. NEXT: queue item 4
+(authoring sugar, four refreshes) + the by_act perf item.

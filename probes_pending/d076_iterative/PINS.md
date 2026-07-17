@@ -1,9 +1,18 @@
 # D-076 unbounded-tier probe pins (step B recon; oracle 3×, guarded singles)
 
-All probes `engine_fenced` (the D-284 stratification wall rejects the
-computed cycle engine-side — lint verifies the wall; the wall's lift is
-the gated step-B port). Every cyclic scenario ran as a TIMEOUT-GUARDED
-SINGLE — never batched (JVM hang hazard). All results 3×-byte-stable
+**D-296: THE LIFT LANDED.** The probe files this record describes are
+no longer in this dir: 12 graduated to `scenarios/probes/pr_ub_*`
+(engine-vs-oracle corpus members, all PASS), and the deep/runaway
+grinders (`ub_deep_9000`, `ub_deep_99k`, plus arith_grammar's
+`ar_tms_runaway_logical` / `ar_tms_cycle_two_type`) live in
+`scenarios/bench_slow/` — correct but engine-side QUADRATIC (the
+by_act linear-scan open item, see D-296) so they cannot sit in a
+linted tree. The tables below are the probe-round record (all rows
+oracle-verified as written).
+
+At probe time all probes were `engine_fenced` (the D-284 wall rejected
+the computed cycle engine-side). Every cyclic scenario ran as a
+TIMEOUT-GUARDED SINGLE — never batched (JVM hang hazard). All results 3×-byte-stable
 unless noted. Predictions were registered BEFORE the oracle round
 (git: this file's first commit-in-progress draft); 8/8 predicted
 probes hit exactly; the deep tier produced the round's FINDING.

@@ -820,10 +820,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 for (_, tft) in &tgt_fields {
                     let base = gen_arg(&mut rng, &types, &mut pats, ri, *tft, false);
                     // D-283/D-284 axis: computed args on plain inserts AND
-                    // logical inserts (gen shapes are acyclic by
-                    // construction — targets always have higher type
-                    // indices than premises — so the stratification pass
-                    // never trips). Typed so javac agrees: int arithmetic
+                    // logical inserts. Gen shapes stay ACYCLIC by
+                    // construction (targets always have higher type
+                    // indices than premises) — a D-296 directive, not a
+                    // wall: cyclic computed = designed runaways/deep
+                    // teardowns, which pr_ub_* probes carry instead of
+                    // fuzz. Typed so javac agrees: int arithmetic
                     // into i64 fields, any-numeric into f64. Divisors are
                     // NONZERO literals (div0 is judge-parity agreement but
                     // wastes the scenario).

@@ -1,5 +1,10 @@
 # HANDOFF — D-076 iterative cascade → the unbounded computed-logical tier (cold start)
 
+> **SLAB COMPLETE (2026-07-17): step A = D-293, step B probes = D-294,
+> oracle stack pin = D-295, THE LIFT = D-296 (Bryan's gate cleared).**
+> This file is the historical cold-start map; the living record is
+> DECISIONS.md CURRENT STATE + PINS.md/RECURSION-MAP.md here.
+
 Filed 2026-07-16 at the close of the D-287..292 session, for a fresh
 context. Read DECISIONS.md CURRENT STATE first; this file is the
 operational map. Per [[seine-workflow]]: probe → mechanism report →

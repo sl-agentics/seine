@@ -350,8 +350,9 @@ pub enum Action {
     Insert { type_name: String, args: Vec<RhsExpr> },
     /// `insertLogical(new T(...));` (D-076): TMS-justified insert — the
     /// fact auto-retracts when its last justification unmatches.
-    /// Computed args are legal under the D-284 stratification pass (a
-    /// computed edge in a derivation cycle is a compile error).
+    /// Computed args are unrestricted since the D-296 lift (cyclic
+    /// derivations run under the fire limit; D-284's stratification
+    /// CompileError is gone).
     InsertLogical { type_name: String, args: Vec<RhsExpr> },
     /// `$p.setX(expr);` — mutates immediately, contributes X to the pending
     /// modification mask consumed by the next `update($p)`. Computed args

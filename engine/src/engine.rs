@@ -1700,9 +1700,9 @@ struct Tms {
     /// D-293 (D-076 step A): Some while a teardown worklist machine is
     /// draining in tms_drop_act_deps — tms_eager_break then APPENDS
     /// broken acts here (the old recursion's one cycle edge) instead
-    /// of re-entering. The machine's frame depth keeps the D-284
-    /// belt-and-suspenders assert: stratification bounds chain depth
-    /// ≤ strata, so the 8192 bound can only trip on a WRONG proof.
+    /// of re-entering. Depth-unbounded since the D-296 lift: the
+    /// machine is heap-bounded and a legitimate fixpoint teardown
+    /// reaches ~100k deep (pr_ub_deep_99k).
     cascade_collect: Option<Vec<(usize, Tup)>>,
     /// Value-equality keys over ALL declared fields (D-066).
     keys: HashMap<(TypeId, Vec<KeyVal>), EqKeyEntry>,
@@ -2809,58 +2809,15 @@ impl Engine {
                     "insertLogical requires rules to be added before any facts (D-076)".into(),
                 ));
             }
-            // (4) D-284 STRATIFICATION: a computed insertLogical edge
-            // inside a derivation cycle compounds values without bound —
-            // justification chain depth IS teardown stack depth (D-282),
-            // and the recursive cascade's safety bound is chain depth ≤
-            // strata. Copy-only cycles stay legal: value-keyed dedup
-            // bounds them (the t10 family). Edge S→T = some rule matches
-            // S in its LHS and insertLogicals into T; a COMPUTED edge in
-            // a cycle (T reaches S back through logical edges) is the
-            // compile error.
-            {
-                let mut edges: Vec<(TypeId, TypeId, bool, &str)> = Vec::new();
-                for r in &self.rules {
-                    for a in &r.actions {
-                        if let CompiledAction::InsertLogical { type_id: t, args } = a {
-                            let computed = args.iter().any(|c| !matches!(c, CExpr::Atom(_)));
-                            for p in &r.patterns {
-                                edges.push((p.type_id, *t, computed, r.def.name.as_str()));
-                            }
-                        }
-                    }
-                }
-                let reaches = |from: TypeId, to: TypeId| -> bool {
-                    let mut seen: HashSet<TypeId> = HashSet::new();
-                    let mut stack = vec![from];
-                    while let Some(s) = stack.pop() {
-                        if s == to {
-                            return true;
-                        }
-                        if !seen.insert(s) {
-                            continue;
-                        }
-                        for (a, b, _, _) in &edges {
-                            if *a == s {
-                                stack.push(*b);
-                            }
-                        }
-                    }
-                    false
-                };
-                for (s, t, computed, rname) in &edges {
-                    if *computed && reaches(*t, *s) {
-                        return Err(EngineError(format!(
-                            "rule {rname}: computed insertLogical closes a derivation \
-                             CYCLE (the derived type feeds back into the rule's own \
-                             premises through logical derivations) — computed values \
-                             would compound without bound. Stratify the derivation, \
-                             use a plain insert, or wait for the unbounded tier \
-                             (D-284/D-282)"
-                        )));
-                    }
-                }
-            }
+            // (4) D-296: the D-284 stratification CompileError is
+            // LIFTED (Bryan's gate) — cyclic computed insertLogical
+            // (fixpoint numerics, transitive closure) is in-subset.
+            // The D-293 worklist tears down at any depth (no engine
+            // stack); the fire limit + D-117 spin guard govern
+            // runaways on both sides (error-vs-error parity, D-013/
+            // j21); finite-value cycles terminate by value-keyed
+            // dedup and ungrounded clusters survive root deletion,
+            // both oracle-pinned (pr_ub_*, D-294).
         }
         self.rule_order = (0..self.rules.len()).collect();
         self.rule_order
@@ -11680,11 +11637,10 @@ impl Engine {
         while let Some(step) = stack.pop() {
             match step {
                 Step::Act(act, depth) => {
-                    assert!(
-                        depth < 8192,
-                        "TMS cascade depth exceeded 8192 — the D-284 stratification bound \
-                         was violated (an engine bug, not a rule error): file with the DRL"
-                    );
+                    // D-296: no depth bound — the stratification wall is
+                    // lifted and a legitimate fixpoint teardown reaches
+                    // ~100k deep (pr_ub_deep_99k); the worklist is heap-
+                    // bounded, depth only feeds the level-1 return.
                     let keys = match self.tms.by_act.iter().position(|(a, _)| *a == act) {
                         Some(i) => self.tms.by_act.remove(i).1,
                         None => continue,
