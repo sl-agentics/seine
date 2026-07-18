@@ -1,0 +1,45 @@
+{
+ "drl": "rule L salience -5 when $s : S($k : k) then drools.setFocus(\"g\"); insert(new X($k)); end\nrule H salience 5 when X($v : v) then end\nrule GD agenda-group \"g\" when X($v : v) S(k == 99) then end\n",
+ "types": [
+  {
+   "name": "S",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "X",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "S",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "S",
+   "fields": {
+    "k": 2
+   }
+  },
+  {
+   "type": "S",
+   "fields": {
+    "k": 3
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "pr_af_s11"
+}

@@ -201,7 +201,17 @@ fuzz_cep gains the acc-justifier axis (DW type, ~21% of scenarios,
 800-case shakedown clean); the reshuffle surfaced a NEW NAMED OPEN
 ITEM — the expiration ND/NE unblock-landing split (D-101-family, 3
 witnesses banked, generator-fenced pending its probe round); drift
-60.** AWAITING PUSH/RELEASE directive.**_
+60. **D-318 (the other instance's smell, confirmed): the FOUR
+agenda-order latents are ONE NAMED LANE — the setFocus × not-CE
+staged-flush preemption (the oracle's focused-group evaluation
+flushes staged propagation when the group holds not-CE networks
+receiving the inserts → fresh high-salience MAIN activations
+preempt; the engine always continues the run; alpha/join groups
+don't flush — certified). Splitter grid s1..s11 + delta-minimized
+canonical witnesses banked (63); 8 agree-boundary cells graduated
+(corpus 11/1315/414); the s10 partial-interleave fine structure
+unmapped. THE PORT IS GATED (agenda-pick landing law).** AWAITING
+PUSH/RELEASE directive.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -17265,3 +17275,46 @@ across seeds 317901/317902/317903 all CLEAN post-fence; make diff
 bank); lint 2141/0/0. gen.rs stays clockless BY DESIGN — the
 division of labor (main fuzzer = cloud sessions, fuzz_cep = the
 stream/clock plane) is now explicit in both files.
+
+## D-318 — THE AGENDA-ORDER FAMILY HUNT (the other instance: "three latents converging on agenda ordering isn't three unlucky corners, it's a smell") — FOUR LATENTS, ONE MECHANISM, NAMED (2026-07-18)
+
+The smell was right. The hunt (splitter-first per the method law):
+round 1 (s1..s5, predictions registered) ALL MATCHED — the s2/s3
+divergence prediction MISSED, the tell that the witnesses carried an
+uncaptured ingredient. Delta-minimization of fz_316001_1681 (with a
+semantic-divergence predicate after the first pass chased
+error-states) → a 3-rule cell; the ablation grid eliminated no-loop,
+duplicate insertLogical, epoch-vs-initial, value coverage,
+plain-vs-logical — setFocus removal kills it. s7/s8 split
+"group-watches-inserted-type" (necessary, not sufficient);
+s9/s10/s11 landed the law:
+
+**THE NAMED LANE — the setFocus × not-CE staged-flush preemption:
+when an RHS pushes focus to a group whose rules contain NOT-CE
+networks receiving the staged inserts, the ORACLE's focused-group
+evaluation flushes staged propagation, so fresh higher-salience MAIN
+activations preempt the current rule's remaining run; the ENGINE
+always continues the run.** Alpha-only and plain-join group networks
+do NOT flush (s7/s11 — both engines continue, the certified
+behavior). Fine structure unmapped: group-not interleaves FULLY
+(s9), simple-not PARTIALLY (s10: L,H,L,L,H,H — phreak
+segment-linking territory).
+
+**ALL FOUR banked witnesses are members** — setFocus-ablation kills
+each, including fz_313002_319 (the "computed-salience × or-branch"
+read was wrong) and fz_316002_1902 (the "collect-order adjacent"
+read was wrong). Four quarantines, one systemic gap — exactly the
+fourth-member scenario the other instance warned about, caught at
+member four.
+
+LANDED: 8 agree-boundary cells graduated (pr_af_*, corpus
+11/1315/414 — they fence the lane's edges: no-focus, dead-group,
+logical, group-hit, no-fresh, alpha-only, type-blind, plain-join);
+3 CANONICAL minimal witnesses banked (xf_af_s9_groupnot /
+xf_af_s10_simplenot / xf_af_min1681; bank 63 with the fuzz blobs).
+THE PORT IS GATED: an agenda-pick landing law on the most
+order-sensitive surface (SD-72 + agenda_open are the gates), with
+the s10 fine structure needing its own probe grid (flush scope per
+evaluation, segment states) BEFORE any engine change. Probes + PINS
+only; engine untouched. Receipts: make diff 11/1315/414 + drift 63;
+lint 2149/0/0. AT BRYAN'S GATE.
