@@ -1,0 +1,85 @@
+{
+ "drl": "rule NE when not E1() P() then end\n",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 200
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 205,
+      "tag": "y"
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 300
+    },
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "name": "xf_ndne_n8c_delLater"
+}

@@ -290,19 +290,19 @@ class Gen:
                 ri += 1
                 rules.append(f'rule C{ri} salience {r.randint(-5, 5)} when P3() then end')
                 ri += 1
-        # not/exists over events. D-317 FENCE (named open item): a
-        # not-CE observer co-drawn with a J rule whose source can
-        # EXPIRE exposes the ND/NE unblock-LANDING split (the oracle
-        # lands the not-D unblock at a different drain point than the
-        # not-E unblock, so arrival order beats salience across
-        # points; engine lands both together) — cf317901x11/
-        # cf317902x0/x205 witnesses, xfail-banked. Until that landing
-        # law is probed, J-scenarios draw only `exists` here.
+        # not/exists over events. The D-317 exists-only J-fence is
+        # LIFTED (D-321): the probe round refuted the "ND/NE landing
+        # split" read — the TMS/J lane is CLEAN (n9_tms_ride), and the
+        # real class behind cf317901x11/cf317902x0/x205/cf318903x111
+        # is the STALE-LEFT RELEASE: a `not <EVENT>()` observer whose
+        # P left is DELETED while a re-block cycle spans the deletion
+        # fires the dead left at a later expiration release
+        # (xf_ndne_n8_ride canonical; probes_pending/ndne_landing/
+        # PINS.md). Finds of that named class re-report until its
+        # port lands — bisect against the minimal witnesses.
         if r.random() < 0.6:
             e = r.choice(self.etypes)
             neg = r.choice(["not", "exists"])
-            if drew_j and neg == "not":
-                neg = "exists"
             if neg == "exists":
                 self.exists_types.add(e)
             sal = f" salience {r.randint(-8, 8)}" if r.random() < 0.5 else ""

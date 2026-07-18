@@ -17475,3 +17475,53 @@ OPEN ITEMS: the no-loop-acc push corner (g25); the
 collect-order-on-delete-refire family (xf_co_refire_1902); the
 ND/NE landing probe round (D-317, now with a fence-gap note);
 ?query justifiers.
+
+## D-321 — THE ND/NE LANDING PROBE ROUND (Bryan: "do the ND/NE landing probe round") — THE D-317 READ FALLS TWICE; THE REAL CLASS IS THE STALE-LEFT RELEASE (2026-07-18)
+
+Witness-decode FIRST (all four cf blobs, full timelines), and the
+D-317 hypothesis ("the oracle lands the not-D unblock at a
+different drain point than the not-E unblock; arrival beats
+salience") did not survive it: the ND/NE salience order MATCHES on
+both sides in every witness (cf11x24's co-landing pin
+reconfirmed); the surface fork is the ORACLE MISSING an NE firing
+the engine has. Revised hypothesis (boundary-vs-eager landing)
+registered, 10-cell grid: it fell too — n2 (same-epoch delete),
+n2b (op order), n3 (re-block), n5 (TMS lane), n6 both salience
+orders, n7 (fresh lefts) ALL MATCH; only n8_ride diverged. Round
+2 isolated the ingredient (n8b: the ride itself is LEGAL — the
+delete is the divergent variable) and round 2's n8e MISS was the
+decisive narrowing: the phantom fires even when the left died
+BEFORE the unblock advance — the stale entry is the left's
+BLOCKED-LEFT from insertion, not any act born at the unblock.
+Round 3: n8h (delete in a bare middle epoch) DIVERGES — the
+delete's position is completely free; n9_tms_ride MATCHES — the
+TMS-mediated not-D release is CLEAN.
+
+**THE LAW (15 cells, 3 rounds, all 3× oracle-stable,
+harness-diff authoritative): the oracle's expiration-driven
+not-unblock release fires LIVE lefts only. The engine's
+plain-not-over-EVENT machinery retains a deleted left's blocked
+entry whenever a re-block cycle spans the deletion, and a later
+expiration release fires the dead left as a phantom. Same-epoch
+releases without the re-block hold prune correctly; the TMS/J
+lane, co-landing salience order, op order, and legal rides are
+all already certified-correct.**
+
+LANDED: 11 MATCH cells graduate (pr_ndne_* — n2_delP/
+n2b_oporder/n3_reblock carry expect_inert: nothing-fires IS the
+pin); 4 DIVERGE cells → canonical xfail witnesses (xf_ndne_
+n8_ride THE minimal + n8c_delLater/n8e_preDel/n8h_delMid); the 4
+cf blobs stay banked as class members (x111's DW read was wrong
+— the acc/J ingredient is irrelevant, n9). The D-317 fuzz_cep
+exists-only J-fence is LIFTED (it guarded the refuted variable
+and cost acc-justifier × not coverage); the true class is named
+in the generator comment. Fence-lift shakedown 300 @ seed
+321901: ONE find, textbook class member (trailing phantom
+NE(P-dead) — cf321901x29, banked). THE PORT IS GATED (Bryan):
+scope = a liveness filter on the not-over-event release path;
+adjacent certified surfaces mapped in PINS (D-140/D-151/D-158
+shadows, D-134 §3B, D-102 drains, D-211 — whose dead-handle
+lane is NON-expiration deletes, distinct). Probes + PINS +
+generator comment only; engine untouched. Receipts: make diff
+1802 PASS (11/1377/414) + drift 61 identical post-rebank; lint
+2206/0/0.

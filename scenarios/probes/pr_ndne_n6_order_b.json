@@ -1,0 +1,67 @@
+{
+ "drl": "rule J when $e : E1($t : tag) then insertLogical(new D($t)); end\nrule ND salience 0 when not D() P() then end\nrule NE salience 5 when not E1() P() then end\n",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 200
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "name": "pr_ndne_n6_order_b"
+}
