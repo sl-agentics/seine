@@ -94,9 +94,12 @@ PROVENANCE LANDED — acc_sources(result) walks the summation to its
 line-item leaves (snapshot at computation, drift-immune, keyed by
 the reused result fact; Session.acc_sources in Python; the full
 audit walk why→firing→acc_sources→leaves closes live; byte gate
-2151/2151, SD 72 EXACT, fuzz 305001/305002 clean, pytest 249). The
-remaining aggregation items: the justified-aggregation edge (b,
-Drools unpinned) + the BigDecimal inline-arithmetic campaign — both
+2151/2151, SD 72 EXACT, fuzz 305001/305002 clean, pytest 249). **D-306: the
+nullable-aggregation sugar wall fell too (the adversary's "fourth
+thing" — certified since D-097, walled only in authoring; pytest
+250). The not-there list is TWO: in-rule exact decimal average
+(rounding-mode boundary) and inline decimal operators (BigDecimal
+campaign) + the justified-aggregation edge (b, Drools unpinned) —
 Bryan-gated.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
@@ -16577,3 +16580,31 @@ output); make diff 11/1272/406 + drift 50 identical; lint 1991/0/0; cargo 10 sui
 green (+acc_provenance.rs); pytest 249; demo True; model_ird 31/31;
 agenda_open ×15 identical both binaries; IRD 0-div ×5; SD census
 72 EXACT cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7); fresh fuzz 2×2000 seeds 305001/305002 both CLEAN (0 divergences, 0 xfail).
+
+## D-306 — the second sugar wall falls (Bryan: "Isn't that a Sheena Easton song? Yeah, let's get rid of it"): NULLABLE aggregation reaches the authoring layer — the adversary's fourth thing, closed (2026-07-17)
+
+The D-303 fix conservatively kept the nullable-numerics wall
+("nullable numerics keep the existing wall") — but the certification
+record had already obsoleted it: the DuckDB tier's dk_acc /
+dk_acc_allnull / dk_dec_acc cells certify null-skipping aggregation
+over nullable i64/f64/decimal (D-097 pins; re-run live 11/11 before
+this slab), the raw-DRL Session path ran it on the shipped 0.4.36
+(sum over decimal(18,2)? with a None row → exact 7.50 — and
+acc_sources shows the null-skipped match as (handle, None)), and the
+only barrier was one predicate in authoring.py. The adversarial
+exchange surfaced it as "the fourth thing".
+
+The lift: _agg_numeric admits `i64? f64? decimal(p,s)?`; AccResult
+results type NON-nullable (a firing's aggregate value is never null —
+sum fires with identity 0, ruling 2; avg/min/max do not fire over
+all-null — so the `?` strips; min/max over f64? correctly remain
+D-039-opaque via the stripped type). Strings stay walled. Tests:
+nullable-decimal sum admits, types decimal(38,2), engine round-trip
+skips the null and inserts exact 7.50; nullable min preserves
+decimal(18,2); nullable i64 sums as i64.
+
+The genuinely-not-there list is now TWO, both principled: in-rule
+exact decimal AVERAGE (the explicit-rounding-mode boundary — exact
+reconstruction is sum/count one layer up) and free-form inline
+decimal operators (the BigDecimal campaign). Receipts: pytest 250;
+demo True; bindings-only (authoring.py + tests), no byte surface.

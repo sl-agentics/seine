@@ -140,11 +140,12 @@ def _lit(v: Any) -> str:
 
 
 def _agg_numeric(st: str) -> bool:
-    """Types the scalar aggregates accept: i64/f64 and NON-NULLABLE
-    exact decimals (sum is computed exactly and widens to decimal(38,s);
-    average is f64; min/max preserve the type — the certified matrix).
-    Nullable numerics keep the existing wall."""
-    return st in ("i64", "f64") or bool(re.fullmatch(r"decimal\(\d+,\d+\)", st))
+    """Types the scalar aggregates accept: i64/f64/decimal(p,s),
+    nullable or not — null contributions are SKIPPED (the certified
+    null-skipping pins; dk_acc/dk_acc_allnull/dk_dec_acc are the
+    corpus cells). sum computes exactly and widens to decimal(38,s);
+    average is f64; min/max preserve the type."""
+    return bool(re.fullmatch(r"(i64|f64|decimal\(\d+,\d+\))\??", st))
 
 
 def _reject_callable(x: Any, where: str) -> None:
@@ -672,19 +673,27 @@ class AccResult(BoundField):
         # exact-decimal aggregates (the match plane's certified matrix):
         # sum over decimal(p,s) is computed exactly and WIDENS to
         # decimal(38,s); average is always f64; min/max preserve the
-        # argument's type.
-        def sum_type(a):
+        # argument's type. Nullable args produce NON-nullable results —
+        # a firing's aggregate value is never null (sum fires with the
+        # identity 0; avg/min/max simply do not fire over all-null) —
+        # so the `?` strips here.
+        def base_type(a):
             if a is None:
                 return "i64"
-            m = re.fullmatch(r"decimal\((\d+),(\d+)\)", a.subset_type)
-            return f"decimal(38,{m.group(2)})" if m else a.subset_type
+            s = a.subset_type
+            return s[:-1] if s.endswith("?") else s
+
+        def sum_type(a):
+            b = base_type(a)
+            m = re.fullmatch(r"decimal\((\d+),(\d+)\)", b)
+            return f"decimal(38,{m.group(2)})" if m else b
 
         st = {
             "count": "i64",
             "average": "f64",
             "sum": sum_type(arg),
-            "min": arg.subset_type if arg is not None else "i64",
-            "max": arg.subset_type if arg is not None else "i64",
+            "min": base_type(arg),
+            "max": base_type(arg),
             "collectList": "List",
             "collectSet": "Set",
         }[func]

@@ -486,7 +486,7 @@ def test_decimal_balance_gate_end_to_end():
     assert res.fired >= 2  # the sum fired and the exact-zero gate caught it
 
 
-def test_nullable_and_string_aggregates_still_walled():
+def test_string_aggregates_still_walled():
     @fact
     class SFee:
         name: str
@@ -495,6 +495,46 @@ def test_nullable_and_string_aggregates_still_walled():
     r.when(SFee)
     with pytest.raises(CompileError, match="requires a numeric field"):
         r.accumulate(SFee, agg=seine_rs.sum_(SFee.name))
+
+
+def test_nullable_aggregates_admit_and_skip_nulls():
+    # the certified null-skipping pins (dk_acc / dk_dec_acc) reach the
+    # authoring layer: nullable args admit, results type NON-nullable
+    from decimal import Decimal as D
+    from typing import Annotated, Optional
+
+    @fact
+    class NFee:
+        loan: int
+        amount: Optional[Annotated[D, seine_rs.Decimal(18, 2)]]
+
+    @fact
+    class NBal:
+        v: Annotated[D, seine_rs.Decimal(38, 2)]
+
+    r = Rule("NSum", no_loop=True)
+    r.when(NFee)
+    total = r.accumulate(NFee, agg=seine_rs.sum_(NFee.amount))
+    assert total.subset_type == "decimal(38,2)"  # `?` stripped: never null
+    r.then_insert(NBal, v=total)
+    res = seine_rs.run(
+        r,
+        {NFee: {"loan": [1, 1, 1], "amount": [D("5.00"), None, D("2.50")]},
+         NBal: {"v": []}},
+    )
+    assert res.fired == 3  # null contribution skipped, exact 7.50 inserted
+
+    r2 = Rule("NMin")
+    r2.when(NFee)
+    assert r2.accumulate(NFee, agg=seine_rs.min_(NFee.amount)).subset_type == "decimal(18,2)"
+
+    @fact
+    class NInt:
+        n: Optional[int]
+
+    r3 = Rule("NI")
+    r3.when(NInt)
+    assert r3.accumulate(NInt, agg=seine_rs.sum_(NInt.n)).subset_type == "i64"
 
 
 # --- LHS whole-slot arithmetic (D-291 agree subset, D-299 sugar) -------
