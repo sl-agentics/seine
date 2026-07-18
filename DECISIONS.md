@@ -52,9 +52,22 @@ contract, not the stratification wall; raw-DRL escape named).
 Bindings-only: pytest 229→**241**, demo True; FEATURES 167
 refreshed. Queue item 4 CLOSES — the recorded-refresh ledger is
 EMPTY. Pushed through 4cb325d; local unpushed: f13be11 + handoff +
-D-293..299. NEXT: no named open slab — standing ledger only
-(crates.io TP config, collect-order latents, xf_fz_* triage, derive
-v2, oracle-bump re-adjudications)._
+D-293..299 (RELEASED as v0.4.33, PyPI live). **D-300 (Bryan: "do the
+query prepend slab"): the D-254-filed query-machine prepend
+quadratic CLOSED — five row-scale insert(0) classes rewritten
+order-identically (push+reverse / front-splice of reversed blocks) —
+AND the witness caught a D-298 REGRESSION first: StagedList::Index
+was row-scale on the qce path (src.ins[call_idx] per row); fixed
+with a one-time live-order snapshot. Witness 24.4s → 1.9s at 50k,
+~linear, byte-identical; graduated at 10k as pr_qp_bigpull (corpus
+11/1272/406, its own re-quadratic tripwire). EVERY NAMED QUADRATIC
+IS DEAD; no filed-open perf item remains.** D-300 receipts: byte
+gate 2151/2151 IDENTICAL vs v0.4.33 (full sweep); diff 11/1272/406
++ drift 50; lint 1991/0/0; cargo 54; pytest 241; demo True;
+model_ird 31/31; agenda_open ×15; IRD 0-div ×5; SD 72 EXACT; fuzz
+2×2000 seeds 300001/300002 CLEAN. NEXT: no named open slab —
+standing ledger only (crates.io TP config, collect-order latents,
+xf_fz_* triage, derive v2, oracle-bump re-adjudications)._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16215,3 +16228,59 @@ refreshed (also fixes the stale bench_slow reference from D-298).
 Test transforms: the two wall tests became the sugar's positive tests;
 the build-time nesting fence moved to the salience site with the same
 message. Queue item 4 CLOSES — the recorded-refresh ledger is empty.
+
+## D-300 — the query-machine prepend quadratic falls (the D-254 filed item CLOSED) — and the witness catches a D-298 REGRESSION first: StagedList::Index was row-scale on the qce path (witness 24.4s → 1.9s, ~linear; pr_qp_bigpull graduates) (2026-07-17)
+
+Bryan: "do the query prepend slab." The D-254 filing: eval_fact_level's
+prepend stage is `Vec::insert(0)` per emitted env — quadratic in batch
+size, caught live at a 1.26M-env effective hang during the SwarmT
+campaign.
+
+THE MAP — five row-scale prepend classes in the query machine, one
+order-preserving trick each (every rewrite provably reproduces the
+per-row insert(0)'s final order):
+- eval_fact_level trg (queries.rs:1516, THE filed site): push + ONE
+  terminal reverse (single exit, single producer);
+- walk call-arming pool (1347): build cenvs in src order (Rc sharing
+  across branch pools preserved), then per-branch
+  `splice(0..0, rev)` — [cenv_k..cenv_1] ++ pre-existing, identical;
+- terminal site_out rows (1387) and qmem resume rows (1408): collect
+  in loop order, front-splice reversed after the loop (qmem grouped
+  per site — site count is program-bounded); on an error return the
+  partial prepends drop with the run (every query EngineError is
+  scenario-fatal — unobservable);
+- run_site batch arming (1167): reversed extend into fresh pools.
+Left alone, on the record: Table bucket-chain prepends (832/858,
+hash-bounded), run_query's single-env arming (1102), engine.rs:797
+(CEP emission-queue hoist, by-design small scans).
+
+THE SURPRISE — the witness barely moved (24.35s → 21.45s) and
+multi-sample gdb (the D-298 lesson, applied) named the REAL dominant
+term: phreak StagedList::Index — the O(rank) live-walk D-298
+documented as "only rare paths index directly" — called per returned
+row from eval_query_ce_node (`src.ins[call_idx]`). Pre-D-298 that was
+VecDeque O(1); D-298 made the qce path quadratic and NOTHING in the
+battery caught it (no big-batch query cell existed). The witness
+built for THIS slab caught it before any user did. Fix: one-time
+live-order snapshot (`Vec<&entry>`) before the row loop — Index has
+ZERO row-scale consumers again.
+
+MEASURED (debug): witness qp_bigpull N=50k (50k staged ?query pulls,
+100k facts): 24.35s → **1.93s** (12.6×; prepends ≈3s of it, the
+Index snapshot ≈19.5s), output byte-identical pre-vs-post, ~LINEAR
+(25k = 0.95s). GRADUATED at N=10,000 as scenarios/probes/
+pr_qp_bigpull (diff PASS, 4.06s wall; a re-quadratic is a ~100,000×
+blowup — the cell is its own regression tripwire). Corpus
+11/1272/406.
+
+THE QUADRATIC LEDGER after this slab: every named quadratic is dead
+(D-266/268 ×5, D-297 by_act, D-298 staging scans, D-300 query
+prepends + the Index regression). No filed-open perf item remains;
+the engine-side `.any` staged scans stay unmeasured-and-unconverted
+(contains_key-ready if ever named).
+
+Receipts: byte gate **2151/2151 IDENTICAL** vs v0.4.33 worktree (full
+sweep, zero exclusions); make diff 11/1272/406 + drift 50 identical; lint 1991/0/0; cargo
+54; pytest 241; demo True; model_ird 31/31; agenda_open ×15 identical
+both binaries; IRD 0-div ×5 (7001/7002/6001/6003/9001); SD census 72 EXACT cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7); fresh
+fuzz 2×2000 seeds 300001/300002 both CLEAN (0 divergences, 0 xfail draws).

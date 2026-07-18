@@ -10144,9 +10144,13 @@ impl Engine {
             &calls,
         )?;
         let mut children = Vec::with_capacity(staged.len());
+        // D-300: snapshot the live ins order once — indexing the
+        // StagedList per row is an O(rank) walk (a D-298 note come due:
+        // this was the one row-scale consumer of Index)
+        let ins_by_idx: Vec<&(Tup, Origin, u8)> = src.ins.iter().collect();
         for (call_idx, values) in staged {
             let fid = self.store.insert(qce.row_tid, values).map_err(EngineError)?;
-            let (left, o, ph) = &src.ins[call_idx];
+            let (left, o, ph) = ins_by_idx[call_idx];
             self.qce_children
                 .entry(site)
                 .or_default()

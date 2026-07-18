@@ -1158,14 +1158,18 @@ pub fn run_site(
         steps: 0,
         level_cache: HashMap::new(),
     };
+    let mut envs: Vec<Env> = Vec::with_capacity(calls.len());
     for (idx, args) in calls.iter().enumerate() {
         let mut env = Env { slots: vec![None; q.slot_count], root: Root::Site(idx) };
         for (i, a) in args.iter().enumerate() {
             env.slots[i] = a.clone().map(EnvVal::Val);
         }
-        for b in 0..q.branches.len() {
-            m.pool.entry((qi, b)).or_default().insert(0, env.clone());
-        }
+        envs.push(env);
+    }
+    // pool = reverse of src (see the doc comment): the per-call insert(0)
+    // built [env_k..env_1]; one reversed extend is identical, O(k) (D-300)
+    for b in 0..q.branches.len() {
+        m.pool.entry((qi, b)).or_default().extend(envs.iter().rev().cloned());
     }
     for b in 0..q.branches.len() {
         let batch = m.pool.get_mut(&(qi, b)).map(std::mem::take).unwrap_or_default();
@@ -1326,6 +1330,7 @@ impl Machine<'_> {
                     }
                     self.stack.push(Frame::Resume { q: qi, b: bi, node: ni, trg });
                     let cq = &self.queries[*callee];
+                    let mut cenvs: Vec<Env> = Vec::with_capacity(src.len());
                     for env in &src {
                         let mut cenv = Env {
                             slots: vec![None; cq.slot_count],
@@ -1340,12 +1345,16 @@ impl Machine<'_> {
                                 CArg::Slot(s) => env.slots[*s].clone(),
                             };
                         }
-                        for b2 in 0..cq.branches.len() {
-                            self.pool
-                                .entry((*callee, b2))
-                                .or_default()
-                                .insert(0, cenv.clone());
-                        }
+                        cenvs.push(cenv);
+                    }
+                    // per-env insert(0) made each pool [cenv_k..cenv_1] ++
+                    // pre-existing; one front-splice of the reversed block
+                    // is the identical order, O(k) (D-300)
+                    for b2 in 0..cq.branches.len() {
+                        self.pool
+                            .entry((*callee, b2))
+                            .or_default()
+                            .splice(0..0, cenvs.iter().rev().cloned());
                     }
                     for b2 in 0..cq.branches.len() {
                         let batch = self
@@ -1363,7 +1372,14 @@ impl Machine<'_> {
                 }
             }
         }
-        // terminal: route src head→tail by root
+        // terminal: route src head→tail by root. The row-scale PREPEND
+        // targets (site_out, per-site qmem pending) collect in loop order
+        // and front-splice REVERSED after the loop — the identical order
+        // the per-row insert(0) produced, without the O(rows²) shift
+        // (D-300; on an error return the partial prepends are dropped with
+        // the run — every query EngineError is scenario-fatal).
+        let mut site_rows: Vec<(usize, Vec<Value>)> = Vec::new();
+        let mut qmem_rows: Vec<((usize, usize, usize), Env)> = Vec::new();
         for env in src {
             self.bump()?;
             match env.root.clone() {
@@ -1384,7 +1400,7 @@ impl Machine<'_> {
                             }
                         }
                     }
-                    self.site_out.insert(0, (idx, vals));
+                    site_rows.push((idx, vals));
                 }
                 Root::Nested(root) => {
                     let (cq_idx, args) = {
@@ -1405,9 +1421,25 @@ impl Machine<'_> {
                             }
                         }
                     }
-                    self.qmem.entry(root.site).or_default().insert(0, child);
+                    qmem_rows.push((root.site, child));
                 }
             }
+        }
+        self.site_out.splice(0..0, site_rows.into_iter().rev());
+        // group by site in loop order (site count is program-bounded),
+        // then front-splice each site's reversed block
+        let mut by_site: Vec<((usize, usize, usize), Vec<Env>)> = Vec::new();
+        for (site, child) in qmem_rows {
+            match by_site.iter_mut().find(|(s, _)| *s == site) {
+                Some((_, v)) => v.push(child),
+                None => by_site.push((site, vec![child])),
+            }
+        }
+        for (site, rows) in by_site {
+            self.qmem
+                .entry(site)
+                .or_default()
+                .splice(0..0, rows.into_iter().rev());
         }
         Ok(())
     }
@@ -1513,10 +1545,14 @@ impl Machine<'_> {
                 for (slot, fi) in &pat.field_binds {
                     env2.slots[*slot] = Some(EnvVal::Val(store.value(f, *fi)));
                 }
-                trg.insert(0, env2); // PREPEND (staged-set LIFO)
+                trg.push(env2);
             }
         }
         self.level_cache.insert(site, (arrival, table, full_order));
+        // PREPEND (staged-set LIFO): one reversal replaces the per-emission
+        // insert(0) — same final order, O(k) instead of O(k²) (D-300; the
+        // D-254-filed prepend-stage quadratic, 1.26M-env hang class)
+        trg.reverse();
         Ok(trg)
     }
 }
