@@ -17378,3 +17378,100 @@ pre-cleared per Bryan's directive. Engine condition sketch in
 PINS.md. Probes + PINS + this entry only; engine untouched.
 Receipts: make diff 1740 PASS (11/1315/414) + drift 63 identical;
 lint 2178/0/0 (2149 + the 29 grid cells).
+
+## D-320 — THE PORT (Bryan: "Phase 2") — THE STAGED-FLUSH PREEMPTION LANDS; ELEVEN QUARANTINED LATENTS FALL WITH IT (2026-07-18)
+
+THE DISCOVERY THAT SHRANK THE PORT: the halt-check peek (the D-262
+lane) already walks the pushed group's members in pick order and
+evaluates queued-dirty ones — and the engine's D-031/D-091
+agenda-item model (pos_linked's not-arm `beta || right-empty ||
+pulse`, refresh_linked = queueRuleAgendaItem, note_link_effects =
+doUnlinkRule) ALREADY encodes the D-319 grid's entire class table:
+s10's once-ever latch IS the alpha-not link state (SEINE_AG_DEBUG:
+q=true,d=true at push 1, q=false after), g6_beta's per-push IS
+beta-always-linked re-queueing. Before porting, the two ungridded
+corners were probed predictions-first FROM the engine model
+(g21_staledirt: stale dirt flushes; g22_joinnot: join + alpha-not
+is once-ever — the not link state dominates): BOTH HIT EXACTLY.
+
+THE PORT (three coordinated engine edits):
+1. **af_flush** (D-258 top≠l_grp branch): a queued-dirty member
+   evaluated by the peek is the oracle's focused-group flush of
+   staged propagation → the late-continue yields to the ordinary
+   agenda pop (salience, decl-order at ties — g4/g7 certified the
+   pick). One boolean plus fine print (below).
+2. **tie_preempt** (D-261 same-group branch): the between-firings
+   halt is the QUEUE COMPARATOR — a queued same-group member at
+   EQUAL salience with EARLIER decl_pos yields (any such item
+   mid-run is necessarily fresh; the pop evaluates it lazily, the
+   D-262 discipline untouched). Fixes the in-group acc-refire
+   preemption (g26; fz_316002_1902's agenda component). Source-
+   verified: RuleExecutor.haltRuleFiring = flushPropagations →
+   evaluateEagerList → peekNextRule (= focusStack.top().peek(),
+   null on empty top — the D-106 model confirmed in source) →
+   halt iff different-group || conflict-order.
+3. **eager inactive-group gate: attempted and REVERTED** — it
+   fixed the no-loop-acc corner but broke fz_9005_450 (certified
+   or-queue construction timing). The residual corner is exactly
+   ONE shape — no-loop + accumulate + not in a pushed group (the
+   acc's InitialFact lia puts the rule on the initial eager list,
+   which consumes the not-pulse the push flush needs) —
+   quarantined as xf_af_g25_accnot + xf_af_fz_315901_311, with
+   g25b (same shape minus no-loop) graduated as the PASSING
+   boundary pin.
+
+THE af_live FINE PRINT (the fz_9003_879 ↔ g9 needle, three
+iterations each measured against the full lane): a queued-dirty
+member is LIVE to the flush-peek iff its entry was born at a
+staging-notify-while-LINKED (refresh_linked) and no evaluation
+attempt has reached the rule since (Drools consumes-and-removes
+reached items; the engine's unlinked staging is undrainable so
+queued+dirty persists as a zombie). Unlink-transition entries
+(doUnlinkRule-born) are dead to the peek. linked-gate (fixed 879,
+broke g9's twin-shared-spent-pulse flush) and attempt-zombie
+(fixed g9, broke 879's unlink-remnant) both fell to measurement;
+the ORIGIN bit threads every cell.
+
+THE HARVEST — the byte gate's divergence list vs the pre-port
+worktree was the D-318 promise inverted: 12 of 14 divergent cells
+were OPEN LATENTS the port RESOLVES. Eleven graduate
+(pr_af_fz_9005_2842 / 9102_7658 / 9203_5530 / 9202_77 /
+9105_5736 from agenda_open; pr_af_fz_313902_761 — the
+"unexplained" D-315 latent — plus the xf_fz_141421_1206 /
+31415_774 / 606060_555 / 62831_359 / min_606060_555 order
+family from xfail); fz_9104_1328's brief flip resolved back to
+its EXACT pre-port bytes (over-breadth artifact). The twelfth,
+fz_316002_1902, split: its agenda component is FIXED (firing[7]
+= R2 both sides); the residual is a PRE-EXISTING collect-order
+divergence (collectList element order on delete-refire,
+reproduced in MAIN with zero focus machinery, byte-identical
+pre/post port) — xf_co_refire_1902 is its minimal witness, the
+blob stays banked under the corrected read. The D-318-era
+"collect-order adjacent" first reading was half-right.
+
+DISPOSITION: 47 lane cells graduated to scenarios/probes/
+(pr_af_g* ×36 incl. g25b + 6 un-xfailed witnesses + 5 resolved
+agenda_open) + 6 more xfail resolutions = corpus 11/1366/414;
+agenda_open 15→10 (3 boundary + 6 still-open latents + 879 the
+restored guard, all byte-identical ×3 incl. pre-edit worktree);
+xfail bank 63→56 (−12 resolved/graduated, +xf_af_g25_accnot,
++xf_af_fz_315901_311, +xf_co_refire_1902, +cf318902x167
+[temporal-join witness order, pre-existing by worktree bisect],
++cf318903x111 [ND/NE landing family — the D-317 fence misses the
+dedicated DW-observer template, noted]).
+
+RECEIPTS: byte gate 2304 same / 46 moved (the graduations) /
+1 diff (fz_316002_1902 = the documented expected divergence);
+make diff 1791 PASS (11/1366/414) + drift 56 identical; lint
+2195/0/0; cargo 73/0 across 14 suites; maturin + pytest 257;
+demo True; model_ird 31/31; IRD 0-div ×5 (7001/7002/6001/6003/
+9001); agenda_open ×10 byte-identical ×3 (debug/release/
+pre-edit worktree); **SD census 72 EXACT ×12 — divergents
+6,10,3,5,6,5,5,6,8,7,4,7 cell-for-cell** (THE order gate);
+fresh fuzz 2×2000 seeds 318001/318002 CLEAN (0 divergences,
+0 xfail re-reports); fuzz_cep 3×300 seeds 318901-903: 2 finds,
+BOTH worktree-bisected pre-existing and banked (above). NAMED
+OPEN ITEMS: the no-loop-acc push corner (g25); the
+collect-order-on-delete-refire family (xf_co_refire_1902); the
+ND/NE landing probe round (D-317, now with a fence-gap note);
+?query justifiers.

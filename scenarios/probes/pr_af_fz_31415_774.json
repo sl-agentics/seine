@@ -1,0 +1,82 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    ( T0() )\n    or\n    ( T0() )\n    or\n    ( T0() )\nthen\n    drools.setFocus(\"gb\");\n    insert(new T2(11));\nend\nrule \"R1\"\nagenda-group \"gb\"\nwhen\n    not T3()\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R2\"\nsalience -3\nno-loop\nwhen\n    T1(f0 not in (\"a\"), f0 != \"\", f0 contains \"a\" || f0 contains \"et\")\nthen\nend\nrule \"R3\"\nsalience 7\nwhen\n    T2($b3_0_0 : f0, $b3_0_1 : f0)\n    T3($b3_1_0 : f0)\n    T2(f0 > 2, f0 != $b3_0_0)\nthen\nend\nrule \"R4\"\nwhen\n    T2($b4_0_0 : f0, $b4_0_1 : f0)\n    T3($b4_1_0 : f0)\nthen\nend\nrule \"R5\"\nsalience($b5_0_0 * 4)\nwhen\n    T2(f0 not in (0), $b5_0_0 : f0, $b5_0_1 : f0)\nthen\n    drools.setFocus(\"gb\");\n    insertLogical(new T3(100, -1000000007, \"b\", false));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": "b"
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": "zz"
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 11
+   },
+   "type": "T2"
+  },
+  {
+   "fields": {
+    "f0": -2
+   },
+   "type": "T2"
+  }
+ ],
+ "name": "pr_af_fz_31415_774",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-270 fresh-seed population find (seed 31415 x 2000): firing[1] divergence (engine R5 x1-match vs oracle R3 x3-match). Reproduces BYTE-IDENTICALLY on pre-edit 44ddd14 (worktree bisect; engine run identical) - pre-existing latent, NOT a D-270 regression (D-270 is harness-parse-only; engine untouched). Open for its own triage."
+}

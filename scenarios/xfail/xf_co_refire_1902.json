@@ -1,0 +1,58 @@
+{
+ "drl": "rule GA when accumulate( T1($v : f1); $l : collectList($v) ) T1(f1 != 10, f2 == false) then end\nrule GB when ( $p : T1($b0 : f2, $b1 : f2) ) or ( $p : T1($b0 : f2, $b1 : f2) ) then delete($p); end\n",
+ "types": [
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "a",
+    "f1": 0,
+    "f2": true
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "a",
+    "f1": 3,
+    "f2": true
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "a",
+    "f1": 1,
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "ab",
+    "f1": 0,
+    "f2": true
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "xf_co_refire_1902"
+}

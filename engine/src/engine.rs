@@ -2587,6 +2587,16 @@ struct RuleNet {
     /// without draining (the faithful hold). Item removal requires
     /// !dirty && queue-empty (removeRuleAgendaItemWhenEmpty).
     dirty: bool,
+    /// D-320: the queued entry is LIVE for the halt-peek's staged-flush
+    /// yield. TRUE only when born at a staging-notify-while-LINKED
+    /// (refresh_linked = Drools queueRuleAgendaItem): the oracle's item
+    /// is genuinely in the group's queue then, even if the path later
+    /// unlinks (g9's twin-shared spent pulse still flushes). FALSE for
+    /// unlink-transition remnants (doUnlinkRule-born, fz_9003_879
+    /// continues past one) and after any evaluation attempt reaches the
+    /// rule (Drools consumes-and-removes there; the engine's unlinked
+    /// staging is undrainable so queued+dirty persists as a zombie).
+    af_live: bool,
     /// D-106: stage_seq at the most recent dirty-marking — the
     /// executor's halt-peek ignores dirt born of the CURRENT firing.
     dirty_stamp: u64,
@@ -3607,6 +3617,7 @@ impl Engine {
                 ever_linked: false,
                 dirty: false,
                 dirty_stamp: 0,
+                af_live: false,
                 bf,
                 ex,
                 pn,
@@ -8383,10 +8394,12 @@ impl Engine {
                         })
                         .map(|rj| {
                             format!(
-                                "r{rj}(q={},len={},d={})",
+                                "r{rj}(q={},len={},d={},lk={},z={})",
                                 self.nets[rj].queued,
                                 self.nets[rj].queue.len(),
-                                self.nets[rj].dirty
+                                self.nets[rj].dirty,
+                                self.rule_linked(rj),
+                                self.nets[rj].af_live
                             )
                         })
                         .collect();
@@ -8429,6 +8442,17 @@ impl Engine {
                         (std::cmp::Reverse(self.item_salience(rj)), self.rules[rj].def.decl_pos)
                     });
                     let mut top_nonempty = false;
+                    // D-320 (the D-318 staged-flush law, 31-cell grid): a
+                    // queued-dirty member evaluated by this peek is the
+                    // oracle's focused-group flush of staged propagation —
+                    // fresh MAIN activations become visible and the pick
+                    // must run, so the late-continue below YIELDS. The
+                    // D-031/D-091 queued/dirty model already carries the
+                    // grid's whole fine structure (alpha-not once-ever via
+                    // right-data link state; correlated/group-not/linked-
+                    // exists/join per-push; never-links shapes silent), so
+                    // no condition beyond "the peek evaluated" exists.
+                    let mut af_flush = false;
                     for &rj in &members {
                         if self.nets[rj].queued && !self.nets[rj].queue.is_empty() {
                             top_nonempty = true;
@@ -8438,6 +8462,13 @@ impl Engine {
                             && self.nets[rj].queue.is_empty()
                             && self.nets[rj].dirty
                         {
+                            // D-320 fine print (fz_9003_879 vs g9): only a
+                            // LIVE entry flushes — born at a linked staging
+                            // notify and not yet reached by any evaluation
+                            // (see RuleNet.af_live).
+                            if self.nets[rj].af_live {
+                                af_flush = true;
+                            }
                             self.evaluate_rule(rj, false, false);
                             if self.nets[rj].queue.is_empty() && !self.nets[rj].dirty {
                                 self.nets[rj].queued = false;
@@ -8449,7 +8480,7 @@ impl Engine {
                         }
                     }
                     let top_empty = !top_nonempty;
-                    if top_empty && pre_force_qlen > 0 {
+                    if top_empty && !af_flush && pre_force_qlen > 0 {
                         // D-258 (fz_9901_1221 + fz_9104_5192/fz_9202_2058):
                         // the late-continue is a CONTINUE path, so the D-091
                         // continue-path self re-evaluation applies — `higher`
@@ -8474,18 +8505,40 @@ impl Engine {
                         }
                     }
                 } else if !higher && !self.focus_stack.is_empty() {
-                    // D-261 (fz_5150_1857, bd_d4): the same-rule
-                    // sibling-continue is a FIRING BOUNDARY — Drools'
-                    // fireNextItem runs evaluateEagerList between every
-                    // firing, continue or not. Without the flush here, a
-                    // rule firing twice consecutively under focus
-                    // coalesces an eager receiver's per-delta staging
-                    // into one batch (a self-join then emits
-                    // left-delta-major over the FINAL memory — bd_d4's
-                    // (N-2,N5) row before N5 existed). The pick is
-                    // unchanged: the executor keeps control (D-106).
-                    self.eager_flush();
-                    return Some(l);
+                    // D-320 (g26/fz_316002_1902): inside a FOCUSED group,
+                    // the between-firings halt is the queue comparator —
+                    // (item salience DESC, decl ASC) — so a QUEUED
+                    // same-group member at EQUAL salience with EARLIER
+                    // decl position halts the run (any such item mid-run
+                    // is necessarily fresh: the pick took l as best). The
+                    // member is NOT evaluated here — the pop evaluates it
+                    // lazily (D-262 discipline); if it materializes
+                    // empty, the pop falls back to l. MAIN with an empty
+                    // focus stack never reaches this branch (full re-pick
+                    // each firing — g27 certified the tie there).
+                    let l_decl = self.rules[l].def.decl_pos;
+                    let tie_preempt = (0..self.rules.len()).any(|rj| {
+                        rj != l
+                            && self.nets[rj].queued
+                            && self.rules[rj].def.agenda_group.as_deref().unwrap_or("MAIN")
+                                == top_now
+                            && self.item_salience(rj) == l_sal
+                            && self.rules[rj].def.decl_pos < l_decl
+                    });
+                    if !tie_preempt {
+                        // D-261 (fz_5150_1857, bd_d4): the same-rule
+                        // sibling-continue is a FIRING BOUNDARY — Drools'
+                        // fireNextItem runs evaluateEagerList between every
+                        // firing, continue or not. Without the flush here, a
+                        // rule firing twice consecutively under focus
+                        // coalesces an eager receiver's per-delta staging
+                        // into one batch (a self-join then emits
+                        // left-delta-major over the FINAL memory — bd_d4's
+                        // (N-2,N5) row before N5 existed). The pick is
+                        // unchanged: the executor keeps control (D-106).
+                        self.eager_flush();
+                        return Some(l);
+                    }
                 }
             }
         }
@@ -9244,8 +9297,8 @@ impl Engine {
                 // doUnlinkRule: setDirty(true) + enqueue (D-032/D-091)
                 self.nets[ri].queued = true;
                 self.nets[ri].dirty = true;
-            self.nets[ri].dirty_stamp = self.stage_seq;
                 self.nets[ri].dirty_stamp = self.stage_seq;
+                self.nets[ri].af_live = false; // D-320: unlink-born = dead to the flush peek
             }
             if !was[ri] && now && self.in_expiration_drain {
                 // D-102 (model-check survivor, ldrain_plain=nonflush):
@@ -9345,6 +9398,7 @@ impl Engine {
             // if not queued (D-091).
             self.nets[ri].dirty = true;
             self.nets[ri].dirty_stamp = self.stage_seq;
+            self.nets[ri].af_live = true; // D-320: linked-born = live to the flush peek
             if !self.nets[ri].queued {
                 self.nets[ri].queued = true;
             }
@@ -9377,6 +9431,11 @@ impl Engine {
     /// the drain loops into non-firing infinite spins that no
     /// fire-limit can catch (the seed-42 and seed-123 gate hangs).
     fn evaluate_rule(&mut self, ri: usize, force: bool, eager: bool) {
+        // D-320: any evaluation attempt reaching the rule consumes its
+        // item's halt-peek liveness (see RuleNet.af_live) — Drools
+        // removes an emptied item there; a linked evaluation that leaves
+        // matches re-queues through refresh_linked, restoring liveness.
+        self.nets[ri].af_live = false;
         // DYN-SALIENCE flush evaluations process TMS dels INLINE — the
         // flush IS Drools' salience-currency evaluation and dep removal
         // rides it (fz_999_3020); no-loop flushes defer (min3783/t20).

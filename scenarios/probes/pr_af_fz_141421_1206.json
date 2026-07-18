@@ -1,0 +1,124 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    ( T2($b0_0_0 : f2, $b0_0_1 : f2) and T3(f1 > $b0_0_1) )\n    or\n    ( T2($b0_0_0 : f2, $b0_0_1 : f2) and T3(f1 > $b0_0_1) )\nthen\nend\nrule \"R1\"\nsalience -7\nwhen\n    ( $p1_0 : T2($b1_0_0 : f0) )\n    or\n    ( $p1_0 : T2($b1_0_0 : f0) )\nthen\n    drools.setFocus(\"gb\");\n    insertLogical(new T3(\"\", $p1_0.getF2(), $p1_0.isF0()));\n    insertLogical(new T3(\"alpha\", $p1_0.getF2(), $b1_0_0));\nend\nrule \"R2\"\nwhen\n    $p2_0 : T0($b2_0_0 : f2)\nthen\n    delete($p2_0);\nend\nrule \"R3\"\nagenda-group \"gb\"\nwhen\n    accumulate( T0($s3_0 : f2); $a3_0 : min($s3_0) )\nthen\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": -2.5,
+    "f1": 1.0,
+    "f2": 4.0
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -1.0,
+    "f1": "",
+    "f2": false
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": true,
+    "f1": 5,
+    "f2": 8,
+    "f3": false
+   },
+   "type": "T2"
+  },
+  {
+   "fields": {
+    "f0": true,
+    "f1": 7,
+    "f2": 5,
+    "f3": true
+   },
+   "type": "T2"
+  },
+  {
+   "fields": {
+    "f0": 4.0,
+    "f1": "a",
+    "f2": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "pr_af_fz_141421_1206",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ],
+ "open_divergence": true,
+ "_finding": "D-273 fresh-seed population find (seed 141421 x 2000): firing[2] divergence - engine fires R1 x1-match where oracle fires R0 x2-match [T2, T3]. Reproduces BYTE-IDENTICALLY on pre-arc 44ddd14 (worktree bisect) - pre-existing latent, NOT a D-270..273 regression. Open for its own triage."
+}

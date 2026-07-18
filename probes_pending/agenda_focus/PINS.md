@@ -492,3 +492,193 @@ latch for the simple-alpha-not class; per-push for
 correlated/subnetwork/exists/join); if any queued → force
 staged flush + full agenda re-pick (the late-continue yields)
 instead of continuing the current rule's run.
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 2 (D-320, Bryan: "Phase 2") — THE PORT
+# ═══════════════════════════════════════════════════════════════
+
+DISCOVERY AT THE ENGINE MAP: the halt-check peek (engine.rs
+~8432, the D-262 lane) ALREADY walks the pushed group's members
+in pick order and evaluates queued-dirty ones — and the engine's
+D-031/D-091 agenda-item model (rule_linked / refresh_linked =
+notifyRuleLinkSegment→queueRuleAgendaItem, note_link_effects =
+doUnlinkRule) ALREADY reproduces the entire measured fine
+structure, verified empirically via SEINE_AG_DEBUG peek states:
+s10's GD is q=true,d=true at push 1 and q=false at push 2+ (the
+once-ever latch, via the alpha-not right-data link state);
+g6_beta's GD is q=true,d=true at EVERY push (per-push class).
+THE PORT IS ONE BOOLEAN: if the peek evaluated any queued-dirty
+member, that evaluation is the oracle's staged-propagation flush
+→ suppress the late-continue (fall through to the ordinary
+agenda pop). No class analysis, no latch bookkeeping, no linked
+scan — the certified linking model IS the law's substrate.
+
+## The two ungridded corners — predictions FROM the engine link
+## model (registered 2026-07-18 BEFORE the oracle cells ran)
+
+- **g21_staledirt**: GD (X + not S(k==1)) dirty from an INITIAL
+  X(0); L's RHS inserts only Y (observer H2 sal 5 on Y) +
+  pushes "g" — the push carries NO dirt of its own toward GD.
+  Engine peek: q=true,d=true at push 1 (stale dirt), q=false
+  after. PREDICT (med): flush at push 1 from STALE dirt —
+  L,H2,L,L,H2,H2. A no-flush oracle (L,L,L,H2,H2,H2) would mean
+  the oracle's flush needs THIS-RHS staged input and the
+  one-boolean port over-flushes here.
+- **g22_joinnot**: GD = X + Y2 (join, Y2(7) seeded) + not
+  S(k==1), n=5. Engine peek: q=true,d=true at push 1 ONLY.
+  PREDICT (med): ONCE-EVER — L,H,L,L,L,L,H,H,H,H. Per-push
+  (L,H ×5) would mean the join upgrades re-queueing in the
+  oracle and the engine's link model diverges from Drools here.
+
+## CORNER MEASUREMENTS (2026-07-18, 3× oracle-stable)
+
+BOTH PREDICTIONS HIT EXACTLY: g21 = L,H2,L,L,H2,H2 (the flush
+fires from STALE dirt — the push needs no dirt of its own);
+g22 = L,H,L,L,L,L,H,H,H,H (join + alpha-not is once-ever; the
+alpha-not link state dominates). The engine's certified link
+model predicted the oracle on both unmeasured corners — the
+one-boolean port inherits the fine structure from machinery
+that is already differential-certified. 31 grid cells total.
+
+## PORT ROUND 1 (the one-boolean yield): 31/31 grid cells PASS,
+## 8/8 pr_af boundary PASS, 5/7 witnesses PASS. The two
+## surviving fuzz blobs name TWO UNGRIDDED INGREDIENTS:
+
+- fz_315901_311: the pushed group's rule R4 is NO-LOOP (eager
+  list) + accumulate + bare not — the engine's eager_flush
+  consumes its dirt BEFORE the halt-check peek (AG_DEBUG:
+  q=false at the push), so the one-boolean sees nothing; the
+  oracle still preempts after the first push firing.
+- fz_316002_1902: fork INSIDE the already-focused group — the
+  deleter R3's staged delete re-fires the decl-earlier
+  same-salience accumulate rule R2 mid-run; the oracle lets R2
+  preempt R3's remaining run; the engine's same-group continue
+  halts only on STRICTLY-higher (`higher`), and the D-199
+  eq_decl_preempt gate is TMS-landing-only (min608: wholesale
+  equal-salience halting was measured WRONG — so the 1902 law
+  must be finer, plausibly fresh-mid-run-requeue vs
+  already-queued).
+
+## ROUND 5 — the eager and in-group corners
+## Predictions registered 2026-07-18 BEFORE any cell ran.
+
+- **g23_noloop**: s10 with GD no-loop. PREDICT (med, from the
+  315901 witness): the eager status does not rob the push
+  flush — oracle L,H,L,L,H,H. Engine currently: eager_flush
+  consumed dirt → peek clean → continue → DIVERGE expected
+  pre-fix.
+- **g25_accnot**: GD = no-loop + accumulate(count over X) +
+  `not S(k == 1)` (blocked); L inserts X per firing (the acc
+  re-dirties on EVERY push). PREDICT once-ever L,H,L,L,H,H
+  (low-med; the g22 alpha-not-dominance analogy). Per-push
+  L,H,L,H,L,H would mean acc upgrades re-queueing.
+- **g26_grp_accrefire** (the 1902 distillate): P pushes "g";
+  GA in g = collectList over T + join E(e==1), decl-FIRST;
+  GB in g = deleter of T, decl-second, same salience. PREDICT
+  (med, from 1902): oracle interleaves — P, GA[1,2,3], GB(1),
+  GA[2,3], GB(2), GA[3], GB(3), GA[] — each staged delete
+  re-fires GA which preempts GB's run at the decl-order tie.
+- **g27_main_accrefire**: the SAME two rules in MAIN, no
+  groups, no push. PREDICT MATCH = continue (med-low): GA
+  fires, GB's full run, GA re-fires once with the final []
+  — the certified MAIN late-continue holds at ties even for
+  acc-refires. A DIVERGE here = a GENERAL halt-law gap (not
+  focus-scoped) and the fix moves out of the focus lane.
+
+## ROUND 5 MEASUREMENTS + THE FULL PORT (2026-07-18)
+
+- g23_noloop: MATCH already (no-loop alone doesn't rob the
+  peek — its X-lia is empty at init so the initial eager eval
+  early-exits unlinked, leaving the pulse for the push).
+- g25_accnot: DIVERGE — oracle L,H,L,L,H,H (once-ever flush),
+  engine no flush: the acc's InitialFact lia makes the rule
+  initially evaluable, so the no-loop EAGER evaluation
+  consumes the not-pulse + initial item BEFORE any push.
+- g26_grp_accrefire: DIVERGE exactly as predicted — the
+  in-group interleave (P, GA[3,2,1], GB, GA[3,2], GB, GA[3],
+  GB, GA[]).
+- g27_main_accrefire: MATCH (the engine's MAIN path does a
+  FULL RE-PICK每 firing — the keep-control branches require a
+  non-empty focus stack, so the tie preemption at MAIN was
+  already right; prediction hit).
+
+THE PORT (three edits attempted, two land):
+1. **af_flush one-boolean** (D-258 top≠l_grp branch): a
+   queued-dirty member evaluated by the halt-check peek =
+   the oracle's staged flush → the late-continue yields.
+2. **tie_preempt** (D-261 same-group branch): the
+   between-firings halt is the QUEUE COMPARATOR — a queued
+   same-group member at EQUAL salience with EARLIER decl_pos
+   yields (any such item mid-run is necessarily fresh; the
+   pop evaluates it lazily, D-262 untouched). Fixes
+   g26/fz_316002_1902's agenda component.
+3. **eager inactive-group gate: REVERTED** — it fixed
+   g25/fz_315901_311 but broke fz_9005_450 (a certified
+   halt-matrix cell whose or-form no-loop group rule NEEDS
+   the eager queue-construction timing; its fork was an
+   activation CHOICE inside the or-queue, not a flush).
+   The two constraints conflict at exactly one shape:
+   **no-loop + accumulate + not in a pushed group** (the
+   acc's InitialFact lia + no-loop puts the rule on the
+   initial eager list, which consumes the pulse the push
+   flush needs). NAMED OPEN CORNER, quarantined:
+   xf_af_g25_accnot (minimal) + xf_af_fz_315901_311 (blob).
+   g25b (the SAME shape minus no-loop) PASSES and graduates
+   as the boundary pin — the corner is no-loop-scoped.
+
+fz_316002_1902 DISPOSITION: the agenda component is FIXED
+(firing[7] = R2 both sides post-port); the residual is a
+COLLECT-ORDER divergence (collectList element order on
+delete-refire: engine [0,1,3] vs oracle [1,3,0]) that
+reproduces in MAIN with no focus machinery (g28) and is
+byte-identical pre/post the port = PRE-EXISTING, a
+collect-order family member. g28 → xf_co_refire_1902 (the
+family's minimal witness); the 1902 blob stays banked under
+the corrected read. The D-318 'collect-order adjacent' first
+read was half-right after all.
+
+FINAL LANE DISPOSITION: 40 cells graduate (35 grid + g25b +
+... see commit), 6 witnesses un-xfail, bank 63→60
+(−6 witnesses, +xf_af_g25_accnot, +xf_af_fz_315901_311,
++xf_co_refire_1902).
+
+## THE af_live REFINEMENT (the 879 ↔ g9 needle) + 11 BONUS
+## RESOLUTIONS (2026-07-18, same day)
+
+The first byte gate flushed 14 divergent cells — 12 of them
+were OPEN LATENTS the port RESOLVES (5 agenda_open + 6 xfail
+incl. fz_313902_761, the unexplained D-315 latent, and the
+whole xf_fz_141421/31415/606060/62831 order family) and one
+was fz_9003_879, a PASSING halt-matrix guard the raw
+one-boolean REGRESSED. Three iterations on the yield
+predicate, each measured against the full lane + agenda_open:
+
+1. linked-gate (member must be rule_linked): fixed 879, broke
+   g9 (GD2's queued entry is unlinked — the twin-shared pulse
+   was spent by GD's evaluation — yet the oracle's item IS in
+   g2's queue and flushes at L2's push).
+2. attempt-zombie (reached-while-unlinked = dead): fixed g9,
+   broke 879 again (the critical member r4 was queued by the
+   UNLINK TRANSITION during R5's deletes — never attempted).
+3. **af_live (LANDED): entry ORIGIN decides.** A queued-dirty
+   member is live to the flush-peek iff its entry was born at
+   a staging-notify-while-LINKED (refresh_linked = Drools'
+   queueRuleAgendaItem) and no evaluation attempt has reached
+   the rule since (Drools consumes-and-removes there — the
+   engine's unlinked staging is undrainable, so queued+dirty
+   would persist as a zombie). Unlink-transition entries
+   (doUnlinkRule-born) are dead to the peek — 879's oracle
+   run continues past its unlink-remnant; source-verified
+   against drools-core 9.44 (RuleExecutor.fire:
+   flushPropagations → haltRuleFiring{evaluateEagerList;
+   peekNextRule = focusStack.top().peek()} →
+   evaluateNetworkIfDirty; halt = different-group ||
+   conflict-order; removeRuleAgendaItemWhenEmpty at fire()
+   end).
+
+Result: ZERO unexpected fails across the 58-cell pr_af lane +
+agenda_open ×10 + fz_9005_450; the 6 remaining agenda_open
+latents byte-identical ×3 (debug/release/pre-edit worktree);
+fz_9104_1328's brief flip resolved back to its EXACT pre-port
+open state (its earlier "resolution" was the same over-breadth
+that broke 879).

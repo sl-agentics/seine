@@ -6,6 +6,20 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Agenda focus preemption matches Drools** — when a rule's
+  right-hand side pushes focus (`drools.setFocus`) to a group whose
+  rules have pending network evaluations, the evaluation flushes
+  staged propagation and freshly activated higher-priority MAIN
+  rules preempt the pushing rule's remaining activations, exactly
+  as the oracle's focused-group evaluation does (salience first,
+  declaration order at ties, all fresh activations drained). The
+  same law covers preemption inside a focused group: a fresh
+  same-salience activation of an earlier-declared rule (for
+  example an accumulate re-firing after a staged delete) now
+  interrupts the running rule's remaining activations. Fixes an
+  order-only divergence class: eleven previously quarantined
+  fuzz witnesses now match the oracle byte-for-byte, on top of
+  the 47-cell probe grid that mapped the law.
 - **Windowed logical aggregates** — `insertLogical` from a windowed
   accumulate (`over window:time/length`) is in-subset: window
   eviction retracts the superseded logical result and derives the

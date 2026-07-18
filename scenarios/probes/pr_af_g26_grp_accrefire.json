@@ -1,0 +1,66 @@
+{
+ "drl": "rule P when S0($z : z) then drools.setFocus(\"g\"); end\nrule GA agenda-group \"g\" when accumulate( T($v : v); $l : collectList($v) ) E(e == 1) then end\nrule GB agenda-group \"g\" when $t : T($v : v) then delete($t); end\n",
+ "types": [
+  {
+   "name": "S0",
+   "fields": [
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "e",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "S0",
+   "fields": {
+    "z": 1
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "e": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 3
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "pr_af_g26_grp_accrefire"
+}

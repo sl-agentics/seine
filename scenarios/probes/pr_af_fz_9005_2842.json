@@ -1,0 +1,94 @@
+{
+ "drl": "rule \"R0\"\nsalience 5\nno-loop\nwhen\n    T0(f0 not in (4, 5, -0.5))\n    T0($b0_1_0 : f1)\n    T1($b0_2_0 : f0)\nthen\nend\nrule \"R1\"\nsalience -9\nagenda-group \"gb\"\nwhen\n    T0(f0 not in (4, 5, -0.5))\n    T0($b1_1_0 : f1)\n    accumulate( T1(f1 != false, f1 == true, f0 != $b1_1_0); $a1_2 : count() )\nthen\nend\nrule \"R2\"\nagenda-group \"ga\"\nwhen\n    exists(T2($g2_0 : f2) and T1(f1 != $g2_0))\nthen\nend\nrule \"R3\"\nsalience 4\nwhen\n    $p3_0 : T0(f0 != 2.5, $b3_0_0 : f0, $b3_0_1 : f1, f2 == false)\nthen\n    drools.setFocus(\"ga\");\n    $p3_0.setF2(true);\n    $p3_0.setF1(5);\n    $p3_0.setF1(0);\n    update($p3_0);\nend\nrule \"R4\"\nsalience($b4_1_0)\nwhen\n    T1($b4_0_0 : f1, $b4_0_1 : f0)\n    T0(f1 == 0, f1 < $b4_0_1, $b4_1_0 : f0)\n    T2()\nthen\nend\nrule \"R5\"\nsalience 9\nwhen\n    $p5_0 : T0(f1 >= -3 && < -2, f2 == false)\n    accumulate( T1(f1 in (false, false, true), f0 >= 6.0 && f0 <= 0.0, $s5_1 : f0); $a5_1 : sum($s5_1) )\nthen\n    insert(new T2($p5_0.isF2(), $p5_0.getF0(), $p5_0.isF2()));\n    insert(new T2(false, $p5_0.getF1(), $p5_0.isF2()));\n    modify($p5_0) { setF2(true), setF1($p5_0.getF1()) }\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 1.5,
+    "f1": false
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 0,
+    "f1": 3,
+    "f2": true
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 12,
+    "f1": 1,
+    "f2": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": true,
+    "f1": -2.0,
+    "f2": false
+   },
+   "type": "T2"
+  },
+  {
+   "fields": {
+    "f0": 8,
+    "f1": 3,
+    "f2": false
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "pr_af_fz_9005_2842",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  }
+ ]
+}

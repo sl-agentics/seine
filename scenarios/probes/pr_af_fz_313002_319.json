@@ -1,0 +1,99 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T1($b0_0_0 : f2, $b0_0_1 : f0)\n    T1(f2 > 5)\nthen\nend\nrule \"R1\"\nsalience -5\nwhen\n    T1($b1_0_0 : f2, $b1_0_1 : f0)\n    T1(f2 > 5)\nthen\nend\nrule \"R2\"\nagenda-group \"gb\"\nwhen\n    T1(f2 >= 2, $b2_0_0 : f1)\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R3\"\nsalience -9\nagenda-group \"ga\"\nwhen\n    accumulate( T0(f1 in (1, 8), $s3_0 : f1); $a3_0 : max($s3_0) )\nthen\nend\nrule \"R4\"\nsalience($b4_1_0 - $b4_0_0)\nwhen\n    (or (and T0(f0 < 3.5, f2 < 100, $b4_0_0 : f2) T0(f0 != $b4_0_0, $b4_1_0 : f2) T0(f3 == false, f0 < $b4_0_0)) (and T0(f0 < 3.5, f2 < 100, $b4_0_0 : f2) T0(f0 != $b4_0_0, $b4_1_0 : f2, f1 not in (12, 4.0)) T0(f3 == false, f0 < $b4_0_0)))\nthen\n    drools.setFocus(\"ga\");\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "fields": {
+      "f1": 100,
+      "f3": false
+     },
+     "op": "update",
+     "target": 0
+    },
+    {
+     "fields": {
+      "f0": -4,
+      "f1": -1000000007,
+      "f2": 2,
+      "f3": false
+     },
+     "op": "insert",
+     "type": "T0"
+    }
+   ],
+   "facts": [
+    {
+     "fields": {
+      "f0": 100,
+      "f1": -1000000007,
+      "f2": 9,
+      "f3": false
+     },
+     "type": "T0"
+    },
+    {
+     "fields": {
+      "f0": 5,
+      "f1": -1,
+      "f2": 11,
+      "f3": false
+     },
+     "type": "T0"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": 8,
+    "f1": 6,
+    "f2": -1,
+    "f3": true
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "pr_af_fz_313002_319",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "f1",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "f2",
+     "type": "decimal(10,2)"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}
