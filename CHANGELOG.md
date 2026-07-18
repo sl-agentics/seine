@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.40
 
 - **Decimal sum identity matches BigDecimal exactly** (found by the
   new decimal fuzz axis): a sum over an empty or all-null decimal
