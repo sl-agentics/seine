@@ -110,8 +110,14 @@ oracle taught decimal fields, corpus re-diffed green): RHS wall =
 ERROR-PARITY; LHS + - * = exact BigDecimal/compareTo; the
 DOUBLE-LITERAL POISON (raw-binary coercion, asymmetric boundaries,
 literal≠field); / % silently degrade to IEEE double; jit axis
-CLEAN. Port recommendation on the record (agree-subset + poison
-fences) — AT BRYAN'S GATE.**_
+CLEAN. **D-309: THE PORT LANDED (Bryan's
+gate cleared) — decimal `+ - *` in LHS constraints is certified
+subset (exact i128, compareTo comparisons, decimal/int-literal
+comparands; 8 probes graduated on first contact, corpus 1280); every
+D-308 poison cell is a loud steering fence (bd_arith_walls pins);
+`principal + fee <= limit` authors from Python and round-trips
+exactly. Full battery green (gate 2029/2029 outside the new surface,
+zero unexpected divergence; SD 72 EXACT; fuzz clean).**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16704,3 +16710,51 @@ be in-subset, exact, poison-free.
 Campaign only — NO ENGINE PORT. Receipts: 33 probes 3×/5× stable;
 corpus re-diff green post-oracle-rebuild; lint untouched (probes are
 probes_pending, outside the scan). AT BRYAN'S GATE.
+
+## D-309 — THE DECIMAL INLINE-ARITHMETIC PORT LANDS (Bryan's gate cleared: "go ahead with the port") — `principal + fee <= limit` is certified subset; every D-308 poison cell is a loud fence (2026-07-18)
+
+The D-308 agree subset, ported exactly as recommended:
+
+ENGINE: ArithTy::Dec joins the LHS lattice — decimal fields/bindings
+admit into `+ - *` (exact i128, java.math scale rules: +/- align UP,
+* adds scales; int literals promote at scale 0); comparisons are
+compareTo-exact via dec_cmp (cross-scale, the measured MVEL law);
+comparison sides restricted to DECIMAL operands + INT literals. The
+i128 ceiling keeps the pin-J posture (checked ops, loud — like the
+D-098 sum). FENCES, each a measured D-308 cell, each steering:
+decimal `/` `%` ("the oracle silently degrades to IEEE double");
+doubles inside decimal arithmetic and double-literal comparands
+("raw-binary coercion — == 3.30 never fires on an exact 3.30");
+nullable operands (the existing D-097 wall, positioned after the
+type admit); RHS stays walled (error-parity per D-308's A-cells,
+pinned as such). Fence pins: engine/tests/bd_arith_walls.rs (5
+tests, message substrings asserted).
+
+CERTIFICATION: 8 graduating probes PASS engine-vs-oracle ON FIRST
+CONTACT (add/ge vs decimal field, == cross-scale s2/s4, mul scale
+law, the zero sandwich, int literals, decimal+i64-field arithmetic,
+sub/negatives, cross-pattern bindings) — corpus 11/**1280**/406.
+Byte gate vs wt_pre309: 2029/2029 IDENTICAL outside the new surface;
+all 40 differing scenarios are bigdec cells (8 graduated — pre-side
+fenced them — + 32 campaign cells whose fence messages changed BY
+DESIGN); ZERO unexpected divergence. Campaign fence-shape cells
+marked engine_fenced (lint 2034/0/0).
+
+AUTHORING: `Loan.principal + Loan.fee >= Loan.limit` authors and
+round-trips (fires exactly at 150.30 >= 150.30, misses 150.31); the
+poison fences BUBBLE from the engine (single authority — float
+literal comparand and decimal division both loud). pytest 252.
+
+FUZZ NOTE, on the record: gen.rs's Ft lattice never grew decimals
+(decimal populations are the DuckDB tier's fuzzer); the new cells
+are probe+pin certified. A gen.rs decimal-arith axis is a recorded
+follow-on, not a rider.
+
+Receipts: byte gate as above; make diff 11/1280/406 + drift 50;
+lint 2034/0/0; cargo 11 suites (+bd_arith_walls); pytest 252; demo
+True; model_ird 31/31; agenda_open ×15 identical both binaries; IRD
+0-div ×5; SD census 72 EXACT cell-for-cell; fresh fuzz 2×2000 seeds
+309001/309002 both CLEAN. The not-there list is ONE: in-rule exact
+decimal AVERAGE (the rounding-mode boundary — reconstruction is
+sum/count one layer up) + the justified-aggregation edge (Drools
+unpinned) on the standing ledger.

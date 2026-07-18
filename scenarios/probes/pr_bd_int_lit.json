@@ -1,0 +1,53 @@
+{
+ "name": "pr_bd_int_lit",
+ "drl": "rule R1 when M(a + b > 3) then end\nrule R2 when M(a - b != 0) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "b",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t2",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t4",
+     "type": "decimal(10,4)"
+    },
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.10",
+    "b": "2.20",
+    "t2": "0.00",
+    "t4": "0.0000",
+    "n": 0
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.00",
+    "b": "1.00",
+    "t2": "0.00",
+    "t4": "0.0000",
+    "n": 0
+   }
+  }
+ ]
+}

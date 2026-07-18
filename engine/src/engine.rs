@@ -126,7 +126,7 @@ enum Test {
     /// sit on the mode-1/mode-2 jit race and are fenced). `key` is
     /// the D-037/D-113 identity text (field and BINDING NAMES + ops +
     /// literals — names are identity-significant, ne_t13/ne_t14).
-    Arith { left: AExprC, op: CmpOp, right: AExprC, f64_cmp: bool, cross: bool, key: String },
+    Arith { left: AExprC, op: CmpOp, right: AExprC, f64_cmp: bool, dec: bool, cross: bool, key: String },
 }
 
 /// D-291: compiled LHS arithmetic operand. Atoms carry tuple positions
@@ -175,6 +175,10 @@ fn eval_aexpr(
         }
         AExprC::Neg(a, ty) => {
             let v = eval_aexpr(a, store, f, l, tpos);
+            if *ty == ArithTy::Dec {
+                let (u, s) = dec_operand(&v);
+                return Value::Dec { u: u.checked_neg().expect("decimal negate overflow"), s };
+            }
             match (ty, num(&v)) {
                 (ArithTy::I32, (Some(n), _)) => Value::I64((n as i32).wrapping_neg() as i64),
                 (_, (Some(n), _)) => Value::I64(n.wrapping_neg()),
@@ -185,6 +189,36 @@ fn eval_aexpr(
             let va = eval_aexpr(a, store, f, l, tpos);
             let vb = eval_aexpr(b, store, f, l, tpos);
             match ty {
+                ArithTy::Dec => {
+                    // D-309: exact i128, java.math scale rules; the i128
+                    // ceiling is the pin-J posture (loud, like the D-098
+                    // sum; BigDecimal itself is unbounded, DuckDB errors)
+                    let (ua, sa) = dec_operand(&va);
+                    let (ub, sb) = dec_operand(&vb);
+                    match op {
+                        '+' | '-' => {
+                            let s = sa.max(sb);
+                            let (xa, _) = crate::store::dec_rescale(ua, sa, s)
+                                .expect("decimal rescale overflow (pin J)");
+                            let (xb, _) = crate::store::dec_rescale(ub, sb, s)
+                                .expect("decimal rescale overflow (pin J)");
+                            let u = if *op == '+' {
+                                xa.checked_add(xb)
+                            } else {
+                                xa.checked_sub(xb)
+                            }
+                            .expect("decimal arithmetic overflow past DECIMAL(38) (pin J)");
+                            Value::Dec { u, s }
+                        }
+                        '*' => Value::Dec {
+                            u: ua
+                                .checked_mul(ub)
+                                .expect("decimal arithmetic overflow past DECIMAL(38) (pin J)"),
+                            s: sa + sb,
+                        },
+                        _ => unreachable!("decimal '/' '%' fenced at compile (D-308)"),
+                    }
+                }
                 ArithTy::F64 => {
                     let (_, x) = num(&va);
                     let (_, y) = num(&vb);
@@ -220,10 +254,35 @@ fn eval_aexpr(
     }
 }
 
+/// D-309: a decimal-mode operand as (unscaled, scale) — int literals
+/// promote to scale 0 (the measured MVEL grid).
+fn dec_operand(v: &Value) -> (i128, u8) {
+    match v {
+        Value::Dec { u, s } => (*u, *s),
+        Value::I64(n) => (*n as i128, 0),
+        other => unreachable!("non-decimal in decimal arithmetic: {other:?}"),
+    }
+}
+
 /// D-291: the arithmetic comparison — i64 exact, or IEEE double when
 /// either side is F64 (NaN: Eq/relational false, Ne true — matching
-/// both oracle modes on the admitted grid).
-fn eval_acmp(op: CmpOp, va: &Value, vb: &Value, f64_cmp: bool) -> bool {
+/// both oracle modes on the admitted grid). D-309: decimal mode
+/// compares compareTo-exact cross-scale (dec_cmp), int literals at
+/// scale 0.
+fn eval_acmp(op: CmpOp, va: &Value, vb: &Value, f64_cmp: bool, dec: bool) -> bool {
+    if dec {
+        let (ua, sa) = dec_operand(va);
+        let (ub, sb) = dec_operand(vb);
+        let ord = crate::store::dec_cmp(ua, sa, ub, sb);
+        return match op {
+            CmpOp::Eq => ord == std::cmp::Ordering::Equal,
+            CmpOp::Ne => ord != std::cmp::Ordering::Equal,
+            CmpOp::Lt => ord == std::cmp::Ordering::Less,
+            CmpOp::Le => ord != std::cmp::Ordering::Greater,
+            CmpOp::Gt => ord == std::cmp::Ordering::Greater,
+            CmpOp::Ge => ord != std::cmp::Ordering::Less,
+        };
+    }
     if f64_cmp {
         let x = match va {
             Value::I64(n) => *n as f64,
@@ -521,6 +580,11 @@ enum ArithTy {
     I32,
     I64,
     F64,
+    /// D-309 (the D-308 agree subset): exact decimal — i128-scaled
+    /// values, java.math scale rules (+/- align UP, * adds scales),
+    /// compareTo comparisons. `/` `%`, doubles anywhere, and nullable
+    /// operands are FENCED at compile (the measured poison cells).
+    Dec,
 }
 
 #[derive(Clone)]
@@ -3869,9 +3933,9 @@ impl Engine {
                     .field_index(type_id, name)
                     .ok_or_else(|| err(format!("{type_name} has no field {name}")))?;
                 let ft = self.store.field_type(type_id, fi);
-                if !matches!(ft, FieldType::I64 | FieldType::F64) {
+                if !matches!(ft, FieldType::I64 | FieldType::F64 | FieldType::Dec { .. }) {
                     return Err(err(format!(
-                        "LHS arithmetic over a {} field ({name}) is outside the subset — arithmetic is i64/f64 only (D-291)",
+                        "LHS arithmetic over a {} field ({name}) is outside the subset — arithmetic is i64/f64/decimal only (D-291/D-309)",
                         ft_name(ft)
                     )));
                 }
@@ -3883,16 +3947,21 @@ impl Engine {
                 *listen_mask |= 1 << fi;
                 own_fi.get_or_insert(fi);
                 let _ = write!(key, "f{name}");
-                Ok((AExprC::Field(own_t, fi), if ft == FieldType::F64 { ArithTy::F64 } else { ArithTy::I64 }))
+                let ty = match ft {
+                    FieldType::F64 => ArithTy::F64,
+                    FieldType::Dec { .. } => ArithTy::Dec,
+                    _ => ArithTy::I64,
+                };
+                Ok((AExprC::Field(own_t, fi), ty))
             }
             AExpr::Var(v) => {
                 let (bpi, bfi, bft) = field_binds
                     .get(v)
                     .copied()
                     .ok_or_else(|| err(format!("unknown binding {v} (must be declared before use)")))?;
-                if !matches!(bft, FieldType::I64 | FieldType::F64) {
+                if !matches!(bft, FieldType::I64 | FieldType::F64 | FieldType::Dec { .. }) {
                     return Err(err(format!(
-                        "LHS arithmetic over a {} binding ({v}) is outside the subset — arithmetic is i64/f64 only (D-291)",
+                        "LHS arithmetic over a {} binding ({v}) is outside the subset — arithmetic is i64/f64/decimal only (D-291/D-309)",
                         ft_name(bft)
                     )));
                 }
@@ -3915,7 +3984,12 @@ impl Engine {
                 *has_var = true;
                 // binding NAME + position are identity-significant
                 let _ = write!(key, "v{v}@{bpi}.{bfi}");
-                Ok((AExprC::Field(bpi, bfi), if bft == FieldType::F64 { ArithTy::F64 } else { ArithTy::I64 }))
+                let ty = match bft {
+                    FieldType::F64 => ArithTy::F64,
+                    FieldType::Dec { .. } => ArithTy::Dec,
+                    _ => ArithTy::I64,
+                };
+                Ok((AExprC::Field(bpi, bfi), ty))
             }
             AExpr::Neg(a) => {
                 key.push_str("-(");
@@ -3949,6 +4023,27 @@ impl Engine {
                     // a nested int-int division under ANY operation
                     return Err(err(
                         "an integer division cannot compose into further arithmetic (D-290/D-291): the interpreted oracle carries the fractional quotient (k/2 + k/2 == 7 fires there, not in java) — restructure, or make an operand a double".into(),
+                    ));
+                }
+                // D-309 decimal joins: Dec op Dec / Dec op int → Dec,
+                // with the D-308 poison fences
+                if ta == ArithTy::Dec || tb == ArithTy::Dec {
+                    if matches!(op, '/' | '%') {
+                        return Err(err(format!(
+                            "'{op}' on decimal operands is fenced (D-308): the oracle silently degrades decimal division/remainder to IEEE double — the exactness dies invisibly. Aggregate with sum/count, or compute the quotient outside the session."
+                        )));
+                    }
+                    if ta == ArithTy::F64 || tb == ArithTy::F64 {
+                        return Err(err(
+                            "a double inside decimal arithmetic is fenced (D-308): the oracle coerces double literals RAW-BINARY (a written 3.30 is 3.2999999999999998…), silently poisoning equalities and boundaries. Use decimal fields and int literals.".into(),
+                        ));
+                    }
+                    key.push('D');
+                    let ca = ca;
+                    let cb = cb;
+                    return Ok((
+                        AExprC::Bin(*op, Box::new(ca), Box::new(cb), ArithTy::Dec),
+                        ArithTy::Dec,
                     ));
                 }
                 let ty = if ta == ArithTy::F64 || tb == ArithTy::F64 {
@@ -4527,10 +4622,25 @@ impl Engine {
                                 "equality between an integer division and a binding never matches in the oracle (D-290 boxed comparison) — compare a field or literal, or use a relational operator".into(),
                             ));
                         }
+                        // D-309: decimal comparisons are compareTo-exact;
+                        // the other side must be decimal or an INT literal
+                        // (the D-308 measured grid — doubles are the
+                        // raw-binary poison cells)
+                        let dec = tl == ArithTy::Dec || tr == ArithTy::Dec;
+                        if dec {
+                            let side_ok = |t: ArithTy, c: &AExprC| {
+                                t == ArithTy::Dec || matches!(c, AExprC::Lit(Value::I64(_)))
+                            };
+                            if !(side_ok(tl, &cl) && side_ok(tr, &cr)) {
+                                return Err(err(
+                                    "a decimal arithmetic comparison takes a decimal side or an INT literal (D-308's measured grid): the oracle coerces double literals RAW-BINARY — `== 3.30` never fires on an exact 3.30, and `>=`/`<=` poison asymmetrically at exact boundaries — compare against a decimal field or an int literal".into(),
+                                ));
+                            }
+                        }
                         let f64_cmp = tl == ArithTy::F64 || tr == ArithTy::F64;
                         cmps.push(CompiledCmp {
                             field_idx: own_fi,
-                            test: Test::Arith { left: cl, op: *op, right: cr, f64_cmp, cross, key },
+                            test: Test::Arith { left: cl, op: *op, right: cr, f64_cmp, dec, cross, key },
                             rhs_var: None,
                         });
                     }
@@ -10498,12 +10608,12 @@ impl Engine {
                 return *cross_var
                     || eval_gexpr(g, &self.store, f, None, pat.tpos) == Some(true);
             }
-            if let Test::Arith { left, op, right, f64_cmp, cross, .. } = &c.test {
+            if let Test::Arith { left, op, right, f64_cmp, dec, cross, .. } = &c.test {
                 // D-291: cross tests evaluate at join time.
                 return *cross || {
                     let va = eval_aexpr(left, &self.store, f, None, pat.tpos);
                     let vb = eval_aexpr(right, &self.store, f, None, pat.tpos);
-                    eval_acmp(*op, &va, &vb, *f64_cmp)
+                    eval_acmp(*op, &va, &vb, *f64_cmp, *dec)
                 };
             }
             let lhs = self.store.value(f, c.field_idx);
@@ -10756,6 +10866,7 @@ impl Engine {
                 let va = self.eval_cexpr(rname, a, tuple, snapshot)?;
                 let vb = self.eval_cexpr(rname, b, tuple, snapshot)?;
                 match ty {
+                    ArithTy::Dec => unreachable!("RHS decimal arithmetic is compile-fenced (D-308 error parity)"),
                     ArithTy::F64 => {
                         let (_, x) = num(va);
                         let (_, y) = num(vb);
@@ -12130,10 +12241,10 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             if let Test::Group { g, .. } = &c.test {
                 return eval_gexpr(g, self.store, f, Some(l), pat.tpos) == Some(true);
             }
-            if let Test::Arith { left, op, right, f64_cmp, .. } = &c.test {
+            if let Test::Arith { left, op, right, f64_cmp, dec, .. } = &c.test {
                 let va = eval_aexpr(left, self.store, f, Some(l), pat.tpos);
                 let vb = eval_aexpr(right, self.store, f, Some(l), pat.tpos);
-                return eval_acmp(*op, &va, &vb, *f64_cmp);
+                return eval_acmp(*op, &va, &vb, *f64_cmp, *dec);
             }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {
@@ -12242,10 +12353,10 @@ impl phreak::JoinEnv for JoinEnvImpl<'_> {
             if let Test::Group { g, .. } = &c.test {
                 return eval_gexpr(g, self.store, f, Some(l), pat.tpos) == Some(true);
             }
-            if let Test::Arith { left, op, right, f64_cmp, .. } = &c.test {
+            if let Test::Arith { left, op, right, f64_cmp, dec, .. } = &c.test {
                 let va = eval_aexpr(left, self.store, f, Some(l), pat.tpos);
                 let vb = eval_aexpr(right, self.store, f, Some(l), pat.tpos);
-                return eval_acmp(*op, &va, &vb, *f64_cmp);
+                return eval_acmp(*op, &va, &vb, *f64_cmp, *dec);
             }
             let lhs = self.store.value(f, c.field_idx);
             match &c.test {

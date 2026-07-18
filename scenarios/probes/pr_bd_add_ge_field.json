@@ -1,0 +1,63 @@
+{
+ "name": "pr_bd_add_ge_field",
+ "drl": "rule R when M(a + b >= t2) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "b",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t2",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t4",
+     "type": "decimal(10,4)"
+    },
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.10",
+    "b": "2.20",
+    "t2": "3.30",
+    "t4": "0.0000",
+    "n": 0
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.10",
+    "b": "2.20",
+    "t2": "3.31",
+    "t4": "0.0000",
+    "n": 0
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "a": "0.10",
+    "b": "0.10",
+    "t2": "0.19",
+    "t4": "0.0000",
+    "n": 0
+   }
+  }
+ ]
+}

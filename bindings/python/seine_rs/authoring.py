@@ -283,9 +283,9 @@ class FieldRef:
     # class fields for the pattern's OWN fields; salience rejects class
     # fields at its point of use)
     def _arith(self, op: str, other, reflected=False):
-        if self.subset_type not in ("i64", "f64"):
+        if not _agg_numeric(self.subset_type):
             raise CompileError(
-                f"arithmetic requires numeric i64/f64 fields, {self.name} is {self.subset_type}"
+                f"arithmetic requires numeric i64/f64/decimal fields, {self.name} is {self.subset_type}"
             )
         a, b = (other, self) if reflected else (self, other)
         return SalExpr(a, op, b)
@@ -321,9 +321,9 @@ class FieldRef:
         return self._arith("%", other, reflected=True)
 
     def __neg__(self):
-        if self.subset_type not in ("i64", "f64"):
+        if not _agg_numeric(self.subset_type):
             raise CompileError(
-                f"arithmetic requires numeric i64/f64 fields, {self.name} is {self.subset_type}"
+                f"arithmetic requires numeric i64/f64/decimal fields, {self.name} is {self.subset_type}"
             )
         return SalExpr(self, "neg")
 
@@ -460,9 +460,9 @@ class BoundField:
     # arithmetic -> SalExpr; each certified surface (salience, RHS args,
     # LHS constraints) validates its own grammar at the point of use
     def _arith(self, op: str, other, reflected=False):
-        if self.subset_type not in ("i64", "f64"):
+        if not _agg_numeric(self.subset_type):
             raise CompileError(
-                f"arithmetic requires numeric i64/f64 fields, {self.name} is {self.subset_type}"
+                f"arithmetic requires numeric i64/f64/decimal fields, {self.name} is {self.subset_type}"
             )
         a, b = (other, self) if reflected else (self, other)
         return SalExpr(a, op, b)
@@ -498,9 +498,9 @@ class BoundField:
         return self._arith("%", other, reflected=True)
 
     def __neg__(self):
-        if self.subset_type not in ("i64", "f64"):
+        if not _agg_numeric(self.subset_type):
             raise CompileError(
-                f"arithmetic requires numeric i64/f64 fields, {self.name} is {self.subset_type}"
+                f"arithmetic requires numeric i64/f64/decimal fields, {self.name} is {self.subset_type}"
             )
         return SalExpr(self, "neg")
 

@@ -537,6 +537,54 @@ def test_nullable_aggregates_admit_and_skip_nulls():
     assert r3.accumulate(NInt, agg=seine_rs.sum_(NInt.n)).subset_type == "i64"
 
 
+# --- decimal inline arithmetic (the certified agree subset) ------------
+
+def test_decimal_inline_arithmetic_end_to_end():
+    # exact in-rule money math: principal + fee >= limit, compareTo
+    # semantics, no floats anywhere
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @fact
+    class Loan:
+        principal: Annotated[D, seine_rs.Decimal(18, 2)]
+        fee: Annotated[D, seine_rs.Decimal(18, 2)]
+        limit: Annotated[D, seine_rs.Decimal(18, 2)]
+
+    r = Rule("Over")
+    r.when(Loan, Loan.principal + Loan.fee >= Loan.limit)
+    drl = r.to_drl()
+    assert "Loan(principal + fee >= limit)" in drl
+    res = seine_rs.run(r, {Loan: {
+        "principal": [D("100.10"), D("100.10")],
+        "fee": [D("50.20"), D("50.20")],
+        "limit": [D("150.30"), D("150.31")],
+    }})
+    assert res.fired == 1  # 150.30 >= 150.30 exact; 150.31 misses
+
+
+def test_decimal_arith_poison_fences_bubble():
+    # the engine is the fence authority: a float literal comparand on
+    # decimal arithmetic is the measured raw-binary poison
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @fact
+    class L2:
+        p: Annotated[D, seine_rs.Decimal(18, 2)]
+        f: Annotated[D, seine_rs.Decimal(18, 2)]
+
+    r = Rule("P")
+    r.when(L2, L2.p + L2.f == 3.30)
+    with pytest.raises(Exception, match="measured grid"):
+        seine_rs.run(r, {L2: {"p": [D("1.10")], "f": [D("2.20")]}})
+
+    r2 = Rule("Dv")
+    r2.when(L2, L2.p / L2.f > 1)
+    with pytest.raises(Exception, match="silently degrades"):
+        seine_rs.run(r2, {L2: {"p": [D("1.10")], "f": [D("2.20")]}})
+
+
 # --- LHS whole-slot arithmetic (D-291 agree subset, D-299 sugar) -------
 
 @fact

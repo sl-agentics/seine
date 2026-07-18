@@ -1,0 +1,53 @@
+{
+ "name": "pr_bd_mixed_int_arith",
+ "drl": "rule R when M(a + n > 5) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "b",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t2",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t4",
+     "type": "decimal(10,4)"
+    },
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.10",
+    "b": "0.00",
+    "t2": "0.00",
+    "t4": "0.0000",
+    "n": 5
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.10",
+    "b": "0.00",
+    "t2": "0.00",
+    "t4": "0.0000",
+    "n": 2
+   }
+  }
+ ]
+}

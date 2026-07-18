@@ -1,0 +1,63 @@
+{
+ "name": "pr_bd_sub_neg",
+ "drl": "rule R when M(b - a >= t2) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "b",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t2",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t4",
+     "type": "decimal(10,4)"
+    },
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "2.20",
+    "b": "1.10",
+    "t2": "-1.10",
+    "t4": "0.0000",
+    "n": 0
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.10",
+    "b": "2.20",
+    "t2": "1.10",
+    "t4": "0.0000",
+    "n": 0
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.10",
+    "b": "2.20",
+    "t2": "1.11",
+    "t4": "0.0000",
+    "n": 0
+   }
+  }
+ ]
+}
