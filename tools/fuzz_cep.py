@@ -164,6 +164,10 @@ class Gen:
         types.append({"name": "P", "fields": [{"name": "v", "type": "i64"}]})
         types.append({"name": "D", "fields": [{"name": "tag", "type": "String"}]})
         types.append({"name": "P3", "fields": [{"name": "v", "type": "i64"}]})
+        # D-317: the windowed/plain acc-JUSTIFIER axis (D-312/D-316 lifts) —
+        # a purely-logical type fed only by W rules' insertLogical; the
+        # eviction/expiration swap is the patrolled surface.
+        types.append({"name": "DW", "fields": [{"name": "v", "type": "i64"}]})
 
         # CEP E2 item C (D-115) FENCE sets: event types whose external
         # UPDATE/DELETE composition is xfail'd (classes 1/2/3) and must NOT be
@@ -251,12 +255,28 @@ class Gen:
                 else:
                     inner = (cons + ", " if cons else "") + "$t : ts"
                     src, fn = f"{e}({inner})", "$c : sum($t)"
+                # D-317: ~45% of acc rules JUSTIFY a logical DW with the
+                # result (in-subset since D-312; windowed since D-316) — a
+                # window eviction / expiration / epoch insert re-fires the
+                # SAME act and the refire-supersede swaps the DW; observers
+                # make the swap agenda-visible, not/exists composes the
+                # teardown with the certified not-CE lanes.
+                wj = r.random() < 0.45
+                rhs = "insertLogical(new DW($c));" if wj else ""
                 rules.append(
-                    f'rule W{ri}{wsal} when accumulate( {src}{win}{self.ep_suf(e)}; {fn} ) then end'
+                    f'rule W{ri}{wsal} when accumulate( {src}{win}{self.ep_suf(e)}; {fn} ) then {rhs} end'
                 )
                 ri += 1
+                if wj:
+                    rules.append(f'rule RW{ri} salience {r.randint(-4, 10)} when DW() then end')
+                    ri += 1
+                    if r.random() < 0.5:
+                        rules.append(f'rule NW{ri} salience {r.randint(-8, 8)} when not DW(v >= 1) P() then end')
+                        ri += 1
         # TMS justification off an event + observers (a6/a7 shape)
+        drew_j = False
         if r.random() < 0.75:
+            drew_j = True
             e = r.choice(self.etypes)
             rules.append(f'rule J{ri} when $e : {e}($t : tag){self.ep_suf(e)} then insertLogical(new D($t)); end')
             ri += 1
@@ -270,10 +290,19 @@ class Gen:
                 ri += 1
                 rules.append(f'rule C{ri} salience {r.randint(-5, 5)} when P3() then end')
                 ri += 1
-        # not/exists over events
+        # not/exists over events. D-317 FENCE (named open item): a
+        # not-CE observer co-drawn with a J rule whose source can
+        # EXPIRE exposes the ND/NE unblock-LANDING split (the oracle
+        # lands the not-D unblock at a different drain point than the
+        # not-E unblock, so arrival order beats salience across
+        # points; engine lands both together) — cf317901x11/
+        # cf317902x0/x205 witnesses, xfail-banked. Until that landing
+        # law is probed, J-scenarios draw only `exists` here.
         if r.random() < 0.6:
             e = r.choice(self.etypes)
             neg = r.choice(["not", "exists"])
+            if drew_j and neg == "not":
+                neg = "exists"
             if neg == "exists":
                 self.exists_types.add(e)
             sal = f" salience {r.randint(-8, 8)}" if r.random() < 0.5 else ""

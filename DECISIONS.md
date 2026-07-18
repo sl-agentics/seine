@@ -195,8 +195,13 @@ window keeps sum matched, chain teardown), all five cells PASS
 engine-vs-oracle first contact → pr_jw_* graduated (corpus
 11/1307/414); mechanism-free lift #3 (eviction = another result
 change on the stable act key); only ?query justifiers remain walled.
-Byte gate 2301/2301 vs 88346d8.** AWAITING PUSH/RELEASE
-directive.**_
+Byte gate 2301/2301 vs 88346d8. **D-317 (the other instance's
+question: "did the fuzzer drive the clock?" — NO, and now it does):
+fuzz_cep gains the acc-justifier axis (DW type, ~21% of scenarios,
+800-case shakedown clean); the reshuffle surfaced a NEW NAMED OPEN
+ITEM — the expiration ND/NE unblock-landing split (D-101-family, 3
+witnesses banked, generator-fenced pending its probe round); drift
+60.** AWAITING PUSH/RELEASE directive.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -17220,3 +17225,43 @@ member; fz_316002_1902 = a collect × agenda interleave). The acc-justifier
 grid is now COMPLETE: inline, joined, groupby-CE, collect, and
 windowed — everything but ?query, which is the one honestly-unprobed
 fence left standing.
+
+## D-317 — THE FUZZER MEETS THE CLOCK (Bryan: "other instance questioning if fuzzer drove the clock") — the question was right, the wiring lands, and the improved patrol immediately names a NEW open item (2026-07-18)
+
+THE OTHER INSTANCE WAS RIGHT: gen.rs is CLOCKLESS by design (no
+event types, no windows, no advance actions — its 4 "window" grep
+hits are comments saying so); the clock lives in tools/fuzz_cep.py,
+which drew "TMS justification off events" (the a6/a7 shape) but
+predates the D-312/D-316 lifts — insertLogical FROM accumulate
+rules (windowed or plain) was never drawn. The D-316 surface was
+pin-certified but not fuzz-patrolled.
+
+THE WIRING: fuzz_cep gains the acc-justifier axis — a purely-logical
+DW(v i64) type fed only by W rules (~45% of accumulate rules now
+`insertLogical(new DW($c))` with the result), plus RW observers and
+occasional `not DW(v >= 1)` composition, so eviction/expiration
+swaps are agenda-visible and teardowns ride the not-CE lanes.
+Sampled: 83/400 scenarios draw the justifier (164 draw W rules).
+Shakedown 800 cases across 3 seeds: the NEW AXIS IS CLEAN.
+
+WHAT THE RESHUFFLE FOUND INSTEAD (all three finds DW-free, one
+class, pre-existing by construction — this slab has zero engine
+changes): **the ND/NE unblock-LANDING split** — after an event
+expires, the oracle lands the not-D unblock (via the expiring
+justifier's TMS cascade) at a DIFFERENT drain point than the not-E
+unblock (via the expiration itself), so arrival order beats salience
+across points; the engine lands both at one point and orders by
+salience. A genuine unprobed member of the D-101/D-175/D-177
+landing-law family. LANDING: 3 witnesses xfail-banked
+(cf317901x11, cf317902x0/x205 — bank 60), a generator fence per
+fuzz_cep's own doctrine (J-scenarios draw only `exists` observers
+until the landing law is probed — the fence text names the class),
+and **THE NAMED OPEN ITEM: the expiration ND/NE unblock-landing
+split** (a D-101-family probe round when Bryan wants it).
+
+Receipts (tool-only slab, no engine bytes): fuzz_cep 200+300+300
+across seeds 317901/317902/317903 all CLEAN post-fence; make diff
+11/1307/414 + drift 60 (witnesses banked, engine identical to
+bank); lint 2141/0/0. gen.rs stays clockless BY DESIGN — the
+division of labor (main fuzzer = cloud sessions, fuzz_cep = the
+stream/clock plane) is now explicit in both files.
