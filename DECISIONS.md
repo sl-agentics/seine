@@ -100,7 +100,11 @@ thing" — certified since D-097, walled only in authoring; pytest
 250). The not-there list is TWO: in-rule exact decimal average
 (rounding-mode boundary) and inline decimal operators (BigDecimal
 campaign) + the justified-aggregation edge (b, Drools unpinned) —
-Bryan-gated.**_
+Bryan-gated. D-307: the PUBLISH layer probed (the packaging audit) —
+v0.4.37 RELEASED with the full deploy-surface wheel matrix
+(manylinux_2_28 + musllinux_1_2 + aarch64, 7 wheels + sdist, all
+live on PyPI); CHANGELOG.md exists; the identity-0 footgun is
+documented at sum_. Everything through v0.4.37 is PUSHED.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16608,3 +16612,34 @@ exact decimal AVERAGE (the explicit-rounding-mode boundary — exact
 reconstruction is sum/count one layer up) and free-form inline
 decimal operators (the BigDecimal campaign). Receipts: pytest 250;
 demo True; bindings-only (authoring.py + tests), no byte surface.
+
+## D-307 — the publish layer gets its probe round (adversarial claude's packaging audit; Bryan lifted the arc out of the engine): the wheel matrix covers the deploy surface — v0.4.37 ships SEVEN wheels (2026-07-18)
+
+The one layer the arc never probed: the artifact. The audit's headline
+was real — bare ubuntu-latest builds tagged Linux wheels with the HOST
+glibc (manylinux_2_34), silently excluding RHEL 8/UBI8 (2.28), Ubuntu
+20.04 / Debian 11 (2.31): pip there falls back to compiling the sdist
+(needs a Rust toolchain in the image) or fails. No musl, no aarch64.
+
+THE FIX (CI-only): Linux builds moved into manylinux_2_28 containers;
+NEW targets linux-aarch64 (native ubuntu-24.04-arm runners) and
+musllinux_1_2 x86_64 + aarch64 (Alpine bases). AL2 excluded ON
+PRINCIPLE: glibc 2.26 AND system python < 3.9 — unreachable by an
+abi3-py39 wheel regardless. Matrix validated GREEN on a main-branch
+run BEFORE tagging. v0.4.37 on PyPI now serves: manylinux_2_28
+{x86_64, aarch64}, musllinux_1_2 {x86_64, aarch64}, macOS {x86_64,
+arm64}, win_amd64, + sdist.
+
+The audit's pre-flight items, all landed: shipped docs grepped clean
+of the `s.why(` shorthand (README's mention is engine-level prose —
+no broken snippets); CHANGELOG.md created (0.4.33..0.4.37 — an
+auditability engine keeps an auditable release history); sum_'s
+docstring states the empty/all-null identity-0 footgun and the
+existence-guard idiom WHERE THE PATTERN LIVES; ci.yml notes the PyPI
+simple-index CDN lag (post-publish smoke installs must retry or use
+file URLs — hit on every release this session). publish-crates stays
+red on the standing TP config.
+
+Receipts: main-run matrix 7/7 green pre-tag; tag run: differential
+gate green, all wheels + publish-pypi green; PyPI JSON lists all 8
+artifacts for 0.4.37; pytest 250.
