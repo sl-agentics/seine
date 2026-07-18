@@ -1,0 +1,71 @@
+{
+ "engine_fenced": true,
+ "drl": "rule W when accumulate( E0($v : v) over window:length(2); $s : sum($v) ) then insertLogical(new B($s)); end\nrule release when B(v <= 30) then insertLogical(new R(1)); end\n",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "R",
+   "fields": [
+    {
+     "name": "r",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0,
+    "v": 10
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 1,
+    "v": 20
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 2,
+      "v": 40
+     }
+    }
+   ]
+  }
+ ],
+ "name": "w5_chain"
+}

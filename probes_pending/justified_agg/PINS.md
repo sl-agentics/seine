@@ -260,3 +260,58 @@ candidates): oracle string-scale ingestion ("1.1" into decimal(10,2)
 decimal eq-literals inside the oracle's D-029 alpha hash groups
 (equals() is scale-sensitive; possibly fz_761's mechanism), decimal
 setter args.
+
+## THE WINDOWED-JUSTIFIER PROBE ROUND (D-316 candidate; Bryan:
+## "other claude is looking at D-312: CEP window maintenance is
+## unprobed") — predictions registered BEFORE running
+
+The D-312 wall's stated reason is honest: window EVICTION is a
+teardown trigger the ja1..ja11 grid never measured — an event
+leaves the window while staying ALIVE in WM, so no fact-death or
+delete propagation is involved; the accumulate result changes
+"spontaneously" (length: pushed out by an admission; time: the
+clock passes ts+N). IF the D-312 mechanism story is complete,
+eviction is just another source of change: the result updates in
+place, the act key is stable, the refire supersedes. The cells
+measure whether DROOLS agrees (oracle-only; the wall fences all
+five engine-side by design):
+
+- **w1_build**: length-window sum + insertLogical, no epochs. P-w1:
+  builds; logical B(30). CONFIDENCE high (ja1 precedent).
+- **w2_len_evict**: + a third event pushes the oldest out of
+  window:length(2) — the evicted event STAYS in WM. P-w2: old B(30)
+  retracts, B(60) derives, ONE B at the end, the evicted E0 still
+  present. CONFIDENCE medium-high — THE cell; if Drools ties
+  logical deps to something eviction does not touch, this is where
+  it shows.
+- **w3_time_evict**: window:time(50ms), events at ts 0/30, advance
+  to 60 (ts0 out, ts30 in). P-w3: B(30) → B(20) swap. CONFIDENCE
+  follows w2 (same propagation class, clock-driven).
+- **w4_empty**: advance past everything — the window EMPTIES while
+  both events live in WM. P-w4: sum's identity keeps the rule
+  matched → single B(0) at the end (the sum-still-fires contract,
+  certified unwindowed). CONFIDENCE medium.
+- **w5_chain**: w2 + a downstream logical Release on B(v <= 30).
+  P-w5: the Release retracts through the eviction swap (the ja3
+  chain, eviction-driven). CONFIDENCE follows w2.
+
+Gate discipline: measurements → this report → BRYAN'S GATE before
+the wall moves (the D-312 lift itself was gated; a new wall lift is
+a new gate).
+
+MEASURED (same day; all five 3× byte-stable, engine fences verified
+by the lint tier): **P-w1..P-w5 ALL HIT.** w1 builds (logical
+B(30)). w2 — THE cell — the length-window eviction swaps the
+logical: ONE B(60) at the end, the evicted E0(v=10) STILL ALIVE in
+WM; Drools' logical maintenance keys on the accumulate result
+change, not on any fact-death path. w3: the time-window swap via
+clock advance (B(30) → B(20), ts0 evicted-but-alive). w4: the
+window EMPTIES while both events live — sum's identity keeps the
+rule matched, single B(0) (the certified unwindowed contract holds
+under windows). w5: the full chain — release fires at B(30), R
+retracts through the eviction swap. VERDICT: the D-312 wall's
+stated reason is measured away — window eviction is exactly
+"another source of change" to the stable act key; the lift is
+predicted mechanism-free (stage_acc_removal → unapply → in-place
+result update → refire-supersede is the same certified path). AT
+BRYAN'S GATE for the wall lift.
