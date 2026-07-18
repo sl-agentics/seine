@@ -49,10 +49,6 @@
     {
      "op": "advance",
      "ms": 200
-    },
-    {
-     "op": "delete",
-     "target": 0
     }
    ],
    "facts": [
@@ -74,6 +70,15 @@
   {
    "actions": [
     {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
      "op": "advance",
      "ms": 300
     }
@@ -81,5 +86,5 @@
    "facts": []
   }
  ],
- "name": "xf_ndne_n8_ride"
+ "name": "pr_ndne_n8h_delMid"
 }

@@ -7410,16 +7410,41 @@ impl Engine {
             if !sr_all.is_empty() || !s0_tail.is_empty() || !sl_tail.is_empty() {
                 touched.push(ni);
             }
+            // D-322 (the D-266 seen invariant at the stash restore): the
+            // eval walk's wholesale take() between stash and restore
+            // resets `seen`, so a bare extend leaves restored entries
+            // invisible to add_del's cancel — a held right whose fact is
+            // later deleted then survives as an ins+del pair and fires as
+            // a dead-left phantom at the next unblock release (the
+            // xf_ndne_n8 family). Register every restored entry.
+            for (f, _, _) in sr_all.iter() {
+                self.trie[ni].node.s_right.seen_add(f);
+            }
             self.trie[ni].node.s_right.ins.extend(sr_all);
+            for (f, _, _) in s0_tail.iter() {
+                self.trie[ni].s0_in.seen_add(f);
+            }
             self.trie[ni].s0_in.ins.extend(s0_tail);
+            for (t, _, _) in sl_tail.iter() {
+                self.trie[ni].node.s_left.seen_add(t);
+            }
             self.trie[ni].node.s_left.ins.extend(sl_tail);
         }
         for (ni, (s0_dtail, sl_dtail, sr_dtail)) in dstash.into_iter().enumerate() {
             if !s0_dtail.is_empty() || !sl_dtail.is_empty() || !sr_dtail.is_empty() {
                 touched.push(ni);
             }
+            for (f, _, _) in s0_dtail.iter() {
+                self.trie[ni].s0_in.seen_add(f);
+            }
             self.trie[ni].s0_in.del.extend(s0_dtail);
+            for (t, _, _) in sl_dtail.iter() {
+                self.trie[ni].node.s_left.seen_add(t);
+            }
             self.trie[ni].node.s_left.del.extend(sl_dtail);
+            for (f, _, _) in sr_dtail.iter() {
+                self.trie[ni].node.s_right.seen_add(f);
+            }
             self.trie[ni].node.s_right.del.extend(sr_dtail);
         }
         // a linked rule whose path holds restored staging stays

@@ -1,5 +1,5 @@
 {
- "name": "cf318903x111",
+ "name": "pr_ndne_cf321901x29",
  "types": [
   {
    "name": "E0",
@@ -15,7 +15,7 @@
    ],
    "event": {
     "timestamp": "ts",
-    "expires_ms": 100
+    "expires_ms": 50
    }
   },
   {
@@ -36,7 +36,7 @@
    ],
    "event": {
     "timestamp": "ts",
-    "expires_ms": 400,
+    "expires_ms": 50,
     "duration": "dur"
    }
   },
@@ -48,18 +48,13 @@
      "type": "i64"
     },
     {
-     "name": "dur",
-     "type": "i64"
-    },
-    {
      "name": "tag",
      "type": "String"
     }
    ],
    "event": {
     "timestamp": "ts",
-    "expires_ms": 100,
-    "duration": "dur"
+    "expires_ms": 50
    }
   },
   {
@@ -99,7 +94,7 @@
    ]
   }
  ],
- "drl": "rule TJ0 salience 2 when $a : E2() $b : E0(this after[50ms,100ms] $a) then end\nrule W1 when accumulate( E1(); $c : count() ) then insertLogical(new DW($c)); end\nrule RW2 salience 4 when DW() then end\nrule NW3 salience -8 when not DW(v >= 1) P() then end\nrule W4 when accumulate( E1(tag == \"y\") over window:time(150ms); $c : count() ) then  end\nrule NE5 salience 8 when not E1() P() then end\n",
+ "drl": "rule TJ0 when $a : E0() $b : E2(this before[50ms,150ms] $a) then end\nrule TJ1 salience 7 when $a : E1() from entry-point \"S2\" $b : E0(this before[0ms,50ms] $a) then end\nrule CH2 when $a : E0() $b : E1(this before[0ms,100ms] $a) from entry-point \"S2\" $c : E2(this after[50ms,100ms] $b) then end\nrule J3 when $e : E0($t : tag) then insertLogical(new D($t)); end\nrule RD4 salience 12 when D() then end\nrule ND5 salience 1 when not D() P() then end\nrule G6 salience 18 when P(v == 2) then insert(new P3(3)); end\nrule C7 salience -5 when P3() then end\nrule NE8 when not E2() P() then end\n",
  "facts": [
   {
    "type": "P",
@@ -110,17 +105,17 @@
   {
    "type": "E1",
    "fields": {
-    "ts": 29,
-    "tag": "x",
-    "dur": 30
-   }
+    "ts": 23,
+    "tag": "y",
+    "dur": 20
+   },
+   "entry_point": "S2"
   },
   {
-   "type": "E1",
+   "type": "E2",
    "fields": {
-    "ts": 19,
-    "tag": "y",
-    "dur": 50
+    "ts": 1,
+    "tag": "y"
    }
   }
  ],
@@ -129,7 +124,7 @@
    "actions": [
     {
      "op": "advance",
-     "ms": 600
+     "ms": 300
     },
     {
      "op": "delete",
@@ -138,74 +133,16 @@
    ],
    "facts": [
     {
-     "type": "E2",
-     "fields": {
-      "ts": 623,
-      "tag": "x",
-      "dur": 30
-     }
-    },
-    {
-     "type": "E2",
-     "fields": {
-      "ts": 626,
-      "tag": "z",
-      "dur": 80
-     }
-    }
-   ]
-  },
-  {
-   "actions": [
-    {
-     "op": "advance",
-     "ms": 201
-    }
-   ],
-   "facts": [
-    {
      "type": "E0",
      "fields": {
-      "ts": 824,
+      "ts": 314,
       "tag": "y"
      }
     },
     {
-     "type": "E2",
-     "fields": {
-      "ts": 804,
-      "tag": "y",
-      "dur": 50
-     }
-    },
-    {
-     "type": "P",
-     "fields": {
-      "v": 2
-     }
-    }
-   ]
-  },
-  {
-   "actions": [
-    {
-     "op": "advance",
-     "ms": 201
-    }
-   ],
-   "facts": [
-    {
-     "type": "E1",
-     "fields": {
-      "ts": 1028,
-      "tag": "z",
-      "dur": 50
-     }
-    },
-    {
      "type": "E0",
      "fields": {
-      "ts": 1017,
+      "ts": 323,
       "tag": "x"
      }
     },

@@ -17525,3 +17525,54 @@ lane is NON-expiration deletes, distinct). Probes + PINS +
 generator comment only; engine untouched. Receipts: make diff
 1802 PASS (11/1377/414) + drift 61 identical post-rebank; lint
 2206/0/0.
+
+## D-322 — THE PORT (Bryan: "do the port") — THE STALE-LEFT PHANTOM WAS A BROKEN D-266 SEEN INVARIANT AT THE STREAM STASH RESTORE; ONE FIX CLOSES THE WHOLE FAMILY (2026-07-18)
+
+THE HUNT: SEINE_TRACE on xf_ndne_n8_ride showed the join's staged
+rights at the release evaluation holding BOTH ins=[P1] and
+del=[P1] — the held insert and the delete coexisting where
+StagedList::add_del should have cancelled the never-materialized
+ins. Temporary SL instrumentation caught the exact broken state:
+`add_del seen=false ins_has=true` — the D-266 `seen` fast path
+(a seen miss PROVES absence) skipped the cancel because the ins
+was in the list WITHOUT a seen registration. Two split
+experiments had already bounded the mechanism (t1: an
+explicit-delete unblock ALSO fires the phantom — not
+expiration-specific; t2: an explicit-delete FIRST-unblock is
+clean — the capture is in the stream/advance machinery).
+
+THE MECHANISM: stream_flush_ex's stash/restore cycle (D-102 —
+held rights stashed around the trigger-scoped flush so backlogs
+stay held). The stash takes the raw ins deques; the flush's eval
+walk then take()s the node's WHOLE StagedList (resetting `seen`);
+the restore extends the raw deques back — WITHOUT re-registering
+seen. Every restored entry became invisible to add_del's cancel:
+a held right whose fact was later deleted survived as an ins+del
+pair, and the next unblock release emitted the ins — the
+dead-left phantom. (The k1 window restore's cross-Staged branch
+already carried the D-266 seen_add discipline — the trie restores
+never got it.)
+
+THE FIX: seen_add every restored entry at the two stash-restore
+loops (ins tails + del tails, all three lists each). No release-
+path logic, no liveness filter needed — with the invariant
+restored, the ins+del pair annihilates exactly as Drools' staged
+semantics do, which IS the "live lefts only" law the D-321 grid
+measured.
+
+RECEIPTS — the cleanest byte gate of the arc: **2368 same /
+9 moved / 0 diff of 2377** (the moved = exactly the nine
+graduated witnesses; not one other cell in the corpus byte-
+shifted). All 9 witnesses flip PASS (xf_ndne_n8_ride/n8c/n8e/n8h
++ cf317901x11 + cf317902x0/x205 + cf318903x111 + cf321901x29 →
+pr_ndne_*); all 11 pr_ndne_* lane cells hold; corpus 11/1386/414;
+bank 61→52; lint 2215/0/0; cargo 73; maturin + pytest 257; demo
+True; model_ird 31/31; IRD 0-div ×5; agenda_open ×10 byte-
+identical ×3 (debug/release/pre-edit worktree); **SD census 72
+EXACT ×12 (6,10,3,5,6,5,5,6,8,7,4,7 cell-for-cell)**; fresh fuzz
+2×2000 seeds 322001/322002 CLEAN (0 divergences, 0 xfail
+re-reports); **fuzz_cep 3×300 seeds 322901-903 UNFENCED: 0
+divergences — the lifted-fence generator, drawing not-observers
+with J rules freely, finds NOTHING post-port**. The ndne ledger
+is EMPTY; open items: g25 no-loop-acc corner, collect-order family,
+?query justifiers, crates.io TP.

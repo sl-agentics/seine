@@ -6,6 +6,15 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Expired-event `not` releases no longer fire deleted facts** —
+  when an event blocking a `not` expires (or is deleted) and the
+  rule unblocks, activations now cover only facts that are still
+  alive, matching the oracle: a fact deleted while the rule was
+  re-blocked can no longer produce a phantom firing at a later
+  release. Root cause was an internal staging-bookkeeping
+  invariant broken across stream flush boundaries; nine
+  previously quarantined divergence witnesses now match the
+  oracle byte-for-byte.
 - **Agenda focus preemption matches Drools** — when a rule's
   right-hand side pushes focus (`drools.setFocus`) to a group whose
   rules have pending network evaluations, the evaluation flushes

@@ -70,21 +70,16 @@
   {
    "actions": [
     {
+     "op": "advance",
+     "ms": 300
+    },
+    {
      "op": "delete",
      "target": 0
     }
    ],
    "facts": []
-  },
-  {
-   "actions": [
-    {
-     "op": "advance",
-     "ms": 300
-    }
-   ],
-   "facts": []
   }
  ],
- "name": "xf_ndne_n8h_delMid"
+ "name": "pr_ndne_n8c_delLater"
 }
