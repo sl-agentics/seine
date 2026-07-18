@@ -4,6 +4,23 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## 0.4.38
+
+- **Inline decimal arithmetic in rule constraints** — the certified
+  agree subset: `principal + fee >= limit` over `decimal(p,s)` fields
+  computes exactly (i128, java.math scale rules) with
+  compareTo-exact comparisons against decimal fields and int
+  literals. Measured against Drools' BigDecimal/MVEL semantics
+  (33-cell pin campaign) and certified cell-for-cell.
+- **The poison is fenced, loudly**: decimal `/` and `%` (the oracle
+  silently degrades them to IEEE double), doubles anywhere in
+  decimal arithmetic, and double-literal comparands (the oracle
+  coerces literals raw-binary — `== 3.30` can never fire on an
+  exactly-3.30 result there; boundaries poison asymmetrically).
+  Every fence names its reason and steers to the exact idiom.
+- RHS decimal arithmetic remains a build error — now certified as
+  error parity: the oracle rejects it too.
+
 ## 0.4.37
 
 - **Wheel coverage**: Linux wheels now build in `manylinux_2_28`
