@@ -1,0 +1,65 @@
+{
+ "drl": "rule \"balance\"\nwhen\n    accumulate( Line($a : amount); $t : sum($a) )\n    $b : Bal(v != $t)\nthen\n    modify($b) { setV($t) }\nend\nrule \"release\"\nwhen\n    Bal(v <= 0)\nthen\n    insertLogical(new Release(1));\nend\n",
+ "types": [
+  {
+   "name": "Line",
+   "fields": [
+    {
+     "name": "amount",
+     "type": "decimal(10,2)"
+    }
+   ]
+  },
+  {
+   "name": "Bal",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(38,2)"
+    }
+   ]
+  },
+  {
+   "name": "Release",
+   "fields": [
+    {
+     "name": "r",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Bal",
+   "fields": {
+    "v": "999.00"
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "amount": "10.00"
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "amount": "-10.00"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "Line",
+     "fields": {
+      "amount": "50.00"
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_ja0_singleton_dec"
+}

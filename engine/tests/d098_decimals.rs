@@ -150,7 +150,7 @@ fn decimal_aggregates() {
     m(&mut e, "0.30", 1, None);
     let f = e.fire_all(100_000).unwrap();
     assert_eq!(f.len(), 1);
-    let sv = &f[0].matches.iter().find(|x| x.type_name == "Decimal").unwrap().fields[0].1;
+    let sv = &f[0].matches.iter().find(|x| x.type_name == "BigDecimal").unwrap().fields[0].1;
     assert_eq!(sv, &dec(60, 2), "pin J: exact sum 0.60");
 
     // average -> f64 (pin J: AVG is DOUBLE)
@@ -168,7 +168,7 @@ fn decimal_aggregates() {
     m(&mut e, "0.00", 1, None);
     m(&mut e, "0.00", 1, Some("2.50"));
     let f = e.fire_all(100_000).unwrap();
-    let mv = &f[0].matches.iter().find(|x| x.type_name == "Decimal").unwrap().fields[0].1;
+    let mv = &f[0].matches.iter().find(|x| x.type_name == "BigDecimal").unwrap().fields[0].1;
     assert_eq!(mv, &dec(250, 2), "min skips the null, preserves decimal");
 
     // all-null sum: 0 at the field scale, fires (ruling 2)
@@ -177,7 +177,7 @@ fn decimal_aggregates() {
     m(&mut e, "0.00", 1, None);
     let f = e.fire_all(100_000).unwrap();
     assert_eq!(f.len(), 1, "ruling 2: fires");
-    let sv = &f[0].matches.iter().find(|x| x.type_name == "Decimal").unwrap().fields[0].1;
+    let sv = &f[0].matches.iter().find(|x| x.type_name == "BigDecimal").unwrap().fields[0].1;
     assert_eq!(sv, &dec(0, 2), "ruling 2: 0 at scale 2");
 }
 

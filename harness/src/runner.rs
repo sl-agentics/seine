@@ -361,9 +361,10 @@ fn query_val_to_json(v: &QueryVal) -> J {
         QueryVal::Scalar(Value::Bool(b)) => json!({"type": "Boolean", "fields": {"value": b}}),
         // unreachable: nullable types are walled from queries (D-097)
         QueryVal::Scalar(Value::Null) => J::Null,
-        // unreachable: decimal types are walled from queries (D-098)
+        // walled from queries (D-098) but reachable as an accumulate-result
+        // match element; the oracle boxes it as its Java class
         QueryVal::Scalar(Value::Dec { u, s }) => {
-            json!({"type": "Decimal", "fields": {"value": seine_engine::dec_render(*u, *s)}})
+            json!({"type": "BigDecimal", "fields": {"value": seine_engine::dec_render(*u, *s)}})
         }
     }
 }

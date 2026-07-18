@@ -86,7 +86,7 @@ def test_acc_sources_closes_the_audit_chain():
     rel = s.justifications()[0]
     assert rel["type"] == "Release"
     bal_firing = next(c for c in caught if c[0] == "balance")
-    result_h = next(h for (t, h) in bal_firing[1] if t == "Decimal")
+    result_h = next(h for (t, h) in bal_firing[1] if t == "BigDecimal")
     src = s.acc_sources(result_h)
     assert len(src) == 3
     assert sum(v for (_, v) in src) == D("0.00")  # exact — accounts for the value

@@ -4,6 +4,19 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **The reversible balance-gate idiom is documented and pinned**: a
+  sum inserted as a new fact per recomputation leaves superseded
+  results in memory, so logical facts derived from the old value
+  survive their own reversal (Drools behaves identically — measured).
+  The safe idiom — one result row updated in place behind a
+  not-equal guard — is documented on `sum_`, certified
+  engine-vs-oracle, and covered end-to-end from the rule builder.
+- Accumulate-result match elements over decimal now render as
+  `BigDecimal` (the oracle's Java simple name), like the other boxed
+  scalars.
+
 ## 0.4.39
 
 - **Decimal overflow is a typed, catchable error** — inline multiply

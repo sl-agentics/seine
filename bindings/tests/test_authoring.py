@@ -486,6 +486,53 @@ def test_decimal_balance_gate_end_to_end():
     assert res.fired >= 2  # the sum fired and the exact-zero gate caught it
 
 
+def test_singleton_modify_release_reverses():
+    # the REVERSIBLE balance gate (pr_ja0_singleton_dec): keep ONE Bal
+    # row, updated in place behind a v != total guard — when the balance
+    # moves, the update re-evaluates the gate and the logical Release
+    # retracts with it. A then_insert(Bal, ...) per re-accumulation
+    # leaves every superseded Balance in memory and the Release survives
+    # its own reversal (pr_ja5_stale_plain_dec; Drools does the same).
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @fact
+    class Line:
+        amount: Annotated[D, seine_rs.Decimal(18, 2)]
+
+    @fact
+    class Bal:
+        v: Annotated[D, seine_rs.Decimal(38, 2)]
+
+    @fact
+    class Release:
+        r: int
+
+    bal = Rule("balance")
+    total = bal.accumulate(Line, agg=seine_rs.sum_(Line.amount))
+    b = bal.when(Bal, Bal.v != total)
+    bal.then_modify(b, v=total)
+    rel = Rule("release")
+    rel.when(Bal, Bal.v <= D("0.00"))
+    rel.then_insert_logical(Release, r=1)
+
+    s = seine_rs.Session(
+        [bal, rel],
+        {Line: {"amount": [D("10.00"), D("-10.00")]},
+         Bal: {"v": [D("999.00")]}, Release: {"r": []}},
+    )
+    s.fire()
+    js = s.justifications()
+    assert [j["type"] for j in js] == ["Release"], "zero balance gates open"
+    released = js[0]["fact"]
+    assert s.why(released)["supports"][0]["rule"] == "release"
+
+    s.insert(Line, {"amount": [D("50.00")]})
+    s.fire()
+    assert s.why(released) is None, "the Release retracts on reversal"
+    assert s.justifications() == []
+
+
 def test_string_aggregates_still_walled():
     @fact
     class SFee:

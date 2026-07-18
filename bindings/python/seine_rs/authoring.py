@@ -796,7 +796,23 @@ def sum_(field: FieldRef) -> _Agg:
     all-null source still fires, with the identity 0 — so a
     balance-release gate like ``total <= 0.00`` trips when there are
     NO line items at all. If "no data" must not release, guard the
-    rule with an existence check on the source (or ``count() >= 1``)."""
+    rule with an existence check on the source (or ``count() >= 1``).
+
+    Second footgun — STALE RESULTS SURVIVE REVERSAL: inserting the sum
+    as a new fact per recomputation (``then_insert(Bal, v=total)``)
+    leaves every superseded result in memory, and anything derived
+    from the old value (a logical Release on a zero balance, say)
+    stays justified by the stale fact even after the balance moves.
+    Drools behaves identically — plain insert is plain insert. The
+    reversible idiom keeps ONE result row updated in place behind a
+    not-equal guard::
+
+        total = r.accumulate(Line, agg=sum_(Line.amount))
+        b = r.when(Bal, Bal.v != total)   # guard: also stops the loop
+        r.then_modify(b, v=total)
+
+    then downstream logical facts retract when the update un-matches
+    their rule (seed exactly one ``Bal`` row at session start)."""
     return _Agg("sum", field)
 
 

@@ -15,7 +15,7 @@ fn result_handle(firings: &[Firing]) -> Option<FactId> {
     firings
         .iter()
         .flat_map(|f| f.matches.iter())
-        .find(|m| m.type_name == "Decimal")
+        .find(|m| m.type_name == "BigDecimal")
         .map(|m| FactId(m.handle))
 }
 

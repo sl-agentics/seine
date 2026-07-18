@@ -11,7 +11,7 @@ detail in a D-entry below and the active-slab detail in the plan file.
 
 ## CURRENT STATE  (living summary — overwrite each checkpoint)
 
-_Last updated: 2026-07-17. **THE D-076 ARC IS CLOSED (D-293..296)
+_Last updated: 2026-07-18. **THE D-076 ARC IS CLOSED (D-293..296)
 AND ITS PERF LEDGER IS CLEAR (D-297/D-298).** The chain: D-293
 worklist teardown (order-preserving machine, SD 72 EXACT), D-294
 probe round (fixpoint algebra pins, ungrounded-cluster survival, the
@@ -122,7 +122,25 @@ zero unexpected divergence; SD 72 EXACT; fuzz clean). D-310: the
 AND the accumulate sum, which panicked identically) is a TYPED
 boundary error via a thread-local eval slot: `except Exception`
 catches it, no backtrace, sessions recover; gate 2194/2194 IDENTICAL
-(error paths only). Rides the next bump.**_
+(error paths only). Rides the next bump (released v0.4.39, PyPI
+live, pushed). **D-311: the justified-aggregation probe round — ALL
+NINE predictions hit. Fork 0 YES: the then_modify-singleton safe
+pattern (v != $t guard) is certified engine-vs-oracle, f64 + decimal
+— the logical Release RETRACTS on reversal; graduated ×4 (corpus
+1284), documented on sum_ (the stale-results footgun), builder
+end-to-end pytest 254. f5: the stale-release gotcha is UNIVERSAL
+(Drools identical — plain insert is plain insert). Fork 1 YES:
+Drools BUILDS insertLogical-from-accumulate and SELF-MAINTAINS it
+(old logical retracts on re-accumulation; downstream chain retracts;
+per-group independent) — the D-076 wall is a Seine-side scope cut,
+NOT error parity. AT BRYAN'S GATE: port justifying-tuple
+revalidation for accumulate conditions (uniformity/capability, not
+correctness — fork 0 is the in-subset workaround). Bonus pins:
+accumulate-result binding in a later pattern = in-subset (first
+cell); DRL decimal sum = exact BigDecimal both sides; ACC_DECIMAL
+render label aligned "Decimal"→"BigDecimal" (byte gate 2193/2194,
+the one divergence = that label in dk_dec_acc, verified
+line-diff).**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16801,3 +16819,62 @@ IDENTICAL** vs wt_pre310 — the FULL sweep with zero divergence
 drift 50; lint 2034/0/0; cargo 11 suites; pytest 253; demo True;
 model_ird 31/31; agenda_open ×15; IRD 0-div ×5; SD 72 EXACT; fuzz
 2×2000 seeds 310001/310002 CLEAN. Rides the next bump.
+
+## D-311 — the justified-aggregation probe round: BOTH FORKS LAND YES — the safe pattern exists in-subset (certified + documented) AND Drools self-maintains logical aggregates (the D-076 wall is a scope cut, not parity) (2026-07-18)
+
+The D-304-option-(b) slab, run cold-start from
+probes_pending/justified_agg/HANDOFF.md with the reviewer's pins:
+fork 0 first, stale-fact control measured directly, reversal pinned
+regardless. Predictions registered in PINS.md before any cell ran —
+scorecard: ALL NINE HIT (incl. the medium-low-confidence heart, f2).
+
+FORK 0 (then_modify singleton) — THE SAFE PATTERN EXISTS TODAY:
+`accumulate(Line; $t : sum) $b : Bal(v != $t) → modify($b){setV($t)}`
++ `release: Bal(v <= 0) → insertLogical(Release)`. The `v != $t`
+guard kills the modify self-loop; when the balance moves, the update
+un-matches `release` and the certified teardown (D-186..D-211)
+RETRACTS the logical Release. Engine-vs-oracle IDENTICAL 3×, f64 AND
+decimal. Two subset firsts fell out: the accumulate-result binding
+in a LATER pattern's constraint is in-subset (first corpus cell),
+and DRL-level `sum` over decimal is EXACT BigDecimal on BOTH sides
+(scale-preserved — the oracle does NOT degrade to double).
+
+f5 (stale control) — THE GOTCHA IS UNIVERSAL: the plain-insert shape
+leaves Bal(0) + Bal(50) with Release ALIVE in BOTH engines,
+identical 3×. Plain insert is plain insert; receipts for the docs.
+
+FORK 1 (oracle-only, 5 cells, 3× byte-stable, all engine_fenced with
+the D-076 wall text — verified) — DROOLS SUPPORTS SELF-MAINTAINING
+LOGICAL AGGREGATES: insertLogical-from-accumulate BUILDS (ja1); on
+re-accumulation the old logical result RETRACTS and the new derives
+— ONE Bal after the swap (ja2); the downstream logical Release
+retracts through the swap — the full reversal chain (ja3);
+same-value re-accumulation lands ONE fact, no flicker, one re-fire
+(ja4); per-group independence under joined accumulate (ja6). SO: our
+D-076 wall is a SEINE-SIDE scope cut (justifying-tuple revalidation
+cannot re-run accumulate conditions), NOT error parity — the wall
+text may not claim Drools agrees. AT BRYAN'S GATE: a port must solve
+justifying-tuple revalidation for accumulate conditions; fork 0
+means the gap is WORKAROUNDABLE today, so the port is a uniformity/
+capability question, not a correctness hole.
+
+LANDED (no gated engine semantics): 4 cells GRADUATED
+(pr_ja0_singleton_f64/dec, pr_ja5_stale_plain_f64/dec; corpus
+11/1284/406); 5 fenced cells stay pending with PINS.md; the safe
+idiom documented on sum_ (second footgun: STALE RESULTS SURVIVE
+REVERSAL, with the reversible idiom inline) + CHANGELOG Unreleased;
+builder end-to-end pytest (guard against the agg result +
+then_modify(v=total) both express — pytest 254). One engine byte
+moved: ACC_DECIMAL render label "Decimal"→"BigDecimal" (the oracle's
+Java simple name, like the other boxed scalars; found by
+ja0_singleton_dec, the FIRST cell ever to render a decimal
+accumulate-result match element) + harness query_val_to_json mirror.
+
+Receipts: byte gate 2193/2194 vs wt_pre_ja (693760f) — the ONE
+divergence is dk_dec_acc.json, label-only (verified line-diff:
+"Decimal"→"BigDecimal" ×4, nothing else corpus-wide; the cell still
+passes its tier); make diff 11/1284/406 + drift 50; lint 2043/0/0;
+cargo all suites green; pytest 254; demo True; model_ird 31/31;
+agenda_open ×15 both binaries + worktree IDENTICAL; IRD 0-div ×5
+(7001/7002/6001/6003/9001); SD census 72 EXACT; fuzz 2×2000 seeds
+311001/311002 CLEAN.

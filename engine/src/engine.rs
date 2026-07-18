@@ -38,7 +38,7 @@ pub(crate) const ACC_COLLECTION: &str = "Collection";
 /// D-108: collectSet results — canonicalized SORTED on both sides
 /// (Drools iterates raw HashSet internals; order is unspecified).
 pub(crate) const ACC_SETCOLLECTION: &str = "SetCollection";
-const ACC_DECIMAL: &str = "Decimal";
+const ACC_DECIMAL: &str = "BigDecimal"; // the oracle boxes as the Java simple name
 const RESERVED_TYPES: [&str; 6] =
     [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_SETCOLLECTION, ACC_DECIMAL];
 /// Hidden row types for ?query CEs (D-056): one per query, fields = the
@@ -12109,7 +12109,7 @@ fn scalar_view(v: Value) -> FactView {
         Value::Str(_) => "String",
         Value::Bool(_) => "Boolean",
         Value::Null => "Null",
-        Value::Dec { .. } => "Decimal", // unreachable: Dec walled from queries (D-098)
+        Value::Dec { .. } => "BigDecimal", // unreachable: Dec walled from queries (D-098)
     };
     FactView {
         type_name: type_name.into(),
