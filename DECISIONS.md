@@ -79,9 +79,14 @@ byte-identical, but the .so is now current and rides D-301). NEXT:
 no named open slab — standing ledger only (crates.io TP config,
 collect-order latents, xf_fz_* triage, derive v2 remainder:
 utf8/bool casts + typed nulls + decimals, oracle-bump
-re-adjudications; NEW from D-302: why()'s Python/harness exposure —
-the adversarial round proved the graph truthful on all post-lift
-shapes but surfaced that nothing outside cargo can reach it)._
+re-adjudications). **D-303: the adversarial follow-ups landed — the
+stale sum_ wall fell (decimal aggregates author per the D-098
+matrix; the signed line-item balance-release shape certified
+end-to-end, pytest 248) and Session.why()/justifications() surface
+the justification graph in Python (dicts, retraction contract,
+orphan cycles explain themselves; the D-302 exposure item CLOSES).
+Inline decimal arithmetic stays engine-walled pending a BigDecimal
+pin campaign.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16418,3 +16423,41 @@ with Bryan (product surface, not a slab to start unbidden).
 
 Receipts: cargo engine suites green (+5 tests); adv_why_pending
 engine-vs-oracle diff PASS; corpus untouched (test + docs only).
+
+## D-303 — the two adversarial-round follow-ups land (Bryan: "do the sum_ wall slab, and surface why() to python"): decimal aggregates reach the authoring layer, and the why-engine reaches Python (2026-07-17)
+
+(1) THE STALE sum_ WALL FALLS. The authoring aggregate check predated
+D-098 and rejected certified capability ("sum() requires a numeric
+field, amount is decimal(18,2)") while raw DRL computed it exactly.
+Probed engine-first: accumulate AND groupby over decimal — sum
+(exact, 0.10+0.20+0.05 = 0.35), min/max (preserve type), average
+(f64) — all green via raw DRL. Authoring now admits NON-NULLABLE
+decimal(p,s) at both check sites (_agg_numeric; nullable numerics
+keep the existing wall) and AccResult types the results per the
+certified matrix: sum WIDENS to decimal(38,s), average is f64,
+min/max preserve. The domain shape certified end-to-end in the
+battery: signed line items (payments negative), one exact accumulate
+sum into a decimal(38,2) fact, a downstream rule gating <= 0.00 —
+the 100.10 + 50.20 - 150.30 = exactly-0.00 release fires (the class
+floats cannot express). Inline decimal arithmetic stays walled on
+both planes (engine fences, D-291-cited) pending a BigDecimal
+scale-semantics pin campaign — unchanged.
+
+(2) Session.why(handle) / Session.justifications() — the D-302
+ledger item. pyo3 over Engine::why: dicts with fact handle, type,
+native field values (decimals as decimal.Decimal via value_to_py),
+supports ordered by seq (rule + matched-tuple handles + seq), live
+stated_siblings; None for stated/dead/unknown — the graph never
+fabricates. The support list is documented as the retraction
+contract. Python-surface pins (test_why.py): multi-support +
+last-support cascade retraction (the retracted handle lands in
+delete()'s cascade AND why() goes None), the ungrounded-orphan
+cycle explaining itself through the binding, decimal rendering,
+None cases. No D-numbers in public docstrings.
+
+Receipts: pytest 242 → **248** (3 decimal-agg + 3 why-surface);
+demo True; cargo engine suites green; bindings-only (authoring.py,
+__init__.py, lib.rs) — no engine/scenario changes, no byte surface;
+the tracked .so rides the commit (built FROM bindings/, the D-301
+procedure). FEATURES row 74 notes the Python exposure. The D-302
+why-exposure ledger item CLOSES.

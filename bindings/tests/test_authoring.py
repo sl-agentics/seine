@@ -428,6 +428,75 @@ def test_salience_arithmetic_still_compiles():
     assert "salience" in seine_rs.compile_rules([r])
 
 
+# --- decimal aggregates (the certified exact matrix) -------------------
+
+def test_decimal_aggregates_admit_and_type():
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @fact
+    class DFee:
+        loan: int
+        amount: Annotated[D, seine_rs.Decimal(18, 2)]
+
+    r = Rule("T")
+    r.when(DFee)
+    s = r.accumulate(DFee, agg=seine_rs.sum_(DFee.amount))
+    assert s.subset_type == "decimal(38,2)"  # exact sum widens
+    r2 = Rule("T2")
+    r2.when(DFee)
+    assert r2.accumulate(DFee, agg=seine_rs.min_(DFee.amount)).subset_type == "decimal(18,2)"
+    r3 = Rule("T3")
+    r3.when(DFee)
+    assert r3.accumulate(DFee, agg=seine_rs.average(DFee.amount)).subset_type == "f64"
+
+
+def test_decimal_balance_gate_end_to_end():
+    # the signed line-item balance idiom: payments as negative amounts,
+    # ONE exact sum into a fact, a downstream rule gates the comparison —
+    # 100.10 + 50.20 - 150.30 is EXACTLY 0.00 (float would miss it)
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @fact
+    class Line:
+        loan: int
+        amount: Annotated[D, seine_rs.Decimal(18, 2)]
+
+    @fact
+    class Bal:
+        v: Annotated[D, seine_rs.Decimal(38, 2)]
+
+    @fact
+    class Release:
+        loan: int
+
+    r1 = Rule("Sum", no_loop=True)
+    r1.when(Line)
+    total = r1.accumulate(Line, agg=seine_rs.sum_(Line.amount))
+    r1.then_insert(Bal, v=total)
+    r2 = Rule("Gate", no_loop=True)
+    r2.when(Bal, Bal.v <= D("0.00"))
+    r2.then_insert(Release, loan=1)
+    res = seine_rs.run(
+        [r1, r2],
+        {Line: {"loan": [1, 1, 1], "amount": [D("100.10"), D("50.20"), D("-150.30")]},
+         Bal: {"v": []}, Release: {"loan": []}},
+    )
+    assert res.fired >= 2  # the sum fired and the exact-zero gate caught it
+
+
+def test_nullable_and_string_aggregates_still_walled():
+    @fact
+    class SFee:
+        name: str
+
+    r = Rule("W")
+    r.when(SFee)
+    with pytest.raises(CompileError, match="requires a numeric field"):
+        r.accumulate(SFee, agg=seine_rs.sum_(SFee.name))
+
+
 # --- LHS whole-slot arithmetic (D-291 agree subset, D-299 sugar) -------
 
 @fact

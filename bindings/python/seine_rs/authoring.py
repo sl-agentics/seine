@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import decimal as _pydecimal
+import re
 import typing
 from typing import Any, Optional, Union
 
@@ -136,6 +137,14 @@ def _lit(v: Any) -> str:
             )
         return f'"{v}"'
     raise CompileError(f"unsupported literal type {type(v).__name__}")
+
+
+def _agg_numeric(st: str) -> bool:
+    """Types the scalar aggregates accept: i64/f64 and NON-NULLABLE
+    exact decimals (sum is computed exactly and widens to decimal(38,s);
+    average is f64; min/max preserve the type — the certified matrix).
+    Nullable numerics keep the existing wall."""
+    return st in ("i64", "f64") or bool(re.fullmatch(r"decimal\(\d+,\d+\)", st))
 
 
 def _reject_callable(x: Any, where: str) -> None:
@@ -660,10 +669,20 @@ class AccResult(BoundField):
     is the accumulate CE. Aggregate typing walls apply."""
 
     def __init__(self, pattern: "_Pattern", func: str, arg: Optional[BoundField]):
+        # exact-decimal aggregates (the match plane's certified matrix):
+        # sum over decimal(p,s) is computed exactly and WIDENS to
+        # decimal(38,s); average is always f64; min/max preserve the
+        # argument's type.
+        def sum_type(a):
+            if a is None:
+                return "i64"
+            m = re.fullmatch(r"decimal\((\d+),(\d+)\)", a.subset_type)
+            return f"decimal(38,{m.group(2)})" if m else a.subset_type
+
         st = {
             "count": "i64",
             "average": "f64",
-            "sum": arg.subset_type if arg is not None else "i64",
+            "sum": sum_type(arg),
             "min": arg.subset_type if arg is not None else "i64",
             "max": arg.subset_type if arg is not None else "i64",
             "collectList": "List",
@@ -1289,7 +1308,7 @@ class Rule:
                 raise CompileError(
                     f"aggregate argument {agg.arg!r} must be a field of {cls.__name__}"
                 )
-            if agg.arg.subset_type not in ("i64", "f64") and agg.func not in (
+            if not _agg_numeric(agg.arg.subset_type) and agg.func not in (
                 "count", "collectList", "collectSet"
             ):
                 raise CompileError(
@@ -1342,7 +1361,7 @@ class Rule:
                 raise CompileError(
                     f"aggregate argument {agg.arg!r} must be a field of {cls.__name__}"
                 )
-            if agg.arg.subset_type not in ("i64", "f64") and agg.func != "count":
+            if not _agg_numeric(agg.arg.subset_type) and agg.func != "count":
                 raise CompileError(
                     f"{agg.func}() requires a numeric field, "
                     f"{agg.arg.name} is {agg.arg.subset_type}"

@@ -772,6 +772,37 @@ struct AuditRows {
     values_json: Vec<String>,
 }
 
+/// One JustificationView as a Python dict (Session.why /
+/// Session.justifications): handles as ints, field values native
+/// (decimals as decimal.Decimal), supports in seq order.
+fn justification_to_py<'py>(
+    py: Python<'py>,
+    v: &seine_engine::JustificationView,
+) -> PyResult<Bound<'py, PyDict>> {
+    let d = PyDict::new(py);
+    d.set_item("fact", v.fact.0 as i64)?;
+    d.set_item("type", &v.rendering.type_name)?;
+    let fields = PyDict::new(py);
+    for (k, val) in &v.rendering.fields {
+        fields.set_item(k, value_to_py(py, val)?)?;
+    }
+    d.set_item("fields", fields)?;
+    let sups = PyList::empty(py);
+    for s in &v.supports {
+        let sd = PyDict::new(py);
+        sd.set_item("rule", &s.rule)?;
+        sd.set_item("tuple", s.tuple.iter().map(|f| f.0 as i64).collect::<Vec<i64>>())?;
+        sd.set_item("seq", s.seq)?;
+        sups.append(sd)?;
+    }
+    d.set_item("supports", sups)?;
+    d.set_item(
+        "stated_siblings",
+        v.stated_siblings.iter().map(|f| f.0 as i64).collect::<Vec<i64>>(),
+    )?;
+    Ok(d)
+}
+
 fn fact_json(fv: &FactView) -> String {
     let mut m = serde_json::Map::new();
     for (k, v) in &fv.fields {
@@ -1292,6 +1323,39 @@ impl PySession {
         self.pending_retracted.clear();
         self.fired_once = false;
         engine.reset().map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+
+    /// Why does this fact hold? For a justified (insertLogical-derived)
+    /// fact: a dict with its handle, type, field values, ordered
+    /// supports (each the justifying rule, its matched tuple as fact
+    /// handles, and the firing seq), and any LIVE stated siblings of
+    /// the same value. Returns None for stated facts, dead handles, and
+    /// unknown ids — the graph answers or says nothing, it never
+    /// fabricates. The support list is also the retraction contract:
+    /// remove every support and the fact retracts.
+    fn why<'py>(&self, py: Python<'py>, handle: i64) -> PyResult<Option<Bound<'py, PyDict>>> {
+        let engine = self
+            .engine
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        match engine.why(seine_engine::FactId(handle as u32)) {
+            None => Ok(None),
+            Some(v) => Ok(Some(justification_to_py(py, &v)?)),
+        }
+    }
+
+    /// The whole justification graph: every justified fact's why()
+    /// answer, ordered by fact handle.
+    fn justifications<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        let engine = self
+            .engine
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        let out = PyList::empty(py);
+        for v in engine.justifications() {
+            out.append(justification_to_py(py, &v)?)?;
+        }
+        Ok(out)
     }
 
     fn delete(&mut self, handle: i64) -> PyResult<Vec<i64>> {

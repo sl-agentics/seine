@@ -176,6 +176,22 @@ class Session:
     def fire(self, fire_limit=100_000, on_fire=None):
         return self._native.fire(fire_limit, on_fire)
 
+    def why(self, handle):
+        """Why does this fact hold? For a fact derived by
+        ``insertLogical``: a dict — its handle, type, field values,
+        ordered ``supports`` (each the justifying rule, the matched
+        tuple's fact handles, and the firing seq), and any live
+        ``stated_siblings`` of the same value. The support list is
+        also the retraction contract: remove every support and the
+        fact retracts. Returns None for stated facts, dead handles,
+        and unknown ids — the graph never fabricates an answer."""
+        return self._native.why(handle)
+
+    def justifications(self):
+        """The whole justification graph: every derived fact's
+        :meth:`why` answer, ordered by fact handle."""
+        return self._native.justifications()
+
     def query(self, name, *args):
         """Run a DRL query against current working memory (direct
         invocation). Positional args follow the query's parameter list;
