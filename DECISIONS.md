@@ -79,7 +79,9 @@ byte-identical, but the .so is now current and rides D-301). NEXT:
 no named open slab — standing ledger only (crates.io TP config,
 collect-order latents, xf_fz_* triage, derive v2 remainder:
 utf8/bool casts + typed nulls + decimals, oracle-bump
-re-adjudications)._
+re-adjudications; NEW from D-302: why()'s Python/harness exposure —
+the adversarial round proved the graph truthful on all post-lift
+shapes but surfaced that nothing outside cargo can reach it)._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16372,3 +16374,47 @@ v2 ledger row moved to LANDED; engine/harness/scenarios untouched (no
 byte surface — bindings-only slab). Remaining v2 ledger: utf8/bool
 casts, typed nulls, decimal columns, aggregates (accumulate owns
 them).
+
+## D-302 — adversarial round on the why-engine (Bryan: "adversarial claude is questioning it"): the justification graph HOLDS on every post-lift shape — 5 new pins, one assertion corrected against the record + a live oracle confirm (2026-07-17)
+
+The challenge was legitimate on coverage: `Engine::why()`/
+`justifications()` (D-076's queryable-graph design constraint) are
+ENGINE-level API only — not in scenario output, so the byte gates
+never covered them, and the one pin (tms_queryable.rs) predates the
+D-296 lift and the D-293/297/298 TMS rebuilds entirely.
+
+engine/tests/tms_why_adversarial.rs, five pins on the new shapes:
+1. UNGROUNDED-CLUSTER HONESTY (the D-294 orphan): after root
+   deletion the surviving M1⇄M2 cycle's graph EXPLAINS the orphan —
+   each member's only support is the other's rule + tuple, Seed's
+   support correctly gone.
+2. POST-LIFT DEPTH: a 400-deep computed chain (D-283 arith + D-296
+   growth) — all 400 links justified, the tip→root walk by support
+   tuples visits every link exactly once with n decrementing, one
+   root delete drains the graph through the D-293/297/298 machinery.
+3. RE-ESTABLISHMENT RE-ROOTS: full teardown then re-derivation mints
+   a FRESH fact with the fresh support; the retracted handle answers
+   None forever.
+4. PENDING-ON-STATED both directions — THE CORRECTED ASSERTION: my
+   draft expected stated-delete to materialize the pending belief;
+   the engine said the key dies WHOLE. The RECORD was right and the
+   draft wrong: the r1 mixed-key-kill pin (D-203..211 arc) — any
+   stated delete on a mixed key kills the key whole, the belief
+   UNSTAGES, and no-re-fire-on-stated keeps the value gone. Confirmed
+   LIVE against the pinned oracle (adv_why_pending diff PASS). The
+   graph must not resurrect an unstaged belief — now pinned.
+   Sibling direction: stated twins list while alive, drop when dead
+   (the is_alive filter earns its keep).
+5. NEGATIVE SPACE: stated justifiers, dead handles, bogus ids all
+   answer None — no fabricated justifications.
+
+4/5 held on first contact; the fifth failure was the TEST, not the
+engine. Verdict for the adversary: the graph is truthful on every
+shape probed, including the ones born after its pin was written. The
+REAL gap the challenge surfaced: why() has no Python/harness
+exposure — a rules engine selling "why" should surface it in
+bindings (Session.why?), and that is now a named ledger item, gated
+with Bryan (product surface, not a slab to start unbidden).
+
+Receipts: cargo engine suites green (+5 tests); adv_why_pending
+engine-vs-oracle diff PASS; corpus untouched (test + docs only).
