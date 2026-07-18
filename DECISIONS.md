@@ -39,10 +39,22 @@ ZERO exclusions; diff 11/1271/406 + drift 50; lint 1990/0/0; cargo
 binaries; IRD 0-div ×5; SD 72 EXACT; fuzz 2×2000 seeds
 298001/298002 (one find bisected PRE-EXISTING → xf_fz_298001_1216 +
 rebank 50, seed re-run clean). Map: probes_pending/staged_del/
-MAP.md. Authoring cycle lint untouched (queue item 4, FOUR
-refreshes). Pushed through 4cb325d; local unpushed: f13be11 +
-handoff + D-293..298. NEXT: queue item 4 (authoring sugar) — the
-sole named open slab; Bryan's call._
+MAP.md. **D-299 (Bryan: "do queue item 4"): the authoring layer
+catches up with the certified surface — all FOUR recorded refreshes
+resolved.** Computed RHS args author (`then_insert(T, n=c.n*2+1)`,
+`then_modify(c, n=c.n+1)`); D-291 LHS whole-slot arithmetic authors
+(own fields + bindings + literals; drl.rs fences = single authority;
+nested exprs always parenthesize, so the D-281 precedence defect is
+unreachable from authored rules); the D-289 SalExpr lint skip is
+removed (unguarded computed counter REJECTS, guarded runs); the
+cycle lint is KEPT with the post-lift posture recorded (orphaning
+contract, not the stratification wall; raw-DRL escape named).
+Bindings-only: pytest 229→**241**, demo True; FEATURES 167
+refreshed. Queue item 4 CLOSES — the recorded-refresh ledger is
+EMPTY. Pushed through 4cb325d; local unpushed: f13be11 + handoff +
+D-293..299. NEXT: no named open slab — standing ledger only
+(crates.io TP config, collect-order latents, xf_fz_* triage, derive
+v2, oracle-bump re-adjudications)._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16132,3 +16144,74 @@ cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7); fresh fuzz 2×2000: seed
 byte-identical) → xf_fz_298001_1216 quarantined + rebank 49→50, seed
 re-run CLEAN (1 xfail hit); seed 298002 CLEAN. NEXT: queue item 4
 (authoring sugar, four refreshes) — the D-076/perf ledger is clear.
+
+## D-299 — QUEUE ITEM 4 LANDS: the authoring layer catches up with the certified surface — computed RHS args, D-291 LHS whole-slot arithmetic, the D-289 SalExpr skip removed, and the cycle lint KEPT with its post-lift posture recorded (2026-07-17)
+
+Bryan: "do queue item 4." The four recorded refreshes, resolved:
+
+(1) THE STALE `_rhs_arg` WALL → SUGAR. The wall ("RHS arithmetic is
+outside the certified subset" — false since D-283/D-288) is GONE:
+`then_insert(T, n=c.n * 2 + 1)` and `then_modify(c, n=c.n + 1)` render
+the certified computed-args forms. SalExpr generalizes into THE
+arithmetic AST node (nesting, `+ - * / %`, unary minus, floats;
+comparisons build constraints); each certified surface validates its
+own grammar AT THE POINT OF USE — salience keeps the closed
+`term op term` (+ - *, int literals + numeric bindings) via
+_check_salience_expr, with the old messages (the "MATCHED pattern"
+guidance and "term op term" fences now fire at set_salience/Rule(),
+not at expression build). Class-field terms in RHS args get steering
+to MATCHED fields; AccResult arithmetic stays fenced.
+
+(2) THE D-289 SKIP REMOVED. Computed setter args flow through
+_lint_self_feeding_modify like literals: the three-valued eval reads a
+SalExpr write as statically UNKNOWN, so guarded computed writes stay
+silent (and RUN — the bounded counter fires exactly its guard's count)
+while the classic UNGUARDED computed counter (`modify setN($n+1)`, no
+exit constraint) is proven still-matching and rejects with the
+re-triggers-itself diagnostic. Exactly the shape the old skip note
+predicted would become this lint's case.
+
+(3) LHS WHOLE-SLOT ARITHMETIC (D-291 agree subset). Class-field
+arithmetic now BUILDS (FieldRef gains `+ - * / %`/neg — the old
+_no_class_arith rejection retires; its guidance text lives on at the
+salience site) and comparisons produce _ArithConstraint: whole-slot
+`aexpr cmp aexpr` over own-class fields, earlier patterns' bindings
+(`ArithT.k > p.k + 1` → `k > $b0_0 + 1`), and numeric literals.
+Boundary mirrors, all loud: no composition into &&/||/! (whole-slot is
+the certified grammar), no cross-class fields (steering to bindings),
+no when_any branches, numeric i64/f64 fields only (decimals stay
+walled per D-098). THE AUTHORITY DECISION: drl.rs's D-291 fences stay
+the SINGLE authority on the admissible division/comparand cells —
+authoring emits the slot and a fenced cell fails the session build
+with the engine's own steering (test: `k / 2 + 1 == 4` bubbles the
+engine fence). Nested sub-expressions ALWAYS render parenthesized, so
+the D-281 bare-precedence oracle defect (banked xfail pair) is
+UNREACHABLE from authored rules — authored DRL stays differentially
+clean by construction.
+
+(4) THE CYCLE LINT'S FATE: KEPT. _lint_logical_cycles was never the
+D-284 stratification wall — its rationale is the certified
+ungrounded-orphaning contract (support-counting TMS: orphaned cycles
+are permanent on BOTH engines), which the lift did not touch. Post
+D-296 the guarded shapes are certified-RUNNABLE, so the lint's posture
+is now the self-feeding-modify posture, recorded in its docstring:
+certified-runnable is exactly why authoring refuses to write the
+silent footgun; raw DRL keeps Drools-faithful behavior for deliberate
+use (the multi-type message now says so). The satisfiability-bounded
+self-loop exemption composes with the new sugar: computed self-loop
+inserts read as UNKNOWN → silent, so fix_k6-style bounded fixpoints
+author cleanly; the type-level multi-type arm stays over-approximate
+BY CHOICE (no value-flow reasoning; two-type bounded fixpoints remain
+authoring-blocked, raw DRL available).
+
+Receipts (bindings-only slab — no engine/harness/scenario changes, no
+byte surface): pytest 229 → **241** (12 net new: RHS golden + guided
+class-field steering, LHS golden ×2 with ENGINE ROUND-TRIPS — the
+int-division agree cell fires 2/4 facts, the binding comparand joins —
+nested parens golden, group/cross-class/when_any/non-numeric/string
+fences, the engine-fence bubble, unguarded-computed-rejects +
+guarded-computed-runs-to-3-fires); demo True; FEATURES row 167
+refreshed (also fixes the stale bench_slow reference from D-298).
+Test transforms: the two wall tests became the sugar's positive tests;
+the build-time nesting fence moved to the salience site with the same
+message. Queue item 4 CLOSES — the recorded-refresh ledger is empty.

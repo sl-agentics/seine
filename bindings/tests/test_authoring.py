@@ -118,10 +118,22 @@ def test_lambda_salience_fenced():
 
 
 def test_nested_salience_arithmetic_fenced():
+    # nested arithmetic now BUILDS (RHS args / LHS constraints take it,
+    # D-299); the closed salience grammar rejects it at the point of use
     r = Rule("L")
     p = r.when(Person)
+    e = (p.age + 1) * 2
     with pytest.raises(CompileError, match="term op term"):
-        _ = (p.age + 1) * 2
+        r.set_salience(e)
+
+
+def test_salience_div_and_float_fenced():
+    r = Rule("L")
+    p = r.when(Person)
+    with pytest.raises(CompileError, match=r"term op term"):
+        r.set_salience(p.age / 2)
+    with pytest.raises(CompileError, match="int literals or numeric bindings"):
+        r.set_salience(p.age + 1.5)
 
 
 def test_collect_join_constraint_fenced_d041():
@@ -373,27 +385,37 @@ def test_dynamic_salience_stays_silent():
 
 # --- RHS arithmetic wall (round 11) -----------------------------------
 
-def test_rhs_arithmetic_walled_with_authoring_message():
-    # modify($c){ setN($c.getN()+1) } is standard Drools but outside the
-    # certified subset — the wall must be the authoring diagnostic, not
-    # the leaked internal "unsupported literal type SalExpr"
+def test_rhs_computed_args_golden():
+    # D-299: the D-283/D-288-certified computed args are authorable.
+    # Nested sub-expressions render PARENTHESIZED (the D-281 oracle
+    # bare-precedence defect stays unreachable from authored rules).
     @seine_rs.fact
     class Ctr:
         n: int
 
-    for build in ("modify", "insert"):
-        r = seine_rs.Rule("inc")
-        c = r.when(Ctr)
-        if build == "modify":
-            r.then_modify(c, n=c.n + 1)
-        else:
-            r.then_insert(Ctr, n=c.n + 1)
-        with pytest.raises(CompileError, match="RHS arithmetic") as ei:
-            seine_rs.compile_rules([r])
-        msg = str(ei.value)
-        assert "SalExpr" not in msg          # no internal type names
-        assert "set_salience" in msg         # says where expressions ARE ok
-        assert "accumulate" in msg or "acc_sum" in msg  # offers the idiom
+    r = seine_rs.Rule("inc")
+    c = r.when(Ctr, Ctr.n < 3)
+    r.then_insert(Ctr, n=c.n * 2 + 1)
+    drl = r.to_drl()
+    assert "insert(new Ctr(($b0_0 * 2) + 1));" in drl
+
+    r2 = seine_rs.Rule("bump")
+    c2 = r2.when(Ctr, Ctr.n < 3)
+    r2.then_modify(c2, n=c2.n + 1)
+    assert "setN($b0_0 + 1)" in r2.to_drl()
+
+
+def test_rhs_class_field_arith_guided():
+    @seine_rs.fact
+    class Ctr8:
+        n: int
+
+    r = seine_rs.Rule("inc8")
+    r.when(Ctr8)
+    with pytest.raises(CompileError, match="MATCHED fields") as ei:
+        r.then_insert(Ctr8, n=Ctr8.n + 1)
+        r.to_drl()
+    assert "SalExpr" not in str(ei.value)  # no internal type names
 
 
 def test_salience_arithmetic_still_compiles():
@@ -404,6 +426,80 @@ def test_salience_arithmetic_still_compiles():
     c = r.when(Ctr2)
     r.set_salience(c.n + 1)
     assert "salience" in seine_rs.compile_rules([r])
+
+
+# --- LHS whole-slot arithmetic (D-291 agree subset, D-299 sugar) -------
+
+@fact
+class ArithT:
+    k: int
+    j: float
+
+
+def test_lhs_arith_golden_and_fires():
+    # own-field division against an int literal comparand — the D-291
+    # int-int agree cell; k/2 == 3 admits k in {6, 7} (Java int division)
+    r = Rule("DEq3")
+    r.when(ArithT, ArithT.k / 2 == 3)
+    drl = r.to_drl()
+    assert "ArithT(k / 2 == 3)" in drl
+    res = seine_rs.run(r, {ArithT: {"k": [5, 6, 7, 8], "j": [0.0] * 4}})
+    assert res.fired == 2
+
+
+def test_lhs_arith_binding_comparand_golden():
+    # the BindArith probe shape: T(k > $a + 1) across two patterns
+    r = Rule("BindArith")
+    p = r.when(ArithT)
+    r.when(ArithT, ArithT.k > p.k + 1)
+    drl = r.to_drl()
+    assert "ArithT(k > $b0_0 + 1)" in drl
+    res = seine_rs.run(r, {ArithT: {"k": [1, 3], "j": [0.0, 0.0]}})
+    assert res.fired == 1  # k=3 > k=1 + 1
+
+
+def test_lhs_arith_nested_parenthesized():
+    r = Rule("Nest")
+    r.when(ArithT, (ArithT.k + 1) * 2 > 6)
+    assert "ArithT((k + 1) * 2 > 6)" in r.to_drl()
+
+
+def test_lhs_arith_group_composition_fenced():
+    with pytest.raises(CompileError, match="whole-slot"):
+        (ArithT.k + 1 > 2) & (ArithT.k == 3)
+
+
+def test_lhs_arith_cross_class_field_fenced():
+    r = Rule("X")
+    with pytest.raises(CompileError, match="OWN fields"):
+        r.when(ArithT, Person.age + 1 > 3)
+
+
+def test_lhs_arith_when_any_fenced():
+    r = Rule("WA")
+    r.when(Person)
+    with pytest.raises(CompileError, match="not certified"):
+        r.when_any((ArithT, ArithT.k + 1 > 3), (Person, Person.age > 1))
+
+
+def test_lhs_arith_nonnumeric_field_fenced():
+    with pytest.raises(CompileError, match="numeric i64/f64"):
+        _ = Person.name + 1
+
+
+def test_lhs_arith_string_comparand_fenced():
+    with pytest.raises(CompileError, match="numeric"):
+        _ = ArithT.k + 1 == "seven"
+
+
+def test_lhs_arith_engine_fence_bubbles():
+    # the drl.rs D-291 fences stay the single authority: an int-int
+    # division composed into surrounding arithmetic is a fenced cell
+    # and must fail the session build loudly, from the engine
+    r = Rule("Fenced")
+    r.when(ArithT, ArithT.k / 2 + 1 == 4)
+    with pytest.raises(Exception, match="div"):
+        seine_rs.run(r, {ArithT: {"k": [6], "j": [0.0]}})
 
 
 # --- string ops on nullable String (round 12) --------------------------
@@ -749,10 +845,10 @@ def test_self_feeding_modify_undecidable_silent():
     assert "rule" in seine_rs.compile_rules([r])
 
 
-def test_self_feeding_modify_arith_wall_speaks_first():
-    # c.n + 1 is not renderable from authoring yet: the arithmetic wall
-    # message must win. When authoring computed args land, this shape
-    # becomes the self-feed lint's case (see the lint's skip note).
+def test_self_feeding_modify_computed_unguarded_rejected():
+    # D-299 (the D-289 skip removed): the classic unguarded computed
+    # counter — modify setN($n + 1) with no exit constraint — is the
+    # self-feed lint's case now that computed args render.
     @fact
     class SFC9:
         n: int
@@ -760,9 +856,23 @@ def test_self_feeding_modify_arith_wall_speaks_first():
     r = Rule("inc9")
     c = r.when(SFC9)
     r.then_modify(c, n=c.n + 1)
-    with pytest.raises(CompileError, match="RHS arithmetic") as ei:
+    with pytest.raises(CompileError, match="re-triggers itself"):
         seine_rs.compile_rules([r])
-    assert "re-triggers itself" not in str(ei.value)
+
+
+def test_self_feeding_modify_computed_guarded_silent():
+    # a guarded computed write is statically UNKNOWN: silent, and the
+    # engine runs the bounded loop (guard n < 3 terminates it)
+    @fact
+    class SFC10:
+        n: int
+
+    r = Rule("inc10")
+    c = r.when(SFC10, SFC10.n < 3)
+    r.then_modify(c, n=c.n + 1)
+    assert "setN($b0_0 + 1)" in seine_rs.compile_rules([r])
+    res = seine_rs.run(r, {SFC10: {"n": [0]}})
+    assert res.fired == 3
 
 
 # --- Tier B exposure (round 22): group_by / collect_list/set / when_any

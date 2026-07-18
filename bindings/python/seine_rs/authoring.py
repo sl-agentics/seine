@@ -208,6 +208,9 @@ class FieldRef:
                 "field must be declared Optional to be nullable)"
             )
         _reject_callable(other, f"{self.owner.__name__}.{self.name} {op}")
+        if isinstance(other, SalExpr):
+            # D-291 whole-slot arithmetic: `T.k > p.x + 1`
+            return _ArithConstraint(self, op, other)
         if isinstance(other, BoundField):
             return _Constraint(self, op, other)
         if isinstance(other, FieldRef):
@@ -266,14 +269,53 @@ class FieldRef:
     def not_in(self, *items):
         return _Constraint(self, "not in", list(items))
 
-    def _no_class_arith(self, *_a, **_k):
-        raise CompileError(
-            f"{self.owner.__name__}.{self.name}: salience expressions use fields "
-            "of a MATCHED pattern (the object returned by rule.when(...)), "
-            "not the class"
-        )
+    # -- arithmetic -> SalExpr (D-291 LHS whole-slot constraints use
+    # class fields for the pattern's OWN fields; salience rejects class
+    # fields at its point of use)
+    def _arith(self, op: str, other, reflected=False):
+        if self.subset_type not in ("i64", "f64"):
+            raise CompileError(
+                f"arithmetic requires numeric i64/f64 fields, {self.name} is {self.subset_type}"
+            )
+        a, b = (other, self) if reflected else (self, other)
+        return SalExpr(a, op, b)
 
-    __add__ = __radd__ = __sub__ = __rsub__ = __mul__ = __rmul__ = _no_class_arith
+    def __add__(self, other):
+        return self._arith("+", other)
+
+    def __radd__(self, other):
+        return self._arith("+", other, reflected=True)
+
+    def __sub__(self, other):
+        return self._arith("-", other)
+
+    def __rsub__(self, other):
+        return self._arith("-", other, reflected=True)
+
+    def __mul__(self, other):
+        return self._arith("*", other)
+
+    def __rmul__(self, other):
+        return self._arith("*", other, reflected=True)
+
+    def __truediv__(self, other):
+        return self._arith("/", other)
+
+    def __rtruediv__(self, other):
+        return self._arith("/", other, reflected=True)
+
+    def __mod__(self, other):
+        return self._arith("%", other)
+
+    def __rmod__(self, other):
+        return self._arith("%", other, reflected=True)
+
+    def __neg__(self):
+        if self.subset_type not in ("i64", "f64"):
+            raise CompileError(
+                f"arithmetic requires numeric i64/f64 fields, {self.name} is {self.subset_type}"
+            )
+        return SalExpr(self, "neg")
 
     def __hash__(self):
         return hash((self.owner, self.name))
@@ -393,8 +435,9 @@ def fact(cls: type = None, *, event: "Event | None" = None) -> type:
 
 class BoundField:
     """A field of a MATCHED pattern (`p.age` where `p = r.when(Person)`),
-    usable in later constraints, RHS args, accumulate args and salience
-    expressions. Compiles to a `$binding : field` declaration."""
+    usable in later constraints, RHS args, accumulate args, arithmetic
+    expressions and salience. Compiles to a `$binding : field`
+    declaration."""
 
     __bool__ = _ambiguous_bool("field expression")
     __and__ = __rand__ = __or__ = __ror__ = _precedence_trap("field expression")
@@ -404,21 +447,15 @@ class BoundField:
         self.name = name
         self.subset_type = subset_type
 
-    # salience / arithmetic (closed grammar: single binary op)
+    # arithmetic -> SalExpr; each certified surface (salience, RHS args,
+    # LHS constraints) validates its own grammar at the point of use
     def _arith(self, op: str, other, reflected=False):
         if self.subset_type not in ("i64", "f64"):
-            raise CompileError(f"salience arithmetic requires numeric fields, {self.name} is {self.subset_type}")
-        if isinstance(other, BoundField):
-            if other.subset_type not in ("i64", "f64"):
-                raise CompileError(f"salience arithmetic requires numeric fields, {other.name} is {other.subset_type}")
-            a, b = (other, self) if reflected else (self, other)
-            return SalExpr(a, op, b)
-        if isinstance(other, int) and not isinstance(other, bool):
-            a, b = (other, self) if reflected else (self, other)
-            return SalExpr(a, op, b)
-        raise CompileError(
-            f"salience terms are int literals or numeric bindings, got {type(other).__name__}"
-        )
+            raise CompileError(
+                f"arithmetic requires numeric i64/f64 fields, {self.name} is {self.subset_type}"
+            )
+        a, b = (other, self) if reflected else (self, other)
+        return SalExpr(a, op, b)
 
     def __add__(self, other):
         return self._arith("+", other)
@@ -438,6 +475,25 @@ class BoundField:
     def __rmul__(self, other):
         return self._arith("*", other, reflected=True)
 
+    def __truediv__(self, other):
+        return self._arith("/", other)
+
+    def __rtruediv__(self, other):
+        return self._arith("/", other, reflected=True)
+
+    def __mod__(self, other):
+        return self._arith("%", other)
+
+    def __rmod__(self, other):
+        return self._arith("%", other, reflected=True)
+
+    def __neg__(self):
+        if self.subset_type not in ("i64", "f64"):
+            raise CompileError(
+                f"arithmetic requires numeric i64/f64 fields, {self.name} is {self.subset_type}"
+            )
+        return SalExpr(self, "neg")
+
     def __hash__(self):
         return hash((id(self.pattern), self.name))
 
@@ -446,28 +502,157 @@ class BoundField:
 
 
 class SalExpr:
-    """A salience expression: term or term-op-term, closed grammar."""
+    """An arithmetic expression node — a term or `expr op expr` — over
+    bound fields, class fields, and numeric literals. ONE node type
+    serves three certified surfaces, each validating its own grammar at
+    the point of use:
+    - RHS action args (D-283/D-288): full nesting, `+ - * / %`, unary
+      minus, over bindings and numeric literals;
+    - LHS whole-slot constraints (D-291 agree subset): own-class
+      fields, earlier bindings, numeric literals — the engine's compile
+      fences stay the single authority on the admissible division/
+      comparand cells;
+    - salience (the closed certified grammar): a single `term op term`
+      (+ - *) over int literals and numeric bindings — checked where
+      salience is set (_check_salience_expr).
+    Nested sub-expressions always render PARENTHESIZED, so the oracle's
+    bare mixed-precedence eval throw (D-281 — a Drools defect the
+    engine does not copy) is unreachable from authored rules."""
 
-    __bool__ = _ambiguous_bool("salience expression")
+    __bool__ = _ambiguous_bool("arithmetic expression")
+    __hash__ = object.__hash__
 
     def __init__(self, a, op: Optional[str] = None, b=None):
-        for t in (a, b):
-            if t is not None and not isinstance(t, (BoundField, int)):
-                raise CompileError("salience terms are int literals or numeric bindings")
-        if isinstance(a, SalExpr) or isinstance(b, SalExpr):
+        terms = (a,) if op == "neg" else (a, b)
+        for t in terms:
+            if isinstance(t, bool) or not isinstance(
+                t, (SalExpr, BoundField, FieldRef, int, float)
+            ):
+                raise CompileError(
+                    "arithmetic terms are numeric literals, bound fields, or "
+                    f"class fields — got {type(t).__name__}"
+                )
+        self.a, self.op, self.b = a, op, b
+
+    def _arith(self, op, other, reflected=False):
+        a, b = (other, self) if reflected else (self, other)
+        return SalExpr(a, op, b)
+
+    def __add__(self, other):
+        return self._arith("+", other)
+
+    def __radd__(self, other):
+        return self._arith("+", other, reflected=True)
+
+    def __sub__(self, other):
+        return self._arith("-", other)
+
+    def __rsub__(self, other):
+        return self._arith("-", other, reflected=True)
+
+    def __mul__(self, other):
+        return self._arith("*", other)
+
+    def __rmul__(self, other):
+        return self._arith("*", other, reflected=True)
+
+    def __truediv__(self, other):
+        return self._arith("/", other)
+
+    def __rtruediv__(self, other):
+        return self._arith("/", other, reflected=True)
+
+    def __mod__(self, other):
+        return self._arith("%", other)
+
+    def __rmod__(self, other):
+        return self._arith("%", other, reflected=True)
+
+    def __neg__(self):
+        return SalExpr(self, "neg")
+
+    # comparisons -> whole-slot arithmetic constraint (D-291)
+    def _cmp(self, op: str, other):
+        return _ArithConstraint(self, op, other)
+
+    def __eq__(self, other):  # type: ignore[override]
+        return self._cmp("==", other)
+
+    def __ne__(self, other):  # type: ignore[override]
+        return self._cmp("!=", other)
+
+    def __lt__(self, other):
+        return self._cmp("<", other)
+
+    def __le__(self, other):
+        return self._cmp("<=", other)
+
+    def __gt__(self, other):
+        return self._cmp(">", other)
+
+    def __ge__(self, other):
+        return self._cmp(">=", other)
+
+
+def _aexpr_terms(x):
+    """Yield the leaf terms (BoundField / FieldRef / literals) of an
+    arithmetic expression tree."""
+    if isinstance(x, SalExpr):
+        yield from _aexpr_terms(x.a)
+        if x.op != "neg":
+            yield from _aexpr_terms(x.b)
+    else:
+        yield x
+
+
+def _render_aexpr(x, rule, use: str, top: bool = False) -> str:
+    """Render an arithmetic expression side. Nested sub-expressions are
+    ALWAYS parenthesized — this keeps the D-281 bare-precedence oracle
+    defect unreachable from authored rules."""
+    if isinstance(x, SalExpr):
+        if x.op == "neg":
+            s = f"-{_render_aexpr(x.a, rule, use)}"
+        else:
+            s = f"{_render_aexpr(x.a, rule, use)} {x.op} {_render_aexpr(x.b, rule, use)}"
+        return s if top else f"({s})"
+    if isinstance(x, BoundField):
+        return rule._binding_for(x, use)
+    if isinstance(x, FieldRef):
+        return x.name
+    return _lit(x)
+
+
+def _check_salience_expr(e: "SalExpr") -> None:
+    """Salience keeps the closed certified grammar: ONE `term op term`
+    (+ - *) over int literals and numeric bindings. Arithmetic built for
+    RHS args / LHS constraints is wider; the boundary is enforced here,
+    at the point of use."""
+    if e.op == "neg" or e.op not in ("+", "-", "*"):
+        raise CompileError(
+            "salience expressions are a single `term op term` (+, -, *) in "
+            "the certified grammar — this expression does not compile there"
+        )
+    for t in (e.a, e.b):
+        if isinstance(t, SalExpr):
             raise CompileError(
                 "salience expressions are a single `term op term` in the certified "
                 "grammar — nested arithmetic does not compile"
             )
-        self.a, self.op, self.b = a, op, b
-
-    def _arith(self, *_a, **_k):
-        raise CompileError(
-            "salience expressions are a single `term op term` in the certified "
-            "grammar — nested arithmetic does not compile"
-        )
-
-    __add__ = __sub__ = __mul__ = _arith
+        if isinstance(t, AccResult):
+            raise CompileError(
+                "accumulate results in salience expressions are not certified "
+                "against the oracle"
+            )
+        if isinstance(t, FieldRef):
+            raise CompileError(
+                f"{t.owner.__name__}.{t.name}: salience expressions use fields "
+                "of a MATCHED pattern (the object returned by rule.when(...)), "
+                "not the class"
+            )
+        if isinstance(t, bool) or isinstance(t, float):
+            raise CompileError(
+                f"salience terms are int literals or numeric bindings, got {type(t).__name__}"
+            )
 
 
 class AccResult(BoundField):
@@ -678,6 +863,52 @@ class _Group:
         return f"({inner})"
 
 
+class _ArithConstraint:
+    """A WHOLE-SLOT arithmetic constraint (D-291 agree subset):
+    `aexpr cmp aexpr` over the pattern's own class fields, earlier
+    patterns' bindings, and numeric literals. Whole-slot is the
+    certified grammar's boundary: no composition into `&&`/`||`/`!`
+    groups, mirrored here with a loud fence. The engine's compile
+    fences (drl.rs, D-291) remain the single authority on the
+    admissible division/comparand cells — authoring emits the slot and
+    a fenced cell fails the session build with the engine's own
+    steering message."""
+
+    __bool__ = _ambiguous_bool("arithmetic constraint")
+
+    def __init__(self, lhs, op: str, rhs):
+        for side in (lhs, rhs):
+            if isinstance(side, bool) or not isinstance(
+                side, (SalExpr, FieldRef, BoundField, int, float)
+            ):
+                raise CompileError(
+                    "arithmetic constraints compare numeric expressions — "
+                    "terms are class fields, bound fields, and numeric "
+                    f"literals, got {type(side).__name__}"
+                )
+        self.lhs, self.op, self.rhs = lhs, op, rhs
+
+    def _no_group(self, *_a, **_k):
+        raise CompileError(
+            "arithmetic constraints are whole-slot in the certified grammar "
+            "(D-291) — they do not compose into &&/||/! groups. Pass "
+            "separate constraints to when(...) for AND; split the rule "
+            "for OR."
+        )
+
+    __or__ = __and__ = __invert__ = _no_group
+
+    def terms(self):
+        yield from _aexpr_terms(self.lhs)
+        yield from _aexpr_terms(self.rhs)
+
+    def render(self, rule: "Rule") -> str:
+        use = "an arithmetic constraint"
+        left = _render_aexpr(self.lhs, rule, use, top=True)
+        right = _render_aexpr(self.rhs, rule, use, top=True)
+        return f"{left} {self.op} {right}"
+
+
 class _Pattern:
     def __init__(self, rule: "Rule", index: int, cls: type, constraints, ce: str,
                  agg: Optional[_Agg] = None):
@@ -858,6 +1089,8 @@ class Rule:
                 "`term op term` expression over bindings — Python callables "
                 "cannot run in the match loop"
             )
+        if isinstance(salience, SalExpr):
+            _check_salience_expr(salience)
         if agenda_group is not None and (
             not isinstance(agenda_group, str) or not agenda_group
             or any(c in agenda_group for c in '"\n')
@@ -886,6 +1119,8 @@ class Rule:
                 "salience must be an int, a numeric bound field, or a single "
                 "`term op term` expression over bindings"
             )
+        if isinstance(salience, SalExpr):
+            _check_salience_expr(salience)
         self.salience = salience
         return self
 
@@ -948,6 +1183,20 @@ class Rule:
                         "(inline groups cannot join across patterns)"
                     )
                 continue
+            if isinstance(c, _ArithConstraint):
+                # D-291 whole-slot: own-class fields, earlier bindings,
+                # numeric literals
+                for t in c.terms():
+                    if isinstance(t, FieldRef) and t.owner is not cls:
+                        raise CompileError(
+                            f"arithmetic constraint references "
+                            f"{t.owner.__name__}.{t.name} inside a "
+                            f"{cls.__name__} pattern — class fields are the "
+                            "pattern's OWN fields; reference other patterns "
+                            "through their bindings (p.field from "
+                            "rule.when(...))"
+                        )
+                continue
             if not isinstance(c, _Constraint):
                 raise CompileError(
                     f"{cls.__name__}: constraints are field expressions "
@@ -989,6 +1238,12 @@ class Rule:
                         "temporal constraints inside when_any branches are "
                         "not certified — lift the temporal join to its own "
                         "pattern"
+                    )
+                if isinstance(c, _ArithConstraint):
+                    raise CompileError(
+                        "arithmetic constraints inside when_any branches are "
+                        "not certified — lift the arithmetic pattern to its "
+                        "own rule"
                     )
                 if not isinstance(c, (_Constraint, _Group)):
                     raise CompileError(
@@ -1205,14 +1460,18 @@ class Rule:
         if isinstance(v, BoundField):
             return self._binding_for(v, "an RHS argument")
         if isinstance(v, SalExpr):
-            raise CompileError(
-                "RHS arithmetic is outside the certified subset: an action "
-                "value must be a bound field or a literal — `field op term` "
-                "expressions are certified only in set_salience. To keep a "
-                "running value, accumulate it on the LHS (acc_sum/acc_count) "
-                "and insert the result, or read the fact and update() the "
-                "new value from Python between fires."
-            )
+            # D-283/D-288: computed insert and setter args are certified
+            # subset — full nesting, + - * / %, over bindings and numeric
+            # literals. Terms must be MATCHED fields, not class fields.
+            for t in _aexpr_terms(v):
+                if isinstance(t, FieldRef):
+                    raise CompileError(
+                        f"{t.owner.__name__}.{t.name} in an RHS argument: "
+                        "computed action values reference MATCHED fields "
+                        "(the object returned by rule.when(...)) and numeric "
+                        "literals, not the class"
+                    )
+            return _render_aexpr(v, self, "an RHS argument", top=True)
         return _lit(v)
 
     def to_drl(self) -> str:
@@ -1268,6 +1527,10 @@ class Rule:
             for c in p.constraints:
                 if isinstance(c, _Constraint) and isinstance(c.rhs, BoundField):
                     self._binding_for(c.rhs, "a join constraint")
+                elif isinstance(c, _ArithConstraint):
+                    for t in c.terms():
+                        if isinstance(t, BoundField):
+                            self._binding_for(t, "an arithmetic constraint")
 
         lhs_lines: list[str] = []
         # temporal anchors demand their fact vars BEFORE any LHS line
@@ -1499,6 +1762,16 @@ def _lint_logical_cycles(rules) -> None:
     has no external handle left to break it. Certified against the
     oracle: Drools orphans such cycles identically.
 
+    D-296/D-299 posture: cyclic computed insertLogical is IN-SUBSET —
+    the engine runs these shapes byte-identical to the oracle (the
+    D-284 stratification wall is lifted; this lint was never that
+    wall). What this lint guards is the certified SEMANTIC SURPRISE:
+    truth maintenance is support-counting, not well-founded, so the
+    orphaned cycle is permanent on both engines. Same posture as the
+    self-feeding-modify check below — certified-runnable is exactly
+    why the authoring layer refuses to write it silently; raw DRL
+    keeps the Drools-faithful behavior for deliberate use.
+
     Same altitude as the unstratified-negation lint: type-level, no
     constraint or fixpoint reasoning. Edges come only from patterns
     whose match genuinely supports the firing — plain `when` and
@@ -1595,7 +1868,9 @@ def _lint_logical_cycles(rules) -> None:
                     f"DAG-shaped: derive each fact from the grounded tier "
                     f"directly, or compute the mutually-recursive closure "
                     f"outside the session and insert the results as stated "
-                    f"facts."
+                    f"facts. (Both engines RUN this shape identically — raw "
+                    f"DRL keeps the Drools-faithful behavior if the orphaned "
+                    f"cycle is what you want.)"
                 )
             if state.get(nxt) is None:
                 state[nxt] = 1
@@ -1641,6 +1916,10 @@ def _lint_self_feeding_modify(rules) -> None:
         elif isinstance(c, _Constraint) and isinstance(c.field, FieldRef) \
                 and c.field.owner is cls:
             out.add(c.field.name)
+        elif isinstance(c, _ArithConstraint):
+            for t in c.terms():
+                if isinstance(t, FieldRef) and t.owner is cls:
+                    out.add(t.name)
 
     for r in rules:
         if r.no_loop:
@@ -1658,18 +1937,19 @@ def _lint_self_feeding_modify(rules) -> None:
                     rhs_walk(ch, p, out)
             elif isinstance(c, _Constraint):
                 note(c.rhs, p, out)
+            elif isinstance(c, _ArithConstraint):
+                for t in c.terms():
+                    note(t, p, out)
         for a in r.actions:
             if a.kind != "modify":
                 continue
             p = a.kw["pattern"]
             vals = a.kw["values"]
-            if any(isinstance(v, SalExpr) for v in vals.values()):
-                # Not renderable today — to_drl's arithmetic wall already
-                # rejected this rule with the steering message. WHEN
-                # AUTHORING COMPUTED ARGS LAND (the boundary-redraw
-                # roadmap's authoring-sugar item), remove this skip so
-                # computed self-feeds are judged right here.
-                continue
+            # D-299: computed setter args (SalExpr values) are judged
+            # here like literals — the three-valued eval reads them as
+            # statically UNKNOWN, so a guarded computed write stays
+            # silent while the unguarded computed self-feed (the classic
+            # counter loop) is PROVEN still-matching and rejects.
             written = set(vals)
             listened = set()
             for c in p.constraints:
