@@ -205,6 +205,47 @@ bottom of this file.
 | `degrees(3.141592653589793)` | 180.0 |
 | `radians(180.0)` | 3.141592653589793 |
 
+## N. Regex predicates (D-301): regexp_matches = SEARCH, regexp_full_match
+
+| expression | result |
+|---|---|
+| `regexp_matches('abc123', '[0-9]+')` | True |
+| `regexp_full_match('abc123', '[0-9]+')` | False |
+| `regexp_full_match('123', '[0-9]+')` | True |
+| `regexp_matches('abc', '^b')` | False |
+| `regexp_matches('abc', '^a')` | True |
+| `regexp_matches('abc', 'c$')` | True |
+| `regexp_matches('1234', '^[0-9]{3}$')` | False |
+| `regexp_full_match('123', '[0-9]{3}')` | True |
+| `regexp_matches('xxabcdxx', '(ab|cd)+')` | True |
+| `regexp_matches('aBc', '(?i)abc')` | True |
+| `regexp_full_match('ABC', '(?i)abc')` | True |
+| `regexp_matches('a.c', 'a\.c')` | True |
+| `regexp_matches('abc', 'a\.c')` | False |
+| `regexp_matches('a3', '\d')` | True |
+| `regexp_matches('٣', '\d')` | False |
+| `regexp_matches('foo bar', '\bbar\b')` | True |
+| `regexp_matches('éx', '.')` | True |
+| `regexp_matches(chr(10), '.')` | False |
+| `regexp_matches('abc', '')` | True |
+| `regexp_full_match('', '')` | True |
+| `regexp_matches('a', '(')` | ERROR: Invalid Input Error: missing ): ( |
+| `regexp_matches('a', '(?=a)')` | ERROR: Invalid Input Error: invalid perl operator: (?= |
+| `regexp_matches('aa', '(a)\1')` | ERROR: Invalid Input Error: invalid escape sequence: \1 |
+| `regexp_matches(NULL, 'a')` | NULL |
+| `regexp_matches('É', '(?i)é')` | True |
+| `regexp_matches('straße', '(?i)STRASSE')` | False |
+
+regexp_matches is RE2 SEARCH (unanchored unless the pattern anchors);
+regexp_full_match anchors the whole string. Invalid patterns —
+unbalanced groups, lookaround, backreferences — ERROR in RE2 and in
+the Rust regex crate alike (error-vs-error parity; the kernels
+reject at expression BUILD). NULL string -> NULL. The kernel surface
+takes the pattern as a LITERAL only, so DuckDB's NULL-pattern row is
+unrepresentable. (?i) unicode simple folding agrees three ways (É,
+no ß->ss expansion). The one dialect split is perl classes over
+non-ASCII: ledger row 12.
+
 ## The divergence ledger (deliberate, on the record)
 
 | # | surface | oracle (measured above) | the kernels | why |
@@ -220,4 +261,5 @@ bottom of this file.
 | 9 | `if_else`/`fill_null` branch evaluation | SQL CASE/COALESCE is LAZY (an error in the untaken branch never surfaces) | EAGER — both branches evaluate vectorized over every row; a row-level error (div0, overflow, domain — e.g. fill_null(x, y.asin())) in either branch errors the batch even where that branch is not selected | dataframe-engine reality (polars behaves the same); the battery accepts oracle-ok/kernel-error for exactly this class. Guard operands before applying partial functions. |
 | 10 | float comparison semantics | NaN equals itself and sorts LAST (NaN = NaN TRUE, NaN < inf FALSE — section K); ±0 equal | STANDARD IEEE via native f64 operators: NaN != everything including itself; -0.0 == 0.0 | the arrow cmp kernels use totalOrder (-0.0 != 0.0, NaN == NaN) and are NOT used for f64 — the kernels hand-roll IEEE, matching the oracle at ±0 and the published contract at NaN. The battery's IEEE side-battery (NaN/inf column data) excludes the oracle. |
 | 11 | `i64::MIN % -1` | error (section C: overflow in division) | 0 (arrow's rem; mathematically exact — the overflow is an artifact of computing the quotient) | the fuzz pools carry no i64::MIN so the class is pinned by vector, not fuzzed. |
+| 12 | regex perl classes / `\b` over non-ASCII | RE2: `\d` `\w` `\s` `\b` are ASCII (`regexp_matches('٣', '\d')` = False, §N) | Unicode-aware (the Rust regex crate's default; the pure-python reference's `re` agrees with the kernels) | pinning the kernels to RE2's ASCII classes would take per-pattern rewriting for a distinction only visible on non-ASCII data; the battery constrains regex vectors + fuzz to ASCII, where all three dialects agree, and kernel + reference extend coherently to Unicode together. |
 

@@ -487,6 +487,35 @@ class Expr:
         """Suffix test (null in -> null out)."""
         return self._method("str_ends_with", "str_ends_with", suffix)
 
+    def regexp_matches(self, pattern):
+        """Regex SEARCH test (unanchored, like DuckDB ``regexp_matches``;
+        null in -> null out). ``pattern`` is a str literal, validated and
+        compiled at expression build — an invalid pattern (unbalanced
+        group, lookaround, backreference) is a loud error there, exactly
+        where the oracle errors too. Dialect: RE2-family (Rust regex
+        crate); perl classes (``\\d`` ``\\w`` ``\\s`` ``\\b``) are
+        Unicode-aware where RE2's are ASCII — see the regex ledger row in
+        docs/derive-expr-pins.md; agreement is total on ASCII data."""
+        return self._regex("regexp_matches", pattern)
+
+    def regexp_full_match(self, pattern):
+        """Whole-string regex test (DuckDB ``regexp_full_match``): the
+        pattern must consume the entire string. Dialect notes as in
+        :meth:`regexp_matches`."""
+        return self._regex("regexp_full_match", pattern)
+
+    def _regex(self, op, pattern):
+        if not isinstance(pattern, str):
+            raise TypeError(
+                f".{op}() takes a literal str pattern, got {type(pattern).__name__} "
+                "— the pattern compiles once at expression build, so it cannot "
+                "be a column"
+            )
+        return Expr(
+            {"op": op, "args": [self._tree], "pattern": pattern},
+            f"{self._repr}.{op}({pattern!r})",
+        )
+
     def str_len(self):
         """String length in BYTES (utf8), as i64."""
         return self._unary("str_len", f"{self._repr}.str_len()")

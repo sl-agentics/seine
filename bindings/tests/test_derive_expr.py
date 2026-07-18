@@ -17,6 +17,7 @@ Session feed test.
 """
 import math
 import random
+import re
 
 import pytest
 
@@ -120,7 +121,7 @@ def _ref_type(tree, schema):
         return "i64"
     if op in ("eq", "neq", "lt", "lt_eq", "gt", "gt_eq", "and", "or", "not",
               "is_null", "is_not_null", "str_contains", "str_starts_with",
-              "str_ends_with"):
+              "str_ends_with", "regexp_matches", "regexp_full_match"):
         return "bool"
     if op in ("neg", "abs", "floor", "ceil", "round"):
         return a[0]
@@ -349,6 +350,15 @@ def ref_eval_row(tree, row, schema):
         if op == "str_starts_with":
             return a.startswith(b)
         return a.endswith(b)
+    if op in ("regexp_matches", "regexp_full_match"):
+        # pins §N: search vs whole-string; the pattern is a build-time
+        # literal (kernel-validated), so RefEval sees only valid ones
+        a = sub(0)
+        if a is None:
+            return None
+        if op == "regexp_matches":
+            return re.search(tree["pattern"], a) is not None
+        return re.fullmatch(tree["pattern"], a) is not None
     raise AssertionError(op)
 
 
@@ -465,6 +475,9 @@ def to_sql(tree):
         return f"starts_with({a[0]}, {a[1]})"
     if op == "str_ends_with":
         return f"ends_with({a[0]}, {a[1]})"
+    if op in ("regexp_matches", "regexp_full_match"):
+        pat = tree["pattern"].replace("'", "''")
+        return f"{op}({a[0]}, '{pat}')"
     raise AssertionError(op)
 
 
@@ -810,14 +823,48 @@ def test_determinism_byte_identical():
 # The three-way differential battery
 # ---------------------------------------------------------------------
 
+def _error_kinds(tree, schema):
+    """Count the DISTINCT error kinds a tree could raise (conservative:
+    over-counting only skips the secondary kind-equality assert, never
+    the strict does-it-error one)."""
+    kinds = set()
+
+    def walk(t):
+        if not isinstance(t, dict):
+            return
+        for x in t.get("args", []):
+            walk(x)
+        op = t.get("op")
+        if op in ("add", "sub", "mul", "neg", "abs"):
+            kinds.add("overflow")  # i64 checked arithmetic
+        elif op in ("floordiv", "rem"):
+            kinds.update(("div0", "overflow"))
+        elif op == "cast" and t.get("to") == "i64":
+            kinds.add("cast")
+        elif op in ("sqrt", "asin", "acos", "ln", "log10", "sin", "cos", "tan"):
+            kinds.add("domain")
+        elif op == "pow":
+            kinds.update(("overflow", "domain"))
+
+    walk(tree)
+    return len(kinds)
+
+
 def _three_way(expr, data, schema, duckdb):
     tree = expr.to_tree()
     rust = rust_eval(expr, data)
     ref = ref_eval(tree, data, schema)
-    # Rust vs reference: strict (values or error kind)
+    # Rust vs reference: strict on WHETHER it errors; the error KIND is
+    # asserted only when the tree carries a single potential kind — with
+    # two error sources (e.g. a div0 subtree and a sqrt-domain subtree)
+    # the vectorized kernels surface the first erroring NODE while the
+    # row-wise reference surfaces the first erroring ROW, and first-error
+    # SELECTION is not certified surface (the ledger-9 eager-evaluation
+    # family; flushed when the regex axis reshuffled the fuzz draws).
     if rust[0] == "err" or ref[0] == "err":
         assert rust[0] == "err" and ref[0] == "err", (repr(expr), rust, ref)
-        assert rust[1] == ref[1], (repr(expr), rust, ref)
+        if _error_kinds(tree, schema) <= 1:
+            assert rust[1] == ref[1], (repr(expr), rust, ref)
     else:
         assert _values_match(rust[1], ref[1]), (repr(expr), rust[1], ref[1])
     # vs the oracle
@@ -835,6 +882,44 @@ def _three_way(expr, data, schema, duckdb):
     # pools cannot produce it (no i64::MIN literal/column value)
 
 
+def test_regex_vector_pins():
+    # pins §N verbatim (ASCII rows agree three ways; the pins doc holds
+    # the measured DuckDB values)
+    cases = [  # (string, pattern, full, expected)
+        ("abc123", "[0-9]+", False, True), ("abc123", "[0-9]+", True, False),
+        ("123", "[0-9]+", True, True), ("abc", "^b", False, False),
+        ("abc", "^a", False, True), ("abc", "c$", False, True),
+        ("1234", "^[0-9]{3}$", False, False), ("123", "[0-9]{3}", True, True),
+        ("xxabcdxx", "(ab|cd)+", False, True), ("aBc", "(?i)abc", False, True),
+        ("ABC", "(?i)abc", True, True), ("a.c", "a\\.c", False, True),
+        ("abc", "a\\.c", False, False), ("a3", "\\d", False, True),
+        ("foo bar", "\\bbar\\b", False, True), ("éx", ".", False, True),
+        ("\n", ".", False, False), ("abc", "", False, True), ("", "", True, True),
+        ("É", "(?i)é", False, True), ("straße", "(?i)STRASSE", False, False),
+    ]
+    for s, p, full, want in cases:
+        e = col("a").regexp_full_match(p) if full else col("a").regexp_matches(p)
+        assert _one(e, a=s) == want, (s, p, full)
+        ref = re.fullmatch(p, s) if full else re.search(p, s)
+        assert (ref is not None) == want, ("reference disagrees", s, p)
+    # ledger row 12, pinned POSITIVE: kernel + reference are
+    # Unicode-aware on perl classes where RE2/DuckDB is ASCII
+    # (regexp_matches('٣', '\d') measured False in §N)
+    assert _one(col("a").regexp_matches("\\d"), a="٣") is True
+    assert re.search("\\d", "٣") is not None
+    # null in -> null out (§H doctrine; DATA's sa[2] is None)
+    st, vals = rust_eval(col("sa").regexp_matches("x"), DATA)
+    assert st == "ok" and vals[2] is None
+    # invalid patterns are LOUD at expression build — the same three
+    # classes the oracle errors on (§N)
+    for bad in ["(", "(?=a)", "(a)\\1"]:
+        with pytest.raises(Exception, match="invalid regex pattern"):
+            _one(col("a").regexp_matches(bad), a="x")
+    # the pattern is a literal, never a column
+    with pytest.raises(TypeError, match="literal str pattern"):
+        col("a").regexp_matches(col("b"))
+
+
 def test_curated_three_way():
     duckdb = _duck()
     exprs = [
@@ -849,6 +934,10 @@ def test_curated_three_way():
         col("ia").is_null(), col("sa").str_len(), col("sa").concat(col("sb")),
         col("sa").str_contains(col("sb")), col("sa").str_starts_with("a"),
         col("sa").str_ends_with("c"),
+        col("sa").regexp_matches("[ab]"), col("sa").regexp_matches("^a"),
+        col("sa").regexp_full_match("[a-z]*"), col("sa").regexp_matches("b\\|"),
+        col("sa").regexp_matches(""), col("sa").regexp_full_match("(a|b)+c?"),
+        col("sb").regexp_matches("(?i)B.*"), col("sa").regexp_matches("[0-9]{1,2}"),
         if_else(col("ba"), col("ia"), col("ib")),
         if_else(col("fa") > 0, lit("pos"), lit("nonpos")),
         (col("ia") + col("ib")) * col("inn") - 3,
@@ -874,6 +963,10 @@ STR_COLS = ["sa", "sb"]
 INT_LITS = [-3, -1, 0, 1, 2, 7]
 F64_LITS = [-1.5, 0.0, 0.5, 2.5]
 STR_LITS = ["", "a", "b|", "z"]
+# regex fuzz pool: ASCII core where all three dialects agree (no perl
+# classes — those are vector-pinned; ledger row 12 covers the split)
+REGEX_POOL = ["a", "^a", "c$", "[ab]", "[^ab]", "[a-c]x?", "a.c", "(a|b)+",
+              "b\\|", "[0-9]{1,2}", "a*", "(?i)ab", "x|y|z", ""]
 
 
 def gen_expr(rng, want, depth):
@@ -956,7 +1049,7 @@ def gen_expr(rng, want, depth):
         return num().cast("f64")
     if want == "bool":
         k = rng.choice(["cmp_num", "cmp_str", "cmp_bool", "and", "or", "not",
-                        "is_null", "str_pred", "if_else", "fill_null"])
+                        "is_null", "str_pred", "regex", "if_else", "fill_null"])
         if k == "cmp_num":
             sym = rng.choice(["__lt__", "__le__", "__gt__", "__ge__", "__eq__", "__ne__"])
             return getattr(num(), sym)(num())
@@ -978,6 +1071,11 @@ def gen_expr(rng, want, depth):
         if k == "str_pred":
             m = rng.choice(["str_contains", "str_starts_with", "str_ends_with"])
             return getattr(g("utf8"), m)(g("utf8"))
+        if k == "regex":
+            # ASCII core only: perl classes (\d \b ...) are vector-pinned —
+            # over non-ASCII data they are the ledger-12 dialect split
+            m = rng.choice(["regexp_matches", "regexp_full_match"])
+            return getattr(g("utf8"), m)(rng.choice(REGEX_POOL))
         if k == "if_else":
             return if_else(g("bool"), g("bool"), g("bool"))
         return g("bool").fill_null(g("bool"))

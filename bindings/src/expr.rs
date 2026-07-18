@@ -149,13 +149,22 @@ enum Ex {
     IfElse(Box<Ex>, Box<Ex>, Box<Ex>),
     Cast(Box<Ex>, Ty),
     Round(Box<Ex>, i32),
+    /// D-301: regex predicates. The pattern is a LITERAL, validated and
+    /// compiled once at expression build (invalid pattern = loud build
+    /// error, matching the oracle's error). `full` selects
+    /// regexp_full_match (the pattern wrapped `^(?:pat)$`) vs the
+    /// regexp_matches SEARCH form. Dialect: the Rust regex crate —
+    /// RE2-family (no backrefs/lookaround, both loud build errors like
+    /// the oracle's); perl classes are Unicode-aware where RE2's are
+    /// ASCII (pins §N + ledger row 12; agreement is total on ASCII).
+    Regex(Box<Ex>, String, bool),
 }
 
 const SUPPORTED_OPS: &str = "col, lit, add, sub, mul, div, floordiv, rem, pow, neg, \
      eq, neq, lt, lt_eq, gt, gt_eq, and, or, not, is_null, is_not_null, fill_null, \
      if_else, abs, floor, ceil, round, sqrt, sin, cos, tan, asin, acos, atan, \
      ln, log10, exp, degrees, radians, cast, str_contains, str_starts_with, \
-     str_ends_with, str_len, concat";
+     str_ends_with, str_len, concat, regexp_matches, regexp_full_match";
 
 // ---------------------------------------------------------------------
 // Parse: nested Python dicts -> Ex
@@ -291,6 +300,29 @@ fn parse(label: &str, obj: &Bound<'_, PyAny>, depth: usize) -> PyResult<Ex> {
             };
             Ok(Ex::Round(Box::new(sub(&a[0])?), nd))
         }
+        "regexp_matches" | "regexp_full_match" => {
+            let a = args(1)?;
+            let pat: String = d
+                .get_item("pattern")?
+                .ok_or_else(|| {
+                    PyValueError::new_err(format!("{label}: regex node missing 'pattern'"))
+                })?
+                .extract()
+                .map_err(|_| {
+                    PyTypeError::new_err(format!(
+                        "{label}: regex 'pattern' must be a string literal"
+                    ))
+                })?;
+            // compile-validate at BUILD (loud, like the oracle's invalid-
+            // pattern error) — eval re-compiles the validated source once
+            if let Err(e) = regex::Regex::new(&pat) {
+                return Err(PyValueError::new_err(format!(
+                    "{label}: invalid regex pattern {pat:?}: {}",
+                    e.to_string().lines().last().unwrap_or("parse error")
+                )));
+            }
+            Ok(Ex::Regex(Box::new(sub(&a[0])?), pat, op == "regexp_full_match"))
+        }
         other => Err(PyValueError::new_err(format!(
             "{label}: unknown expression op {other:?} (supported: {SUPPORTED_OPS})"
         ))),
@@ -404,6 +436,11 @@ fn render(ex: &Ex) -> String {
         }
         Ex::Cast(a, t) => format!("{}.cast({:?})", render(a), t.name()),
         Ex::Round(a, n) => format!("{}.round({n})", render(a)),
+        Ex::Regex(a, p, full) => format!(
+            "{}.{}({p:?})",
+            render(a),
+            if *full { "regexp_full_match" } else { "regexp_matches" }
+        ),
     }
 }
 
@@ -618,6 +655,17 @@ fn check(label: &str, ex: &Ex, ctx: &Ctx) -> PyResult<Ty> {
                 )));
             }
             Ok(t)
+        }
+        Ex::Regex(a, _, full) => {
+            let t = check(label, a, ctx)?;
+            if t != Ty::Utf8 {
+                return Err(type_err(label, ex, format!(
+                    ".{}() needs a utf8 operand, got {}",
+                    if *full { "regexp_full_match" } else { "regexp_matches" },
+                    t.name()
+                )));
+            }
+            Ok(Ty::Bool)
         }
     }
 }
@@ -1277,6 +1325,32 @@ fn eval(label: &str, ex: &Ex, ctx: &Ctx) -> PyResult<Ev> {
                 round_shortest_decimal(x, nd)
             });
             Ok(map_un(av, Arc::new(out)))
+        }
+        Ex::Regex(a, pat, full) => {
+            let av = eval(label, a, ctx)?;
+            // source validated at parse; the full form wraps ^(?:pat)$
+            // (RE2 FullMatch / re.fullmatch equivalence, pins §N)
+            let re = if *full {
+                regex::Regex::new(&format!("^(?:{pat})$"))
+            } else {
+                regex::Regex::new(pat)
+            }
+            .map_err(|e| {
+                PyValueError::new_err(format!("{label}: invalid regex pattern {pat:?}: {e}"))
+            })?;
+            let arr = str_arr(&av);
+            let n = if av.is_scalar() { 1 } else { ctx.nrows };
+            let mut b = BooleanBuilder::new();
+            for i in 0..n {
+                let ii = if av.is_scalar() { 0 } else { i };
+                if arr.is_null(ii) {
+                    b.append_null(); // null in -> null out (§H doctrine)
+                } else {
+                    b.append_value(re.is_match(arr.value(ii)));
+                }
+            }
+            let out = Arc::new(b.finish()) as ArrayRef;
+            Ok(map_un(av, out))
         }
     }
 }

@@ -117,8 +117,14 @@ orders = filter(orders, col("total").is_not_null())
 - Certification is three-way: the Rust kernels vs an independent
   pure-python reference vs DuckDB SQL over the same data — fixed-seed
   typed fuzzing plus vector pins (bindings/tests/test_derive_expr.py).
-- Out of v1, on the ledger: regex (dialect pinning campaign), casts
-  to/from utf8/bool, typed null literals, decimal columns, aggregates.
+- Regex predicates LANDED (v2 slab 1): `regexp_matches` (search) and
+  `regexp_full_match`, dialect-pinned against the oracle (pins §N) —
+  the pattern is a build-time literal compiled once, invalid patterns
+  error loudly exactly where the oracle errors; the one dialect split
+  (perl classes over non-ASCII: Rust regex + the reference are
+  Unicode-aware, RE2 is ASCII) is pins ledger row 12.
+- Still out, on the ledger: casts to/from utf8/bool, typed null
+  literals, decimal columns, aggregates (accumulate owns them).
 
 ## Declaration shape (prototype-level, Python)
 

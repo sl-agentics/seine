@@ -65,9 +65,21 @@ IS DEAD; no filed-open perf item remains.** D-300 receipts: byte
 gate 2151/2151 IDENTICAL vs v0.4.33 (full sweep); diff 11/1272/406
 + drift 50; lint 1991/0/0; cargo 54; pytest 241; demo True;
 model_ird 31/31; agenda_open ×15; IRD 0-div ×5; SD 72 EXACT; fuzz
-2×2000 seeds 300001/300002 CLEAN. NEXT: no named open slab —
-standing ledger only (crates.io TP config, collect-order latents,
-xf_fz_* triage, derive v2, oracle-bump re-adjudications)._
+2×2000 seeds 300001/300002 CLEAN. **D-301 (Bryan: "let's take the
+crate from arrow"): derive v2 slab 1 — regex predicates land**
+(regexp_matches/regexp_full_match; regex crate DIRECT, not
+arrow-string; pins §N + ledger row 12 = the one dialect split, perl
+classes over non-ASCII; pattern = build-time literal, loud invalid
+errors matching the oracle's classes; pytest 242; wheel 9.9→12.25MB,
+feature-trim measured zero and reverted). ⚠ procedure fix banked:
+maturin develop runs FROM bindings/ (root invocation fails on the
+workspace manifest and a piped tail masked it — D-298/D-300 pytest
+receipts ran on the older tracked .so; harmless, both slabs
+byte-identical, but the .so is now current and rides D-301). NEXT:
+no named open slab — standing ledger only (crates.io TP config,
+collect-order latents, xf_fz_* triage, derive v2 remainder:
+utf8/bool casts + typed nulls + decimals, oracle-bump
+re-adjudications)._
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16284,3 +16296,79 @@ sweep, zero exclusions); make diff 11/1272/406 + drift 50 identical; lint 1991/0
 54; pytest 241; demo True; model_ird 31/31; agenda_open ×15 identical
 both binaries; IRD 0-div ×5 (7001/7002/6001/6003/9001); SD census 72 EXACT cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7); fresh
 fuzz 2×2000 seeds 300001/300002 both CLEAN (0 divergences, 0 xfail draws).
+
+## D-301 — DERIVE V2 SLAB 1: regex predicates land in the expression layer, dialect-pinned (Bryan: "let's take the crate from arrow") — regexp_matches / regexp_full_match, three-way certified; the fuzz reshuffle flushes a battery-harness latent (2026-07-17)
+
+Bryan's call on the v2 ledger's regex item: ride the regex crate (the
+machinery arrow-string linked) rather than extending the rx.rs subset
+matcher — taken as a DIRECT dependency of seine-py, NOT via
+arrow-string (whose like-module would relink the whole family the
+D-279 diet removed).
+
+PINS FIRST (the doctrine): tools/pin_derive_expr.py grows §N — 26
+measured DuckDB 1.5.4 (RE2) vectors: search-vs-full anchoring,
+classes, {n,m}, alternation, escaped metachars, (?i) unicode simple
+folding (É matches; no ß→ss expansion), dot-vs-newline, empty
+pattern, invalid patterns (unbalanced group / lookaround /
+backreference all ERROR — the Rust regex crate errors on the same
+three classes: error-vs-error parity at expression BUILD), NULL
+propagation. THE ONE DIALECT SPLIT, ledger row 12: perl classes and
+\b are ASCII in RE2, Unicode-aware in the Rust regex crate — and the
+pure-python reference's `re` agrees with the KERNELS, so kernel +
+reference extend coherently to Unicode together; the battery
+constrains regex fuzz + vectors to ASCII where all three dialects
+agree. regexp_matches('٣','\d') = False(oracle) / True(kernels+ref),
+pinned POSITIVELY in the vector test.
+
+THE SURFACE: col().regexp_matches(pat) / col().regexp_full_match(pat)
+— the pattern is a str LITERAL (never a column), validated and
+compiled at expression build (loud error naming the reason:
+"unclosed group", "look-around", "backreference"); full match wraps
+^(?:pat)$ (RE2 FullMatch / re.fullmatch equivalence); null in → null
+out; Ex::Regex node in expr.rs with build-time validation + a
+per-eval single compile. No D-numbers in public docstrings (the
+tracker-id test holds); dialect notes cite the pins doc.
+
+BATTERY: +1 vector-pin test (the §N table verbatim, kernel AND
+reference asserted; the ledger-12 divergence pinned positively; the
+three invalid-pattern walls; the literal-only wall; null row), the
+curated three-way grows 8 regex exprs, the typed fuzzer grows a
+"regex" bool arm over an ASCII-core pattern pool (14 patterns:
+classes, negation, ranges, {n,m}, alternation, (?i), escaped |, empty
+— all three dialects agree on the pool by construction). pytest 242.
+THE FLUSH: adding the axis reshuffled every fuzz seed's draws and two
+seeds built expressions with TWO distinct error sources (a div0
+subtree + a domain subtree) — the vectorized kernels surface the
+first erroring NODE, the row-wise reference the first erroring ROW.
+Both sides error LOUDLY (that assert stays strict); the error-KIND
+equality assert is now scoped to single-kind trees (_error_kinds,
+conservative over-count) — first-error SELECTION was never certified
+surface, the pools just never built a two-kind expression before
+(ledger-9 eager-evaluation family, noted at the assert).
+
+SIZE RECEIPT: wheel .so 9.9MB → 12.25MB (+2.3MB — regex_automata's
+engine, as budgeted when the arrow-string route was rejected).
+Feature-trimming regex (default-features off, unicode-case +
+unicode-perl only) measured ZERO gain (12.255 vs 12.251MB — the
+weight is the engine, not the tables) and was REVERTED: no size win
+does not buy losing \p{...}.
+
+⚠ PROCEDURE FIX, on the record: `maturin develop` must run FROM
+bindings/ — invoked at the repo root it fails on the workspace
+manifest ("missing field package"), and a piped `tail` masked that
+failure in the D-298/D-300 batteries, so their "pytest" receipts ran
+against the older TRACKED .so (bindings/python/seine_rs/_native —
+the editable install's import target, refreshed only by a successful
+develop). Semantically harmless — both slabs were byte-identical
+perf work certified by the harness-binary gates — but the receipts'
+"bindings on the new engine" claim was weak. The tracked .so is now
+current (it carries D-298/D-300/D-301 and rides this commit, the
+mid-cycle norm since D-293).
+
+Receipts: pytest **242** (all three regex additions + the full prior
+battery); demo True; pins doc regenerated PURELY ADDITIVELY (42
+lines: §N + ledger row 12; A–M byte-stable); docs/derivation-plane.md
+v2 ledger row moved to LANDED; engine/harness/scenarios untouched (no
+byte surface — bindings-only slab). Remaining v2 ledger: utf8/bool
+casts, typed nulls, decimal columns, aggregates (accumulate owns
+them).

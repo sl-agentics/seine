@@ -228,6 +228,45 @@ table("M. The calculator row (D-285): trig / logs / exp", [
     "degrees(3.141592653589793)", "radians(180.0)",
 ])
 
+table("N. Regex predicates (D-301): regexp_matches = SEARCH, regexp_full_match", [
+    "regexp_matches('abc123', '[0-9]+')",
+    "regexp_full_match('abc123', '[0-9]+')",
+    "regexp_full_match('123', '[0-9]+')",
+    "regexp_matches('abc', '^b')",
+    "regexp_matches('abc', '^a')",
+    "regexp_matches('abc', 'c$')",
+    "regexp_matches('1234', '^[0-9]{3}$')",
+    "regexp_full_match('123', '[0-9]{3}')",
+    "regexp_matches('xxabcdxx', '(ab|cd)+')",
+    "regexp_matches('aBc', '(?i)abc')",
+    "regexp_full_match('ABC', '(?i)abc')",
+    "regexp_matches('a.c', 'a\\.c')",
+    "regexp_matches('abc', 'a\\.c')",
+    "regexp_matches('a3', '\\d')",
+    "regexp_matches('٣', '\\d')",
+    "regexp_matches('foo bar', '\\bbar\\b')",
+    "regexp_matches('éx', '.')",
+    "regexp_matches(chr(10), '.')",
+    "regexp_matches('abc', '')",
+    "regexp_full_match('', '')",
+    "regexp_matches('a', '(')",
+    "regexp_matches('a', '(?=a)')",
+    "regexp_matches('aa', '(a)\\1')",
+    "regexp_matches(NULL, 'a')",
+    "regexp_matches('É', '(?i)é')",
+    "regexp_matches('straße', '(?i)STRASSE')",
+])
+emit("regexp_matches is RE2 SEARCH (unanchored unless the pattern anchors);")
+emit("regexp_full_match anchors the whole string. Invalid patterns —")
+emit("unbalanced groups, lookaround, backreferences — ERROR in RE2 and in")
+emit("the Rust regex crate alike (error-vs-error parity; the kernels")
+emit("reject at expression BUILD). NULL string -> NULL. The kernel surface")
+emit("takes the pattern as a LITERAL only, so DuckDB's NULL-pattern row is")
+emit("unrepresentable. (?i) unicode simple folding agrees three ways (É,")
+emit("no ß->ss expansion). The one dialect split is perl classes over")
+emit("non-ASCII: ledger row 12.")
+emit()
+
 emit("## The divergence ledger (deliberate, on the record)")
 emit()
 emit("| # | surface | oracle (measured above) | the kernels | why |")
@@ -243,6 +282,7 @@ emit("| 8 | `round(x, n)` algorithm | rounds the SHORTEST-DECIMAL representation
 emit("| 9 | `if_else`/`fill_null` branch evaluation | SQL CASE/COALESCE is LAZY (an error in the untaken branch never surfaces) | EAGER — both branches evaluate vectorized over every row; a row-level error (div0, overflow, domain — e.g. fill_null(x, y.asin())) in either branch errors the batch even where that branch is not selected | dataframe-engine reality (polars behaves the same); the battery accepts oracle-ok/kernel-error for exactly this class. Guard operands before applying partial functions. |")
 emit("| 10 | float comparison semantics | NaN equals itself and sorts LAST (NaN = NaN TRUE, NaN < inf FALSE — section K); ±0 equal | STANDARD IEEE via native f64 operators: NaN != everything including itself; -0.0 == 0.0 | the arrow cmp kernels use totalOrder (-0.0 != 0.0, NaN == NaN) and are NOT used for f64 — the kernels hand-roll IEEE, matching the oracle at ±0 and the published contract at NaN. The battery's IEEE side-battery (NaN/inf column data) excludes the oracle. |")
 emit("| 11 | `i64::MIN % -1` | error (section C: overflow in division) | 0 (arrow's rem; mathematically exact — the overflow is an artifact of computing the quotient) | the fuzz pools carry no i64::MIN so the class is pinned by vector, not fuzzed. |")
+emit("| 12 | regex perl classes / `\\b` over non-ASCII | RE2: `\\d` `\\w` `\\s` `\\b` are ASCII (`regexp_matches('٣', '\\d')` = False, §N) | Unicode-aware (the Rust regex crate's default; the pure-python reference's `re` agrees with the kernels) | pinning the kernels to RE2's ASCII classes would take per-pattern rewriting for a distinction only visible on non-ASCII data; the battery constrains regex vectors + fuzz to ASCII, where all three dialects agree, and kernel + reference extend coherently to Unicode together. |")
 emit()
 
 print("\n".join(out))
