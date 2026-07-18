@@ -139,8 +139,20 @@ correctness — fork 0 is the in-subset workaround). Bonus pins:
 accumulate-result binding in a later pattern = in-subset (first
 cell); DRL decimal sum = exact BigDecimal both sides; ACC_DECIMAL
 render label aligned "Decimal"→"BigDecimal" (byte gate 2193/2194,
-the one divergence = that label in dk_dec_acc, verified
-line-diff).**_
+the one divergence = that label in dk_dec_acc, verified line-diff).
+**D-312 (Bryan: "do the port"): SELF-MAINTAINING LOGICAL AGGREGATES
+LAND — insertLogical from accumulate/groupby/collect is in-subset;
+the lift was MECHANISM-FREE (stable act key: the acc result fact
+updates in place, so the refire-supersede epilogue IS the Drools
+maintenance; walls were prophylactic, the D-296 pattern). Scope
+measured first (ja7 gbce + ja8 collect edge cells, predictions HIT);
+?query + windowed-acc justifiers stay walled (pinned,
+tms_queryable::d312). All 8 cells graduated on first contact (corpus
+11/1292/406 incl. ja9_dec_swap, the exact-decimal money chain); the
+D-304 audit dead-end CLOSES (why() walks Release → Bal); sum_ docs
+lead with then_insert_logical(Bal, v=total); pytest 255. Byte gate
+2198/2198 vs 3d79ae7 ZERO divergence. AWAITING PUSH/RELEASE
+directive.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16878,3 +16890,63 @@ cargo all suites green; pytest 254; demo True; model_ird 31/31;
 agenda_open ×15 both binaries + worktree IDENTICAL; IRD 0-div ×5
 (7001/7002/6001/6003/9001); SD census 72 EXACT; fuzz 2×2000 seeds
 311001/311002 CLEAN.
+
+## D-312 — THE PORT (Bryan: "do the port"): self-maintaining logical aggregates land — insertLogical from accumulate/groupby/collect is IN-SUBSET, and the lift is MECHANISM-FREE (2026-07-18)
+
+Scope was measured before code: two edge cells extended the D-311
+grid (predictions registered first, both HIT 3×) — ja7_gbce (the
+groupby CE self-maintains per group: old logical row retracts, other
+groups untouched) and ja8_collect (collect justifiers build and
+value-dedup to ONE logical fact across re-collections). With ja1..ja6
+that makes the measured class: NON-WINDOWED accumulate (inline,
+joined, groupby CE) + collect. ?query and windowed accumulate stay
+unprobed → walled.
+
+WHY NO NEW MACHINERY WAS NEEDED (the mechanism, mapped before the
+edit): eval_acc_node updates the result fact IN PLACE
+(store.set_value — the FactId is stable across value changes), so an
+accumulate rule's act key (ri, Tup) is IDENTICAL across
+re-accumulations. Re-fire therefore hits the D-076 refire-supersede
+prologue/epilogue in execute_rhs: support keys not re-established by
+the new firing are dropped, emptied belief sets retract their
+justified facts — which IS the measured Drools maintenance (old
+logical retracts, new derives, same-value re-fires re-establish and
+dedup). Null-result retracts and left-death unmatches ride
+tms_on_terminal_del (the lazy k>=2 path — acc rules always have a
+network path, so eager breaks correctly skip them). The old wall was
+prophylactic, verbatim the D-296 tier pattern.
+
+THE EDIT: the blanket `acc.is_some() || qce.is_some()` wall
+(engine.rs add_rules) becomes two precise fences — "insertLogical
+from ?query rules ... (D-076/D-312: revalidation over query pulls is
+unprobed)" and "insertLogical from windowed-accumulate rules ...
+(D-312: CEP window maintenance is unprobed)". D-089's group-CE wall
+untouched. Both remaining fences pinned in
+tms_queryable::d312_acc_justifier_walls (plus the in-subset positive
+cell).
+
+CERTIFICATION: all 7 previously-fenced cells PASS engine-vs-oracle
+on FIRST CONTACT with the lift, 3× stable, plus NEW ja9_dec_swap
+(the decimal money shape: logical Bal("50.00") exact, Release
+retracts through the swap) — ALL EIGHT GRADUATED (pr_ja1_build,
+pr_ja2_swap, pr_ja3_chain, pr_ja4_samevalue, pr_ja6_groupby,
+pr_ja7_gbce, pr_ja8_collect, pr_ja9_dec_swap; corpus 11/1292/406
+with D-311's four). THE D-304 AUDIT DEAD-END CLOSES: the aggregate
+is logical, so why() walks Release → Bal → supports; pytest
+test_logical_aggregate_self_maintains pins the full chain (both
+layers justified, swap retracts both, exactly one Bal after). sum_
+docs now lead with the logical-aggregate idiom (then_insert_logical
+(Bal, v=total)) and keep the singleton-modify alternative for
+mutable results; CHANGELOG Unreleased + FEATURES row 74 refreshed.
+The authoring layer needed NOTHING (no mirror fence existed —
+then_insert_logical flows through; pytest 255).
+
+Receipts: byte gate 2198/2198 IDENTICAL vs 3d79ae7 (wt_pre_ja2; the
+only non-compared entries = the 5 graduated fenced cells, the
+expected capability class; ZERO divergence on shared cells); make
+diff 11/1292/406 + drift 50; lint 2046/0/0; cargo green incl. the
+new wall pins; pytest 255; demo True; model_ird 31/31; agenda_open
+×15 both binaries + worktree IDENTICAL; IRD 0-div ×5; SD census 72
+EXACT; fuzz 2×2000 seeds 312001/312002 CLEAN. Follow-on ledger item:
+gen.rs does not yet generate acc-justifier combos (same class as the
+decimal axis item).

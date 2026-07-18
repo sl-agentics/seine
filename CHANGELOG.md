@@ -6,6 +6,16 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Self-maintaining logical aggregates** — `insertLogical` from
+  accumulate, groupby, and collect rules is in-subset (previously a
+  build error): re-accumulation retracts the superseded logical
+  result and derives the new one, downstream logical facts retract
+  through the swap, groups maintain independently, and same-value
+  recomputation dedups. Certified engine-vs-oracle (measured against
+  Drools' own maintenance), exact over decimal sums, and expressible
+  from the rule builder (`then_insert_logical(Bal, v=total)`) — the
+  derived balance and everything under it stays `why()`-auditable.
+  `?query` and windowed-accumulate justifiers remain build errors.
 - **The reversible balance-gate idiom is documented and pinned**: a
   sum inserted as a new fact per recomputation leaves superseded
   results in memory, so logical facts derived from the old value

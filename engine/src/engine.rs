@@ -5143,12 +5143,28 @@ impl Engine {
                         srcs.push(ce);
                     }
                     if logical {
-                        // D-076 walls: justifying-tuple revalidation
-                        // re-runs the LHS match — acc/collect/?query
-                        // conditions are not revalidatable.
-                        if patterns.iter().any(|p| p.acc.is_some() || p.qce.is_some()) {
+                        // D-312 (the D-311 lift): non-windowed accumulate /
+                        // groupby / collect justifiers are IN-SUBSET — the
+                        // result fact is updated in place, so the act key is
+                        // stable across re-accumulations and the refire-
+                        // supersede epilogue + terminal-del teardown are
+                        // exactly the measured Drools maintenance
+                        // (ja1..ja8: old logical retracts on re-accumulation,
+                        // downstream chains retract, same-value dedups,
+                        // per-group independent). Unmeasured shapes keep
+                        // precise walls:
+                        if patterns.iter().any(|p| p.qce.is_some()) {
                             return Err(err(
-                                "insertLogical from accumulate/collect/?query rules is out of subset (D-076)".into(),
+                                "insertLogical from ?query rules is out of subset (D-076/D-312: revalidation over query pulls is unprobed)".into(),
+                            ));
+                        }
+                        if patterns.iter().any(|p| {
+                            p.acc.as_ref().is_some_and(|a| {
+                                a.window_time.is_some() || a.window_len.is_some()
+                            })
+                        }) {
+                            return Err(err(
+                                "insertLogical from windowed-accumulate rules is out of subset (D-312: CEP window maintenance is unprobed)".into(),
                             ));
                         }
                         // D-089 extension (Bryan's ruling): group-CE

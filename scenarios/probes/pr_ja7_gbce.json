@@ -1,0 +1,64 @@
+{
+ "drl": "rule \"balance\"\nwhen\n    groupby( Line($k : k, $a : amount); $k; $t : sum($a) )\nthen\n    insertLogical(new Bal($t));\nend\n",
+ "types": [
+  {
+   "name": "Line",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "amount",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Bal",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Line",
+   "fields": {
+    "k": 1,
+    "amount": 10.0
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "k": 1,
+    "amount": -10.0
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "k": 2,
+    "amount": 3.0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "Line",
+     "fields": {
+      "k": 1,
+      "amount": 50.0
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_ja7_gbce"
+}

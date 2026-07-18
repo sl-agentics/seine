@@ -1,0 +1,89 @@
+{
+ "drl": "rule \"balance\"\nwhen\n    K($k : k)\n    accumulate( Line(k == $k, $a : amount); $t : sum($a) )\nthen\n    insertLogical(new Bal($k, $t));\nend\n",
+ "types": [
+  {
+   "name": "K",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Line",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "amount",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Bal",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "K",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "K",
+   "fields": {
+    "k": 2
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "k": 1,
+    "amount": 10.0
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "k": 1,
+    "amount": -10.0
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "k": 2,
+    "amount": 3.0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "Line",
+     "fields": {
+      "k": 1,
+      "amount": 50.0
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_ja6_groupby"
+}

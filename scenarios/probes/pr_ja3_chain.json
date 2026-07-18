@@ -1,0 +1,59 @@
+{
+ "drl": "rule \"balance\"\nwhen\n    accumulate( Line($a : amount); $t : sum($a) )\nthen\n    insertLogical(new Bal($t));\nend\nrule \"release\"\nwhen\n    Bal(v <= 0.0)\nthen\n    insertLogical(new Release(1));\nend\n",
+ "types": [
+  {
+   "name": "Line",
+   "fields": [
+    {
+     "name": "amount",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Bal",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Release",
+   "fields": [
+    {
+     "name": "r",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Line",
+   "fields": {
+    "amount": 10.0
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "amount": -10.0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "Line",
+     "fields": {
+      "amount": 50.0
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_ja3_chain"
+}

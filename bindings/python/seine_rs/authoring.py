@@ -803,16 +803,22 @@ def sum_(field: FieldRef) -> _Agg:
     leaves every superseded result in memory, and anything derived
     from the old value (a logical Release on a zero balance, say)
     stays justified by the stale fact even after the balance moves.
-    Drools behaves identically — plain insert is plain insert. The
-    reversible idiom keeps ONE result row updated in place behind a
-    not-equal guard::
+    Drools behaves identically — plain insert is plain insert.
+
+    The reversible idiom is the LOGICAL aggregate — let truth
+    maintenance own the result::
 
         total = r.accumulate(Line, agg=sum_(Line.amount))
-        b = r.when(Bal, Bal.v != total)   # guard: also stops the loop
-        r.then_modify(b, v=total)
+        r.then_insert_logical(Bal, v=total)
 
-    then downstream logical facts retract when the update un-matches
-    their rule (seed exactly one ``Bal`` row at session start)."""
+    Re-accumulation retracts the old ``Bal`` and derives the new one;
+    anything logically derived downstream retracts through the swap,
+    and ``Session.why()`` walks the whole chain. Alternative when the
+    result must be a plain (mutable) fact: keep ONE row updated in
+    place behind a not-equal guard (``b = r.when(Bal, Bal.v !=
+    total)`` then ``r.then_modify(b, v=total)``, seeding one ``Bal``
+    at session start) — downstream logical facts retract when the
+    update un-matches their rule."""
     return _Agg("sum", field)
 
 

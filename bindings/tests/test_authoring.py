@@ -533,6 +533,54 @@ def test_singleton_modify_release_reverses():
     assert s.justifications() == []
 
 
+def test_logical_aggregate_self_maintains():
+    # the SELF-MAINTAINING form (pr_ja9_dec_swap): insertLogical from
+    # the accumulate rule itself — re-accumulation retracts the old
+    # logical Bal and derives the new one, and the downstream logical
+    # Release retracts through the swap. No singleton seed, no guard;
+    # the whole chain is auditable (why() walks Release -> Bal).
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @fact
+    class Line:
+        amount: Annotated[D, seine_rs.Decimal(18, 2)]
+
+    @fact
+    class Bal:
+        v: Annotated[D, seine_rs.Decimal(38, 2)]
+
+    @fact
+    class Release:
+        r: int
+
+    bal = Rule("balance")
+    total = bal.accumulate(Line, agg=seine_rs.sum_(Line.amount))
+    bal.then_insert_logical(Bal, v=total)
+    rel = Rule("release")
+    rel.when(Bal, Bal.v <= D("0.00"))
+    rel.then_insert_logical(Release, r=1)
+
+    s = seine_rs.Session(
+        [bal, rel],
+        {Line: {"amount": [D("10.00"), D("-10.00")]},
+         Bal: {"v": []}, Release: {"r": []}},
+    )
+    s.fire()
+    js = {j["type"]: j for j in s.justifications()}
+    assert set(js) == {"Bal", "Release"}, "both layers are logical"
+    assert js["Bal"]["fields"] == {"v": D("0.00")}
+    # the audit chain: Release is supported by a tuple containing Bal
+    assert js["Bal"]["fact"] in s.why(js["Release"]["fact"])["supports"][0]["tuple"]
+
+    s.insert(Line, {"amount": [D("50.00")]})
+    s.fire()
+    assert s.why(js["Release"]["fact"]) is None, "Release retracts through the swap"
+    assert s.why(js["Bal"]["fact"]) is None, "the old Bal(0.00) retracts"
+    js2 = {j["type"]: j for j in s.justifications()}
+    assert set(js2) == {"Bal"} and js2["Bal"]["fields"] == {"v": D("50.00")}
+
+
 def test_string_aggregates_still_walled():
     @fact
     class SFee:

@@ -110,3 +110,43 @@ fn cascade_depth_is_rule_bounded_and_stack_safe() {
     assert!(e.justifications().is_empty(), "one cascade tears down the chain");
     assert!(e.facts().iter().all(|f| !f.type_name.starts_with('L')));
 }
+
+#[test]
+fn d312_acc_justifier_walls() {
+    // The D-312 lift's REMAINING walls, pinned loud: non-windowed
+    // accumulate/groupby/collect justifiers are in-subset (behavior
+    // certified by pr_ja1..ja9); ?query and windowed accumulate stay
+    // compile errors.
+    let mk = || {
+        Engine::new(vec![
+            TypeSchema { name: "L".into(), fields: vec![("a".into(), FieldType::F64)], nullable: 0 },
+            TypeSchema { name: "B".into(), fields: vec![("v".into(), FieldType::F64)], nullable: 0 },
+        ])
+        .unwrap()
+    };
+    let mut ok = mk();
+    ok.add_rules_drl(
+        "rule R when accumulate( L($a : a); $t : sum($a) ) then insertLogical(new B($t)); end",
+    )
+    .expect("the non-windowed accumulate justifier is in-subset (D-312)");
+
+    let mut win = mk();
+    let err = win
+        .add_rules_drl(
+            "rule R when accumulate( L($a : a) over window:length(2); $t : sum($a) ) \
+             then insertLogical(new B($t)); end",
+        )
+        .expect_err("windowed justifiers stay walled")
+        .0;
+    assert!(err.contains("windowed-accumulate"), "{err}");
+
+    let mut q = mk();
+    let err = q
+        .add_rules_drl(
+            "query pos(double $x) L($x;) end\n\
+             rule R when ?pos($x;) then insertLogical(new B($x)); end",
+        )
+        .expect_err("?query justifiers stay walled")
+        .0;
+    assert!(err.contains("?query"), "{err}");
+}

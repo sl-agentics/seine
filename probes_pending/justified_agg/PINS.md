@@ -135,7 +135,48 @@ P4 (incl. the weak re-fire sub-prediction), P6.
 - **ja6_groupby**: per-group independence — key-1 Bal swaps to 50.0,
   key-2 Bal(3.0) untouched; 3 firings (2 initial + 1 for key 1).
 
-### Verdict per the decision table
+### Port-scope edge cells (added at Bryan's "do the port", predictions
+### registered BEFORE running — the lift covers only measured shapes)
+
+- **ja7_gbce** — the groupby CE as justifier:
+  `groupby( Line($k : k, $a : amount); $k; $t : sum($a) )` →
+  insertLogical(new Bal($t)) (the key binding is RHS-unusable in
+  Drools — pr_ga lane). P7: builds; per-group logical rows (Bal(0.0)
+  group 1, Bal(3.0) group 2); epoch +Line(k=1,50) swaps group 1's
+  Bal to 50.0, group 2 untouched — same maintenance as ja2/ja6.
+  CONFIDENCE: medium-high (same accumulate machinery under the CE).
+- **ja8_collect** — `$l : List() from collect( Line(amount > 0.0) )`
+  → insertLogical(new Flag(1)). Collect always matches (empty list
+  included), so no unmatch reversal is observable; the measurable
+  slice is BUILD + same-value dedup across re-collections. P8:
+  builds; exactly ONE Flag before and after the epoch insert; one
+  re-fire per collection change. CONFIDENCE: medium.
+- NOT probed, stays WALLED with precise texts: windowed accumulate
+  justifiers (CEP tier, unprobed) and ?query-CE justifiers.
+
+### THE PORT (D-312, Bryan: "do the port") — measured same-day
+
+Edge-cell scorecard: P7 HIT (groupby CE self-maintains per group,
+3 firings, group 2 untouched), P8 HIT (collect builds, ONE Flag,
+2 firings — value-dedup across re-collections). 3× stable each.
+
+THE LIFT IS MECHANISM-FREE: the accumulate result fact is updated IN
+PLACE (eval_acc_node set_value — same FactId), so the act key
+(ri, Tup) is STABLE across re-accumulations; the D-076
+refire-supersede prologue/epilogue (execute_rhs) already supersedes
+keys not re-established by the re-fire, and null-result/left-death
+unmatches ride tms_on_terminal_del. The wall was prophylactic —
+verbatim the D-296 pattern. Engine change = replacing the blanket
+`acc.is_some() || qce.is_some()` wall with two precise fences
+(?query justifiers; windowed-accumulate justifiers — both unprobed,
+pinned in tms_queryable::d312_acc_justifier_walls).
+
+ALL SEVEN previously-fenced cells + ja9_dec_swap (the decimal money
+shape: logical Bal("50.00"), Release retracts through the swap,
+exact scale) PASS engine-vs-oracle on FIRST CONTACT, 3× stable →
+ALL EIGHT GRADUATED (pr_ja1..pr_ja9, corpus 1292 with D-311's four).
+The D-304 audit dead-end CLOSES: the aggregate is logical, so why()
+walks Release → Bal; builder end-to-end pytest pins the chain.
 
 P0b YES → the safe pattern (then_modify singleton + `v != $t` guard)
 is certified in today's subset: documented + graduated + builder
