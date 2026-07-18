@@ -6,6 +6,14 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Windowed logical aggregates** — `insertLogical` from a windowed
+  accumulate (`over window:time/length`) is in-subset: window
+  eviction retracts the superseded logical result and derives the
+  new one, downstream logical facts retract through the swap, and an
+  emptied window keeps a `sum` matched at its identity — measured
+  against Drools' own maintenance (an evicted event that is still
+  alive in working memory triggers the same swap). Only `?query`
+  justifiers remain a build error.
 - **Decimal ingestion is verbatim** (measured against the oracle): a
   string keeps its own scale — `"1.1"` stays `1.1`, and `"1.005"`
   into a `decimal(10,2)` field is no longer silently rounded to

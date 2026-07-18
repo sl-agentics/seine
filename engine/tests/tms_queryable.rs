@@ -130,15 +130,26 @@ fn d312_acc_justifier_walls() {
     )
     .expect("the non-windowed accumulate justifier is in-subset (D-312)");
 
-    let mut win = mk();
-    let err = win
-        .add_rules_drl(
-            "rule R when accumulate( L($a : a) over window:length(2); $t : sum($a) ) \
-             then insertLogical(new B($t)); end",
-        )
-        .expect_err("windowed justifiers stay walled")
-        .0;
-    assert!(err.contains("windowed-accumulate"), "{err}");
+    // D-316: the windowed justifier is IN-SUBSET (eviction maintenance
+    // measured, pr_jw1..jw5) — the wall pin flips to a positive.
+    let mut win = Engine::new(vec![
+        TypeSchema {
+            name: "L".into(),
+            fields: vec![("ts".into(), FieldType::I64), ("a".into(), FieldType::F64)],
+            nullable: 0,
+        },
+        TypeSchema {
+            name: "B".into(),
+            fields: vec![("v".into(), FieldType::F64)],
+            nullable: 0,
+        },
+    ])
+    .unwrap();
+    win.add_rules_drl(
+        "rule R when accumulate( L($a : a) over window:length(2); $t : sum($a) ) \
+         then insertLogical(new B($t)); end",
+    )
+    .expect("the windowed justifier is in-subset (D-316)");
 
     let mut q = mk();
     let err = q

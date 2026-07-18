@@ -1,0 +1,59 @@
+{
+ "drl": "rule W when accumulate( E0($v : v) over window:time(50ms); $s : sum($v) ) then insertLogical(new B($s)); end\n",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0,
+    "v": 10
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 30,
+    "v": 20
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 90
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "name": "pr_jw_w4_empty"
+}

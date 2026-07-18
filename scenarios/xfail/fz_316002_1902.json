@@ -1,0 +1,185 @@
+{
+  "drl": "rule \"R0\"\nno-loop\nagenda-group \"ga\"\nwhen\n    T1(f2 in (false), f0 in (\"zz\", \"zz\", \"a\"), $b0_0_0 : f2)\nthen\nend\nrule \"R1\"\nwhen\n    accumulate( T1(f1 in (0, 5.5)); $a1_0 : count() )\nthen\n    drools.setFocus(\"ga\");\nend\nrule \"R2\"\nagenda-group \"ga\"\nwhen\n    accumulate( T1($s2_0 : f1); $a2_0 : collectList($s2_0) )\n    T1(f1 != 10, f2 == false)\nthen\nend\nrule \"R3\"\nagenda-group \"ga\"\nwhen\n    ( $p3_0 : T1($b3_0_0 : f2, $b3_0_1 : f2) )\n    or\n    ( $p3_0 : T1($b3_0_0 : f2, $b3_0_1 : f2) )\n    or\n    ( $p3_0 : T1($b3_0_0 : f2, $b3_0_1 : f2) )\nthen\n    delete($p3_0);\nend\nrule \"R4\"\nsalience 6\nwhen\n    T1(f2 != false, $b4_0_0 : f1)\nthen\nend\nquery Q0(boolean $qa0_0, long $qa0_1, long $qa0_2)\n    $qp0_0 : T1(f2 == $qa0_0, f1 == $qa0_1, $qb0_0 : f0)\n    $qp0_1 : T0(f0 == $qa0_1, f0 != 4)\n    $qp0_2 : T1(f1 == $qa0_2, f0 == $qb0_0, f0 <= $qb0_0)\nend\n\nquery Q1(boolean $qa1_0, String $qa1_1, long $qa1_2)\n    ( $qp1_0 : T0(f1 == $qa1_0, f0 >= 4, f1 != false) and $qp1_1 : T1(f0 != \"beta\", f2 != true, $qb1_0 : f1, $qb1_1 : f0) )\n    or\n    ( $qp1_2 : T1(f0 == $qa1_1, f1 == $qa1_2) and $qp1_3 : T0(f1 == $qa1_0) )\nend\n\nrule QR0\nwhen\n    ?Q1(true, \"b\", -1000000007;)\n    ?Q1(true, \"\", 100;)\nthen\n    insert(new QOut(1, 10, 3.5, \"\", false));\nend\n\nrule QR1 salience 4\nwhen\n    T1()\n    ?Q1($qr1_x0, \"alpha\", 100;)\n    ?Q1($qr1_x1, \"alpha\", 3;)\nthen\n    insert(new QOut(2, 100, -1.0, \"a\", true));\nend\n\nrule QR2\nwhen\n    T0($qr2_b0 : f0)\n    ?Q0(false, $qr2_x0, $qr2_x1;)\nthen\n    insert(new QOut(3, -2, $qr2_b0, \"b\", true));\nend\n\n",
+  "epochs": [
+    {
+      "actions": [],
+      "facts": [
+        {
+          "fields": {
+            "f0": 100,
+            "f1": false
+          },
+          "type": "T0"
+        }
+      ],
+      "queries": [
+        {
+          "args": [
+            null,
+            null,
+            null
+          ],
+          "call": "Q0"
+        },
+        {
+          "args": [
+            true,
+            -1,
+            3
+          ],
+          "call": "Q0"
+        },
+        {
+          "args": [
+            true,
+            11,
+            10
+          ],
+          "call": "Q0"
+        },
+        {
+          "args": [
+            null,
+            "ab",
+            6
+          ],
+          "call": "Q1"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": "a",
+        "f1": 0,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": 3,
+        "f2": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "a",
+        "f1": 1,
+        "f2": false
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": 0,
+        "f2": true
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_316002_1902",
+  "queries": [
+    {
+      "args": [
+        null,
+        null,
+        null
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        true,
+        -1,
+        3
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        true,
+        11,
+        10
+      ],
+      "call": "Q0"
+    },
+    {
+      "args": [
+        null,
+        "a",
+        null
+      ],
+      "call": "Q1"
+    },
+    {
+      "args": [
+        null,
+        "ab",
+        6
+      ],
+      "call": "Q1"
+    }
+  ],
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "tag",
+          "type": "i64"
+        },
+        {
+          "name": "i",
+          "type": "i64"
+        },
+        {
+          "name": "d",
+          "type": "f64"
+        },
+        {
+          "name": "s",
+          "type": "String"
+        },
+        {
+          "name": "z",
+          "type": "bool"
+        }
+      ],
+      "name": "QOut"
+    }
+  ]
+}

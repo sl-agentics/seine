@@ -5308,18 +5308,16 @@ impl Engine {
                         // downstream chains retract, same-value dedups,
                         // per-group independent). Unmeasured shapes keep
                         // precise walls:
+                        // D-316 (the second lift at this wall): WINDOWED
+                        // accumulate justifiers are in-subset too — window
+                        // eviction (evicted-but-alive sources, time and
+                        // length, the emptying window) is measured as
+                        // just another result change riding the same
+                        // stable act key + refire-supersede path
+                        // (pr_jw1..jw5). Only ?query stays walled.
                         if patterns.iter().any(|p| p.qce.is_some()) {
                             return Err(err(
                                 "insertLogical from ?query rules is out of subset (D-076/D-312: revalidation over query pulls is unprobed)".into(),
-                            ));
-                        }
-                        if patterns.iter().any(|p| {
-                            p.acc.as_ref().is_some_and(|a| {
-                                a.window_time.is_some() || a.window_len.is_some()
-                            })
-                        }) {
-                            return Err(err(
-                                "insertLogical from windowed-accumulate rules is out of subset (D-312: CEP window maintenance is unprobed)".into(),
                             ));
                         }
                         // D-089 extension (Bryan's ruling): group-CE

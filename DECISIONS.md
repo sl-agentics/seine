@@ -187,8 +187,16 @@ D-313 own-scale flow oracle-diffed. 8 cells graduated (corpus
 pre-existing agenda-order latent, control-variant bisected). PLUS the battery's own find: TMS keys are SCALE-SENSITIVE
 (BigDecimal.equals) — KeyVal normalization removed. Byte gate
 2287/2287 vs f5a934e ZERO divergence (post-fix re-run); diff
-11/1302/414 + drift 55. The filed-pin ledger is EMPTY. AWAITING
-PUSH/RELEASE directive.**_
+11/1302/414 + drift 55. The filed-pin ledger is EMPTY. **D-316
+(probe at "other claude is looking at D-312", lift at "do the
+lift"): the WINDOWED-JUSTIFIER wall falls — eviction maintenance
+measured 5/5 (evicted-but-alive swap, clock-driven swap, emptied
+window keeps sum matched, chain teardown), all five cells PASS
+engine-vs-oracle first contact → pr_jw_* graduated (corpus
+11/1307/414); mechanism-free lift #3 (eviction = another result
+change on the stable act key); only ?query justifiers remain walled.
+Byte gate 2301/2301 vs 88346d8.** AWAITING PUSH/RELEASE
+directive.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -17173,3 +17181,42 @@ re-run; SD census 72 EXACT re-run; fuzz 315001 CLEAN post-fix,
 315002 CLEAN post-rebank. The filed-pin-candidate ledger is EMPTY —
 standing: crates.io TP config (Bryan) + three xfailed order latents
 awaiting a mechanism (two agenda-order, the collect-order family).
+
+## D-316 — THE WINDOWED-JUSTIFIER LIFT (probe round at Bryan's "other claude is looking at D-312"; lift at "do the lift") — the third mechanism-free lift at the same wall (2026-07-18)
+
+THE PROBE ROUND (predictions-first, all five HIT 3×): the D-312
+wall's unprobed trigger was window EVICTION — an event leaves the
+window while STAYING ALIVE in WM (length: pushed out by an
+admission; time: the clock passes ts+N), so no fact death or delete
+propagation is involved. Measured: Drools BUILDS
+insertLogical-from-windowed-accumulate (w1); the length eviction
+SWAPS the logical with the evicted event still alive (w2 — Drools
+keys logical maintenance on the RESULT change, not any death path);
+the time-window swap rides the clock (w3); an EMPTIED window keeps
+sum matched at its identity — single B(0) (w4, the unwindowed
+contract holds under windows); the downstream logical chain retracts
+through the eviction swap (w5).
+
+THE LIFT: the windowed-accumulate fence deletes from the D-312 wall
+pair (only ?query stays); the tms_queryable wall pin flips to a
+positive. ALL FIVE cells PASS engine-vs-oracle ON FIRST CONTACT, 3×
+stable → GRADUATED (pr_jw_w1..w5, corpus 11/1307/414). Mechanism-
+free for the third time: eviction routes through stage_acc_removal →
+unapply → in-place result update → the refire-supersede epilogue —
+the certified ja2 path, with eviction as just another source of
+change to the stable act key. The D-314 windowed average_exact
+authoring fence STAYS (engine-native composition, its own ox/ex
+round if wanted).
+
+Receipts: byte gate **2301/2301 IDENTICAL** vs 88346d8 (5 moved =
+the graduated cells, the expected capability class; zero diff); make
+diff 11/1307/414 + drift 57; lint 2141/0/0; cargo 13 suites (wall
+pin flipped); pytest 257; demo True; model_ird 31/31; agenda_open
+×15 both binaries + worktree IDENTICAL; IRD 0-div ×5; SD census 72
+EXACT; fuzz 2×2000 seeds 316001/316002 CLEAN post-rebank (two more
+PRE-EXISTING order-family latents bisected → xfail bank 57:
+fz_316001_1681 = the setFocus × salience agenda-order family's third
+member; fz_316002_1902 = a collect × agenda interleave). The acc-justifier
+grid is now COMPLETE: inline, joined, groupby-CE, collect, and
+windowed — everything but ?query, which is the one honestly-unprobed
+fence left standing.
