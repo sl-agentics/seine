@@ -581,6 +581,70 @@ def test_logical_aggregate_self_maintains():
     assert set(js2) == {"Bal"} and js2["Bal"]["fields"] == {"v": D("50.00")}
 
 
+def test_average_exact_end_to_end():
+    # D-314: exact decimal average — sum/count divided ONCE, at the
+    # chosen scale, java.math rounding (grid-certified vs the oracle's
+    # BigDecimal.divide). Defaults: source scale, half_up.
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @fact
+    class Line:
+        amount: Annotated[D, seine_rs.Decimal(18, 2)]
+
+    @fact
+    class Avg:
+        v: Annotated[D, seine_rs.Decimal(38, 2)]
+
+    r = Rule("A")
+    m = r.accumulate(Line, agg=seine_rs.average_exact(Line.amount))
+    assert m.subset_type == "decimal(38,2)"  # source scale, non-null
+    r.then_insert(Avg, v=m)
+    assert "averageExact($s0, 2, half_up)" in r.to_drl()
+
+    res = seine_rs.run(
+        [r],
+        {Line: {"amount": [D("0.02"), D("0.03")]}, Avg: {"v": []}},
+    )
+    # avg 0.025 -> half_up 0.03 (the half-boundary the mode decides)
+    assert res.fired == 1
+
+    r2 = Rule("A2")
+    m2 = r2.accumulate(Line, agg=seine_rs.average_exact(Line.amount, rounding="half_even"))
+    r2.then_insert(Avg, v=m2)
+    res2 = seine_rs.run(
+        [r2], {Line: {"amount": [D("0.02"), D("0.03")]}, Avg: {"v": []}},
+    )
+    # half_even takes the even neighbor: 0.02 (half_up would say 0.03)
+    got = res2.derived["Avg"].to_polars()["v"].to_list()
+    assert got == [D("0.02")], got
+
+
+def test_average_exact_walls():
+    from typing import Annotated
+    from decimal import Decimal as D
+
+    @fact
+    class Mix:
+        n: int
+        amount: Annotated[D, seine_rs.Decimal(10, 2)]
+
+    with pytest.raises(CompileError, match="requires a decimal field"):
+        seine_rs.average_exact(Mix.n)
+    with pytest.raises(CompileError, match="half_even"):
+        seine_rs.average_exact(Mix.amount, rounding="nearest")
+    with pytest.raises(CompileError, match="0..=38"):
+        seine_rs.average_exact(Mix.amount, scale=40)
+    r = Rule("G")
+    with pytest.raises(CompileError, match="group_by with average_exact"):
+        r.group_by(Mix, key=Mix.n, agg=seine_rs.average_exact(Mix.amount))
+    r2 = Rule("W")
+    r2.when(Mix)
+    with pytest.raises(CompileError, match="windowed average_exact"):
+        r2.accumulate(Mix, agg=seine_rs.average_exact(Mix.amount),
+                      window=seine_rs.window_length(3))
+
+
 def test_string_aggregates_still_walled():
     @fact
     class SFee:

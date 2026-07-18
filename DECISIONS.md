@@ -165,8 +165,16 @@ scale; runtime decimals keep their OWN scale on storage; ingestion
 unchanged); 6 finds → regressions tripwires; 3 more finds ALL
 bisected PRE-EXISTING → xfail bank 53 (dec-composition agenda-order
 D-080-shape; collect-order family; computed-salience × or-branch).
-Byte gate 2206/2206 vs 040bccc ZERO divergence. AWAITING
-PUSH/RELEASE directive.**_
+Byte gate 2206/2206 vs 040bccc ZERO divergence. RELEASED v0.4.40
+(PyPI live, 8 artifacts, all pushed through b6cbe4e). **D-314
+(Bryan: "exact decimal average, half_up default"): averageExact
+LANDS — engine-native (Drools' average is double), java.math
+semantics grid-certified 35/35 vs oracle BigDecimal.divide programs
+(7 modes × 5 vectors, 3× stable, predictions-first);
+average_exact(field, scale=source, rounding="half_up") authors;
+group_by/window compositions fenced; byte gate 2217/2217 vs b6cbe4e
+ZERO divergence; pytest 257; lint 2124. THE DECIMAL LEDGER IS
+EMPTY. AWAITING PUSH/RELEASE directive.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -17033,3 +17041,53 @@ agenda_open ×15 both binaries + worktree IDENTICAL; IRD 0-div ×5;
 SD census 72 EXACT; fuzz 2×2000 seeds 313001/313002 CLEAN
 post-rebank (plus shakedown seeds 313901/313902/313903 clean
 post-fix/post-rebank); drift bank 53.
+
+## D-314 — EXACT DECIMAL AVERAGE (Bryan: "do the exact decimal average slab, half_up default") — the last decimal ledger item lands, grid-certified against BigDecimal.divide (2026-07-18)
+
+Drools has no decimal average (its `average` is IEEE double — D-098
+pin J), so `averageExact` is ENGINE-NATIVE with no standard DRL
+spelling — but the semantics are java.math's
+`sum.divide(BigDecimal.valueOf(count), scale, mode)`, and THAT is
+expressible in raw Drools (multi-function accumulate `$s : sum($x),
+$c : count()` + an RHS divide). THE GRID: 7 modes (all
+java.math.RoundingMode minus UNNECESSARY: up/down/ceiling/floor/
+half_up/half_down/half_even) × 5 vectors (±half-boundary 0.025,
+±non-terminating 3.01/3, exact-division control) — **35/35 cells
+MATCH value-for-value, oracle 3× stable per cell**
+(probes_pending/dec_avg/, predictions-first PINS.md, ALL FOUR
+prediction groups HIT). The cells stay pending by design (each
+spelling is unrunnable on the other side); graduated protection =
+engine/tests/dec_avg.rs (the grid + half_even parity at 0.035 +
+scale narrowing/widening + walls) + pytest (the why()/acc_sources
+precedent).
+
+ENGINE: DRL `averageExact($x, scale, mode)` (scale int 0..=38, mode
+bare ident, both part of the spelling like BigDecimal.divide's
+args); AccFunc::AverageExact + AccSpec/CompiledAcc.avgx; the fold =
+the decimal sum fold + a contribution count (nulls skip BOTH — the
+uniform D-097 skip); result = dec_avg_round: shift whichever side
+keeps magnitudes in i128, truncate toward zero, then the mode picks
+q-or-away using SUBTRACTIVE half comparisons (|rem| vs den−|rem| —
+nothing doubles past i128); overflow follows the D-310 contract
+(typed eval error + benign discarded value). Empty/all-null blocks
+propagation like `average` (P2). Result type Dec{38, scale} under
+the BigDecimal box. Walls loud: non-decimal source steers to
+`average`; unknown mode lists the seven; scale caps at 38.
+
+AUTHORING: `average_exact(field, scale=None→source scale,
+rounding="half_up")` — the HALF_UP DEFAULT IS BRYAN'S RULING; the
+D-097-era "exact decimal division requires an explicit rounding
+mode" posture resolves as default-with-override. group_by and
+windows reject it loudly (uncertified compositions; trivially
+liftable later). Golden DRL + half_even end-to-end + wall pytest.
+
+Receipts: byte gate **2217/2217 IDENTICAL** vs b6cbe4e (zero moved,
+zero diff — the new function is unreachable from every existing
+cell); make diff 11/1294/412 + drift 53; lint 2124/0/0 (the 70 grid
+cells all live, ox_* engine_fenced); cargo 13 suites green (dec_avg
+new); pytest 257; demo True; model_ird 31/31; agenda_open ×15 both
+binaries + worktree IDENTICAL; IRD 0-div ×5; SD census 72 EXACT;
+fuzz 2×2000 seeds 314001/314002 CLEAN. THE DECIMAL LEDGER IS EMPTY —
+remaining standing items: crates.io TP config (Bryan) + the four
+filed pin candidates (string-scale ingestion, int-JSON, D-029
+eq-literal hash groups, dec setters).

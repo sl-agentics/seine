@@ -254,6 +254,41 @@ pub enum AccFunc {
     /// is raw HashSet internals (unspecified, D-052-class); both
     /// sides canonicalize SORTED under the SetCollection type.
     CollectSet,
+    /// D-314: EXACT decimal average — `averageExact($x, scale, mode)`,
+    /// engine-native (Drools' `average` is IEEE double; no standard
+    /// DRL spelling exists). Semantics = java.math:
+    /// `sum.divide(BigDecimal.valueOf(count), scale, mode)`, certified
+    /// value-for-value against oracle programs computing exactly that.
+    /// Scale and mode ride AccSpec.avgx.
+    AverageExact,
+}
+
+/// D-314: java.math.RoundingMode, minus UNNECESSARY. Grid-certified
+/// against the oracle's BigDecimal.divide (probes_pending/dec_avg).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RoundMode {
+    Up,
+    Down,
+    Ceiling,
+    Floor,
+    HalfUp,
+    HalfDown,
+    HalfEven,
+}
+
+impl RoundMode {
+    pub fn parse(s: &str) -> Option<Self> {
+        Some(match s {
+            "up" => RoundMode::Up,
+            "down" => RoundMode::Down,
+            "ceiling" => RoundMode::Ceiling,
+            "floor" => RoundMode::Floor,
+            "half_up" => RoundMode::HalfUp,
+            "half_down" => RoundMode::HalfDown,
+            "half_even" => RoundMode::HalfEven,
+            _ => return None,
+        })
+    }
 }
 
 /// CEP E2 item B (D-110): a sliding window on an accumulate source.
@@ -283,6 +318,9 @@ pub struct AccSpec {
     pub group_key: Option<String>,
     /// CEP E2 item B (D-110): a sliding window over the source events.
     pub window: Option<Window>,
+    /// D-314: averageExact's (scale, rounding mode). Always Some when
+    /// func == AverageExact, always None otherwise.
+    pub avgx: Option<(u8, RoundMode)>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -1343,7 +1381,7 @@ impl Parser {
                     type_name: src.type_name,
                     constraints: src.constraints,
                     ce: CeKind::Positive,
-                    acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var , group_key: None, window: None }),
+                    acc: Some(AccSpec { func: AccFunc::Collect, arg: None, result_var , group_key: None, window: None, avgx: None }),
                     q_args: None,
                     group: None,
                     entry_point: None,
@@ -1428,7 +1466,7 @@ impl Parser {
             }
         }
         Ok(Pattern {
-            acc: Some(AccSpec { func, arg, result_var, group_key: Some(key_var), window: None }),
+            acc: Some(AccSpec { func, arg, result_var, group_key: Some(key_var), window: None, avgx: None }),
             ..src
         })
     }
@@ -1468,9 +1506,10 @@ impl Parser {
             "max" => AccFunc::Max,
             "collectList" => AccFunc::CollectList,
             "collectSet" => AccFunc::CollectSet,
+            "averageExact" => AccFunc::AverageExact,
             other => {
                 return Err(self.perr(format!(
-                    "accumulate function {other:?} not in subset (built-ins only: sum/count/average/min/max)"
+                    "accumulate function {other:?} not in subset (built-ins only: sum/count/average/min/max/averageExact)"
                 )))
             }
         };
@@ -1480,6 +1519,28 @@ impl Parser {
         } else {
             Some(self.dollar_ident()?)
         };
+        // D-314: averageExact($x, scale, mode) — scale and rounding are
+        // part of the function spelling, like BigDecimal.divide's args.
+        let mut avgx = None;
+        if func == AccFunc::AverageExact {
+            self.expect_sym(",")?;
+            let scale = match self.next()? {
+                Tok::IntLit(n) if (0..=38).contains(&n) => n as u8,
+                other => {
+                    return Err(self.perr_prev(format!(
+                        "averageExact scale must be an int literal in 0..=38, got {other}"
+                    )))
+                }
+            };
+            self.expect_sym(",")?;
+            let mname = self.ident()?;
+            let mode = RoundMode::parse(&mname).ok_or_else(|| {
+                self.perr(format!(
+                    "averageExact mode {mname:?} — one of up/down/ceiling/floor/half_up/half_down/half_even (java.math.RoundingMode, minus UNNECESSARY)"
+                ))
+            })?;
+            avgx = Some((scale, mode));
+        }
         self.expect_sym(")")?;
         if matches!(self.peek(), Some(Tok::Sym(","))) {
             return Err(self.perr("multi-function accumulate not in subset"));
@@ -1504,7 +1565,7 @@ impl Parser {
             type_name: src.type_name,
             constraints: src.constraints,
             ce: CeKind::Positive,
-            acc: Some(AccSpec { func, arg, result_var, group_key: None, window }),
+            acc: Some(AccSpec { func, arg, result_var, group_key: None, window, avgx }),
             q_args: None,
             group: None,
             entry_point: src.entry_point,

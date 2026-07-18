@@ -606,6 +606,8 @@ struct CompiledAcc {
     arg_name: Option<String>,
     /// D-108 groupby: the source field the group key reads.
     key_field: Option<usize>,
+    /// D-314: averageExact's (scale, mode); None for every other func.
+    avgx: Option<(u8, crate::drl::RoundMode)>,
     /// CEP E2 item B (D-110): `over window:time(N)` — a source event
     /// contributes while `clock − ts < N`, evicted at `ts+N` (per-subtree
     /// unmatch: the fact survives WM). None = no window.
@@ -2247,6 +2249,27 @@ impl AccCtx {
                 self.sum_f += x;
                 self.count += 1;
             }
+            // D-314: exact decimal average = the decimal sum fold + a
+            // contribution count (nulls skipped above skip BOTH).
+            AccFunc::AverageExact => {
+                if let Value::Dec { u, s } = v {
+                    let t = (self.sum_d.1).max(*s);
+                    let sum = match (
+                        crate::store::dec_rescale(self.sum_d.0, self.sum_d.1, t),
+                        crate::store::dec_rescale(*u, *s, t),
+                    ) {
+                        (Some((a, _)), Some((b, _))) => a.checked_add(b),
+                        _ => None,
+                    };
+                    match sum {
+                        Some(x) => self.sum_d = (x, t),
+                        None => eval_error_set(
+                            "decimal averageExact overflow (DECIMAL(38) exceeded)",
+                        ),
+                    }
+                    self.count += 1;
+                }
+            }
             AccFunc::Min | AccFunc::Max => {
                 let better = match &self.minmax {
                     None => true,
@@ -2327,6 +2350,24 @@ impl AccCtx {
                 self.count -= 1;
                 true
             }
+            // D-314: subtract-based reverse, like the decimal sum (a
+            // value the add direction accepted always rescales back).
+            AccFunc::AverageExact => {
+                if let Value::Dec { u, s } = v {
+                    let t = (self.sum_d.1).max(*s);
+                    let (a, _) = crate::store::dec_rescale(self.sum_d.0, self.sum_d.1, t)
+                        .expect("decimal averageExact overflow (DECIMAL(38) exceeded)");
+                    let (b, _) = crate::store::dec_rescale(*u, *s, t)
+                        .expect("decimal averageExact overflow (DECIMAL(38) exceeded)");
+                    self.sum_d = (
+                        a.checked_sub(b)
+                            .expect("decimal averageExact overflow (DECIMAL(38) exceeded)"),
+                        t,
+                    );
+                    self.count -= 1;
+                }
+                true
+            }
             AccFunc::Min | AccFunc::Max => false,
             AccFunc::Collect => {
                 if let Some(i) = self.list.iter().position(|x| *x == f) {
@@ -2354,7 +2395,12 @@ impl AccCtx {
 
     /// getResult(): None (average/min/max of an empty set) blocks
     /// propagation and retracts an existing child (D-038).
-    fn result_value(&self, func: AccFunc, arg_ft: FieldType) -> Option<Value> {
+    fn result_value(
+        &self,
+        func: AccFunc,
+        arg_ft: FieldType,
+        avgx: Option<(u8, crate::drl::RoundMode)>,
+    ) -> Option<Value> {
         match func {
             AccFunc::Sum => Some(match arg_ft {
                 FieldType::I64 => Value::I64(self.sum_i),
@@ -2383,8 +2429,101 @@ impl AccCtx {
             AccFunc::Min | AccFunc::Max => self.minmax.clone(),
             AccFunc::Collect => Some(Value::I64(0)), // list lives in collect_vals
             AccFunc::CollectList | AccFunc::CollectSet => Some(Value::I64(0)),
+            // D-314: sum.divide(count, scale, mode) in exact i128 —
+            // grid-certified against the oracle's BigDecimal.divide
+            // (probes_pending/dec_avg). Empty/all-null blocks
+            // propagation like `average` (P2). Overflow follows the
+            // D-310 contract: typed eval error + a benign value the
+            // poisoned call discards.
+            AccFunc::AverageExact => {
+                if self.count == 0 {
+                    return None;
+                }
+                let (scale, mode) = avgx.expect("averageExact carries (scale, mode)");
+                let (u, s) = self.sum_d;
+                match dec_avg_round(u, s, self.count, scale, mode) {
+                    Some(r) => Some(Value::Dec { u: r, s: scale }),
+                    None => {
+                        eval_error_set(
+                            "decimal averageExact overflow (DECIMAL(38) exceeded)",
+                        );
+                        Some(Value::Dec { u: 0, s: scale })
+                    }
+                }
+            }
         }
     }
+}
+
+/// D-314: `round(sum / count)` at `scale`, java.math semantics — the
+/// average of a decimal sum (digits `u` at scale `s`) over `count`
+/// contributions, rounded per `mode`. Overflow → None. Half
+/// comparisons use subtractive forms (|rem| vs den−|rem|) so nothing
+/// doubles past i128.
+fn dec_avg_round(
+    u: i128,
+    s: u8,
+    count: i64,
+    scale: u8,
+    mode: crate::drl::RoundMode,
+) -> Option<i128> {
+    use crate::drl::RoundMode as M;
+    let count = count as i128;
+    // result = u * 10^(scale-s) / count, shifting whichever side keeps
+    // the magnitudes small.
+    let (num, den) = if scale >= s {
+        (u.checked_mul(10i128.checked_pow((scale - s) as u32)?)?, count)
+    } else {
+        (u, count.checked_mul(10i128.checked_pow((s - scale) as u32)?)?)
+    };
+    let q = num / den; // toward zero
+    let rem = (num % den).abs();
+    if rem == 0 {
+        return Some(q);
+    }
+    let away = q + if num < 0 { -1 } else { 1 };
+    let up_half = rem > den - rem; // 2|rem| > den, overflow-safe
+    let at_half = rem == den - rem;
+    let rounded = match mode {
+        M::Up => away,
+        M::Down => q,
+        M::Ceiling => {
+            if num > 0 {
+                away
+            } else {
+                q
+            }
+        }
+        M::Floor => {
+            if num < 0 {
+                away
+            } else {
+                q
+            }
+        }
+        M::HalfUp => {
+            if up_half || at_half {
+                away
+            } else {
+                q
+            }
+        }
+        M::HalfDown => {
+            if up_half {
+                away
+            } else {
+                q
+            }
+        }
+        M::HalfEven => {
+            if up_half || (at_half && q % 2 != 0) {
+                away
+            } else {
+                q
+            }
+        }
+    };
+    crate::store::dec_fits(rounded, 38).then_some(rounded)
 }
 
 /// Per-rule agenda/terminal state (the beta network itself is shared).
@@ -4883,6 +5022,15 @@ impl Engine {
                             spec.func
                         )));
                     }
+                    // D-314: averageExact is decimal-in, decimal-out —
+                    // the IEEE `average` is the right tool everywhere else
+                    if spec.func == AccFunc::AverageExact
+                        && !matches!(arg_ft, FieldType::Dec { .. })
+                    {
+                        return Err(err(
+                            "averageExact requires a decimal source field; use average (IEEE double) for i64/f64".into(),
+                        ));
+                    }
                     // result type per D-038 pins
                     let (result_name, result_ft) = match spec.func {
                         AccFunc::Count => (ACC_LONG, FieldType::I64),
@@ -4896,6 +5044,11 @@ impl Engine {
                             }
                             _ => (ACC_DOUBLE, FieldType::F64),
                         },
+                        // D-314: the result scale is the SPELLED scale
+                        AccFunc::AverageExact => {
+                            let (scale, _) = spec.avgx.expect("parser fills avgx");
+                            (ACC_DECIMAL, FieldType::Dec { p: 38, s: scale })
+                        }
                         AccFunc::Collect => (ACC_COLLECTION, FieldType::I64),
                         AccFunc::CollectList => (ACC_COLLECTION, FieldType::I64),
                         AccFunc::CollectSet => (ACC_SETCOLLECTION, FieldType::I64),
@@ -4972,6 +5125,7 @@ impl Engine {
                         result_tid,
                         arg_name: spec.arg.clone(),
                         key_field,
+                        avgx: spec.avgx,
                         window_time: spec.window.and_then(|w| match w {
                             drl::Window::Time(n) => Some(n),
                             drl::Window::Length(_) => None,
@@ -9888,7 +10042,7 @@ impl Engine {
                     g.ctx.matches.is_empty(),
                     g.row,
                     g.propagated,
-                    g.ctx.result_value(spec.func, spec.arg_ft),
+                    g.ctx.result_value(spec.func, spec.arg_ft, spec.avgx),
                 )
             };
             if empty {
@@ -10154,7 +10308,7 @@ impl Engine {
         let upd: Vec<(Tup, Origin)> = temp.upd.iter().map(|(l, o, _)| (l.clone(), *o)).collect();
         for (l, o) in ins.into_iter().chain(upd) {
             let Some(ctx) = self.trie[ni].acc.get(&l) else { continue };
-            let rv = ctx.result_value(spec.func, spec.arg_ft);
+            let rv = ctx.result_value(spec.func, spec.arg_ft, spec.avgx);
             let (existing, propagated) = (ctx.result, ctx.propagated);
             match rv {
                 None => {

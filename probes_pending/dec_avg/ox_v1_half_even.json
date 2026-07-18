@@ -1,0 +1,39 @@
+{
+ "engine_fenced": true,
+ "drl": "rule \"avg\"\nwhen\n    accumulate( L($a : a); $s : sum($a), $c : count() )\nthen\n    insert(new B($s.divide(new java.math.BigDecimal($c), 2, java.math.RoundingMode.HALF_EVEN)));\nend\n",
+ "types": [
+  {
+   "name": "L",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(38,2)"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "L",
+   "fields": {
+    "a": "0.02"
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "a": "0.03"
+   }
+  }
+ ],
+ "name": "ox_v1_half_even"
+}

@@ -1,0 +1,44 @@
+{
+ "drl": "rule \"avg\"\nwhen\n    accumulate( L($a : a); $m : averageExact($a, 2, up) )\nthen\n    insert(new B($m));\nend\n",
+ "types": [
+  {
+   "name": "L",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(38,2)"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "L",
+   "fields": {
+    "a": "1.00"
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "a": "1.00"
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "a": "1.01"
+   }
+  }
+ ],
+ "name": "ex_v3_up"
+}

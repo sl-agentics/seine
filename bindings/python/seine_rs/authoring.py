@@ -669,7 +669,7 @@ class AccResult(BoundField):
     """The result binding of an accumulate — a BoundField whose pattern
     is the accumulate CE. Aggregate typing walls apply."""
 
-    def __init__(self, pattern: "_Pattern", func: str, arg: Optional[BoundField]):
+    def __init__(self, pattern: "_Pattern", func: str, arg: Optional[BoundField], avgx=None):
         # exact-decimal aggregates (the match plane's certified matrix):
         # sum over decimal(p,s) is computed exactly and WIDENS to
         # decimal(38,s); average is always f64; min/max preserve the
@@ -696,6 +696,8 @@ class AccResult(BoundField):
             "max": base_type(arg),
             "collectList": "List",
             "collectSet": "Set",
+            # D-314: the result scale is the spelled scale
+            "averageExact": f"decimal(38,{avgx[0]})" if avgx else "f64",
         }[func]
         super().__init__(pattern, f"__acc_{func}", st)
         self.func = func
@@ -736,8 +738,10 @@ class AccResult(BoundField):
 # aggregate constructors -------------------------------------------------
 
 class _Agg:
-    def __init__(self, func: str, arg: Optional[FieldRef]):
+    def __init__(self, func: str, arg: Optional[FieldRef], avgx=None):
         self.func, self.arg = func, arg
+        # D-314: averageExact carries (scale, rounding-mode string)
+        self.avgx = avgx
 
 
 def collect_list(field: FieldRef) -> _Agg:
@@ -828,6 +832,46 @@ def count() -> _Agg:
 
 def average(field: FieldRef) -> _Agg:
     return _Agg("average", field)
+
+
+_ROUNDING_MODES = ("up", "down", "ceiling", "floor", "half_up", "half_down", "half_even")
+
+
+def average_exact(field: FieldRef, scale: Optional[int] = None,
+                  rounding: str = "half_up") -> _Agg:
+    """EXACT decimal average: ``sum / count`` computed in exact decimal
+    arithmetic and rounded once, at ``scale``, per ``rounding`` —
+    java.math semantics (``BigDecimal.divide(count, scale, mode)``),
+    certified value-for-value against oracle programs computing
+    exactly that.
+
+    ``scale`` defaults to the source field's scale (money in, money
+    out); ``rounding`` defaults to ``"half_up"`` and accepts the
+    java.math.RoundingMode set minus UNNECESSARY: up, down, ceiling,
+    floor, half_up, half_down, half_even.
+
+    Decimal sources only — ``average`` (IEEE double) is the tool for
+    i64/f64 fields. Null contributions skip both the sum and the
+    count; an empty or all-null source does not fire (like
+    ``average``, unlike ``sum_``'s identity-0)."""
+    if not isinstance(field, FieldRef):
+        raise CompileError("average_exact takes a field reference")
+    st = field.subset_type
+    m = re.fullmatch(r"decimal\((\d+),(\d+)\)\??", st)
+    if not m:
+        raise CompileError(
+            f"average_exact requires a decimal field; {field.name} is {st} — "
+            "use average() (IEEE double) for i64/f64"
+        )
+    if scale is None:
+        scale = int(m.group(2))
+    if not isinstance(scale, int) or not 0 <= scale <= 38:
+        raise CompileError("average_exact scale must be an int in 0..=38")
+    if rounding not in _ROUNDING_MODES:
+        raise CompileError(
+            f"average_exact rounding {rounding!r} — one of {', '.join(_ROUNDING_MODES)}"
+        )
+    return _Agg("averageExact", field, avgx=(scale, rounding))
 
 
 def min_(field: FieldRef) -> _Agg:
@@ -1366,6 +1410,11 @@ class Rule:
                     "oracle — use an unwindowed collect, or a windowed scalar "
                     "aggregate (count/sum/average/min/max)"
                 )
+            if agg.func == "averageExact":
+                raise CompileError(
+                    "windowed average_exact is not certified — use an "
+                    "unwindowed average_exact, or average() with a window"
+                )
             if window.kind == "time" and getattr(cls, "__seine_event__", None) is None:
                 raise CompileError(
                     f"window_time over {cls.__name__}: time windows need event "
@@ -1375,7 +1424,7 @@ class Rule:
         p = self._add_pattern(cls, constraints, "accumulate", agg)
         p.window = window
         arg_bf = BoundField(p, agg.arg.name, agg.arg.subset_type) if agg.arg is not None else None
-        return AccResult(p, agg.func, arg_bf)
+        return AccResult(p, agg.func, arg_bf, getattr(agg, "avgx", None))
 
     def group_by(
         self, cls: type, *constraints, key: FieldRef, agg: _Agg
@@ -1395,6 +1444,11 @@ class Rule:
                 "group_by with collect functions is not certified against "
                 "the oracle — use a scalar aggregate"
             )
+        if agg.func == "averageExact":
+            raise CompileError(
+                "group_by with average_exact is not certified — aggregate "
+                "with sum_/count per group, or use average() (IEEE double)"
+            )
         if agg.arg is not None:
             if agg.arg.owner is not cls:
                 raise CompileError(
@@ -1408,7 +1462,7 @@ class Rule:
         p = self._add_pattern(cls, constraints, "groupby", agg)
         p.group_key = key
         arg_bf = BoundField(p, agg.arg.name, agg.arg.subset_type) if agg.arg is not None else None
-        return AccResult(p, agg.func, arg_bf)
+        return AccResult(p, agg.func, arg_bf, getattr(agg, "avgx", None))
 
     def collect(self, cls: type, *constraints) -> None:
         """`List() from collect(...)`. The source must be ALPHA-only:
@@ -1614,7 +1668,11 @@ class Rule:
                     avar = f"$s{p.index}"
                     body2 = body + [f"{avar} : {agg.arg.name}"]
                     inner = f"{p.type_name}({', '.join(body2)})"
-                    call = f"{agg.func}({avar})"
+                    if getattr(agg, "avgx", None) is not None:
+                        sc, mode = agg.avgx
+                        call = f"{agg.func}({avar}, {sc}, {mode})"
+                    else:
+                        call = f"{agg.func}({avar})"
                 else:
                     call = f"{agg.func}()"
                 win = getattr(p, "window", None)

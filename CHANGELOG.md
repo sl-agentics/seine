@@ -4,6 +4,19 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **Exact decimal average** — `average_exact(field, scale=…,
+  rounding="half_up")`: sum and count accumulate exactly, one
+  division at the chosen scale with java.math rounding semantics
+  (`BigDecimal.divide(count, scale, mode)` — certified
+  value-for-value against oracle programs computing exactly that,
+  across all seven RoundingModes and both signs). `scale` defaults
+  to the source field's scale; modes: up, down, ceiling, floor,
+  half_up (default), half_down, half_even. Decimal sources only —
+  `average` stays IEEE double. Nulls skip both sum and count; an
+  empty or all-null source doesn't fire (like `average`).
+
 ## 0.4.40
 
 - **Decimal sum identity matches BigDecimal exactly** (found by the
