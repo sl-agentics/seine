@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.39
 
 - **Decimal overflow is a typed, catchable error** — inline multiply
   and accumulate-sum overflow past `DECIMAL(38)` now raise a plain
