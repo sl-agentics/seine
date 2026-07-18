@@ -86,7 +86,14 @@ end-to-end, pytest 248) and Session.why()/justifications() surface
 the justification graph in Python (dicts, retraction contract,
 orphan cycles explain themselves; the D-302 exposure item CLOSES).
 Inline decimal arithmetic stays engine-walled pending a BigDecimal
-pin campaign.**_
+pin campaign. D-304 (the adversary lands one): "every step
+queryable" was an overclaim — the why-chain DEAD-ENDS at an
+accumulate (plain-inserted, unjustified; firings carry the result,
+not the sources — Drools-faithful opacity). NAMED LEDGER ITEM:
+accumulate-source provenance — (a) introspection channel over the
+existing AccCtx.matches, or (b) the justified-aggregation edge
+(Drools behavior unpinned; D-280-class campaign). Both
+Bryan-gated.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16461,3 +16468,55 @@ __init__.py, lib.rs) — no engine/scenario changes, no byte surface;
 the tracked .so rides the commit (built FROM bindings/, the D-301
 procedure). FEATURES row 74 notes the Python exposure. The D-302
 why-exposure ledger item CLOSES.
+
+## D-304 — the adversary lands one: "every step queryable" was an OVERCLAIM — the why-chain dead-ends at an accumulate; ACCUMULATE-SOURCE PROVENANCE is the named ledger item (correction entry, no code) (2026-07-17)
+
+Adversarial claude walked the shipped 0.4.35 wheel and caught the
+D-303 report's narrative overclaim. Verified with our own receipts,
+both halves:
+
+THE DEAD-END: insertLogical from accumulate/collect/?query rules is
+walled (the D-076 wall — engine error names it), so an
+accumulate-derived Balance must be a PLAIN insert, which is
+unjustified: why(Release) → supports [('release', [Balance])];
+why(Balance) → None. The chain that runs is release ← balance, ONE
+edge. And the fallback channel does not save it: the balance
+firing's match tuple is InitialFact + the accumulate RESULT (the
+hidden Decimal fact), not the source line-item handles — the
+summation inputs are invisible to BOTH provenance surfaces. The
+D-303 chat narrative ("line items → exact balance → gate → release,
+every step queryable") was FALSE as written; the DECISIONS entry's
+execution claims (exact sum, gate fires) stand. What is honestly
+claimable: why() covers the logical layer ABOVE aggregation;
+aggregation inputs are currently invisible to the audit.
+
+TWO PRECISIONS THE CHALLENGE MISSED, for the fix analysis:
+(1) the firings opacity is DROOLS-FAITHFUL — Match.getObjects for an
+accumulate activation carries the result, not the sources; the
+certified match rendering CANNOT grow source handles without
+breaking byte parity. Any source-provenance channel must be a NEW
+introspection surface outside the certified bytes — exactly why()'s
+doctrine. (2) The D-076 acc-justifier wall is SEINE'S scope cut
+(mechanism rationale on the record: justifying-tuple revalidation
+cannot re-run accumulate conditions) — NOT oracle error-parity; what
+Drools actually does with insertLogical-from-accumulate is UNPINNED
+(ErrorOnInsertLogicalTest was routed for function-blocks/exceptions,
+not this).
+
+THE LEDGER ITEM — accumulate-source provenance, two fix shapes:
+(a) LIGHTER: expose the accumulate sources per firing through an
+introspection channel — the engine already KEEPS them
+(AccCtx.matches holds (FactId, Value) per left context;
+acc_add_match maintains it); the work is fire-time capture + a
+Session-level surface (NOT the certified firings rendering), no
+oracle question. (b) HEAVIER: the justified-aggregation edge — probe
+what Drools does with insertLogical-from-accumulate (unpinned),
+then, if in-oracle, solve justifying-tuple revalidation for
+accumulate conditions — a D-280-class gated campaign. Until one
+lands, the honest pitch line: the why machine owns the logical
+derivation layer; aggregation is exact but opaque.
+
+Both fix shapes Bryan-gated. Receipts: the dead-end walk reproduced
+first-party (why(Release)=[('release',[5])], why(Balance 5)=None);
+the D-076 wall message live; AccCtx.matches existence in
+engine/src/engine.rs (acc_add_match). Docs-only entry — no code.
