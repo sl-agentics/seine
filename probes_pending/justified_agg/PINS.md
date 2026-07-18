@@ -187,3 +187,76 @@ GATE — no engine code in this slab (the only engine byte moved is the
 ACC_DECIMAL render label, "Decimal"→"BigDecimal", aligning the
 accumulate-result box name with the oracle's Java simple name; found
 by ja0_singleton_dec, the first cell to ever render one).
+
+## STABLE-ACT-KEY STRESS CELLS (Bryan: "pin the two cells where
+## 'stable activation key' is most stressed") — predictions
+## registered BEFORE running
+
+The mechanism under stress: the acc result FactId (and so the act
+key (ri, Tup)) is REUSED — supersede, terminal-del, and
+re-justification all book against one key. The two maximal stresses:
+
+- **ja10_min_unmatch** — the key survives a FULL unmatch/rematch
+  cycle. `accumulate( Line($a : amount); $m : min($a) )` →
+  insertLogical(new Bal($m)) + downstream logical Release on
+  Bal(v <= 0). Epoch 1 deletes BOTH Lines (min over EMPTY = no
+  result → propagateDelete → the terminal tuple dies → deps drop at
+  the key); epoch 2 inserts Line(5). P10: after epoch 1 the WM has
+  NO Bal and NO Release (the whole chain retracts); after epoch 2 a
+  fresh Bal(5.0) derives (no Release, 5 > 0). Engine-side the result
+  FactId is RETAINED through the unmatch (ctx.result), so the act
+  key is bit-identical across the death/rebirth boundary — any stale
+  by_act/had_justified bookkeeping shows here. Engine-vs-oracle
+  IDENTICAL 3×. CONFIDENCE: high on semantics; the cell exists to
+  catch bookkeeping staleness.
+- **ja11_self_feed** — the key supersedes ITSELF to fixpoint.
+  `accumulate( Bal($v : v); $c : count() )` → insertLogical(new
+  Bal($c)) — the rule's own output feeds its aggregate; the SAME act
+  re-fires as count moves, each firing superseding the previous
+  belief at the same key (D-296 cyclic × D-312 justifier). P11:
+  CONVERGES — count=0 → Bal(0) → count=1 → refire supersedes to
+  Bal(1) → count still 1 → Bal(1) re-established → quiescent with
+  exactly ONE Bal(1). Both sides identical; if instead it runs away,
+  fire-limit error-vs-error parity is the acceptable landing.
+  CONFIDENCE: medium — the convergence argument is clean, but the
+  staging order of the retract/insert pair inside one supersede is
+  exactly what could differ between the engines.
+
+MEASURED (same day, 3× stable, both diff PASS → GRADUATED
+pr_ja10/pr_ja11): P10 HIT — epoch 1 tears down the WHOLE chain (no
+Bal, no Release, zero firings — teardown only), epoch 2 re-derives
+Bal(5.0) at the reused key; one reshape was needed first, and it was
+ERROR PARITY (min over double: our D-039 wall vs Drools' "constructor
+Bal(Number) is undefined" — both reject; the graduated cell uses the
+certified i64-min shape). P11 HIT — converges in exactly THREE
+firings (derive Bal(0) → supersede to Bal(1) → re-establish Bal(1)),
+final WM = ONE Bal(1), interleaving identical on both sides.
+
+## THE D-313 FUZZ AXES (Bryan: "do the fuzzer enhancements") — what
+## the first 4200 cases measured
+
+The decimal axis PAID IN THE FIRST 200 CASES: 6 finds, ONE class —
+the empty/all-null decimal sum identity. The oracle returns
+BigDecimal.ZERO — scale 0, "0"; our "0 at the field's scale" was a
+D-098 ruling-2 COMPOSITION, never measured, now falsified. Fix =
+result_value returns the ratcheting fold's own (u, s); the follow-on
+storage find (fz_313902_80... fz_313901_80): runtime decimals keep
+their OWN scale when stored into a field (the oracle's POJO fields
+are plain BigDecimals) — coerce's Dec→Dec arm no longer rescales to
+the declared scale (ingestion arms unchanged, precision enforced).
+The d098_decimals pin updated to the measured value; all 6 finds
+fixed and moved to scenarios/regressions as tripwires.
+
+Deep shakedown (3×2000): two more finds, BOTH bisected PRE-EXISTING
+(engine outputs bit-identical at 040bccc): fz_313902_761 = a
+dec-composition agenda-order latent in the D-080 documented-open
+SHAPE (or-branches + exists-over-logical + setFocus + TMS mutation);
+fz_313902_1661 = the standing-ledger collect-order family. Both
+quarantined to scenarios/xfail/ (bank 52), seeds re-run CLEAN.
+
+Corners the axes deliberately AVOID (unmeasured — future pin
+candidates): oracle string-scale ingestion ("1.1" into decimal(10,2)
+— the POJO keeps scale 1?), int-JSON values into decimal fields,
+decimal eq-literals inside the oracle's D-029 alpha hash groups
+(equals() is scale-sensitive; possibly fz_761's mechanism), decimal
+setter args.

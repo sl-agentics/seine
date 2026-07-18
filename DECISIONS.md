@@ -151,8 +151,22 @@ tms_queryable::d312). All 8 cells graduated on first contact (corpus
 11/1292/406 incl. ja9_dec_swap, the exact-decimal money chain); the
 D-304 audit dead-end CLOSES (why() walks Release → Bal); sum_ docs
 lead with then_insert_logical(Bal, v=total); pytest 255. Byte gate
-2198/2198 vs 3d79ae7 ZERO divergence. AWAITING PUSH/RELEASE
-directive.**_
+2198/2198 vs 3d79ae7 ZERO divergence. **D-313 (Bryan: "fuzzer
+enhancements + pin the two stable-act-key stress cells"):
+pr_ja10_min_unmatch (the key survives full unmatch/rematch;
+min-over-double reshape = error parity) + pr_ja11_self_feed
+(supersedes ITSELF to fixpoint, ONE Bal(1) in 3 firings) both
+predicted-and-hit, graduated (corpus 11/1294/412). gen.rs grows the
+DECIMAL axis (certified-surface-only draws) + the ACC-JUSTIFIER axis
+(has_acc skip removed; the DAG keeps fuzz acyclic). THE AXIS PAID IN
+200 CASES: the D-098 ruling-2 empty-decimal-sum identity FALSIFIED
+(oracle = BigDecimal.ZERO, scale 0) — engine fixed (ratcheting fold
+scale; runtime decimals keep their OWN scale on storage; ingestion
+unchanged); 6 finds → regressions tripwires; 3 more finds ALL
+bisected PRE-EXISTING → xfail bank 53 (dec-composition agenda-order
+D-080-shape; collect-order family; computed-salience × or-branch).
+Byte gate 2206/2206 vs 040bccc ZERO divergence. AWAITING
+PUSH/RELEASE directive.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16950,3 +16964,72 @@ new wall pins; pytest 255; demo True; model_ird 31/31; agenda_open
 EXACT; fuzz 2×2000 seeds 312001/312002 CLEAN. Follow-on ledger item:
 gen.rs does not yet generate acc-justifier combos (same class as the
 decimal axis item).
+
+## D-313 — the fuzzer axes land (Bryan: "do the fuzzer enhancements... pin the two cells where 'stable activation key' is most stressed") — AND THE DECIMAL AXIS FALSIFIES A RULING IN ITS FIRST 200 CASES (2026-07-18)
+
+THE TWO STRESS CELLS (predictions registered first, both HIT, 3×,
+GRADUATED): **pr_ja10_min_unmatch** — the act key survives a FULL
+unmatch/rematch cycle: min-over-empty propagateDelete tears down the
+whole logical chain (Bal + Release, zero firings — teardown only),
+epoch 2 re-derives at the reused result-FactId key; one reshape
+needed first and it was ERROR PARITY (min over double: our D-039
+wall vs Drools' "constructor Bal(Number) undefined" — the graduated
+cell uses the certified i64-min shape). **pr_ja11_self_feed** — the
+key supersedes ITSELF to fixpoint (D-296 cyclic × D-312 justifier:
+accumulate over Bal deriving Bal): converges in exactly THREE
+firings (derive Bal(0) → supersede to Bal(1) → re-establish),
+final WM = ONE Bal(1), interleaving identical both sides.
+
+THE AXES (gen.rs): **decimal** (the D-309 ledger item) — Ft::Dec
+(decimal(10,2)) in the field pool; draws stay INSIDE the certified
+surface by construction: ord-op comparisons vs int literals (the
+D-309 comparand class; no in-lists/matches), dec-dec joins
+(compareTo, never hash-indexed), single-op + - * LHS arithmetic vs
+int literals or decimal bindings (never doubles, never / %),
+sum/count-only aggregation, binding/getter-fed ctor args behind a
+supply gate (no certified DRL decimal-literal form exists —
+javac rejects `new T(3.30)` into BigDecimal), dec-free queries
+(D-098 wall), no decimal setters (probe-carried, pr_ja0).
+**acc-justifier** (the D-312 follow-on) — insertLogical now draws
+from accumulate/collect rules (the has_acc skip removed; acc-result
+bindings feed logical args = the full self-maintaining shape); the
+generator's DAG bound keeps fuzz shapes acyclic — the cyclic corner
+is pr_ja11's job. D-089 group-CE + envelope-purity skips unchanged.
+
+THE FIRST 200 CASES FALSIFIED A RULING: 6 finds, ONE class — the
+oracle's BigDecimal sum identity over an EMPTY/all-null source is
+ZERO at SCALE 0 ("0"), not "0 at the field's scale" (the D-098
+ruling-2 COMPOSITION — inferred, never measured). Engine fix:
+result_value returns the ratcheting fold's own (u, s) — never-fed =
+"0", drained-to-zero = "0.00" (scale ratchets on contributions,
+subtract-based reverse, exactly Drools' BigDecimalSumAccumulate).
+The follow-on storage find (fz_313901_80): runtime decimals KEEP
+THEIR OWN SCALE when stored into fields (POJO fields are plain
+BigDecimals) — coerce's Dec→Dec arm no longer rescales to the
+declared scale (string/int INGESTION arms unchanged; precision p
+still enforced; TMS value keys go scale-sensitive exactly like
+BigDecimal.equals). d098_decimals ruling-2 pin updated to the
+measured value; all 6 finds fixed → scenarios/regressions (412).
+
+Deep shakedown 3×2000 + the battery seeds: THREE more finds, ALL
+bisected PRE-EXISTING (engine outputs bit-identical at 040bccc) →
+xfail quarantine + bank 53, every seed re-run CLEAN: fz_313902_761 =
+dec-composition agenda-order latent in the D-080 documented-open
+shape (or-branches + exists-over-logical + setFocus + TMS mutation);
+fz_313902_1661 = the standing-ledger collect-order family;
+fz_313002_319 = computed-salience × or-branch agenda-order (all-i64,
+no decimal involvement). Unmeasured corners the axes
+deliberately avoid, filed as pin candidates: oracle string-scale
+ingestion ("1.1" into decimal(10,2)), int-JSON into decimal fields,
+decimal eq-literals × the oracle's D-029 alpha hash groups
+(equals() is scale-sensitive — possibly fz_761's mechanism),
+decimal setter args.
+
+Receipts: byte gate **2206/2206 IDENTICAL** vs 040bccc (wt_pre_ja3;
+zero moved, zero diff — no certified cell exercises the fixed
+corners); make diff 11/1294/412 + drift 53; lint 2054/0/0; cargo
+green (d098 pin updated); pytest 255; demo True; model_ird 31/31;
+agenda_open ×15 both binaries + worktree IDENTICAL; IRD 0-div ×5;
+SD census 72 EXACT; fuzz 2×2000 seeds 313001/313002 CLEAN
+post-rebank (plus shakedown seeds 313901/313902/313903 clean
+post-fix/post-rebank); drift bank 53.

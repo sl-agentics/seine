@@ -1,0 +1,17 @@
+{
+ "drl": "rule \"feed\"\nwhen\n    accumulate( Bal($v : v); $c : count() )\nthen\n    insertLogical(new Bal($c));\nend\n",
+ "types": [
+  {
+   "name": "Bal",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [],
+ "epochs": [],
+ "name": "pr_ja11_self_feed"
+}

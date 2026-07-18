@@ -1,0 +1,72 @@
+{
+ "drl": "rule \"balance\"\nwhen\n    accumulate( Line($a : amount); $m : min($a) )\nthen\n    insertLogical(new Bal($m));\nend\nrule \"release\"\nwhen\n    Bal(v <= 0.0)\nthen\n    insertLogical(new Release(1));\nend\n",
+ "types": [
+  {
+   "name": "Line",
+   "fields": [
+    {
+     "name": "amount",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Bal",
+   "fields": [
+    {
+     "name": "v",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Release",
+   "fields": [
+    {
+     "name": "r",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Line",
+   "fields": {
+    "amount": 10
+   }
+  },
+  {
+   "type": "Line",
+   "fields": {
+    "amount": -10
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    },
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  },
+  {
+   "facts": [
+    {
+     "type": "Line",
+     "fields": {
+      "amount": 5
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_ja10_min_unmatch"
+}

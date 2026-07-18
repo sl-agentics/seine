@@ -1,0 +1,42 @@
+{
+  "drl": "rule \"R0\"\nagenda-group \"ga\"\nwhen\n    ( $p0_0 : T0(f1 != 3, f0 < 0.0) )\n    or\n    ( $p0_0 : T0(f1 != 3, f0 < 0.0) )\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nagenda-group \"gb\"\nwhen\n    (or $p1_0 : T1() $p1_0 : T1() $p1_0 : T1())\nthen\n    drools.setFocus(\"gb\");\n    delete($p1_0);\nend\nrule \"R2\"\nsalience($b2_0_1)\nwhen\n    T0(f1 >= -2, f1 < 0, $b2_0_0 : f1, $b2_0_1 : f0)\n    accumulate( T1(f0 <= $b2_0_1); $a2_1 : count() )\n    T0()\nthen\nend\nrule \"R3\"\nsalience -4\nwhen\n    accumulate( T1(f0 in (-2.5)); $a3_0 : count() )\nthen\nend\nrule \"R4\"\nsalience 7\nwhen\n    accumulate( T0(f1 == 0, $s4_0 : f1); $a4_0 : sum($s4_0) )\nthen\n    insert(new T1(0.5));\nend\nrule \"R5\"\nwhen\n    T0(f1 < -1, !(f1 != 1 || f0 in (3, 2.0, 2)), f1 * f1 > -2, $b5_0_0 : f0)\n    T1(f0 != 2, f0 > 8, f0 <= $b5_0_0, $b5_1_0 : f0)\n    T0($b5_2_0 : f1, $b5_2_1 : f0)\nthen\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 1.0
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": 5.5
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_313901_126",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "decimal(10,2)"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

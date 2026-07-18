@@ -6,6 +6,15 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Decimal sum identity matches BigDecimal exactly** (found by the
+  new decimal fuzz axis): a sum over an empty or all-null decimal
+  source is now `Decimal("0")` — `BigDecimal.ZERO`, scale 0 — not
+  `0.00` at the field's scale; a sum drained back to zero keeps its
+  contribution scale (`0.00`), exactly like BigDecimal subtraction.
+  Runtime decimal values also keep their own scale when stored into
+  fields (declared precision still enforced); only string/int
+  ingestion normalizes to the declared scale. Numeric comparisons
+  are unaffected (compareTo semantics); only rendered scale moves.
 - **Self-maintaining logical aggregates** — `insertLogical` from
   accumulate, groupby, and collect rules is in-subset (previously a
   build error): re-accumulation retracts the superseded logical

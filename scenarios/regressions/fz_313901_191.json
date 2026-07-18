@@ -1,0 +1,114 @@
+{
+  "drl": "rule \"R0\"\nsalience 9\nwhen\n    accumulate( T1(f0 < \"ab\", f1 < 5, $s0_0 : f1); $a0_0 : sum($s0_0) )\nthen\nend\nrule \"R1\"\nno-loop\nwhen\n    T1(f0 matches \"[^b]*[al]+\", $b1_0_0 : f0)\nthen\nend\nrule \"R2\"\nwhen\n    T1(f0 < \"zz\", f1 != 5)\nthen\nend\nrule \"R3\"\nsalience($b3_2_1 + $b3_2_0)\nwhen\n    T1(f1 != 5, $b3_0_0 : f0, $b3_0_1 : f0)\n    T0(f1 < -5, $b3_1_0 : f1)\n    T0(f0 == 4.0, f0 < 1.0, $b3_2_0 : f1, $b3_2_1 : f0)\nthen\nend\nrule \"R4\"\nwhen\n    ( T1(f1 != 1, f0 >= \"a\") )\n    or\n    ( T1(f1 != 1, f1 == 0) )\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": "b",
+            "f1": "-1.10"
+          },
+          "op": "insert",
+          "type": "T1"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "a",
+            "f1": "1.10"
+          },
+          "type": "T1"
+        },
+        {
+          "fields": {
+            "f0": 4.0,
+            "f1": 100,
+            "f2": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": 0.0,
+        "f1": -5,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": -2.5,
+        "f1": 11,
+        "f2": true
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 2.5,
+        "f1": -5,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": "ab",
+        "f1": "-1.10"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": "0.01"
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": "beta",
+        "f1": "0.01"
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "fz_313901_191",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "f64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        },
+        {
+          "name": "f1",
+          "type": "decimal(10,2)"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

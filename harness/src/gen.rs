@@ -51,6 +51,13 @@ enum Ft {
     F64,
     Str,
     Bool,
+    /// D-313 axis: decimal(10,2), the D-308/D-309 certified surface
+    /// ONLY — compareTo vs int literals and decimal sides, + - *
+    /// arithmetic, sum/count aggregation, binding-fed ctor args.
+    /// Never: doubles in dec positions, / %, in-lists, queries
+    /// (D-098 wall), min/max/avg/collect args, literal ctor args
+    /// (no certified DRL decimal-literal form).
+    Dec,
 }
 
 impl Ft {
@@ -60,9 +67,13 @@ impl Ft {
             Ft::F64 => "f64",
             Ft::Str => "String",
             Ft::Bool => "bool",
+            Ft::Dec => "decimal(10,2)",
         }
     }
 
+    /// i64/f64 interchange class. Dec is deliberately NOT numeric —
+    /// it composes only through the explicit D-313 draws (numeric()
+    /// gates promotions, min/max, computed arith: all non-dec).
     fn numeric(self) -> bool {
         matches!(self, Ft::I64 | Ft::F64)
     }
@@ -78,6 +89,10 @@ struct TypeDef {
 }
 
 const STR_POOL: &[&str] = &["", "a", "b", "ab", "zz", "alpha", "beta"];
+/// Scale-2 values incl. the D-308 exactness shapes (1.10 + 2.20 is
+/// EXACTLY 3.30 in decimal, never in binary).
+const DEC_POOL: &[&str] =
+    &["0.00", "0.01", "-0.50", "1.10", "2.20", "2.50", "-1.10", "3.30", "100.00"];
 const OPS_ORD: &[&str] = &["==", "!=", "<", "<=", ">", ">="];
 const OPS_EQ: &[&str] = &["==", "!="];
 
@@ -101,6 +116,7 @@ fn lit_json(rng: &mut Rng, ft: Ft) -> J {
         Ft::F64 => json!(gen_f64(rng)),
         Ft::Str => json!(*rng.pick(STR_POOL)),
         Ft::Bool => json!(rng.chance(50)),
+        Ft::Dec => json!(*rng.pick(DEC_POOL)),
     }
 }
 
@@ -125,6 +141,10 @@ fn lit_drl(rng: &mut Rng, ft: Ft, only_true_bools: bool) -> String {
                 format!("{}", rng.chance(50))
             }
         }
+        // The D-309 comparand class: decimal COMPARISON positions take
+        // int literals (compareTo). Never valid as a ctor/setter arg —
+        // those routes are supply-gated to bindings before lit_drl.
+        Ft::Dec => format!("{}", rng.below(9) as i64 - 3),
     }
 }
 
@@ -208,6 +228,12 @@ fn gen_alpha_constraint(rng: &mut Rng, fname: &str, ft: Ft) -> String {
                 let lit = lit_drl(rng, Ft::Bool, false);
                 format!("{fname} {op} {lit}")
             }
+        }
+        // D-309 grid: ord ops vs int literals only (in-lists and
+        // string forms over decimals are unprobed).
+        Ft::Dec => {
+            let op = *rng.pick(OPS_ORD);
+            format!("{fname} {op} {}", lit_drl(rng, Ft::Dec, false))
         }
     }
 }
@@ -313,7 +339,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
         let nfields = 1 + rng.below(3); // 1..3
         let mut fields: Vec<(String, Ft)> = (0..nfields)
             .map(|fi| {
-                let ft = *rng.pick(&[Ft::I64, Ft::I64, Ft::F64, Ft::Str, Ft::Bool]);
+                let ft = *rng.pick(&[Ft::I64, Ft::I64, Ft::F64, Ft::Str, Ft::Bool, Ft::Dec]);
                 (format!("f{fi}"), ft)
             })
             .collect();
@@ -608,6 +634,39 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     pats[pi].constraints.push(c);
                 }
             }
+            // D-313 axis: decimal LHS arithmetic, the D-309 AGREE
+            // SUBSET only — single-op + - * over the pattern's decimal
+            // fields, comparand = int literal or a decimal side (an
+            // earlier decimal binding). Never doubles, never / %.
+            if pats[pi].ce == 0 && rng.chance(6) {
+                let decs: Vec<String> = types[pats[pi].ti]
+                    .fields
+                    .iter()
+                    .filter(|(_, ft)| *ft == Ft::Dec)
+                    .map(|(n, _)| n.clone())
+                    .collect();
+                if !decs.is_empty() {
+                    let f1 = rng.pick(&decs).clone();
+                    let f2 = rng.pick(&decs).clone();
+                    let op = ['+', '-', '*'][rng.below(3)];
+                    let cmp = *rng.pick(OPS_ORD);
+                    let earlier: Vec<String> = pats[..pi]
+                        .iter()
+                        .flat_map(|p| {
+                            p.bindings
+                                .iter()
+                                .filter(|(_, _, bft)| *bft == Ft::Dec)
+                                .map(|(v, _, _)| v.clone())
+                        })
+                        .collect();
+                    let rhs = if !earlier.is_empty() && rng.chance(30) {
+                        rng.pick(&earlier).clone()
+                    } else {
+                        format!("{}", rng.below(7) as i64 - 2)
+                    };
+                    pats[pi].constraints.push(format!("{f1} {op} {f2} {cmp} {rhs}"));
+                }
+            }
             // Field bindings (positive patterns only — D-031).
             if pats[pi].ce == 0 {
                 let nbind = rng.below(3);
@@ -633,7 +692,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     .fields
                     .iter()
                     .enumerate()
-                    .filter(|(_, (_, ft))| matches!(ft, Ft::I64 | Ft::F64))
+                    .filter(|(_, (_, ft))| matches!(ft, Ft::I64 | Ft::F64 | Ft::Dec))
                     .map(|(i, (n, ft))| (i, n.clone(), *ft))
                     .collect();
                 let choice = rng.below(100);
@@ -647,8 +706,14 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     // D-108: the collectors draw too — their results are
                     // OPAQUE (Collections; no downstream comparisons).
                     // D-163: min/max draw under mutation too (wall lifted).
-                    let funcs: &[&str] =
-                        &["sum", "average", "min", "max", "collectList", "collectSet"];
+                    // D-313: decimal sources SUM only (exact both sides,
+                    // pr_ja0/ja9) — min/max/avg/collect over BigDecimal
+                    // is unprobed oracle typing.
+                    let funcs: &[&str] = if ft == Ft::Dec {
+                        &["sum"]
+                    } else {
+                        &["sum", "average", "min", "max", "collectList", "collectSet"]
+                    };
                     let func = *rng.pick(funcs);
                     let avar = format!("$s{ri}_{pi}");
                     pats[pi].constraints.push(format!("{avar} : {fname}"));
@@ -801,11 +866,13 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
             .max()
             .unwrap();
         let can_insert = max_ti + 1 < ntypes && delete_pos.is_none();
-        // insertLogical eligibility (D-076): never from acc/collect
-        // rules (engine wall); the DAG bound uses POSITIVE patterns only
-        // — not/exists over the logical type may still justify it (the
-        // t10 self-defeat family terminates by the eager-retract pin).
-        let has_acc = pats.iter().any(|p| p.ce >= 3 && p.ce <= 4);
+        // D-312: acc/collect justifiers are IN-SUBSET (non-windowed —
+        // gen never draws windows), so insertLogical now composes with
+        // accumulate/collect rules; the acc RESULT binding can feed the
+        // logical args, which is the full self-maintaining shape. The
+        // DAG bound (targets strictly above premises) keeps gen shapes
+        // ACYCLIC — the cyclic self-feed corner is probe-carried
+        // (pr_ja11_self_feed), not fuzzed.
         // D-089 wall (Bryan's ruling): group-CE justifiers are out —
         // the generator never draws insertLogical from group rules.
         let has_group = pats.iter().any(|p| p.ce >= 5);
@@ -817,6 +884,21 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 let is_logical = tms && tgt_ti == logical_ti;
                 let mut args = Vec::new();
                 let tgt_fields = types[tgt_ti].fields.clone();
+                // D-313: decimal ctor args have no certified literal
+                // form (javac rejects `new T(3.30)` into BigDecimal) —
+                // a dec-field target needs a dec binding or a positive
+                // dec-field pattern in scope, so gen_arg's dec route
+                // (bindings/getters only) always finds supply.
+                if tgt_fields.iter().any(|(_, ft)| *ft == Ft::Dec) {
+                    let supply = pats.iter().any(|p| {
+                        p.bindings.iter().any(|(_, _, ft)| *ft == Ft::Dec)
+                            || (p.ce == 0
+                                && types[p.ti].fields.iter().any(|(_, ft)| *ft == Ft::Dec))
+                    });
+                    if !supply {
+                        continue;
+                    }
+                }
                 for (_, tft) in &tgt_fields {
                     let base = gen_arg(&mut rng, &types, &mut pats, ri, *tft, false);
                     // D-283/D-284 axis: computed args on plain inserts AND
@@ -848,7 +930,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 // in the same RHS (the compound transient-visibility
                 // micro-timings are documented-open, not fuzzed).
                 if tms && tgt_ti == logical_ti {
-                    if has_acc || has_group || update_pos.is_some() || delete_pos.is_some() {
+                    if has_group || update_pos.is_some() || delete_pos.is_some() {
                         continue;
                     }
                     actions.push(format!(
@@ -882,6 +964,12 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                     continue;
                 }
                 let (fname, ft) = fs[fi].clone();
+                // D-313: decimal setters stay out of the fuzz (arg
+                // supply is not guaranteed here; the rule-side decimal
+                // modify is probe-carried, pr_ja0_singleton_dec).
+                if ft == Ft::Dec {
+                    continue;
+                }
                 let mut arg = gen_arg(&mut rng, &types, &mut pats, ri, ft, true);
                 // D-288 axis: computed setter args, the insert-axis shape
                 // verbatim (typed so javac agrees; nonzero literal
@@ -1183,7 +1271,14 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
     // type, unbound-eligible). An UNBOUND CE arg requires the param to be
     // bound in EVERY callee branch (D-057) — tracked at generation.
     let mut q2_queries: Vec<(String, Vec<(Ft, bool)>)> = Vec::new();
-    if !tms && !allow_mutation && epochs_insert_only && rng.chance(45) {
+    // D-313: decimal types are WALLED from queries (D-098) — every
+    // query-phase type draw comes from the dec-free list. Positional
+    // unification binds leading fields, so a dec field anywhere in a
+    // type poisons it for query use, not just when picked.
+    let dec_free: Vec<usize> = (0..ntypes)
+        .filter(|ti| types[*ti].fields.iter().all(|(_, ft)| *ft != Ft::Dec))
+        .collect();
+    if !tms && !allow_mutation && epochs_insert_only && !dec_free.is_empty() && rng.chance(45) {
         const QOPS_NOEQ: &[&str] = &["!=", "<", "<=", ">", ">="];
         let nqueries = 1 + rng.below(2); // 1..2
         for qi in 0..nqueries {
@@ -1208,7 +1303,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 let npats = if nbranches == 1 { 1 + rng.below(3) } else { 1 + rng.below(2) };
                 let mut pats: Vec<String> = Vec::new();
                 for pj in 0..npats {
-                    let ti = rng.below(ntypes);
+                    let ti = dec_free[rng.below(dec_free.len())];
                     let nfields = types[ti].fields.len();
                     let mut cons: Vec<String> = Vec::new();
                     // param unifications (first pattern biased to have one)
@@ -1319,6 +1414,8 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                             Ft::F64 => "double",
                             Ft::Str => "String",
                             Ft::Bool => "boolean",
+                            // query bodies draw dec-free types only (D-098)
+                            Ft::Dec => unreachable!("dec params walled from queries"),
                         };
                         format!("{jt} {n}")
                     })
@@ -1466,7 +1563,7 @@ pub fn gen_scenario(seed: u64, case: u64) -> (String, J) {
                 let mut binds: Vec<(String, Ft)> = Vec::new();
                 let mut bind_n = 0usize;
                 for _ in 0..nlead {
-                    let ti = rng.below(ntypes);
+                    let ti = dec_free[rng.below(dec_free.len())];
                     let nfields = types[ti].fields.len();
                     let mut cons: Vec<String> = Vec::new();
                     for _ in 0..rng.below(2) {
@@ -1696,6 +1793,42 @@ fn gen_arg(
     // Bool args in monotone-guard positions must be literal `true`.
     if tft == Ft::Bool && only_true_bools {
         return "true".into();
+    }
+    // D-313: decimal args are BINDINGS/GETTERS ONLY — there is no
+    // certified DRL decimal-literal form (the insert site supply-gates
+    // dec targets, so one of these routes always lands).
+    if tft == Ft::Dec {
+        let binds: Vec<String> = pats
+            .iter()
+            .flat_map(|p| {
+                p.bindings
+                    .iter()
+                    .filter(|(_, _, ft)| *ft == Ft::Dec)
+                    .map(|(v, _, _)| v.clone())
+            })
+            .collect();
+        if !binds.is_empty() && rng.chance(60) {
+            return rng.pick(&binds).clone();
+        }
+        for pi in 0..pats.len() {
+            if pats[pi].ce != 0 {
+                continue;
+            }
+            if let Some((fname, ft)) = types[pats[pi].ti]
+                .fields
+                .iter()
+                .find(|(_, ft)| *ft == Ft::Dec)
+                .cloned()
+            {
+                let var = ensure_fact_var(pats, ri, pi);
+                return format!("{var}.{}()", accessor(&fname, ft, "get"));
+            }
+        }
+        if let Some(b) = binds.first() {
+            return b.clone();
+        }
+        // unreachable behind the supply gate; a dead arm keeps this total
+        return "0".into();
     }
     if choice >= 40 {
         // Try a binding.

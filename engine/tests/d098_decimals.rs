@@ -140,7 +140,9 @@ fn decimal_f64_wall() {
 
 /// Pin J aggregates: sum exact (and widening), average -> DOUBLE,
 /// min/max preserve the decimal; nulls skip (D-097 composition);
-/// all-null sum = 0 at the field's scale and FIRES (ruling 2).
+/// an empty/all-null sum FIRES with BigDecimal.ZERO — scale 0, "0"
+/// (MEASURED, D-313 fuzz: the old at-the-field's-scale value was a
+/// ruling-2 composition the oracle falsified).
 #[test]
 fn decimal_aggregates() {
     let drl = "rule R when accumulate( M(tag == 1, $x : amount); $s : sum($x) ) then end";
@@ -171,14 +173,15 @@ fn decimal_aggregates() {
     let mv = &f[0].matches.iter().find(|x| x.type_name == "BigDecimal").unwrap().fields[0].1;
     assert_eq!(mv, &dec(250, 2), "min skips the null, preserves decimal");
 
-    // all-null sum: 0 at the field scale, fires (ruling 2)
+    // all-null sum: fires with BigDecimal.ZERO — scale 0 (measured,
+    // D-313; the fold ratchets scale only on real contributions)
     let drl = "rule R when accumulate( M(tag == 1, $x : opt); $s : sum($x) ) then end";
     let mut e = engine(drl);
     m(&mut e, "0.00", 1, None);
     let f = e.fire_all(100_000).unwrap();
-    assert_eq!(f.len(), 1, "ruling 2: fires");
+    assert_eq!(f.len(), 1, "still fires on all-null");
     let sv = &f[0].matches.iter().find(|x| x.type_name == "BigDecimal").unwrap().fields[0].1;
-    assert_eq!(sv, &dec(0, 2), "ruling 2: 0 at scale 2");
+    assert_eq!(sv, &dec(0, 0), "BigDecimal.ZERO: scale 0, like the oracle");
 }
 
 /// in-lists over decimals convert exactly; RHS decimal literals insert

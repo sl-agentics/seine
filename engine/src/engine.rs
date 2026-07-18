@@ -2358,15 +2358,17 @@ impl AccCtx {
         match func {
             AccFunc::Sum => Some(match arg_ft {
                 FieldType::I64 => Value::I64(self.sum_i),
-                // D-098 ruling 2 composition: an empty/all-null decimal
-                // sum is 0 AT THE FIELD'S SCALE and still fires.
-                FieldType::Dec { s, .. } => {
+                // MEASURED (D-313 fuzz axis, first 200 cases): the
+                // oracle's BigDecimal sum identity is ZERO at SCALE 0
+                // ("0") — the old at-the-field's-scale value was a
+                // D-098 ruling-2 COMPOSITION, falsified by measurement.
+                // The fold ratchets scale on contributions and never
+                // resets (subtract-based reverse, like Drools'), so a
+                // drained-to-zero sum stays at the ratcheted scale
+                // ("0.00") while a never-fed sum is "0".
+                FieldType::Dec { .. } => {
                     let (u, us) = self.sum_d;
-                    if us == 0 && u == 0 {
-                        Value::Dec { u: 0, s }
-                    } else {
-                        Value::Dec { u, s: us }
-                    }
+                    Value::Dec { u, s: us }
                 }
                 _ => Value::F64(self.sum_f),
             }),
@@ -12235,8 +12237,12 @@ fn coerce(v: Value, target: FieldType) -> Option<Value> {
             let (u, s) = crate::store::dec_rescale(n as i128, 0, s)?;
             crate::store::dec_fits(u, p).then_some(Value::Dec { u, s })
         }
-        (Value::Dec { u: u0, s: s0 }, FieldType::Dec { p, s }) => {
-            let (u, s) = crate::store::dec_rescale(u0, s0, s)?;
+        // MEASURED (D-313 fz_313901_80): a RUNTIME decimal keeps its
+        // OWN scale on storage — the oracle's POJO fields are plain
+        // BigDecimals, never rescaled to the declared (p,s). Only the
+        // ingestion arms above (string/int, D-098) normalize to the
+        // declared scale. Precision stays enforced (pin J).
+        (Value::Dec { u, s }, FieldType::Dec { p, .. }) => {
             crate::store::dec_fits(u, p).then_some(Value::Dec { u, s })
         }
         (Value::F64(_), FieldType::Dec { .. }) => None, // the wall
