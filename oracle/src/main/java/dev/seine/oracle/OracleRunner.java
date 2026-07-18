@@ -279,7 +279,12 @@ public final class OracleRunner {
             case "f64": return "double";
             case "String": return "String";
             case "bool": return "boolean";
-            default: throw new IllegalArgumentException("unknown field type: " + t);
+            default:
+                // D-308 pin campaign: decimal(p,s) fields declare as
+                // BigDecimal (values travel as exact strings both ways;
+                // render's String.valueOf is scale-preserving toString)
+                if (t.startsWith("decimal(")) return "java.math.BigDecimal";
+                throw new IllegalArgumentException("unknown field type: " + t);
         }
     }
 
@@ -302,6 +307,10 @@ public final class OracleRunner {
             case "f64": ft.set(bean, fname, v.asDouble()); break;
             case "String": ft.set(bean, fname, v.asText()); break;
             case "bool": ft.set(bean, fname, v.asBoolean()); break;
+            default:
+                if (declared.startsWith("decimal("))
+                    ft.set(bean, fname, new java.math.BigDecimal(v.asText()));
+                break;
         }
     }
 
@@ -318,11 +327,16 @@ public final class OracleRunner {
         for (JsonNode field : schema.path("fields")) {
             String fname = field.path("name").asText();
             JsonNode v = fact.path("fields").path(fname);
-            switch (field.path("type").asText()) {
+            String declared2 = field.path("type").asText();
+            switch (declared2) {
                 case "i64": ft.set(bean, fname, v.asLong()); break;
                 case "f64": ft.set(bean, fname, v.asDouble()); break;
                 case "String": ft.set(bean, fname, v.asText()); break;
                 case "bool": ft.set(bean, fname, v.asBoolean()); break;
+                default:
+                    if (declared2.startsWith("decimal("))
+                        ft.set(bean, fname, new java.math.BigDecimal(v.asText()));
+                    break;
             }
         }
         return bean;

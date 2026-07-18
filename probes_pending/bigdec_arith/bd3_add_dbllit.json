@@ -1,0 +1,38 @@
+{
+ "name": "bd3_add_dbllit",
+ "drl": "rule R when M(a + b == 3.3) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "b",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t16",
+     "type": "decimal(20,16)"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.10",
+    "b": "2.20",
+    "t16": "0.0000000000000000",
+    "d": 0.0
+   }
+  }
+ ]
+}

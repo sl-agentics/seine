@@ -1,0 +1,47 @@
+{
+ "name": "bd_lhs_eq_scale",
+ "drl": "rule R1 when M(amount + fee == 3.3) then end\nrule R2 when M(amount + fee == 3.30) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "amount",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "fee",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "n",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(20,2)"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "amount": "1.10",
+    "fee": "2.20",
+    "n": 0,
+    "d": 0.0
+   }
+  }
+ ]
+}

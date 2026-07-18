@@ -1,0 +1,38 @@
+{
+ "name": "bd3_div_t16",
+ "drl": "rule R when M(a / b == t16) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "b",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t16",
+     "type": "decimal(20,16)"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.00",
+    "b": "3.00",
+    "t16": "0.3333333333333333",
+    "d": 0.0
+   }
+  }
+ ]
+}

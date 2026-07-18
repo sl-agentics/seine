@@ -104,7 +104,14 @@ Bryan-gated. D-307: the PUBLISH layer probed (the packaging audit) —
 v0.4.37 RELEASED with the full deploy-surface wheel matrix
 (manylinux_2_28 + musllinux_1_2 + aarch64, 7 wheels + sdist, all
 live on PyPI); CHANGELOG.md exists; the identity-0 footgun is
-documented at sum_. Everything through v0.4.37 is PUSHED.**_
+documented at sum_. Everything through v0.4.37 is PUSHED. D-308:
+the BigDecimal pin campaign is MEASURED (33 cells, 3×/5× stable;
+oracle taught decimal fields, corpus re-diffed green): RHS wall =
+ERROR-PARITY; LHS + - * = exact BigDecimal/compareTo; the
+DOUBLE-LITERAL POISON (raw-binary coercion, asymmetric boundaries,
+literal≠field); / % silently degrade to IEEE double; jit axis
+CLEAN. Port recommendation on the record (agree-subset + poison
+fences) — AT BRYAN'S GATE.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16643,3 +16650,57 @@ red on the standing TP config.
 Receipts: main-run matrix 7/7 green pre-tag; tag run: differential
 gate green, all wheels + publish-pypi green; PyPI JSON lists all 8
 artifacts for 0.4.37; pytest 250.
+
+## D-308 — THE BIGDECIMAL INLINE-ARITHMETIC PIN CAMPAIGN (Bryan: "do the BigDecimal inline arithmetic pin campaign") — three probe rounds + the volume axis, predictions-first; the oracle's own decimal arithmetic is a MINEFIELD and the agree-subset is now mapped. AT BRYAN'S GATE (2026-07-18)
+
+STEP 0: the OracleRunner learns decimal(p,s) → BigDecimal (exact
+string construction both directions; render was already
+scale-preserving toString). Additive switch arms only; the full
+corpus re-diffed GREEN after the rebuild (11/1272/406 + drift 50) —
+first time the Drools oracle can see decimal fields at all (decimals
+were deliberately DuckDB-certified only, D-095).
+
+THE MEASURED LAW (probes_pending/bigdec_arith/, 33 cells, 3×-stable,
+volume 5×; PINS.md holds predictions-first tables):
+1. RHS (javac): ALL inline decimal arithmetic is a BUILD ERROR
+   (insert args, literals, computed setters) — Seine's RHS wall is
+   ERROR-PARITY, not a scope cut. (Prediction held.)
+2. LHS `+ - *` (MVEL): EXACT BigDecimal, java.math scale rules;
+   comparisons against decimal fields and int literals are compareTo
+   (scale-insensitive — s2 and s4 targets both fire). (Held.)
+3. THE DOUBLE-LITERAL POISON (the headline; prediction b5 WRONG in
+   the informative direction): double LITERALS coerce RAW-BINARY —
+   `a + b == 3.30` never fires on an exactly-3.30 result, and
+   boundaries are ASYMMETRIC (`>= 3.30` fires, `<= 3.30` does not,
+   same exact-equal boundary). Double FIELDS coerce value-faithfully
+   (toString path) — literal and field behave DIFFERENTLY inside the
+   same operator.
+4. `/` and `%` DEGRADE SILENTLY TO IEEE DOUBLE (non-terminating
+   division just works; results compare as doubles; the t16 decimal
+   twin refutes exact division; zero divisor throws
+   ConstraintEvaluationException at eval). Exactness dies at
+   division, invisibly. (Prediction of a non-terminating throw
+   WRONG.)
+5. THE JIT AXIS IS CLEAN: 5000-fact cells ×5 — fire counts AND
+   firing sequences byte-identical every run (2550 reproduces the
+   literal poison at volume: both modes share it); the only jitter
+   is WM-dump order (getObjects hash iteration, canonicalized in the
+   diff pipeline). No D-290-style mode divergence on decimals; no
+   mode-1 residency precondition needed (absence-of-evidence caveat
+   recorded).
+
+THE PORT RECOMMENDATION (gated): keep the RHS wall (rationale →
+error-parity); agree-subset = LHS `+ - *` over decimal fields with
+comparisons restricted to DECIMAL operands + INT literals (compareTo,
+exact, volume-stable — the engine's i128 machinery already computes
+it; results are never scale-compared so representation is free);
+FENCE double literals/f64 fields in decimal-arith comparisons (the
+poison cells — composing with ruling 4's money-never-meets-floats
+wall, now provably justified by the oracle's own poisoned coercion)
+and FENCE `/` `%` (silent double degradation = the anti-spec; ledger
+row 4's loud-error doctrine wins). `principal + fee <= limit` would
+be in-subset, exact, poison-free.
+
+Campaign only — NO ENGINE PORT. Receipts: 33 probes 3×/5× stable;
+corpus re-diff green post-oracle-rebuild; lint untouched (probes are
+probes_pending, outside the scan). AT BRYAN'S GATE.

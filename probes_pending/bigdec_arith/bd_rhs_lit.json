@@ -1,0 +1,47 @@
+{
+ "name": "bd_rhs_lit",
+ "drl": "rule R when M($p : amount) then insert(new Out($p + 1)); end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "amount",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "fee",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "n",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  },
+  {
+   "name": "Out",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(20,2)"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "amount": "1.10",
+    "fee": "0.00",
+    "n": 0,
+    "d": 0.0
+   }
+  }
+ ]
+}

@@ -1,0 +1,38 @@
+{
+ "name": "bd3_div_scale",
+ "drl": "rule R1 when M(a / b >= 0.333333333333333) then end\nrule R2 when M(a / b <= 0.34) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "b",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t16",
+     "type": "decimal(20,16)"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.00",
+    "b": "3.00",
+    "t16": "0.0000000000000000",
+    "d": 0.0
+   }
+  }
+ ]
+}

@@ -1,0 +1,43 @@
+{
+ "name": "bd2_div_dbl_lit",
+ "drl": "rule R when M(a / b == 0.3333333333333333) then end",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "b",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t2",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "t4",
+     "type": "decimal(10,4)"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.00",
+    "b": "3.00",
+    "t2": "0.00",
+    "t4": "0.0000",
+    "d": 0.0
+   }
+  }
+ ]
+}
