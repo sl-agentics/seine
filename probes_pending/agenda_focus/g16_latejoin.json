@@ -1,0 +1,75 @@
+{
+ "drl": "rule L1 salience -5 when $s : S($k : k) then drools.setFocus(\"g\"); insert(new X($k)); end\nrule L2 salience -6 when $t : T($k : k) then drools.setFocus(\"g\"); insert(new Y($k)); end\nrule H salience 5 when X($v : v) then end\nrule H2 salience 5 when Y($w : w) then end\nrule GD agenda-group \"g\" when X($v : v) not S(k == 1) then end\nrule GE agenda-group \"g\" when Y($w : w) not S(k == 1) then end\n",
+ "types": [
+  {
+   "name": "S",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "X",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Y",
+   "fields": [
+    {
+     "name": "w",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "S",
+   "fields": {
+    "k": 1
+   }
+  },
+  {
+   "type": "S",
+   "fields": {
+    "k": 2
+   }
+  },
+  {
+   "type": "S",
+   "fields": {
+    "k": 3
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 11
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "k": 12
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "af_g16_latejoin"
+}

@@ -17318,3 +17318,63 @@ the s10 fine structure needing its own probe grid (flush scope per
 evaluation, segment states) BEFORE any engine change. Probes + PINS
 only; engine untouched. Receipts: make diff 11/1315/414 + drift 63;
 lint 2149/0/0. AT BRYAN'S GATE.
+
+## D-319 — THE FINE-STRUCTURE GRID (Bryan: "begin phase 1" per the agenda_focus handoff) — THE LAW CLOSES COHERENT; THE PORT CONTINGENCY IS SATISFIED (2026-07-18)
+
+Four predictions-first rounds, 29 cells, every cell 3× oracle-stable,
+zero incoherence. The D-318 law survives but two of its readings
+fell to measurement — both in the narrowing direction:
+
+**Round 1** (13 cells): the s10 partial is ONE flush at the first
+push, stable to n=5 (g1); an empty pre-push consumes nothing (g2);
+matching not-CE groups are the certified group-hit surface (g3
+MATCH); the flush exposes ALL fresh MAIN activations and the drain
+is pure salience (g4 — H2 then H before returning to L); the
+tie-break at equal salience is DECLARATION ORDER (g7 pair: H-first
+diverges, H-last matches); dead alpha rules neither shield nor
+upgrade (g8). MISS #1: exists did not flush (g5) — later explained.
+MISS #2: g9's "full interleave" read was wrong — short runs made
+run-exhaustion picks look like flushes; g9 is per-group-once.
+
+**Round 2** (9 cells): twins don't upgrade (g10 same group, g11
+MAIN); right alpha filter (g12) and H's own alpha (g13) are
+irrelevant; correlation upgrades even non-hash-indexable
+(g6_betaneq); a second different alpha-not still latches with the
+first (g15). THE LATCH IS ONCE-EVER: it survives the fireAllRules
+batch boundary (g14_ctl) AND full teardown+relink of the segment
+(g14_relink) — session-permanent, not link-transition-scoped.
+
+**Round 3** (4 cells, all predictions EXACT): the latch is PER RULE
+(g16 — a late-linking second rule flushes again mid-session), keys
+on first EVALUATION not on who caused the link (g17 — pre-linked
+segment still flushes at first push), and the correlated/group-form
+classes are truly per-push at n=5 (g6_beta_n5, g6_grpjoin_n5).
+
+**Round 4** (3 cells, all predictions HIT — the law closes): a
+LINKED exists FLUSHES per-push (g18) and so does a linked
+zero-match join (g19) — the "not-specific" reading is REFUTED;
+every no-flush boundary cell (s2/s7/s11/g5) has a rule that can
+never LINK (dead type, alpha-filtered-out, empty right memory).
+Multi-push in one RHS spends the latches together (g20).
+
+**THE LAW (final, port condition)**: on an RHS setFocus push of
+group G, the oracle evaluates G's QUEUED rules; the evaluation
+flushes staged propagation and the next pick is ordinary
+(salience, decl-order at ties) — preempting the current run when
+something fresh wins. QUEUED = LINKED (alpha-terminal: passing
+data; join/exists: both sides populated post-filter; not: LEFT
+alone) + unevaluated input, where the simple-alpha-not class
+latches ONCE-EVER per rule and the correlated-not / group-form-not
+/ linked-exists / linked-join classes re-queue on EVERY staged
+addition. Matching rules fire instead (certified). Sharing and
+placement are not variables.
+
+Inventory: 26/29 cells DIVERGE (engine always continues), 3 MATCH
+(g3_unblocked, g5_exists, g7_tie_hlast). ALL 29 stay in
+probes_pending/agenda_focus/ until the port graduates them —
+byte-gate expected-divergence at port time = these 26 + the 7
+xfailed witnesses. VERDICT: COHERENT — phase 2 (the port) is
+pre-cleared per Bryan's directive. Engine condition sketch in
+PINS.md. Probes + PINS + this entry only; engine untouched.
+Receipts: make diff 1740 PASS (11/1315/414) + drift 63 identical;
+lint 2178/0/0 (2149 + the 29 grid cells).
