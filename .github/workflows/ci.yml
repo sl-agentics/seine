@@ -56,7 +56,18 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: ubuntu-latest,  platform: linux-x86_64 }
+          # Linux builds run in manylinux_2_28 containers (glibc >= 2.28):
+          # RHEL 8 / UBI8, Ubuntu 20.04, Debian 11 all install a wheel
+          # instead of silently compiling the sdist. (Amazon Linux 2 stays
+          # out: its glibc is 2.26 AND its system python is < 3.9, so no
+          # abi3-py39 wheel could serve it anyway.) Building bare on
+          # ubuntu-latest tagged the wheel with the HOST glibc (2_34) —
+          # that was the deploy-surface hole.
+          - { os: ubuntu-latest,    platform: linux-x86_64,      manylinux: "2_28" }
+          - { os: ubuntu-24.04-arm, platform: linux-aarch64,     manylinux: "2_28" }
+          # musl (Alpine-based images), both arches
+          - { os: ubuntu-latest,    platform: musllinux-x86_64,  manylinux: "musllinux_1_2", target: x86_64-unknown-linux-musl }
+          - { os: ubuntu-24.04-arm, platform: musllinux-aarch64, manylinux: "musllinux_1_2", target: aarch64-unknown-linux-musl }
           - { os: macos-14,       platform: macos-arm64 }
           # GitHub retired Intel Mac runners (macos-13 queues forever);
           # the x86_64 wheel cross-compiles from the ARM runner instead —
@@ -75,6 +86,7 @@ jobs:
         with:
           command: build
           target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
           args: --release -m bindings/Cargo.toml -o dist
       - uses: actions/upload-artifact@v4
         with:
@@ -168,6 +180,9 @@ jobs:
           pattern: "{wheels-*,sdist}"
           merge-multiple: true
           path: dist
+      # NOTE for anything that smoke-installs right after publishing:
+      # PyPI's simple-index CDN lags the JSON API by minutes — install
+      # by direct file URL or retry, or a good push reads as red.
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

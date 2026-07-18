@@ -789,6 +789,14 @@ def window_length(n: int) -> _Window:
 
 
 def sum_(field: FieldRef) -> _Agg:
+    """Sum aggregate. Decimal fields sum EXACTLY (the result widens to
+    decimal(38,s)); nullable fields skip null contributions.
+
+    Footgun, stated where the pattern lives: a sum over an EMPTY or
+    all-null source still fires, with the identity 0 — so a
+    balance-release gate like ``total <= 0.00`` trips when there are
+    NO line items at all. If "no data" must not release, guard the
+    rule with an existence check on the source (or ``count() >= 1``)."""
     return _Agg("sum", field)
 
 
