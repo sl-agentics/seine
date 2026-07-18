@@ -4,6 +4,23 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **Decimal ingestion is verbatim** (measured against the oracle): a
+  string keeps its own scale — `"1.1"` stays `1.1`, and `"1.005"`
+  into a `decimal(10,2)` field is no longer silently rounded to
+  `1.01`; integers ingest at scale 0. The declared `(p,s)` remains
+  the Arrow column contract (and precision is still enforced) —
+  it no longer rewrites working-memory values.
+- **Truth-maintenance identity is scale-sensitive** (like
+  `BigDecimal.equals`): logically inserting `2.50` and `2.500`
+  yields two distinct justified facts, exactly as the oracle's
+  generated equality does.
+- **Numeric literals cannot construct or set decimal fields** in
+  DRL (`insert(new Bal(2.5))`, `setV(2.5)`) — now a build error
+  matching the oracle's, with steering to bindings and ingested
+  data. Comparisons and in-lists over decimal fields are unchanged.
+
 ## 0.4.41
 
 - **Exact decimal average** — `average_exact(field, scale=…,

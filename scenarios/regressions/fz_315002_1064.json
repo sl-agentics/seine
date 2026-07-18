@@ -1,0 +1,108 @@
+{
+  "drl": "rule \"R0\"\nwhen\n    T1(f0 <= 0, f0 < 5)\nthen\nend\nrule \"R1\"\nsalience -4\nwhen\n    exists(T1() or T1())\n    T0(f1 not in (-5, 0), f1 > 11, $b1_1_0 : f2, $b1_1_1 : f2)\n    exists T1(f0 >= 0, f0 <= -2)\nthen\nend\nrule \"R2\"\nsalience -4\nagenda-group \"gb\"\nwhen\n    accumulate( T1(f0 >= 0, f0 >= 5, $s2_0 : f0); $a2_0 : sum($s2_0) )\nthen\nend\nrule \"R3\"\nwhen\n    ( $p3_0 : T0() )\n    or\n    ( $p3_0 : T0() )\n    or\n    ( $p3_0 : T0(f3 != true) )\nthen\n    insertLogical(new T1($p3_0.getF0()));\nend\nrule \"R4\"\nsalience -7\nwhen\n    ( T1() )\n    or\n    ( T1() )\n    or\n    ( T1() )\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": 4,
+            "f1": 9,
+            "f2": true,
+            "f3": true
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": "1.1",
+            "f1": -1000000007,
+            "f2": true,
+            "f3": true
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": []
+    },
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": "1.10",
+            "f1": 1,
+            "f2": true,
+            "f3": false
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": "-0.50",
+            "f1": 100,
+            "f2": true,
+            "f3": false
+          },
+          "op": "insert",
+          "type": "T0"
+        }
+      ],
+      "facts": [
+        {
+          "fields": {
+            "f0": "-0.50",
+            "f1": 0,
+            "f2": false,
+            "f3": true
+          },
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": "-0.50",
+            "f1": 100,
+            "f2": false,
+            "f3": true
+          },
+          "type": "T0"
+        }
+      ]
+    }
+  ],
+  "facts": [],
+  "name": "fz_315002_1064",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "decimal(10,2)"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "decimal(10,2)"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}

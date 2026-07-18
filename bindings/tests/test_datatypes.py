@@ -168,11 +168,17 @@ def test_arrow_null_still_rejected_when_not_nullable():
 
 def test_results_round_trip_nulls_and_decimals():
     pl = pytest.importorskip("polars")
+    # D-315: RHS numeric literals into decimal fields are error
+    # parity (javac rejects the BigDecimal ctor) — the new amount
+    # comes from a source fact's binding (0.99 fails the guard, so
+    # the rule terminates)
     sess = seine_rs.Session(
-        "rule R when M(amount > 1) then insert(new M(0.99, null)); end",
-        schemas={"M": {"amount": "decimal(10,2)", "opt": "i64?"}},
+        "rule R when M(amount > 1) S($b : v) then insert(new M($b, null)); end",
+        schemas={"M": {"amount": "decimal(10,2)", "opt": "i64?"},
+                 "S": {"v": "decimal(10,2)"}},
     )
     sess.insert_row("M", {"amount": Decimal("2.00"), "opt": None})
+    sess.insert_row("S", {"v": Decimal("0.99")})
     res = sess.fire()
     df = pl.DataFrame(res.facts["M"])
     assert str(df.schema["amount"]).startswith("Decimal")

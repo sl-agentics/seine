@@ -174,7 +174,21 @@ semantics grid-certified 35/35 vs oracle BigDecimal.divide programs
 average_exact(field, scale=source, rounding="half_up") authors;
 group_by/window compositions fenced; byte gate 2217/2217 vs b6cbe4e
 ZERO divergence; pytest 257; lint 2124. THE DECIMAL LEDGER IS
-EMPTY. AWAITING PUSH/RELEASE directive.**_
+EMPTY (released v0.4.41, PyPI live, pushed through f5a934e).
+**D-315 (Bryan: "do the four filed pin candidates"): ALL FOUR
+MEASURED — ingestion goes VERBATIM (the oracle's BigDecimal(text)
+keeps the string's own scale; the pin-J half-up narrow silently
+destroyed data and is GONE — declared (p,s) stays the Arrow-column
+contract); the RHS numeric-literal hole CLOSES (javac rejects
+BigDecimal ctors/setters → loud error-parity walls); the eq-literal
+hash-group fear REFUTED (compareTo both sides, hashed or not); the
+D-313 own-scale flow oracle-diffed. 8 cells graduated (corpus
+11/1302/412), DEC_POOL mixed scales + int-JSON, bank 54 (one more
+pre-existing agenda-order latent, control-variant bisected). PLUS the battery's own find: TMS keys are SCALE-SENSITIVE
+(BigDecimal.equals) — KeyVal normalization removed. Byte gate
+2287/2287 vs f5a934e ZERO divergence (post-fix re-run); diff
+11/1302/414 + drift 55. The filed-pin ledger is EMPTY. AWAITING
+PUSH/RELEASE directive.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -17091,3 +17105,71 @@ fuzz 2×2000 seeds 314001/314002 CLEAN. THE DECIMAL LEDGER IS EMPTY —
 remaining standing items: crates.io TP config (Bryan) + the four
 filed pin candidates (string-scale ingestion, int-JSON, D-029
 eq-literal hash groups, dec setters).
+
+## D-315 — THE FOUR FILED DECIMAL PIN CANDIDATES, ALL MEASURED (Bryan: "do the four filed pin candidates") — ingestion goes VERBATIM, the RHS literal hole closes, and the hash-group fear evaporates (2026-07-18)
+
+Nine diffable cells + one added same-day (probes_pending/dec_pins/,
+predictions-first). The scorecard: three predicted divergences
+CONFIRMED and landed, one predicted quirk REFUTED (the good miss),
+two predicted matches CONFIRMED.
+
+**p1/p2 — INGESTION IS VERBATIM (landed).** The oracle's setTyped is
+`new BigDecimal(text)`: "1.1" stays scale 1, "1.005" is NEVER
+half-up'd into a (10,2) field, int-JSON lands at scale 0. Our
+rescale-to-declared (the D-098 pin-J posture) was DuckDB's CAST
+semantic, not Drools' — and the half-up narrow silently DESTROYED
+data the oracle preserved. coerce's Str→Dec / I64→Dec arms now keep
+the value's own scale (precision still enforced); the declared (p,s)
+remains the Arrow COLUMN contract (columns are uniform-scale by
+construction — the derive plane's oracle is DuckDB and its cast
+rescales, correctly, THERE). d098 ingest pins updated to measured.
+
+**p3 — NO HASH QUIRK.** Three same-field decimal eq-int-literals (at
+the oracle's alphaNodeHashingThreshold) fire identically across
+value scales 2/0/1, and so does the below-threshold control — alpha
+eq matching is compareTo on both sides, hashed or not. The
+scale-sensitive-equals fear was unfounded; fz_313902_761 is NOT this
+mechanism and stays xfailed unexplained.
+
+**p4 — the D-313 own-scale flow is now ORACLE-DIFFED (insert +
+setter cross-scale: MATCH), and the RHS-literal hole is CLOSED:
+javac rejects numeric literals into BigDecimal ctors AND setters, so
+the engine's D-098-era exact-literal conversion becomes a loud
+error-parity wall on both sites** (bindings and ingested data are
+the decimal routes; string literals already errored on both sides —
+p4_strlit, parity held). d098's decimal_lists_and_rhs re-pinned as
+error parity; two pytest cells rewrote their literal-fed DRL to
+binding-fed shapes.
+
+LANDED AROUND IT: 8 cells graduated (pr_dp_*, corpus 11/1302/412);
+p4_lit/p4_strlit stay pending engine_fenced as the error-parity
+record; DEC_POOL gains mixed scales + int-JSON draws (the constraint
+the fixes unlocked). The smoke seed flushed fz_315901_311 —
+triaged with an exact-scale CONTROL VARIANT (diverges identically →
+scale-independent; pre-slab engine bit-identical on the control →
+pre-existing): a setFocus × or-branch-delete × salience agenda-order
+latent (fz_313002_319-adjacent) → xfail, bank 54.
+
+THE FIFTH FINDING (the battery seeds earned their keep):
+fz_315001_1803 — **TMS equality keys are SCALE-SENSITIVE**. The
+oracle's generated equals() is BigDecimal.equals, so
+insertLogical(T1("2.50")) and insertLogical(T1("2.500")) are
+DISTINCT logical facts; our KeyVal::D normalized trailing zeros
+(another pin-J composition, unreachable until verbatim ingestion let
+mixed scales flow) and wrongly value-dedup'd them. FIXED: KeyVal::D
+carries raw (u, s). Both finds → regressions tripwires
+(fz_315001_1803 + fz_315002_1064, same class); one more
+collect-order family member (fz_315002_1364) → xfail bank 55. The
+KeyVal fix invalidated the in-flight battery, so EVERYTHING re-ran
+against the final binary.
+
+Receipts (all post-KeyVal-fix): byte gate **2287/2287 IDENTICAL** vs
+f5a934e (zero moved, zero diff — no corpus cell used sub-scale
+strings, int-JSON decimals, RHS decimal literals, or mixed-scale TMS
+keys); make diff 11/1302/414 + drift 55; lint 2135/0/0; cargo 13
+suites (d098 re-pinned); pytest 257; demo True; model_ird 31/31;
+agenda_open ×15 both binaries + worktree IDENTICAL; IRD 0-div ×5
+re-run; SD census 72 EXACT re-run; fuzz 315001 CLEAN post-fix,
+315002 CLEAN post-rebank. The filed-pin-candidate ledger is EMPTY —
+standing: crates.io TP config (Bryan) + three xfailed order latents
+awaiting a mechanism (two agenda-order, the collect-order family).

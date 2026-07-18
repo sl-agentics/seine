@@ -29,6 +29,23 @@ fn engine(drl: &str) -> Engine {
     e
 }
 
+fn engine_err(drl: &str) -> String {
+    let mut e = Engine::new(vec![
+        TypeSchema {
+            name: "M".into(),
+            fields: vec![
+                ("amount".into(), FieldType::Dec { p: 10, s: 2 }),
+                ("tag".into(), FieldType::I64),
+                ("opt".into(), FieldType::Dec { p: 10, s: 2 }),
+            ],
+            nullable: 0b100,
+        },
+        TypeSchema { name: "Out".into(), fields: vec![], nullable: 0 },
+    ])
+    .unwrap();
+    e.add_rules_drl(drl).expect_err("must wall").0
+}
+
 fn m(e: &mut Engine, amount: &str, tag: i64, opt: Option<&str>) {
     e.insert(
         "M",
@@ -85,17 +102,19 @@ fn cross_scale_join_equality() {
     assert_eq!(fired(&mut e), 1, "value-equal across written scales");
 }
 
-/// Half-up ingest rounding (pin J), including negatives; and the loud
-/// precision overflow.
+/// VERBATIM ingest (MEASURED, D-315 p1/p2: the oracle's setTyped is
+/// `new BigDecimal(text)` — the string's own scale survives, nothing
+/// is ever half-up'd into the declared scale); the loud precision
+/// overflow and the float rejection stay.
 #[test]
 fn ingest_rounding_and_overflow() {
-    let mut e = engine("rule R when M(amount == 1.01) then end");
-    m(&mut e, "1.005", 0, None); // half-up at scale 2 -> 1.01
-    assert_eq!(fired(&mut e), 1, "pin J: half-up");
+    let mut e = engine("rule R when M(amount == 1.005) then end");
+    m(&mut e, "1.005", 0, None); // stays scale 3, verbatim
+    assert_eq!(fired(&mut e), 1, "D-315: verbatim, 1.005 stays 1.005");
 
-    let mut e = engine("rule R when M(amount == -1.01) then end");
-    m(&mut e, "-1.005", 0, None); // away from zero
-    assert_eq!(fired(&mut e), 1, "pin J: half-up away from zero");
+    let mut e = engine("rule R when M(amount == 1.01) then end");
+    m(&mut e, "1.005", 0, None);
+    assert_eq!(fired(&mut e), 0, "D-315: no half-up rescale on ingest");
 
     let mut e = engine("rule R when M(tag == 0) then end");
     let r = e.insert(
@@ -184,8 +203,10 @@ fn decimal_aggregates() {
     assert_eq!(sv, &dec(0, 0), "BigDecimal.ZERO: scale 0, like the oracle");
 }
 
-/// in-lists over decimals convert exactly; RHS decimal literals insert
-/// exactly and setters rescale to the target field.
+/// in-lists over decimals convert exactly; RHS numeric literals into
+/// decimal fields are ERROR PARITY (MEASURED, D-315 p4_lit: javac
+/// rejects the BigDecimal constructor/setter — bindings and ingested
+/// data are the decimal routes).
 #[test]
 fn decimal_lists_and_rhs() {
     let mut e = engine("rule R when M(amount in (1.25, 3.5)) then end");
@@ -194,11 +215,12 @@ fn decimal_lists_and_rhs() {
     m(&mut e, "2.00", 0, None);
     assert_eq!(fired(&mut e), 2, "in-list decimal membership by value");
 
-    // RHS: insert a decimal literal into a decimal field, join on it
-    let mut e = engine(
-        "rule A when M(tag == 7) then insert(new M(2.5, 8, null)); end\n\
-         rule B when M(tag == 8, amount == 2.50) then end",
+    let err = engine_err(
+        "rule A when M(tag == 7) then insert(new M(2.5, 8, null)); end",
     );
-    m(&mut e, "0.00", 7, None);
-    assert_eq!(fired(&mut e), 2, "RHS decimal literal inserts exactly (scaled)");
+    assert!(err.contains("error parity"), "{err}");
+    let err = engine_err(
+        "rule A when $m : M(tag == 7) then modify($m) { setAmount(2.5) } end",
+    );
+    assert!(err.contains("error parity"), "{err}");
 }

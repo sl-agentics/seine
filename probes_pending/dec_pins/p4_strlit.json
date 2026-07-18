@@ -1,0 +1,34 @@
+{
+ "drl": "rule R when M(a > 0) then insert(new N(\"2.5\")); end\n",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ]
+  },
+  {
+   "name": "N",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(10,2)"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.00"
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "p4_strlit",
+ "engine_fenced": true
+}

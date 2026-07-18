@@ -1757,8 +1757,11 @@ enum KeyVal {
     /// D-097: nulls COLLAPSE in TMS value-equality keys (pin H:
     /// GROUP BY/DISTINCT treat NULLs as one group).
     Null,
-    /// D-098: decimal keys are VALUE-identical across scales —
-    /// normalized (trailing zeros stripped) so 1.10 == 1.1 (pin J).
+    /// MEASURED (D-315 fz_315001_1803): TMS keys are SCALE-SENSITIVE —
+    /// the oracle's generated equals() is BigDecimal.equals, so
+    /// T1("2.50") and T1("2.500") are DISTINCT logical facts. The old
+    /// normalize-trailing-zeros was a pin-J composition, unreachable
+    /// until D-315's verbatim ingestion let mixed scales flow.
     D(i128, u8),
 }
 
@@ -1770,10 +1773,7 @@ fn key_vals(vals: &[Value]) -> Vec<KeyVal> {
             Value::Str(s) => KeyVal::S(s.clone()),
             Value::Bool(b) => KeyVal::B(*b),
             Value::Null => KeyVal::Null,
-            Value::Dec { u, s } => {
-                let (nu, ns) = crate::store::dec_normalize(*u, *s);
-                KeyVal::D(nu, ns)
-            }
+            Value::Dec { u, s } => KeyVal::D(*u, *s),
         })
         .collect()
 }
@@ -5245,13 +5245,12 @@ impl Engine {
                             }
                             if let (RhsArg::Lit(l), FieldType::Dec { .. }) = (arg, ftype) {
                                 if !matches!(l, Literal::Str(_)) {
-                                    let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
-                                        err(format!(
-                                            "insert new {type_name}: arg for {fname} is not an exact decimal (D-098)"
-                                        ))
-                                    })?;
-                                    srcs.push(CExpr::Atom(Src::Lit(v)));
-                                    continue;
+                                    // MEASURED (D-315 p4_lit): the oracle's
+                                    // BigDecimal constructor rejects bare
+                                    // numeric literals — error parity.
+                                    return Err(err(format!(
+                                        "insert new {type_name}: a numeric literal cannot construct decimal field {fname} (error parity, D-315: javac rejects the BigDecimal ctor) — pass a binding or ingest the value as data"
+                                    )));
                                 }
                             }
                             let (src, src_ft) = self.compile_arg(
@@ -5364,17 +5363,12 @@ impl Engine {
                         }
                         if let (RhsArg::Lit(l), FieldType::Dec { .. }) = (arg, ftype) {
                             if !matches!(l, Literal::Str(_)) {
-                                let v = lit_for_dec(&lit_value(l)).ok_or_else(|| {
-                                    err(format!(
-                                        "setter {var}.{field}: not an exact decimal literal (D-098)"
-                                    ))
-                                })?;
-                                actions.push(CompiledAction::Set {
-                                    pos,
-                                    field_idx: fi,
-                                    arg: CExpr::Atom(Src::Lit(v)),
-                                });
-                                continue;
+                                // MEASURED (D-315 p4_lit class): javac
+                                // rejects numeric literals on BigDecimal
+                                // setters too — error parity.
+                                return Err(err(format!(
+                                    "setter {var}.{field}: a numeric literal cannot set a decimal field (error parity, D-315: javac rejects the BigDecimal setter) — pass a binding or ingest the value as data"
+                                )));
                             }
                         }
                         let (src, src_ft) =
@@ -12379,17 +12373,19 @@ fn coerce(v: Value, target: FieldType) -> Option<Value> {
         (Value::I64(n), FieldType::F64) => Some(Value::F64(n as f64)),
         // D-098 decimal ingestion: exact strings and integers only —
         // JSON/IEEE floats are REJECTED (no lossy round-trips for
-        // money). Rescale to the field's declared scale (exact when
-        // widening, HALF-UP when narrowing, pin J) and enforce the
-        // declared precision (loud error on overflow).
-        (Value::Str(txt), FieldType::Dec { p, s }) => {
-            let (u0, s0) = crate::store::dec_parse(&txt)?;
-            let (u, s) = crate::store::dec_rescale(u0, s0, s)?;
+        // money). MEASURED (D-315 p1/p2): ingestion is VERBATIM — the
+        // oracle's setTyped is `new BigDecimal(text)`, keeping the
+        // string's own scale ("1.1" stays scale 1, "1.005" is NEVER
+        // half-up'd into a (10,2) field, ints land at scale 0). The
+        // old rescale-to-declared was the pin-J DuckDB CAST semantic —
+        // that contract now lives only at the Arrow COLUMN boundary
+        // (uniform-scale by construction). Precision stays enforced.
+        (Value::Str(txt), FieldType::Dec { p, .. }) => {
+            let (u, s) = crate::store::dec_parse(&txt)?;
             crate::store::dec_fits(u, p).then_some(Value::Dec { u, s })
         }
-        (Value::I64(n), FieldType::Dec { p, s }) => {
-            let (u, s) = crate::store::dec_rescale(n as i128, 0, s)?;
-            crate::store::dec_fits(u, p).then_some(Value::Dec { u, s })
+        (Value::I64(n), FieldType::Dec { p, .. }) => {
+            crate::store::dec_fits(n as i128, p).then_some(Value::Dec { u: n as i128, s: 0 })
         }
         // MEASURED (D-313 fz_313901_80): a RUNTIME decimal keeps its
         // OWN scale on storage — the oracle's POJO fields are plain

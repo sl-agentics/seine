@@ -1,0 +1,24 @@
+{
+ "drl": "rule R when M($a : a) then end\n",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.1"
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "pr_dp_p1_subscale"
+}

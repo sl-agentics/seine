@@ -103,11 +103,13 @@ def test_acc_sources_closes_the_audit_chain():
 
 
 def test_why_renders_decimals_and_answers_none():
-    drl = "rule J when A() then insertLogical(new Money(10.50)); end\n"
+    # D-315: decimal literals cannot construct facts (error parity);
+    # the justified Money carries a bound field instead
+    drl = "rule J when A($v : v) then insertLogical(new Money($v)); end\n"
     s = Session(
         drl,
-        facts={"A": {"a": [1]}},
-        schemas={"Money": {"v": "decimal(18,2)"}},
+        facts={"A": {"v": [D("10.50")]}},
+        schemas={"A": {"v": "decimal(18,2)"}, "Money": {"v": "decimal(18,2)"}},
     )
     s.fire()
     js = s.justifications()

@@ -1,0 +1,39 @@
+{
+ "drl": "rule S when accumulate( L($a : a); $t : sum($a) ) then insert(new B($t)); end\n",
+ "types": [
+  {
+   "name": "L",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,4)"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(38,2)"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "L",
+   "fields": {
+    "a": "1.0001"
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "a": "2.0002"
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "pr_dp_p4_ins"
+}

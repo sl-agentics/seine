@@ -89,10 +89,14 @@ struct TypeDef {
 }
 
 const STR_POOL: &[&str] = &["", "a", "b", "ab", "zz", "alpha", "beta"];
-/// Scale-2 values incl. the D-308 exactness shapes (1.10 + 2.20 is
-/// EXACTLY 3.30 in decimal, never in binary).
-const DEC_POOL: &[&str] =
-    &["0.00", "0.01", "-0.50", "1.10", "2.20", "2.50", "-1.10", "3.30", "100.00"];
+/// Decimal value pool incl. the D-308 exactness shapes (1.10 + 2.20
+/// is EXACTLY 3.30 in decimal, never in binary) and — since D-315
+/// measured ingestion VERBATIM on both sides — MIXED SCALES ("1.1"
+/// stays scale 1, "3" scale 0; cross-scale joins are compareTo).
+const DEC_POOL: &[&str] = &[
+    "0.00", "0.01", "-0.50", "1.10", "2.20", "2.50", "-1.10", "3.30", "100.00",
+    "1.1", "3", "-0.5", "2.500",
+];
 const OPS_ORD: &[&str] = &["==", "!=", "<", "<=", ">", ">="];
 const OPS_EQ: &[&str] = &["==", "!="];
 
@@ -116,7 +120,15 @@ fn lit_json(rng: &mut Rng, ft: Ft) -> J {
         Ft::F64 => json!(gen_f64(rng)),
         Ft::Str => json!(*rng.pick(STR_POOL)),
         Ft::Bool => json!(rng.chance(50)),
-        Ft::Dec => json!(*rng.pick(DEC_POOL)),
+        // D-315 p2: int-JSON into a decimal field ingests at scale 0
+        // on both sides — draw it occasionally.
+        Ft::Dec => {
+            if rng.chance(12) {
+                json!(rng.below(7) as i64 - 2)
+            } else {
+                json!(*rng.pick(DEC_POOL))
+            }
+        }
     }
 }
 

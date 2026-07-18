@@ -1,0 +1,36 @@
+{
+ "drl": "rule R1 when M(a == 1) then end\nrule R2 when M(a == 2) then end\n",
+ "types": [
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "M",
+   "fields": {
+    "a": "1.00"
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "a": "2"
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "a": "3.0"
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "pr_dp_p3_ctl"
+}
