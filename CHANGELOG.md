@@ -4,6 +4,14 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **Decimal overflow is a typed, catchable error** — inline multiply
+  and accumulate-sum overflow past `DECIMAL(38)` now raise a plain
+  engine error (`except Exception` catches it; no Rust backtrace, no
+  `PanicException`), and the session stays usable afterwards. Both
+  previously surfaced as panics at eval time.
+
 ## 0.4.38
 
 - **Inline decimal arithmetic in rule constraints** — the certified

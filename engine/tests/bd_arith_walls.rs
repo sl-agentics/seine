@@ -63,3 +63,57 @@ fn in_subset_shapes_compile() {
     )
     .expect("the D-309 agree subset compiles");
 }
+
+#[test]
+fn overflow_is_a_typed_error_not_a_panic() {
+    // D-310 (the adversary's split gate): the pin-J ceiling surfaces as
+    // an EngineError at the API boundary — catchable, no unwinding —
+    // and the engine stays usable afterwards.
+    let mut e = Engine::new(vec![TypeSchema {
+        name: "B".into(),
+        fields: vec![
+            ("a".into(), FieldType::Dec { p: 38, s: 0 }),
+            ("b".into(), FieldType::Dec { p: 38, s: 0 }),
+        ],
+        nullable: 0,
+    }])
+    .unwrap();
+    e.add_rules_drl("rule R when B(a * b >= a) then end").unwrap();
+    let big: i128 = 10i128.pow(30);
+    e.insert("B", vec![
+        ("a".into(), seine_engine::Value::Dec { u: big, s: 0 }),
+        ("b".into(), seine_engine::Value::Dec { u: big, s: 0 }),
+    ])
+    .unwrap();
+    let err = e.fire_all(100_000).expect_err("overflow must error").0;
+    assert!(err.contains("overflow past DECIMAL(38)"), "{err}");
+    // the session recovers: a clean fact evaluates fine afterwards
+    e.insert("B", vec![
+        ("a".into(), seine_engine::Value::Dec { u: 2, s: 0 }),
+        ("b".into(), seine_engine::Value::Dec { u: 3, s: 0 }),
+    ])
+    .unwrap();
+    assert!(e.fire_all(100_000).is_ok(), "usable after the typed error");
+}
+
+#[test]
+fn sum_overflow_is_a_typed_error_too() {
+    // the balance-gate critical path: accumulate sum past DECIMAL(38)
+    let mut e = Engine::new(vec![TypeSchema {
+        name: "B".into(),
+        fields: vec![("a".into(), FieldType::Dec { p: 38, s: 0 })],
+        nullable: 0,
+    }])
+    .unwrap();
+    e.add_rules_drl(
+        "rule S when accumulate( B($x : a); $t : sum($x) ) then end",
+    )
+    .unwrap();
+    let big: i128 = 99_999_999_999_999_999_999_999_999_999_999_999_999i128;
+    for _ in 0..2 {
+        e.insert("B", vec![("a".into(), seine_engine::Value::Dec { u: big, s: 0 })])
+            .unwrap();
+    }
+    let err = e.fire_all(100_000).expect_err("sum overflow must error").0;
+    assert!(err.contains("sum overflow"), "{err}");
+}

@@ -563,6 +563,30 @@ def test_decimal_inline_arithmetic_end_to_end():
     assert res.fired == 1  # 150.30 >= 150.30 exact; 150.31 misses
 
 
+def test_decimal_overflow_is_catchable_exception():
+    # the pin-J ceiling surfaces as a TYPED error a plain
+    # `except Exception` catches — never a PanicException — for both
+    # inline multiply and the balance-critical accumulate sum
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @fact
+    class Huge:
+        a: Annotated[D, seine_rs.Decimal(38, 0)]
+        b: Annotated[D, seine_rs.Decimal(38, 0)]
+
+    r = Rule("M")
+    r.when(Huge, Huge.a * Huge.b >= Huge.a)
+    with pytest.raises(Exception, match="overflow past DECIMAL"):
+        seine_rs.run(r, {Huge: {"a": [D("9" * 30)], "b": [D("9" * 30)]}})
+
+    r2 = Rule("S", no_loop=True)
+    r2.when(Huge)
+    r2.accumulate(Huge, agg=seine_rs.sum_(Huge.a))
+    with pytest.raises(Exception, match="sum overflow"):
+        seine_rs.run(r2, {Huge: {"a": [D("9" * 38)] * 2, "b": [D("1")] * 2}})
+
+
 def test_decimal_arith_poison_fences_bubble():
     # the engine is the fence authority: a float literal comparand on
     # decimal arithmetic is the measured raw-binary poison

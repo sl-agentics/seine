@@ -117,7 +117,12 @@ comparands; 8 probes graduated on first contact, corpus 1280); every
 D-308 poison cell is a loud steering fence (bd_arith_walls pins);
 `principal + fee <= limit` authors from Python and round-trips
 exactly. Full battery green (gate 2029/2029 outside the new surface,
-zero unexpected divergence; SD 72 EXACT; fuzz clean).**_
+zero unexpected divergence; SD 72 EXACT; fuzz clean). D-310: the
+0.4.38 re-test's handback fixed — decimal overflow (inline multiply
+AND the accumulate sum, which panicked identically) is a TYPED
+boundary error via a thread-local eval slot: `except Exception`
+catches it, no backtrace, sessions recover; gate 2194/2194 IDENTICAL
+(error paths only). Rides the next bump.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
 Java (long) cast at the comparison — (long)NaN=0 makes `0/0 == 0`
@@ -16758,3 +16763,41 @@ True; model_ird 31/31; agenda_open ×15 identical both binaries; IRD
 decimal AVERAGE (the rounding-mode boundary — reconstruction is
 sum/count one layer up) + the justified-aggregation edge (Drools
 unpinned) on the standing ledger.
+
+## D-310 — the adversary's split gate closes: DECIMAL OVERFLOW IS A TYPED ERROR, NEVER A PANIC — inline multiply AND the balance-critical accumulate sum (2026-07-18)
+
+The 0.4.38 re-test's one handback, verified and extended: the pin-J
+i128 ceiling surfaced as a Rust panic → pyo3 PanicException
+(BaseException — it sails through `except Exception`, takes the
+worker, and dumps a raw backtrace), at EVAL time where no compile
+check can save you. And the adversary's untested adjacent case was
+REAL: the D-098 accumulate-sum overflow panicked identically
+(engine.rs sum fold) — on the title-release balance-gate critical
+path.
+
+THE FIX: the eval plumbing (constraint predicates, acc folds) is
+bool/void-typed, so the error rides a thread-local slot —
+eval_error_set at every overflow site (first error wins; evaluation
+continues on a benign 0 the discarded call never exposes),
+eval_error_take at all five Result-returning entry points
+(insert_into, update_fact, advance, delete_fact, fire_all). The
+poisoned call's outputs are discarded with the Err (on_fire
+observers run post-run, so no phantom callbacks); the session stays
+usable — the same contract as any mid-fire RHS error. Sites
+converted: the four D-309 eval_aexpr expects (add/sub
+rescale+checked, mul, neg) and the D-098 sum fold's three.
+
+Python surface now: both shapes raise RuntimeError ("decimal
+arithmetic overflow past DECIMAL(38) (pin J)" / "decimal sum
+overflow (DECIMAL(38) exceeded)") — caught by plain `except
+Exception`, no backtrace, sessions recover (verified live; build
+fences stay ValueError — build-vs-runtime is the right split).
+
+Pins: bd_arith_walls.rs +2 (typed error + post-error usability for
+multiply; the sum path), pytest +1 (both shapes under
+pytest.raises(Exception)). Receipts: byte gate **2194/2194
+IDENTICAL** vs wt_pre310 — the FULL sweep with zero divergence
+(error paths only, exactly as designed); make diff 11/1280/406 +
+drift 50; lint 2034/0/0; cargo 11 suites; pytest 253; demo True;
+model_ird 31/31; agenda_open ×15; IRD 0-div ×5; SD 72 EXACT; fuzz
+2×2000 seeds 310001/310002 CLEAN. Rides the next bump.

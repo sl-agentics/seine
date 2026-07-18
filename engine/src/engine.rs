@@ -177,7 +177,13 @@ fn eval_aexpr(
             let v = eval_aexpr(a, store, f, l, tpos);
             if *ty == ArithTy::Dec {
                 let (u, s) = dec_operand(&v);
-                return Value::Dec { u: u.checked_neg().expect("decimal negate overflow"), s };
+                return match u.checked_neg() {
+                    Some(u) => Value::Dec { u, s },
+                    None => {
+                        eval_error_set("decimal arithmetic overflow past DECIMAL(38) (pin J)");
+                        Value::Dec { u: 0, s: 0 }
+                    }
+                };
             }
             match (ty, num(&v)) {
                 (ArithTy::I32, (Some(n), _)) => Value::I64((n as i32).wrapping_neg() as i64),
@@ -190,31 +196,43 @@ fn eval_aexpr(
             let vb = eval_aexpr(b, store, f, l, tpos);
             match ty {
                 ArithTy::Dec => {
-                    // D-309: exact i128, java.math scale rules; the i128
-                    // ceiling is the pin-J posture (loud, like the D-098
-                    // sum; BigDecimal itself is unbounded, DuckDB errors)
+                    // D-309: exact i128, java.math scale rules. The i128
+                    // ceiling keeps the pin-J posture — LOUD, but as a
+                    // typed boundary error (D-310), never a panic:
+                    // overflow records the eval error and yields a
+                    // benign 0 the discarded call never exposes.
                     let (ua, sa) = dec_operand(&va);
                     let (ub, sb) = dec_operand(&vb);
+                    let overflow = || {
+                        eval_error_set(
+                            "decimal arithmetic overflow past DECIMAL(38) (pin J)",
+                        );
+                        Value::Dec { u: 0, s: 0 }
+                    };
                     match op {
                         '+' | '-' => {
                             let s = sa.max(sb);
-                            let (xa, _) = crate::store::dec_rescale(ua, sa, s)
-                                .expect("decimal rescale overflow (pin J)");
-                            let (xb, _) = crate::store::dec_rescale(ub, sb, s)
-                                .expect("decimal rescale overflow (pin J)");
-                            let u = if *op == '+' {
-                                xa.checked_add(xb)
-                            } else {
-                                xa.checked_sub(xb)
+                            match (
+                                crate::store::dec_rescale(ua, sa, s),
+                                crate::store::dec_rescale(ub, sb, s),
+                            ) {
+                                (Some((xa, _)), Some((xb, _))) => {
+                                    let u = if *op == '+' {
+                                        xa.checked_add(xb)
+                                    } else {
+                                        xa.checked_sub(xb)
+                                    };
+                                    match u {
+                                        Some(u) => Value::Dec { u, s },
+                                        None => overflow(),
+                                    }
+                                }
+                                _ => overflow(),
                             }
-                            .expect("decimal arithmetic overflow past DECIMAL(38) (pin J)");
-                            Value::Dec { u, s }
                         }
-                        '*' => Value::Dec {
-                            u: ua
-                                .checked_mul(ub)
-                                .expect("decimal arithmetic overflow past DECIMAL(38) (pin J)"),
-                            s: sa + sb,
+                        '*' => match ua.checked_mul(ub) {
+                            Some(u) => Value::Dec { u, s: sa + sb },
+                            None => overflow(),
                         },
                         _ => unreachable!("decimal '/' '%' fenced at compile (D-308)"),
                     }
@@ -252,6 +270,37 @@ fn eval_aexpr(
             }
         }
     }
+}
+
+// D-310: decimal-overflow EVALUATION errors surface as typed
+// EngineErrors at the public API boundary, never as panics (a pyo3
+// PanicException subclasses BaseException — it escapes the universal
+// `except Exception` and reads as a crash). The eval plumbing
+// (constraint predicates, acc folds) is bool/void-typed, so the error
+// rides a thread-local slot: SET at the overflow site (first error
+// wins, evaluation continues on a benign 0), TAKEN by every
+// Result-returning entry point — the poisoned call's outputs are
+// discarded with the Err, and the session stays usable afterwards
+// (the same contract as any mid-fire RHS error).
+thread_local! {
+    static EVAL_ERROR: std::cell::RefCell<Option<String>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+fn eval_error_set(msg: &str) {
+    EVAL_ERROR.with(|e| {
+        let mut e = e.borrow_mut();
+        if e.is_none() {
+            *e = Some(msg.to_string());
+        }
+    });
+}
+
+fn eval_error_take() -> Result<(), EngineError> {
+    EVAL_ERROR.with(|e| match e.borrow_mut().take() {
+        Some(m) => Err(EngineError(m)),
+        None => Ok(()),
+    })
 }
 
 /// D-309: a decimal-mode operand as (unscaled, scale) — int literals
@@ -2166,15 +2215,22 @@ impl AccCtx {
                 Value::I64(x) => self.sum_i += x,
                 Value::F64(x) => self.sum_f += x,
                 Value::Dec { u, s } => {
+                    // D-310: overflow is a typed boundary error, not a
+                    // panic — the poisoned call's outputs are discarded
                     let t = (self.sum_d.1).max(*s);
-                    let (a, _) = crate::store::dec_rescale(self.sum_d.0, self.sum_d.1, t)
-                        .expect("decimal sum overflow (DECIMAL(38) exceeded)");
-                    let (b, _) = crate::store::dec_rescale(*u, *s, t)
-                        .expect("decimal sum overflow (DECIMAL(38) exceeded)");
-                    self.sum_d = (
-                        a.checked_add(b).expect("decimal sum overflow (DECIMAL(38) exceeded)"),
-                        t,
-                    );
+                    let sum = match (
+                        crate::store::dec_rescale(self.sum_d.0, self.sum_d.1, t),
+                        crate::store::dec_rescale(*u, *s, t),
+                    ) {
+                        (Some((a, _)), Some((b, _))) => a.checked_add(b),
+                        _ => None,
+                    };
+                    match sum {
+                        Some(x) => self.sum_d = (x, t),
+                        None => eval_error_set(
+                            "decimal sum overflow (DECIMAL(38) exceeded)",
+                        ),
+                    }
                 }
                 _ => {}
             },
@@ -5538,6 +5594,7 @@ impl Engine {
             self.fact_eps[id.0 as usize] = ep_id;
         }
         self.after_insert(id);
+        eval_error_take()?; // D-310: overflow surfaces typed, never as a panic
         Ok(id)
     }
 
@@ -5781,6 +5838,7 @@ impl Engine {
                 }
             }
         }
+        eval_error_take()?; // D-310: overflow surfaces typed, never as a panic
         Ok(())
     }
 
@@ -7293,6 +7351,7 @@ impl Engine {
                 }
             }
         }
+        eval_error_take()?; // D-310: overflow surfaces typed, never as a panic
         Ok(())
     }
 
@@ -7507,6 +7566,7 @@ impl Engine {
                 }
             }
         }
+        eval_error_take()?; // D-310: overflow surfaces typed, never as a panic
         Ok(())
     }
 
@@ -7836,6 +7896,7 @@ impl Engine {
             }
         }
         self.fire_no += 1; // D-102 cycle-4: fire boundary — between-fire inserts stamp the NEXT fire
+        eval_error_take()?; // D-310: overflow surfaces typed, never as a panic
         Ok(firings)
     }
 
