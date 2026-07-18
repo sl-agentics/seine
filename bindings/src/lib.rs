@@ -1344,6 +1344,35 @@ impl PySession {
         }
     }
 
+    /// Which facts fed this aggregation result? For a LIVE
+    /// accumulate/groupby RESULT fact — the hidden fact a firing's
+    /// match tuple carries, visible via on_fire as (type, handle) —
+    /// returns the (source handle, stored contribution) pairs in match
+    /// order, snapshotted at the computation that produced the
+    /// result's current value (so the contributions always account for
+    /// that value). An aggregation over an empty source answers [].
+    /// None for dead or non-result handles — never fabricates.
+    fn acc_sources<'py>(
+        &self,
+        py: Python<'py>,
+        handle: i64,
+    ) -> PyResult<Option<Bound<'py, PyList>>> {
+        let engine = self
+            .engine
+            .as_ref()
+            .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        match engine.acc_sources(seine_engine::FactId(handle as u32)) {
+            None => Ok(None),
+            Some(src) => {
+                let out = PyList::empty(py);
+                for (f, v) in src {
+                    out.append((f.0 as i64, value_to_py(py, v)?))?;
+                }
+                Ok(Some(out))
+            }
+        }
+    }
+
     /// The whole justification graph: every justified fact's why()
     /// answer, ordered by fact handle.
     fn justifications<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {

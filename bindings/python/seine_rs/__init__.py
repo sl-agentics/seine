@@ -192,6 +192,20 @@ class Session:
         :meth:`why` answer, ordered by fact handle."""
         return self._native.justifications()
 
+    def acc_sources(self, handle):
+        """Which facts fed this aggregation result? ``handle`` is an
+        accumulate/groupby RESULT fact — the hidden fact a firing's
+        match tuple carries, visible in ``fire(on_fire=...)`` as a
+        (type, handle) pair. Returns ``[(source_handle, contribution),
+        ...]`` in match order, snapshotted at the computation that
+        produced the result's current value — the contributions always
+        account for that value. An aggregation over an empty source
+        answers ``[]``. Returns None for dead or non-result handles —
+        the audit never fabricates. Closes the aggregation gap in the
+        :meth:`why` chain: walk why() through the logical layer, then
+        acc_sources() through the summation to the line-item leaves."""
+        return self._native.acc_sources(handle)
+
     def query(self, name, *args):
         """Run a DRL query against current working memory (direct
         invocation). Positional args follow the query's parameter list;

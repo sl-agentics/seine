@@ -2664,6 +2664,14 @@ pub struct Engine {
     /// D-108: per-node groupby groups (leading-position only), keyed by
     /// the canonicalized key value.
     gb_state: HashMap<usize, HashMap<String, GbGroup>>,
+    /// D-305: accumulate/groupby source provenance — result FactId →
+    /// the (source fact, stored contribution) pairs, in match order,
+    /// snapshotted at each (re)computation so the sources always
+    /// correspond to the result's current value. Introspection only
+    /// (acc_sources); never rendered into certified output. Entries
+    /// are pruned when contexts die and re-written when the reused
+    /// result fact recomputes.
+    acc_provenance: HashMap<FactId, Vec<(FactId, Value)>>,
     /// Persistent query-network pattern memories (D-056, qx8_statemem):
     /// drain windows accumulate across evaluations.
     query_mem: crate::queries::QueryMem,
@@ -2781,6 +2789,7 @@ impl Engine {
             qrow_tids: Vec::new(),
             gbrow_tids: Vec::new(),
             gb_state: HashMap::new(),
+            acc_provenance: HashMap::new(),
             query_mem: crate::queries::QueryMem::default(),
             query_pending: Vec::new(),
             query_armed: Vec::new(),
@@ -9576,6 +9585,7 @@ impl Engine {
                                 trg.add_del(child, *o);
                             }
                             self.store.kill(r);
+                            self.acc_provenance.remove(&r); // D-305
                         }
                     }
                 }
@@ -9704,6 +9714,7 @@ impl Engine {
                             trg.add_del(child, origin);
                         }
                         self.store.kill(r);
+                        self.acc_provenance.remove(&r); // D-305
                     }
                 }
                 self.gb_state.entry(ni).or_default().remove(&kk);
@@ -9725,6 +9736,9 @@ impl Engine {
                     r
                 }
             };
+            // D-305: snapshot the group's sources for THIS value
+            let snap = self.gb_state[&ni][&kk].ctx.matches.clone();
+            self.acc_provenance.insert(r, snap);
             let mut child = l.clone();
             child.push(r);
             if propagated {
@@ -9769,6 +9783,9 @@ impl Engine {
         for (l, o, _) in src.del.iter() {
             self.trie[ni].node.remove_left(l);
             if let Some(ctx) = self.trie[ni].acc.remove(l) {
+                if let Some(res) = ctx.result {
+                    self.acc_provenance.remove(&res); // D-305: context died
+                }
                 for (rf, _) in &ctx.matches {
                     if let Some(v) = self.trie[ni].acc_by_right.get_mut(rf) {
                         v.retain(|x| x != l);
@@ -9996,6 +10013,9 @@ impl Engine {
                             r
                         }
                     };
+                    // D-305: snapshot the sources that produced THIS value
+                    let snap = self.trie[ni].acc[&l].matches.clone();
+                    self.acc_provenance.insert(res, snap);
                     if spec.func == AccFunc::Collect {
                         let list = self.trie[ni].acc[&l].list.clone();
                         self.collect_vals.insert(res, list);
@@ -11846,6 +11866,23 @@ impl Engine {
     /// Why does this fact hold? None for unkeyed or purely stated facts.
     pub fn why(&self, f: FactId) -> Option<JustificationView> {
         self.justifications().into_iter().find(|v| v.fact == f)
+    }
+
+    /// D-305: accumulate/groupby source provenance. For a LIVE
+    /// aggregation-result fact (the hidden fact a firing's match tuple
+    /// carries): the (source fact, stored contribution) pairs, in match
+    /// order, as of the computation that produced the result's current
+    /// value — the answer to "which facts summed into this". None for
+    /// dead or non-result handles. Introspection only, like why():
+    /// never part of the certified scenario output.
+    pub fn acc_sources(&self, f: FactId) -> Option<&[(FactId, Value)]> {
+        // map first: its keys are real store ids, so the liveness probe
+        // below is in-bounds; unknown ids answer None right here
+        let v = self.acc_provenance.get(&f)?;
+        if !self.store.is_alive(f) {
+            return None;
+        }
+        Some(v.as_slice())
     }
 
     pub fn facts(&self) -> Vec<FactView> {

@@ -63,6 +63,45 @@ def test_why_explains_the_ungrounded_orphan():
     assert m2["supports"][0]["tuple"] == [js["M1"]["fact"]]
 
 
+def test_acc_sources_closes_the_audit_chain():
+    # the full title-release audit walk: why(Release) -> Balance; the
+    # balance firing's match carries the aggregation result;
+    # acc_sources(result) -> the line-item leaves, whose contributions
+    # sum EXACTLY to the balance
+    drl = (
+        "rule balance when accumulate( Line($a : amount); $t : sum($a) ) "
+        "then insert(new Balance($t)); end\n"
+        "rule release when Balance($v : v, v <= 0.00) "
+        "then insertLogical(new Release(1)); end\n"
+    )
+    s = Session(
+        drl,
+        facts={"Line": {"amount": ["100.10", "50.20", "-150.30"]}},
+        schemas={"Line": {"amount": "decimal(18,2)"},
+                 "Balance": {"v": "decimal(38,2)"},
+                 "Release": {"k": "i64"}},
+    )
+    caught = []
+    s.fire(on_fire=lambda rule, matches: caught.append((rule, matches)))
+    rel = s.justifications()[0]
+    assert rel["type"] == "Release"
+    bal_firing = next(c for c in caught if c[0] == "balance")
+    result_h = next(h for (t, h) in bal_firing[1] if t == "Decimal")
+    src = s.acc_sources(result_h)
+    assert len(src) == 3
+    assert sum(v for (_, v) in src) == D("0.00")  # exact — accounts for the value
+    assert all(isinstance(h, int) and isinstance(v, D) for (h, v) in src)
+    # None contract: bogus and non-result handles never fabricate
+    assert s.acc_sources(414141) is None
+    assert s.acc_sources(src[0][0]) is None
+
+    # recompute on deletion: the snapshot follows the current value
+    s.delete(src[0][0])
+    s.fire()
+    src2 = s.acc_sources(result_h)
+    assert len(src2) == 2 and src[0][0] not in [h for (h, _) in src2]
+
+
 def test_why_renders_decimals_and_answers_none():
     drl = "rule J when A() then insertLogical(new Money(10.50)); end\n"
     s = Session(

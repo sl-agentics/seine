@@ -89,10 +89,14 @@ Inline decimal arithmetic stays engine-walled pending a BigDecimal
 pin campaign. D-304 (the adversary lands one): "every step
 queryable" was an overclaim — the why-chain DEAD-ENDS at an
 accumulate (plain-inserted, unjustified; firings carry the result,
-not the sources — Drools-faithful opacity). NAMED LEDGER ITEM:
-accumulate-source provenance — (a) introspection channel over the
-existing AccCtx.matches, or (b) the justified-aggregation edge
-(Drools behavior unpinned; D-280-class campaign). Both
+not the sources — Drools-faithful opacity). **D-305 (Bryan: option (a)): ACCUMULATE-SOURCE
+PROVENANCE LANDED — acc_sources(result) walks the summation to its
+line-item leaves (snapshot at computation, drift-immune, keyed by
+the reused result fact; Session.acc_sources in Python; the full
+audit walk why→firing→acc_sources→leaves closes live; byte gate
+2151/2151, SD 72 EXACT, fuzz 305001/305002 clean, pytest 249). The
+remaining aggregation items: the justified-aggregation edge (b,
+Drools unpinned) + the BigDecimal inline-arithmetic campaign — both
 Bryan-gated.**_
 
 **D-290/D-291: the div0 anomaly RESOLVED (LHS `/` = IEEE double +
@@ -16520,3 +16524,56 @@ Both fix shapes Bryan-gated. Receipts: the dead-end walk reproduced
 first-party (why(Release)=[('release',[5])], why(Balance 5)=None);
 the D-076 wall message live; AccCtx.matches existence in
 engine/src/engine.rs (acc_add_match). Docs-only entry — no code.
+
+## D-305 — ACCUMULATE-SOURCE PROVENANCE lands (Bryan: "do the accumulate provenance slab, option (a)") — the D-304 audit gap closes: acc_sources(result) walks the summation to its line-item leaves (2026-07-17)
+
+The introspection channel over the data the engine already kept
+(AccCtx.matches), per the D-304 fix analysis — no certified byte
+changes, no oracle question.
+
+THE CONTRACT: snapshot at COMPUTATION, keyed by the aggregation
+RESULT fact. Engine keeps `acc_provenance: FactId → Vec<(source,
+stored contribution)>`; the snapshot writes at both result-
+producing sites (eval_acc_node's result creation/reuse — the result
+fact is REUSED via set_value across recomputations, so every
+recompute re-snapshots — and the groupby row twin), prunes at the
+three context-death sites (acc left-delete phase A, gb node-clear,
+gb group-teardown), and the public probe `Engine::acc_sources(f)`
+answers map-first (its keys are real store ids, making the liveness
+probe in-bounds; unknown/dead/non-result handles → None, an
+aggregation over an empty source → [] — "computed from nothing",
+ruling 2's identity-0). Keying by the result fact makes the answer
+DRIFT-IMMUNE: the sources always account for the result's current
+value, whatever the agenda did in between. Source order is the
+engine's MATCH order (LIFO staging, newest-first), pinned in the
+tests as such.
+
+SURFACE: Session.acc_sources(handle) → [(source_handle,
+contribution), ...] | None (decimals as decimal.Decimal). The
+firing's match tuple already carries the result fact's handle
+through on_fire, so THE FULL AUDIT WALK NOW CLOSES in Python — the
+D-304 dead-end chain, re-walked live:
+  why(Release)            → supports [('release', [Balance])]
+  balance firing on_fire  → ('Decimal', result_handle)
+  acc_sources(result)     → [(3, -150.30), (2, 50.20), (1, 100.10)]
+  sum(contributions)      == 0.00 exactly
+"Which payments made it zero" is now a lookup. The honest pitch
+line upgrades: the why machine owns the logical layer AND the
+summation step; what remains opaque is only inline arithmetic
+(the BigDecimal campaign) and the justified-aggregation edge
+(option (b), still Bryan-gated, still unpinned oracle-side).
+
+Pins: engine/tests/acc_provenance.rs (snapshot == result incl.
+exact decimal contributions, recompute-on-delete re-snapshots the
+REUSED result fact, match-order pinned, None contract incl. the
+out-of-bounds bogus-id probe the first draft caught, empty-source
+→ [] not None); bindings/tests/test_why.py grows the audit-walk
+test (why → firing → acc_sources → leaves, contributions sum
+exact, recompute follows deletion).
+
+Receipts (full engine battery): byte gate **2151/2151 IDENTICAL** vs wt_pre305
+(full sweep — the introspection map provably never touches certified
+output); make diff 11/1272/406 + drift 50 identical; lint 1991/0/0; cargo 10 suites
+green (+acc_provenance.rs); pytest 249; demo True; model_ird 31/31;
+agenda_open ×15 identical both binaries; IRD 0-div ×5; SD census
+72 EXACT cell-for-cell (6+10+3+5+6+5+5+6+8+7+4+7); fresh fuzz 2×2000 seeds 305001/305002 both CLEAN (0 divergences, 0 xfail).
