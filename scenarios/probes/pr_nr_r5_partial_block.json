@@ -1,0 +1,26 @@
+{
+ "name": "r5_partial_block",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {"name": "f0", "type": "i64"},
+    {"name": "f1", "type": "i64"},
+    {"name": "f2", "type": "bool"}
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {"name": "f0", "type": "i64"}
+   ]
+  }
+ ],
+ "facts": [
+  {"type": "T0", "fields": {"f0": 10, "f1": 0, "f2": false}},
+  {"type": "T0", "fields": {"f0": 1, "f1": 0, "f2": false}},
+  {"type": "T1", "fields": {"f0": 4}},
+  {"type": "T0", "fields": {"f0": 0, "f1": 5, "f2": false}}
+ ],
+ "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f2 == true)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0($b1_0_0 : f0, f2 == false)\n    T1()\n    not T0(f2 == true, f1 > $b1_0_0)\nthen\n    modify($p1_0) { setF2(true) }\nend\n"
+}

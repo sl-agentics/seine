@@ -6,6 +6,16 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Firing order under `not` release now matches Drools in
+  preempted-rule shapes.** When a rule's activation queue survives a
+  would-be blocker that is inserted and deleted across an intervening
+  higher-priority firing (e.g. a modify→delete relay between two
+  rules at equal salience), Drools' lazy per-rule network evaluation
+  never sees the blocker — the surviving activations fire in their
+  original queue order. Seine evaluated eagerly and re-created those
+  activations in release order instead. Ten scenarios graduated to
+  the certified corpus, including a long-open fuzz witness family.
+
 - **Self-contradictory logical derivations are now detected and
   raised** — a rule whose `insertLogical` falsifies its own `not`
   support is a Russell loop: no stable assignment of the derived

@@ -8387,9 +8387,24 @@ impl Engine {
                         && rj < l
                 });
             let pre_force_qlen = self.nets[l].queue.len();
+            // D-333 (model_check_notrel.py unique survivor): Drools'
+            // haltRuleFiring compares with the FULL RuleAgendaConflictResolver
+            // — an EQUAL-salience LOWER-load-order queued item also halts
+            // WITHOUT the continue-path self re-evaluation, so the halted
+            // rule's staged not-right admissions stay staged across the
+            // preemptor's firing and a delete there ANNIHILATES them (no
+            // block, no cancel, no release — the relay consumes its
+            // original round-0 queue). The D-320 tie_preempt below is this
+            // same halt inside a focused group; TMS-deferred lanes keep
+            // the force-eval (their D-198/D-199/D-201 drain calibration
+            // assumes it — byte-identical there by construction).
+            let tms_has_l = self.tms.deferred.iter().any(|(ri, _, _)| *ri == l)
+                || self.tms.exp_deferred.iter().any(|(ri, _)| *ri == l);
             if !higher {
-                dbg_eval("post-fire-force", l);
-                self.evaluate_rule(l, true, false);
+                if tms_has_l || !eq_decl_preempt {
+                    dbg_eval("post-fire-force", l);
+                    self.evaluate_rule(l, true, false);
+                }
                 self.tms.defer_mode = false;
                 if self.tms.deferred.iter().any(|(ri, _, _)| *ri == l)
                     || self.tms.exp_deferred.iter().any(|(ri, _)| *ri == l)
@@ -8617,7 +8632,7 @@ impl Engine {
                         // with the D-091 removeRuleAgendaItemWhenEmpty
                         // unqueue. The !higher sibling path below is safe —
                         // it is only reached after the post-fire force.
-                        if higher && self.nets[l].dirty {
+                        if (higher || eq_decl_preempt) && self.nets[l].dirty {
                             dbg_eval("late-continue-force", l);
                             self.evaluate_rule(l, true, false);
                         }
@@ -8650,6 +8665,22 @@ impl Engine {
                             && self.rules[rj].def.decl_pos < l_decl
                     });
                     if !tie_preempt {
+                        // D-333: the continue path is Drools'
+                        // evaluateNetworkIfDirty — byte-neutral before the
+                        // eq_decl halt above (l was never dirty here), live
+                        // when that halt skipped the force-eval but the
+                        // focused-group tie does not preempt.
+                        if self.nets[l].dirty {
+                            dbg_eval("focus-continue-force", l);
+                            self.evaluate_rule(l, true, false);
+                            if self.nets[l].queue.is_empty() {
+                                if !self.nets[l].dirty {
+                                    self.nets[l].queued = false;
+                                }
+                                self.eager_flush();
+                                return self.next_activation(None);
+                            }
+                        }
                         // D-261 (fz_5150_1857, bd_d4): the same-rule
                         // sibling-continue is a FIRING BOUNDARY — Drools'
                         // fireNextItem runs evaluateEagerList between every

@@ -18015,3 +18015,87 @@ UNTOUCHED (harness runner + oracle runner + cell stamps only);
 non-stamped cells byte-identical by construction (the field is
 inert when absent); drift bank unaffected (no banked cell
 carries the field).
+
+## D-333: the not-release order falls — Phreak LAZINESS, not a list
+## direction (the D-331 part-2 source+model round) (2026-07-19)
+
+Bryan's directive (D-331 close): read the Drools source, model it,
+fresh session. Lane: probes_pending/notrel/ (PINS rounds 3+, the
+full source-quote table lives there).
+
+THE SOURCE READ (drools-core 9.44.0.Final sources jar): every list
+direction pinned — TupleSetsImpl staging is head-prepend with
+head-first walks (ONE reversal per node-emission hop; addAll is an
+order-preserving tail concat), TupleList memories tail-append,
+addBlocked prepends, doRightDeletes walks blocked head-first,
+released lefts re-enter memory at the tail, the terminal appends
+into a FIFO tupleList (static salience = removeFirst), and rule
+selection is salience-then-LOWEST-loadOrder
+(RuleAgendaConflictResolver). And the two load-bearing lines the
+black-box rounds could not see:
+  1. RuleExecutor.fire's haltRuleFiring BREAKS WITHOUT
+     evaluateNetworkIfDirty on preemption — the halted rule's beta
+     network stays DIRTY until that rule is next SELECTED;
+  2. TupleSetsImpl.addDelete on a staged-INSERT tuple ANNIHILATES
+     ("case Tuple.INSERT: removeInsert; return").
+
+THE LAW: a rule's network advances only at its own selection (or
+between its own consecutive firings). In the modify→delete relays,
+R0 (equal salience, lower load order) preempts R1 after every
+firing; R1's staged not-right INSERT is annihilated by R0's delete
+before R1's network ever evaluates — NO block, NO cancel, NO
+release. The oracle's "release order" is R1's untouched round-0
+FIFO queue: reverse-insertion for join-fed shapes (3 staging hops,
+odd reversals), forward for LIA-direct (2 hops). nb1 keeps a REAL
+block+release because R (salience 0) is SELECTED between U's
+modify (-5) and D's delete (-10). The D-331 join-emission suspicion
+is RETIRED; the D-158 shadow suspicion doubly dead (fz_7_2364's not
+is beta-constrained).
+
+PREDICTIONS-FIRST: 8 full timelines registered, oracle run 3× —
+8/8 EXACT (incl. nb1's forward initial batch and r2's no-release
+shape: R0 fires FIRST and the "initial blocker" dies by
+annihilation before R1 ever evaluates). THE MODEL
+(tools/model_check_notrel.py, the D-083 mold): one source-exact
+machine, 4 axes — {lazy,eager} × {annihilate,keep} × release-walk
+× blocked-build — 16 machines × 9 timelines (r5_partial_block
+added mid-round as the clash-axis discriminator: a beta-not
+blocker that blocks the queue HEAD but not the second entry;
+prediction hit, oracle=annihilate, engine=keep-order). UNIQUE
+SURVIVOR CLASS: (lazy, annihilate) × the {head+prepend ≡
+tail+append} gauge pair (rev∘rev=id). The EAGER variant of the
+same machine reproduces the ENGINE's fork sequences on all five
+fork cells — the laziness axis ALONE explains the divergence. The
+eager+inverted-release machines fail exactly {nb1, r3, r5} = the
+D-331 naive flip's measured breakage, now explained.
+
+THE PORT (three edits at the D-091 halt site in engine.rs): the
+engine already carried the entire lazy structure — D-091's halt
+for strictly-higher salience, D-320's tie_preempt (the SAME halt
+inside a focused group), staged-ins annihilation in
+Staged::add_del, evaluateEagerList-equivalent eager_flush, the
+lazy (salience DESC, decl ASC) pop. The ONE gap: the MAIN-group
+halt ignored the load-order tie-break. (1) the post-fire force-
+eval now also skips on eq_decl_preempt (the EXISTING D-199 P3
+predicate) — EXCEPT when the rule has TMS deferred entries, whose
+D-198/199/201 drain calibration assumes the eval (that lane byte-
+identical by construction); (2) the D-258 late-continue force
+mirrors the skip; (3) the focused-group continue gains Drools'
+evaluateNetworkIfDirty (dirty-only — byte-neutral on the old
+flow).
+
+GRADUATIONS (ten): the four banked would-graduates → pr_nr_fz_7_2364,
+pr_nr_fz_min_7_2364, pr_nr_fz_7_9360, pr_nr_nb3 + BONUS
+pr_nr_fz_327002_845 (the D-327 "insertLogical boolean value fork"
+latent was THIS bug composed with TMS) + the five lane cells
+pr_nr_r1..r5. Bank 24 → 19.
+
+RECEIPTS: byte gate vs a20dd5a 2455/2462 SAME, 7 diff = exactly
+the movers, 0 moved-files — SURGICAL; make diff 11/1486/414 all
+PASS + drift 19 identical (~55s); lint 2334/0/0; cargo 74; pytest
+257; demo True; model_ird 31/31; IRD 0-div ×5 (engine 0-div too);
+SD census model 0-div 12×150, engine census 71 — 11 seeds
+cell-for-cell EXACT, seed 6003 5→4 (the port FIXED one SD
+population divergence; deliberate baseline move); agenda_open ×10
+identical ×3 (release/debug/pre-edit worktree); fresh fuzz 2×2000
+seeds 329001/329002 CLEAN; fuzz_cep 3×300 seeds 329901-903 CLEAN.

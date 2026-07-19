@@ -113,3 +113,191 @@ vs oracle timelines) with this round's traces as seed data —
 NOT hand-tune.** The three would-graduate witnesses (fz_7_2364,
 fz_min_7_2364, fz_7_9360, nb3 — four, counting the pair as two)
 stay banked until the modeled port.
+
+## Round 3 (part 2, source read): THE GROUND TRUTH — and the law is LAZINESS, not list order
+
+Sources read (drools-core 9.44.0.Final-sources.jar): PhreakNotNode,
+PhreakJoinNode, PhreakRuleTerminalNode, RuleNetworkEvaluator,
+TupleSetsImpl, TupleList, RightTupleImpl, LeftInputAdapterNode,
+SegmentPropagator, RuleExecutor, RuleAgendaConflictResolver,
+MatchConflictResolver.
+
+### Iteration/build directions (quoted)
+
+- TupleSetsImpl.addInsert/addUpdate/addDelete: HEAD-PREPEND
+  ("setNextTuple(tuple, insertFirst); insertFirst = tuple"); every
+  consumer walks head-first (getInsertFirst/getStagedNext) => each
+  node-emission hop REVERSES batch order. addAll = tail-append,
+  order-preserving (segment boundaries add no extra flip).
+  CLASH SEMANTICS (the load-bearing find): addDelete on a
+  staged-INSERT tuple ANNIHILATES ("case Tuple.INSERT:
+  removeInsert(tuple); return"); addDelete on staged-UPDATE
+  demotes (removeUpdate, then stage delete); addInsert on
+  staged-UPDATE no-ops ("already staged as an update").
+- TupleList.add: TAIL-APPEND ("last.setNext(tuple); last=tuple");
+  head-first iteration; removeAdd = move-to-tail. All beta memories
+  FIFO by add.
+- RightTupleImpl.addBlocked: HEAD-PREPEND ("leftTuple.setBlockedNext(
+  this.blocked); this.blocked = leftTuple").
+- PhreakNotNode.doNormalNode ARM ORDER: leftDeletes ->
+  existentialReorderLeftMemory -> existentialReorderRightMemory ->
+  rightInserts -> rightUpdates -> rightDeletes -> leftUpdates ->
+  leftInserts.
+- doRightInserts (block walk): walks the not's LEFT MEMORY head-first,
+  SKIPS lefts staged UPDATE ("ignore, as it will get processed via
+  left iteration"), blocked left => setBlocker + addBlocked (prepend)
+  + ltm.remove + child delete. Also unlinkNotNodeOnRightInsert:
+  empty-beta-constraint nots UNLINK the segment on right insert.
+- doRightDeletes (release walk): walks rightTuple.getBlocked()
+  HEAD-FIRST via getBlockedNext (= LAST-BLOCKED-FIRST); re-block scan
+  rtm.getFirst forward, skipping isDeleted; released =>
+  insertChildLeftTuple = ltm.add (TAIL re-entry) + trg.addInsert
+  (prepend).
+- doUpdatesExistentialReorderLeftMemory: staged-update lefts are
+  REMOVED from ltm; only UNBLOCKED ones re-added TAIL-APPEND in
+  staged-walk order; a blocked left whose blocker is also staged gets
+  removeBlocked (forced re-match).
+- doLeftUpdates: unblocked in-memory left is ltm.remove'd first
+  ("to ensure iteration order"); re-blocked lefts addBlocked (prepend)
+  AFTER the right-insert arm => update-blocked lefts sit at the
+  blocked HEAD (released first).
+- PhreakJoinNode: doLeftInserts walks staged head-first, ltm.add,
+  children emitted per rtm scan, trg.addInsert (prepend);
+  doRightInserts skips staged-UPDATE lefts; ARM ORDER: rightDeletes ->
+  leftDeletes -> reorderRight -> reorderLeft -> rightUpdates ->
+  leftUpdates -> rightInserts -> leftInserts.
+- PhreakRuleTerminalNode.doLeftInserts: staged walk head-first ->
+  executor.addLeftTuple.
+- RuleExecutor: tupleList (TupleList) TAIL-APPEND; STATIC salience =>
+  getNextTuple = tupleList.removeFirst() = FIFO in terminal-arrival
+  order (the BinaryHeapQueue + MatchConflictResolver LIFO tie-break
+  exists ONLY for dynamic salience).
+- RuleAgendaConflictResolver (rule selection): salience, then LOWEST
+  loadOrder first ("lowest order goes first"), then terminal id.
+- RuleExecutor.fire loop: fireActivation -> flushPropagations ->
+  haltRuleFiring(peekNextRule); on preemption it BREAKS WITHOUT
+  evaluateNetworkIfDirty — the preempted rule's network stays DIRTY;
+  evaluation resumes only when that rule is next SELECTED.
+
+### THE LAW (supersedes the round-1 LIFO phrasing)
+
+**A rule's beta network advances only when that rule is selected to
+fire (or between its own consecutive firings). Effects staged in the
+interim coalesce with TupleSets clash semantics — in particular a
+DELETE annihilates a STILL-STAGED right INSERT at a not node: no
+block, no cancel, no release ever happens.**
+
+The relay corollary: in the modify->delete relays, R0 (same salience,
+lower load order) preempts R1 after every R1 firing. R1's network is
+dirty with the staged not-right INSERT when R0's delete lands =>
+annihilation. The oracle's "release order" is NOT a release — it is
+R1's ORIGINAL round-0 activation queue surviving untouched, consumed
+FIFO. Queue order = terminal-arrival order = insertion order reversed
+once per staging hop: LIA-direct (2 hops) => FORWARD; join-fed
+(3 hops) => REVERSE-INSERTION. Both r1/r2 "LIFO" measurements and
+nb1's [3,2,1] release fall out of one machine with no order axis free.
+
+nb1 keeps a REAL block+release because selection intervenes: R
+(salience 0) is selected between U's modify (-5) and D's delete
+(-10), so the staged right insert flushes (blocks) before the delete
+arrives. The discriminator between the shapes is selection-between-
+arrival-and-delete, not memory orientation. The D-331 join-emission
+suspicion is RETIRED; the D-158 shadow suspicion is doubly dead
+(fz_7_2364's not is beta-constrained: f1 > $b1_0_0).
+
+### Round 3 predictions (REGISTERED BEFORE the instrument runs)
+
+Full fire sequences (rule(T0-idx or L-id)), lazy source machine:
+- nb1: R(1) R(2) R(3) U D R(3) R(2) R(1) — initial batch FORWARD
+  (LIA-direct parity), release reversed. [certified cell: engine
+  already matches; this pins the initial-batch claim]
+- r1: R1(4) R0(4) R1(3) R0(3) R1(1) R0(1) R1(0) R0(0)
+  (f0 order 9, -1e9+7, -5, 4 — matches round-1 measurement)
+- r2: R0(3) R1(4) R0(4) R1(1) R0(1) R1(0) R0(0) — NO initial-block
+  release: R0 fires first, the blocker dies before R1's network ever
+  evaluates (annihilation of ALL its staged tuples). Consumption
+  -1e9+7, -5, 4 = the round-1 measurement, now explained without any
+  release lane.
+- r3: R(3) R(2) R(1) after D — a REAL walk-in-block + release
+  (blocker pre-exists; D is selected before R? no: R salience 0
+  evaluates first, all lefts block at walk-in, zero activations; D
+  then deletes; release emits blocked head-first [L1,L2,L3], one
+  staging flip => 3,2,1).
+- r4: D(5) first (salience 5): L3 dies by annihilation before R
+  evaluates; R fires (2,M) then (1,M). Order [2,1].
+- fz_min_7_2364: R1(3) R0(3) R1(1) R0(1) R1(0) R0(0) — idx3, idx1,
+  idx0 = the recorded oracle fork side.
+- nb3: R1(3) R0(3) R1(2) R0(2) R1(1) R0(1) — reverse insertion.
+- fz_7_2364: R0(3) R1(4) R0(4) R1(1) R0(1) R1(0) R0(0) — t3 is the
+  initial blocker, deleted before R1 evaluates (annihilation); then
+  the relay idx4, idx1, idx0.
+
+### Round 3 model grid + r5 (prediction registered before the cell runs)
+
+model_check_notrel.py, 16 machines x 8 timelines: the four lazy
+survivors collapse to TWO classes — {rel=head,blk=prepend} ==
+{rel=tail,blk=append} is a gauge pair (rev∘rev = id; the observable is
+"release visits newest-blocked-first"), but clash annihilate-vs-keep
+is NOT discriminated by the 8: every block there hits ALL queued
+activations or none. r5_partial_block discriminates: queue [c(f0=0),
+b(f0=1), a(f0=10)]; R1 fires c; the staged blocker rt_c (f1=5) would
+block b (5>1) but not a (5>10); R0 deletes c.
+- ANNIHILATE (source): rt_c never reaches the node; queue untouched.
+  PREDICT: R1(0) R0(0) R1(1) R0(1) R1(10) R0(10).
+- KEEP (block+release in one batch): b cancelled and re-released to
+  the tail -> R1(0) R0(0) R1(10) R0(10) R1(1) R0(1).
+- The EAGER engine should also produce the keep order (block real at
+  fire-1's flush, release at R0's delete).
+
+### Round 3 verdict (model_check_notrel.py, 16 machines x 9 timelines)
+
+r5 measured: oracle = the ANNIHILATE order (3x-stable), engine = the
+keep/eager order — both registered predictions hit. Grid result:
+UNIQUE SURVIVOR CLASS = (lazy, annihilate) x the {rel=head,blk=prepend
+== rel=tail,blk=append} gauge pair. The EAGER variant of the SAME
+machine reproduces the ENGINE's measured sequences on all five fork
+cells (r1, r2, fz_min, nb3, r5) — the laziness axis ALONE explains the
+divergence; every list direction composes identically in both engines.
+Bonus: the eager+inverted-release machines fail exactly {nb1, r3, r5}
+— the D-331 naive flip's measured breakage profile, now explained.
+
+THE PORT (named by the survivor): the engine must defer not-node
+right-side admissions produced by RHS effects until the owning rule is
+next SELECTED to fire, with fact-keyed ins+del ANNIHILATION in the
+deferral window (a delete of a fact whose right-insert is still
+deferred cancels it outright — no block, no cancel, no release).
+Would-graduate: fz_7_2364, fz_min_7_2364, fz_7_9360, nb3 + the r1/r2/
+r5 lane cells.
+
+## THE PORT (D-333, landed)
+
+The engine ALREADY carried the whole lazy structure: D-091's halt
+(skip the continue-path self re-evaluation) existed for STRICTLY-
+higher salience; D-320's tie_preempt is the same halt inside a focused
+group; RHS Update/Delete only stage; Staged::add_del already
+annihilates a staged ins ("never materialized: cancel"); eager_flush
+evaluates only no-loop/dyn rules (= evaluateEagerList); the agenda pop
+is lazy in (salience DESC, decl ASC). The ONE gap: the MAIN-group halt
+gate ignored the RuleAgendaConflictResolver load-order tie-break.
+
+Three engine.rs edits at the D-091 site:
+1. post-fire force-eval skipped when `eq_decl_preempt` (the EXISTING
+   D-199 P3 predicate: lazy rule, equal-salience decl-preceding queued
+   same-group item) — EXCEPT when the rule has TMS deferred/exp
+   entries (their D-198/199/201 drain calibration assumes the eval;
+   that whole lane stays byte-identical by construction).
+2. the D-258 late-continue force mirrors the new skip
+   (`higher || eq_decl_preempt`).
+3. the focused-group !tie_preempt continue gains the Drools
+   evaluateNetworkIfDirty (dirty-only — byte-neutral on the old flow,
+   live only when the new halt skipped the force-eval).
+
+MEASURED: all 9 fitness cells PASS engine-vs-oracle + fz_7_9360 (the
+4th would-graduate) + fz_327002_845 (a banked D-327 latent — the
+insertLogical boolean value fork was THIS bug composed with TMS: a
+BONUS graduation). The 11-cell D-331 counter-set: all PASS. Byte gate
+vs a20dd5a: 2455/2462 SAME, 7 diff = EXACTLY the 6 lane/would-graduate
+cells + fz_327002_845, 0 moved — surgical. make diff 11/1486/414 (ten
+graduations: pr_nr_fz_7_2364, pr_nr_fz_min_7_2364, pr_nr_fz_7_9360,
+pr_nr_nb3, pr_nr_fz_327002_845 + the r1-r5 lane cells as pr_nr_*),
+drift bank 24 -> 19, lint 2334/0/0, agenda_open x10 identical x3.

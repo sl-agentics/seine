@@ -1,5 +1,9 @@
 # HANDOFF — the not-release order round, part 2: SOURCE + MODEL
 # (cold start; D-331 was part 1, commit f50989a)
+# >>> COMPLETED as D-333 (2026-07-19): the law was Phreak LAZINESS
+# (haltRuleFiring's no-eval break + staged-ins annihilation), not a
+# list direction. All four would-graduates + fz_327002_845 graduated
+# (pr_nr_*); see PINS.md rounds 3+ and tools/model_check_notrel.py.
 
 Written 2026-07-19. Bryan's directive: read the Drools source
 for the not-node machinery, MODEL it (D-083 style), then port.
