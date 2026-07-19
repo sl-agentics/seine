@@ -1,0 +1,92 @@
+{
+ "name": "nm3_ctl_blocked",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule NT when $a : E0() not E1(this before[0ms,100ms] $a) $c : E2(this before[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 5
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": -3
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": -45
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": -2
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "expect_inert": true
+}
