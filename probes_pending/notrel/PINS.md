@@ -550,3 +550,120 @@ EXCEPT the event-session x windowed-accumulate composition
 + the value-preserving E0 update) is certified healthy. The next
 attack is a windowed nl9 ladder toward W2's exact accumulate —
 a clock-plane round, not a notlead one.
+
+## D-334 round 3: THE CLOCK-PLANE ROUND (Bryan: "do the clock-plane
+## round") — x52 minimization + the stream-flush law
+
+Minimization (fork survives all): m1 drops TJ0/TJ1/RW3; m2 drops
+E0 + the value-preserving update; m3 drops one E2; m3b drops the
+P-UPDATE — none load-bearing. m3b fork: engine [2,4,1] vs oracle
+[4,2,1] (P0 e0, P1 e1, P2 e3, no updates).
+
+THE DECODE against the pinned notlead law: the ENGINE's [2,4,1]
+IS the certified CLOUD composition (unlink accumulation + LIFO
+staged-ins walk at relink: [P2,P1] -> rtm [P0,P2,P1] -> flip).
+The ORACLE's [4,2,1] = rtm [P0,P1,P2] = INSERTION-ordered — the
+stream session's per-insert force-flush (D-102) drives join-side
+inserts into node memories AT ARRIVAL even while the path is
+unlinked-by-blocker; nothing accumulates.
+
+### m4 prediction (REGISTERED BEFORE the cell runs)
+
+If the law is session-level, the windowed DW is NOT load-bearing:
+m4 = plain-B blocker (nl6 shape minus the update) + an inert
+event type (stream session) + multi-epoch Ps.
+- ORACLE PREDICT: D then R(4) R(2) R(1) (insertion-ordered rtm
+  [Pa,Pb,Pc], one flip).
+- ENGINE PREDICT: D then R(2) R(4) R(1) (cloud accumulation
+  carried into the stream session: staged LIFO [Pc,Pb] -> rtm
+  [Pa,Pc,Pb] -> flip).
+A fork here = the minimal witness class for x52 with NO windows,
+NO TMS, NO clock advances.
+
+### m4 measured — ORACLE PREDICTION MISSED (recorded): plain-B
+### stream accumulates like cloud on BOTH sides. The real law: THE
+### TRANSIENT RELINK
+
+m4: oracle [2,4,1] = the accumulation composition (engine
+identical, no fork). The stream-flush hypothesis is DEAD. The
+load-bearing delta in m3b is the DW CHURN: Drools removes the
+superseded belief at MATCH-CANCEL time (W2's network evaluation,
+BEFORE the refire's insertLogical) — the not's right count
+transiently hits ZERO each churn epoch => RELINK + item queued
+=> NW4's pop-evaluation drains the accumulated staging THAT
+epoch => the join rtm builds INSERTION-ORDERED. Seine's D-076
+supersede is an EPILOGUE (ins-then-del): the count never dips,
+no transient relink, accumulation to the final release.
+COROLLARY: nl7's hit was outcome-correct but mechanism-
+underdetermined (2 Ps: accumulation and per-epoch give the same
+order) — the fork should reproduce in PURE CLOUD with 3 Ps.
+
+### p3 prediction (REGISTERED BEFORE the cell runs) — the cloud
+### minimal witness
+
+p3_cloud_churn3: W: K2($n:n) => insertLogical(B2($n)); R: not
+B2(n>=1) P($v). P0(1)+K2(5) initial; e1 upd K2 n->7 + P(2); e2
+upd K2 n->9 + P(4); e3 upd K2 n->0 (release).
+- ORACLE PREDICT (transient relink per churn epoch): rtm builds
+  per-epoch [P0,P1,P2]; release => flip => R(4) R(2) R(1).
+- ENGINE PREDICT (epilogue supersede, no transient): staged
+  accumulation => rtm [P0,P2,P1] at the release => R(2) R(4)
+  R(1).
+A fork here = the x52 class witnessed with NO events, NO windows,
+NO clock — pure cloud TMS churn.
+
+### p3 measured — BOTH PREDICTIONS EXACT (3x): oracle [4,2,1],
+### engine [2,4,1]. THE X52 CLASS IS WITNESSED IN PURE CLOUD.
+
+### p1 control prediction (REGISTERED): plain non-TMS churn
+
+p1_plain_churn: C: $k:K3() $b:B(g==true) => delete($b);
+insert(new B(true)); delete($k); (one churn per K3); D: K4()
+B(g==true) => delete. P0(1)+B(true) initial; e1 +P(2)+K3; e2
++P(4)+K3; e3 +K4.
+A plain delete's not-right count DOES dip to 0 at arrival (the
+relink fires before the same-RHS re-insert) => BOTH engines
+should transient-relink each churn epoch => insertion-ordered
+rtm => release R(4) R(2) R(1), NO FORK. This isolates the fork
+to the TMS SUPERSEDE TIMING: Drools removes the superseded
+belief at match-update/cancel (count dips, relink); Seine's
+D-076 epilogue removes it AFTER the refire's insertLogical
+(count never dips).
+
+### p1 measured — CONTROL EXACT, no fork ([4,2,1] both sides)
+
+### D-334 ROUND-3 VERDICT (the clock-plane round)
+
+THE LAW (confirmed by p3 fork + p1 control, all predictions
+exact): **the TMS SUPERSEDE-TIMING TRANSIENT RELINK.** When a
+justifier's match updates (its accumulate result or bound values
+changed), Drools removes the superseded belief AT MATCH-UPDATE/
+CANCEL TIME — before the refire's insertLogical — so a not node
+blocked solely by that belief sees its right count transiently
+hit ZERO: the path RELINKS, the item queues, and its pop-
+evaluation drains all accumulated staging THAT epoch (join
+memories build insertion-ordered). Seine's D-076 refire-supersede
+is an EPILOGUE (the new belief inserts during the actions, the
+stale key retracts after): the count never dips, no transient
+relink, staging accumulates to the final release and walks LIFO.
+Plain (non-TMS) del+ins churn dips the count in BOTH engines at
+the delete's arrival — p1 matches — so the fork is EXACTLY the
+supersede path.
+
+x52's chain is now fully decoded: windows/clock/events only
+drove W2's refires (the churn); every other ingredient was
+scaffolding. MINIMAL WITNESS: p3_cloud_churn3 (2 rules, cloud,
+3 Ps, 3 K2-update epochs).
+
+Scorecard round 3: m4 oracle prediction MISSED (recorded — it
+killed the stream-flush hypothesis and forced the real law);
+p3 BOTH predictions exact; p1 control exact.
+
+THE PORT (next slab, gated): reproduce the transient relink
+without disturbing the D-076 epilogue's certified SEMANTICS.
+Open question the port round must probe first: in Drools, does
+the superseded belief die at match-update even when the refire
+NEVER happens (halt / salience-starved refire)? — that decides
+whether the port is "epilogue del + synthetic relink pulse" or a
+true match-update-time retraction. Blast surface: tms_envelope
+(SD census), the D-330 park lanes, nl7/p1 (must stay green).

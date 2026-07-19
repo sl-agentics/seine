@@ -1,0 +1,19 @@
+{
+ "name": "p1_plain_churn",
+ "types": [
+  {"name": "P", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "B", "fields": [{"name": "g", "type": "bool"}]},
+  {"name": "K3", "fields": [{"name": "n", "type": "i64"}]},
+  {"name": "K4", "fields": [{"name": "n", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "P", "fields": {"v": 1}},
+  {"type": "B", "fields": {"g": true}}
+ ],
+ "epochs": [
+  {"actions": [], "facts": [{"type": "P", "fields": {"v": 2}}, {"type": "K3", "fields": {"n": 1}}]},
+  {"actions": [], "facts": [{"type": "P", "fields": {"v": 4}}, {"type": "K3", "fields": {"n": 1}}]},
+  {"actions": [], "facts": [{"type": "K4", "fields": {"n": 1}}]}
+ ],
+ "drl": "rule C when $k : K3() $b : B(g == true) then delete($b); insert(new B(true)); delete($k); end\nrule R when not B(g == true) P($v : v) then end\nrule D when K4() $b : B(g == true) then delete($b); end\n"
+}
