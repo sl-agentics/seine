@@ -4,6 +4,27 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **Firing order for events held on unlinked stream paths now matches
+  Drools.** Drools' per-insert stream flush rides event-typed inputs:
+  event facts reach a join's memory in arrival order even while the
+  rule's network path is unlinked, where Seine walked the whole held
+  batch newest-first at the eventual evaluation. Plain (non-event)
+  facts in stream sessions keep the certified accumulate-then-LIFO
+  order — the distinction is the fact's event-ness, not the fire
+  boundary. Five scenarios graduated to the certified corpus.
+
+- **Firing order for intermediate matches cascading through a chain of
+  temporal joins now matches Drools.** When one event's arrival
+  completes matches at a temporal join whose downstream temporal join
+  cannot yet fire (its own events expired or not yet arrived), the
+  intermediate matches were handed downstream without the per-hop
+  staging reversal Drools' propagation applies — the eventual firings
+  came out reversed. Eight scenarios graduated to the certified
+  corpus, closing the last banked witness of the D-318 fuzz family
+  (cf318902x167).
+
 ## 0.4.44
 
 - **Activation order after logical-belief supersede churn now matches

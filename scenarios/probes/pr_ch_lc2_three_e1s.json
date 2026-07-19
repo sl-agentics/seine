@@ -1,0 +1,153 @@
+{
+ "name": "lc2_three_e1s",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400,
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule CH2 when $a : E0() $b : E1(this before[0ms,50ms] $a) $c : E2(this after[0ms,50ms] $b) then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 32,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 35,
+    "tag": "y",
+    "dur": 30
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 31,
+    "tag": "x",
+    "dur": 80
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 28,
+    "tag": "x",
+    "dur": 30
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 600
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 614,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 616,
+      "tag": "z"
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 618,
+      "tag": "w"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 30
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 644,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 648,
+      "tag": "z",
+      "dur": 80
+     }
+    }
+   ]
+  }
+ ]
+}

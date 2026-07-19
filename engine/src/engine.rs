@@ -7399,9 +7399,24 @@ impl Engine {
                     Sink::Node(_) => true,
                     // a Term-sinked emission only happens at a LINKED
                     // eval (which already consumed the staging) — allow
-                    // the cascade only when no emission is possible
+                    // the cascade only when no emission is possible.
+                    // D-339: "no emission possible" for a left batch =
+                    // rights memory EMPTY OR ALL-CORPSE (expired-flagged
+                    // or already-dead rights make no NEW pairs, D-102) —
+                    // the alpha unlinks eagerly while the beta memory of
+                    // an UNLINKED join keeps corpses (kill() clears the
+                    // expired flag but the lazy route-delete never ran),
+                    // so a corpse-only memory is the reachable unlinked
+                    // state; its cascade batch must still drain through
+                    // flush_ins_delta's head-first walk (the
+                    // one-flip-per-hop law) — self_drain's .rev() would
+                    // un-flip it (the x167 adjacent swap).
                     Sink::Term(_) => {
-                        (has_r && n.lefts_is_empty()) || (has_l && n.rights_is_empty())
+                        (has_r && n.lefts_is_empty())
+                            || (has_l
+                                && n.rights_ids().all(|f| {
+                                    self.store.is_expired(f) || !self.store.is_alive(f)
+                                }))
                     }
                     Sink::Ria(_) => false,
                 };

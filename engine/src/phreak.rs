@@ -1098,6 +1098,10 @@ impl Node {
         self.lefts.iter().map(|(l, _)| l.clone()).collect()
     }
 
+    pub fn rights_ids(&self) -> impl Iterator<Item = FactId> + '_ {
+        self.rights.iter().map(|(f, _)| *f)
+    }
+
     pub fn push_left(&mut self, l: Tup, key: Option<Vec<Value>>) {
         self.lefts.push((l, key));
     }
