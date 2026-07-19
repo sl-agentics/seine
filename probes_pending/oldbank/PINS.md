@@ -470,3 +470,166 @@ sharing, linked history, batch composition (upd-in-batch vs
 ins-only). The engine's D-083-late + whole-flip is provably
 right on the 14 and provably wrong on 973 — the discriminator
 is IN that delta.
+
+## D-353 — the eliminator round (Bryan: "start the modeling")
+
+### Step 1 — FACTORIZATION (mechanical, done first)
+
+Variant A (plain slot only, no block swap) rebuilt and run over
+all 15 cells: ALL 14 counterexamples PASS, 973 still FAILS.
+=> Every certified breakage came from the BLOCK SWAP; the
+plain-slot change alone breaks nothing; 973 needs more than
+the plain slot. Engine re-reverted byte-identical after the
+experiment.
+
+### Step 2 — THE WINDOW REFRAME (fits all six lists + explains
+### the swap's accident)
+
+Re-deriving under the factorization constraint, the six 973
+lists fit a WINDOW-GRANULAR mechanism with NO block swap:
+- each external ACTION = one window; epoch FACTS = one combined
+  window (w2 = the re-entrant right's window, w3 = both T1s);
+- each window's node eval distributes its trg separately:
+  first-BUILT sink APPENDS (FIFO across windows), later sinks
+  get peer-prepend copies (creation order within a window's
+  block, double reversal);
+- EAGER (no-loop) sinks consume their staged copies PER WINDOW
+  (b1/b3 drained w2's block before w3 landed); LAZY sinks
+  accumulate (R0, salience -4, drains everything at its fire).
+Fit check by hand: b1/b3 = [w2-block creation ++ w3-block
+creation] (eager, FIFO-of-consumes) EXACT; R0 = [w2-append ++
+w3-append] (staged form within) EXACT. The D-352 "phase-block"
+fit was an ARTIFACT: 973's phase blocks coincide with its
+window blocks (the right's ops and the lefts' ops arrive in
+different windows). The 14 counterexamples break the swap
+because their phase blocks do NOT align with windows.
+
+### Step 3 — ORACLE PROBES (predictions BEFORE runs; no engine
+### changes needed to falsify the window law)
+
+p353a (973 with the two T1 inserts as separate insert ACTIONS —
+three windows instead of two): PREDICT the oracle b1/b3 wave
+tail FLIPS to L7-block-then-L8-block ([(-2,R4),(-2,R2),(6,R4),
+(6,R2)] in value terms, eager FIFO-of-window-consumes); R0
+stays [(1.5,R2),(3.5,R2),(-2,R2),(-2,R4),(6,R2),(6,R4)]-class
+(append order w3 then w4 = L7 then L8). If the tail does NOT
+flip, the facts-vs-actions window split is wrong and the law
+needs re-derivation.
+p353b (973 with no-loop REMOVED from R2 — all sinks lazy):
+PREDICT b1/b3 = LIFO-across-windows head-first = [(6,R4),
+(6,R2),(-2,R4),(-2,R2),(3.5,R2),(1.5,R2)]; R0 unchanged
+(append-across is consume-time-independent).
+
+### Step 3 RESULTS — BOTH PROBES MISSED (the window law is DEAD)
+
+p353a: output IDENTICAL to the witness (3x stable) — actions-vs-
+facts window structure changes NOTHING oracle-side. p353b:
+IDENTICAL too — no-loop/eagerness is NOT the mechanism. Both
+misses recorded. [SUPERSEDED one step later: the window IDEA was
+wrong in its facts-vs-actions FORM, but a per-CALL form survives
+— see step 4; both p353a/b misses are CONSISTENT with it.]
+
+### Step 4 — THE FLUSH-AT-MODIFY MECHANISM (fits ALL data)
+
+Timeline extraction from pr_ib15 + pr_or_a28 (handle-tagged):
+their R0 (first-built, salience -1) receives WHOLE-EVAL-reversed
+blocks FIFO across the R2-firing-driven evals; their R1 receives
+creation order — the engine's current certified composition
+EXACTLY. Composing this with 973's six lists, ONE mechanism fits
+everything:
+  (1) an external MODIFY call FLUSHES the network AT CALL TIME
+      (BetaNode.doDeleteRightTuple / modify-assert ->
+      setNodeDirty -> shouldFlush -> flushLeftTupleIfNecessary);
+      activations queue at the call;
+  (2) an external INSERT only STAGES (LIA); it drains in ONE
+      fire-time batch, staged-LIFO — PROVEN by the witness's own
+      lins-block ([6-children before -2-children] in b1);
+  (3) per flush-batch: first-built sink = addAll (drain =
+      prepend-list head-first), later sinks = per-entry-prepend
+      (drain = creation order); term QUEUES accumulate FIFO
+      across flushes.
+Under (1)-(3): 973's b1 = [rins-batch at update-call ++
+fire-batch lins] EXACT; R0 EXACT; ib15/or_a28 (RHS-driven
+per-firing flushes) = the current engine EXACT; p353a's miss
+(actions vs facts identical) EXACT — both forms flush the
+updates at call; p353b's miss (no-loop irrelevant) EXACT — the
+flush is call-driven, not eagerness-driven. The D-352
+"phase-block swap" fit 973 because its phase blocks COINCIDED
+with call-flush batches; it broke the 14 because their
+RHS-driven batches are whole-eval blocks.
+
+### Step 5 — the law-1 discriminating probes (predictions FIRST)
+
+p353c (973 epoch = the two updates ONLY, no T1 inserts):
+PREDICT R2 waves = [(3.5,b),(1.5,b)] per branch (the rins batch
+queued at the update-2 call flush; creation order — peers),
+branch2 wave EMPTY, R0 wave = [(1.5,b),(3.5,b)] (addAll
+prepend-list). Total epoch firings 6: b1 2, b3 2, R0 2.
+p353d (973 epoch actions REORDERED: [insert T1(-2), insert
+T1(6), upd A->"", upd A->"b"], facts empty): the update-1 call
+flush DRAINS the staged T1s too (a flush evaluates the whole
+network) with A absent (exited); update-2's flush adds the
+re-entrant's children over ALL four lefts. PREDICT b1 wave =
+[(6,R4),(-2,R4)] ++ [(3.5,b),(1.5,b),(6,b),(-2,b)]; R0 wave =
+[(-2,R4),(6,R4)] ++ [(-2,b),(6,b),(1.5,b),(3.5,b)]. These are
+DISTINCTIVE (neither whole-LIFO nor the witness's order); a hit
+here is near-conclusive for flush-at-modify.
+
+### Step 5 RESULTS — p353c FULL HIT; p353d miss REFINES the law
+
+p353c: b1 [(3.5,b),(1.5,b)], b3 same, R0 [(1.5,b),(3.5,b)],
+branch2 empty, 6 epoch firings — EVERY registered prediction
+exact (3x stable). p353d: output IDENTICAL to the witness —
+action order (inserts before updates) changes NOTHING. The miss
+decodes cleanly: flushLeftTupleIfNecessary is SEGMENT-scoped —
+the modify's flush evaluates the JOIN's own smem (its staged
+rights x MEMORY lefts); LIA-staged lefts are a DIFFERENT
+segment, untouched, draining at fire regardless of call order.
+
+### THE FINAL LAW (D-353; all data fits, zero residuals)
+
+1. An external MODIFY call flushes the AFFECTED BETA SEGMENT at
+   call time (BetaNode.doDeleteRightTuple / modify-assert ->
+   setNodeDirty -> shouldFlush -> flushLeftTupleIfNecessary):
+   staged rights evaluate against MEMORY lefts, children
+   propagate to term smems, ACTIVATIONS QUEUE AT CALL TIME.
+2. An external INSERT only stages (LIA segment); it drains at
+   fire in ONE batch, staged-LIFO.
+3. RHS-driven staging drains per-firing flush (the certified
+   current composition).
+4. Per flush-batch sink distribution: first-BUILT sink = addAll
+   (drain = prepend-list head-first); later sinks = per-entry
+   prepend (drain = creation order). Terminal QUEUES accumulate
+   FIFO across flushes.
+
+THE UNIFICATION: under this law, jr3's certified "late" order
+falls out naturally ((1,5) queued at the back-flush, (2,5) at
+fire) and jw3 stays whole-LIFO (one RHS flush batch) — THE
+ENTIRE D-082/D-083 LATE-PASS MACHINERY IS THE COALESCED-MODEL
+APPROXIMATION of per-call segment flushes: exact on single-sink
+shapes (where queue-time is invisible), breaking only on
+multi-sink shared nodes where flush boundaries become visible
+(fz_7331_973). The 14 counterexamples are RHS-driven (law 3) —
+untouched by any of this.
+
+Evidence ledger: 973's six lists (exact), ib15 + or_a28
+timelines (exact), jr3/jw3 unification (exact), p353c full hit,
+p353a/b/d misses all explained by the final form. Verifier:
+tools/model_check_join3.py (the D-352 fit) + this analysis.
+
+### PORT ASSESSMENT (gate with Bryan — ARCHITECTURE decision)
+
+The faithful port = evaluate affected join segments at each
+external UPDATE window (queueing activations at window time),
+which would eventually RETIRE the D-082/D-083 late pass (a
+simplification, but the blast radius = the whole update-order
+certified corpus: jr/jw ladders, u12/u13/u16, the D-047 window
+machinery, agenda queue-time interactions, TMS-under-epochs).
+Alternatives: (a) full flush-at-window restructure (faithful,
+big — its own arc like D-076); (b) a targeted multi-sink-only
+approximation (the D-352 block-swap was one attempt; a
+window-boundary-aware variant could work but needs the
+eliminator run over ALL timelines first); (c) leave the trio
+banked with the law recorded (they are ORDER-class, value-safe).
+fz_8087_1020/fz_141421_123 need their own decodes either way
+(different compositions). NO ENGINE CHANGES THIS ROUND.
