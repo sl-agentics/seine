@@ -17986,3 +17986,32 @@ identical ×3; fresh fuzz 2×2000 seeds 328001/328002 CLEAN;
 fuzz_cep 3×300 seeds 328901-903 CLEAN; make diff wall ~7m38s
 (the 22 oracle-side 100k-fire cells; revisit with a
 representative split if it grows).
+
+## D-332: per-scenario fire_limit — the error-parity cells stop
+## grinding 100k×22 (2026-07-19)
+
+Bryan's question, verbatim: "do we REALLY need to keep 100000
+iterations of not LK() → insertLogical(LK), 22x?" — No. The
+parity claim is "BOTH engines diverge to the SAME wall", not
+"100,000 specifically"; the relays have no stable model
+(Russell loops), so a low wall cannot false-pass, and the
+firing prefix before the pure relay is a handful of firings —
+500 leaves generous transient headroom.
+
+THE CHANGE: a per-scenario "fire_limit" field honored by BOTH
+runners (harness Scenario + OracleRunner; both format the same
+number into the certified "fire limit N reached" error, so the
+D-013/j21 substring parity holds cell-for-cell). Precedence:
+SEINE_FIRE_LIMIT env (diagnostic) > the scenario field > the
+certified 100_000 default — VERIFIED both directions. The 26
+expect_error cells (22 members + q2/q9 + lane copies) stamp
+fire_limit: 500.
+
+MEASURED: the 30-cell pr_rw lane diffs in ~34s total (was
+~30s+ PER CELL oracle-side); all 30 PASS. The lint's
+expect_error engine runs drop from ~2.5s to ~12ms each.
+Corpus wall time: make diff 7m38s → 55.6s (the 22 cells WERE the corpus overhead); 11/1476/414 all PASS + drift 24 identical; lint 2328/0/0. Engine crate
+UNTOUCHED (harness runner + oracle runner + cell stamps only);
+non-stamped cells byte-identical by construction (the field is
+inert when absent); drift bank unaffected (no banked cell
+carries the field).

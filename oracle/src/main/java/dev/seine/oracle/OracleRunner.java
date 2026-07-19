@@ -80,6 +80,13 @@ public final class OracleRunner {
     }
 
     static JsonNode run(JsonNode scenario) throws Exception {
+        // D-332: per-scenario fire-limit override (the pr_rw_ error-parity
+        // cells; both runners read the same field so the formatted limit
+        // matches). Env (diagnostic) still wins via FIRE_LIMIT's init.
+        final int fireLimit = System.getenv("SEINE_FIRE_LIMIT") == null
+                && scenario.has("fire_limit")
+                        ? scenario.path("fire_limit").asInt()
+                        : FIRE_LIMIT;
         String drl = "package " + PKG + ";\n"
                 + "import java.util.List;\n"
                 + "import java.util.ArrayList;\n"
@@ -147,12 +154,12 @@ public final class OracleRunner {
             for (JsonNode fact : scenario.path("facts")) {
                 insertFact(session, kbase, scenario, fact, epMap);
             }
-            int fired = session.fireAllRules(FIRE_LIMIT);
-            if (fired >= FIRE_LIMIT) {
+            int fired = session.fireAllRules(fireLimit);
+            if (fired >= fireLimit) {
                 if (System.getenv("SEINE_FIRE_LIMIT") != null) {
                     System.err.println("SEINE_FIRE_TRAIL " + M.writeValueAsString(firings));
                 }
-                throw new IllegalStateException("fire limit " + FIRE_LIMIT + " reached (non-terminating?)");
+                throw new IllegalStateException("fire limit " + fireLimit + " reached (non-terminating?)");
             }
             // Multi-fire epochs (D-046) + external WM actions (D-047):
             // ordered actions, then legacy "facts" inserts, then fire.
@@ -212,16 +219,16 @@ public final class OracleRunner {
                 for (JsonNode fact : epoch.path("facts")) {
                     insertFact(session, kbase, scenario, fact, epMap);
                 }
-                fired = session.fireAllRules(FIRE_LIMIT);
+                fired = session.fireAllRules(fireLimit);
                 // Arc 5 (D-107): per-epoch query invocation
                 if (epoch.has("queries")) {
                     runQueryCalls(kbase, session, epoch.path("queries"), queryOut);
                 }
-                if (fired >= FIRE_LIMIT) {
+                if (fired >= fireLimit) {
                     if (System.getenv("SEINE_FIRE_LIMIT") != null) {
                         System.err.println("SEINE_FIRE_TRAIL " + M.writeValueAsString(firings));
                     }
-                    throw new IllegalStateException("fire limit " + FIRE_LIMIT + " reached (non-terminating?)");
+                    throw new IllegalStateException("fire limit " + fireLimit + " reached (non-terminating?)");
                 }
             }
 

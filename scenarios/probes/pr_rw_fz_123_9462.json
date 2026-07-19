@@ -84,5 +84,6 @@
    "name": "T2"
   }
  ],
- "expect_error": true
+ "expect_error": true,
+ "fire_limit": 500
 }

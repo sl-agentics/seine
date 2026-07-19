@@ -4,14 +4,7 @@
 use seine_engine::{Engine, FactView, FieldType, QueryVal, TypeSchema, Value};
 use serde_json::{json, Map, Value as J};
 
-// SEINE_FIRE_LIMIT: diagnostic override (D-330 runaway decodes) —
-// mirrors the oracle runner's env; unset = the certified 100_000.
-fn fire_limit() -> usize {
-    std::env::var("SEINE_FIRE_LIMIT")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(100_000)
-}
+
 
 pub fn run_scenario_file(path: &str) -> Result<(String, J), (String, String)> {
     run_scenario_file_parts(path)
@@ -46,6 +39,13 @@ struct Scenario {
     facts: Option<Vec<FactSpec>>,
     epochs: Option<Vec<Epoch>>,
     queries: Option<Vec<J>>,
+    /// D-332: per-scenario fire-limit override. The pr_rw_ error-parity
+    /// cells relay FOREVER (no stable model) — the parity claim is "both
+    /// engines diverge to the SAME wall", not "100k specifically"; a low
+    /// wall buys back ~2.5s/cell engine-side and the oracle's grind. The
+    /// oracle runner reads the same field; both sides format the same
+    /// number into the error, so the D-013/j21 substring parity holds.
+    fire_limit: Option<usize>,
 }
 
 #[derive(Default)]
@@ -130,6 +130,7 @@ de_object!(Scenario {
     "facts" => facts,
     "epochs" => epochs,
     "queries" => queries,
+    "fire_limit" => fire_limit,
 });
 de_object!(FactSpec {
     "type" => type_name,
@@ -199,6 +200,13 @@ fn run_scenario(mut sc: Scenario) -> Result<RunParts, String> {
             engine.declare_event(tname, ts, exp, dur).map_err(|e| e.to_string())?;
         }
     }
+    // D-332: env override (diagnostic) > scenario field > the certified
+    // default. Captured before `sc` is consumed.
+    let limit = std::env::var("SEINE_FIRE_LIMIT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .or(sc.fire_limit)
+        .unwrap_or(100_000);
     let drl = sc.drl.as_deref().ok_or("scenario missing 'drl'")?;
     engine.add_rules_drl(drl).map_err(|e| e.to_string())?;
 
@@ -208,7 +216,7 @@ fn run_scenario(mut sc: Scenario) -> Result<RunParts, String> {
     }
     drop(facts);
 
-    let mut firings = engine.fire_all(fire_limit()).map_err(|e| e.to_string())?;
+    let mut firings = engine.fire_all(limit).map_err(|e| e.to_string())?;
     // Multi-fire epochs (D-046) + external WM actions (D-047): each
     // epoch runs its ordered actions (insert / update / delete-by-
     // global-insertion-index), then legacy "facts" inserts, then fires
@@ -275,7 +283,7 @@ fn run_scenario(mut sc: Scenario) -> Result<RunParts, String> {
             for fact in epoch.facts.as_deref().unwrap_or_default() {
                 insert_fact_spec(&mut engine, fact, "epoch fact")?;
             }
-            firings.extend(engine.fire_all(fire_limit()).map_err(|e| e.to_string())?);
+            firings.extend(engine.fire_all(limit).map_err(|e| e.to_string())?);
             // Arc 5 (D-107): per-epoch query invocation — queries run
             // against the WM as of THIS epoch's quiescence
             if let Some(eq) = &epoch.queries {
