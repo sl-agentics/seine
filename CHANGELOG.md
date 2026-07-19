@@ -6,6 +6,17 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **A rule that deletes and re-inserts an event witnessed by another
+  rule's `exists`/`not` now re-fires that rule, matching Drools.**
+  When a rule's consequence deletes an event that supports another
+  rule's `exists` (or gates its `not`) and then inserts a
+  replacement, the support genuinely drops to zero and re-establishes
+  — the witnessing rule re-fires. Seine previously coalesced the
+  delete/insert pair so the churn was invisible. Re-inserting before
+  deleting (support never reaching zero) still coalesces, as in
+  Drools. Five scenarios graduated to the certified corpus, closing
+  the last value-class witness of the CEP delete-churn family.
+
 - **Firing order after a mid-chain temporal `not` releases now matches
   Drools.** When a temporal `not` sits between positive patterns and
   its window closes (no blocker ever arrived), the rule's pending

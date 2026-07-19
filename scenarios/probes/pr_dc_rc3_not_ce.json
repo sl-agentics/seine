@@ -1,0 +1,71 @@
+{
+ "name": "rc3_not_ce",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Trig",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule NN when not E0() P() then end\nrule CH salience -10 when $t : Trig() $w : E0(tag==\"z\") then delete($w); insert(new E0(21, \"y\")); delete($t); end",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "z"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "Trig",
+     "fields": {
+      "v": 1
+     }
+    }
+   ]
+  }
+ ],
+ "_finding": "CLASS 3 rule-driven variant \u2014 DEFERRED (the EXTERNAL churn is PORTED, D-138; this re-entrant RHS variant is NOT). A rule RHS `delete($w); insert(new witness)` churns the exists EVENT witness DURING its own fire; Drools re-fires (NE,CH,NE) but the engine does not (NE,CH). The D-138 delete-time eval (delete_fact force-evaluates the affected exists rule) does NOT fire re-entrantly during an in-progress fire, so the RHS delete still defers to fire_all (ins-before-del \u21d2 coalesce). Needs a re-entrant-safe delete-time eval; not fuzz-reachable (the fuzz generates no witness-deleting rules). open_divergence.",
+ "open_divergence": true
+}

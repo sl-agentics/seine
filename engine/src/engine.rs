@@ -11424,6 +11424,38 @@ impl Engine {
                     if let Some(victim) = victim {
                         self.store.kill(victim);
                         self.on_delete(victim, Some(ri));
+                        // D-344 (the D-138 delete-time law, RHS variant —
+                        // probes_pending/delchurn): an RHS delete of an
+                        // EVENT witness at an exists/not node evaluates
+                        // at DELETE-time, so the 0-support crossing lands
+                        // BEFORE a later same-RHS reinsert re-establishes
+                        // (the deferred drain's ins-before-del phase order
+                        // coalesces the churn instead — rc1 vs rc2). Same
+                        // scope as the external block in delete_fact; RHS
+                        // context is never the expiration drain.
+                        if self.lists_built
+                            && self
+                                .event_specs
+                                .contains_key(&self.store.fact_type(victim))
+                        {
+                            let tid = self.store.fact_type(victim);
+                            let affected: Vec<usize> = (0..self.rules.len())
+                                .filter(|&rj| {
+                                    self.rules[rj].patterns.iter().any(|p| {
+                                        matches!(p.ce, CeKind::Not | CeKind::Exists)
+                                            && p.type_id == tid
+                                    })
+                                })
+                                .collect();
+                            if !affected.is_empty() {
+                                let saved = self.in_stream_flush;
+                                self.in_stream_flush = true;
+                                for rj in affected {
+                                    self.evaluate_rule(rj, true, false);
+                                }
+                                self.in_stream_flush = saved;
+                            }
+                        }
                     }
                     if let Some((tid, vals)) = materialize {
                         self.tms_materialize(tid, vals)?;
