@@ -4,6 +4,16 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **Shipped wheels self-identify**: `certification()["commit"]` on
+  CI-built wheels now reports the source commit (it was `"unknown"` —
+  the containerized builds could not run git). An engine whose pitch
+  is auditability should let you audit *which engine you have*: the
+  one-move answer to "does this installed wheel carry fix X" now
+  works on PyPI artifacts. Builds from the sdist (no git context)
+  still stamp `"unknown"`, honestly.
+
 ## 0.4.42
 
 - **Event updates land in call order in windowed and plain

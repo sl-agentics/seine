@@ -17873,3 +17873,29 @@ Receipts (D-295-scale, harness-only): make diff 1871 PASS
 cf325901x52 (agenda-order), cf318902x167 (unclassified),
 fz_327002_845/fz_327002_1948 (D-327's quarantines), plus the
 older fz_* families.
+
+## D-329: shipped wheels self-identify — the certification commit
+## stamp reaches CI artifacts (2026-07-19)
+
+Found by Bryan's external 0.4.42 verification (the D-328
+addendum): the PyPI wheel's certification()["commit"] was
+"unknown" — bindings/build.rs shells `git rev-parse`, which
+fails inside maturin-action's manylinux containers (no git
+binary / dubious-ownership refusal on the mounted workspace).
+The exact cost was paid immediately: "does this wheel carry fix
+X" needed a three-way investigation instead of one call.
+
+THE FIX: a three-tier commit source in build.rs —
+SEINE_BUILD_COMMIT env (manual escape hatch) > the repo-root
+.seine-commit file > local git; sdist builds (no git, no file)
+honestly stamp "unknown". The wheels job writes the file
+(`echo "${GITHUB_SHA:0:7}" > .seine-commit`, shell: bash on all
+runners) before maturin-action — the workspace file IS mounted
+into the container, unlike env vars whose forwarding is
+action-version-dependent. macOS/Windows (no container) take the
+file tier too — same sha as their git would give. The file is
+gitignored. ALL THREE TIERS MEASURED locally through maturin
+develop + certification(): envstamp9 > filestamp1 > 8ac7b62.
+The CI path itself proves out on the next tag. Receipts:
+yaml-parse clean, cargo build clean, tracked .so restored
+post-develop (the standing clobber flow).
