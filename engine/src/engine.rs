@@ -11220,6 +11220,10 @@ impl Engine {
             .get(&tms_act)
             .cloned()
             .unwrap_or_default();
+        // D-336: the supersede-pair wake reads "new key this firing"
+        // against the prologue snapshot.
+        let tms_prev_set: std::collections::HashSet<(TypeId, Vec<KeyVal>)> =
+            tms_prev.iter().cloned().collect();
         self.tms.firing_keys.clear();
         self.tms.current_act = Some(tms_act.clone());
         // Declaration snapshot: binding values are extracted once when the
@@ -11377,6 +11381,50 @@ impl Engine {
                     }
                 }
             }
+            // D-336: the supersede-pair WAKE (p3/p7/p8 matrix) — a refire
+            // that RETRACTS a stale belief while ESTABLISHING a new key
+            // wakes every rule whose `not` admits either fact: the item
+            // queues dirty and its LAZY evaluation runs at its pop,
+            // draining accumulated staging that epoch (the oracle's
+            // insertion-ordered memories). Pure TMS ins churn (p7), pure
+            // TMS del churn (p8) and every plain no-dip composition
+            // (p5/p6) do NOT wake — the pair is the whole trigger.
+            let has_new = self
+                .tms
+                .firing_keys
+                .iter()
+                .any(|k| !tms_prev_set.contains(k));
+            let mut wake_facts: Vec<FactId> = Vec::new();
+            if has_new && !to_retract.is_empty() {
+                wake_facts.extend(to_retract.iter().copied());
+                for k in &self.tms.firing_keys {
+                    if !tms_prev_set.contains(k) {
+                        if let Some(e) = self.tms.keys.get(k) {
+                            if let Some(jf) = e.justified {
+                                wake_facts.push(jf);
+                            }
+                        }
+                    }
+                }
+            }
+            let wake_rules: Vec<usize> = if wake_facts.is_empty() {
+                Vec::new()
+            } else {
+                (0..self.rules.len())
+                    .filter(|&wri| {
+                        self.rules[wri].patterns.iter().enumerate().any(
+                            |(pos, pat)| {
+                                pat.ce == CeKind::Not
+                                    && pat.sub != SubRole::Inner
+                                    && wake_facts.iter().any(|&f| {
+                                        self.store.fact_type(f) == pat.type_id
+                                            && self.alpha_passes(wri, pos, f)
+                                    })
+                            },
+                        )
+                    })
+                    .collect()
+            };
             // D-158: these WM deletes are the CHURN class — a re-fire's
             // stale-key retract, which Drools stages synchronously BEFORE
             // the re-fire's queued insertLogical reaches the not.
@@ -11388,6 +11436,11 @@ impl Engine {
                 }
             }
             self.pn_churn_ctx = false;
+            for wri in wake_rules {
+                self.nets[wri].dirty = true;
+                self.nets[wri].dirty_stamp = self.stage_seq;
+                self.nets[wri].queued = true;
+            }
         }
         self.tms.firing_keys.clear();
         self.tms.current_act = None;

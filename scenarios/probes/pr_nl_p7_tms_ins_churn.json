@@ -1,0 +1,103 @@
+{
+ "name": "p7_tms_ins_churn",
+ "types": [
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B2",
+   "fields": [
+    {
+     "name": "n",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "K6",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "K9",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "K6",
+   "fields": {
+    "m": 5
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    },
+    {
+     "type": "K6",
+     "fields": {
+      "m": 6
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "P",
+     "fields": {
+      "v": 4
+     }
+    },
+    {
+     "type": "K6",
+     "fields": {
+      "m": 7
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "K9",
+     "fields": {
+      "m": 0
+     }
+    }
+   ]
+  }
+ ],
+ "drl": "rule W2 when $k : K6($m : m) then insertLogical(new B2($m)); end\nrule DDA salience 5 when K9() $k : K6(m >= 1) then delete($k); end\nrule R when not B2(n >= 1) P($v : v) then end\n"
+}

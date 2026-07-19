@@ -797,3 +797,48 @@ dips -> release).
 Scorecard D-335: p5 oracle prediction MISSED (recorded — killed
 del-notify), p6 "if not" arm HIT, TmsProbe = the decisive
 instrument (MATCH+ stream + WM event order).
+
+## D-336: THE WAKE PORT (Bryan: "do the wake port")
+
+### Scope probes p7/p8 (predictions REGISTERED before the cells run)
+
+The wake could ride the TMS INSERT, the TMS DELETE, either, or
+only the supersede PAIR. p7 = pure TMS ins churn (fresh justifier
+K6 per epoch, distinct beliefs, no dels until the final
+teardown); p8 = pure TMS del churn (three justifiers up front,
+one killed per epoch via its K6's delete -> match death ->
+belief retract; no new ins).
+- PREDICT (uncertainty recorded; my guess = the TMS belief ops'
+  entry-point route notifies on BOTH): p7 oracle DRAINS =>
+  R(4) R(2) R(1); p8 oracle DRAINS => R(4) R(2) R(1); engine
+  accumulates on both => R(2) R(4) R(1).
+- The four outcomes map: both drain = either-op wake; p7-only =
+  ins-wake; p8-only = del-wake; neither = pair-only.
+
+### D-336 measured + LANDED
+
+p7/p8 measured: BOTH accumulate on both sides (prediction missed,
+recorded) — THE WAKE IS PAIR-ONLY: one firing retracting a stale
+belief key while establishing a new one. The port: in
+execute_rhs's refire-supersede epilogue, when (new key this
+firing) AND (stale retraction happened), every rule with a `not`
+position admitting either fact (type + alpha, checked pre-kill)
+gets queued dirty — the WAKE only; evaluation stays lazy at the
+item's pop (the exists-requeue precedent's flag shape).
+
+MEASURED: p3 AND cf325901x52 flip PASS; all controls hold
+(p1/p5/p6/p7/p8/nl7). Byte gate vs 05fd74a: 2475/2477 SAME, 2
+diff = EXACTLY the two intended movers, 0 moved — the
+tms_envelope, park, and error-parity lanes byte-identical.
+SEVENTEEN graduations (pr_nl_*: cf325901x52 + nl1-8 + m4/m4b +
+p1/p3/p5/p6/p7/p8); bank 19->18->19 (one fresh pre-existing
+quarantine fz_336002_968: collect x acc x insertLogical latent,
+worktree-bisected byte-identical pre/post wake, seed re-run
+clean). Corpus 11/1503/414 + drift 19; lint 2351/0/0; SD census
+71 cell-for-cell EXACT; cargo 74; pytest 257; demo True;
+model_ird 31/31; IRD 0-div x5 (engine 0-div); agenda_open x10
+identical x3; fuzz 336001 clean + cep 3x300 clean.
+
+THE cf325901x52 LEDGER ITEM CLOSES: unexplained cep blob ->
+not-lead law (D-334) -> supersede-wake law (D-335) -> ported and
+certified (D-336).
