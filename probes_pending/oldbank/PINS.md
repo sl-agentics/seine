@@ -667,7 +667,55 @@ model_ird 31/31 (+26/26+39/39); IRD 150x5 0-div; SD census
 fuzz 2x2000 seeds 351001/351002 + cep 3x300 351901-903 CLEAN.
 NEXT seeds 352001+/352901+.
 
-SCOPED RESIDUALS (recorded): external DELETE-window flushes
+### fz_8087_1020 — DECODE (D-355 round, post-D-354 re-measure)
+
+Handle-tagged logs both sides: base R4 [A,A] + R2-b1's wave
+(firings 1-4 [AA,AB,BA,BB]) + R4's wave (9-12) are IDENTICAL;
+the fork is R2-b2's wave ALONE (5-8): engine [AA,BB,BA,AB] vs
+oracle [BB,BA,AB,AA] — same multiset, and the delta reduces to
+ONE element: the [A,A] refire (the A f3-update's child) fires
+FIRST engine-side, LAST oracle-side, AT B2 ONLY (b1 has it
+FIRST on BOTH sides).
+
+Structure decoded: the shared T0xT0 join's sinks = [b1-exists
+(first-built, direct staged = reverse-creation), b2-exists
+(peer = creation), R4-term (peer)]. The T1 batch arrives at the
+exists RIGHTS; the ins-children compose exists-phase (leftUpd
+BEFORE leftIns) x term-LIFO into both waves EXACTLY (b1 ins
+[AB,BA,BB], b2 ins [BB,BA,AB] both sides). The ONLY open bit:
+the [A,A] child is BORN at the exists leftUpd phase (no prior
+child — exists was false at base, so the left-upd creates a
+fresh child) and the CHANNEL it rides differs by sink kind:
+b1 (direct) = the UPD channel (fires before ins, both sides
+agree); b2 (peer) = oracle INS-class-last vs engine UPD-first.
+THE QUESTION: Drools' peer staging of an update for a tuple
+with no prior peer child (updateChildLeftTuple / peer
+same-kind semantics) vs the engine's peer_upd marker路径.
+
+MINIMAL ANCHOR PREDICTION (registered before run) — m1020:
+strip to 2 or-branches + the shared join + base T0(A) +
+epoch [insert B, upd A(dead-field), T1 facts]; drop R4 and
+dead rules. PREDICT the fork survives: engine b2-wave AA-first
+vs oracle b2-wave AA-last; b1-wave identical both sides.
+
+RESULT: MISS — m1020 (2 sinks) PASSES, and its wave orders
+SWAP vs the witness's (b1 [BB,BA,AB,AA], b2 [AA,AB,BA,BB]) —
+the 2-sink orientation composes correctly on both sides. THE
+THIRD SINK IS AN INGREDIENT: m1020b (+ no-loop R4 declared
+after R2 — the witness's third sink) FORKS AT firing[5]
+EXACTLY like the witness (engine [A,A] vs oracle [B,B]),
+oracle 3x stable. THE ANCHOR: probes_pending/oldbank/
+m1020b.json — three rules, ONE base fact.
+
+NEXT SLAB (fresh budget): the exists-node peer-upd channel
+round — Drools source read (PhreakExistsNode.doLeftUpdates
+child-creation staging + peer same-kind semantics /
+updateChildLeftTuple) + a b1-vs-b2 channel probe ladder off
+m1020b, then the port. The open question is crisp: at the
+2-sink form both sides agree; adding the THIRD sink flips the
+oracle's b2 [A,A]-refire to the ins-class-last channel while
+the engine keeps upd-first. fz_141421_123 NOT touched this
+round (deep different-fact fork; own decode).
 (unprobed — BetaNode's delete path also flushes; no witness);
 left-side-modify flush behavior (unconstrained by data);
 RHS-driven re-entrants on multi-sink nodes (late pass retained
