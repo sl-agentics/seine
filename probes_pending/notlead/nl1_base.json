@@ -1,0 +1,14 @@
+{
+ "name": "nl1_base",
+ "types": [
+  {"name": "P", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "B", "fields": [{"name": "g", "type": "bool"}]}
+ ],
+ "facts": [
+  {"type": "P", "fields": {"v": 1}},
+  {"type": "P", "fields": {"v": 2}},
+  {"type": "B", "fields": {"g": false}},
+  {"type": "P", "fields": {"v": 3}}
+ ],
+ "drl": "rule R when not B(g == true) P($v : v) then end\nrule U salience -5 when $b : B(g == false) then modify($b) { setG(true) } end\nrule D salience -10 when $b : B(g == true) then delete($b); end\n"
+}

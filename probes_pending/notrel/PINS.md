@@ -301,3 +301,164 @@ cells + fz_327002_845, 0 moved — surgical. make diff 11/1486/414 (ten
 graduations: pr_nr_fz_7_2364, pr_nr_fz_min_7_2364, pr_nr_fz_7_9360,
 pr_nr_nb3, pr_nr_fz_327002_845 + the r1-r5 lane cells as pr_nr_*),
 drift bank 24 -> 19, lint 2334/0/0, agenda_open x10 identical x3.
+
+## D-334 recon: cf325901x52 rechecked with the D-333 toolkit (the
+## NOT-LEAD shape — lane probes_pending/notlead/)
+
+x52's NW4 is `not DW(v>=1) P()` — the not is pattern 0, so the
+network is InitialFact -> not(DW) -> JOIN(P) -> rtn. The blocked
+list gates ONE tuple (the InitialFact); the P-witness order on a
+release comes from the DOWNSTREAM JOIN's re-propagation, not from
+any blocked-list walk. Source composition: released left ->
+join doLeftInserts walks P's RIGHT MEMORY forward (TupleList:
+tail-append; doUpdatesReorderRightMemory removeAdd = move-to-tail
+on update) -> children prepend-staged -> ONE reversal at the
+terminal -> consumption = REVERSE P-right-memory order.
+
+x52 replay under this law: P-rtm = [P1(2), P0(3)->tail at the
+epoch-2 v-update, P2(2) appended] = [P1,P0,P2]; reversed =
+P2(2), P0(3), P1(2) = the oracle's [2,3,2] EXACTLY. The engine
+emits [2,2,3] (P0 last) — the engine's not-release re-propagation
+does not walk the P memory in the oracle's order.
+
+### Predictions (REGISTERED BEFORE the cells run)
+
+- nl1_base (P1,P2,B(false),P3; R = not B(g==true) P; U modify -5;
+  D delete -10): initial batch = reverse P-memory [3,2,1]; U; D;
+  release re-propagation = reverse P-memory again: R(3) R(2) R(1).
+  Full: R(3) R(2) R(1) U D R(3) R(2) R(1).
+  (initial: the InitialFact left-inserts once; the join walks
+  P-rtm [1,2,3] forward, one staging reversal => 3,2,1.)
+- nl2_update_move (adds M salience -3: modify P(v==1) setT(1)
+  between the R batch and U): M's update moves P1 to the rtm TAIL
+  => rtm [P2,P3,P1]; ALSO the pass->pass P update re-fires R for
+  P1 (terminal update re-add). Full prediction:
+  R(3) R(2) R(1) M R(1) U D R(1) R(3) R(2).
+  (M's re-fire of R(1): the updated child re-queues; release
+  order = reverse [P2,P3,P1] = P1,P3,P2 => R(1) R(3) R(2).)
+
+### nl1/nl2 measurements — BOTH PREDICTIONS MISSED (recorded), and
+### the miss decodes cleanly
+
+nl1 oracle (3x): R(1) R(2) R(3) U D R(1) R(2) R(3) — initial AND
+release both FORWARD; engine IDENTICAL (the clean not-lead shape
+is not divergent at all). nl2: no memory move, no R re-fire.
+The corrected composition (two errors in the registered one):
+1. The join's right memory is built in STAGED-WALK order (the
+   batch processes LIFO, rtm.add appends) => rtm = REVERSED
+   insertion per batch, and the join-walk + one staging reversal
+   flips consumption back to FORWARD-insertion. nl1's [1,2,3]
+   both times ✓.
+2. nl2's setT update was MASKED by property reactivity: R binds
+   only $v, so a t-update never stages at R's join — no
+   removeAdd move, no terminal re-add. (x52's NW4 has a BARE
+   P() = watches everything; its v-update DOES stage.)
+x52 under the corrected law: per-epoch batches give rtm
+[P0],[P0,P1],（v-update moves P0 to tail）[P1,P0],[P1,P0,P2];
+release: join walks FORWARD P1,P0,P2, prepend-stages, terminal
+reverses => consumption P2(2), P0(3), P1(2) = [2,3,2] = THE
+ORACLE, EXACTLY.
+
+### nl3 prediction (REGISTERED BEFORE the cell runs)
+
+nl3_watched_move (P1(1),P2(2),B(false),P3(3); M salience -3
+modifies P(v==2) to v=5 — WATCHED field, self-disabling):
+- initial: batch-LIFO rtm [P3,P2,P1], walk+flip => R(1) R(2) R(3).
+- M(2) fires; the v-update stages at R's join: removeAdd moves P2
+  to the rtm tail => [P3,P1,P2]; the child update re-adds the
+  fired match at the terminal => R re-fires the updated P: R(5)
+  (salience 0 preempts M's -5 continuation... M at -3, R at 0 =>
+  R(5) lands immediately after M(2)).
+- U, D, release: walk [P3,P1,P2] forward, prepend, terminal flip
+  => consumption P2,P1,P3 = R(5) R(1) R(3).
+FULL: R(1) R(2) R(3) M(2) R(5) U D R(5) R(1) R(3).
+
+### nl4 prediction (REGISTERED BEFORE the cell runs)
+
+nl4_external_move: B(g=true) from the start (the IF-left blocks
+walk-in; NO initial R batch; the P-join's rtm builds [P3,P2,P1]
+with no children); epoch 1 = EXTERNAL update P2 v->5 (watched)
+=> removeAdd moves P2 to the tail: [P3,P1,P2]; epoch 2 inserts K
+=> D deletes B => release => join walks [P3,P1,P2] forward, one
+flip => R(5) R(1) R(3).
+- ORACLE PREDICT: D then R(5) R(1) R(3).
+- ENGINE PREDICT (if x52's residual is the external-update move
+  missing at the not-lead join): no move => rtm [P3,P2,P1] =>
+  R(1) R(5) R(3) — the fork reproduces WITHOUT events or TMS.
+
+### nl4 measured / nl5 prediction (registered before nl5 runs)
+
+nl4: oracle prediction HIT EXACTLY (D, R(5) R(1) R(3), 3x) — but
+the ENGINE prediction MISSED: the engine matches the oracle. The
+plain-cloud external-update move is already correct. x52's
+residual must ride the EVENT-SESSION flavor: stream mode flushes
+per insert (D-102) => the join rtm builds in INSERTION order
+(singleton batches), and external updates take the stream-mode
+path.
+
+nl5_stream_move = nl4 + one inert event type (session flips to
+stream). Composition: rtm [P1,P2,P3] (per-insert flush); update
+P2 (watched) => removeAdd => [P1,P3,P2]; release => forward walk
++ one flip => consumption P2,P3,P1.
+- ORACLE PREDICT: D then R(5) R(3) R(1).
+- ENGINE PREDICT (if the residual = external-update move missing
+  on the STREAM path): no move => rtm [P1,P2,P3] => flip =>
+  R(3) R(5) R(1).
+
+### nl5 measured / nl6 prediction (registered before nl6 runs)
+
+nl5: oracle D R(5) R(1) R(3) = SAME as nl4 (the per-insert-flush
+rtm sub-prediction was wrong — the initial batch composes as ONE
+window in stream mode too, D-102); engine matches. Still no
+repro. The remaining x52 delta: MULTI-EPOCH P arrivals with the
+watched update in its own epoch (x52: Pa epoch 0, Pb epoch 1,
+update-Pa epoch 2, Pc + release epoch 3).
+
+nl6_multiepoch_move mirrors that timeline (cloud, plain blocker):
+Pa(1) epoch 0 (B(true) blocks walk-in), Pb(2) epoch 1, external
+update Pa v->3 epoch 2, Pc(4) + K (delete B, release) epoch 3.
+rtm: [Pa] / [Pa,Pb] / move Pa -> [Pb,Pa] / [Pb,Pa,Pc]; release
+forward walk + one flip => Pc, Pa, Pb.
+- ORACLE PREDICT: D then R(4) R(3) R(2)  (= x52's [2,3,2] shape).
+- ENGINE PREDICT (if x52's residual reproduces): no external
+  move on the epoch-accumulated rtm => [Pa,Pb,Pc] => flip =>
+  R(4) R(2) R(3)  (= x52's [2,2,3] shape).
+
+### nl6 measured — BOTH predictions missed; ENGINE MATCHES ORACLE
+### on ALL FIVE nl cells. Round verdict.
+
+nl6 oracle (3x) AND engine: D R(2) R(4) R(3) — consumption
+[Pb, Pc, Pa]. No single-flip composition over any defensible rtm
+order produces this ([Pb,Pa,Pc]-walk-reversed = [4,3,2] was the
+registered prediction). The hand-composition of the not-lead
+join's release re-propagation is WRONG in a way the nl cells
+cannot yet discriminate — a D-083 stop-and-model signal for THIS
+shape. Crucially: the engine agrees with the oracle on every nl
+cell (nl1-nl6) — the clean not-lead release surface is HEALTHY.
+
+### D-334 RECON VERDICT (the x52 recheck)
+
+1. x52 is NOT a notrel-family member and the D-333 laziness law
+   does NOT explain it: its not gates the InitialFact tuple; the
+   P-witness order rides the DOWNSTREAM join re-propagation.
+2. The clean not-lead surface (5 cells: base, masked update,
+   watched RHS-move, external-epoch move, stream-mode move,
+   multi-epoch move) is engine==oracle THROUGHOUT — no clean-
+   shape witness exists.
+3. The registered walk-order composition is falsified by nl6
+   (both engines agree on an order it cannot produce) — the
+   not-lead join memory/emission law is OPEN; pinning it needs a
+   model round (memory build x reorder timing x emission dir)
+   BEFORE x52's fork can be decoded.
+4. x52's fork therefore lives in the UNREPRODUCED residual: the
+   event-session x windowed-acc x TMS-supersede composition (DW
+   del+ins churn per epoch at the not right, expirations, the
+   value-preserving E0 update). It keeps its xfail seat; the
+   next attack is the notlead model round + a TMS-flavored nl7.
+
+Prediction scorecard this recon: nl1/nl2 registered predictions
+MISSED (recorded; decodes = batch-LIFO memory build + property-
+reactivity masking), nl3/nl4 oracle predictions HIT exactly,
+nl5/nl6 partially/fully MISSED. The misses are the finding: the
+clean surface is healthy and the composition is subtler than the
+D-333 toolkit's straight-line application.

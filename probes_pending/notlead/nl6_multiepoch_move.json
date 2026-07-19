@@ -1,0 +1,18 @@
+{
+ "name": "nl6_multiepoch_move",
+ "types": [
+  {"name": "P", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "B", "fields": [{"name": "g", "type": "bool"}]},
+  {"name": "K", "fields": [{"name": "v", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "P", "fields": {"v": 1}},
+  {"type": "B", "fields": {"g": true}}
+ ],
+ "epochs": [
+  {"actions": [], "facts": [{"type": "P", "fields": {"v": 2}}]},
+  {"actions": [{"op": "update", "target": 0, "fields": {"v": 3}}], "facts": []},
+  {"actions": [], "facts": [{"type": "P", "fields": {"v": 4}}, {"type": "K", "fields": {"v": 0}}]}
+ ],
+ "drl": "rule R when not B(g == true) P($v : v) then end\nrule D when K() $b : B(g == true) then delete($b); end\n"
+}
