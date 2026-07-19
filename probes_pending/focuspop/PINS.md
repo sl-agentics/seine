@@ -82,3 +82,98 @@ the D-333 model_check pattern): enumerate candidate halt laws
 against the FULL halt-matrix population (the 88 witnesses + the
 12 movers + mz1-3 + the fz_342002_1206 witness) before any
 engine edit. fz_342002_1206 KEEPS ITS XFAIL SEAT.
+
+# D-346: the halt-law MODEL round (Bryan: "do the focus-pop
+# halt-law model round") — the law is FINER than every candidate;
+# ENGINE UNTOUCHED (two exploratory edits made and REVERTED —
+# recorded below for honesty; the round should have led with the
+# model, and did after Bryan's course-correction).
+
+## Source reading (drools-core/kiesession 9.44.0.Final, verbatim)
+
+- setFocus from a RHS is DEFERRED (AgendaGroupQueueImpl.setFocus →
+  addPropagation(SetFocusAction)); at the post-firing flush,
+  internalExecute pushes and — ONLY if the push really changed the
+  top (the focusStack.getLast() != group guard; already-top
+  setFocus is a no-op) — calls haltGroupEvaluation(), a flag on
+  the GROUP EVALUATOR (exits its per-group item loop; checked
+  BETWEEN executors, not inside one).
+- RuleExecutor.haltRuleFiring (between one rule's firings):
+  evaluateEagerList → peekNextRule = focusStack.peekLast().peek()
+  — THE TOP GROUP ONLY, empty top peeks null → keep control; halt
+  on a foreign-group top item (any salience) or an own-group item
+  strictly preceding per RuleAgendaConflictResolver.
+- getNextFocus pops empty auto-deactivate tops (plain
+  agenda-groups pop when empty — probe-confirmed POP events);
+  MAIN never pops. AgendaGroupsManager keeps DUPLICATE stack
+  entries (no relocate — the engine's relocate-or-push is an
+  approximation).
+
+## The two probe streams (MzProbe / Mz2Probe — the central
+## unresolved contradiction)
+
+mz3 shape: FIRE B(zz) → PUSH g → MATCH+ A → POP g → FIRE A —
+the executor YIELDED after ONE firing past an EMPTY pushed top.
+x35 shape: FIRE R2('') → PUSH g → FIRE R2(x) → FIRE R2('') →
+POP g — the executor CONTINUED through its whole list past an
+EMPTY pushed top, under the SAME visible configuration (real
+push, empty g, equal-salience decl-preceding member re-birthed
+by the firing's own modify). Neither the source's flag plumbing
+nor any black-box feature tested below explains both.
+
+## The model (tools/model_check_focuspop.py, the D-333 pattern)
+
+Alpha-only agenda scenarios (single-pattern rules, exact match
+computation), oracle-diffed; laws: keep (the engine's D-106
+peek), yield (real-push yields; no-op never), yieldall, naive
+(the reverted D-345 tie gate). 900 cases / 3 seeds
+(346001/2/3), population at $CLAUDE_JOB_DIR/tmp/focuspop_pop:
+  keep 10+0+1 = 11 div;  yield 8+2+1 = 11;  yieldall same as
+  yield; naive = keep. Model bug found+fixed en route (recorded):
+  Drools' modify propagates on the SETTER MASK with NO value
+  diff — setF2(true) on an already-true field still re-fires
+  listeners (x49/x162 composed exactly).
+NO candidate fits: the oracle itself forks on near-identical
+shapes — x31/x159/x267/x282 (+ mz3, the witness) behave
+YIELD-style; x71/x134/x35 (+ the 879 family) KEEP-style.
+
+## Killed discriminator hypotheses (each with its counterexample)
+
+- fresh-INSERT-birth vs UPDATE-refire of the preemptor: x282
+  (update-refire, yields) vs x134 (update-refire, keeps).
+- the firer's own listen-mask hit: x282 (firer listens f0 only,
+  yields) vs x35 (same, keeps); mz3 (listens f2, yields) vs
+  x31's R3 f2f (yields) — no split.
+- the pushed group's history (never-lived vs fired-and-emptied):
+  mz3/x282 never-lived+yield BUT x31 fired-and-emptied+yield.
+- salience level, adjacency of decl positions: equal-sal pairs
+  on both sides of the fork.
+
+## The engine vs this population
+
+The CURRENT engine (all its af_live/af_linger/tie_preempt fine
+structure) FAILS 6 of the 7 discriminators (x31, x159, x267,
+x282, x71, x35; passes x134) — WORSE than the plain-keep
+abstraction on this space. The alpha-only setFocus×modify
+population is an under-covered divergence CLASS, not one
+witness; the 7 cells are copied into this lane as data.
+
+## Exploratory engine edits (both REVERTED, byte-verified)
+
+(1) blanket yield-on-real-push: 67 corpus movers (the pick
+path's eval windows differ from the calibrated keep-control
+machinery even when the re-pick chooses l). (2) narrowed
+materialized-tie yield: reverted un-measured when the model
+round superseded it. Engine byte-identical to a9c11ee-era
+bytes; the reverts are exact.
+
+## NEXT (its own session)
+
+The model needs the state my abstraction lacks: RuleAgendaItem
+lifecycle (dequeue/requeue on update-refire, heap positions),
+group active flags, and the propagation-flush batching order —
+OR a mechanism-level trace (instrumented Drools build / JDI) on
+the mz3-vs-x35 pair to SEE what exits B's executor. Only after
+the unique survivor: ONE engine port, narrowest-gate
+implementation, full battery. fz_342002_1206 KEEPS ITS SEAT;
+the 7 population cells are the acceptance grid.
