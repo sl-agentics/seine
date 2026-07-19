@@ -365,3 +365,108 @@ post-port predictions hit incl. the witness 5==5.
 THE COUNT FAMILY IS CLOSED (fz_777_1278 D-350 +
 fz_296002_626 D-351). Remaining: ORDER trio, QUERY pair,
 fz_123_6887 flapper census.
+
+## Family 4 — the ORDER trio (D-352 round, opened 2026-07-19)
+
+ONE family: identical or-branches sharing >= 2-pattern prefixes
+with plain rules (the or-branch expansion leaked through the
+D-262-era generator's shared-prefix wall): fz_7331_973 (R2 b1==
+b3 == R0's LHS), fz_8087_1020 (R2 branches + no-loop R4 share
+T0(f3,f3) x T0(f2) self-join), fz_141421_123 (R0/R3b1/R3b3/R4
+share T1 x T1). All three oracle-10x-stable (fz_8087_1020
+checked — NOT the fz_42_84 identity-hash nondeterminism class).
+
+### fz_7331_973 — HAND-DECODE COMPLETE (handle-tagged logs both
+### sides, jobs tmp e973h/o973h)
+
+BASE batch: IDENTICAL both sides, all four sinks (b1, b2-node,
+b3, R0-salience-last). The base pins sink orientation: b1/b3 =
+CREATION order, R0 = reversed — one batch, so whole-vs-per-batch
+flip is indistinguishable there.
+
+EPOCH batch (T0#1 "beta"->""->"b" double-update re-entry + two
+T1 left inserts): forks on every sink, one root composition:
+
+ORACLE (all six lists fit ONE machine, uniquely):
+- creation = PLAIN slots: rightIns(re-entrant, memory-appended
+  at tail) walks lefts memory-forward [L1,L3] FIRST, then
+  leftIns staged-head-first [L8,L7] x rights [R4, R2-at-tail].
+- sink distribution PER PHASE-BATCH: first-BUILT sink (R0,
+  decl-first) gets each phase batch PREPEND-within, batches
+  appended FIFO -> [(L1,R2),(L3,R2)] ++ [(L7,R2),(L7,R4),
+  (L8,R2),(L8,R4)]; later sinks (b1/b3) get each batch in
+  CREATION order, same batch order -> [(L3,R2),(L1,R2)] ++
+  [(L8,R4),(L8,R2),(L7,R4),(L7,R2)]. Observed EXACTLY.
+ENGINE: D-083 late pass (leftIns x pre-batch memory first, then
+re-entrant x lseq-desc) + WHOLE-trg flip for later sinks —
+self-consistent, wrong on both counts for this shape.
+
+THE LAW (candidate, pre-registered): (1) multi-sink propagation
+is per-phase-batch granular (first-built prepend-within/append-
+across; later sinks creation-order-within/append-across); (2)
+the D-083 re-entrant late pass is SINGLE-SINK-scoped — on shared
+nodes re-entrant rights take the plain slot. All 22
+model_check_join2 timelines are single-sink probes -> untouched
+by construction; jr3/jr17's late orders stay (single-rule).
+
+RECONCILIATION NOTE: D-083's gate=reentry survivor was fitted
+entirely on single-sink data; 973 is the first shared-node
+re-entry observation. The scope refinement does not overturn
+the single-sink law.
+
+### PREDICTIONS (registered BEFORE the port/model run)
+
+P1. A verification model (tools/model_check_join3.py) encoding
+    {candidate, engine-current} over 973's six lists: candidate
+    fits 6/6, engine-current fits its own engine logs 6/6 and
+    the oracle 2/6 (base only).
+P2. Post-port fz_7331_973 flips PASS entirely (all 38 firings).
+P3. fz_8087_1020 and fz_141421_123 MOVE TOWARD the oracle;
+    full PASS = the family is one law (strong form); partial =
+    additional laws recorded (weak form, still progress).
+P4. Byte gate: movers confined to shared-prefix cells with
+    multi-phase mutation batches; ne_s1..s11 (insert-only,
+    single-batch) byte-identical; all single-sink cells
+    byte-identical by construction.
+
+### D-352 ROUND RESULTS — LAW VERIFIED, PORT REVERTED (protocol)
+
+P1 HIT: model_check_join3.py — candidate fits oracle 6/6,
+engine-model fits engine logs 6/6, cross-fit correctly fails.
+
+P2 HIT (after one wiring fix): with the port landed (plain slot
+on multi-sink joins + first-sink phase-block swap; multi_sink
+stamped at the lists_built site — the first attempt's sweep sat
+in stream_flush_ex, event-sessions only, and the half-engaged
+port was caught by the witness), fz_7331_973 PASSED entirely.
+The law IS the complete account of that witness.
+
+P3 PARTIAL (the weak form, as pre-registered): fz_8087_1020
+moved (5->1) not fixed — its [A,A] refire rides the oracle's
+UPD channel at wave head; the engine's composition differs
+(self-join both-sides staging + in-batch left-upd + downstream
+exists; own decode needed). fz_141421_123: a DIFFERENT-FACT
+fork (which R1-born T1 lands in the tuple) — a different law.
+
+P4 MISS — THE ROUND'S BIG FINDING: 14 CERTIFIED shared-prefix
+cells hold the OPPOSITE order and FAILED the oracle under the
+port: pr_or_a28, pr_or_a29, pr_ib15, pr_ib15b, pr_ib28,
+fz_123_3482, fz_123_8822, fz_42_4816, fz_42_580, fz_42_952,
+fz_999_6009, fz_min_580, fz_min_8822 (+ fz_9005_450 in
+failures/). BOTH behaviors are oracle-certified in different
+shared shapes — the D-082->D-083 pattern repeating at the
+SHARING level. PORT REVERTED (D-331/D-345 protocol): engine
+byte-identical to 168a467, movers re-verified PASS, witness
+re-banked, make diff 11/1573/414 + drift 14 identical.
+
+THE NEXT ROUND (model-first, its own slab): extend
+model_check_join3.py into a full eliminator — timelines =
+973's six lists + jr17 + hand-extracted oracle logs from the
+14 counterexamples; discriminator dimensions to enumerate:
+eager (no-loop) sharer present, Term-vs-Node sink kinds,
+first-built vs first-evaluated direct-sink assignment,
+salience split among sharers, or-sibling vs cross-rule
+sharing, linked history, batch composition (upd-in-batch vs
+ins-only). The engine's D-083-late + whole-flip is provably
+right on the 14 and provably wrong on 973 — the discriminator
+is IN that delta.
