@@ -1,0 +1,72 @@
+{
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0(f2 == true)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nwhen\n    $p1_0 : T0()\n    T1()\n    not T0(f2 == true)\nthen\n    modify($p1_0) { setF2(true) }\nend\n",
+ "name": "r2_initial_block",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 4,
+    "f1": 3,
+    "f2": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": -5,
+    "f1": 3,
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 4
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 7,
+    "f1": 3,
+    "f2": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": -1000000007,
+    "f1": 5,
+    "f2": false
+   }
+  }
+ ]
+}

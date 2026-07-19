@@ -1,0 +1,50 @@
+{
+ "name": "r3_fresh_release",
+ "types": [
+  {
+   "name": "L",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when L($i : id) not B(g == true) then end\nrule D salience -10 when $b : B(g == true) then delete($b); end\n",
+ "facts": [
+  {
+   "type": "L",
+   "fields": {
+    "id": 1
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 2
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 3
+   }
+  },
+  {
+   "type": "B",
+   "fields": {
+    "g": true
+   }
+  }
+ ]
+}

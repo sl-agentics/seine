@@ -1,0 +1,57 @@
+{
+ "name": "r4_sametype_release",
+ "types": [
+  {
+   "name": "L",
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "M",
+   "fields": [
+    {
+     "name": "m",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule R when $p : L() M() not L(g == true) then end\nrule D salience 5 when $b : L(g == true) then delete($b); end\n",
+ "facts": [
+  {
+   "type": "L",
+   "fields": {
+    "id": 1,
+    "g": false
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 2,
+    "g": false
+   }
+  },
+  {
+   "type": "M",
+   "fields": {
+    "m": 7
+   }
+  },
+  {
+   "type": "L",
+   "fields": {
+    "id": 3,
+    "g": true
+   }
+  }
+ ]
+}
