@@ -682,3 +682,79 @@ latents byte-identical ×3 (debug/release/pre-edit worktree);
 fz_9104_1328's brief flip resolved back to its EXACT pre-port
 open state (its earlier "resolution" was the same over-breadth
 that broke 879).
+
+# ═══════════════════════════════════════════════════════════════
+# THE g25 CORNER ROUND (D-325; Bryan: "g25 no-loop-acc corner")
+# Predictions registered 2026-07-18 BEFORE any cell ran.
+# ═══════════════════════════════════════════════════════════════
+
+THE LINGER HYPOTHESIS (from the D-322 source reading):
+evaluateEagerList → evaluateNetwork does NOT call
+removeRuleAgendaItemWhenEmpty — removal happens only at fire().
+So g25's GD (no-loop + acc ⇒ InitialFact lia ⇒ initially linked
+via the not-pulse ⇒ queued ⇒ eager-listed) is evaluated at the
+initial eager pass and left LINGERING clean-empty in the
+INACTIVE group's queue (the group is never focused, so no pop
+ever removes it). The first push's peekNextRule finds the item
+(non-null, different group) → HALT → the pop consumes it (fire()
+with empty tuples → removeWhenEmpty) → H preempts ONCE; later
+pushes peek an empty group → continue. The engine's eager pass
+unqueues emptied items immediately (the fz_42_8775 pin) — so its
+peek never sees anything. Predictions:
+
+- **p1_g25_rerun**: xf_af_g25_accnot + the blob re-diff (control:
+  still DIVERGE pre-port).
+- **p2_unblocked_init**: the g25 shape with `not S(k == 99)` (no
+  such S → GD MATCHES at init on count=0) → GD FIRES at init →
+  its item is consumed by fire()'s removeWhenEmpty on BOTH sides
+  → no linger → pushes continue. PREDICT MATCH (med-high):
+  GD-at-init then L,L,L,H,H,H both sides.
+- **p3_prepush**: the g25 shape + starter P sal 100 whose RHS
+  only pushes "g" BEFORE any L fires. The oracle's linger item is
+  consumed by THAT push's pop cascade → L's own pushes find an
+  empty group → NO flush → all-L-then-H. PREDICT DIVERGE→MATCH
+  INVERSION vs g2_prepush (med): the plain-not g2 KEPT the flush
+  (its queue event was the fresh X1 link, not a linger); the
+  acc-linger variant LOSES it. A g25-like flush surviving the
+  pre-push REFUTES the linger hypothesis.
+- **p4_two_lingers**: TWO no-loop-acc-not rules in "g". PREDICT
+  (med): still ONE visible flush at push 1 (both linger items
+  consumed in the same pop cascade).
+- **p5_dynsal**: the g25 shape with `salience ($c * 0)` (dynamic
+  ⇒ eager) instead of no-loop. PREDICT (med): same linger → same
+  once-ever flush → currently DIVERGES like g25.
+
+PORT SKETCH (if the round lands): af_linger — a one-shot flag set
+when the eager pass unqueues an emptied item whose agenda group
+is INACTIVE (≠ MAIN, ≠ focus top); the halt-peek treats a
+lingering member as the oracle's queued item (yield + consume the
+flag); a pop of the group also consumes it. No queue-state
+surgery — the fz_42_8775 window-claiming pin and the fz_9005_450
+or-queue construction timing are untouched (the eager EVALUATION
+and the unqueue both stay).
+
+## D-325 MEASUREMENTS + THE PORT (2026-07-18)
+
+ALL FOUR PREDICTIONS HIT — p3's INVERSION is the clincher: the
+acc-linger variant LOSES the flush under a pre-push
+(P,L,L,L,H,H,H) where g2's plain-not variant KEPT it — exactly
+the "item consumed by the earlier push's pop" signature. p2
+(unblocked-at-init → fires per push, group-hit lane, MATCH);
+p4 (two lingers, ONE flush); p5 (dyn-salience lingers like
+no-loop).
+
+THE PORT — af_linger, a one-shot flag: set when the eager pass
+unqueues an emptied item whose group is INACTIVE (Drools'
+evaluateEagerList leaves the item queued; only fire() removes);
+consumed by the halt-peek (one yield) or by the group popping
+off the focus stack; superseded by any fresh queue event. The
+fz_42_8775 window-claiming unqueue and the fz_9005_450 or-queue
+construction timing are UNTOUCHED (evaluation and unqueue both
+stay; only the flag is new).
+
+Post-port: p2-p5 all MATCH; xf_af_g25_accnot +
+xf_af_fz_315901_311 flip PASS and graduate; fz_9005_450 holds;
+the full pr_af lane + agenda_open ×10 clean. Byte gate vs
+e5fba33: 2400 same / 2 moved / 0 diff — the two graduated
+witnesses are the only movement in the corpus universe. The
+agenda_focus ledger is EMPTY.

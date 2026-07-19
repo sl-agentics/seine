@@ -1,0 +1,171 @@
+{
+ "name": "cf325902x88",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "DW",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 salience 11 when $a : E0() from entry-point \"S2\" $b : E0(this before[0ms,100ms] $a) from entry-point \"S2\" then end\nrule W1 when accumulate( E1($t : tag) from entry-point \"S1\"; $c : collectList($t) ) then  end\nrule J2 when $e : E1($t : tag) from entry-point \"S1\" then insertLogical(new D($t)); end\nrule RD3 salience 6 when D() then end\nrule ND4 salience 8 when not D() P() then end\nrule G5 salience 13 when P(v == 2) then insert(new P3(3)); end\nrule C6 salience 3 when P3() then end\nrule NE7 when not E1() from entry-point \"S1\" P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 21,
+    "tag": "z",
+    "dur": 0
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 30,
+    "tag": "y"
+   },
+   "entry_point": "S2"
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 15,
+    "tag": "x",
+    "dur": 10
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 6,
+    "tag": "y",
+    "dur": 0
+   },
+   "entry_point": "S1"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 99
+    },
+    {
+     "op": "update",
+     "target": 3,
+     "fields": {
+      "tag": "y",
+      "ts": 99
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 115,
+      "tag": "z",
+      "dur": 80
+     },
+     "entry_point": "S1"
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 125,
+      "tag": "y",
+      "dur": 30
+     },
+     "entry_point": "S1"
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 150
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

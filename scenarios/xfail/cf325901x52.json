@@ -1,0 +1,208 @@
+{
+ "name": "cf325901x52",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 50,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "DW",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 salience -1 when $a : E0() $b : E1(this before[0ms,100ms] $a) then end\nrule TJ1 when $a : E2() $b : E1(this meets[0ms] $a) then end\nrule W2 when accumulate( E2($t : ts) over window:time(100ms); $c : sum($t) ) then insertLogical(new DW($c)); end\nrule RW3 salience -1 when DW() then end\nrule NW4 salience 0 when not DW(v >= 1) P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 12,
+    "tag": "z",
+    "dur": 50
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 9,
+    "tag": "x",
+    "dur": 20
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 11,
+    "tag": "x",
+    "dur": 30
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    },
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "tag": "x"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 61,
+      "tag": "z",
+      "dur": 50
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 100
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 3
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 260,
+      "tag": "z",
+      "dur": 30
+     }
+    },
+    {
+     "type": "P",
+     "fields": {
+      "v": 2
+     }
+    }
+   ]
+  }
+ ]
+}

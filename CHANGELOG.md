@@ -6,6 +6,13 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Eager rules in unfocused agenda groups preempt correctly** —
+  a `no-loop` (or dynamic-salience) rule in a not-yet-focused
+  agenda group leaves a pending agenda entry after its eager
+  evaluation, exactly as Drools does; the group's first focus now
+  yields to fresh higher-priority activations once before
+  continuing. Closes the last quarantined witnesses of the
+  focus-preemption family.
 - **`collectList` removal order matches Drools exactly** — when a
   collected fact retracts (or its accumulated value changes), the
   list now loses its **first value-equal** element, exactly as

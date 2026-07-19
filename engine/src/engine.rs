@@ -2605,6 +2605,18 @@ struct RuleNet {
     /// rule (Drools consumes-and-removes there; the engine's unlinked
     /// staging is undrainable so queued+dirty persists as a zombie).
     af_live: bool,
+    /// D-325 (the g25 corner): Drools' evaluateEagerList never calls
+    /// removeRuleAgendaItemWhenEmpty, so an eager rule's emptied item
+    /// LINGERS clean in its INACTIVE group's queue until the group's
+    /// next focus pops it — buying exactly ONE halt/preemption at the
+    /// first push (xf_af_g25_accnot; consumed by any earlier push,
+    /// p3_prepush). The engine unqueues eager-emptied items at once
+    /// (the fz_42_8775 window-claiming pin, untouched) and models the
+    /// oracle's lingering item with this one-shot flag: set at the
+    /// inactive-group eager unqueue, consumed by the halt-peek (yield)
+    /// or by the group popping off the focus stack, superseded by any
+    /// fresh queue event.
+    af_linger: bool,
     /// D-106: stage_seq at the most recent dirty-marking — the
     /// executor's halt-peek ignores dirt born of the CURRENT firing.
     dirty_stamp: u64,
@@ -3626,6 +3638,7 @@ impl Engine {
                 dirty: false,
                 dirty_stamp: 0,
                 af_live: false,
+                af_linger: false,
                 bf,
                 ex,
                 pn,
@@ -8230,6 +8243,16 @@ impl Engine {
                     && !self.nets[ri].dirty
                 {
                     self.nets[ri].queued = false;
+                    // D-325: Drools' eager eval leaves the item queued;
+                    // for an INACTIVE group that lingering item halts
+                    // the group's next focus once (see RuleNet.af_linger).
+                    let grp =
+                        self.rules[ri].def.agenda_group.as_deref().unwrap_or("MAIN");
+                    let top: &str =
+                        self.focus_stack.last().map(|s| s.as_str()).unwrap_or("MAIN");
+                    if grp != "MAIN" && grp != top {
+                        self.nets[ri].af_linger = true;
+                    }
                 }
             }
         }
@@ -8487,6 +8510,13 @@ impl Engine {
                     // no condition beyond "the peek evaluated" exists.
                     let mut af_flush = false;
                     for &rj in &members {
+                        // D-325: the oracle's lingering eager-emptied item
+                        // is still in this group's queue — one halt, then
+                        // consumed.
+                        if self.nets[rj].af_linger {
+                            af_flush = true;
+                            self.nets[rj].af_linger = false;
+                        }
                         if self.nets[rj].queued && !self.nets[rj].queue.is_empty() {
                             top_nonempty = true;
                             break;
@@ -8634,7 +8664,14 @@ impl Engine {
                 // D-106: an emptied focused group pops; the scan
                 // resumes with the next group down (ag2/ag5/ag7)
                 if !self.focus_stack.is_empty() {
-                    self.focus_stack.pop();
+                    // D-325: the pop consumes the oracle's lingering
+                    // eager-emptied items of this group (p3_prepush).
+                    let popped = self.focus_stack.pop().unwrap();
+                    for rj in 0..self.rules.len() {
+                        if self.rules[rj].def.agenda_group.as_deref() == Some(popped.as_str()) {
+                            self.nets[rj].af_linger = false;
+                        }
+                    }
                     continue;
                 }
                 // D-134 (§3B): release temporal-not firing deferrals whose
@@ -9332,6 +9369,7 @@ impl Engine {
                 self.nets[ri].dirty = true;
                 self.nets[ri].dirty_stamp = self.stage_seq;
                 self.nets[ri].af_live = false; // D-320: unlink-born = dead to the flush peek
+                self.nets[ri].af_linger = false; // D-325: superseded by the real item
             }
             if !was[ri] && now && self.in_expiration_drain {
                 // D-102 (model-check survivor, ldrain_plain=nonflush):
@@ -9432,6 +9470,7 @@ impl Engine {
             self.nets[ri].dirty = true;
             self.nets[ri].dirty_stamp = self.stage_seq;
             self.nets[ri].af_live = true; // D-320: linked-born = live to the flush peek
+            self.nets[ri].af_linger = false; // D-325: a real queue event supersedes
             if !self.nets[ri].queued {
                 self.nets[ri].queued = true;
             }

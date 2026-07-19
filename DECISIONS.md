@@ -17658,3 +17658,46 @@ df_win_expire_reins green; still deferred to the model_check_stream
 open-banked. Probes + generator only; engine untouched. Receipts:
 make diff 1840 PASS (11/1415/414) + drift 48 identical; lint
 2244/0/0; 6 pr_co_w* graduate.
+
+## D-325 — THE g25 CORNER (Bryan: "g25 no-loop-acc corner") — THE LINGERING EAGER ITEM; THE af LEDGER EMPTIES (2026-07-18)
+
+The D-320-era read (eager evaluation "consumes the not-pulse the
+push flush needs") gives way to source truth noticed during
+D-322: **evaluateEagerList → evaluateNetwork never calls
+removeRuleAgendaItemWhenEmpty — only fire() removes.** So the
+oracle's initially-eager-evaluated item (g25's no-loop acc rule:
+InitialFact lia ⇒ initially linked ⇒ queued ⇒ eager-listed)
+LINGERS clean-empty in the INACTIVE group's queue, and the first
+push's peekNextRule finds it: non-null + different group → HALT;
+the pop consumes it (empty fire → removeWhenEmpty) → exactly one
+preemption. Predictions-first (4 cells): p2 unblocked-at-init
+fires instead (no linger, MATCH); **p3 pre-push INVERSION — the
+acc-linger flush DIES under a pre-push where g2's plain-not
+flush SURVIVED** (the consumed-by-earlier-pop signature, the
+strongest possible behavioral confirmation); p4 two lingers =
+one flush; p5 dyn-salience lingers identically. ALL HIT.
+
+THE PORT: af_linger — a one-shot flag set at the eager pass's
+inactive-group unqueue, consumed by the halt-peek (one yield) or
+the group's stack-pop, superseded by fresh queue events. The
+fz_42_8775 window-claiming unqueue and fz_9005_450's or-queue
+timing stay untouched. Both witnesses flip PASS and graduate
+(pr_af_g25_accnot + pr_af_fz_315901_311) with the 4 p-cells;
+bank 48→46; corpus 11/1421/414. **The agenda_focus ledger is
+EMPTY — every D-318-family member and corner is now certified.**
+
+RECEIPTS: byte gate 2400 same / 2 moved / 0 diff vs e5fba33 (the
+two witnesses are the only movement); make diff 1846 PASS
+(11/1421/414) + drift 46 identical; lint 2250/0/0; cargo 73;
+maturin rebuild + pytest 257; demo True; model_ird 31/31; IRD
+0-div ×5; agenda_open ×10 identical ×3; **SD census 72 EXACT ×12
+(6,10,3,5,6,5,5,6,8,7,4,7 cell-for-cell)**; fresh fuzz 2×2000
+seeds 325001/325002 CLEAN; fuzz_cep 3×300 seeds 325901-903: 3
+finds, ALL worktree-bisected PRE-EXISTING and banked (bank 49) —
+cf325902x221 + cf325902x88 are the collect arrival/update-order
+sub-family re-reporting through the D-324 axis (the sub-family
+is now FIVE members: 1364, 662607, x55, x221, x88 — past the
+D-318 fourth-member threshold, its own hunt is DUE), and
+cf325901x52 is an unclassified not-DW P-witness order fork.
+Open: the 5-member arrival/update-order sub-family hunt (DUE),
+cf325901x52 classification, ?query justifiers, crates.io TP.

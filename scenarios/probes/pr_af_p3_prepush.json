@@ -1,5 +1,5 @@
 {
- "drl": "rule L salience -5 when $s : S($k : k) then drools.setFocus(\"g\"); insert(new X($k)); end\nrule H salience 5 when X($v : v) then end\nrule GD agenda-group \"g\" no-loop when accumulate( X($v : v); $c : count($v) ) not S(k == 1) then end\n",
+ "drl": "rule P salience 100 when S(k == 1) then drools.setFocus(\"g\"); end\nrule L salience -5 when $s : S($k : k) then drools.setFocus(\"g\"); insert(new X($k)); end\nrule H salience 5 when X($v : v) then end\nrule GD agenda-group \"g\" no-loop when accumulate( X($v : v); $c : count($v) ) not S(k == 1) then end\n",
  "types": [
   {
    "name": "S",
@@ -41,5 +41,5 @@
   }
  ],
  "epochs": [],
- "name": "xf_af_g25_accnot"
+ "name": "pr_af_p3_prepush"
 }
