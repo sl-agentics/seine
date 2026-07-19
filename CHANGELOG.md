@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.43
 
 - **Firing order under `not` release now matches Drools in
   preempted-rule shapes.** When a rule's activation queue survives a
