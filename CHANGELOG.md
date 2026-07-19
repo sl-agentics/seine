@@ -6,6 +6,13 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **`collectList` removal order matches Drools exactly** — when a
+  collected fact retracts (or its accumulated value changes), the
+  list now loses its **first value-equal** element, exactly as
+  Drools' `java.util.List.remove(Object)` reverse does — not the
+  retracted fact's own entry. With duplicate values the two differ:
+  five previously quarantined order-divergence witnesses now match
+  the oracle byte-for-byte. Distinct-valued lists are unaffected.
 - **Expired-event `not` releases no longer fire deleted facts** —
   when an event blocking a `not` expires (or is deleted) and the
   rule unblocks, activations now cover only facts that are still

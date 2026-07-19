@@ -1,0 +1,43 @@
+{
+ "drl": "rule C when accumulate( T($v : v); $l : collectList($v) ) then end\nrule D2 salience 5 when $t : T(k == 2) then delete($t); end\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "v": 7,
+    "k": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 8,
+    "k": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 9,
+    "k": 3
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "pr_co_c4_del_distinct"
+}

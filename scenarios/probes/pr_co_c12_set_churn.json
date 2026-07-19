@@ -1,0 +1,63 @@
+{
+ "drl": "rule C when accumulate( T($v : v); $l : collectSet($v) ) then end\nrule D salience -5 when $t : T(k == 1) then delete($t); end\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "v": 7,
+    "k": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 8,
+    "k": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": -3,
+    "k": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "T",
+     "fields": {
+      "v": 7,
+      "k": 4
+     }
+    },
+    {
+     "type": "T",
+     "fields": {
+      "v": 1,
+      "k": 5
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_co_c12_set_churn"
+}

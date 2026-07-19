@@ -1,0 +1,44 @@
+{
+ "drl": "rule C when accumulate( T($v : v); $l : collectList($v) ) then end\nrule R salience 5 when S($z : z) then insert(new T(5, 1)); insert(new T(-5, 2)); end\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "S",
+   "fields": [
+    {
+     "name": "z",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "S",
+   "fields": {
+    "z": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 9,
+    "k": 0
+   }
+  }
+ ],
+ "epochs": [],
+ "name": "pr_co_c13_rhs_pair"
+}

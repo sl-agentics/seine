@@ -2376,7 +2376,15 @@ impl AccCtx {
                 true
             }
             AccFunc::CollectList => {
-                if let Some(i) = self.vlist.iter().position(|(x, _)| *x == f) {
+                // D-323 (c2b/c10/c11 + the 1216/1902 witnesses): Drools'
+                // reverse is java List.remove(Object) — the FIRST
+                // VALUE-EQUAL element leaves, regardless of which fact
+                // retracted. Identity removal only agrees when the dead
+                // fact's instance happens to be the first equal (or
+                // values are distinct). Pre-materialization ins+del
+                // pairs annihilate in staging and never reach here.
+                let _ = f;
+                if let Some(i) = self.vlist.iter().position(|(_, x)| x == v) {
                     self.vlist.remove(i);
                 }
                 true

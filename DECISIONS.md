@@ -17576,3 +17576,52 @@ divergences — the lifted-fence generator, drawing not-observers
 with J rules freely, finds NOTHING post-port**. The ndne ledger
 is EMPTY; open items: g25 no-loop-acc corner, collect-order family,
 ?query justifiers, crates.io TP.
+
+## D-323 — THE COLLECT-ORDER FAMILY (Bryan: "the collect-order family") — ONE COMPARATOR: THE REVERSE REMOVES THE FIRST VALUE-EQUAL, NOT THE DEAD FACT'S INSTANCE (2026-07-18)
+
+Inventory first: SIX order-only Collection forks in the bank (the
+recorded family was three). The Rosetta cell was xf_fz_298001_1216
+— no epochs, three facts, one delete: both sides build [-4,-1e9,-4],
+the FIRST -4's fact dies, oracle lands [-1e9,-4], engine [-4,-1e9].
+Round 1 (8 cells, deleter ABOVE the accumulate's salience): ALL
+MATCH — and the frame rewrote twice: the build order is
+LIFO-arrival append (c1: [9,8,7]), and pre-materialization ins+del
+pairs annihilate in staging (identity, both sides). The divergence
+needs the reverse to hit a MATERIALIZED list. Hand-re-deriving
+xf_co_refire_1902 under "reverse = java List.remove(Object) =
+FIRST value-equal" produced the oracle's [1,3,0] EXACTLY (the head
+0 leaves though a DIFFERENT fact died). Round 2 (post-
+materialization, 7 cells + c13): c2b/c10 diverge exactly as
+predicted; c11 extends the law to value-CHANGING updates
+(reverse+append: oracle [8,7,5], engine [7,8,5]); c5b narrows —
+value-PRESERVING updates never touch the list (property
+reactivity on the accumulated binding); c13 — within-RHS insert
+pairs arrive identically.
+
+**THE LAW: on a materialized collectList, Drools' reverse removes
+the FIRST VALUE-EQUAL element regardless of which fact retracted;
+the engine removed the retracted fact's own instance — identical
+without duplicates, the wrong instance with them.**
+
+THE PORT: one comparator in Acc::reverse's CollectList arm —
+remove by value-first instead of by FactId (the vlist FactId is
+consumed nowhere downstream). FIVE witnesses close byte-for-byte
+(xf_co_refire_1902, fz_316002_1902 — the compound blob now FULLY
+explained across D-320+D-323, xf_fz_298001_1216, xf_fz_4649_1144,
+fz_313902_1661) + 18 grid cells graduate (pr_co_*, corpus
+11/1409/414). TWO residuals reclassified as their own named
+sub-items, byte-UNCHANGED by the port and banked (bank 47):
+fz_315002_1364 (distinct-value arrival-order swap, c13-resistant)
+and xf_fz_662607_47 (collectSet first-instance order, c8/c12-
+resistant) — each needs its own delta-minimization hunt.
+
+RECEIPTS: byte gate 2372 same / 5 moved / 0 diff vs 014b067 (the
+five witnesses are the ONLY moved cells); make diff 1834 PASS
+(11/1409/414) + drift 47 identical; lint 2238/0/0; cargo 73;
+maturin rebuild + pytest 257; demo True; model_ird 31/31; IRD
+0-div ×5; agenda_open ×10 identical vs the pre-edit worktree; **SD census
+72 EXACT ×12 (6,10,3,5,6,5,5,6,8,7,4,7 cell-for-cell)**; fresh
+fuzz 2×2000 seeds 323001/323002 CLEAN; fuzz_cep 3×300 seeds
+323901-903 CLEAN. Open items: fz_315002_1364
+arrival-order, xf_fz_662607_47 set-order, g25 no-loop-acc corner,
+?query justifiers, crates.io TP.

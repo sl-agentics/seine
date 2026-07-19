@@ -1,0 +1,56 @@
+{
+ "drl": "rule C when accumulate( T($v : v); $l : collectList($v) ) then end\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "v": 7,
+    "k": 1
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 8,
+    "k": 2
+   }
+  },
+  {
+   "type": "T",
+   "fields": {
+    "v": 9,
+    "k": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "k": 20
+     }
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "name": "pr_co_c5b_upd_move"
+}
