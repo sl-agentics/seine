@@ -1,0 +1,42 @@
+{
+ "name": "rq2_ins_only",
+ "types": [
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "drl": "rule A salience 10 when $p : T1(f2 == true) then end\nrule B salience 5 when $p : T1($x : f0) then modify($p) { setF2(true) } end\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "",
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "x",
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "q",
+    "f2": false
+   }
+  }
+ ]
+}

@@ -6,6 +6,16 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Activations born from a consequence's mixed inserts and modifies now
+  fire in effect order.** A rule whose consequence both inserts facts
+  and modifies existing ones re-activates a single-pattern rule's
+  matches in the order the effects touched them, as Drools does
+  (matches materialize per propagation); Seine previously batched the
+  whole consequence and fired all modify-born re-activations before
+  insert-born ones. Consequences whose effects are all inserts or all
+  modifies were already correct and are unchanged. Eight scenarios
+  graduated to the certified corpus.
+
 - **Rule selection after `setFocus` to a quiet agenda group now matches
   Drools.** Drools' property-reactivity bypass makes a modify touch
   every rule whose constraints don't listen to the changed fields —

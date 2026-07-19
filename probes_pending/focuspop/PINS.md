@@ -253,3 +253,94 @@ surface); byte gate 2519/2527 = EXACTLY the 8 lane cells; lint
 agenda_open x10 identical x3; model_ird 31/31; IRD 0-div x5;
 fuzz 2x2000 seeds 345001/345002 + cep 3x300 seeds 345901-903
 ALL CLEAN; NEXT seeds 348001+.
+
+# D-348: the x35 requeue-order round (Bryan: "do the x35
+# requeue-order round")
+
+x35 re-measured (3x stable both sides): R0's FINAL run — oracle
+[''#0, x, ''#2] = the order R2's modifies touched R0 (births
+''#0, x; requeue ''#2); engine [''#2-first phase consume]. THE
+LAW CANDIDATE (from D-347's trace): ALPHA-TERMINAL rules
+materialize matches EAGERLY per propagation
+(AlphaTerminalNode.assertObject/modifyObject at each flush) —
+the tupleList accumulates in PROPAGATION order, ins and upds
+INTERLEAVED; the engine batches the staging and consumes
+upds-then-ins at one eval.
+
+## The rq grid (predictions REGISTERED before cells; A sal 10
+## fires initial T-facts first; B sal 5 modifies all its facts
+## uninterrupted (A at 0 cannot preempt); A's re-run = the
+## measurement). A: T1(f2 == true) sal ...; B: T1($x : f0)
+## salience 5 → modify setF2(true). Facts f0 = '', 'x', 'q'.
+
+- rq1_mixed (facts ''F, xF, qT; A sal 0 so q fires only in the
+  final run... no — mirror x35: A must FIRE q BEFORE the
+  requeue: A sal 10 → fires q first; then B; then A's re-run):
+  effects birth(''), birth(x), requeue(q). PREDICT oracle
+  ['', x, q] (propagation order); engine phase-consume (q-upd
+  first or ins-head-first) ≠ that — record what lands.
+- rq2_ins_only (all F): batch = births only. PREDICT MATCH
+  (high): both ['', x, q] FIFO births.
+- rq3_upd_only (all T; A fires all 3 first): batch = requeues
+  only. PREDICT oracle ['', x, q] (propagation order); engine
+  upd-list head-first = REVERSED [q, x, ''] (med — the staged
+  upd prepend).
+- rq4_interleave (''T, xF, qT): effects requeue(''), birth(x),
+  requeue(q). PREDICT oracle ['', x, q]; engine phases split
+  them (upds together, ins apart) — any non-['', x, q] order
+  confirms the phase-batching fork.
+
+## rq1-rq4 MEASUREMENTS: all four MATCH — the grid design MISSED
+## (recorded): A@sal-10 preempts B after every firing, so the
+## staging never batches. THE INSIGHT THE MISS BOUGHT: x35's
+## batch forms BECAUSE of the setFocus push — the peek-top-only
+## law hides MAIN's equal-salience decl-preceding item from the
+## halt check, letting B run uninterrupted. The batch-order
+## surface is REACHABLE ONLY UNDER A FOCUS PUSH (or salience
+## inversion, where the engine already matches). rqb grid: x35's
+## exact 3-rule structure (A f2t decl0 sal0; G-in-g f2f decl1
+## sal2 setFocus; B bare decl2 sal0 setFocus+modify), varying
+## the fact mix:
+- rqb_ins (all F): A batch = births only. PREDICT (med) oracle
+  ['', x, q] propagation order; engine ins-consume order —
+  whatever lands names the engine's phase.
+- rqb_upd (all T): A fires all 3 initially; batch = requeues.
+  PREDICT oracle ['', x, q]; engine upd-head-first [q, x, ''].
+- rqb_mix (''T, xF, qT): requeue(''), birth(x), requeue(q).
+  PREDICT oracle ['', x, q]; engine splits the phases.
+
+## rqb MEASUREMENTS + THE D-348 PORT
+
+rqb (x35's exact structure, fact-mix axis, oracle 3x): rqb_ins
+MATCH, rqb_upd MATCH (the upd-reversal prediction MISSED —
+recorded: pure batches are fine), rqb_mix FORKS (oracle tail
+[x, q] = propagation order; engine [q, x] = upds-then-ins).
+THE LAW: only MIXED ins+upd batches fork — the alpha-terminal
+tupleList accumulates per-propagation with ins/upds interleaved
+by arrival; the engine's per-window phase consume merges a
+whole RHS run into one window and splits the phases.
+
+THE PORT: every WM-mutating RHS action (Insert/InsertLogical/
+Update/Delete) closes the k=1 s0 windows (execute_rhs,
+post-match) — one D-047 window per RHS effect records the
+arrival interleave; the certified per-window phase consume
+(pr08/pr04) then reproduces it untouched. Byte-neutral for
+single-phase sequences by construction (per-window consume ≡
+merged-window consume unless phases interleave) — ONLY the
+mixed class moves.
+
+## D-348 receipts
+
+Acceptance 8/8 (x35 + rqb x3 + rq1-4). Byte gate 2526/2527 vs
+pre-port HEAD — the ONE diff is the witness itself; make diff
+11/1549/414 + drift 16 identical (pr08/pr04 and every RHS-chain
+cell stay green); lint 2408/0/0; cargo 74; pytest 260; demo
+True; SD 71 EXACT; agenda_open x10 x3; model_ird 31/31; IRD
+0-div x5; fuzz 2x2000 seeds 348001/348002 + cep 3x300 seeds
+348901-903 CLEAN; NEXT seeds 349001+. EIGHT graduations
+(pr_fp_x35_requeue + pr_fp_rqb_* + pr_fp_rq1..4 — the rq grid's
+design-miss cells kept as controls); bank 17→16. THE FOCUSPOP
+LANE LEDGER IS EMPTY (D-345/346/347/348: witness → model →
+trace → both ports). Round misses this slab: rq grid design
+(A@10 preempts — the miss that NAMED the focus-masking
+ingredient), rqb_upd reversal prediction.

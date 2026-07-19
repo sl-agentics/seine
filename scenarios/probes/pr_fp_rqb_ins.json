@@ -1,0 +1,42 @@
+{
+ "name": "rqb_ins",
+ "types": [
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "drl": "rule A when $p : T1(f2 == true) then end\nrule G salience 2 agenda-group \"g\" when $p : T1(f2 == false) then drools.setFocus(\"g\"); end\nrule B when $p : T1($x : f0) then drools.setFocus(\"g\"); modify($p) { setF2(true) } end\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "",
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "x",
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "q",
+    "f2": false
+   }
+  }
+ ]
+}

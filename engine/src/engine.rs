@@ -11537,6 +11537,25 @@ impl Engine {
                     }
                 }
             }
+            // D-348 (rqb_mix/x35): every WM-mutating RHS action is its
+            // own Drools propagation — the alpha-terminal tupleList
+            // accumulates PER-PROPAGATION, ins and upds interleaved by
+            // arrival order. One D-047 window per RHS effect records
+            // that order; the per-window k=1 consume then reproduces
+            // it. Byte-neutral for single-phase sequences (per-window
+            // consume ≡ merged-window consume unless phases interleave)
+            // — only the mixed ins/upd class moves.
+            if matches!(
+                &self.rules[ri].actions[ai],
+                CompiledAction::Insert { .. }
+                    | CompiledAction::InsertLogical { .. }
+                    | CompiledAction::Update { .. }
+                    | CompiledAction::Delete { .. }
+            ) {
+                for net in self.nets.iter_mut() {
+                    net.s0_close_window();
+                }
+            }
         }
         // D-076 refire-supersede epilogue: previous-firing deps this
         // firing did not re-establish are removed; emptied belief sets
