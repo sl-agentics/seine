@@ -18099,3 +18099,43 @@ cell-for-cell EXACT, seed 6003 5→4 (the port FIXED one SD
 population divergence; deliberate baseline move); agenda_open ×10
 identical ×3 (release/debug/pre-edit worktree); fresh fuzz 2×2000
 seeds 329001/329002 CLEAN; fuzz_cep 3×300 seeds 329901-903 CLEAN.
+
+## D-334/D-335/D-336: the cf325901x52 arc — the not-lead law, the
+## supersede-pair wake, and the port (2026-07-19)
+
+Bryan's ledger question ("recheck cf325901x52 with the laziness
+law") became a three-round arc; full narrative in
+probes_pending/notrel/PINS.md (D-334 rounds 1-3, D-335, D-336);
+executable models tools/model_check_notlead.py + the TmsProbe
+listener instrument (probes_pending/notlead/TmsProbe.java).
+
+D-334 (rounds 1-3): x52 is a NOT-LEAD shape (the not gates the
+InitialFact; witness order = the downstream join's re-propagation)
+— outside the D-333 family. The not-lead law pinned by unique
+model survivor: D-031 unlink + cross-epoch staged accumulation +
+LIFO staged walks; the clean surface (8 nl cells) was
+engine==oracle throughout. x52 then minimized to a 2-rule CLOUD
+cell (p3_cloud_churn3): the windows/events/clock were scaffolding
+for one thing — TMS supersede churn at the blocked not.
+
+D-335: TmsProbe measured the supersede flush order = WM-INS(new)
+then WM-DEL(old): Seine's D-076 epilogue is CORRECT and two wrong
+laws died on the record (transient counter dip; del-notify). The
+wake matrix (p1/p5/p6 vs p3) isolated the real divergence: only
+the supersede PAIR wakes a blocked not's owning rule oracle-side.
+
+D-336 (the port): p7/p8 narrowed the scope to pair-only (pure TMS
+ins churn and pure TMS del churn both accumulate). ONE site in
+execute_rhs's refire-supersede epilogue: when a firing both
+retracts a stale belief key and establishes a new one, rules
+whose `not` admits either fact are queued DIRTY — a wake only;
+evaluation stays lazy at the pop. p3 + cf325901x52 flip PASS;
+byte gate 2475/2477 with the 2 diffs = exactly the movers;
+seventeen pr_nl_* graduations; bank 19 (one fresh pre-existing
+quarantine fz_336002_968); corpus 11/1503/414; SD census 71
+EXACT; full battery green (receipts in the three commit
+messages: a9fe2c4, 8dca2b8, bd27071, 05fd74a, e76a3ec).
+
+Arc scorecard: 10 exact prediction hits, 7 recorded misses — the
+misses eliminated stream-flush, firing-drain, transient-dip,
+del-notify, and single-op-wake in turn; what survived is the law.

@@ -4,6 +4,17 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **Activation order after logical-belief supersede churn now matches
+  Drools.** When a rule refires and replaces its own logical belief
+  (`insertLogical` superseding a prior derivation) while that belief
+  blocks another rule's `not`, Drools wakes the blocked rule's
+  evaluation each churn cycle; Seine let its staging accumulate to the
+  final release, firing the released activations in a different order.
+  Seventeen scenarios graduated to the certified corpus, closing a
+  long-banked fuzz witness (cf325901x52).
+
 ## 0.4.43
 
 - **Firing order under `not` release now matches Drools in
