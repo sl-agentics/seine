@@ -17832,3 +17832,44 @@ facts, TMS × no-loop × setFocus flavor — neither in the collect
 family; bank 45→47), seed re-run CLEAN; fuzz_cep 3×300
 (327901-903) ALL CLEAN — the D-324 collect axis patrol no
 longer re-reports the class.
+
+## D-328: the collectSet sub-item — a canonicalization-key fork, not
+## an engine divergence (2026-07-19)
+
+THE HAND-DECODE (xf_fz_662607_47, the family's last Collection
+member): ONE adjacent swap at firing[25] — engine [-1.0,
+-1000000007.0, ...] vs oracle [-1000000007.0, -1.0, ...];
+firings 13/19 identical; the epoch's set ops are PURE ADDS, so
+no insertion-history mechanism can reorder. The oracle SOURCE
+(CollectSetAccumulateFunction, drools-core 9.44) is a COUNTED
+HashMap (get-or-put + counter++/--, remove at 0, keySet()
+result) — dup adds never move a key, CONFIRMING the engine's
+ga15 counted-set model; Drools' own javadoc disclaims element
+order. THE ACTUAL FORK: D-108 pinned "both sides canonicalize
+SORTED" but the two runners sort by DIFFERENT KEYS — the oracle
+by Jackson-rendered JSON toString (Java prints -1000000007.0 as
+"-1.000000007E9", sorting BEFORE "-1.0"), the engine by its
+plain-decimal render (after). The keys disagree exactly when
+Java's Double.toString goes scientific (|v| >= 1e7) and
+prefix-collides; c8/c8b/c12 matched because their values never
+entered that range.
+
+THE FIX (harness-only; engine and oracle runner untouched):
+canon_fact sorts SetCollection element renderings post-
+canonicalization (f:hex keys — one shared rendering, one key by
+construction), completing the D-108 intent at the compare
+layer. Content equality is intact (equal sorted arrays <=>
+equal multisets); Collection/collectList stays ORDER-SIGNIFICANT
+(D-323). A canon unit test pins both properties. Engine `run`
+bytes untouched => no byte gate, regressions/drift unaffected.
+No CHANGELOG entry (comparison infrastructure, user-invisible).
+
+GRADUATION: xf_fz_662607_47 → pr_co_fz_662607_47; bank 47→46.
+The COLLECTION-ORDER LEDGER IS EMPTY — every Collection-fork
+witness ever quarantined is graduated (D-323/324/326/327/328).
+Receipts (D-295-scale, harness-only): make diff 1871 PASS
+(11/1446/414) + drift 46 identical; lint 2284/0/0; cargo 74
+(the new canon test). Residual non-Collection latents:
+cf325901x52 (agenda-order), cf318902x167 (unclassified),
+fz_327002_845/fz_327002_1948 (D-327's quarantines), plus the
+older fz_* families.

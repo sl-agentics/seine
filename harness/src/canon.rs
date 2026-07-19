@@ -210,6 +210,21 @@ fn canon_fact(v: &J) -> Result<String, String> {
         .get("fields")
         .and_then(J::as_object)
         .ok_or("fact missing 'fields'")?;
+    // D-328: SetCollection is UNORDERED (Drools: counted-HashMap keySet,
+    // "order not guaranteed"; D-108 pinned canonicalize-SORTED). The two
+    // runners sort by DIFFERENT render keys (the oracle by Jackson JSON
+    // toString, where Java's scientific Double.toString reorders vs the
+    // engine's plain-decimal key — the fz_662607_47 swap) — complete the
+    // canonicalization HERE, where both sides share one rendering.
+    // Collection (collectList) stays ORDER-SIGNIFICANT (D-323).
+    if t == "SetCollection" {
+        if let Some(items) = fields.get("value").and_then(J::as_array) {
+            let mut parts: Vec<String> =
+                items.iter().map(canon_fact).collect::<Result<_, _>>()?;
+            parts.sort();
+            return Ok(format!("SetCollection(value=[{}])", parts.join(",")));
+        }
+    }
     let mut parts: Vec<(String, String)> = fields
         .iter()
         .map(|(k, fv)| Ok((k.clone(), canon_scalar(fv)?)))
@@ -302,5 +317,29 @@ mod tests {
         let c = json!({"facts": [{"type": "P", "fields": {"x": 2.5}}], "firings": []});
         let d = json!({"facts": [{"type": "P", "fields": {"x": 2.5}}], "firings": []});
         assert!(compare(&c, &d).is_ok());
+    }
+
+    #[test]
+    fn set_collection_order_insensitive_list_order_significant() {
+        // D-328: the runners sort sets by DIFFERENT keys (the oracle's
+        // Java-scientific "-1.000000007E9" sorts before "-1.0"; the
+        // engine's plain-decimal key after) — canon completes the D-108
+        // canonicalize-SORTED intent, so element ORDER never diverges a
+        // SetCollection while content still must match exactly.
+        let el = |v: f64| json!({"type": "Double", "fields": {"value": v}});
+        let set = |vals: &[f64]| {
+            json!({"facts": [], "firings": [{"rule": "R", "matches": [
+                {"type": "SetCollection", "fields": {"value": vals.iter().map(|&v| el(v)).collect::<Vec<_>>()}}
+            ]}]})
+        };
+        assert!(compare(&set(&[-1.0, -1000000007.0]), &set(&[-1000000007.0, -1.0])).is_ok());
+        assert!(compare(&set(&[-1.0, -1000000007.0]), &set(&[-1.0, -1000000007.5])).is_err());
+
+        let list = |vals: &[f64]| {
+            json!({"facts": [], "firings": [{"rule": "R", "matches": [
+                {"type": "Collection", "fields": {"value": vals.iter().map(|&v| el(v)).collect::<Vec<_>>()}}
+            ]}]})
+        };
+        assert!(compare(&list(&[1.0, 2.0]), &list(&[2.0, 1.0])).is_err());
     }
 }

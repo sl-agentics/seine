@@ -561,3 +561,48 @@ fuzz_cep 3×300 clean. Graduated: 5 members (pr_co_cf*) + the
 ed grid (pr_co_ed1..ed9). The collect-order family is CLOSED
 end-to-end: D-323 (reverse) + D-324 (windows) + D-326
 (identity-fold) + D-327 (drain positions).
+
+## D-328: THE collectSet SUB-ITEM (2026-07-19)
+
+### The hand-decode (xf_fz_662607_47, end-to-end)
+
+Fork: firing[25], R5's collectSet — ONE adjacent swap: engine
+[-1.0, -1000000007.0, ...], oracle [-1000000007.0, -1.0, ...];
+the other eight elements identical, firings 13/19 identical.
+Epoch-1 set ops are PURE ADDS (6.0, a duplicate -1.0,
+-1000000007.0, 5.5) — no reverse touches -1.0, so no insertion-
+history mechanism can reorder it.
+
+THE ORACLE SOURCE (drools-core 9.44
+CollectSetAccumulateFunction): a COUNTED map
+(HashMap<Object,MutableInt>; accumulate = get-or-put +
+counter++, reverse = --counter, remove at 0; getResult =
+keySet()) — dup adds NEVER move a key, confirming the engine's
+ga15 counted-set model. Drools' own doc: "the order of the
+elements in the set is not guaranteed."
+
+THE ACTUAL FORK — the CANONICALIZATION KEYS DIFFER, not the
+engines: D-108 decided "both sides canonicalize SORTED", but
+the oracle runner sorts by Jackson-rendered JSON toString
+(OracleRunner.java: Comparator.comparing(Object::toString)) in
+which Java prints -1000000007.0 as "-1.000000007E9" — sorting
+BEFORE "-1.0" ('0' < '}' after the shared "...value\":-1.0"
+prefix) — while the engine sorts by its plain-decimal render
+("-1.0" < "-1000000007.0", '.' < '0'). The keys disagree
+exactly when Java's Double.toString goes SCIENTIFIC (|v| >=
+1e7, |v| < 1e-3) and collides in prefix with another element.
+c8/c8b/c12 matched because their values never entered the
+scientific range.
+
+### The fix (harness canon, engine untouched)
+
+Complete D-108 at the one layer where both sides share a
+rendering: harness canon_fact sorts SetCollection element
+renderings (post-canonicalization, f:hex keys) before joining.
+Content comparison is intact (equal sorted arrays <=> equal
+multisets); collectList/Collection stay ORDER-SIGNIFICANT
+(D-323). Engine `run` bytes untouched (canon is compare-only)
+=> no byte-gate movement, regressions/drift-bank unaffected;
+the oracle runner's Java sort becomes harmless. PREDICT:
+xf_fz_662607_47 flips PASS; the corpus holds; D-295-scale
+receipts (harness-only slab).
