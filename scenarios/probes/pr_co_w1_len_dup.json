@@ -1,0 +1,73 @@
+{
+ "drl": "rule C when accumulate( E($v : v) over window:length(3); $l : collectList($v) ) then end\n",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "v": 7,
+    "k": 1
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "v": 9,
+    "k": 2
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "v": 7,
+    "k": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 10
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 10,
+      "v": 8,
+      "k": 4
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_co_w1_len_dup"
+}

@@ -250,18 +250,28 @@ class Gen:
                 if win:
                     self.has_window = True
                     self.windowed_acc_types.add(e)
-                if r.random() < 0.6:
+                fdraw = r.random()
+                if fdraw < 0.5:
                     src, fn = f"{e}({cons})", "$c : count()"
-                else:
+                elif fdraw < 0.75:
                     inner = (cons + ", " if cons else "") + "$t : ts"
                     src, fn = f"{e}({inner})", "$c : sum($t)"
+                else:
+                    # D-324: the collectList ORDER axis — tags draw from a
+                    # 3-symbol pool, so duplicate values are the norm and
+                    # every eviction/expiration exercises the D-323
+                    # first-value-equal reverse (pr_co_w* pins); the
+                    # Collection rides the firing tuple, order-diffable.
+                    inner = (cons + ", " if cons else "") + "$t : tag"
+                    src, fn = f"{e}({inner})", "$c : collectList($t)"
                 # D-317: ~45% of acc rules JUSTIFY a logical DW with the
                 # result (in-subset since D-312; windowed since D-316) — a
                 # window eviction / expiration / epoch insert re-fires the
                 # SAME act and the refire-supersede swaps the DW; observers
                 # make the swap agenda-visible, not/exists composes the
-                # teardown with the certified not-CE lanes.
-                wj = r.random() < 0.45
+                # teardown with the certified not-CE lanes. Collection
+                # results can't feed DW(v i64) — collect draws skip it.
+                wj = fdraw < 0.75 and r.random() < 0.45
                 rhs = "insertLogical(new DW($c));" if wj else ""
                 rules.append(
                     f'rule W{ri}{wsal} when accumulate( {src}{win}{self.ep_suf(e)}; {fn} ) then {rhs} end'

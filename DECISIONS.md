@@ -17625,3 +17625,36 @@ fuzz 2×2000 seeds 323001/323002 CLEAN; fuzz_cep 3×300 seeds
 323901-903 CLEAN. Open items: fz_315002_1364
 arrival-order, xf_fz_662607_47 set-order, g25 no-loop-acc corner,
 ?query justifiers, crates.io TP.
+
+## D-324 — THE WINDOWED-EVICTION PIN ROUND (Bryan: "do the pin round") — THE D-323 LAW EXTENDS THROUGH WINDOWS UNCHANGED; THE PATROL GAINS THE COLLECT AXIS (2026-07-18)
+
+The question Bryan raised: does window EVICTION's reverse follow
+the D-323 first-value-equal law, or remove the evicted INSTANCE's
+own entry? The splitter (w2_time_dup): a time-eviction of the
+OLDEST event removed the HEAD duplicate (first value-equal), not
+the evicted event's entry — [9,7] BOTH sides; the list keeps a
+value slot whose window-resident owner is gone, and both engines
+agree. w1 (length-ring), w4 (counted set through windows), w5
+(distinct control), and the post-find probes w6/w7 (ts-moving
+value-changing update = remove-first+append; ts-move-only =
+invisible) — ALL SIX MATCH. Zero engine changes; the D-323 fix
+already covered the composition because eviction routes through
+the same reverse arm.
+
+PATROL WIRING: fuzz_cep's W rules draw collectList(tag) at 25%
+(3-symbol tag pool = duplicate pressure; collect draws skip the
+DW justifier — a Collection can't feed DW(v i64)). Shakedown
+3×300 seeds 324901-903: two clean, ONE find (cf324903x55, an
+update-churn windowed-collect order fork) — worktree-bisected
+PRE-EXISTING vs the pre-D-323 engine, NOT reproduced by the
+minimal update forms (w6/w7 match) → banked as the THIRD
+minimal-cell-resistant member of the arrival/update-order
+sub-family (with fz_315002_1364 and xf_fz_662607_47).
+
+Also re-verified this round: the D-112 eager/lazy eviction-timing
+flip-flop zone is UNCHANGED (df_win_evict_ctl / df_evict_reins /
+df_win_expire_reins green; still deferred to the model_check_stream
++ WindowNode sub-recon per D-083); xf_win_reset_incoherence still
+open-banked. Probes + generator only; engine untouched. Receipts:
+make diff 1840 PASS (11/1415/414) + drift 48 identical; lint
+2244/0/0; 6 pr_co_w* graduate.

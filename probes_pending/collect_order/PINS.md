@@ -157,3 +157,69 @@ need their own delta-minimization hunts.
 
 Byte gate 2372/5/0 vs 014b067 — the five witnesses are the ONLY
 cells that moved in the corpus universe.
+
+# ═══════════════════════════════════════════════════════════════
+# THE WINDOWED-EVICTION PIN ROUND (D-324; Bryan: "do the pin
+# round" — the D-323 fix's window composition is unpinned and
+# fuzz-unpatrolled: fuzz_cep draws no collect functions)
+# Predictions registered 2026-07-18 BEFORE any cell ran.
+# ═══════════════════════════════════════════════════════════════
+
+The question: window EVICTION retracts an event from the
+accumulate — does the collectList lose the FIRST VALUE-EQUAL
+element (the D-323 law, same reverse arm) or the evicted
+INSTANCE's own entry? Distinguishable only when the list order
+puts a duplicate ahead of the evicted instance (the LIFO batch
+build makes that arrangeable: batch [7k1, 9k2, 7k3] builds
+[7k3, 9, 7k1]; evicting k1 by value-first removes 7k3 → [9,7,+8],
+by instance → [7,9,+8]).
+
+- **w1_len_dup**: window:length(3), batch [E7k1, E9k2, E7k3],
+  then E8k4 (evicts the oldest ADMISSION). PREDICT (med): the
+  eviction routes through the SAME reverse arm → value-first →
+  MATCH post-D-323 (both engines value-first). The cell also
+  pins WHICH admission the length-ring calls oldest under a
+  LIFO-drained batch — recorded either way.
+- **w2_time_dup**: window:time(100ms), staggered ts [E7k1@0,
+  E9k2@10, E7k3@20], expires huge; advance(105) evicts k1 ONLY.
+  The list is [7k3, 9, 7k1]; value-first removes 7k3 → [9,7];
+  instance removes k1's → [7k3, 9] = [7,9]. THE SPLITTER.
+  PREDICT MATCH at [9,7] (med — same reverse arm both sides).
+  A [7,9]-oracle = instance-based eviction → the D-323 law does
+  NOT extend through windows and the port needs a window-side
+  distinction.
+- **w4_set_win**: windowed collectSet with duplicates + eviction
+  (counted-set: the dup survives one eviction). PREDICT MATCH
+  (med-high — ga15 semantics are window-agnostic).
+- **w5_distinct_ctl**: window:time, distinct values, eviction.
+  PREDICT MATCH (high) — all laws agree on distinct.
+
+Plus the patrol wiring: fuzz_cep W rules gain a collectList draw
+(the firing tuple then carries the Collection → order-diffable);
+shakedown 3×300.
+
+## D-324 MEASUREMENTS (2026-07-18, all cells 3×-run stable via diff)
+
+ALL SIX PIN CELLS MATCH — the D-323 law extends through windows
+with no engine change needed:
+- w2_time_dup (THE SPLITTER): the time-eviction of k1 removed the
+  head 7k3 (FIRST VALUE-EQUAL), not k1's own entry — [9,7] both
+  sides. The list can keep a value slot whose window-resident
+  owner is gone; both engines agree.
+- w1_len_dup: length-ring eviction, same law — [9,7,8] both.
+  Also pins LIFO batch build for windowed accs ([7,9,7]).
+- w4_set_win: counted-set dup survives one eviction ✓ ga15
+  through windows. w5_distinct_ctl ✓.
+- w6_upd_tsval / w7_upd_tsonly (post-find probes): a ts-moving
+  value-changing update through the window = remove-first +
+  append ([9,7,8]); ts-move alone = invisible. Both MATCH.
+
+PATROL: fuzz_cep W rules now draw collectList(tag) at 25% (tags
+from a 3-symbol pool = duplicate pressure; collect draws skip the
+DW justifier — Collection can't feed DW(v i64)). Shakedown 3×300
+seeds 324901-903: 2 clean + ONE find cf324903x55 — worktree-
+bisected PRE-EXISTING (byte-identical on the pre-D-323 engine),
+an update-churn windowed-collect order fork whose minimal forms
+(w6/w7) do NOT reproduce it → banked beside fz_315002_1364 and
+xf_fz_662607_47 as the third minimal-cell-resistant member of
+the arrival/update-order sub-family.

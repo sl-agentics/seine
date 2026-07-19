@@ -1,0 +1,64 @@
+{
+ "drl": "rule C when accumulate( E($v : v) over window:time(100ms); $l : collectSet($v) ) then end\n",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100000
+   }
+  }
+ ],
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 0,
+    "v": 7,
+    "k": 1
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "v": 9,
+    "k": 2
+   }
+  },
+  {
+   "type": "E",
+   "fields": {
+    "ts": 20,
+    "v": 7,
+    "k": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 105
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "name": "pr_co_w4_set_win"
+}
