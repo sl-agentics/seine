@@ -1,0 +1,56 @@
+{
+ "name": "mp2_linked_nomatch",
+ "types": [
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "drl": "rule A when T1(f0 contains \"zz\", $x : f2) then end\nrule B when $p : T1(f2 == false) then drools.setFocus(\"g\"); modify($p) { setF2(true) } end\nrule C agenda-group \"g\" when T1(f0 == \"k1\", $af2 : f2) T1(f0 == \"k2\", f2 != $af2) then end\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "zz",
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "x",
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "y",
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "k1",
+    "f2": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "k2",
+    "f2": false
+   }
+  }
+ ]
+}

@@ -344,3 +344,64 @@ LANE LEDGER IS EMPTY (D-345/346/347/348: witness → model →
 trace → both ports). Round misses this slab: rq grid design
 (A@10 preempts — the miss that NAMED the focus-masking
 ingredient), rqb_upd reversal prediction.
+
+# D-349: the multi-pattern bypass touch round (Bryan: "do the
+# multi-pattern bypass touch round" — D-347's recorded unprobed
+# scope)
+
+The mechanism question: for a MULTI-pattern rule, a bypassed
+modify (mask ∩ alpha-listen = ∅) reaches the LIA/beta as a
+staged update — queueRuleAgendaItem fires IF LINKED (D-091),
+unlike the alpha-terminal class where AlphaTerminalNode
+force-links (mz3's never-matching C queued anyway).
+
+## Grid (mz3's A/B structure; C-in-g becomes 2-pattern;
+## predictions REGISTERED before cells; oracle 3x)
+
+- mp1_unlinked: C = T1(f0=="nope") T1() — first alpha empty
+  forever ⇒ UNLINKED. PREDICT (med-high): NO item on B's push
+  (the if-linked gate) → B keeps control → both sides
+  [A,B(zz),A',B(x),B(y)]-shaped per the D-347 machinery — MATCH
+  (the unlinked control; also discriminates the alpha-terminal
+  force-link from the multi-pattern gate).
+- mp2_linked_nomatch: C = $a:T1(f0=="k1") T1(f0=="k2",
+  f2 != $a.f2) + facts k1(F), k2(F) — both alphas populated ⇒
+  LINKED; the beta (f2 != f2) never matches. B's modify mask
+  {f2} MISSES both f0-alphas ⇒ bypass ⇒ the zz-update stages
+  membership-blind ⇒ ITEM QUEUES. PREDICT (med): oracle YIELDS
+  at B's push (C@g item at the halt-check → re-pick → A's
+  refire before B(x)); engine (no multi-pattern touch) keeps
+  control — THE FORK.
+- mp3_entry_control: C = $a:T1(f2==false) T1(f2==true,
+  f0 != $a.f0) — both alphas LISTEN f2 (mask-hit: no bypass);
+  zz's modify EXITS alpha1 / ENTERS alpha2 — entries queue on
+  both sides (certified staging). PREDICT MATCH (med).
+
+## mp MEASUREMENTS — THE SCOPE CLOSES PROBED-CORRECT (no port)
+
+- mp1_unlinked MATCH (hit): an UNLINKED 2-pattern rule never
+  item-queues (the D-091 if-linked gate; discriminates the
+  alpha-terminal force-link).
+- mp2/mp3 MATCH: design note recorded — the bound-var rewrite
+  ($af2 : f2) added an f2 LISTEN, turning mp2 into an
+  ordinary-staging control (the engine's DRL subset rejects
+  $a.f2 field access; probe DRLs must use bindings, which
+  join the listen mask).
+- mp2b MATCH — but the AG_DEBUG trace showed BOTH sides' yield
+  rode C's INITIAL k1/k2 staging item (queued at setup, never
+  consumed while g was unfocused) — still not the bypass.
+- mp4_bypass_requeue — THE DISCRIMINATOR (G0 pre-consumes C's
+  item via an early focus cycle; B's bypassed modifies follow):
+  the fork prediction MISSED (recorded, and it IS the finding):
+  the oracle does NOT re-queue — B runs to exhaustion, A's
+  refire lands LAST, identical to the engine.
+
+THE LAW (final): the property-reactivity bypass forwards a
+masked-out modify past alpha CONSTRAINT nodes; the SINK decides
+— AlphaTerminalNode queues the item UNCONDITIONALLY (the D-347
+single-pattern class, membership-blind), while the beta-path
+segment staging is MASK-GATED (property reactivity applies at
+the beta) — nothing stages, nothing queues. The engine's
+existing mask-gated staging IS the multi-pattern law; the
+D-347 alpha-terminal scope was exactly right. ZERO engine
+changes this round; five graduations (pr_fp_mp*).
