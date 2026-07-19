@@ -6,6 +6,20 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **A fact that leaves and re-enters a pattern within one batch of
+  changes no longer slips past a standing `not (A and B)` block —
+  and no longer suppresses a due `exists (A and B)` re-fire.** When
+  external updates flip a fact out of a pattern and back (or churn
+  it while it participates in a `not`/`exists` group's inner
+  conjunction), the group's support tuples die and re-form in the
+  same evaluation. Seine's staging cancelled the re-formed support
+  against the dying generation's delete, so a rule blocked by
+  `not (A and B)` could fire spuriously on the round-trip, and the
+  mirrored `exists` case could miss a re-fire Drools produces.
+  Drools tracks these by tuple identity and keeps the block (and
+  the re-fire); Seine now does too. Nine scenarios graduated to the
+  certified corpus, closing a long-quarantined fuzz witness.
+
 - **`no-loop` now suppresses across `or` branches when a branch's own
   consequence satisfies a sibling branch's `exists`.** In Drools,
   `or` branches compile to sub-rules sharing the rule's name, and

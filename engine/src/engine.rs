@@ -10203,11 +10203,21 @@ impl Engine {
                         // insert cancels outright — sn_c5b). All RIA
                         // sinks receive the same treatment (peer copies
                         // carry no extra flip).
-                        for (t, o, _) in trg.ins.iter() {
-                            self.trie[c].sn_right.add_ins(t.clone(), *o);
-                        }
+                        // D-351: dels route FIRST. Within one tip batch
+                        // the del phases precede the ins phases, so a
+                        // same-value pair here is always an OLD-generation
+                        // del + a NEW-generation ins (a re-formed subnet
+                        // tuple, m626/obs_two_blockers) — Drools keeps
+                        // both (different tuple objects); the value-keyed
+                        // cancel must not eat the new generation. A
+                        // genuine never-materialized pair only arrives
+                        // ACROSS hop calls (obs_win_split), where add_del
+                        // still cancels the still-staged ins (sn_c5b).
                         for (t, o, _) in trg.del.iter().chain(trg.norm_del.iter()) {
                             self.trie[c].sn_right.add_del(t.clone(), *o);
+                        }
+                        for (t, o, _) in trg.ins.iter() {
+                            self.trie[c].sn_right.add_ins(t.clone(), *o);
                         }
                         for (t, o, _) in trg.upd.iter() {
                             self.trie[c].sn_right.add_upd(t.clone(), *o);
@@ -10328,8 +10338,17 @@ impl Engine {
         }
         // --- rightIns (before leftIns, "so 'not' knows if there are
         // matches before creating the child") ---
+        // D-351: every value delivered by THIS batch's rightIns marks
+        // `readded` — a same-batch rightDel of that value is the OLD
+        // generation of a re-formed subnet tuple (Drools: the dead start
+        // object's nulled context no-ops deleteRight) and must not eat
+        // the new generation's match (m626 start round-trip) nor a
+        // standing one (obs_inner_rt, where the idempotency skip keeps
+        // the old entry standing in for the new).
+        let mut readded: HashSet<Tup> = HashSet::new();
         for (s, o, _) in sr.ins.iter() {
             let p: Tup = Tup::from_slice(&s[..plen.min(s.len())]);
+            readded.insert(s.clone());
             let m = node.sn_matches.entry(p.clone()).or_default();
             if m.contains(s) {
                 continue; // value-identity idempotency (re-delivered peer)
@@ -10363,6 +10382,9 @@ impl Engine {
         // --- rightUpd: NO-OP ("does nothing; here before, here now") ---
         // --- rightDel (late, so nothing staged here is then unstaged) ---
         for (s, o, _) in sr.del.iter() {
+            if readded.contains(s) {
+                continue; // D-351: old-generation del of a re-formed tuple
+            }
             let p: Tup = Tup::from_slice(&s[..plen.min(s.len())]);
             let Some(m) = node.sn_matches.get_mut(&p) else { continue };
             if let Some(i) = m.iter().position(|x| x == s) {

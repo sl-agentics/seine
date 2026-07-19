@@ -212,10 +212,156 @@ window vs split.
 RESULT: HIT — m626 forks engine 2 vs oracle 1, oracle 3x
 byte-stable (1 firing / 3 facts). The minimal anchor is
 probes_pending/oldbank/m626.json (one rule, two facts, two
-epochs; setFocus/salience/acc all shed — NOT ingredients). THE
-NEXT SLAB: the subnetwork-not re-entry blocking ladder
-(ingredients to vary: round-trip in one epoch vs split epochs,
-plain not vs subnetwork not — `not T0(f0 != false)` control,
-blocker born before vs after the outer tuple, exists-subnet
-mirror), then the SubnetNot port, model-first if the surface
-proves calibrated.
+epochs; setFocus/salience/acc all shed — NOT ingredients).
+
+### THE SUBNET RE-ENTRY ROUND (D-351) — full decode
+
+ENGINE MECHANISM (SEINE_TRACE + source): the epoch-2 T0#0
+false->true->false round-trip stages as left DEL+INS (exit +
+re-entry; joins keep del+ins by the D-326/jr pins). The subnet
+tuple [F1,F2,F2,F3] CONTAINS F1, so it dies+re-forms in the
+SAME batch: the tip emits del (leftDel phase, staged first)
+then ins (staged second) — they coexist in the tip trg. THE
+CONFLATION: the RIA hop (engine.rs ~10206) routes INS FIRST
+then DEL, and Staged::add_del CANCELS a staged same-VALUE ins
+("never materialized", phreak.rs:589) — but this ins/del pair
+is OLD-generation del + NEW-generation ins of the same VALUE
+(Drools: different tuple OBJECTS, never folded). sn_right nets
+EMPTY -> eval_subnet_node: leftDel wipes sn_matches, leftIns
+sees no matches -> child ins -> the extra firing.
+
+DROOLS MECHANISM (PhreakSubnetworkNotExistsNode, verbatim): (1)
+matches live ON the start tuple object (getStartTuple /
+setContextObject) — a dead start's del no-ops (context nulled
+by deleteLeft), a re-created start is a NEW object; (2)
+insertRight runs BEFORE insertLeft ("so 'not' knows if there
+are matches before creating the child") — a re-entering left
+with a same-batch re-formed blocker is born BLOCKED; (3)
+deleteRight runs LAST; updateRight is a NO-OP; (4) upstream,
+Drools stages WM updates BY FACT IDENTITY with values read at
+propagation time — the round-trip is ONE value-preserving
+update, tuples never die (the D-326 fold).
+
+THE DESIGN TRAP (found in case analysis, pre-registered): an
+INNER-fact round-trip (blocker exits+re-enters, start ALIVE) is
+accidentally-correct TODAY precisely because of the hop
+annihilation (nets empty = Drools' updateRight no-op). Removing
+the cancel without a generation guard would flip that case to a
+spurious unblock (rightDel would eat the re-added match). So
+the fix is TWO-PART:
+  (i) RIA hop routes DELS FIRST then INSS then UPDS within one
+      trg batch — same-trg old-del+new-ins both survive; the
+      cross-batch never-materialized cancel (sn_c5b) is
+      UNCHANGED (within one tip call, del phases precede ins
+      phases, so a same-call same-value pair is always
+      old-del+new-ins — a genuine create+delete never coexists
+      in one call);
+  (ii) eval_subnet_node: rightIns collects `readded` (every
+      staged subnet value, UNCONDITIONALLY — including the
+      value-idempotency skip path); rightDel SKIPS s in readded
+      (the value-keyed stand-in for Drools' dead-object
+      null-context no-op). Kind-agnostic (not AND exists).
+
+### The D-351 ladder — PREDICTIONS REGISTERED BEFORE ANY RUN
+
+All cells derive from m626 (T0(bool); T1(i64,i64,bool,bool);
+rule T0(f0 != true, $b : f0) / T1(f2 != false) / not(T1(f0 >=
+2, f3 == $b) and T0(f0 != false)); base T0#0(false) + T1(3,0,
+t,f)). Round-trip = update target0 ->true then ->false.
+
+1. obs_unblocked_rt (NO blocker ever; round-trip at epoch 1):
+   PREDICT 2==2 PASS pre-port (both refire: Drools folded
+   update -> live child update -> re-fire; engine del+ins ->
+   child del+ins -> re-fire). Unchanged post-port.
+2. obs_exists_rt (exists(...) instead of not; epoch-1 blocker;
+   epoch-2 round-trip): PREDICT PRE-PORT FAIL engine 1 vs
+   oracle 2 — the SAME annihilation SUPPRESSES the legitimate
+   exists re-fire (child del survives, re-ins lost). Post-port
+   2==2. The exists mirror is a SECOND witness class of the
+   same bug, opposite direction.
+3. obs_split_epochs (->true in epoch 2, ->false in epoch 3):
+   PREDICT 1==1 PASS pre-port — the clean re-entry is ALREADY
+   blocked (rightIns-before-leftIns re-forms matches first).
+   Isolates the fork to same-batch staging conflation, NOT
+   re-entry per se.
+4. obs_win_split (one epoch: actions [insert T0true, upd
+   ->true, upd ->false]): PREDICT pre-port FAIL engine 2 vs
+   oracle 1 (the round-trip re-forms the blocker in-batch =
+   m626 after window 1); post 1==1.
+5. obs_two_blockers (epoch-1 inserts TWO T0(true); epoch-2
+   round-trip): PREDICT pre-port FAIL engine 2 vs oracle 1;
+   post 1==1 (multi-match bookkeeping: both wiped, both
+   re-added, both dels skipped).
+6. obs_inner_rt (epoch-1 T0true; epoch-2 round-trips the INNER
+   fact, target 2: ->false then ->true): PREDICT 1==1 PASS
+   pre-port (annihilation accidentally-correct) AND post-port
+   (the readded guard's justification cell — MUST NOT regress).
+7. obs_blocker_late (one epoch: actions [upd ->true, upd
+   ->false, insert T0true]): PREDICT 1==1 PASS pre-port and
+   post (block cancels the pending re-fire both sides; child
+   del reaches a fired activation = no-op).
+8. The witness xf_fz_296002_626: post-port PREDICT 5==5 (both
+   extra R4 firings are start round-trips with same-batch
+   re-formed blockers — the subnet tuples contain T0#0).
+
+Oracle 3x per forking cell.
+
+### D-351 LADDER RESULTS — 6/7 HIT, 1 recorded miss
+
+1. obs_unblocked_rt: PASS (2==2) — HIT.
+2. obs_exists_rt: FAIL engine 1 vs oracle 2 — HIT (the exists
+   mirror forks the OPPOSITE direction, 3x stable 2/3).
+3. obs_split_epochs: PASS — HIT (clean re-entry already
+   blocked; the fork IS the same-batch staging conflation).
+4. obs_win_split: PASS — MISS (predicted 2v1 fork). Decode: the
+   three actions stage ACROSS windows without intermediate
+   evals; window-2's subnet del cancels window-1's STILL-STAGED
+   blocker ins at the hop (cross-call = genuinely
+   never-materialized, the CORRECT sn_c5b semantics), window-3
+   re-stages it — the eval then sees the clean-re-entry shape
+   and blocks. Composed behavior correct both sides; post-port
+   route identical (cross-call cancel unchanged). Benign miss,
+   mechanism recorded.
+5. obs_two_blockers: FAIL engine 2 vs oracle 1 — HIT (3x
+   stable 1/4).
+6. obs_inner_rt: PASS — HIT (the trap cell: annihilation
+   accidentally-correct; post-port MUST stay 1).
+7. obs_blocker_late: PASS — HIT.
+
+TRACE NOTE (m626): the term's extra ins arrived ph=0
+(leftIns-created) — the fork route is the HOP ANNIHILATION
+(both windows composed into ONE tip call). The rightDel route
+(fix part ii) is reachable when del and ins arrive in SEPARATE
+hop calls with a live start — no current witness, but the
+obs_inner_rt post-port analysis proves the guard is required
+once part (i) lands.
+
+### THE PORT (D-351, landed 2026-07-19)
+
+Two edits, exactly the pre-registered design: (i) the RIA hop
+routes dels FIRST (engine.rs Sink::Ria arm); (ii)
+eval_subnet_node rightIns collects `readded` unconditionally,
+rightDel skips readded values. Post-port: 9/9 PASS (both forks
+flip — obs_exists_rt 2==2, obs_two_blockers 1==1; the trap
+cell obs_inner_rt HOLDS at 1==1; m626 1==1; the witness
+xf_fz_296002_626 flips 5==5 exactly as predicted — both extra
+R4 firings were start round-trips with same-batch re-formed
+blockers).
+
+RECEIPTS: byte gate 2547/2549 vs f66778a (wt_pre351) — the 2
+diffs ARE the movers (m626 + the witness), zero certified
+movement; NINE graduations (pr_obs_fz_296002_626 + pr_obs_m626
++ 7 pr_obs_* ladder cells); bank 15 -> 14; make diff
+11/1573/414 + drift 14 identical; lint-probes 2432/0/0; cargo
+74; pytest 260 (fresh .so, tracked .so restored) + demo True;
+model_ird 31/31 (+26/26, +39/39); IRD 150x5 0-div; SD census
+6,10,3,4,6,5,5,6,8,7,4,7 = 71 EXACT; agenda_open x10 stable x3
+(release/debug/wt_pre351); fuzz 2x2000 seeds 350001/350002
+CLEAN + cep 3x300 seeds 350901-903 CLEAN. NEXT seeds
+351001+/351901+. Round scorecard: 6/7 ladder hits + 1 benign
+recorded miss (obs_win_split cross-window composition), all
+post-port predictions hit incl. the witness 5==5.
+
+THE COUNT FAMILY IS CLOSED (fz_777_1278 D-350 +
+fz_296002_626 D-351). Remaining: ORDER trio, QUERY pair,
+fz_123_6887 flapper census.

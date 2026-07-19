@@ -35,13 +35,14 @@ future round):
   d-field values fork).
 - xf_fz_296002_1494: queries[1] row[2] binding values differ.
 
-COUNT class (2) — firing-count forks (value-class, highest
-semantic yield per the shop's experience):
-- xf_fz_296002_626: engine 7 vs oracle 5. (Still open; NOT the
-  D-350 law — no no-loop, no or-branches; setFocus/dyn-salience/
-  acc shape, own decode next.)
-- fz_777_1278: engine 4 vs oracle 3 — CLOSED (D-350, this
-  round): the no-loop or-sibling exists-origin law; graduated
+COUNT class (2) — CLOSED (both witnesses graduated):
+- xf_fz_296002_626: engine 7 vs oracle 5 — CLOSED (D-351): the
+  subnetwork-not re-entry law (value-keyed staging conflated
+  old-generation dels with new-generation inss of re-formed
+  subnet tuples); graduated pr_obs_fz_296002_626 + m626 + 7
+  ladder cells; see PINS.md.
+- fz_777_1278: engine 4 vs oracle 3 — CLOSED (D-350): the
+  no-loop or-sibling exists-origin law; graduated
   pr_obn_fz_777_1278 + 9 ladder cells; see PINS.md.
 
 ORDER class (3):

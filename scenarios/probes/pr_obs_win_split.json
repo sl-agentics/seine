@@ -1,0 +1,81 @@
+{
+  "drl": "rule \"R4\"\nwhen\n    T0(f0 != true, $b : f0)\n    T1(f2 != false)\n    not( T1(f0 >= 2, f3 == $b) and T0(f0 != false) )\nthen\nend\n",
+  "epochs": [
+    {
+      "actions": [
+        {
+          "fields": {
+            "f0": true
+          },
+          "op": "insert",
+          "type": "T0"
+        },
+        {
+          "fields": {
+            "f0": true
+          },
+          "op": "update",
+          "target": 0
+        },
+        {
+          "fields": {
+            "f0": false
+          },
+          "op": "update",
+          "target": 0
+        }
+      ],
+      "facts": []
+    }
+  ],
+  "facts": [
+    {
+      "fields": {
+        "f0": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": 3,
+        "f1": 0,
+        "f2": true,
+        "f3": false
+      },
+      "type": "T1"
+    }
+  ],
+  "name": "obs_win_split",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        },
+        {
+          "name": "f3",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    }
+  ]
+}
