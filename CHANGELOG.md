@@ -15,6 +15,14 @@ recorded in DECISIONS.md.
   Seventeen scenarios graduated to the certified corpus, closing a
   long-banked fuzz witness (cf325901x52).
 
+- **Logical beliefs of rules in never-refocused agenda groups now
+  retract when their matches die.** An eager (no-loop) rule in an
+  inactive agenda group whose `not` closes had its dead matches'
+  belief teardowns deferred to an agenda pop that could never come —
+  the beliefs lingered as phantom facts. They now drain at agenda
+  quiescence, matching Drools (which unjustifies at the eager
+  evaluation itself).
+
 ## 0.4.43
 
 - **Firing order under `not` release now matches Drools in

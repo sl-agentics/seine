@@ -8806,6 +8806,27 @@ impl Engine {
                     }
                     continue;
                 }
+                // D-337 (fz_327002_1948): STARVED deferred teardowns — an
+                // INACTIVE-group item's tms.deferred entries can never
+                // reach the pop drain (the group filter above), so its
+                // dead matches' beliefs linger as phantoms. Drools'
+                // unjustify landed at the eager evaluation itself
+                // (removeLogicalDependencies at doLeftDelete, group-
+                // independent). MAIN/focused deferred items always pop
+                // before quiescence (any deferred entry makes the item
+                // reachable), so only the starved class survives to here;
+                // the rescan orders any drain-activated observers by
+                // salience (the quiescence-exp precedent).
+                if !self.tms.deferred.is_empty() {
+                    let pending = std::mem::take(&mut self.tms.deferred);
+                    for (dri, tuple, _fl) in pending {
+                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                            eprintln!("TMS drain[quiescence-starved] r{dri} {tuple:?}");
+                        }
+                        self.tms_on_terminal_del(dri, &tuple);
+                    }
+                    continue;
+                }
                 // D-162 QUIESCENCE (the flushExpirations slot): staged
                 // witness ops at a PLAIN-witnessed non-temporal EXISTS node
                 // in a STREAM session evaluate at the window's end even with

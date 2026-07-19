@@ -842,3 +842,40 @@ identical x3; fuzz 336001 clean + cep 3x300 clean.
 THE cf325901x52 LEDGER ITEM CLOSES: unexplained cep blob ->
 not-lead law (D-334) -> supersede-wake law (D-335) -> ported and
 certified (D-336).
+
+## D-337: fz_327002_1948 — the STARVED deferred teardown (the
+## phantom-beliefs witness closes)
+
+THE DECODE: R2 (no-loop, agenda-group "ga", or-triple `not
+T1(f1==true)`) fires 3x justifying two beliefs; epoch 2's foreign
+T1(f1=true) inserts close the not — the eager (no-loop) flush
+evaluates R2 and its three matches die, but the TMS terminal-dels
+DEFER-PUSH (flags=0) onto tms.deferred, and the ONLY drain for
+that list is the item's POP — which the agenda-group filter
+forever denies ("ga" is never refocused). The entries starve; the
+beliefs linger as phantoms. Drools' unjustify lands AT the eager
+evaluation (removeLogicalDependencies in doLeftDelete,
+group-independent).
+
+THE FIX (one block): an AGENDA-QUIESCENCE drain of tms.deferred,
+placed after the exp_deferred bare-drain. MAIN/focused items with
+deferred entries always reach their pop first (any deferred entry
+makes the item reachable), so ONLY the group-starved class
+survives to quiescence — the certified t20/D-196/D-199/D-201
+drain timing is untouched by construction; the rescan orders
+drain-activated observers by salience (the quiescence-exp
+precedent).
+
+MEASURED: fz_327002_1948 flips PASS (graduated
+pr_nl_fz_327002_1948; bank 19->18). Byte gate vs 96357b1:
+2478/2480 SAME, 2 diff — the witness + ONE deliberate
+oracle-CLOSER mover (agenda_open/fz_9004_214: a documented-open
+recon witness whose engine under-fired 8-vs-9; the starved drain
+lands the missing retraction, final FACTS now equal the oracle,
+tail order R2/R1 still swapped = the quiescence-vs-eager-eval
+timing approximation, recorded open). t20 pins green. Corpus
+11/1504/414 + drift; lint 2351; SD census 71 EXACT; cargo 74;
+pytest 257; demo True; model_ird 31/31; IRD 0-div x5; agenda_open
+x9 identical + the deliberate mover; fuzz 337001 clean, 337002 ->
+1 PRE-EXISTING quarantined (fz_337002_1104, worktree-bisected,
+seed re-run clean; bank 19); cep 3x300 clean.
