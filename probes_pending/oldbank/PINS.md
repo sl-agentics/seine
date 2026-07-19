@@ -178,7 +178,44 @@ the fill path); no misses.
 
 ## Remaining families (next slabs)
 
-- xf_fz_296002_626 (7v5): its own decode — setFocus/dyn-salience/
-  acc shape, NO no-loop, NOT this law.
 - ORDER trio, QUERY pair, the fz_123_6887 flapper census: per
   HANDOFF.md.
+
+### xf_fz_296002_626 — DECODE START (2026-07-19, post-D-350)
+
+Engine 7 vs oracle 5; the FIRST FIVE firings IDENTICAL (R1, R4,
+R0, R4, R2). The extras: two more R4 firings — [T0#0(false),
+T1(-3,12,t,f)] and [T0#0(false), T1(3,-1e9,t,f)]. LOCALIZED BY
+TRUNCATION: base-only PASSES, base+epoch1 PASSES — the fork is
+EPOCH 2, whose actions are a T0#0 f0 false->true->false
+ROUND-TRIP + an inert T1(f2=false) insert. After epoch 1 the
+subnetwork-not blocker (T1(f0>=2.0, f3==false) and T0(f0!=false)
+— satisfied by T1(3,-1e9) x the epoch-1 T0(true)) STANDS and
+correctly blocks all R4 tuples BOTH sides (the e1-only PASS).
+Class hypothesis: the outer T0's alpha exit+re-entry re-forms
+the R4 tuples and the engine's SUBNETWORK-NOT does not consult
+the STANDING blocker for the re-entry tuples; the oracle keeps
+them blocked. (Kind::SubnetNot machinery, phreak.rs ~651 — NOT
+the D-350 law; no no-loop involved.)
+
+MIN CELL PREDICTION (registered before the run) — m626: one
+rule `T0(f0 != true, $b : f0) T1(f2 != false) not(T1(f0 >= 2,
+f3 == $b) and T0(f0 != false))`, RHS empty; facts T0(false) +
+T1(3,0,true,false); epoch 1 inserts T0(true); epoch 2 updates
+T0#0 -> true then -> false. PREDICT oracle 1 firing (base only;
+the re-entry tuple stays blocked) vs engine 2 (the re-entry
+re-fire). If NO fork, the missing ingredient list to ladder
+next: the epoch-1 T1 update churn, the second T1, the
+dyn-salience/focus machinery, both epoch-2 actions in one
+window vs split.
+
+RESULT: HIT — m626 forks engine 2 vs oracle 1, oracle 3x
+byte-stable (1 firing / 3 facts). The minimal anchor is
+probes_pending/oldbank/m626.json (one rule, two facts, two
+epochs; setFocus/salience/acc all shed — NOT ingredients). THE
+NEXT SLAB: the subnetwork-not re-entry blocking ladder
+(ingredients to vary: round-trip in one epoch vs split epochs,
+plain not vs subnetwork not — `not T0(f0 != false)` control,
+blocker born before vs after the outer tuple, exists-subnet
+mirror), then the SubnetNot port, model-first if the surface
+proves calibrated.
