@@ -1,0 +1,97 @@
+{
+ "name": "nm5_two_hops",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "E3",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule NT when $a : E0() not E1(this before[0ms,100ms] $a) $c : E2(this before[0ms,50ms] $a) $d : E3(this before[0ms,30ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": -3
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": -45
+   }
+  },
+  {
+   "type": "E3",
+   "fields": {
+    "ts": -7
+   }
+  },
+  {
+   "type": "E3",
+   "fields": {
+    "ts": -25
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 1000
+    }
+   ],
+   "facts": []
+  }
+ ]
+}

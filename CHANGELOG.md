@@ -6,6 +6,17 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Firing order after a mid-chain temporal `not` releases now matches
+  Drools.** When a temporal `not` sits between positive patterns and
+  its window closes (no blocker ever arrived), the rule's pending
+  matches fire in the order they would have been created had the
+  `not` never gated them — interleaved across anchors and following
+  each event's arrival — where Seine previously re-derived them at
+  the release and fired them scrambled by the network's staging
+  order. Rules whose temporal `not` is the last pattern were already
+  correct and are unchanged. Seven scenarios graduated to the
+  certified corpus, closing a witness banked since the CEP arc.
+
 - **`average()` over a decimal field is now a compile error** steering
   to `average_exact` — money never meets floats. Previously the engine
   silently coerced decimal contributions through IEEE double (and

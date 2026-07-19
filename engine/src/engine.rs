@@ -10147,7 +10147,37 @@ impl Engine {
         // inserts, head-first, appending to the executor's tuple list. A
         // queued activation keeps its position; an unqueued (fired) one
         // is effectively recreated.
-        let src = self.nets[ri].term_pending.take();
+        let mut src = self.nets[ri].term_pending.take();
+        // D-343 (the not-MID release-order law, probes_pending/notmid):
+        // Drools' §3B deferral is a FIRING deferral — downstream tuples
+        // of a mid-chain temporal not materialize eagerly in D-125
+        // per-arrival creation order and the close releases them in
+        // that order, anchor-interleaved (nm6) and ft-independent. The
+        // engine re-propagates at release, so its batch arrives
+        // hop-parity-scrambled; restore creation order by sorting on
+        // fid-desc-lex (a tuple "materializes" at its last-completing
+        // element; within one completing arrival, left-memory scan
+        // order — the do_texists reconstruction generalized). Scoped
+        // to release evals of not-MID-class rules only: k=0 shapes
+        // (not_partner/chain_not — the not is LAST) keep the certified
+        // arc-A descending-close-time order and the heaptie bank.
+        if releasing && src.ins.len() > 1 {
+            let pats = &self.rules[ri].patterns;
+            let not_mid = pats.iter().enumerate().any(|(i, p)| {
+                p.ce == CeKind::Not
+                    && p.cmps.iter().any(|c| matches!(c.test, Test::Temporal { .. }))
+                    && pats[i + 1..].iter().any(|q| q.ce == CeKind::Positive)
+            });
+            if not_mid {
+                let mut entries: Vec<(Tup, Origin, u8)> = src.ins.drain(..).collect();
+                entries.sort_by_cached_key(|(t, _, _)| {
+                    let mut v: Vec<u32> = t.iter().map(|f| f.0).collect();
+                    v.sort_unstable_by(|a, b| b.cmp(a));
+                    v
+                });
+                src.ins.extend(entries);
+            }
+        }
         if std::env::var("SEINE_TRACE").is_ok() && !src.is_empty() {
             eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
         }
