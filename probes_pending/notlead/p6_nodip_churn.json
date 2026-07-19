@@ -1,0 +1,21 @@
+{
+ "name": "p6_nodip_churn",
+ "types": [
+  {"name": "P", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "B", "fields": [{"name": "n", "type": "i64"}]},
+  {"name": "K5", "fields": [{"name": "m", "type": "i64"}]},
+  {"name": "K9", "fields": [{"name": "m", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "P", "fields": {"v": 1}},
+  {"type": "B", "fields": {"n": 5}},
+  {"type": "B", "fields": {"n": 6}},
+  {"type": "B", "fields": {"n": 7}}
+ ],
+ "epochs": [
+  {"actions": [], "facts": [{"type": "P", "fields": {"v": 2}}, {"type": "K5", "fields": {"m": 7}}]},
+  {"actions": [], "facts": [{"type": "P", "fields": {"v": 4}}, {"type": "K5", "fields": {"m": 6}}]},
+  {"actions": [], "facts": [{"type": "K9", "fields": {"m": 0}}]}
+ ],
+ "drl": "rule DD salience 5 when $k : K5($m : m) $b : B(n == $m) then delete($b); insert(new B(100 + $m)); delete($k); end\nrule DDA salience 5 when K9() $b : B(n >= 1) then delete($b); end\nrule R when not B(n >= 1) P($v : v) then end\n"
+}

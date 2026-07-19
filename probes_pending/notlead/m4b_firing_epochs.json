@@ -1,0 +1,19 @@
+{
+ "name": "m4b_firing_epochs",
+ "types": [
+  {"name": "P", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "B", "fields": [{"name": "g", "type": "bool"}]},
+  {"name": "K", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "G", "fields": [{"name": "v", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "P", "fields": {"v": 1}},
+  {"type": "B", "fields": {"g": true}}
+ ],
+ "epochs": [
+  {"actions": [], "facts": [{"type": "P", "fields": {"v": 2}}, {"type": "G", "fields": {"v": 1}}]},
+  {"actions": [], "facts": [{"type": "P", "fields": {"v": 4}}, {"type": "G", "fields": {"v": 2}}]},
+  {"actions": [], "facts": [{"type": "K", "fields": {"v": 0}}]}
+ ],
+ "drl": "rule R when not B(g == true) P($v : v) then end\nrule G3 salience 3 when G($v : v) then end\nrule D when K() $b : B(g == true) then delete($b); end\n"
+}

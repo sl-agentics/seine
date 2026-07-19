@@ -667,3 +667,133 @@ NEVER happens (halt / salience-starved refire)? — that decides
 whether the port is "epilogue del + synthetic relink pulse" or a
 true match-update-time retraction. Blast surface: tms_envelope
 (SD census), the D-330 park lanes, nl7/p1 (must stay green).
+
+## D-335 probe round: SUPERSEDE TIMING (Bryan: "do the supersede-
+## timing probe round")
+
+SOURCE FIRST (drools-tms 9.44.0.Final): the transient-relink law
+is TEXTUALLY UNSUPPORTED — PhreakRuleTerminalNode.doLeftTupleUpdate
+makes NO TMS call (an updated fired match just re-queues);
+removeLogicalDependencies rides cancelActivation (match DELETE
+only); and TruthMaintenanceSystemKnowledgeHelper is prologue-
+snapshot (setActivation clears deps) + insertLogical re-justify +
+reset() cancelRemainingPreviousLogicalDependencies — the SAME
+ins-then-del refire shape as Seine's D-076 epilogue. The not's
+right count never dips textually. Yet p3 forks. The sharpest
+unexplained delta p3-vs-m4: p3's churn epochs CONTAIN FIRINGS
+(W refires); m4's epochs are fire-free.
+
+### m4b prediction (REGISTERED BEFORE the cell runs)
+
+m4b = m4 + a trivial G-rule firing per churn epoch (no TMS, no
+churn — B(true) sits untouched until the final delete):
+- If the oracle's per-epoch drain is FIRING-DRIVEN (something in
+  the fire loop drains staged join inserts of unlinked-blocked
+  paths): m4b FORKS — oracle R(4) R(2) R(1) (insertion-ordered)
+  vs engine R(2) R(4) R(1) (accumulation).
+- If the drain is TMS-supersede-specific: m4b MATCHES like m4
+  (both accumulate, R(2) R(4) R(1)).
+
+### The TmsProbe measurement (standalone listener probe, oracle
+### classpath, p3's exact shape)
+
+Event stream: the supersede flush order is **WM-INS B2(new) THEN
+WM-DEL B2(old)** — ins-then-del,同 Seine's epilogue. THE
+TRANSIENT-RELINK LAW IS DEAD (recorded miss — the counter never
+dips mid-churn). The MATCH+ stream: R's matches are created ONLY
+at e3, in order [P(4), P(2), P(1)] = (with the trg-prepend +
+terminal-walk flip) join emission [Pa, Pb, Pc] = INSERTION-
+ORDERED rtm = R's network EVALUATED EVERY CHURN EPOCH.
+
+### THE LAW (round verdict candidate): not-right DEL dirty-notify
+
+One rule fits all eight measurements: **a staged right-DELETE
+arriving at a not node dirty-notifies the owning rule's item (a
+release-check) — queueing its lazy evaluation even while the
+path is blocked/unlinked.** p3: a del per epoch (the supersede's)
+=> per-epoch drain => insertion-ordered rtm. nl6/m4/m4b: no dels
+until the end => accumulation. p1: plain-churn dels per epoch =>
+both engines drain (Seine's counter hits 0 there — relink-at-
+zero coincides). Seine's fork = precisely the NON-ZERO del
+(2->1: no relink, no queue, accumulation).
+
+### p5 prediction (REGISTERED BEFORE the cell runs) — the plain
+### multi-blocker seal
+
+p5_stagger_teardown: THREE blockers B(5),B(6),B(7); `not
+B(n >= 1)`; one deleted per epoch via K5(m)-triggered rule
+(counter 3->2->1->0 — never dips to 0 until the END). Ps arrive
+per epoch. If the del-notify law holds:
+- ORACLE: per-epoch drain => rtm [Pa,Pb,Pc] => release
+  consumption [Pc,Pb,Pa] = R(4) R(2) R(1).
+- ENGINE (relink only at 0): accumulation => staged LIFO at the
+  final eval => consumption [Pb,Pc,Pa] = R(2) R(4) R(1). FORK —
+  and the class is then PLAIN (wider than TMS): any staggered
+  multi-blocker teardown over a leading not.
+
+### p5 measured — ORACLE PREDICTION MISSED (recorded): staggered
+### plain teardown ACCUMULATES ([2,4,1] both sides). Dels do NOT
+### wake a blocked not (the del-notify law is dead too). NotNode
+### source: BOTH assertObject and doDeleteRightTuple call
+### setNodeDirty on a fresh staging batch — so notifies must be
+### linkage-gated, and the p3 wake needs another asymmetry.
+
+### p6 prediction (REGISTERED BEFORE the cell runs) — plain
+### no-dip churn (ins present, counter never 0 mid-run)
+
+p6_nodip_churn: three blockers; DD deletes one AND inserts a
+replacement per epoch (counter 3->2->3: no dip, fresh INS at the
+not each epoch); final epoch DDA tears all down (the last del
+dips -> release).
+- If a not-right INSERT wakes a blocked-unlinked rule (ins-vs-del
+  asymmetry): ORACLE drains per epoch => R(4) R(2) R(1); ENGINE
+  accumulates => R(2) R(4) R(1). FORK, and the class is plain.
+- If not: both accumulate ([2,4,1]) and the p3 wake is
+  TMS-belief-machinery-specific.
+
+### p6 measured — both sides accumulate ([2,4,1]): a plain
+### not-right INSERT does not wake a blocked-unlinked rule either
+### (the "if not" prediction arm hit).
+
+### D-335 ROUND VERDICT (the supersede-timing probe round)
+
+1. THE ORIGINAL QUESTION IS ANSWERED TEXTUALLY AND MOOT FOR THE
+   FORK: TruthMaintenanceSystemKnowledgeHelper is prologue-
+   snapshot (setActivation clears deps) + insertLogical
+   re-justify + reset() removes non-re-established deps — the
+   superseded belief dies ONLY via a completed refire (or match
+   DELETE via cancelActivation). No refire => no death — the
+   SAME semantics as Seine's D-076 epilogue. The TmsProbe
+   listener measurement confirms the flush order: WM-INS
+   B2(new) THEN WM-DEL B2(old). Seine's epilogue is CORRECT;
+   both transient-dip laws are dead (recorded).
+2. THE REAL DIVERGENCE IS A WAKE: measured matrix —
+   p1 (plain churn, count dips 0): BOTH drain (Seine's
+     relink-at-zero coincides).
+   p5 (plain dels, no dip): BOTH accumulate.
+   p6 (plain ins+del churn, no dip): BOTH accumulate.
+   p3 (TMS supersede churn, no dip): ORACLE DRAINS PER EPOCH,
+     engine accumulates — THE FORK.
+   By elimination: **a TMS belief-supersede churn epoch wakes the
+   blocked not's owning rule (its lazy evaluation runs at that
+   epoch's pop, draining ALL accumulated staging); no plain
+   composition does**. p5's oracle order also re-confirms the
+   LIFO staged walk at ordinary relink evaluations, so p3's
+   insertion-ordered memory can ONLY be per-epoch draining.
+3. X52 COMPOSES EXACTLY under the wake law: per-epoch drains
+   through the churn epochs + the P0 reorder at e2 + the final
+   release => [2,3,2]; the engine's accumulation => [2,2,3].
+4. THE PORT (named, its own gated slab): when a TMS supersede's
+   belief churn touches a not-right (the stale-key retraction
+   and/or the new belief's insert reaching a not node), queue
+   the owning rule's item dirty — the evaluation stays lazy
+   (at its pop), only the WAKE is added. Blast surface:
+   tms_envelope (SD census 71), the D-330 park lanes, nl7/p1/p5/
+   p6 (must stay green). The exact Drools wake SITE remains
+   unpinned (candidate: the TMS belief ops' entry-point route
+   notifying independent of node linkage) — the port emulates
+   the BEHAVIOR; the byte gate and battery judge.
+
+Scorecard D-335: p5 oracle prediction MISSED (recorded — killed
+del-notify), p6 "if not" arm HIT, TmsProbe = the decisive
+instrument (MATCH+ stream + WM event order).
