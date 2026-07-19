@@ -5075,6 +5075,21 @@ impl Engine {
                             "averageExact requires a decimal source field; use average (IEEE double) for i64/f64".into(),
                         ));
                     }
+                    // D-341 (Bryan's ruling on the D-340 finding): the
+                    // dual wall — average over a decimal source is out
+                    // of subset. Drools routes it through
+                    // BigDecimalAverageAccumulateFunction (BigDecimal
+                    // at the sum's scale, HALF_EVEN, empty FIRES zero);
+                    // our average is IEEE double. Money never meets
+                    // floats (the D-097 item-4 thesis) — neither
+                    // semantic ships; averageExact is the steer.
+                    if spec.func == AccFunc::Average
+                        && matches!(arg_ft, FieldType::Dec { .. })
+                    {
+                        return Err(err(
+                            "average over a decimal field is out of subset (money never meets floats): use averageExact($x, scale, mode) for an exact decimal average".into(),
+                        ));
+                    }
                     // result type per D-038 pins
                     let (result_name, result_ft) = match spec.func {
                         AccFunc::Count => (ACC_LONG, FieldType::I64),

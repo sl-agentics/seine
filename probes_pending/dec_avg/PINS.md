@@ -225,3 +225,65 @@ CHANGELOG Unreleased carries the windowed-average_exact entry.
 OPEN ON THIS LANE: the pin-J gate item above (Bryan's ruling
 on average-over-decimal) — until ruled, average(decimal) is
 as-was and uncertified; group_by × average_exact stays fenced.
+
+# D-341: BRYAN'S RULING — WALL IT (2026-07-19)
+
+"per diem rate as well as interest rates can't be floats, then,
+if we wall it, which seems like correct behavior to wall." —
+option (b): average over a decimal source is OUT OF SUBSET,
+steering to averageExact. The D-097 item-4 thesis extends to
+aggregation: money never meets floats. Pin J's engine behavior
+(AVG(decimal)→F64) is REMOVED, not ported-to-Drools — neither
+the silent float coercion nor Drools' BigDecimalAverage
+(sum-scale HALF_EVEN, empty fires ZERO) survives; the exact
+tool (averageExact) is the steer.
+
+THE PORT SURFACE (recon, all reachable average+decimal paths):
+1. engine add_rules_drl (the acc validation, next to the
+   averageExact dual wall) — the one engine-side gate; covers
+   DRL accumulate AND groupby (shared validation, upstream of
+   the group_key arm).
+2. engine/tests/d098_decimals.rs pin-J assertion (AVG(decimal)
+   is DOUBLE) — FLIPS to the wall assertion.
+3. authoring.py average() construction — the decimal wall,
+   mirroring average_exact's dual (its startswith("decimal")
+   idiom covers Optional decimals too, proven by WP5); covers
+   accumulate AND group_by (construction-time).
+4. bindings/tests/test_authoring.py:451 (subset_type == "f64"
+   for average over decimal) — FLIPS to raises.
+5. tools/fuzz_duckdb.py acc_ce: average may draw a decimal
+   field — steered to i64/f64 (the harness gen.rs already
+   restricts decimal to sum-only since D-313; unchanged).
+6. Corpus + pending cells: ZERO combine average( with decimal
+   (measured D-340); the harness fuzzer never emits the combo.
+   Blast radius prediction: byte gate 100% identical.
+7. OUT OF SCOPE (recorded): seine_rs.derive's mean over decimal
+   — the DataFrame layer is the SQL/DuckDB-aligned contract
+   (Bryan's D-097 item-5 scope), not the rules accumulate.
+
+## D-341 receipts
+
+The wall landed at all 5 surfaces. ONE unpredicted mover, decoded:
+scenarios/duckdb/dk_dec_acc.json (the duckdb TIER, which the
+average+decimal recon greps missed — scenarios/duckdb/ is neither
+probes nor phase*) carried R2 = the pin-J average cell; R2
+removed, the other four rules stay DuckDB-certified. BONUS FIND
+while re-certifying: the diff-duckdb comparator itself had been
+STALE-BROKEN since the D-308 BigDecimal rename (acc results type
+"BigDecimal" now; the comparator's tuple said "Decimal" →
+KeyError on the handle arm) — diff-duckdb is NOT in the standard
+battery and had not been run since. Comparator fixed (one tuple
+entry), gate 11/11 GREEN again.
+
+Battery: byte gate vs bea549e 2505/2506 — the ONE diff is the
+edited dk_dec_acc itself (verified, gate-green); blast-radius
+prediction HIT (nothing else in 2506 outputs moves). make diff
+11/1519/414 + drift 18 identical; diff-duckdb 11/11; lint
+2378/0/0 (the ghost dk_dec_acc threw was the wall working —
+fixed by the R2 removal); cargo 74; pytest 260; demo True; SD
+census 71 EXACT; fuzz 2x2000 seeds 340001/340002 CLEAN (NEXT
+341001+... note duckdb-fuzz consumed 341001 as a seed label);
+duckdb-fuzz 200 cases seed 341001 with the steered generator:
+0 divergences. CHANGELOG Unreleased: the wall entry added
+(FOUR pending entries). Pin J's row in engine tests/docs now
+reads as superseded by D-341.

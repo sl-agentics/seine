@@ -446,9 +446,10 @@ def test_decimal_aggregates_admit_and_type():
     r2 = Rule("T2")
     r2.when(DFee)
     assert r2.accumulate(DFee, agg=seine_rs.min_(DFee.amount)).subset_type == "decimal(18,2)"
-    r3 = Rule("T3")
-    r3.when(DFee)
-    assert r3.accumulate(DFee, agg=seine_rs.average(DFee.amount)).subset_type == "f64"
+    # D-341 (supersedes the pin-J f64 typing): average over a decimal
+    # field is walled — average_exact is the steer
+    with pytest.raises(CompileError, match="average_exact"):
+        seine_rs.average(DFee.amount)
 
 
 def test_decimal_balance_gate_end_to_end():

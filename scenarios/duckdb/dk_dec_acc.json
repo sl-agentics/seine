@@ -25,7 +25,7 @@
    "fields": []
   }
  ],
- "drl": "rule R1 when accumulate( M(tag == 1, $x : amount); $s : sum($x) ) then end\nrule R2 when accumulate( M(tag == 1, $x : amount); $a : average($x) ) then end\nrule R3 when accumulate( M(tag == 1, $x : amount); $m : min($x) ) then end\nrule R4 when accumulate( M(tag == 1, $x : opt); $s : sum($x) ) then end\nrule R5 when accumulate( M(tag == 9, $x : amount); $s : sum($x) ) then end\n",
+ "drl": "rule R1 when accumulate( M(tag == 1, $x : amount); $s : sum($x) ) then end\nrule R3 when accumulate( M(tag == 1, $x : amount); $m : min($x) ) then end\nrule R4 when accumulate( M(tag == 1, $x : opt); $s : sum($x) ) then end\nrule R5 when accumulate( M(tag == 9, $x : amount); $s : sum($x) ) then end\n",
  "facts": [
   {
    "type": "M",

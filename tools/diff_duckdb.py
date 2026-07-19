@@ -283,7 +283,9 @@ def engine_match_sets(path):
         for mfact in f["matches"]:
             if mfact["type"] == "InitialFact":
                 continue
-            if mfact["type"] in ("Long", "Double", "Decimal"):
+            # "BigDecimal" = the D-308 oracle-parity name for decimal
+            # acc results (this comparator predates the rename)
+            if mfact["type"] in ("Long", "Double", "Decimal", "BigDecimal"):
                 v = mfact["fields"]["value"]
                 row.append(("acc", round(float(v), 9)))
             elif "__h" in mfact["fields"]:

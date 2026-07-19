@@ -155,6 +155,12 @@ class Gen:
         fn = r.choice(["sum", "count", "average", "min", "max"])
         if not num:
             fn = "count"
+        # D-341: average over a decimal field is walled engine-side
+        # (money never meets floats; averageExact is the steer) —
+        # the generator draws average from i64/f64 only
+        num_avg = [f for f in num if f["type"] in ("i64", "f64")]
+        if fn == "average" and not num_avg:
+            fn = "sum"
         cons = []
         for _ in range(r.randint(0, 1)):
             cons.append(self.leaf(t, binds, allow_group_unsafe=False))
@@ -162,6 +168,8 @@ class Gen:
         rv = f"v{vcount + 1}"
         if fn == "count":
             f = r.choice(t["fields"])
+        elif fn == "average":
+            f = r.choice(num_avg)
         else:
             f = r.choice(num)
         cons.append(f"${av} : {f['name']}")

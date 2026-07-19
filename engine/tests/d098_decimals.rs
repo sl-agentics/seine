@@ -157,7 +157,9 @@ fn decimal_f64_wall() {
     assert!(msg.contains("WALLED"), "the wall names itself: {msg}");
 }
 
-/// Pin J aggregates: sum exact (and widening), average -> DOUBLE,
+/// Pin J aggregates: sum exact (and widening), average WALLED over
+/// decimals (D-341 supersedes pin J's AVG->DOUBLE row — a DuckDB
+/// measurement never oracle-protected; the D-340 round falsified it),
 /// min/max preserve the decimal; nulls skip (D-097 composition);
 /// an empty/all-null sum FIRES with BigDecimal.ZERO — scale 0, "0"
 /// (MEASURED, D-313 fuzz: the old at-the-field's-scale value was a
@@ -174,14 +176,15 @@ fn decimal_aggregates() {
     let sv = &f[0].matches.iter().find(|x| x.type_name == "BigDecimal").unwrap().fields[0].1;
     assert_eq!(sv, &dec(60, 2), "pin J: exact sum 0.60");
 
-    // average -> f64 (pin J: AVG is DOUBLE)
+    // D-341 (supersedes pin J's AVG(decimal)->DOUBLE, Bryan's ruling
+    // on the D-340 finding): average over a decimal source is WALLED
+    // — money never meets floats; averageExact is the steer. (Drools
+    // itself routes this through BigDecimalAverageAccumulateFunction:
+    // BigDecimal at the sum's scale, HALF_EVEN, empty fires ZERO —
+    // neither that nor the old float coercion ships.)
     let drl = "rule R when accumulate( M(tag == 1, $x : amount); $a : average($x) ) then end";
-    let mut e = engine(drl);
-    m(&mut e, "1.00", 1, None);
-    m(&mut e, "2.00", 1, None);
-    let f = e.fire_all(100_000).unwrap();
-    let av = &f[0].matches.iter().find(|x| x.type_name == "Double").unwrap().fields[0].1;
-    assert_eq!(av, &Value::F64(1.5), "pin J: AVG(decimal) is DOUBLE");
+    let msg = engine_err(drl);
+    assert!(msg.contains("averageExact"), "the wall steers: {msg}");
 
     // min preserves decimal; null contributions skip
     let drl = "rule R when accumulate( M(tag == 1, $x : opt); $m : min($x) ) then end";

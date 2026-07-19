@@ -6,6 +6,17 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **`average()` over a decimal field is now a compile error** steering
+  to `average_exact` — money never meets floats. Previously the engine
+  silently coerced decimal contributions through IEEE double (and
+  Drools coerces them differently again: BigDecimal at the running
+  sum's scale with banker's rounding, firing `0` on an empty window —
+  measured, neither semantic is what a money average should quietly
+  do). Averages of per-diem rates, interest rates, and prices now
+  require an explicit scale and rounding mode via
+  `average_exact(field, scale=..., rounding=...)`. `average()` over
+  `int`/`float` fields is unchanged.
+
 - **`average_exact` now works with windows.** The windowed authoring
   fence is lifted: `accumulate(..., agg=average_exact(...),
   window=window_time(ms)/window_length(n))` is certified — window

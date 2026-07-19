@@ -831,6 +831,16 @@ def count() -> _Agg:
 
 
 def average(field: FieldRef) -> _Agg:
+    # D-341 (the dual of average_exact's decimal-only wall): money
+    # never meets floats — an IEEE-double average over a decimal field
+    # is out of subset; average_exact is the steer.
+    if isinstance(field, FieldRef) and str(field.subset_type).startswith("decimal"):
+        raise CompileError(
+            f"average over a decimal field ({field.name} is {field.subset_type}) "
+            "is walled — money never meets floats; use "
+            "average_exact(field, scale=..., rounding=...) for an exact "
+            "decimal average"
+        )
     return _Agg("average", field)
 
 
