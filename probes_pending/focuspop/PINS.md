@@ -177,3 +177,79 @@ the mz3-vs-x35 pair to SEE what exits B's executor. Only after
 the unique survivor: ONE engine port, narrowest-gate
 implementation, full battery. fz_342002_1206 KEEPS ITS SEAT;
 the 7 population cells are the acceptance grid.
+
+# D-347: THE MECHANISM TRACE ROUND (Bryan: "do the halt-law
+# mechanism trace round") — THE LAW CLOSES; witness GRADUATED
+
+## The trace (classpath-shadowed instrumented drools-core —
+## the D-093 vendor pattern, scratch-only; RuleExecutor +
+## AbstractGroupEvaluator + AgendaGroupQueueImpl instrumented)
+
+mz3: FIRE B(zz) → PUSH g → **peekNextRule=C@g** → halt-check
+TRUE → yield. The "empty" pushed group held C's RuleAgendaItem
+— queued by AlphaTerminalNode.modifyObject via
+byPassModifyToBetaNode: **a modify whose mask misses an alpha
+constraint's listened properties BYPASSES the stateless alpha
+and touches the rule's path REGARDLESS of the fact's
+membership** (stack traces verbatim in the round log). x35:
+peekNextRule=null → continue (R1's f2-listening alpha
+re-evaluated, failed, queued NOTHING) — and the item-add trace
+shows the second delta: **alpha-EXITS never queue the item**
+(R2's modify adds R0's item — the ENTERING rule — only).
+
+## THE COMPLETE LAW (all prior contradictions compose)
+
+1. RHS setFocus defers (SetFocusAction); already-top = no-op;
+   a real push sets the GROUP EVALUATOR flag (exits its loop
+   between executors only).
+2. The executor's between-firings check peeks the focus-top
+   group's ITEM queue: null → continue; foreign item → halt;
+   own-group strictly-preceding → halt.
+3. Items queue on: alpha-passing inserts, mask-hit re-evals
+   that PASS, and BYPASSED modifies (mask ∩ alpha-constraint
+   listen = ∅, membership-blind). Items do NOT queue on
+   alpha-exits. removeRuleAgendaItemWhenEmpty on evaluated-empty.
+The population fork: yield-style cells all had f0-only-listen
+group rules (bypassed by the f2 modify → phantom item → halt);
+keep-style cells had f2-listening group rules (re-eval → fail →
+no item). Every D-346 contradiction composes.
+
+## Model validation (BEFORE the engine port)
+
+The bypass machine (item lifecycle + evaluator flag) added to
+model_check_focuspop.py: **0 divergences over 1400 oracle cases
+(seeds 346001/2/3 + 500 @ 347001)** — the unique survivor;
+keep and yield each fail their known cells.
+
+## THE PORT (two deltas, both trace-verbatim)
+
+1. on_update epilogue: the BYPASS TOUCH — rules of the
+   alpha-terminal class (plain single-positive-pattern; the
+   model-certified scope) whose alpha-constraint mask (cmps
+   fold; bindings are not alpha nodes) misses the update mask
+   get queued/dirty/af_live — no staging; the stateful lazy
+   eval finds nothing and unqueues (Drools'
+   removeRuleAgendaItemWhenEmpty).
+2. on_update exits (pass B): an exit-only notify of an
+   alpha-terminal rule does not arm af_live (snapshot/restore
+   around the notify) — no Drools item-queue on exits.
+The existing D-320 af_flush machinery then yields exactly where
+Drools' item-peek halts. Multi-pattern bypass touches are
+UNPROBED (recorded — the alpha-terminal scope is what the model
+certifies).
+
+## Receipts
+
+Acceptance: the witness + mz1-3 + x31/x159/x267/x282/x71/x134
+ALL PASS (10 graduations: pr_fp_*); x35's residual is a NEW
+CLASS (rule-level control now correct; R0's within-rule
+activation-REQUEUE order at its final run) — BANKED as
+scenarios/xfail/fp346003x35.json, bank 17 (1206 out, x35 in).
+make diff 11/1541/414 + drift 17 identical (THE ENTIRE
+D-106/D-258/D-320 halt matrix + the D-345 12-mover family stay
+green — the mechanism-derived law preserves the calibrated
+surface); byte gate 2519/2527 = EXACTLY the 8 lane cells; lint
+2400/0/0; cargo 74; pytest 260; demo True; SD census 71 EXACT;
+agenda_open x10 identical x3; model_ird 31/31; IRD 0-div x5;
+fuzz 2x2000 seeds 345001/345002 + cep 3x300 seeds 345901-903
+ALL CLEAN; NEXT seeds 348001+.

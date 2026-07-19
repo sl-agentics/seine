@@ -6,6 +6,18 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Rule selection after `setFocus` to a quiet agenda group now matches
+  Drools.** Drools' property-reactivity bypass makes a modify touch
+  every rule whose constraints don't listen to the changed fields —
+  queueing those rules' agenda items even when no fact of theirs
+  changed — and an executor firing `setFocus` yields to any such item
+  in the focused group. Seine's stateful agenda missed those phantom
+  item wakes (and conversely woke rules on alpha-exits, which Drools
+  never does), so equal-salience rules re-activated by a `modify`
+  could fire later than Drools fires them. Eleven scenarios graduated
+  to the certified corpus, closing a fuzz witness and a
+  model-discovered divergence family.
+
 - **A rule that deletes and re-inserts an event witnessed by another
   rule's `exists`/`not` now re-fires that rule, matching Drools.**
   When a rule's consequence deletes an event that supports another

@@ -49,12 +49,13 @@ REPO = "/home/bryan/rust-rules"
 VALS = ["zz", "azz", "x", "y", ""]
 
 CONSTRAINTS = [
-    ("bare", lambda f: True, {"f0"}),            # T1($x : f0) binds f0
-    ("czz", lambda f: "zz" in f["f0"], {"f0"}),
-    ("cx", lambda f: f["f0"] == "x", {"f0"}),
-    ("f2f", lambda f: f["f2"] is False, {"f2"}),
-    ("f2t", lambda f: f["f2"] is True, {"f2"}),
-    ("czz_bf2", lambda f: "zz" in f["f0"], {"f0", "f2"}),  # + $b : f2
+    # (key, predicate, LISTEN set incl. bindings, ALPHA-constraint listen)
+    ("bare", lambda f: True, {"f0"}, set()),
+    ("czz", lambda f: "zz" in f["f0"], {"f0"}, {"f0"}),
+    ("cx", lambda f: f["f0"] == "x", {"f0"}, {"f0"}),
+    ("f2f", lambda f: f["f2"] is False, {"f2"}, {"f2"}),
+    ("f2t", lambda f: f["f2"] is True, {"f2"}, {"f2"}),
+    ("czz_bf2", lambda f: "zz" in f["f0"], {"f0", "f2"}, {"f0"}),
 ]
 
 RHS = ["none", "focus", "modify", "focus_modify", "insert"]
@@ -65,7 +66,7 @@ def gen(rng, name):
     grp_rule = rng.randrange(nrules) if rng.random() < 0.8 else None
     rules = []
     for i in range(nrules):
-        ckey, _, _ = CONSTRAINTS[rng.randrange(len(CONSTRAINTS))]
+        ckey = CONSTRAINTS[rng.randrange(len(CONSTRAINTS))][0]
         sal = rng.choice([0, 0, 0, 2, -2])
         rhs = RHS[rng.randrange(len(RHS))] if grp_rule is not None else \
             rng.choice(["none", "modify", "insert"])
@@ -124,9 +125,9 @@ def to_scenario(spec):
 # ── the agenda model ───────────────────────────────────────────────
 
 def cinfo(ckey):
-    for k, fn, listen in CONSTRAINTS:
+    for k, fn, listen, alisten in CONSTRAINTS:
         if k == ckey:
-            return fn, listen
+            return fn, listen, alisten
     raise KeyError(ckey)
 
 
@@ -139,7 +140,7 @@ def simulate(spec, law):
     firings = []
 
     def matches(ri, fi):
-        fn, _ = cinfo(rules[ri]["ckey"])
+        fn, _, _ = cinfo(rules[ri]["ckey"])
         return fn(facts[fi])
 
     for fi in range(len(facts)):
@@ -172,7 +173,7 @@ def simulate(spec, law):
             # (x49/x162: the oracle refires listeners each time).
             changed = {"f2"}
             for rj in range(len(rules)):
-                _, listen = cinfo(rules[rj]["ckey"])
+                _, listen, _ = cinfo(rules[rj]["ckey"])
                 if not (listen & changed):
                     continue
                 ok = matches(rj, fi)
@@ -230,6 +231,126 @@ def simulate(spec, law):
     return firings
 
 
+
+def simulate_bypass(spec):
+    """The D-347 mechanism-level machine (trace-derived, verbatim):
+    - RuleAgendaItems: queued on real staging (matches at start, act
+      births) AND on BYPASSED modifies (mask ∩ alpha-constraint listen
+      = ∅, incl. constraint-free patterns) — regardless of the fact's
+      membership; removed when the rule's executor visit finds nothing.
+    - RHS setFocus: deferred; real push only (already-top = no-op);
+      a real push sets the GROUP EVALUATOR flag (exit the per-group
+      loop after the current executor returns).
+    - haltRuleFiring between one rule's firings: peek the focus-top
+      group's ITEM queue (null → continue; foreign item → halt;
+      own-group strictly-preceding (sal desc, decl asc) → halt).
+    - getNextFocus pops empty tops (item-queue emptiness); MAIN stays.
+    """
+    rules = spec["rules"]
+    facts = [dict(f) for f in spec["facts"]]
+    queues = [[] for _ in rules]          # materialized activations
+    item_q = [False] * len(rules)         # RuleAgendaItem queued?
+    fstack = ["MAIN"]
+    firings = []
+
+    def matches(ri, fi):
+        fn, _, _ = cinfo(rules[ri]["ckey"])
+        return fn(facts[fi])
+
+    for fi in range(len(facts)):
+        for ri in range(len(rules)):
+            if matches(ri, fi):
+                queues[ri].append(fi)
+    for ri in range(len(rules)):
+        if queues[ri]:
+            item_q[ri] = True
+
+    def order(ris):
+        return sorted(ris, key=lambda ri: (-rules[ri]["sal"], ri))
+
+    def grp_items(g):
+        return order([ri for ri in range(len(rules))
+                      if rules[ri]["grp"] == g and item_q[ri]])
+
+    def touch(rj):
+        item_q[rj] = True
+
+    def apply_rhs(ri, fi):
+        rhs = rules[ri]["rhs"]
+        pushed = False
+        if rhs in ("focus", "focus_modify"):
+            if fstack[-1] != "g":
+                if "g" in fstack:
+                    fstack.remove("g")
+                fstack.append("g")
+                pushed = True
+        if rhs in ("modify", "focus_modify"):
+            facts[fi]["f2"] = True
+            changed = {"f2"}
+            for rj in range(len(rules)):
+                _, listen, alisten = cinfo(rules[rj]["ckey"])
+                if not (alisten & changed):
+                    # BYPASS: the stateless alpha forwards the modify
+                    # regardless of membership — the item queues; the
+                    # lazy evaluation decides matches.
+                    touch(rj)
+                if not (listen & changed):
+                    continue
+                ok = matches(rj, fi)
+                if ok and fi not in queues[rj]:
+                    queues[rj].append(fi)
+                    touch(rj)
+                elif not ok and fi in queues[rj]:
+                    queues[rj].remove(fi)
+        if rhs == "insert":
+            facts.append({"f0": "nv", "f2": False})
+            nfi = len(facts) - 1
+            for rj in range(len(rules)):
+                if matches(rj, nfi):
+                    queues[rj].append(nfi)
+                    touch(rj)
+        return pushed
+
+    guard = 0
+    while True:
+        guard += 1
+        if guard > 500:
+            return ["NONTERM"]
+        while len(fstack) > 1 and not grp_items(fstack[-1]):
+            fstack.pop()
+        group = fstack[-1]                 # evaluateAndFire captures it
+        items = grp_items(group)
+        if not items:
+            if len(fstack) > 1:
+                continue
+            break
+        halt_flag = False
+        while items and not halt_flag:     # the per-group evaluator loop
+            l = items[0]
+            if not queues[l]:
+                item_q[l] = False          # evaluated empty: item removed
+                items = grp_items(group)
+                continue
+            while queues[l]:               # the executor
+                fi = queues[l].pop(0)
+                firings.append((f"R{l}", facts[fi]["f0"]))
+                if apply_rhs(l, fi):
+                    halt_flag = True       # haltGroupEvaluation
+                top = fstack[-1]
+                titems = grp_items(top)
+                nxt = next((r for r in titems if r != l), None)
+                if nxt is None:
+                    continue
+                if rules[nxt]["grp"] != rules[l]["grp"]:
+                    break
+                if (-rules[nxt]["sal"], nxt) < (-rules[l]["sal"], l):
+                    break
+            if not queues[l]:
+                item_q[l] = False
+            items = grp_items(group)
+    return firings
+
+
 # ── oracle ─────────────────────────────────────────────────────────
 
 def oracle(paths):
@@ -256,7 +377,7 @@ def oracle(paths):
     return out
 
 
-LAWS = ["keep", "yield", "yieldall", "naive"]
+LAWS = ["keep", "yield", "bypass"]
 
 
 def main(n, seed):
@@ -279,7 +400,7 @@ def main(n, seed):
             if og is None:
                 continue
             for law in LAWS:
-                pred = simulate(spec, law)
+                pred = simulate_bypass(spec) if law == "bypass" else simulate(spec, law)
                 if pred != og:
                     score[law] += 1
                     if len(diverg[law]) < 6:

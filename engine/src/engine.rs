@@ -9082,6 +9082,7 @@ impl Engine {
         // (fz_min_2256's held right reaching memory in fire 1).
         // Pass A = entries + updates; pass B = exits; link bookkeeping
         // after every node event in both passes.
+        let mut exit_live_snap: Vec<(usize, bool)> = Vec::new(); // D-347
         for pass in 0..2u8 {
         for li in 0..self.lias.len() {
             let (ri, pos) = self.lias[li].env;
@@ -9115,6 +9116,34 @@ impl Engine {
                 }
             } else if stage == 2 {
                 self.lias[li].active.remove(&f);
+                // D-347 (second delta, trace-verbatim: the x35 probe's
+                // R2-modify shows an item-add for the ENTERING rule R0
+                // only — the EXITING rule R1's item never queues): an
+                // alpha-EXIT does not queue the rule's agenda item in
+                // Drools, so it must not arm the peek-liveness flag
+                // engine-side. Snapshot the alpha-terminal rules this
+                // exit will notify; falses restore after the notify.
+                // Entries and mask-hit passing updates DO item-queue
+                // (AlphaTerminalNode.assertObject/modifyObject) and
+                // keep their arming.
+                for i in 0..self.lias[li].k1_rules.len() {
+                    let rb = self.lias[li].k1_rules[i];
+                    if self.rules[rb].patterns.len() == 1
+                        && self.rules[rb].patterns[0].ce == CeKind::Positive
+                        && !exit_live_snap.iter().any(|(x, _)| *x == rb)
+                    {
+                        exit_live_snap.push((rb, self.nets[rb].af_live));
+                    }
+                }
+                for i in 0..self.lias[li].children.len() {
+                    let rb = self.trie[self.lias[li].children[i]].env.0;
+                    if self.rules[rb].patterns.len() == 1
+                        && self.rules[rb].patterns[0].ce == CeKind::Positive
+                        && !exit_live_snap.iter().any(|(x, _)| *x == rb)
+                    {
+                        exit_live_snap.push((rb, self.nets[rb].af_live));
+                    }
+                }
             }
             for i in 0..self.lias[li].k1_rules.len() {
                 let rb = self.lias[li].k1_rules[i];
@@ -9169,6 +9198,13 @@ impl Engine {
                 }
             }
             self.note_link_effects_ex(&mut was, Some(f));
+        }
+        // D-347: exit-only notifies of alpha-terminal rules do not arm
+        // the peek-liveness (no Drools item-queue on exits) — restore.
+        for (rb, was_live) in exit_live_snap.drain(..) {
+            if !was_live {
+                self.nets[rb].af_live = false;
+            }
         }
         for ni in 0..self.trie.len() {
             let (ri, pos) = self.trie[ni].env;
@@ -9372,6 +9408,45 @@ impl Engine {
             self.acc_pending.push((f, AccEntry::Upd(mask)));
         }
         self.tms_eager_break(f, false);
+        // D-347 (trace-derived, probes_pending/focuspop + tools/
+        // model_check_focuspop.py — the bypass machine, 0-div/1400):
+        // Drools' alpha nodes are STATELESS; a modify whose mask misses
+        // an alpha constraint's listened properties BYPASSES the
+        // re-evaluation and reaches the rule's AlphaTerminalNode
+        // REGARDLESS of the fact's membership (byPassModifyToBetaNode →
+        // AlphaTerminalNode.modifyObject → queueRuleAgendaItem) — the
+        // rule's agenda ITEM queues even for never-matching facts, and
+        // the executor halt-check then sees it (the mz3 foreign-item
+        // halt; x35's mask-hit re-evaluation fails and queues nothing).
+        // Engine mirror: an item-queue TOUCH (queued/dirty/af_live — no
+        // staging; the stateful lazy eval finds no matches and
+        // unqueues, exactly Drools' removeRuleAgendaItemWhenEmpty).
+        // Scope = the model-certified ALPHA-TERMINAL class: plain
+        // single-positive-pattern rules (no acc/qce/subnet); the
+        // multi-pattern bypass touch is unprobed (recorded).
+        for ri in 0..self.rules.len() {
+            let pats = &self.rules[ri].patterns;
+            if pats.len() != 1 {
+                continue;
+            }
+            let pat = &pats[0];
+            if pat.type_id != ftype
+                || pat.ce != CeKind::Positive
+                || pat.acc.is_some()
+                || pat.qce.is_some()
+                || !matches!(pat.sub, SubRole::None)
+            {
+                continue;
+            }
+            let alpha_mask: u64 =
+                pat.cmps.iter().fold(0u64, |m, c| m | (1u64 << c.field_idx));
+            if mask & alpha_mask == 0 {
+                self.nets[ri].queued = true;
+                self.nets[ri].dirty = true;
+                self.nets[ri].dirty_stamp = self.stage_seq;
+                self.nets[ri].af_live = true;
+            }
+        }
     }
 
     fn on_delete(&mut self, f: FactId, origin: Origin) {
