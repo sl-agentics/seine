@@ -1,0 +1,75 @@
+{
+ "name": "b5_two_boundaries",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 5000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 5000
+   }
+  }
+ ],
+ "drl": "rule CH when $a : E0() $b : E1() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 614,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 616,
+      "tag": "x"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 744,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,89 @@
+{
+ "name": "b3_split",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 5000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 5000
+   }
+  }
+ ],
+ "drl": "rule CH when $a : E0() $b : E1() then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 614,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 616,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 30
+    }
+   ],
+   "facts": [
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 700,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 702,
+      "tag": "x"
+     }
+    },
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 744,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ]
+}

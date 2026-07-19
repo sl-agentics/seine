@@ -2486,14 +2486,16 @@ fn do_join_node<E: JoinEnv>(
     // rights (ph=0) follow in ARRIVAL order (list reversed). Cloud
     // sessions never stamp ph=4, so this is the certified head-first
     // walk there.
-    let has_pre = sr.ins.iter().any(|(_, _, ph)| *ph == 4);
+    let has_pre = sr.ins.iter().any(|(_, _, ph)| *ph == 4 || *ph == 5);
     let ordered: Vec<&(FactId, Origin, u8)> = if has_pre {
-        // event-session mixed generations: pre-link LIFO, then
-        // post-link ARRIVAL (list reversed)
+        // event-session mixed generations: pre-link PLAIN rights (ph=4)
+        // LIFO first; then held EVENT rights (ph=5, D-338) and post-link
+        // rights (ph=0) together in ARRIVAL order (the LIFO-built list
+        // reversed = global arrival across both classes).
         sr.ins
             .iter()
             .filter(|(_, _, ph)| *ph == 4)
-            .chain(sr.ins.iter().filter(|(_, _, ph)| *ph == 0).rev())
+            .chain(sr.ins.iter().filter(|(_, _, ph)| *ph == 0 || *ph == 5).rev())
             .collect()
     } else {
         // certified head-first walk (cloud + pure-post batches)

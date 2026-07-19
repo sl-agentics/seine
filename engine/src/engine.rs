@@ -7235,7 +7235,8 @@ impl Engine {
                     matches!(pt.ce, CeKind::Not | CeKind::Exists) && pt.type_id == tid
                 })
             });
-            let has_ph4 = t.node.s_right.ins.iter().any(|(_, _, ph)| *ph == 4);
+            let has_ph4 =
+                t.node.s_right.ins.iter().any(|(_, _, ph)| *ph == 4 || *ph == 5);
             // The IF actually TOGGLES iff the rule LINKS at this insert
             // (pre-unlinked -> now-linked; 358's second enabler is a
             // type-match but NOT a toggle). RE-materialization only
@@ -9003,7 +9004,18 @@ impl Engine {
                     && !self.trie[ni].node.temporal
                     && !self.rule_linked(ri)
                 {
-                    self.trie[ni].node.s_right.add_ins_ph(f, origin, 4);
+                    // D-338 (b3/b4/b5 grid + x167's m3/m5): EVENT-typed
+                    // held rights walk in ARRIVAL order (ph=5) — Drools'
+                    // per-insert stream force-flush rides event inputs
+                    // (isStreamMode is a node/type property); PLAIN facts
+                    // keep the certified pre-LIFO class (ph=4 — pr_nl_m4's
+                    // [2,4,1]; the wholesale walk flip broke it).
+                    let ph = if self.event_specs.contains_key(&self.store.fact_type(f)) {
+                        5
+                    } else {
+                        4
+                    };
+                    self.trie[ni].node.s_right.add_ins_ph(f, origin, ph);
                 } else {
                     self.trie[ni].node.s_right.add_ins(f, origin);
                 }
