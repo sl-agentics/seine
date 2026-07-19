@@ -6,6 +6,19 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **`no-loop` now suppresses across `or` branches when a branch's own
+  consequence satisfies a sibling branch's `exists`.** In Drools,
+  `or` branches compile to sub-rules sharing the rule's name, and
+  `no-loop` suppresses any activation whose most recent cause is the
+  same rule's firing — including a sibling branch activated because
+  the consequence inserted (or modified) the fact its `exists`
+  needed. Seine lost the causing rule's identity on that path (the
+  newly-satisfied branch's join was filled fresh, with no origin), so
+  the sibling fired once more than Drools. Separate rules, external
+  or foreign-rule insertions, and later matches over the old blocker
+  are unaffected (certified by controls). Ten scenarios graduated to
+  the certified corpus, closing a long-quarantined fuzz witness.
+
 - **Activations born from a consequence's mixed inserts and modifies now
   fire in effect order.** A rule whose consequence both inserts facts
   and modifies existing ones re-activates a single-pattern rule's

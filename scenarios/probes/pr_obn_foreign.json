@@ -1,0 +1,68 @@
+{
+  "drl": "rule \"R9\"\nsalience 10\nwhen\n    T0()\nthen\n    insertLogical(new T2(\"a\"));\nend\nrule \"R2\"\nno-loop\nwhen\n    ( T1() and exists T2(!(f0 contains \"b\")) )\n    or\n    ( T1() and exists T2(f0 contains \"a\") )\nthen\n    insertLogical(new T2(\"a\"));\nend\n",
+  "facts": [
+    {
+      "fields": {
+        "f0": 0,
+        "f1": 0,
+        "f2": false
+      },
+      "type": "T0"
+    },
+    {
+      "fields": {
+        "f0": true,
+        "f1": true
+      },
+      "type": "T1"
+    },
+    {
+      "fields": {
+        "f0": ""
+      },
+      "type": "T2"
+    }
+  ],
+  "name": "obn_foreign",
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "i64"
+        },
+        {
+          "name": "f1",
+          "type": "i64"
+        },
+        {
+          "name": "f2",
+          "type": "bool"
+        }
+      ],
+      "name": "T0"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "bool"
+        },
+        {
+          "name": "f1",
+          "type": "bool"
+        }
+      ],
+      "name": "T1"
+    },
+    {
+      "fields": [
+        {
+          "name": "f0",
+          "type": "String"
+        }
+      ],
+      "name": "T2"
+    }
+  ]
+}

@@ -10,15 +10,14 @@ evidence).
 ## THE TARGET — ten aged witnesses, FRESH-TRIAGED 2026-07-19
 ## (all re-measured this day; classes below are today's forks)
 
-ORACLE-NPE family (2) — Drools CRASHES, engine succeeds:
+ORACLE-NPE family (2) — ALREADY DISPOSED (correction 2026-07-19):
 - xf_fz_31337_698, xf_fz_8087_1043: oracle NPE
-  `Tuple.getStagedType() ... "tuple" is null`. PRECEDENT: D-263
-  (an oracle NPE resolved upstream in Drools 10.1.0; no filing).
-  10.1.0 jars EXIST in ~/.m2 (org/drools/*/10.1.0). The round:
-  build a 10.1.0 classpath variant of the oracle runner, run
-  both witnesses — if clean there, these are oracle-defect
-  records; disposition (reclassify out of the bank vs keep) is
-  BRYAN'S CALL.
+  `Tuple.getStagedType() ... "tuple" is null`. D-263 was not
+  merely the precedent — it WAS this pair (2026-07-15): both ran
+  CLEAN 3x on a throwaway 10.1.0 oracle, nothing to file, and
+  the disposition is recorded in both files' _finding: STAY
+  BANKED as a pinned-oracle envelope limitation, adjudicable on
+  a future oracle bump. NO WORK REMAINS in this family.
 
 ORACLE-FLAPPER (1):
 - fz_123_6887 (TMS-envelope era): passes a STANDALONE diff 4/4
@@ -38,8 +37,12 @@ future round):
 
 COUNT class (2) — firing-count forks (value-class, highest
 semantic yield per the shop's experience):
-- xf_fz_296002_626: engine 7 vs oracle 5.
-- fz_777_1278: engine 4 vs oracle 3.
+- xf_fz_296002_626: engine 7 vs oracle 5. (Still open; NOT the
+  D-350 law — no no-loop, no or-branches; setFocus/dyn-salience/
+  acc shape, own decode next.)
+- fz_777_1278: engine 4 vs oracle 3 — CLOSED (D-350, this
+  round): the no-loop or-sibling exists-origin law; graduated
+  pr_obn_fz_777_1278 + 9 ladder cells; see PINS.md.
 
 ORDER class (3):
 - xf_fz_141421_123: firing[141] swap (DEEP — expect heavy

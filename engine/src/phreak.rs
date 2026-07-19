@@ -3069,8 +3069,25 @@ fn do_existential_node<E: JoinEnv>(
                 node.blocker_of.insert(l.clone(), b);
                 node.blocked.entry(b).or_default().insert(0, l.clone());
                 if !is_not {
+                    // The exists child carries the BLOCKER's propagation
+                    // context (PhreakExistsNode.doLeftInserts:128), and a
+                    // no-loop terminal suppresses on the MOST RECENT
+                    // context in the chain (findMostRecentPropagationContext)
+                    // — a blocker staged in THIS batch outranks the left's
+                    // stored context, so a None-origin left inherits its
+                    // same-batch blocker's rule origin (obn_min: the
+                    // relink fill; obn_upd_entry: ph=1 upd-entry). An OLD
+                    // blocker never outranks a fresh left (obn_late_left),
+                    // and an existing left origin is already most-recent.
+                    let co = (*o).or_else(|| {
+                        sr.ins
+                            .iter()
+                            .chain(sr.upd.iter())
+                            .find(|(f, _, _)| *f == b)
+                            .and_then(|(_, ro, _)| *ro)
+                    });
                     let t = node.create_ce_child(l);
-                    out.child_ins(t, *o, 0);
+                    out.child_ins(t, co, 0);
                 }
             }
             None => {
