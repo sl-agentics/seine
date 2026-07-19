@@ -9091,8 +9091,23 @@ impl Engine {
                     // for existential re-entries.
                     let reentry =
                         self.trie[ni].node.s_right.del.iter().any(|(x, _, _)| *x == f);
-                    let ph = if reentry { 1 } else { 0 };
-                    self.trie[ni].node.s_right.add_ins_ph(f, origin, ph);
+                    // D-326 (a3/a7/a8b + fz_315002_1364): at an ACC source,
+                    // a same-batch exit+re-entry folds to ONE update —
+                    // Drools stages by fact identity, so the net alpha
+                    // state makes it a modify whose acc effect drains at
+                    // the UPDATE position (before fresh inserts):
+                    // value-changing = reverse-old + append-new, value-
+                    // preserving = move-to-tail. Joins keep the certified
+                    // del+ins ph=1 late-pass (jr pins; join CHILDREN are
+                    // new objects per c13 — the FACT is the same object).
+                    let is_acc = self.rules[ri].patterns[pos].acc.is_some();
+                    if reentry && is_acc {
+                        let _ = self.trie[ni].node.s_right.del.remove_first_by_key(&f);
+                        self.trie[ni].node.s_right.add_upd(f, origin);
+                    } else {
+                        let ph = if reentry { 1 } else { 0 };
+                        self.trie[ni].node.s_right.add_ins_ph(f, origin, ph);
+                    }
                 }
                 (true, false) => {
                     self.trie[ni].active.remove(&f);

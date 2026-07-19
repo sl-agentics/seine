@@ -17701,3 +17701,52 @@ D-318 fourth-member threshold, its own hunt is DUE), and
 cf325901x52 is an unclassified not-DW P-witness order fork.
 Open: the 5-member arrival/update-order sub-family hunt (DUE),
 cf325901x52 classification, ?query justifiers, crates.io TP.
+
+## D-326 — THE ARRIVAL/UPDATE-ORDER HUNT (Bryan: "do the arrival/update-order hunt") — THE IDENTITY-FOLD: AN EXIT+RE-ENTRY IS ONE UPDATE (2026-07-18)
+
+Hand-decode of fz_315002_1364 (the cleanest of the five): the
+epoch does an alpha-EXIT update, an alpha-RE-ENTRY update (f1 now
+-5), then inserts a fresh fact (f1=5); oracle tail [-5,5], engine
+[5,-5] — the re-entry's arrival lost to the insert. The
+queue-split hypothesis (inserts vs acc_pending drain order) FELL
+in round 1: a1 (plain update + insert) MATCHES — updates already
+land before inserts. The divergent ingredient is the EXIT+
+RE-ENTRY specifically (a3). a7's [5,2] then broke pure call-order
+and landed the law:
+
+**Drools folds same-fact staged ops by tuple identity: an
+exit+re-entry pair coalesces into ONE net in-place UPDATE, whose
+accumulate effect drains at the UPDATE position — before fresh
+inserts, LIFO among updates; value-changing (reverse-old +
+append-new) and value-preserving (move-to-tail) alike (the a8
+pair). The engine staged the transitions separately, turning the
+re-entry into an insert-like arrival at the wrong drain
+position.**
+
+THE PORT: in on_update's inline (false,true) arm — when the
+pattern is an ACC source and a staged del for the same fact
+exists, fold del+ins → UPD (the drain's existing update
+processing does the rest). Joins keep the certified del+ins ph=1
+late-pass (jr pins; join children are NEW objects per c13 — the
+fact is the SAME object). Closes a3/a8b + fz_315002_1364; 11
+grid cells graduate (pr_co_a1..a8b + the witness), corpus
+11/1431/414, bank 49→48.
+
+THE FAMILY LEDGER after this slab: the plain-typed lane is
+CLOSED; four residuals remain, all needing the clock plane —
+cf324903x55/cf325902x221/x88 (EVENT-typed entry drain ×
+window/ts churn; guarded by the D-154/D-160 pins — a blind fold
+extension is the D-083 hand-tuning trap) and xf_fz_662607_47
+(collectSet first-instance order); cf325901x52 is reclassified
+OUT (not a Collection fork — a not-DW P-witness order latent,
+unexplained). Receipts: byte gate 2408 same / 1 moved / 0 diff
+vs caedbbf (the graduated 1364 is the only movement); make diff
+1856 PASS (11/1431/414) + drift 48 identical; lint 2260/0/0;
+cargo 73; maturin + pytest 257; demo True; model_ird 31/31; IRD
+0-div ×5; agenda_open ×10 identical vs pre-edit; **SD census 72 EXACT ×12
+(6,10,3,5,6,5,5,6,8,7,4,7)**; fresh fuzz 2×2000 seeds
+326001/326002 CLEAN; fuzz_cep 3×300 seeds 326901-903: 2 finds,
+both worktree-bisected PRE-EXISTING and banked (cf326901x184,
+cf326902x239 — the same event-drain × window churn class; the
+cep sub-family is now FIVE members awaiting its clock-plane
+round; bank 50).

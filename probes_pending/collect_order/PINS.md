@@ -223,3 +223,92 @@ an update-churn windowed-collect order fork whose minimal forms
 (w6/w7) do NOT reproduce it → banked beside fz_315002_1364 and
 xf_fz_662607_47 as the third minimal-cell-resistant member of
 the arrival/update-order sub-family.
+
+# ═══════════════════════════════════════════════════════════════
+# THE ARRIVAL/UPDATE-ORDER HUNT (D-326; Bryan: "do the
+# arrival/update-order hunt" — the 5-member sub-family)
+# Predictions registered 2026-07-18 BEFORE any cell ran.
+# ═══════════════════════════════════════════════════════════════
+
+HAND-DECODE OF fz_315002_1364 (the cleanest member): R5 collects
+f1 over T0(f0 < 11). The epoch: update(target0){f0:100,f1:-5} =
+ALPHA EXIT (f1=6 leaves); update(target0){f0:1} = ALPHA RE-ENTRY
+(f1=-5 arrives); then a FACT INSERT (f1=5). Oracle tail [-5, 5]
+= per-op call order (each external op's acc effect lands at its
+own position); engine tail [5, -5] = the fresh insert's arrival
+BEAT the update's re-entry.
+
+**HYPOTHESIS: the oracle applies epoch ops' accumulate effects in
+PER-OP CALL ORDER; the engine routes fresh inserts through WM
+staging but external updates through the acc_pending queue
+(D-154/D-160), and the two queues' relative drain order does not
+preserve call order — inserts land before update-driven effects.**
+
+## THE GRID (T(v,g,k); C collects v over T(g < 10); k = tag)
+
+- **a1_upd_then_ins**: initial [T(1,g1,k1)]; epoch: update k1
+  {v:2} THEN insert T(3,g1,k2). Oracle = call order: remove-1 +
+  append-2, then append-3 → [2,3]. Engine (insert-first drain) →
+  [3,2]. PREDICT DIVERGE (med-high — the 1364 signature).
+- **a2_ins_then_upd**: epoch: insert T(3) THEN update k1 {v:2}.
+  Call order → [3,2]; insert-first drain → also [3,2]. PREDICT
+  MATCH (med-high). The a1/a2 pair is the splitter: only the
+  update-BEFORE-insert order can expose the queue split.
+- **a3_reentry_then_ins**: the 1364 distillate — update k1
+  {g:20} (exit), update k1 {g:1, v:2} (re-entry), insert
+  T(3). Oracle [2,3]; engine [3,2]. PREDICT DIVERGE (med-high).
+- **a4_two_epoch_facts**: epoch inserts T(3,k2) and T(4,k3) (no
+  updates). PREDICT MATCH (med): same-queue ordering is already
+  certified (initial LIFO, c1; epoch facts — record the order).
+- **a5_two_upds**: epoch updates k1{v:2} then k2{v:5} (two
+  acc_pending entries; initial [T(1,k1),T(4,k2)]). PREDICT MATCH
+  (med-high): the D-154 FIFO pin covers same-queue order.
+- **a6_del_then_ins**: epoch: DELETE k1 then insert T(3).
+  Deletes ride WM staging (a third path). PREDICT MATCH
+  (med-low): remove-first + append agree under either drain
+  order here ([1]-1=[] then +3 = [3] both). Recorded for the
+  op-coverage row.
+
+If a1/a3 diverge and a2/a4/a5 match → the law is per-op call
+order and the engine fix is the acc-effect ordering between the
+two queues (likely: route update-driven acc effects through the
+same boundary drain position as inserts, or interleave
+acc_pending with the staged-insert drain by op sequence). The
+five witnesses re-diff after any fix; the cep members (x55/x221/
+x88) add the window/ts axis on top — verify before claiming
+them.
+
+## D-326 MEASUREMENTS + THE PORT (2026-07-18)
+
+Round 1 (a1-a6): a1 MATCH (the queue-split hypothesis fell — a
+plain value-update + insert already lands in call order); **a3
+DIVERGE — the divergent ingredient is the ALPHA EXIT +
+RE-ENTRY**, not updates generally; a2/a4/a5/a6 MATCH. a7's
+oracle [5,2] then broke pure call-order and landed the real law:
+**Drools folds same-fact staged ops by identity — an exit +
+re-entry pair coalesces into ONE net in-place UPDATE whose acc
+effect drains at the update position (before fresh inserts, LIFO
+among updates)**; the a8 pair confirmed it holds for
+value-PRESERVING re-entries too (a8: move-to-tail identical;
+a8b: the move drains before the epoch insert — oracle [1,4,3]
+vs engine [1,3,4]).
+
+THE PORT: in on_update's inline (false,true) re-entry arm, when
+the pattern is an ACC source and a staged del for the same fact
+exists → fold: remove the del, stage an UPD (the drain's
+existing update processing does reverse-old + append-new /
+move-to-tail). Joins keep the certified del+ins ph=1 late-pass
+(jr pins — join CHILDREN are new objects per c13; the FACT is
+the same object). Closes a3/a8b + **fz_315002_1364** (the
+hand-decoded member: exit + re-entry(-5) + insert(5) → the
+oracle's [.., -5, 5]).
+
+RESIDUALS (4): the cep members (cf324903x55/cf325902x221/x88)
+ride the EVENT-typed entry drain (per-entry against epoch-final
+fields, D-160) + window/ts churn — their forks are byte-
+unchanged by this fix and the composition is guarded by the
+D-154/D-160 pins (updel/multiupd/ap1, wa_* revival): they need
+their own clock-plane probe round, not a blind fold extension.
+xf_fz_662607_47 (collectSet first-instance order) likewise.
+cf325901x52 is not a Collection fork at all (not-DW P-witness
+order) — reclassified OUT of this family, unexplained.

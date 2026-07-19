@@ -1,0 +1,53 @@
+{
+ "drl": "rule C when accumulate( T(g < 10, $v : v); $l : collectList($v) ) then end\n",
+ "types": [
+  {
+   "name": "T",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "g",
+     "type": "i64"
+    },
+    {
+     "name": "k",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "T",
+   "fields": {
+    "v": 1,
+    "g": 1,
+    "k": 1
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ],
+   "facts": [
+    {
+     "type": "T",
+     "fields": {
+      "v": 3,
+      "g": 1,
+      "k": 2
+     }
+    }
+   ]
+  }
+ ],
+ "name": "pr_co_a6_del_then_ins"
+}

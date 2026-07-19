@@ -6,6 +6,14 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **A fact leaving and re-entering an accumulate in one batch is
+  one update** — when an update pushes a fact out of an
+  accumulate's source constraint and a later update in the same
+  batch brings it back, the collected effect now lands as a
+  single in-place update at the update's position (before the
+  batch's fresh inserts), exactly as Drools' identity-folded
+  staging does. Fixes `collectList` element order under
+  out-and-back updates.
 - **Eager rules in unfocused agenda groups preempt correctly** —
   a `no-loop` (or dynamic-salience) rule in a not-yet-focused
   agenda group leaves a pending agenda entry after its eager
