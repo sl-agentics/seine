@@ -462,3 +462,91 @@ reactivity masking), nl3/nl4 oracle predictions HIT exactly,
 nl5/nl6 partially/fully MISSED. The misses are the finding: the
 clean surface is healthy and the composition is subtler than the
 D-333 toolkit's straight-line application.
+
+## D-334 round 2: THE NOTLEAD MODEL ROUND (Bryan: "do the notlead
+## model round")
+
+### The nl6 decode — D-031 UNLINK closes the composition
+
+The nl6 "impossible" [2,4,3] composes EXACTLY once the D-031
+unlink joins the toolkit: an ALPHA-ONLY not UNLINKS the path
+while a blocker exists (unlinkNotNodeOnRightInsert at eval;
+relink when the right count returns to 0). While unlinked the
+rule is never selected, so staged effects ACCUMULATE ACROSS
+EPOCHS and all process in ONE relink evaluation:
+  nl6: e0 eval blocks the IF-left + unlinks, rtm [Pa]; e1 ins Pb
+  and e2 upd Pa just SIT staged; e3 relink eval: reorder walks
+  staged upds (Pa in rtm: singleton removeAdd = no-op... Pa IS
+  rtm-resident: removeAdd -> [Pa] unchanged), rightIns walks the
+  staged ins LIFO [Pc, Pb] -> rtm [Pa, Pc, Pb], leftIns walks
+  forward + one flip => consumption [Pb, Pc, Pa] = [2,4,3] ✓.
+All six nl cells re-compose exactly under {D-333 lists + D-031
+unlink + cross-epoch staged accumulation + the join arm order}.
+
+### nl8 prediction (REGISTERED BEFORE the cell runs) — the
+### staged-upd walk + reorder-timing discriminator
+
+nl8_two_upds: Pa(1), Pb(2), B(true) (rtm [Pb, Pa] — initial batch
+LIFO walk); e1 upd Pa v->3; e2 upd Pb v->5; e3 Pc(4)+K release.
+Source machine (reorder at EVAL, staged-upd walk HEAD-first =
+LIFO [Pb, Pa]): removeAdd Pb -> [Pa, Pb]; removeAdd Pa ->
+[Pb, Pa]; rightIns Pc -> [Pb, Pa, Pc]; consumption reverse =
+[Pc, Pa, Pb] => ORACLE PREDICT: D then R(4) R(3) R(5).
+Competing machines: upd-walk TAIL-first (FIFO) => [Pa, Pb, Pc] =>
+R(4) R(5) R(3); reorder at ARRIVAL (per-epoch, no accumulation)
+=> e1 no-op (Pa at tail), e2 -> [Pa, Pb] => R(4) R(5) R(3) (same
+as FIFO — nl8 separates source from BOTH).
+
+### nl7 prediction (REGISTERED) — the TMS-churn flavor (x52's
+### missing composition, cloud-clean)
+
+nl7_tms_churn: W: K2($n:n) => insertLogical(B2($n)); R: not
+B2(n>=1) P($v). e0: W fires B2(5), R blocks + unlinks. e1: P(2)
+ins + K2 n->7: W refires => supersede: ins B2(7) + del B2(5) —
+BOTH STAGE at the unlinked not (net right count stays 1, no
+relink). e2: K2 n->0: W refires, B2(0) fails the alpha => only
+del B2(7) stages => count 0 => RELINK: the accumulated staged
+set {ins B2(7), del B2(5), del B2(7)} ANNIHILATES B2(7)
+(ins+del, the D-333 clash law) leaving del B2(5): pure release,
+NO re-block. Join: rtm [Pa] + staged ins Pb -> [Pa, Pb];
+consumption [Pb, Pa].
+ORACLE PREDICT: W W W R(2) R(1).
+ENGINE: genuinely uncertain — insertLogical routes through the
+eager TMS machinery (materialize -> on_insert immediately); if
+the engine's B2(7) reaches rtm eagerly at e1, its e2 release
+walks a DIFFERENT composition. The cell IS the probe; a fork
+here = the clean witness for x52's class.
+
+### D-334 round-2 verdict (model_check_notlead.py, 8 machines x 5
+### timelines)
+
+nl7 AND nl8 predictions both HIT EXACTLY (3x-stable): nl8 = the
+staged-upd LIFO walk with eval-time reorder (refutes FIFO and
+per-epoch-arrival machines); nl7 = the TMS-supersede churn incl.
+the D-333 ins+del ANNIHILATION at the unlinked not (W W W R(2)
+R(1) — the accumulated {ins B2(7), del B2(5), del B2(7)} nets to
+one release, no re-block). The ENGINE matches the oracle on BOTH
+— all EIGHT nl cells engine==oracle.
+
+Grid: UNIQUE SURVIVOR = (unlink=on, updwalk=lifo, inswalk=lifo).
+Refutations: unlink=off fails nl6+nl8 (per-epoch reorder moves
+the resident P too early); ins=fifo fails nl1/3/4/6 (the cross-
+epoch staged-ins walk is newest-first); upd=fifo fails nl8.
+
+THE NOT-LEAD LAW (pinned): a leading not gates the InitialFact
+tuple; while a blocker exists the ALPHA-ONLY not UNLINKS its path
+(D-031) and ALL staged effects accumulate across fireAllRules
+boundaries; the relink evaluation processes them in ONE batch —
+reorder walks staged upds LIFO (removeAdd = move-to-tail),
+rightIns walks staged ins LIFO (tail-append), the released
+IF-child then walks the memory FORWARD with one staging flip to
+the terminal FIFO. The engine implements this composition
+correctly on the entire clean surface, INCLUDING plain-TMS
+supersede churn.
+
+x52's residual is now tightly bounded: everything in its shape
+EXCEPT the event-session x windowed-accumulate composition
+(window:time sum + expirations + the D-154/D-160 entry machinery
++ the value-preserving E0 update) is certified healthy. The next
+attack is a windowed nl9 ladder toward W2's exact accumulate —
+a clock-plane round, not a notlead one.

@@ -1,0 +1,17 @@
+{
+ "name": "nl7_tms_churn",
+ "types": [
+  {"name": "P", "fields": [{"name": "v", "type": "i64"}]},
+  {"name": "B2", "fields": [{"name": "n", "type": "i64"}]},
+  {"name": "K2", "fields": [{"name": "n", "type": "i64"}]}
+ ],
+ "facts": [
+  {"type": "P", "fields": {"v": 1}},
+  {"type": "K2", "fields": {"n": 5}}
+ ],
+ "epochs": [
+  {"actions": [{"op": "update", "target": 1, "fields": {"n": 7}}], "facts": [{"type": "P", "fields": {"v": 2}}]},
+  {"actions": [{"op": "update", "target": 1, "fields": {"n": 0}}], "facts": []}
+ ],
+ "drl": "rule W when $k : K2($n : n) then insertLogical(new B2($n)); end\nrule R when not B2(n >= 1) P($v : v) then end\n"
+}
