@@ -1,0 +1,75 @@
+{
+ "name": "tm5_temporal_held",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 5000
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 5000
+   }
+  }
+ ],
+ "drl": "rule CH when $a : E0() $b : E1(this before[0ms,50ms] $a) then end\n",
+ "facts": [
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 614,
+    "tag": "x"
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 616,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 30
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 644,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ]
+}

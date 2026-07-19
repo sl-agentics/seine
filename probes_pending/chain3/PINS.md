@@ -104,3 +104,22 @@ The next round extends the arrival law to temporal held-event
 rights with the jr/TJ pins as the counter-set. Five graduations:
 pr_ch_b3_split, pr_ch_b4_certified_control,
 pr_ch_b5_two_boundaries, pr_ch_x167_m3, pr_ch_x167_m5.
+
+## D-338 round 3: the temporal residual — SCOPED, not yet ported
+
+tm5_temporal_held (2-pattern temporal `E0() E1(before)` with the
+held-rights epoch split): engine==oracle ALREADY — graduated
+pr_ch_tm5_temporal_held. The basic temporal held case is healthy.
+
+The m1/m2 carrier is NOT do_node's temporal else-arm: an
+instrumented stamp-loop print never fired on either witness —
+the (E0,E1) children reach the second temporal join through the
+D-125 v2 FLUSH-MODEL path (the per-arrival cascade outside
+do_node's staged walk). The residual round therefore lives on
+the D-125 lane: the intermediate-tuple order INTO a downstream
+temporal join within one arrival cascade (oracle wants the
+staging flip the plain branch has; the engine's cascade hands
+them over un-flipped — m1/m2's stable adjacent swap). Counter-set
+for that port: the jr pins + the D-125 flush-model cells + the
+TJ corpus. Needs its own session; cf318902x167 keeps its xfail
+seat until then.
