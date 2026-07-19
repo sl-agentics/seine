@@ -1272,6 +1272,26 @@ impl Node {
     fn kill_child(&mut self, idx: usize) -> Tup {
         self.children[idx].dead = true;
         self.child_ix.remove(&self.children[idx].tuple);
+        // D-330: amortized dead-id compaction of the per-key index lists.
+        // Permanent parents (the runaway relay's immortal lefts) otherwise
+        // accumulate dead ids without bound and every child walk re-scans
+        // all-ever — the quadratic that made the engine's fire-limit relay
+        // minutes instead of seconds. The 2× threshold (D-297's pattern)
+        // keeps same-batch position anchors (create_child before_*) intact;
+        // dead ids below threshold still filter at the walks as before.
+        let children = &self.children;
+        if let Some(v) = self.by_left.get_mut(&children[idx].left) {
+            if v.len() >= 8 && v.iter().filter(|&&i| children[i].dead).count() * 2 > v.len() {
+                v.retain(|&i| !children[i].dead);
+            }
+        }
+        if let Some(r) = children[idx].right {
+            if let Some(v) = self.by_right.get_mut(&r) {
+                if v.len() >= 8 && v.iter().filter(|&&i| children[i].dead).count() * 2 > v.len() {
+                    v.retain(|&i| !children[i].dead);
+                }
+            }
+        }
         self.children[idx].tuple.clone()
     }
 

@@ -55,6 +55,21 @@ def main():
             # diverge; the pending dir holds it until its class closes)
             ok += 1
             continue
+        if scn.get("expect_error"):
+            # D-330: a certified ERROR-PARITY cell (make diff certifies
+            # error-vs-error against the oracle — the D-013/j21 lane);
+            # the engine must still ERROR here, else the parity is gone
+            r = subprocess.run([BIN, "run", f], capture_output=True, text=True)
+            out = None
+            try:
+                out = json.loads(r.stdout)
+            except Exception:
+                pass
+            if r.returncode == 0 and out and "error" not in out:
+                ghosts.append((f, "expect_error probe ran CLEAN — the parity error is gone?"))
+            else:
+                ok += 1
+            continue
         if scn.get("engine_fenced"):
             # deliberate oracle-recon probe of a WALLED shape: the
             # engine must reject it LOUDLY (a fence regression check)

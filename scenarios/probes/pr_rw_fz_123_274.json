@@ -1,0 +1,81 @@
+{
+ "drl": "rule \"R0\"\nsalience 10\nwhen\n    T1(f0 >= 0.0, f0 != -4, $b0_0_0 : f0)\nthen\n    insertLogical(new T2(false, 100, $b0_0_0));\nend\nrule \"R1\"\nwhen\n    ( T2(f1 != -1000000007 || f2 == -1.0) )\n    or\n    ( T2(f1 != -1000000007 || f2 == -1.0) )\n    or\n    ( T2(f2 not in (-1.0, 4.5, 3.0)) )\nthen\nend\nrule \"R2\"\nwhen\n    (or not T2() not T2())\nthen\n    insertLogical(new T2(false, -3, 2.0));\nend\nrule \"R3\"\nsalience -7\nwhen\n    $p3_0 : T1(f0 < 1.0, f0 > -0.5, $b3_0_0 : f0)\n    $p3_1 : T0($b3_1_0 : f3)\n    T1(f0 <= $b3_0_0, $b3_2_0 : f0)\nthen\n    insertLogical(new T2($b3_1_0, $p3_1.getF1(), $p3_0.getF0()));\nend\n",
+ "epochs": [
+  {
+   "actions": [],
+   "facts": [
+    {
+     "fields": {
+      "f0": -2,
+      "f1": 100,
+      "f2": 2.5,
+      "f3": true
+     },
+     "type": "T0"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": 7,
+    "f1": -2,
+    "f2": 5.0,
+    "f3": false
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_123_274",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    }
+   ],
+   "name": "T2"
+  }
+ ],
+ "expect_error": true
+}

@@ -39,7 +39,13 @@ import java.util.TimeZone;
 public final class OracleRunner {
 
     private static final String PKG = "seine.gen";
-    private static final int FIRE_LIMIT = 100_000;
+    // SEINE_FIRE_LIMIT: diagnostic override for runaway decodes (D-330
+    // round) — unset = the certified 100_000; outputs are untouched
+    // unless the env is set.
+    private static final int FIRE_LIMIT =
+            System.getenv("SEINE_FIRE_LIMIT") != null
+                    ? Integer.parseInt(System.getenv("SEINE_FIRE_LIMIT"))
+                    : 100_000;
     private static final ObjectMapper M = new ObjectMapper();
 
     public static void main(String[] args) throws Exception {
@@ -143,6 +149,9 @@ public final class OracleRunner {
             }
             int fired = session.fireAllRules(FIRE_LIMIT);
             if (fired >= FIRE_LIMIT) {
+                if (System.getenv("SEINE_FIRE_LIMIT") != null) {
+                    System.err.println("SEINE_FIRE_TRAIL " + M.writeValueAsString(firings));
+                }
                 throw new IllegalStateException("fire limit " + FIRE_LIMIT + " reached (non-terminating?)");
             }
             // Multi-fire epochs (D-046) + external WM actions (D-047):
@@ -209,6 +218,9 @@ public final class OracleRunner {
                     runQueryCalls(kbase, session, epoch.path("queries"), queryOut);
                 }
                 if (fired >= FIRE_LIMIT) {
+                    if (System.getenv("SEINE_FIRE_LIMIT") != null) {
+                        System.err.println("SEINE_FIRE_TRAIL " + M.writeValueAsString(firings));
+                    }
                     throw new IllegalStateException("fire limit " + FIRE_LIMIT + " reached (non-terminating?)");
                 }
             }

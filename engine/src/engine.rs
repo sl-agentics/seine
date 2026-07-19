@@ -2025,6 +2025,15 @@ struct Tms {
     /// The activation currently executing its RHS (self-break laziness,
     /// fz_42_2442).
     current_act: Option<(usize, Tup)>,
+    /// D-330: the actor whose deferred TMS teardown is executing (the
+    /// drain's entry) — the not-churn revival's actor exclusion when
+    /// `current_act` is already cleared (post-fire drains).
+    churn_actor: Option<(usize, Tup)>,
+    /// D-330: rules whose firing's own derivation defeated their support
+    /// this fire_all (the park-own lane) — the fire-limit error names
+    /// them (the relay diagnosis Drools never gives; message keeps the
+    /// certified "fire limit" prefix, the D-013/j21 parity substring).
+    self_defeats: std::collections::HashSet<usize>,
 }
 
 /// Queryable justification view (D-076): what supports this fact, and
@@ -7829,6 +7838,7 @@ impl Engine {
 
     pub fn fire_all(&mut self, limit: usize) -> Result<Vec<Firing>, EngineError> {
         self.in_fire_loop = false; // D-158: defensive (an errored prior fire)
+        self.tms.self_defeats.clear(); // D-330: per-fire_all diagnosis scope
         // D-081: slot memory does not survive a fire boundary —
         // same-window out-and-back restores the original slot
         // (fz_7_5801), but re-entries after an intervening
@@ -7925,8 +7935,27 @@ impl Engine {
             last_fired = Some(ri);
             self.firing_stage_floor = self.stage_seq;
             if firings.len() >= limit {
+                // D-330: the relay diagnosis — Drools' bare error never
+                // says WHY; the certified "fire limit ... reached" prefix
+                // stays verbatim (error-parity substring, D-013/j21).
+                let mut names: Vec<&str> = self
+                    .tms
+                    .self_defeats
+                    .iter()
+                    .map(|&ri| self.rules[ri].def.name.as_str())
+                    .collect();
+                names.sort_unstable();
+                names.dedup();
+                let diag = if names.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        "; self-defeating insertLogical relay: rule(s) {} derive facts that falsify their own 'not' support",
+                        names.join(", ")
+                    )
+                };
                 return Err(EngineError(format!(
-                    "fire limit {limit} reached (non-terminating?)"
+                    "fire limit {limit} reached (non-terminating?){diag}"
                 )));
             }
             // RuleExecutor.getNextTuple: static rules removeFirst (FIFO);
@@ -8420,7 +8449,13 @@ impl Engine {
                         {
                             self.tms_mf_teardown_reverse(l, &tuple);
                         }
+                        // D-330: the entry is the actor of its own
+                        // teardown's WM churn (current_act is cleared
+                        // by post-fire time) — the not-churn revival's
+                        // tuple-level exclusion reads it.
+                        self.tms.churn_actor = Some((l, tuple.clone()));
                         self.tms_on_terminal_del(l, &tuple);
+                        self.tms.churn_actor = None;
                         // ⚖ land_eager lead-k1 (D-199): the eager
                         // landing's unbreak re-propagates — unpark so
                         // the re-derived tuples re-fire. SELF-KILLED
@@ -8923,6 +8958,7 @@ impl Engine {
                 self.note_link_effects_ex(&mut was, Some(f));
             }
         }
+        self.tms_parked_not_churn(f); // D-330: foreign churn breaks the leak
     }
 
     /// The first right insert into an UNCONSTRAINED not node force-links
@@ -9284,6 +9320,7 @@ impl Engine {
         }
         self.tms_p_death_sweep(f, origin);
         self.tms_eager_break(f, true);
+        self.tms_parked_not_churn(f); // D-330: foreign churn breaks the leak
     }
 
     /// ⚖ t15 foreign-death sweep, LEAD lane (D-199, model t15_revive):
@@ -9382,6 +9419,116 @@ impl Engine {
                 }
                 if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                     eprintln!("TMS sweep-revive r{rj} {pt:?} (death f{f:?})");
+                }
+                self.push_activation(rj, pt);
+            }
+        }
+    }
+
+    /// D-330: the parked-tuple NOT-CHURN revival — the oracle's
+    /// self-defeat leak holds only while the parked tuple's not node
+    /// sees no FOREIGN churn. Any OTHER actor's insert or retract of
+    /// a node-reaching fact (alpha-passing at a parked rule's not
+    /// position) breaks the leak: the parked entry re-syncs with
+    /// reality — unparked, and re-activated iff every not is OPEN
+    /// (q9/q10; two-plus self-defeating tuples sharing a not-node
+    /// type mutually revive = the runaway family's relay oscillation
+    /// — or-branches, sibling rules, or sibling left tuples alike;
+    /// the engine then runs to its own fire limit, the D-013/j21
+    /// error parity). Actor exclusion is TUPLE-level: 930's relay is
+    /// intra-rule, so the rule-level exclusion of the death sweep
+    /// would fence it. A lone self-defeat (t10/t11/t15, q1/q6/q7)
+    /// sees only its OWN churn — excluded — and stays parked.
+    fn tms_parked_not_churn(&mut self, f: FactId) {
+        if self.tms.parked.is_empty() {
+            return;
+        }
+        let actor = self.tms.churn_actor.clone().or_else(|| self.tms.current_act.clone());
+        let ftid = self.store.fact_type(f);
+        for rj in 0..self.rules.len() {
+            if !self.tms.parked.iter().any(|(pri, _)| *pri == rj) {
+                continue;
+            }
+            // a NOT position of rj takes the churned type and the fact
+            // reaches its node (constant alpha; join constraints are
+            // node-side and do NOT gate the churn — q10's ineligible
+            // stated fact revived)
+            let reaches = self.rules[rj].patterns.iter().enumerate().any(|(p2, pat)| {
+                pat.ce == CeKind::Not
+                    && pat.type_id == ftid
+                    && self.alpha_passes_fields(rj, p2, f)
+            });
+            if !reaches {
+                continue;
+            }
+            let entries: Vec<Tup> = self
+                .tms
+                .parked
+                .iter()
+                .filter(|(pri, pt)| {
+                    *pri == rj && actor.as_ref() != Some(&(rj, (*pt).clone()))
+                })
+                .map(|(_, pt)| pt.clone())
+                .collect();
+            if entries.is_empty() {
+                continue;
+            }
+            self.tms
+                .parked
+                .retain(|(pri, pt)| *pri != rj || actor.as_ref() == Some(&(rj, pt.clone())));
+            for pt in entries {
+                if pt.iter().any(|x| !self.store.is_alive(*x)) {
+                    continue;
+                }
+                // full re-sync: positives alpha-admit and every not OPEN
+                let k = self.rules[rj].patterns.len();
+                let alphas = (0..k).all(|p2| {
+                    let pat = &self.rules[rj].patterns[p2];
+                    pat.sub == SubRole::Inner
+                        || pat
+                            .tpos
+                            .map(|tp| tp < pt.len() && self.alpha_passes(rj, p2, pt[tp]))
+                            .unwrap_or(true)
+                });
+                if !alphas {
+                    continue;
+                }
+                let mut open = true;
+                for np in 0..k {
+                    if self.rules[rj].patterns[np].ce != CeKind::Not {
+                        continue;
+                    }
+                    let prefix_w = self.rules[rj].patterns[..np]
+                        .iter()
+                        .filter(|p| p.tpos.is_some())
+                        .count();
+                    let left: Tup = pt.iter().take(prefix_w).copied().collect();
+                    // the node's `active` set = live alpha-passing rights
+                    // (the pos_linked source of truth) — O(blockers), not
+                    // O(store) (the 1338 relay accumulates 100k dead
+                    // handles; a store scan per cycle is quadratic)
+                    let cands: Vec<FactId> = self
+                        .nets[rj]
+                        .path
+                        .iter()
+                        .find(|&&n| self.trie[n].env.1 == np)
+                        .map(|&n| self.trie[n].active.iter().copied().collect())
+                        .unwrap_or_default();
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[rj], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                    let blocked = cands.into_iter().any(|g| {
+                        self.store.is_alive(g)
+                            && phreak::JoinEnv::allowed(&env, np - 1, &left, g)
+                    });
+                    if blocked {
+                        open = false;
+                        break;
+                    }
+                }
+                if !open {
+                    continue; // leak broken; the normal release re-activates later
+                }
+                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                    eprintln!("TMS churn-revive r{rj} {pt:?} (churn f{f:?})");
                 }
                 self.push_activation(rj, pt);
             }
@@ -11857,6 +12004,7 @@ impl Engine {
                     eprintln!("TMS park-own r{ri} {tuple:?}");
                 }
                 self.tms.parked.push((ri, tuple.clone()));
+                self.tms.self_defeats.insert(ri); // D-330: the limit-error diagnosis
                 // Drools leaks the WHOLE blocked list of the dying
                 // blocker (tms_t21: sibling tuples blocked by the same
                 // self-defeat fact stay parked too, firing once not
@@ -11867,7 +12015,21 @@ impl Engine {
                 let group: Vec<usize> = (0..self.rules.len())
                     .filter(|&rj| self.rule_parents[rj] == par)
                     .collect();
+                let fired_ri = ri;
                 for gri in group {
+                // D-330: the or-SIBLING park is NO-LOOP-only. sd_b4
+                // (no-loop or-twin) fires once — the sibling parks with
+                // the leak; a LAZY or-twin is the D-198-era "Family II"
+                // Drools RUNAWAY (sd_b3, fenced then) and a DYN-SALIENCE
+                // or-twin relays too (fz_777_6662): the sibling's release
+                // is REAL — it refires, its own teardown churns the node,
+                // and the not-churn revival relays the branches to the
+                // fire limit (4036/q2; error parity, D-013/j21). Same-rule
+                // t21 blocked-list parks (same blocker, both tuples) are
+                // unaffected — gri == fired_ri.
+                if gri != fired_ri && !self.rules[gri].def.no_loop {
+                    continue;
+                }
                 let ri = gri;
                 for pos in 0..self.rules[ri].patterns.len() {
                     let pat = &self.rules[ri].patterns[pos];

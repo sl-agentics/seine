@@ -1,0 +1,96 @@
+{
+ "drl": "rule \"R0\"\nsalience -4\nwhen\n    $p0_0 : T1(f1 in (-1000000007, 6, -0.5), $b0_0_0 : f1, $b0_0_1 : f1)\nthen\n    delete($p0_0);\nend\nrule \"R1\"\nsalience($b1_0_0)\nwhen\n    $p1_0 : T0(f1 != 2.0, $b1_0_0 : f0, $b1_0_1 : f0)\nthen\n    delete($p1_0);\nend\nrule \"R2\"\nsalience($b2_2_0)\nwhen\n    ( not T2(f2 >= -3.0, f0 matches \".*\", !(f1 == false || f1 != true)) and not T0() and T1($b2_2_0 : f2) )\n    or\n    ( not T2(f2 >= -3.0, f0 matches \".*\", !(f1 == false || f1 != true)) and not T0() and T1($b2_2_0 : f2) )\nthen\n    insertLogical(new T2(\"alpha\", true, -0.5, false));\nend\nrule \"R3\"\nno-loop\nwhen\n    T2(f2 in (-2.5), f3 == false || f1 == false, $b3_0_0 : f1)\nthen\nend\nrule \"R4\"\nsalience -7\nwhen\n    not T1(f1 <= 10, f2 in (0.5, 5.0))\n    T0(f1 == 4.5, $b4_1_0 : f0)\nthen\n    insertLogical(new T2(\"\", false, $b4_1_0, false));\nend\nrule \"R5\"\nwhen\n    accumulate( T0(f1 > 1.0); $a5_0 : count() )\nthen\n    insert(new T1(-1, -2, 6.0));\nend\n",
+ "epochs": [
+  {
+   "actions": [],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "fields": {
+      "f0": 100,
+      "f1": 5,
+      "f2": 4.0
+     },
+     "op": "insert",
+     "type": "T1"
+    }
+   ],
+   "facts": [
+    {
+     "fields": {
+      "f0": -5,
+      "f1": -1000000007,
+      "f2": 1.0
+     },
+     "type": "T1"
+    },
+    {
+     "fields": {
+      "f0": 3,
+      "f1": -4,
+      "f2": -1.0
+     },
+     "type": "T1"
+    }
+   ]
+  }
+ ],
+ "facts": [],
+ "name": "fz_777_6662",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  }
+ ],
+ "expect_error": true
+}

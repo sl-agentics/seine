@@ -1,0 +1,38 @@
+{
+ "name": "pr_rw_q4_two_rules_no_or",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    },
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "L2",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule P1 when not LK() then insertLogical(new LK(1, 1)); end\nrule P2 when not L2() then insertLogical(new L2(2)); end\n",
+ "facts": []
+}

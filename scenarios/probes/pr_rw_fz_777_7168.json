@@ -1,0 +1,88 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T1(f0 > 8, f1 == false, $b0_0_0 : f1, $b0_0_1 : f0)\n    accumulate( T0(f2 != -3, f2 in (3.5, -1000000007), f1 < $b0_0_1, $s0_1 : f1); $a0_1 : min($s0_1) )\n    $p0_2 : T0(f0 != -1.0, f0 >= -3.0, !(f0 != 5.5), f3 != $b0_0_0, f3 == false)\nthen\n    $p0_2.setF3(true);\n    update($p0_2);\nend\nrule \"R1\"\nsalience -9\nwhen\n    ( T1() and not T0() )\n    or\n    ( T1() and not T0() )\n    or\n    ( T1() and not T0() )\nthen\nend\nrule \"R2\"\nsalience 2\nwhen\n    ( not T1() )\n    or\n    ( not T1() )\n    or\n    ( not T1() )\nthen\n    insertLogical(new T1(1, false));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": -3,
+    "f1": -3,
+    "f2": 5,
+    "f3": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -5,
+    "f1": 11,
+    "f2": 100,
+    "f3": true
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -1000000007,
+    "f1": 3,
+    "f2": 100,
+    "f3": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": -3,
+    "f1": 100,
+    "f2": 10,
+    "f3": true
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 100,
+    "f1": 7,
+    "f2": -1000000007,
+    "f3": true
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "fz_777_7168",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ],
+ "expect_error": true
+}

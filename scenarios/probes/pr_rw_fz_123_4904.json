@@ -1,0 +1,99 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T2(f1 contains \"et\")\nthen\nend\nrule \"R1\"\nwhen\n    ( $p1_0 : T0($b1_0_0 : f1) )\n    or\n    ( $p1_0 : T0($b1_0_0 : f1) )\nthen\n    insert(new T1($p1_0.getF0(), $b1_0_0, -5, false));\n    insert(new T1(-2.5, \"ab\", 6, true));\nend\nrule \"R2\"\nwhen\n    (or (and $p2_0 : T0() not T2()) (and $p2_0 : T0() not T2()) (and $p2_0 : T0(f2 contains \"a\") not T2()))\nthen\n    insertLogical(new T2(false, $p2_0.getF2(), false));\nend\nrule \"R3\"\nwhen\n    accumulate( T2(); $a3_0 : count() )\n    exists T1(f2 in (100, 7), f2 < 10)\nthen\nend\nrule \"R4\"\nsalience -7\nwhen\n    $p4_0 : T1(f3 != true, f2 in (3, 3), $b4_0_0 : f2, $b4_0_1 : f1)\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nwhen\n    $p5_0 : T1(!(f2 >= 0.0 || f0 == 4.0), $b5_0_0 : f2)\nthen\n    delete($p5_0);\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 5.0,
+    "f1": "a",
+    "f2": 1,
+    "f3": true
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": -3.0,
+    "f1": "beta",
+    "f2": "beta"
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": 4.5,
+    "f1": "alpha",
+    "f2": 7,
+    "f3": true
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": -1.0,
+    "f1": "zz",
+    "f2": 5,
+    "f3": true
+   },
+   "type": "T1"
+  }
+ ],
+ "name": "fz_123_4904",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  }
+ ],
+ "expect_error": true
+}

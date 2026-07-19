@@ -1,0 +1,37 @@
+{
+ "name": "pr_rw_q2_apremise_or_bothdefeat",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    },
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule P when A() ( not LK(a == 1) or not LK(b == 1) ) then insertLogical(new LK(1, 1)); end\n",
+ "facts": [
+  {
+   "type": "A",
+   "fields": {
+    "a": 1
+   }
+  }
+ ],
+ "expect_error": true
+}

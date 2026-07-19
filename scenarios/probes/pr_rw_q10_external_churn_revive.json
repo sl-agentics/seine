@@ -1,0 +1,49 @@
+{
+ "name": "pr_rw_q10_external_churn_revive",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    },
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule P when T0($x : f0) not LK(a == $x) then insertLogical(new LK($x, 1)); end\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 7
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "LK",
+     "fields": {
+      "a": 99,
+      "b": 5
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -17899,3 +17899,90 @@ develop + certification(): envstamp9 > filestamp1 > 8ac7b62.
 The CI path itself proves out on the next tag. Receipts:
 yaml-parse clean, cargo build clean, tracked .so restored
 post-develop (the standing clobber flow).
+
+## D-330: the runaway-class round — the not-churn revival; the
+## 22-member oracle-fire-limit class falls to error parity (2026-07-19)
+
+THE CLASS: every member is insertLogical × not — the
+self-defeating logical derivation. Oracle: fire-limit 100000
+error; engine: terminated (the D-198/D-199 park fence —
+HANDOFF-ird's own words: "the no-amut shape is a Drools runaway
+the engine fences"). Five prediction rounds (q1-q10; rounds 1
+and 3 predicted WRONG and recorded — leadness died, then
+constrainedness died) + oracle fire-trail instrumentation
+(SEINE_FIRE_LIMIT env in BOTH runners, certified 100_000 when
+unset) landed THE LAW:
+
+**The self-defeat park/leak holds only while the parked tuple's
+not node sees no FOREIGN churn. Any other actor's insert or
+retract of a node-reaching fact revives the parked entries
+(tuple-level actor exclusion — 930's relay is intra-rule);
+revived entries re-activate iff every not is OPEN. Two or more
+self-defeating tuples sharing a not-node type mutually revive —
+the relay oscillation (or-branches, sibling rules, or sibling
+left tuples alike). A lone self-defeat, park-mates over
+disjoint types (q4), or an or-survivor with a stable
+justification (q3) terminate.** The or-SIBLING park (sd_b4) is
+NO-LOOP-only: lazy (sd_b3, the D-198 "Family II" fence) and
+dyn-salience (fz_777_6662, round 5) or-twins relay.
+
+THE PORT: (1) tms_parked_not_churn — the revival sweep at the
+on_insert/on_delete_ex funnels; churn_actor (new Tms field, set
+by the post-fire drain around tms_on_terminal_del) + current_act
+= the actor; (2) the park-leak or-sibling gate narrowed to
+no_loop; (3) the D-297-pattern amortized dead-id compaction in
+phreak kill_child (by_left/by_right lists) — the relay's
+immortal lefts accumulated one dead child id per cycle and
+every walk re-scanned all-ever (gdb-sampled: do_join_node; 40k
+fires took 26s, extrapolating ~10min at the limit — the drift
+gate re-runs banked cells engine-side, so perf GATED the slab).
+MEASURED post-fix: 100k fires in 2.48s, linear.
+
+THE PRODUCT DECISION (Bryan, deliberate — this entry IS the
+record): the port STAYS, framed as DETECTION, not
+bug-compatibility. The old silent settle was NOT a stable model
+of the user's rules — the self-defeat shapes are Russell loops
+(no stable assignment of the derived fact exists: in ⇒ support
+gone ⇒ out ⇒ support back), so the settle was an arbitrary
+stopping point that MASKED a contradiction the same rules
+surface loudly in production Drools. Seine now raises the SAME
+catchable error at the same place — and, unlike Drools, SAYS
+WHY: the fire-limit error names the rule(s) whose derivations
+falsify their own 'not' support (Tms.self_defeats, recorded at
+park-own, per-fire_all scope; the certified "fire limit ...
+reached" prefix stays VERBATIM — the D-013/j21 parity substring
+— so all 22 cells certify with the enriched message). The
+CHANGELOG carries the detection entry + a LOUD compatibility
+note ("your rules were contradictory" — the accurate form, per
+the no-stable-model decode above; a stabilizing TMS mode
+remains a possible OPT-IN divergence if ever demanded, never
+the default). FENCED DIFF EXPECTATIONS: the 22 pr_rw_* members
++ pr_rw_q2/q9 are DELIBERATE error-parity cells — marked
+"expect_error": true (a NEW lint contract: the engine must
+still error, else the parity is gone; mirrors engine_fenced
+mechanics, distinct meaning).
+
+GRADUATIONS: all 22 members → pr_rw_* + the 8-cell q-grid;
+bank 46→24 (the largest single-round bank reduction on record);
+sd_b3_ortwin_lazy — FENCED since D-198 — now PASSES the oracle
+(the only non-graduate byte movement, verified). Byte gate
+2419 same / 22 moved / 1 diff vs 3766fad. Corpus cost noted:
+the 22 oracle-side 100k-fire cells put make diff at ~7m38s
+wall (was ~5m) — acceptable; revisit with a representative
+split (diffed subset + engine-only regressions) if it grows.
+Records: probes_pending/runaway/PINS.md (5 rounds, predictions
+first, 2 wrong rounds recorded honestly).
+
+RECEIPTS: byte gate FINAL (post-diagnosis) 22 moved / 1 diff vs
+3766fad — the diff is sd_b3 alone (the ar_tms engine_fenced
+probes do NOT move: positive-join cycles never hit park-own, so
+their fire-limit text is untouched — the diagnosis is scoped to
+the self-defeat lane by construction); make diff 1901 PASS
+(11/1476/414) + drift 24 identical; lint 2324/0/0 (the new
+expect_error contract, 26 cells stamped); cargo 74; maturin +
+pytest 257; demo True; model_ird 31/31; IRD 0-div ×5; SD census
+72 EXACT ×12 (6,10,3,5,6,5,5,6,8,7,4,7); agenda_open ×10
+identical ×3; fresh fuzz 2×2000 seeds 328001/328002 CLEAN;
+fuzz_cep 3×300 seeds 328901-903 CLEAN; make diff wall ~7m38s
+(the 22 oracle-side 100k-fire cells; revisit with a
+representative split if it grows).

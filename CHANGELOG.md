@@ -6,6 +6,31 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Self-contradictory logical derivations are now detected and
+  raised** — a rule whose `insertLogical` falsifies its own `not`
+  support is a Russell loop: no stable assignment of the derived
+  fact exists. Seine previously *settled silently* on these
+  (leaving a half-derived working memory with no signal anything
+  was wrong) while real Drools oscillates to its fire limit. The
+  engine now raises the same catchable "fire limit reached" error
+  Drools produces — and, unlike Drools, says why: the error names
+  the rule(s) whose derivations defeat their own support. A lone
+  self-defeating match still terminates (both engines park it);
+  the error arises when two or more such matches share a `not`
+  (or-branches, sibling rules, or multiple matched facts) and
+  relay each other. Twenty-two quarantined fuzz witnesses now
+  agree with the oracle error-for-error, and a join-index
+  quadratic found during the round was fixed (100k-firing runs
+  complete in ~2.5s).
+
+  **Compatibility note, loud:** rulesets that previously "worked"
+  by settling on such a shape will now raise. Those rules were
+  self-contradictory — the old quiet state was not a stable model
+  of them, just a stopping point — and the same rules loop
+  production Drools. Seine defaults to reporting the
+  contradiction identically to Drools rather than picking an
+  arbitrary resting state; a stabilizing mode could exist as an
+  opt-in divergence if there is ever demand.
 - **Shipped wheels self-identify**: `certification()["commit"]` on
   CI-built wheels now reports the source commit (it was `"unknown"` —
   the containerized builds could not run git). An engine whose pitch

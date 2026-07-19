@@ -4,7 +4,14 @@
 use seine_engine::{Engine, FactView, FieldType, QueryVal, TypeSchema, Value};
 use serde_json::{json, Map, Value as J};
 
-const FIRE_LIMIT: usize = 100_000;
+// SEINE_FIRE_LIMIT: diagnostic override (D-330 runaway decodes) —
+// mirrors the oracle runner's env; unset = the certified 100_000.
+fn fire_limit() -> usize {
+    std::env::var("SEINE_FIRE_LIMIT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(100_000)
+}
 
 pub fn run_scenario_file(path: &str) -> Result<(String, J), (String, String)> {
     run_scenario_file_parts(path)
@@ -201,7 +208,7 @@ fn run_scenario(mut sc: Scenario) -> Result<RunParts, String> {
     }
     drop(facts);
 
-    let mut firings = engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?;
+    let mut firings = engine.fire_all(fire_limit()).map_err(|e| e.to_string())?;
     // Multi-fire epochs (D-046) + external WM actions (D-047): each
     // epoch runs its ordered actions (insert / update / delete-by-
     // global-insertion-index), then legacy "facts" inserts, then fires
@@ -268,7 +275,7 @@ fn run_scenario(mut sc: Scenario) -> Result<RunParts, String> {
             for fact in epoch.facts.as_deref().unwrap_or_default() {
                 insert_fact_spec(&mut engine, fact, "epoch fact")?;
             }
-            firings.extend(engine.fire_all(FIRE_LIMIT).map_err(|e| e.to_string())?);
+            firings.extend(engine.fire_all(fire_limit()).map_err(|e| e.to_string())?);
             // Arc 5 (D-107): per-epoch query invocation — queries run
             // against the WM as of THIS epoch's quiescence
             if let Some(eq) = &epoch.queries {

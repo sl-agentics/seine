@@ -1,0 +1,29 @@
+{
+ "name": "pr_rw_q1_leadnot_selfdefeat",
+ "types": [
+  {
+   "name": "A",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "LK",
+   "fields": [
+    {
+     "name": "a",
+     "type": "i64"
+    },
+    {
+     "name": "b",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule P when not LK() then insertLogical(new LK(1, 1)); end\n",
+ "facts": []
+}
