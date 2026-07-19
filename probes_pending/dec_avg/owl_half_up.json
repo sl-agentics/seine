@@ -1,0 +1,65 @@
+{
+ "engine_fenced": true,
+ "name": "owl_half_up",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(38,2)"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"avg\"\nwhen\n    accumulate( E($a : a) over window:length(2); $s : sum($a), $c : count() )\nthen\n    insert(new B($s.divide(new java.math.BigDecimal($c), 2, java.math.RoundingMode.HALF_UP)));\nend\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "a": "0.01"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 20,
+      "a": "0.04"
+     }
+    }
+   ]
+  },
+  {
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 30,
+      "a": "0.05"
+     }
+    }
+   ]
+  }
+ ]
+}

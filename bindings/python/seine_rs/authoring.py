@@ -1410,11 +1410,6 @@ class Rule:
                     "oracle — use an unwindowed collect, or a windowed scalar "
                     "aggregate (count/sum/average/min/max)"
                 )
-            if agg.func == "averageExact":
-                raise CompileError(
-                    "windowed average_exact is not certified — use an "
-                    "unwindowed average_exact, or average() with a window"
-                )
             if window.kind == "time" and getattr(cls, "__seine_event__", None) is None:
                 raise CompileError(
                     f"window_time over {cls.__name__}: time windows need event "

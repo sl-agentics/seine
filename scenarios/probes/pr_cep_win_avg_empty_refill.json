@@ -1,0 +1,59 @@
+{
+ "name": "cwe_empty_refill_avg_control",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "a",
+     "type": "f64"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  }
+ ],
+ "drl": "rule \"avg\"\nwhen\n    accumulate( E($a : a) over window:time(100ms); $m : average($a) )\nthen\nend\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "a": 1.0
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 120
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 10
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 130,
+      "a": 2.0
+     }
+    }
+   ]
+  }
+ ]
+}

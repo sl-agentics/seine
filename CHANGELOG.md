@@ -6,6 +6,17 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **`average_exact` now works with windows.** The windowed authoring
+  fence is lifted: `accumulate(..., agg=average_exact(...),
+  window=window_time(ms)/window_length(n))` is certified — window
+  eviction refolds the running sum and count exactly (subtract-based,
+  no drift), the result re-rounds to the spelled scale and mode at
+  every firing, an emptied window blocks propagation (like
+  `average`), and a null contribution occupies its window slot while
+  counting toward neither sum nor count. Certified value-for-value
+  against Drools' explicit `sum/count` + `BigDecimal.divide` spelling
+  across eviction churn in both window kinds.
+
 - **Firing order for events held on unlinked stream paths now matches
   Drools.** Drools' per-insert stream flush rides event-typed inputs:
   event facts reach a join's memory in arrival order even while the

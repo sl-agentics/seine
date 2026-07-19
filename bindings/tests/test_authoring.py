@@ -638,11 +638,90 @@ def test_average_exact_walls():
     r = Rule("G")
     with pytest.raises(CompileError, match="group_by with average_exact"):
         r.group_by(Mix, key=Mix.n, agg=seine_rs.average_exact(Mix.amount))
-    r2 = Rule("W")
-    r2.when(Mix)
-    with pytest.raises(CompileError, match="windowed average_exact"):
-        r2.accumulate(Mix, agg=seine_rs.average_exact(Mix.amount),
-                      window=seine_rs.window_length(3))
+
+
+def test_windowed_average_exact_length_ring():
+    # the D-314 windowed round (WP1): oldest-out slot retention;
+    # ring {0.04, 0.05} → 0.045 → half_up 0.05, half_even 0.04
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @seine_rs.fact(event=seine_rs.Event(timestamp="ts"))
+    class Tick:
+        ts: int
+        px: Annotated[D, seine_rs.Decimal(10, 2)]
+
+    @seine_rs.fact
+    class Avg:
+        v: Annotated[D, seine_rs.Decimal(38, 2)]
+
+    for rounding, want in (("half_up", "0.05"), ("half_even", "0.04")):
+        r = seine_rs.Rule("W")
+        m = r.accumulate(Tick, agg=seine_rs.average_exact(Tick.px, rounding=rounding),
+                         window=seine_rs.window_length(2))
+        r.then_insert(Avg, v=m)
+        res = seine_rs.run(
+            [r], {Tick: {"ts": [10, 20, 30], "px": [D("0.01"), D("0.04"), D("0.05")]},
+                  Avg: []})
+        got = res.derived["Avg"].to_pylist()[-1]["v"]
+        assert got == D(want), (rounding, got)
+
+
+def test_windowed_average_exact_time_evicts_and_empty_blocks():
+    # WP2 + WP4: eviction refolds (subtract-exact); the emptied window
+    # blocks propagation (no new Avg), a later event re-derives
+    from decimal import Decimal as D
+    from typing import Annotated
+
+    @seine_rs.fact(event=seine_rs.Event(timestamp="ts"))
+    class Tick2:
+        ts: int
+        px: Annotated[D, seine_rs.Decimal(10, 2)]
+
+    @seine_rs.fact
+    class Avg2:
+        v: Annotated[D, seine_rs.Decimal(38, 2)]
+
+    r = seine_rs.Rule("WT")
+    m = r.accumulate(Tick2, agg=seine_rs.average_exact(Tick2.px),
+                     window=seine_rs.window_time(100))
+    r.then_insert(Avg2, v=m)
+    sess = seine_rs.Session(
+        [r], {Tick2: {"ts": [10, 20], "px": [D("1.00"), D("1.03")]}, Avg2: []})
+    vals = [x["v"] for x in sess.fire().derived["Avg2"].to_pylist()]
+    assert vals[-1] == D("1.02"), vals  # 1.015 half_up
+    sess.advance(125)  # @10 and @20 both leave the 100ms window
+    blocked = sess.fire().derived["Avg2"].to_pylist()
+    assert blocked == [], blocked  # count 0 blocks: no firing at all
+    sess.insert_row(Tick2, {"ts": 200, "px": D("2.00")})
+    after = [x["v"] for x in sess.fire().derived["Avg2"].to_pylist()]
+    assert after == [D("2.00")], after
+
+
+def test_windowed_average_exact_null_occupies_slot():
+    # WP5: a null-px event OCCUPIES a window:length slot but
+    # contributes to neither sum nor count: ring {null, 0.04} → 0.04
+    # (a null-skipping ring would keep {0.02, 0.04} → 0.03)
+    from decimal import Decimal as D
+    from typing import Annotated, Optional
+
+    @seine_rs.fact(event=seine_rs.Event(timestamp="ts"))
+    class Tick3:
+        ts: int
+        px: Optional[Annotated[D, seine_rs.Decimal(10, 2)]]
+
+    @seine_rs.fact
+    class Avg3:
+        v: Annotated[D, seine_rs.Decimal(38, 2)]
+
+    r = seine_rs.Rule("WN")
+    m = r.accumulate(Tick3, agg=seine_rs.average_exact(Tick3.px),
+                     window=seine_rs.window_length(2))
+    r.then_insert(Avg3, v=m)
+    res = seine_rs.run(
+        [r], {Tick3: {"ts": [10, 20, 30], "px": [D("0.02"), None, D("0.04")]},
+              Avg3: []})
+    assert res.derived["Avg3"].to_pylist()[-1]["v"] == D("0.04")
 
 
 def test_string_aggregates_still_walled():

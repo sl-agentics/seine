@@ -1,0 +1,77 @@
+{
+ "name": "ewe_empty_refill",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(38,2)"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"avg\"\nwhen\n    accumulate( E($a : a) over window:time(100ms); $m : averageExact($a, 2, half_up) )\nthen\n    insert(new B($m));\nend\n",
+ "facts": [],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 10
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 10,
+      "a": "1.00"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 110
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 10
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 130,
+      "a": "2.00"
+     }
+    }
+   ]
+  }
+ ]
+}

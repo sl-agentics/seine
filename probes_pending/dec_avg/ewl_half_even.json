@@ -1,0 +1,64 @@
+{
+ "name": "ewl_half_even",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(38,2)"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"avg\"\nwhen\n    accumulate( E($a : a) over window:length(2); $m : averageExact($a, 2, half_even) )\nthen\n    insert(new B($m));\nend\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "a": "0.01"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 20,
+      "a": "0.04"
+     }
+    }
+   ]
+  },
+  {
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 30,
+      "a": "0.05"
+     }
+    }
+   ]
+  }
+ ]
+}

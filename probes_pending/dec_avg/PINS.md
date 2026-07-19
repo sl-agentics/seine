@@ -87,3 +87,141 @@ Cells stay PENDING by design: the oracle spelling engine-fences on
 multi-function accumulate + RHS method calls; the engine spelling is
 oracle-unknown. The graduated protection = the vector suite + pytest
 (the why()/acc_sources precedent).
+
+# THE WINDOWED ROUND (2026-07-19, Bryan: "D-314" — the windowed
+# average_exact authoring fence, the ledger's own ox/ex round)
+
+Predictions REGISTERED before any cell runs. Same doctrine as the
+D-314 grid: the oracle cannot run averageExact (unknown function)
+and the engine walls the oracle's spelling (multi-acc + RHS
+BigDecimal.divide), so certification is value-for-value on the
+ORDERED B-fact sequences — each refire inserts a B; the sequence
+pins every intermediate window state. All consecutive expected
+values are DISTINCT by vector design (sidesteps refire-on-equal
+comparisons between the two spellings, which differ there by
+construction: the oracle's sum/count pair always changes).
+
+Mechanical basis (code-read): AccCtx is uniform — AverageExact has
+a subtract-based try_reverse (exact, no refold), so window eviction
+rides the same certified machinery as windowed sum/count/average.
+The DRL parser accepts `over window:*` + averageExact (no
+restriction); the fence is AUTHORING-LAYER ONLY (authoring.py).
+PREDICTION WP6: the lift needs ZERO engine-side change.
+
+- WP1 window:length(2) ring (events @10/@20/@30, vals 0.01, 0.04,
+  0.05; scale 2): oldest-out slot retention; states {0.01} →
+  {0.01,0.04} (avg 0.025, the half boundary) → {0.04,0.05} (avg
+  0.045, again a half boundary). PREDICT sequences — half_up:
+  [0.01, 0.03, 0.05]; half_even: [0.01, 0.02, 0.04] — engine
+  (ewl_*) == oracle (owl_*, 3x) cell-for-cell.
+- WP2 window:time(100ms) (events 1.00@10, 1.03@20, 1.07@30;
+  advances 10/10/10/85/10 → evict @10 at t=115, @20 at t=125):
+  eviction refires with the survivor average. PREDICT — half_up:
+  [1.00, 1.02, 1.03, 1.05, 1.07]; half_down: [1.00, 1.01, 1.03,
+  1.05, 1.07] (the 1.015 midpoint splits the modes; 1.05 exact
+  division = mode no-op) — engine (ewt_*) == oracle (owt_*).
+- WP3 scale-ratchet invisibility (window:length(2), vals 0.02
+  (s=2), 0.0350 (s=4), 0.05 (s=2), half_up @ scale 2): the sum's
+  ratcheted internal scale never shows — divide re-normalizes to
+  the SPELLED scale every firing, both sides. PREDICT [0.02, 0.03,
+  0.04] (0.0275 → 0.03; eviction of 0.02 → avg 0.0425 → 0.04).
+- WP4 empty window + refill (ENGINE-ONLY, vs the certified
+  windowed-average CONTROL): advancing past the last event's
+  window BLOCKS propagation (count 0 — P2 extends to windows,
+  NO firing on the eviction-to-empty), a later event re-derives.
+  ewe (averageExact): PREDICT [1.00, 2.00] with no firing at the
+  empty transition. cwe (average, DIFFABLE — certifies the firing
+  PATTERN oracle-side): PREDICT same pattern, values 1.0/2.0.
+  The oracle twin of ewe is IMPOSSIBLE by the P2 artifact: the
+  multi-acc spelling fires count=0 and the RHS divide throws.
+- WP5 null slot (pytest, post-lift): a null-field event OCCUPIES a
+  window:length slot but contributes to neither sum nor count
+  (add-skip and reverse-skip are both D-097-uniform). Ring
+  {null, 0.04} → avg 0.04. Oracle-unknowable (count() counts
+  matches, not contributions — the P3 artifact).
+- WP6: the fence lift = authoring.py only (remove the window arm;
+  group_by fence STAYS — separate uncertified surface); pytest
+  fence test flips to positive coverage.
+
+## THE WINDOWED MEASUREMENTS + A NAMED FINDING (same session)
+
+The count-0 hazard hit EARLIER than designed: the harness fires
+once at the BASE (empty session) before epoch 0 — the oracle
+multi-acc cells threw / by zero there. Restructure (recorded):
+the first event moved into the BASE facts on all 10 o/e WL/WT/WSC
+cells — no count-0 fire ever; sequences unchanged.
+
+WP1 HIT (owl/ewl, oracle 3x): hu [0.01,0.03,0.05], he
+[0.01,0.02,0.04] — engine == oracle cell-for-cell.
+WP2 HIT (owt/ewt): the oracle FIRING order (read off the bound
+$s sums 1.00→2.03→3.10→2.10→1.07) reconstructs per-firing values
+hu [1.00,1.02,1.03,1.05,1.07] / hd [1.00,1.01,...] — engine
+IDENTICAL. (The WM facts-list ORDER of the B inserts differs
+between the runners' dumps — a canon artifact of never-diffed
+cells, not semantics; the firing sequence is the surface.)
+WP3 HIT (owsc/ewsc): [0.02, 0.03, 0.04] both sides — the ratchet
+never shows.
+WP4 ewe HIT: [1.00, 2.00], 2 firings, NO firing at the
+empty transition.
+
+**THE NAMED FINDING — pin J FALSIFIED for decimal sources** (the
+cwe control caught it): `average($a)` over a BigDecimal-typed
+field in Drools 9.44.0.Final resolves to
+BigDecimalAverageAccumulateFunction (drools-core sources, read
+verbatim), NOT the double function:
+1. result type = BigDecimal (engine today: F64 per pin J);
+2. result = total.divide(count, RoundingMode.HALF_EVEN) — the
+   2-arg divide keeps the DIVIDEND's scale = the running sum's
+   ratcheted scale (the D-313 ratchet law), banker's rounding;
+3. count == 0 → BigDecimal.ZERO (scale 0, "0") and it FIRES —
+   measured: the windowed control fires "0" BOTH at session start
+   and at eviction-to-empty (engine: blocks, 2 firings vs the
+   oracle's 4);
+4. null contributions skip both total and count; reverse is
+   subtract-based (window-exact).
+The double function (read verbatim): count == 0 ? null :
+total/count — null BLOCKS, which is the certified engine
+behavior for i64/f64 sources. The asymmetry is per-source-type.
+Pin J's provenance: the D-098 "AVG(decimal)→DOUBLE" row was a
+DUCKDB measurement, adopted by a D-097-checkpoint alignment
+ruling ("matches the certified average→f64" — certified on
+i64/f64 only); ZERO corpus cells combine average( with decimal
+types, so the claim was never oracle-protected. GATE ITEM FOR
+BRYAN (it revisits his D-097 ruling): (a) port the Drools law
+(BigDecimal result @ sum-scale HALF_EVEN, empty fires "0"), (b)
+WALL average-over-decimal at authoring+DRL steering to
+averageExact (the money-never-meets-floats thesis option), or
+(c) keep + document the deviation. Until ruled, average(decimal)
+stays as-is and UNCERTIFIED.
+
+cwe REDESIGN (the control's job is the WP4 firing PATTERN on
+certified surface, not the decimal law): source field becomes
+f64 (values 1.0 / 2.0) — windowed average over f64, empty
+blocks per the double function. PREDICT: diff PASS, 2 firings
+[1.0, 2.0], no empty-transition firing.
+
+## THE ROUND'S CLOSE (receipts)
+
+cwe PREDICTION HIT: the f64 control PASSES the real diff —
+GRADUATED to scenarios/probes/pr_cep_win_avg_empty_refill.json
+(the one diffable cell of the round; corpus 11/1519/414).
+WP5 HIT (pytest): the null-px event occupies its length-window
+slot, contributes to neither sum nor count — ring {null, 0.04}
+→ 0.04 (a null-skipping ring would give 0.03).
+WP6 HIT: the lift = authoring.py only (the window arm removed;
+group_by fence stays); ZERO engine-source change (git diff --
+engine/ EMPTY — no byte gate needed, the certified binary is
+the D-339 one).
+One recorded test-authoring miss (not a semantic miss): the
+first pytest advance was 115 — evicting only the @10 event
+(@20 lives to 120); the "failure" value 1.52 = (1.03+2.00)/2
+half_up, exactly right for the window actually left. Fixed to
+advance(125); the block assertion tightened to the per-fire
+delta contract (fire() derived shows THIS fire's rows).
+pytest 257→260; lint 2378/0/0; cargo 74; make diff 11/1519/414
++ drift 18 identical; demo True. The 11 o/e cells stay PENDING
+by design (the D-314 doctrine: value-for-value, never diffed).
+CHANGELOG Unreleased carries the windowed-average_exact entry.
+OPEN ON THIS LANE: the pin-J gate item above (Bryan's ruling
+on average-over-decimal) — until ruled, average(decimal) is
+as-was and uncertified; group_by × average_exact stays fenced.

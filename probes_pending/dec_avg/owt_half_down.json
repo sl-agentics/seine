@@ -1,0 +1,95 @@
+{
+ "engine_fenced": true,
+ "name": "owt_half_down",
+ "types": [
+  {
+   "name": "E",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "a",
+     "type": "decimal(10,2)"
+    }
+   ],
+   "event": {
+    "timestamp": "ts"
+   }
+  },
+  {
+   "name": "B",
+   "fields": [
+    {
+     "name": "v",
+     "type": "decimal(38,2)"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"avg\"\nwhen\n    accumulate( E($a : a) over window:time(100ms); $s : sum($a), $c : count() )\nthen\n    insert(new B($s.divide(new java.math.BigDecimal($c), 2, java.math.RoundingMode.HALF_DOWN)));\nend\n",
+ "facts": [
+  {
+   "type": "E",
+   "fields": {
+    "ts": 10,
+    "a": "1.00"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 20
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 20,
+      "a": "1.03"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 10
+    }
+   ],
+   "facts": [
+    {
+     "type": "E",
+     "fields": {
+      "ts": 30,
+      "a": "1.07"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 85
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 10
+    }
+   ],
+   "facts": []
+  }
+ ]
+}
