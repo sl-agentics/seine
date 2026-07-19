@@ -6,6 +6,19 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Rules sharing identical pattern prefixes now fire in Drools'
+  order when an external update flips a shared fact out of a
+  pattern and back.** When several rules (or `or` branches) share
+  the same leading patterns and an external batch both re-enters a
+  fact into the shared join and inserts new facts, Drools' segment
+  flushes make the re-entered fact's re-fires queue ahead of the
+  new facts' activations, in an order that differs per sharing
+  rule. Seine composed the whole batch as one block, interleaving
+  those groups differently. Batches driven by rule consequences,
+  insert-only batches, and unshared rules were already correct and
+  are unchanged. Five scenarios graduated to the certified corpus,
+  closing a long-quarantined fuzz witness.
+
 - **A fact that leaves and re-enters a pattern within one batch of
   changes no longer slips past a standing `not (A and B)` block —
   and no longer suppresses a due `exists (A and B)` re-fire.** When

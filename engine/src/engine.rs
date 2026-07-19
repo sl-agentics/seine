@@ -7881,6 +7881,13 @@ impl Engine {
 
         if !self.lists_built {
             self.lists_built = true;
+            // D-354: stamp sink-count divergence points (multi-sink
+            // shared joins take the external-batch distribution law;
+            // re-swept per rebuild since rule additions reset
+            // lists_built).
+            for ni in 0..self.trie.len() {
+                self.trie[ni].node.multi_sink = self.trie[ni].sinks.len() > 1;
+            }
             let initial: Vec<FactId> = self.store.live_facts().collect();
             for f in initial {
                 // D-102: STREAM sessions flush per pre-fire insert too
@@ -10077,6 +10084,15 @@ impl Engine {
             }
             let pending = slw;
             let src = Staged::merge_into_pending(pending, fresh);
+            // D-354: the flush-at-modify signature — this batch's rights
+            // contain an EXTERNAL re-entrant (ph=1, origin-None). Only
+            // such batches split into per-phase flush blocks at the
+            // first sink; pure-insert external batches are ONE fire-time
+            // flush (whole-LIFO — fz_42_4816/fz_999_6009 pinned).
+            let ext_reentry_batch = srw
+                .ins
+                .iter()
+                .any(|(_, o, ph)| *ph == 1 && o.is_none());
             let sr = srw;
             // Lane split (D-196): a JOIN's right is a POSITIVE pattern —
             // its own-origin ops are the LEFT lane (the update-break
@@ -10176,13 +10192,37 @@ impl Engine {
                     self.fire_seq += 1;
                 }
             }
+            // D-353/D-354 (the flush-at-modify law's observable): an
+            // EXTERNAL batch (every ins-child origin None) through a
+            // multi-sink plain join distributes to the FIRST-built sink
+            // as per-phase blocks in phase order, prepend-within (the
+            // per-window-flush composition Drools's segment flushes
+            // produce; fz_7331_973's R0 + p353c). Later sinks already
+            // receive per-phase creation order via the whole-list peer
+            // flip (one reversal = block order + within-block). RHS-born
+            // batches (origin Some) keep the certified whole-LIFO — the
+            // 14 D-352 counterexamples (pr_or_a28/a29, pr_ib*, the
+            // fz_42/fz_123 regressions) are all RHS-driven and pinned.
+            let first_trg = if self.trie[ni].sinks.len() > 1
+                && self.trie[ni].node.kind == phreak::Kind::Join
+                && !self.trie[ni].node.temporal
+                && !trg.ins.is_empty()
+                && trg.ins.iter().all(|(_, o, _)| o.is_none())
+                && ext_reentry_batch
+            {
+                let mut t = trg.clone();
+                t.swap_ins_phase_blocks();
+                t
+            } else {
+                trg.clone()
+            };
             for si in 0..self.trie[ni].sinks.len() {
                 let sink = self.trie[ni].sinks[si];
                 match sink {
                     Sink::Node(c) => {
                         if si == 0 {
                             self.trie[c].node.s_left =
-                                Staged::append_into_pending(first_pending.take(), trg.clone());
+                                Staged::append_into_pending(first_pending.take(), first_trg.clone());
                         } else if !trg.is_empty() {
                             self.trie[c].node.peer_merge_left(&trg);
                         }
@@ -10190,7 +10230,7 @@ impl Engine {
                     Sink::Term(rb) => {
                         if si == 0 {
                             self.nets[rb].term_pending =
-                                Staged::append_into_pending(first_pending.take(), trg.clone());
+                                Staged::append_into_pending(first_pending.take(), first_trg.clone());
                         } else if !trg.is_empty() {
                             self.nets[rb].peer_merge_term(&trg);
                         }

@@ -633,3 +633,49 @@ eliminator run over ALL timelines first); (c) leave the trio
 banked with the law recorded (they are ORDER-class, value-safe).
 fz_8087_1020/fz_141421_123 need their own decodes either way
 (different compositions). NO ENGINE CHANGES THIS ROUND.
+
+### D-354 — THE PORT LANDS (Bryan: "let's go with a")
+
+Reconciling the faithful law with jr11 (pure entries never
+flush; link-transition triggers can't reach the shared node)
+collapsed option (a)'s OBSERVABLE to an eval-time distribution
+gate: the flush-at-modify composition appears exactly when an
+external batch carries a MODIFY-BORN re-entrant. THE PORT
+(D-352's edits + TWO gate bits): (i) multi-sink plain joins
+route EXTERNAL ph=1 (origin-None) rights through the plain
+fresh-right walk (late pass stays for single-sink + RHS
+staging); (ii) the first-sink phase-block swap engages ONLY
+when sinks>1 AND Join AND !temporal AND every trg ins-child is
+origin-None AND the batch's staged rights contained an external
+ph=1 re-entrant (`ext_reentry_batch`). The gate discovery
+sequence (recorded): origin-None alone broke fz_42_4816 +
+fz_999_6009 — their external batches are PURE INSERTS = one
+fire-time flush = whole-LIFO correct; the modify-born signature
+restored them. Physical reading: per-phase blocks exist iff the
+epoch had separate flush events (the modify's segment flush +
+the fire drain); a pure-insert epoch has one.
+
+RESULTS: fz_7331_973 PASSES + all 14 counterexamples PASS +
+jr11/jr17 sanity PASS. Byte gate 2556/2560 vs 6082206
+(wt_pre354): the 4 diffs = the witness + p353a/b/d (same-shape
+probes, all now oracle-PASS; p353c single-block = byte-neutral
+✓ consistent). FIVE graduations (pr_ot_fz_7331_973 +
+pr_ot_p353a-d); bank 14 -> 13; make diff 11/1578/414 + drift 13
+identical; lint 2437/0/0; cargo 74; pytest 260 + demo True;
+model_ird 31/31 (+26/26+39/39); IRD 150x5 0-div; SD census
+6,10,3,4,6,5,5,6,8,7,4,7 = 71 EXACT; agenda_open x10 stable x3;
+fuzz 2x2000 seeds 351001/351002 + cep 3x300 351901-903 CLEAN.
+NEXT seeds 352001+/352901+.
+
+SCOPED RESIDUALS (recorded): external DELETE-window flushes
+(unprobed — BetaNode's delete path also flushes; no witness);
+left-side-modify flush behavior (unconstrained by data);
+RHS-driven re-entrants on multi-sink nodes (late pass retained
+there — no witness); the rins-walk memory order on shapes where
+engine append-order diverges from add-at-head (973's happened to
+coincide). fz_8087_1020 (upd-channel refire composition) and
+fz_141421_123 (different-fact fork) stay banked — own decodes.
+THE ORDER TRIO: 1 of 3 closed, 2 recorded. The D-082/D-083 late
+pass UNIFICATION (it is the coalesced approximation of
+flush-at-modify) stands as the arc's theory — full retirement =
+a future arc if ever needed.

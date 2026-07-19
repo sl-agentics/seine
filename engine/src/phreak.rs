@@ -614,6 +614,35 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
     /// FIFO for a lagging first sink (fz_42_580) and cross-window clashes
     /// were already resolved at child-touch time inside do_node against
     /// this pending (updateChildLeftTuple, fz_123_8822).
+    /// D-354: rearrange the ins list's contiguous PHASE-tag runs into
+    /// phase order (blocks reversed in list order; within-block order
+    /// kept). A prepend-built trg lists phase blocks newest-phase-first,
+    /// each internally reversed; the FIRST sink of a multi-sink join
+    /// receiving an EXTERNAL batch gets phase batches appended FIFO
+    /// with prepend-within (the flush-at-modify composition,
+    /// fz_7331_973's R0 + p353c). Single-block lists are untouched, so
+    /// insert-only shared cells (ne_s*) are byte-identical.
+    pub fn swap_ins_phase_blocks(&mut self) {
+        if self.ins.len() < 2 {
+            return;
+        }
+        let entries: Vec<(T, Origin, u8)> = self.ins.drain(..).collect();
+        if entries.windows(2).all(|w| w[0].2 == w[1].2) {
+            self.ins.extend(entries);
+            return;
+        }
+        let mut blocks: Vec<Vec<(T, Origin, u8)>> = Vec::new();
+        for e in entries {
+            match blocks.last_mut() {
+                Some(b) if b.last().map(|x| x.2) == Some(e.2) => b.push(e),
+                _ => blocks.push(vec![e]),
+            }
+        }
+        for b in blocks.into_iter().rev() {
+            self.ins.extend(b);
+        }
+    }
+
     pub fn append_into_pending(mut pending: Staged<T>, fresh: Staged<T>) -> Staged<T> {
         // D-266: cross-Staged concatenation — register with pending's seen.
         for (t, _, _) in fresh.ins.iter().chain(fresh.del.iter()).chain(fresh.upd.iter()) {
@@ -766,6 +795,15 @@ pub struct Node {
     /// Shared temporal nodes use the this-fire-first partner scan and
     /// the stay-at-flush stash; unshared keep certified behavior.
     pub shared: bool,
+    /// D-354: this node feeds >1 sink (a shared-prefix divergence
+    /// point; set at lists_built). Multi-sink PLAIN joins route
+    /// EXTERNAL re-entrant (ph=1, origin-None) rights through the
+    /// certified fresh-right walk instead of the D-083 late pass, and
+    /// their external batches distribute per-phase to the first sink
+    /// (the flush-at-modify law, D-353; fz_7331_973). The late pass
+    /// stays for single-sink nodes and RHS-born staging, where it is
+    /// the certified coalesced composition.
+    pub multi_sink: bool,
     /// D-134 (§3B, temporal `not` firing-deferral): a satisfied temporal
     /// `not` left does NOT fire at insert (Drools defers to the pseudo-clock
     /// window close). `new_deferrals` carries (left, origin, fire_time) OUT
@@ -875,6 +913,7 @@ impl Node {
             left_sseq: HashMap::new(),
             right_sseq: HashMap::new(),
             shared: false,
+            multi_sink: false,
             new_deferrals: Vec::new(),
             pending_release: Vec::new(),
             tj_epoch: Vec::new(),
@@ -2501,6 +2540,16 @@ fn do_join_node<E: JoinEnv>(
             .filter(|(_, _, ph)| *ph == 4)
             .chain(sr.ins.iter().filter(|(_, _, ph)| *ph == 0 || *ph == 5).rev())
             .collect()
+    } else if node.multi_sink
+        && sr.ins.iter().any(|(_, o, ph)| *ph == 1 && o.is_none())
+    {
+        // D-354: on a multi-sink join, EXTERNAL re-entrant (ph=1,
+        // origin-None) rights join the PLAIN walk (staged head-first
+        // with the fresh rights) — memory re-add at tail, memory
+        // lefts. The late pass below is single-sink / RHS-scoped
+        // (fz_7331_973; the D-352 variant-A factorization proved this
+        // branch breaks none of the 14 counterexamples).
+        sr.ins.iter().collect()
     } else {
         // certified head-first walk (cloud + pure-post batches)
         sr.ins.iter().filter(|(_, _, ph)| *ph != 1).collect()
@@ -2570,8 +2619,14 @@ fn do_join_node<E: JoinEnv>(
     // jr1..jr10 re-entry ladder vs the jw fresh-right matrix
     // (tools/model_check_join.py — jw3 and jr10 are event-identical
     // with opposite oracle orders; provenance is the discriminator).
+    // D-354: SINGLE-SINK / RHS-scoped — a multi-sink plain join
+    // consumed its external ph=1 entries in the fresh-right walk above.
+    let ext_ph1_in_plain = node.multi_sink
+        && !node.temporal
+        && sr.ins.iter().any(|(_, o, ph)| *ph == 1 && o.is_none())
+        && !sr.ins.iter().any(|(_, _, ph)| *ph == 4 || *ph == 5);
     for (f, o, ph) in sr_ins_iter(&sr.ins) {
-        if *ph != 1 {
+        if *ph != 1 || (ext_ph1_in_plain && o.is_none()) {
             continue;
         }
         let rkey = env.key_of_right(node_idx, *f);

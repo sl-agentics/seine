@@ -45,13 +45,15 @@ COUNT class (2) — CLOSED (both witnesses graduated):
   no-loop or-sibling exists-origin law; graduated
   pr_obn_fz_777_1278 + 9 ladder cells; see PINS.md.
 
-ORDER class (3):
-- xf_fz_141421_123: firing[141] swap (DEEP — expect heavy
-  minimization; R4 2-pattern T1xT1 self-join-ish).
-- xf_fz_7331_973: firing[16] swap (R2, T0xT1).
-- xf_fz_8087_1020: firing[5] swap (R2 matching TWO EQUAL T0s —
-  a twin-fact order; possibly the fz_42_84 identity-hash class,
-  check before grinding).
+ORDER class (3) — ONE shared-prefix or-branch family (D-352/
+D-353/D-354; the flush-at-modify law, records in PINS.md):
+- xf_fz_7331_973: CLOSED (D-354) — graduated pr_ot_* + 4 probe
+  cells; the external modify-born re-entrant batch distribution.
+- xf_fz_141421_123: still banked — a different-fact fork
+  (which R1-born T1 lands in the tuple); own decode.
+- xf_fz_8087_1020: still banked — the [A,A] refire rides the
+  oracle's upd channel at wave head (self-join + in-batch upd +
+  downstream exists); own decode.
 
 ## THE PLAN (one family per slab; commit-per-green-slab)
 
