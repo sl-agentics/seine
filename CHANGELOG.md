@@ -6,6 +6,18 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Event updates land in call order in windowed and plain
+  accumulates over event sources** — an external update of an
+  event feeding an accumulate now takes effect at its own queue
+  position (drained at the next insert's flush point, exactly as
+  Drools does) instead of at the fire boundary: with `collectList`,
+  an updated element's new value now appears **before** elements
+  inserted later in the same batch, updates apply in call order
+  among themselves, and a window-evicted event revived by an
+  update re-enters at the update's position. Five quarantined
+  fuzz witnesses now match the oracle byte-for-byte; sums,
+  counts, and every certified update-semantics probe (masks,
+  epoch-final evaluation, expiry aliveness) are byte-identical.
 - **A fact leaving and re-entering an accumulate in one batch is
   one update** — when an update pushes a fact out of an
   accumulate's source constraint and a later update in the same

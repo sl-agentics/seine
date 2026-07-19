@@ -312,3 +312,252 @@ their own clock-plane probe round, not a blind fold extension.
 xf_fz_662607_47 (collectSet first-instance order) likewise.
 cf325901x52 is not a Collection fork at all (not-DW P-witness
 order) — reclassified OUT of this family, unexplained.
+
+## D-327 THE CEP EVENT-DRAIN CHURN ROUND (2026-07-18)
+
+### The x184 hand-decode (cf326901x184, end-to-end)
+
+Fork: firing[3], W3's windowed collectList — engine [z,z,y],
+oracle [z,y,z]. Timeline (only 4 firings, only [3] differs):
+epoch 0 builds [z,z] (E0@21 z, E0@18 z); epoch 1 = advance 101
+(no evictions: both leave-times 118/121 > 101), update idx4
+(ts 18→102, tag z→y), then epoch-fact insert E0@119 z.
+
+ENGINE MECHANISM (read, engine.rs): event-typed acc-source
+updates DEFER — on_update pushes AccEntry::Upd (acc_pending,
+~9216) and skips staging; drain_acc_pending runs at fire_all
+pre-fire (~7835) → winacc_step (true,true) stages add_upd THEN.
+But the epoch's fresh INSERT stages at its own call and D-102
+stream-flush materializes it immediately. So the staged batches
+are split: [ins] flushes at the insert call → [z,z,z]; [upd]
+flushes at the boundary → remove-first-z + append-y → [z,z,y].
+The D-154 comment at 7830 names the buried assumption: "staging
+here instead of at the update call is byte-identical for
+single-update epochs" — false once a flush-triggering call
+intervenes AND the accumulate is order-visible (collectList).
+
+ORACLE MECHANISM (hypothesis to split): Drools stages the
+modify at the CALL; the insert's per-call stream flush processes
+everything staged in ONE batch, class-ordered (right-dels,
+right-upds, right-inss — PhreakAccumulateNode doNode order, the
+same phase order our eval_acc_node already has) → upd-append
+lands before ins-append → [z,y,z]. "Epoch-final fields" (D-160)
+and "fields at next flush" are INDISTINGUISHABLE in this
+scenario grammar (actions precede facts in an epoch) — the
+deferral's field semantics were never the divergence; only the
+APPEND ORDER is.
+
+### The structural reduction
+
+Every collectList remove targets the FIRST VALUE-EQUAL element
+(D-323/D-324) — removes commute with everything (equal victims:
+same element either way; distinct victims: disjoint). The
+entire fork surface is the ORDER OF APPENDS: upd-new-value
+appends vs fresh-insert appends vs re-admission appends vs
+move-to-tail appends. Explains why the five members are all
+update-flavored and why explicit deletes never fork.
+
+### Round 1 predictions (REGISTERED BEFORE CELLS RUN)
+
+Candidate mechanisms: (A) stage-at-call, one batch at next
+flush trigger, phase-ordered, FIFO among distinct-fact upds
+(the a5 plain pin); (B) per-update-call flush. A and B agree on
+every cell this grammar can express (updates precede inserts in
+an epoch); both refute the engine's boundary deferral.
+
+- **ed1_upd_then_ins** (x184 minimal: [z,z]; upd f1 z→y ts102;
+  ins z@119): PREDICT oracle [z,y,z], engine [z,z,y] — DIVERGE
+  (high). The class reproduced with one rule, three facts.
+- **ed2_upd_only** (no epoch fact): PREDICT MATCH [z,y] (high)
+  — the certified single-update epoch.
+- **ed3_ins_only** (no update): PREDICT MATCH [z,z,z] (high).
+- **ed4_two_upds_then_ins** (upd f1 z→y, upd f0 z→w, ins z):
+  PREDICT oracle [y,w,z] (med-high: FIFO call order among
+  distinct-fact upds, per a5), engine [z,y,w] — DIVERGE. If
+  oracle is [w,y,z] the upd class is LIFO instead — record it.
+- **ed5_samefact_twice_then_ins** (upd f1 z→y, upd f1 y→w,
+  ins z): PREDICT oracle [z,w,z] (med — A and B agree; the
+  second modify re-stages/re-reads, one net append), engine
+  [z,z,w] — DIVERGE (the D-154 two-entry drain double-upds but
+  one Phase C entry nets remove-z+append-w after the ins).
+
+### Round 1 MEASUREMENTS (oracle 3x byte-stable on all divergers)
+
+- ed1 DIVERGE: oracle [z,y,z] — PREDICTED EXACTLY. engine
+  [z,z,y] as predicted.
+- ed2 MATCH [z,y], ed3 MATCH [z,z,z] — as predicted.
+- ed4 DIVERGE: oracle [y,w,z] — PREDICTED EXACTLY (FIFO call
+  order among distinct-fact upds). Engine [z,w,y] (predicted
+  [z,y,w] — the staged upd list is push_front/LIFO and Phase C
+  iterates front-first, so the boundary batch reversed; the
+  engine-internal detail was misread, the law was not).
+- ed5 DIVERGE: oracle [z,w,z] — PREDICTED EXACTLY. engine
+  [z,z,w] as predicted.
+- ed6 (plain non-windowed acc over event source) DIVERGE:
+  oracle [z,y,z], engine [z,z,y] — the D-160 plain-event
+  deferral carries the same latent.
+
+MECHANISM SPLIT: ed4 kills batch-at-next-flush (A): one batch
+would process the push_front upd list LIFO → [w,y,z] ≠ measured
+[y,w,z]. THE LAW IS PER-CALL FLUSH (B): **in a stream session
+every external call flushes its own propagation batch; an
+event-source update's accumulate effect (remove-first-value-
+equal old + append new / revival append / move-to-tail) lands
+AT ITS OWN CALL, in call order.** D-102 (per-insert flush) and
+D-166 (per-update flush, already in the engine at the session
+update entry — "each update action is its own propagation
+batch") already pinned per-call flush for every OTHER surface;
+the acc arms' D-154/D-160 deferral is the one hold-out. The
+deferral's "epoch-final fields" are indistinguishable from
+"fields at own call" (the store is written before propagation);
+only the APPEND ORDER differs, visible only through collect*.
+
+### The five members re-decoded under the law (element-exact)
+
+- x184: [z,z]; upd(z→y)+ins(z) → oracle [z,y,z] / eng [z,z,y] ✓
+- x221: [x,x,x]; upd(x→y)+ins(z) → oracle [x,x,y,z] / eng
+  [x,x,z,y] ✓
+- x88: [z,x,y]; upd(x→y)+ins(z)+ins(y) → oracle [z,y,y,z,y] /
+  eng [z,y,z,y,y] ✓ (initial build = per-call arrival order,
+  both sides agree)
+- x239: [y,x]; upd(x→y)+ins(x) → oracle [y,y,x] / eng [y,x,y] ✓
+- x55: E0@0 EVICTED by the advance, then upd(x→y,ts113) =
+  detached mask-hit REVIVAL; +ins(x@103) → oracle [y,x] (the
+  revival append lands at the upd's call, before the ins) /
+  eng [x,y] ✓ — the law covers revival appends unchanged.
+
+ALL FIVE are the one mechanism. No flip-flop-zone involvement
+(no eviction interleaves BETWEEN the racing appends; x55's
+eviction precedes both calls). D-083 not implicated.
+
+### THE PORT (design)
+
+on_update's two event-acc deferral arms stop deferring and step
+immediately (transitions VERBATIM — winacc_step/plainacc_step
+untouched): the windowed arm calls winacc_step at pass 0 (the
+RHS-modify branch's exact call — the origin.is_none() split is
+DELETED); the plain-event arm calls plainacc_step per pass. The
+already-certified D-166 per-call stream flush then materializes
+the effect at the call. AccEntry::Upd + the drain's Upd arm +
+del_pos die (external deletes keep the Del deferral — deletes
+are order-invisible in collect*: removes always target the
+first value-equal element and commute). Expected byte movement:
+the 5 members flip PASS; xf_cep_acc_updel_flush_{plain,win}
+(regression-tier engine pins of the drain's approximation of
+"the oracle's per-entry incremental flush" — per-call flush IS
+that) may move toward the oracle → re-bank or graduate; any
+other movement = investigate before accepting.
+
+### Round 2: the revival composition (x55's wrinkle)
+
+Post-port, x55 WORSENED shape-wise: engine [x] vs oracle [y,x] —
+the revived y VANISHED (and a firing with it). ed7 (minimal:
+E0(x@0); advance 101 = eviction; upd →y ts113 = detached
+mask-hit revival; ins x@103) reproduces. WA-instrumented trace:
+the advance's eviction del is STASHED by the trigger-scoped
+delta flushes (certified D-125/D-322 stash mechanics) and only
+processes at the BOUNDARY Phase B — where it reversed BOTH of
+f1's contributions (the stale x AND the revival's y, folded at
+the upd call): [x]→[x,y]→[x,y,x]→(boundary del reverses twice)
+→[x]. Pre-port the revival ins also sat at the boundary BEHIND
+the del in phase order, which masked the composition.
+
+THE LAW (the D-326 identity-fold, reaching this arm now that
+stepping is per-call): a staged del + a same-fact revival nets
+to ONE UPD — Phase C reverses the STORED contribution (x) and
+appends the new (y) at the revival's call. Under per-call flush
+a staged del can coexist with a (false,true) step ONLY via the
+non-flushing del sources (eviction/expiry stash) — a same-batch
+alpha exit's del always flushes at its own call.
+
+PREDICTIONS: winacc_step (false,true) admit arm folds
+del+ins→UPD (remove_first_by_key + add_upd, the D-326 port's
+exact shape) → ed7 PASS [y,x]; x55 PASS; ed1-ed6 unchanged
+PASS; the wa_*/D-112/D-137 lanes hold (count/sum order-blind).
+
+### Round 3: the m-matrix pushes back — MECHANISM C′
+
+The naive per-call port broke 10 certified cells (m3/m8/m10-m15/
+updupd_final/wl_transient — byte gate). m3/m8/m12 forced the
+entry queue back verbatim: the pair's FIRST entry must evaluate
+at EPOCH-FINAL fields with ITS OWN mask ({tag,ts} — the
+tag-only second entry cannot revive, mask-miss). m12 proved
+advances don't drain. Then m11/m13 (an update of a SECOND fact
+between the pair) killed drain-at-update-calls too: the
+intervening call would consume entry 1 at the z-state. And
+after_insert's OLD comment names the true law measured in the
+D-150 era: "Drools force-flushes them at an event insert's
+queue position" — boundary-only was a knowing approximation
+("position-independent"), true only for order-blind observables.
+
+**C′: entries queue per external update call (own masks, FIFO,
+the D-154 machine VERBATIM); the queue drains at every external
+INSERT call (after the stage snapshot — inside the trigger
+delta, the segment-scoping trap that killed the D-150-era
+insdrain attempt) and at fire_all pre-fire; updates, advances,
+deletes leave the queue alone. Drained effects process FIFO
+(staged via push-back — the event drain is FIFO-effect; the
+PLAIN inline arms keep push_front/LIFO, a5/a7's pinned order).
+The revival identity-fold (round 2) stands: staged eviction del
++ same-fact revival nets to ONE UPD at the drain position.**
+
+Fields at any drain = epoch-final for drained entries BY
+GRAMMAR (actions precede facts within an epoch) — the m-matrix
+semantics and the collect-order law were never in conflict.
+
+Round-3 predictions (before cells):
+- **ed9_two_upds_no_ins** (windowed pair f1→y, f0→w, no epoch
+  facts — boundary drain): PREDICT oracle [y,w] (FIFO-effect at
+  the boundary too — one uniform drain order). [w,y] would mean
+  boundary keeps LIFO — record it, split the staging call.
+- **ed8_plainacc_two_upds_then_ins** (plain acc over EVENT
+  source, upd f1→y, upd f0→w, ins z): PREDICT oracle [y,w,z]
+  (the D-160 queue drains FIFO at the ins call, same as
+  windowed).
+- The 22-cell set (ed1-7, five members, m-matrix 8, updupd,
+  m10, wl_transient) all PASS under C′.
+
+### Round 3 MEASUREMENTS — C′ CONFIRMED
+
+- ed9 oracle [y,w] — PREDICTED EXACTLY (FIFO-effect at the
+  boundary drain; one uniform drain order, no split).
+- ed8 oracle [y,w,z] — PREDICTED EXACTLY (the plain-event D-160
+  queue drains FIFO at the ins call, same as windowed).
+- The FULL 24-cell set PASSES: ed1-ed9, the five cf* members,
+  m3/m8/m10/m11/m12/m13/m14/m15, updupd_final, wl_transient.
+
+THE PORT (final shape, 4 edits):
+1. after_insert: drain_acc_pending() after the stage snapshot,
+   before on_insert (the delta placement).
+2. The external-update path: comment only (updates do NOT
+   drain — m11/m13's discriminant).
+3. phreak Staged::add_upd_back (push_back, add_upd's dedup
+   verbatim); winacc_step (true,true)-hit + revival-fold +
+   plainacc_step (true,true) flip to it. Plain inline arms
+   keep add_upd (push_front/LIFO — a5/a7).
+4. winacc_step (false,true) revival: staged del + re-assert
+   nets to UPD (remove_first_by_key + add_upd_back) — the
+   round-2 fold, kept.
+Everything else (AccEntry queue, masks, FIFO evaluation,
+aliveness, del_pos/drain_dead, the Del arm, winlen landing
+law) — VERBATIM pre-port.
+
+OPEN CORNER (noted, unmeasured, no witness): a drained
+(false,true) FRESH admission (never-admitted event entering via
+ts/alpha update) staged push_front races a same-flush fresh
+insert's push_front — Phase E order between them unpinned by
+any cell; the admission-vs-ins append order may need its own
+pin round if fuzz surfaces it.
+
+### D-327 CLOSE-OUT
+
+Full battery green: byte gate 2415/0/5 (the five witnesses are
+the only movement); make diff 11/1445/414 + drift 47; lint
+2283/0/0; cargo 73; pytest 257; demo True; model_ird 31/31; IRD
+0-div ×5; SD 72 EXACT ×12; agenda_open ×10 ×3; fuzz 327001
+clean, 327002's 2 finds pre-existing → banked (fz_327002_845
+value-fork, fz_327002_1948 TMS-phantom — NOT this family);
+fuzz_cep 3×300 clean. Graduated: 5 members (pr_co_cf*) + the
+ed grid (pr_co_ed1..ed9). The collect-order family is CLOSED
+end-to-end: D-323 (reverse) + D-324 (windows) + D-326
+(identity-fold) + D-327 (drain positions).

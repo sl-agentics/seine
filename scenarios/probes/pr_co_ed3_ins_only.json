@@ -1,0 +1,58 @@
+{
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  }
+ ],
+ "drl": "rule W3 when accumulate( E0($t : tag) over window:time(100ms); $c : collectList($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 21,
+    "tag": "z"
+   }
+  },
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 18,
+    "tag": "z"
+   }
+  }
+ ],
+ "name": "pr_co_ed3_ins_only",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 119,
+      "tag": "z"
+     }
+    }
+   ]
+  }
+ ]
+}

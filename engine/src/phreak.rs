@@ -491,6 +491,23 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> Staged<T> {
         self.add_upd_ph(t, origin, 2)
     }
 
+    /// D-327: the FIFO variant for the acc entry-queue drain — drained
+    /// entries' effects process in ENTRY order (Phase C iterates
+    /// front-first, so append). The plain inline arms keep `add_upd`'s
+    /// push_front (a5/a7's pinned LIFO batch order). Dedup semantics
+    /// identical to add_upd.
+    pub fn add_upd_back(&mut self, t: T, origin: Origin) {
+        if !self.seen.contains(&t) {
+            self.seen.insert(t.clone());
+            self.upd.push_back((t, origin, 2));
+            return;
+        }
+        if self.ins.contains_key(&t) || self.upd.contains_key(&t) || self.del.contains_key(&t) {
+            return;
+        }
+        self.upd.push_back((t, origin, 2));
+    }
+
     pub fn add_upd_ph(&mut self, t: T, origin: Origin, phase: u8) {
         // TupleSetsImpl.addUpdate: already staged (any list) -> no-op.
         if !self.seen.contains(&t) {

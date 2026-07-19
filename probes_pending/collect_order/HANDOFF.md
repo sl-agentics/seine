@@ -1,5 +1,12 @@
 # HANDOFF — the CEP event-drain churn round (cold start)
 
+> **CONSUMED (2026-07-18): the round ran as D-327** — the five
+> members graduated (pr_co_cf*), the law + port are recorded in
+> PINS.md (mechanism C′: entries drain at insert positions,
+> FIFO effects, the revival fold) and DECISIONS.md D-327.
+> Residuals from the standing ledger: xf_fz_662607_47
+> (collectSet), cf325901x52, cf318902x167.
+
 Written 2026-07-18 at the end of the D-311..D-326 session. The
 target: the FIVE-member collectList order-fork class on
 EVENT-typed sources — cf324903x55, cf325902x221, cf325902x88,

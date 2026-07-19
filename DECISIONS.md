@@ -17750,3 +17750,85 @@ both worktree-bisected PRE-EXISTING and banked (cf326901x184,
 cf326902x239 — the same event-drain × window churn class; the
 cep sub-family is now FIVE members awaiting its clock-plane
 round; bank 50).
+
+## D-327: the CEP event-drain churn round — entries drain at insert
+## positions; the FIVE-member class falls (2026-07-18)
+
+THE HAND-DECODE (x184, the playbook's step 1): the fork is one
+epoch — [z,z]; update (z→y) then epoch-fact insert (z); oracle
+[z,y,z], engine [z,z,y]. The engine deferred the event-source
+update's acc entry to the fire boundary (D-154 acc_pending)
+while the insert's per-call stream flush (D-102) materialized
+immediately — the staged order was [ins, upd] regardless of
+call order. The structural reduction: collectList removes
+always target the FIRST VALUE-EQUAL element (D-323/D-324) and
+commute — THE ENTIRE FORK SURFACE IS THE ORDER OF APPENDS
+(upd-new-value vs fresh-insert vs revival appends). All five
+members re-decoded element-exact under one law before any port.
+
+THE LAW (mechanism C′, three prediction rounds, every cell
+predicted before running): **the D-154 entry queue is real
+(per-call entries, own masks, FIFO, epoch-final evaluation —
+the m-matrix machinery verbatim), but it drains at every
+EXTERNAL INSERT call's queue position (inside the trigger
+delta) as well as at the fire boundary; update calls, advances,
+and deletes leave the queue alone; drained effects process FIFO
+(the plain inline arms keep their pinned LIFO); a staged
+eviction del + same-fact revival nets to ONE UPD (the D-326
+identity-fold reaching winacc_step).** after_insert's old D-154
+comment had recorded the truth all along: "Drools force-flushes
+them at an event insert's queue position (D-150)" — boundary-
+only was a knowing approximation, valid exactly while every
+observable was order-blind; D-324's collectList fuzz axis is
+what made append order visible and birthed the five-member
+class. The discriminants: m3/m8 forced the queue back (the
+pair's first entry needs ITS OWN mask at epoch-final fields);
+m12 proved advances don't drain; m11/m13 killed
+drain-at-update-calls; ed4 vs a5 split event-FIFO from
+plain-LIFO; ed9 pinned FIFO at the boundary too; ed7/x55 pinned
+the revival fold (the naive drain split the eviction del from
+the revival ins across flush batches — the boundary Phase B
+then reversed BOTH contributions; the D-150-era "port_insdrain"
+attempt died on exactly this, recorded in that same comment).
+
+THE PORT (4 edits, everything else verbatim): (1) after_insert
+calls drain_acc_pending after the stage snapshot, before
+on_insert; (2) the external-update path documents NOT draining;
+(3) phreak Staged::add_upd_back (push_back, add_upd's dedup) —
+winacc_step (true,true)-hit, the revival fold, and
+plainacc_step (true,true) flip to it; (4) winacc_step's
+(false,true) revival arm folds staged-del + re-assert → UPD
+(remove_first_by_key + add_upd_back). A first-cut per-call port
+(stepping at the update call) was BUILT, MEASURED, and REVERTED
+mid-slab: it fixed the five members but broke 10 certified
+cells (m3/m8/m10-m15/updupd_final/wl_transient) — the byte gate
+caught it, the m-matrix forced C′.
+
+GRADUATIONS: the five members → pr_co_cf324903x55/
+pr_co_cf325902x221/pr_co_cf325902x88/pr_co_cf326901x184/
+pr_co_cf326902x239 + the 9-cell ed grid → pr_co_ed1..ed9.
+Corpus 11/1445/414; bank 50→45. OPEN CORNER (noted in PINS,
+unmeasured, no witness): a drained fresh ADMISSION's append vs
+a same-flush fresh insert's append (Phase E order) is unpinned.
+FAMILY LEDGER: the collect-order family is CLOSED end-to-end
+(plain D-323/D-326 + windowed D-324 + event-drain D-327);
+residuals = xf_fz_662607_47 (collectSet, separate law),
+cf325901x52 (agenda-order, reclassified out), cf318902x167
+(pre-existing, unclassified).
+
+RECEIPTS: byte gate 2415 same / 0 moved / 5 diff vs 897646d —
+the five witnesses are the ONLY movement (the m-matrix, updel,
+wl lanes byte-identical); make diff 1870 PASS (11/1445/414) +
+drift bank 45 identical; lint 2283/0/0; cargo 73; maturin +
+pytest 257; demo True; model_ird 31/31; IRD 0-div ×5;
+agenda_open ×10 identical ×3 (debug + release + pre-edit
+worktree); SD census 72 EXACT ×12 (6,10,3,5,6,5,5,6,8,7,4,7 —
+6001's batch line lost to an output race, standalone run exact);
+fresh fuzz 2×2000: 327001 CLEAN, 327002 → 2 finds BOTH
+worktree-bisected PRE-EXISTING (engine byte-identical pre/post
+D-327) and quarantined (fz_327002_845: a boolean value fork
+through insertLogical; fz_327002_1948: two phantom logical
+facts, TMS × no-loop × setFocus flavor — neither in the collect
+family; bank 45→47), seed re-run CLEAN; fuzz_cep 3×300
+(327901-903) ALL CLEAN — the D-324 collect axis patrol no
+longer re-reports the class.

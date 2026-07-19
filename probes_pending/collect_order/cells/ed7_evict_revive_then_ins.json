@@ -1,0 +1,59 @@
+{
+ "name": "ed7_evict_revive_then_ins",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  }
+ ],
+ "drl": "rule W3 when accumulate( E0($t : tag) over window:time(100ms); $c : collectList($t) ) then end\n",
+ "facts": [
+  {
+   "type": "E0",
+   "fields": {
+    "ts": 0,
+    "tag": "x"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 101
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "y",
+      "ts": 113
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E0",
+     "fields": {
+      "ts": 103,
+      "tag": "x"
+     }
+    }
+   ]
+  }
+ ]
+}

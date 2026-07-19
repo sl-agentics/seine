@@ -2827,10 +2827,13 @@ pub struct Engine {
     /// next flush point against the LIVE bean — by then the epoch-FINAL
     /// field state (BfDump proxy: a same-epoch tag z→x pair never shows
     /// the network the z state; a fire boundary between them does).
-    /// Drained FIFO at fire_all pre-fire. Single-update epochs are
-    /// equivalent to the pre-D-154 immediate processing: staging lands
-    /// before the first agenda pick either way, and the pick orders by
-    /// (salience, decl_pos), not queue time.
+    /// Drained FIFO at every external insert/update call's flush point
+    /// (D-150/D-327: each call drains its PREDECESSORS — its own entry
+    /// queues after — so effects land at call positions, the collect*
+    /// append-order law; advances and deletes leave the queue alone,
+    /// m12's discriminant) and at fire_all pre-fire for the trailing
+    /// entries. Fields at any drain are epoch-final for the drained
+    /// entries by grammar (actions precede facts within an epoch).
     /// D-160 generalizes the queue to ALL accumulate nodes over
     /// EVENT-TYPED sources and adds explicit external DELETES as entries:
     /// per-entry FIFO execution against epoch-final fields, with
@@ -5840,14 +5843,13 @@ impl Engine {
             if let Value::I64(ts) = self.store.value(id, ts_fi) {
                 self.store.set_event_ts(id, ts);
             }
-            // D-154: pending windowed-acc update entries drain at the FIRE
-            // boundary only. Drools force-flushes them at an event insert's
-            // queue position (D-150), but an accumulate's result emission
-            // happens at rule evaluation either way, so fold values and
-            // per-rule sequences are position-independent — and staging
-            // into an acc node mid-epoch trips the per-arrival stream
-            // flush's segment scoping (the port_insdrain probe lost the
-            // revival to it).
+            // D-327: pending acc update entries now drain at every
+            // external insert/update call's queue position (below, after
+            // the stage snapshot — inside the trigger delta, which is
+            // what the D-150-era port_insdrain attempt missed) — the
+            // D-150 measurement was right and "position-independent"
+            // held only for order-blind observables: collectList sees
+            // the append order (the ed1/ed4 forks + five cf* witnesses).
         }
         let exp_ord = self.schedule_expiration(id);
         // D-151: feed the mechanical flush shadows (external inserts only —
@@ -5863,6 +5865,11 @@ impl Engine {
         // terminals, D-047).
         if self.lists_built {
             let pre = self.stage_snapshot();
+            // D-150/D-327: pending acc entries drain at this insert's
+            // queue position, their staging riding THIS call's delta
+            // (post-snapshot) so the trigger-scoped flush lands the
+            // effects here — upd-appends precede this insert's append.
+            self.drain_acc_pending();
             self.on_insert(id, None);
             for net in self.nets.iter_mut() {
                 net.s0_close_window();
@@ -6014,6 +6021,10 @@ impl Engine {
             // mechanical shadows pin it).
             if self.event_specs.contains_key(&tid) {
                 let pre = self.stage_snapshot();
+                // D-327: update calls do NOT drain pending acc entries
+                // (m11/m13: an intervening second-fact update would
+                // evaluate a pair's first entry at its intermediate
+                // state) — only INSERT calls and the fire boundary drain.
                 // D-170 (T6): expose the trigger to the flush's terminal
                 // consumes — movability marking + the relocation gate.
                 self.tj_trigger = Some((id, mask, tid));
@@ -6677,7 +6688,10 @@ impl Engine {
         match (was_in, now) {
             (true, true) => {
                 if hit {
-                    self.trie[ni].node.s_right.add_upd(f, origin);
+                    // add_upd_back: drained entries' effects process in
+                    // ENTRY order (D-327 FIFO; the plain inline arms keep
+                    // push_front/LIFO — a5/a7)
+                    self.trie[ni].node.s_right.add_upd_back(f, origin);
                 } else {
                     // mask miss: immediate right-memory reAdd, no staging
                     // (the existing D-139 miss path, fz_42_4359)
@@ -6709,12 +6723,23 @@ impl Engine {
                         // its existing state — zombie or retained slot.
                         self.winlen_admit(ni, f);
                     }
-                    // re-entry staging exactly as the plain (false,true)
-                    // update branch (D-082/D-083 ph classification)
+                    // D-326/D-327: a staged del + same-fact re-assert nets
+                    // to ONE UPD (Drools stages by tuple identity). At a
+                    // mid-epoch drain a staged del coexists here ONLY via
+                    // the non-flushing del sources (eviction/expiry stash),
+                    // and splitting it del+ins across flush batches loses
+                    // the revival fold to the boundary Phase B (ed7/x55 —
+                    // the same trap that killed the D-150-era insdrain
+                    // attempt). Phase C reverses the STORED contribution
+                    // and appends the new value at this drain's position.
                     let reentry =
                         self.trie[ni].node.s_right.del.iter().any(|(x, _, _)| *x == f);
-                    let ph = if reentry { 1 } else { 0 };
-                    self.trie[ni].node.s_right.add_ins_ph(f, origin, ph);
+                    if reentry {
+                        let _ = self.trie[ni].node.s_right.del.remove_first_by_key(&f);
+                        self.trie[ni].node.s_right.add_upd_back(f, origin);
+                    } else {
+                        self.trie[ni].node.s_right.add_ins_ph(f, origin, 0);
+                    }
                 } else if !detached {
                     self.trie[ni].clock_removed.insert(f); // rejected: RT plants
                 }
@@ -6763,7 +6788,8 @@ impl Engine {
                 // plain accumulate: full listen mask (constraints ∪ bindings,
                 // D-139); acc nodes are never temporal positives.
                 if mask == u64::MAX || self.rules[ri].patterns[pos].listen_mask & mask != 0 {
-                    self.trie[ni].node.s_right.add_upd(f, None);
+                    // add_upd_back: FIFO among drained entries (D-327)
+                    self.trie[ni].node.s_right.add_upd_back(f, None);
                 } else {
                     let env = JoinEnvImpl {
                         store: &self.store,
