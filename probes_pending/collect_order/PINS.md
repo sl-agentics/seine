@@ -606,3 +606,32 @@ multisets); collectList/Collection stay ORDER-SIGNIFICANT
 the oracle runner's Java sort becomes harmless. PREDICT:
 xf_fz_662607_47 flips PASS; the corpus holds; D-295-scale
 receipts (harness-only slab).
+
+## D-328 addendum: Bryan's external wheel verification (2026-07-19)
+
+Bryan ran the first out-of-harness collectList check against the
+PyPI 0.4.42 wheel and observed by-FACT removal — reading
+**acc_sources**. RESOLUTION (all three of his candidates ruled
+out; the fourth surface was in play): acc_sources is the
+PROVENANCE channel (D-305: acc_provenance snapshots
+ctx.matches — per-fact bookkeeping, removal by FactId — that IS
+its contract: "which facts produced this value"). The D-323 law
+lives on the FIRED COLLECTION's element order (vlist). Measured
+on the shipped PyPI wheel, his exact geometry ([-4,-1e9,-4],
+delete first-inserted -4 vs last-inserted -4):
+- Collection elements: BOTH deletes → [-1e9,-4] — the
+  first-value-equal law, the fix IS in the wheel;
+- acc_sources: tracks the dead fact's own entry — exactly his
+  numbers, correct provenance semantics.
+Oracle cross-check: ed10/ed11 (his geometry as cells) PASS
+engine-vs-oracle. Also ruled out BY MECHANISM: the maturin-
+develop .so clobber CANNOT reach PyPI wheels (CI compiles from
+source at the tag; the tracked .so is a source-tree
+convenience).
+
+NEW OPEN ITEM (found by his check): **the CI-built wheel's
+certification()["commit"] is "unknown"** (local builds embed
+a74d345) — the release workflow loses the git context, so a
+shipped wheel cannot self-identify its commit. The one-move
+answer to "does this wheel carry fix X" doesn't work on PyPI
+artifacts until the workflow passes the commit through.

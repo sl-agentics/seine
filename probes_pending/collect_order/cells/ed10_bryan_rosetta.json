@@ -1,0 +1,52 @@
+{
+ "name": "ed10_bryan_rosetta",
+ "types": [
+  {
+   "name": "Item",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule C when accumulate( Item($v : v); $c : collectList($v) ) then end\n",
+ "facts": [
+  {
+   "type": "Item",
+   "fields": {
+    "v": -4,
+    "tag": 1
+   }
+  },
+  {
+   "type": "Item",
+   "fields": {
+    "v": -1000000000,
+    "tag": 2
+   }
+  },
+  {
+   "type": "Item",
+   "fields": {
+    "v": -4,
+    "tag": 3
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 0
+    }
+   ]
+  }
+ ]
+}
