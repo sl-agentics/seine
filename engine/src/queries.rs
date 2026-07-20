@@ -906,6 +906,16 @@ pub struct QueryMem(
     /// full-walk reorder needs the window partition; fact-id lists
     /// survive deletions (membership lookups filter to the live walk).
     HashMap<(usize, usize, usize), Vec<Vec<FactId>>>,
+    /// D-367: per-site (type_gen, type_mut_gen, by_type high-water mark)
+    /// at the last drain. Equal type_gen: the drain is a NO-OP by
+    /// construction — the retain removes nothing (liveness and field
+    /// values unchanged), the fresh scan finds nothing (same live set,
+    /// all seen), no window record — skipped outright. Equal mut_gen
+    /// only (inserts since, no kill/set_value): the retain is still a
+    /// no-op and every pre-hwm fact is already seen-or-alpha-failed
+    /// with unchanged values, so only the post-hwm handles are tested —
+    /// the identical fresh list the full walk would produce.
+    HashMap<(usize, usize, usize), (u64, u64, u32)>,
 );
 
 /// One drain window for one pattern (qx8_statemem/3): staged deletes
@@ -917,6 +927,23 @@ fn drain_pattern(
     site: (usize, usize, usize),
     pat: &QPattern,
 ) -> Vec<FactId> {
+    drain_pattern_update(mem, store, site, pat);
+    mem.0.get(&site).cloned().unwrap_or_default()
+}
+
+/// The stateful half of `drain_pattern` (D-367 split): performs the
+/// drain without cloning the memory out, so state-only callers
+/// (`drain_query`) skip the O(|memory|) copy — and skips entirely when
+/// the pattern type's generation is unchanged since the last drain.
+fn drain_pattern_update(
+    mem: &mut QueryMem,
+    store: &FactStore,
+    site: (usize, usize, usize),
+    pat: &QPattern,
+) {
+    let gen = store.type_gen(pat.tid);
+    let mgen = store.type_mut_gen(pat.tid);
+    let hwm = store.by_type_len(pat.tid);
     let alpha_ok = |f: FactId| {
         pat.alpha.iter().all(|(fi, t)| {
             let v = store.value(f, *fi);
@@ -933,6 +960,24 @@ fn drain_pattern(
             }
         })
     };
+    match mem.2.get(&site) {
+        // clean: the drain would be a no-op (see QueryMem.2)
+        Some(&(g, _, _)) if g == gen => return,
+        // insert-only delta: the retain is a no-op and pre-hwm facts
+        // are frozen — test only the new handles (see QueryMem.2)
+        Some(&(_, mg, from)) if mg == mgen => {
+            let mut fresh: Vec<FactId> =
+                store.facts_of_since(pat.tid, from).filter(|&f| alpha_ok(f)).collect();
+            fresh.reverse();
+            if !fresh.is_empty() {
+                mem.1.entry(site).or_default().push(fresh.clone()); // D-363 window record
+            }
+            mem.0.entry(site).or_default().extend(fresh);
+            mem.2.insert(site, (gen, mgen, hwm));
+            return;
+        }
+        _ => {}
+    }
     let m = mem.0.entry(site).or_default();
     // D-107 (qm1): an external UPDATE can flip an accumulated fact out
     // of the pattern — the window re-tests alpha at every drain (still-
@@ -964,7 +1009,23 @@ fn drain_pattern(
         mem.1.entry(site).or_default().push(fresh.clone()); // D-363 window record
     }
     m.extend(fresh);
-    m.clone()
+    mem.2.insert(site, (gen, mgen, hwm));
+}
+
+/// D-367: the summed member-type generation of a query's own fact
+/// patterns — the `query_linked` memo stamp. Generations are monotone,
+/// so any member-type mutation strictly raises the sum; an equal stamp
+/// proves the linkedness inputs are untouched.
+pub fn linked_stamp(store: &FactStore, queries: &[CompiledQuery], qi: usize) -> u64 {
+    queries[qi]
+        .branches
+        .iter()
+        .flat_map(|b| b.iter())
+        .filter_map(|n| match n {
+            CNode::Fact(p) => Some(store.type_gen(p.tid)),
+            _ => None,
+        })
+        .sum()
 }
 
 /// D-086: a query's path is LINKED when some or-branch has every
@@ -1011,7 +1072,7 @@ pub fn drain_query(
     for (bi, branch) in queries[qi].branches.iter().enumerate() {
         for (ni, node) in branch.iter().enumerate() {
             if let CNode::Fact(pat) = node {
-                drain_pattern(mem, store, (qi, bi, ni), pat);
+                drain_pattern_update(mem, store, (qi, bi, ni), pat);
             }
         }
     }
@@ -1060,6 +1121,55 @@ struct Machine<'a> {
     /// total; the memoized table is byte-identical to the per-level one,
     /// so emission order and multiplicity are unchanged.
     level_cache: HashMap<(usize, usize, usize), (Vec<FactId>, Option<Table>, Option<Vec<FactId>>)>,
+    /// D-367 RESULT memo (intra-run; the same WM freeze): per (callee,
+    /// uniform bound-arg vector), the callee's qmem emission parsed
+    /// into flush SEGMENTS — per segment one contiguous BLOCK per
+    /// caller, every block identical to the single-caller row
+    /// sequence, block order forward or reverse (the flat-list
+    /// machinery is env-by-env expansion + whole-list reversals +
+    /// front-splices, all caller-block-lockstep-preserving). Captured
+    /// once by a TWO-probe evaluation and VALIDATED by the parse: a
+    /// capture that does not decompose into equal-block segments
+    /// stores `None` and the call evaluates for real — the theory is
+    /// runtime-checked per (callee, argvec), never assumed. Value keys
+    /// compare with derived equality (a NaN argvec never hits — it
+    /// probes again, correct and merely slower). Linear scan: distinct
+    /// argvecs per run are few.
+    memo: Vec<((usize, Vec<Option<Value>>), Option<MemoEntry>)>,
+    /// Non-zero while a probe evaluation runs. Probes nest native
+    /// frames (probe -> drain -> walk), so memoization is fenced to
+    /// depth 0 — below one probe the machine stays fully iterative
+    /// (the D-055 deep-recursion guarantee).
+    probe_depth: u32,
+}
+
+/// D-367: one memoized callee evaluation (see `Machine::memo`).
+/// Fills are keyed by CALLEE ARG POSITION, never by caller slot — the
+/// same (callee, argvec) is reachable from call sites with different
+/// arg-slot structures (qc3_sibling's direct($x,$y) vs direct($z,$y)
+/// pinned this at the byte gate: slot-keyed fills wrote the wrong
+/// slots at the second site and manufactured an open-recursion loop).
+/// The replay maps positions onto the REPLAYING site's slots with the
+/// terminal handler's own rule (unbound slots, first position per
+/// slot).
+struct MemoEntry {
+    /// The unbound arg positions, in position order.
+    fill_pos: Vec<usize>,
+    /// Flush segments: (callers forward?, block rows). Each block row
+    /// holds the callee's param values at `fill_pos` positions.
+    segments: Vec<(bool, Vec<Vec<Option<EnvVal>>>)>,
+}
+
+/// Strict equality for fill/argvec comparison (derived Value equality:
+/// F64 by value semantics — NaN never equal, which FENCES rather than
+/// corrupts: mismatches disable the memo for that call).
+fn envval_opt_eq(a: &Option<EnvVal>, b: &Option<EnvVal>) -> bool {
+    match (a, b) {
+        (None, None) => true,
+        (Some(EnvVal::Fact(x)), Some(EnvVal::Fact(y))) => x == y,
+        (Some(EnvVal::Val(x)), Some(EnvVal::Val(y))) => x == y,
+        _ => false,
+    }
 }
 
 /// D-363 (xf_fz_296002_1494/f5/p363a): at a TOP-LEVEL call on a
@@ -1151,14 +1261,22 @@ fn d363_reorder(
             }
             Operand::Binding(_) => continue,
         }
+        // D-367: fact -> first-containing-window index, built once —
+        // entry-or-insert keeps the FIRST hit, the exact value the old
+        // per-row windows.position(contains) scan produced.
+        let mut wmap: HashMap<FactId, usize> = HashMap::new();
+        for (wi, w) in windows.iter().enumerate() {
+            for &f in w {
+                wmap.entry(f).or_insert(wi);
+            }
+        }
         let rank = |f: FactId| -> Option<(u8, usize)> {
             let bucket = match store.value(f, key_field) {
                 Value::Bool(b) => b as u8,
                 _ => return None, // non-bool key: fence
             };
-            windows.iter().position(|w| w.contains(&f)).map(|wi| {
-                (bucket, if wi == 0 { usize::MAX } else { wi })
-            })
+            wmap.get(&f)
+                .map(|&wi| (bucket, if wi == 0 { usize::MAX } else { wi }))
         };
         let idx: Vec<usize> = (0..out.len())
             .filter(|&i| matches!(out[i].slots.get(slot), Some(Some(EnvVal::Fact(_)))))
@@ -1216,6 +1334,8 @@ pub fn run_query(
         site_out: Vec::new(),
         steps: 0,
         level_cache: HashMap::new(),
+        memo: Vec::new(),
+        probe_depth: 0,
     };
     let mut env0 = Env { slots: vec![None; q.slot_count], root: Root::Top };
     for (i, a) in args.iter().enumerate() {
@@ -1284,6 +1404,8 @@ pub fn run_site(
         site_out: Vec::new(),
         steps: 0,
         level_cache: HashMap::new(),
+        memo: Vec::new(),
+        probe_depth: 0,
     };
     let mut envs: Vec<Env> = Vec::with_capacity(calls.len());
     for (idx, args) in calls.iter().enumerate() {
@@ -1426,8 +1548,10 @@ impl Machine<'_> {
     fn bump(&mut self) -> Result<(), EngineError> {
         self.steps += 1;
         if self.steps > STEP_LIMIT {
+            // D-367: no 'cyclic?' guess — a finite DAG workload can trip
+            // this too (fz_9201_1660 proved it before the result memo).
             return Err(EngineError(
-                "query evaluation step limit exceeded (cyclic recursion data? D-055)".into(),
+                "query evaluation step limit exceeded (D-055 backstop: cyclic data or an expansion past the step budget)".into(),
             ));
         }
         Ok(())
@@ -1452,6 +1576,17 @@ impl Machine<'_> {
                         // fact levels still evaluate, so their memories
                         // drain this window (D-056 statefulness).
                         src = trg;
+                        ni += 1;
+                        continue;
+                    }
+                    // D-367: a uniform-argvec batch replays the callee's
+                    // memoized emission instead of re-deriving it per
+                    // caller (see `Machine::memo`). Fenced (None) paths
+                    // fall through to the real frame evaluation.
+                    if let Some(rows) = self.try_memo_call(qi, bi, ni, *callee, &src)? {
+                        let mut cont = trg;
+                        cont.extend(rows);
+                        src = cont;
                         ni += 1;
                         continue;
                     }
@@ -1601,11 +1736,34 @@ impl Machine<'_> {
         }
         let (arrival, table, full_order) = self.level_cache.remove(&site).unwrap();
 
+        // D-367: AUX equality bucket for the unbound-index descent. A
+        // recursive call threads a concrete value into an eq beta that
+        // is NOT the D-053 index (the index is the FIRST unification
+        // alone), and the old path full-order-scanned per env. When the
+        // bound value's type EXACTLY matches the field type and is not
+        // F64 (I64/Str/Bool: join-eq is exact equality — no D-020
+        // coercion, no bit-pattern/NaN split), a bucket keyed on that
+        // field over the full_order sequence returns precisely the
+        // full-order facts passing that beta, in full-order sequence —
+        // the identical survivor walk, without the O(arrival) scan per
+        // env. F64 and cross-type keys keep the scan (join-eq and
+        // bucket equality diverge there).
+        let aux_bi: Option<usize> = pat.beta.iter().enumerate().position(|(i, b)| {
+            b.op == CmpOp::Eq
+                && !pat.index.contains(&i)
+                && matches!(
+                    store.field_type(pat.tid, b.field_idx),
+                    FieldType::I64 | FieldType::Str | FieldType::Bool
+                )
+        });
+        let mut aux: Option<HashMap<u32, Vec<(Value, Vec<FactId>)>>> = None;
+
         let mut trg: Vec<Env> = Vec::new();
         for env in &src {
             self.bump()?;
-            let candidates: Vec<FactId> = match (&table, pat.unification_join) {
-                (None, _) => arrival.clone(),
+            let mut owned: Vec<FactId> = Vec::new();
+            let candidates: &[FactId] = match (&table, pat.unification_join) {
+                (None, _) => &arrival,
                 (Some(t), true) => {
                     // A single-field unification join (index on a query
                     // param) full-scans when the param is UNBOUND (top-level
@@ -1616,7 +1774,7 @@ impl Machine<'_> {
                     // exactly the full-order survivors in identical order,
                     // but in O(1) rather than O(N). This is what turns the
                     // recursive descent from O(N^2) into O(N).
-                    let key: Option<Vec<Value>> = pat
+                    let vals: Vec<Option<Value>> = pat
                         .index
                         .iter()
                         .map(|&i| match &env.slots[operand_slot(&pat.beta[i].operand)] {
@@ -1624,9 +1782,54 @@ impl Machine<'_> {
                             _ => None,
                         })
                         .collect();
-                    match key {
-                        Some(k) => t.bucket(key_hash(pat.seed, &k), &k),
-                        None => full_order.clone().unwrap(),
+                    if vals.iter().all(|v| v.is_some()) {
+                        let k: Vec<Value> = vals.into_iter().flatten().collect();
+                        owned = t.bucket(key_hash(pat.seed, &k), &k);
+                        &owned
+                    } else {
+                        // Index operand unbound: the full-order walk —
+                        // served from the aux equality bucket when one
+                        // applies to this env (identical survivors and
+                        // order, see the aux_bi comment).
+                        let mut cand: Option<&[FactId]> = None;
+                        if let Some(bi) = aux_bi {
+                            let b = &pat.beta[bi];
+                            if let Some(EnvVal::Val(bound)) =
+                                &env.slots[operand_slot(&b.operand)]
+                            {
+                                if bound.type_of() == store.field_type(pat.tid, b.field_idx)
+                                {
+                                    if aux.is_none() {
+                                        let mut mm: HashMap<u32, Vec<(Value, Vec<FactId>)>> =
+                                            HashMap::new();
+                                        for &f in full_order.as_ref().unwrap() {
+                                            let fv = store.value(f, b.field_idx);
+                                            let h = java_hash(&fv);
+                                            let chain = mm.entry(h).or_default();
+                                            match chain.iter_mut().find(|(k, _)| *k == fv) {
+                                                Some((_, fs)) => fs.push(f),
+                                                None => chain.push((fv, vec![f])),
+                                            }
+                                        }
+                                        aux = Some(mm);
+                                    }
+                                    cand = Some(
+                                        aux.as_ref()
+                                            .unwrap()
+                                            .get(&java_hash(bound))
+                                            .and_then(|chain| {
+                                                chain.iter().find(|(k, _)| k == bound)
+                                            })
+                                            .map(|(_, fs)| &fs[..])
+                                            .unwrap_or(&[]),
+                                    );
+                                }
+                            }
+                        }
+                        match cand {
+                            Some(c) => c,
+                            None => full_order.as_ref().unwrap(),
+                        }
                     }
                 }
                 (Some(t), false) => {
@@ -1638,10 +1841,11 @@ impl Machine<'_> {
                             _ => unreachable!("bucket key operands are bound by construction"),
                         })
                         .collect();
-                    t.bucket(key_hash(pat.seed, &key), &key)
+                    owned = t.bucket(key_hash(pat.seed, &key), &key);
+                    &owned
                 }
             };
-            'cand: for f in candidates {
+            'cand: for &f in candidates {
                 // D-052: constraints read the pattern-ENTRY env; the first
                 // unbound site per param records the exit binding.
                 let mut pending: Vec<(usize, Value)> = Vec::new();
@@ -1681,6 +1885,280 @@ impl Machine<'_> {
         // D-254-filed prepend-stage quadratic, 1.26M-env hang class)
         trg.reverse();
         Ok(trg)
+    }
+
+    /// D-367: attempt the memoized-call path (see `Machine::memo`).
+    /// Ok(None) = fenced — evaluate for real. Ok(Some(rows)) = the
+    /// children the Resume would have taken from qmem, in emission
+    /// order.
+    fn try_memo_call(
+        &mut self,
+        qi: usize,
+        bi: usize,
+        ni: usize,
+        callee: usize,
+        src: &[Env],
+    ) -> Result<Option<Vec<Env>>, EngineError> {
+        if self.probe_depth > 0 {
+            return Ok(None); // stay iterative below one probe (D-055)
+        }
+        // Fence: a non-empty callee pool means this call would sweep
+        // pre-staged envs into its batch (run_query's top-level
+        // self-recursion, "pools may be swept early") — out of class.
+        for b2 in 0..self.queries[callee].branches.len() {
+            if self.pool.get(&(callee, b2)).is_some_and(|p| !p.is_empty()) {
+                return Ok(None);
+            }
+        }
+        let args: Vec<CArg> = match &self.queries[qi].branches[bi][ni] {
+            CNode::Call { args, .. } => args.clone(),
+            _ => unreachable!("memo call on a non-call node"),
+        };
+        // Uniform argvec fence: every caller must present the same
+        // bound-arg vector (fact-valued args are out of class).
+        let mut argvec: Vec<Option<Value>> = Vec::with_capacity(args.len());
+        for a in &args {
+            match a {
+                CArg::Lit(v) => argvec.push(Some(v.clone())),
+                CArg::Slot(s) => match &src[0].slots[*s] {
+                    Some(EnvVal::Val(v)) => argvec.push(Some(v.clone())),
+                    None => argvec.push(None),
+                    Some(EnvVal::Fact(_)) => return Ok(None),
+                },
+            }
+        }
+        // Fence: a caller slot repeated across UNBOUND arg positions
+        // makes per-position fills unrecoverable from a probe child
+        // (the shared slot holds only the first position's value).
+        {
+            let mut unbound_slots: Vec<usize> = Vec::new();
+            for (pos, a) in args.iter().enumerate() {
+                if let CArg::Slot(s) = a {
+                    if argvec[pos].is_none() {
+                        if unbound_slots.contains(s) {
+                            return Ok(None);
+                        }
+                        unbound_slots.push(*s);
+                    }
+                }
+            }
+        }
+        for env in &src[1..] {
+            for (pos, a) in args.iter().enumerate() {
+                if let CArg::Slot(s) = a {
+                    let same = match (&env.slots[*s], &argvec[pos]) {
+                        (None, None) => true,
+                        (Some(EnvVal::Val(v)), Some(w)) => v == w,
+                        _ => false,
+                    };
+                    if !same {
+                        return Ok(None);
+                    }
+                }
+            }
+        }
+        let idx = match self
+            .memo
+            .iter()
+            .position(|(k, _)| k.0 == callee && k.1 == argvec)
+        {
+            Some(i) => i,
+            None => {
+                let entry = self.probe_call(qi, (qi, bi, ni), callee, &args, &argvec)?;
+                self.memo.push(((callee, argvec), entry));
+                self.memo.len() - 1
+            }
+        };
+        if self.memo[idx].1.is_none() {
+            return Ok(None); // capture did not parse — permanent fallback
+        }
+        // Map fill POSITIONS onto THIS site's slots with the terminal
+        // handler's own rule (unbound arg slots, first position per
+        // slot — the seen dedup).
+        let fill_map: Vec<(usize, usize)> = {
+            let entry = self.memo[idx].1.as_ref().unwrap();
+            let mut m: Vec<(usize, usize)> = Vec::new(); // (row col k, slot)
+            let mut seen: Vec<usize> = Vec::new();
+            for (k, &pos) in entry.fill_pos.iter().enumerate() {
+                if let CArg::Slot(s) = args[pos] {
+                    if !seen.contains(&s) {
+                        seen.push(s);
+                        m.push((k, s));
+                    }
+                }
+            }
+            m
+        };
+        // Replay: per segment, one block per caller in the segment's
+        // direction. Steps: one bump per caller per segment — the
+        // replayed rows are counted again at whatever level consumes
+        // them, so per-row double-bumping here would only shrink the
+        // runaway backstop's headroom.
+        let mut out: Vec<Env> = Vec::new();
+        let seg_count = self.memo[idx].1.as_ref().unwrap().segments.len();
+        for si in 0..seg_count {
+            let forward = self.memo[idx].1.as_ref().unwrap().segments[si].0;
+            let order: Vec<usize> = if forward {
+                (0..src.len()).collect()
+            } else {
+                (0..src.len()).rev().collect()
+            };
+            for ci in order {
+                self.bump()?;
+                let entry = self.memo[idx].1.as_ref().unwrap();
+                let block = &entry.segments[si].1;
+                for row in block {
+                    let mut child = src[ci].clone();
+                    for &(k, slot) in &fill_map {
+                        child.slots[slot] = row[k].clone();
+                    }
+                    out.push(child);
+                }
+            }
+        }
+        Ok(Some(out))
+    }
+
+    /// D-367: evaluate the callee ONCE with two probe callers on a
+    /// swapped-out machine state, capture its qmem emission, and parse
+    /// it into lockstep segments. Shares level_cache, the pattern
+    /// memories, and the step counter with the real run — the drains a
+    /// probe performs are exactly the drains the real evaluation would
+    /// perform first (level_cache first-touch), and cyclic data trips
+    /// the step limit inside the probe with the identical error.
+    fn probe_call(
+        &mut self,
+        caller_qi: usize,
+        site: (usize, usize, usize),
+        callee: usize,
+        args: &[CArg],
+        argvec: &[Option<Value>],
+    ) -> Result<Option<MemoEntry>, EngineError> {
+        let saved_pool = std::mem::take(&mut self.pool);
+        let saved_qmem = std::mem::take(&mut self.qmem);
+        let saved_stack = std::mem::take(&mut self.stack);
+        let saved_out = std::mem::take(&mut self.out);
+        let saved_site_out = std::mem::take(&mut self.site_out);
+        self.probe_depth += 1;
+        let result = self.probe_call_inner(caller_qi, site, callee, args, argvec);
+        self.probe_depth -= 1;
+        self.pool = saved_pool;
+        self.qmem = saved_qmem;
+        self.stack = saved_stack;
+        self.out = saved_out;
+        self.site_out = saved_site_out;
+        result
+    }
+
+    fn probe_call_inner(
+        &mut self,
+        caller_qi: usize,
+        site: (usize, usize, usize),
+        callee: usize,
+        args: &[CArg],
+        argvec: &[Option<Value>],
+    ) -> Result<Option<MemoEntry>, EngineError> {
+        // Two probe callers standing for callers 1 and 2 (Root::Site
+        // carries the probe id — probes never reach a terminal
+        // themselves, only their Nested children do).
+        let caller_slots = self.queries[caller_qi].slot_count;
+        let mut pslots: Vec<Option<EnvVal>> = vec![None; caller_slots];
+        for (pos, a) in args.iter().enumerate() {
+            if let CArg::Slot(s) = a {
+                pslots[*s] = argvec[pos].clone().map(EnvVal::Val);
+            }
+        }
+        let probes: Vec<Env> = (0..2)
+            .map(|i| Env { slots: pslots.clone(), root: Root::Site(i) })
+            .collect();
+        // Mimic the Call arm verbatim (pools are empty — fenced).
+        let cq = &self.queries[callee];
+        let mut cenvs: Vec<Env> = Vec::with_capacity(2);
+        for env in &probes {
+            let mut cenv = Env {
+                slots: vec![None; cq.slot_count],
+                root: Root::Nested(Rc::new(NestedRoot { site, caller: env.clone() })),
+            };
+            for (p, a) in cenv.slots.iter_mut().zip(args) {
+                *p = match a {
+                    CArg::Lit(v) => Some(EnvVal::Val(v.clone())),
+                    CArg::Slot(s) => env.slots[*s].clone(),
+                };
+            }
+            cenvs.push(cenv);
+        }
+        let nb = self.queries[callee].branches.len();
+        for b2 in 0..nb {
+            self.pool
+                .entry((callee, b2))
+                .or_default()
+                .splice(0..0, cenvs.iter().rev().cloned());
+        }
+        for b2 in 0..nb {
+            let batch = self
+                .pool
+                .get_mut(&(callee, b2))
+                .map(std::mem::take)
+                .unwrap_or_default();
+            self.stack.push(Frame::Branch { q: callee, b: b2, batch });
+        }
+        self.drain()?;
+        let captured = self.qmem.remove(&site).unwrap_or_default();
+        // The unbound positions, with this site's slot per position
+        // (unique across unbound positions — fenced upstream).
+        let mut fill_pos: Vec<usize> = Vec::new();
+        let mut pos_slot: Vec<usize> = Vec::new();
+        for (pos, a) in args.iter().enumerate() {
+            if let CArg::Slot(s) = a {
+                if argvec[pos].is_none() {
+                    fill_pos.push(pos);
+                    pos_slot.push(*s);
+                }
+            }
+        }
+        let mut rows: Vec<(usize, Vec<Option<EnvVal>>)> = Vec::with_capacity(captured.len());
+        for child in &captured {
+            let pid = match child.root {
+                Root::Site(i) => i,
+                _ => return Ok(None),
+            };
+            rows.push((
+                pid,
+                pos_slot.iter().map(|&s| child.slots[s].clone()).collect(),
+            ));
+        }
+        // Greedy lockstep parse: a maximal same-probe run opens a
+        // segment; the partner probe's equal block must follow. Same-
+        // direction consecutive segments cannot merge (the partner
+        // block intervenes), so the parse is unambiguous; any capture
+        // outside the lockstep form bails to real evaluation.
+        let mut segments: Vec<(bool, Vec<Vec<Option<EnvVal>>>)> = Vec::new();
+        let mut i = 0usize;
+        while i < rows.len() {
+            let first = rows[i].0;
+            let mut j = i;
+            while j < rows.len() && rows[j].0 == first {
+                j += 1;
+            }
+            let blk = j - i;
+            if j + blk > rows.len() {
+                return Ok(None);
+            }
+            for k in 0..blk {
+                let (pid, fills) = &rows[j + k];
+                if *pid != 1 - first {
+                    return Ok(None);
+                }
+                if fills.len() != rows[i + k].1.len()
+                    || !fills.iter().zip(&rows[i + k].1).all(|(a, b)| envval_opt_eq(a, b))
+                {
+                    return Ok(None);
+                }
+            }
+            segments.push((first == 0, rows[i..j].iter().map(|(_, f)| f.clone()).collect()));
+            i = j + blk;
+        }
+        Ok(Some(MemoEntry { fill_pos, segments }))
     }
 }
 

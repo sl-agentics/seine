@@ -1,0 +1,745 @@
+{
+ "name": "qp_enum_100",
+ "drl": "rule \"R0\"\nwhen\n    $d : T2($v : f0)\nthen\n    insert(new T1($v, true));\nend\nquery Q0(boolean $qa0_0, String $qa0_1, boolean $qa0_2)\n    ( $qp0_0 : T1(f1 == $qa0_0, f0 == $qa0_1) )\n    or\n    ( $qp0_1 : T1(f1 == $qa0_2, $qb0_0 : f1, $qb0_1 : f1) and $qp0_2 : T1(f0 == $qa0_1, f1 != true, $qb0_2 : f0, $qb0_3 : f1) )\nend\nquery TCr(String $a, String $b)\n    RelR($a, $b;)\nend\n\nrule QR0 salience 7\nwhen\n    T0(f1 >= \"beta\", $qr0_b0 : f2)\n    ?Q0(true, $qr0_x0, false;)\n    T1(f0 == $qr0_x0)\nthen\n    insert(new QOut(1, $qr0_b0, $qr0_b0, \"\", true));\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "ab",
+    "f1": true
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "",
+    "f1": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "beta",
+    "f1": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "ab",
+    "f1": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": -1.0,
+    "f1": "zz",
+    "f2": -2,
+    "f3": true
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000000"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000001"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000002"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000003"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000004"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000005"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000006"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000007"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000008"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000009"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000010"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000011"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000012"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000013"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000014"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000015"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000016"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000017"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000018"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000019"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000020"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000021"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000022"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000023"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000024"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000025"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000026"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000027"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000028"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000029"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000030"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000031"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000032"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000033"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000034"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000035"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000036"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000037"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000038"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000039"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000040"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000041"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000042"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000043"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000044"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000045"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000046"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000047"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000048"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000049"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000050"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000051"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000052"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000053"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000054"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000055"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000056"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000057"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000058"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000059"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000060"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000061"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000062"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000063"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000064"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000065"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000066"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000067"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000068"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000069"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000070"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000071"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000072"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000073"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000074"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000075"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000076"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000077"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000078"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000079"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000080"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000081"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000082"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000083"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000084"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000085"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000086"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000087"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000088"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000089"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000090"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000091"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000092"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000093"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000094"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000095"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000096"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000097"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000098"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s000099"
+   }
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "src",
+     "type": "String"
+    },
+    {
+     "name": "dst",
+     "type": "String"
+    }
+   ],
+   "name": "RelR"
+  },
+  {
+   "fields": [
+    {
+     "name": "node",
+     "type": "String"
+    }
+   ],
+   "name": "MarkR"
+  },
+  {
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "i",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    },
+    {
+     "name": "z",
+     "type": "bool"
+    }
+   ],
+   "name": "QOut"
+  },
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "queries": [
+  {
+   "call": "Q0",
+   "args": [
+    null,
+    null,
+    false
+   ]
+  }
+ ]
+}

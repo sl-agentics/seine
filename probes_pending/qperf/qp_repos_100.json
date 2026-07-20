@@ -1,0 +1,165 @@
+{
+ "name": "qp_repos_100",
+ "drl": "rule \"R2\"\nwhen\n    ( T0($b0 : f3, $b1 : f3) and T0($bf : f2) and exists T1(f0 != 7, f0 > 1.5, f0 > $bf) )\n    or\n    ( T0($b0 : f3, $b1 : f3) and T0($bf : f2) and exists T1(f0 != 0, f0 > 1.5, f0 > $bf) )\nthen\nend\nrule \"R4\"\nno-loop\nwhen\n    T0($b4a : f3, $b4b : f3)\n    T0($b4c : f2)\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": "",
+    "f2": 2.0,
+    "f3": true
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T0",
+     "fields": {
+      "f0": true,
+      "f1": "b",
+      "f2": 4.0,
+      "f3": true
+     }
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "f3": false
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "T1",
+     "fields": {
+      "f0": 4
+     }
+    },
+    {
+     "type": "T1",
+     "fields": {
+      "f0": 11
+     }
+    }
+   ]
+  }
+ ],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ]
+}

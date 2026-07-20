@@ -1,0 +1,795 @@
+{
+ "name": "qp_qce_100",
+ "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0()\nthen\n    insert(new T1($p0_0.getF1()));\nend\nrule \"R3\"\nsalience -6\nwhen\n    $p3_0 : T1(f0 >= 1.5, $b3_0_0 : f0)\n    T1(f0 not in (9, -5), f0 < $b3_0_0, $b3_1_0 : f0)\nthen\n    delete($p3_0);\nend\nquery TCr(long $a, long $b)\n    ( RelR(src == $a, dst == $b) )\n    or\n    ( RelR($m, $b;) and TCr($a, $m;) and MarkR(node == $m) )\nend\n\nrule QR0 salience -8\nwhen\n    T1(f0 > -2)\n    ?TCr($qr0_x0, $qr0_x1;)\nthen\n    insert(new QOut(1, $qr0_x1, $qr0_x0, \"beta\", true));\nend\nrule QRtwin\nwhen\n    T1(f0 > -2)\n    ?TCr($qr0_x0, $qr0_x1;)\nthen\n    insert(new QOut(2, 0, 0.0, \"t\", false));\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 3.0,
+    "f1": 11,
+    "f2": 5.5
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 6
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000000,
+    "dst": 2000000
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000001,
+    "dst": 2000001
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000002,
+    "dst": 2000002
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000003,
+    "dst": 2000003
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000004,
+    "dst": 2000004
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000005,
+    "dst": 2000005
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000006,
+    "dst": 2000006
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000007,
+    "dst": 2000007
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000008,
+    "dst": 2000008
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000009,
+    "dst": 2000009
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000010,
+    "dst": 2000010
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000011,
+    "dst": 2000011
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000012,
+    "dst": 2000012
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000013,
+    "dst": 2000013
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000014,
+    "dst": 2000014
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000015,
+    "dst": 2000015
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000016,
+    "dst": 2000016
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000017,
+    "dst": 2000017
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000018,
+    "dst": 2000018
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000019,
+    "dst": 2000019
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000020,
+    "dst": 2000020
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000021,
+    "dst": 2000021
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000022,
+    "dst": 2000022
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000023,
+    "dst": 2000023
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000024,
+    "dst": 2000024
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000025,
+    "dst": 2000025
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000026,
+    "dst": 2000026
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000027,
+    "dst": 2000027
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000028,
+    "dst": 2000028
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000029,
+    "dst": 2000029
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000030,
+    "dst": 2000030
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000031,
+    "dst": 2000031
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000032,
+    "dst": 2000032
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000033,
+    "dst": 2000033
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000034,
+    "dst": 2000034
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000035,
+    "dst": 2000035
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000036,
+    "dst": 2000036
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000037,
+    "dst": 2000037
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000038,
+    "dst": 2000038
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000039,
+    "dst": 2000039
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000040,
+    "dst": 2000040
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000041,
+    "dst": 2000041
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000042,
+    "dst": 2000042
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000043,
+    "dst": 2000043
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000044,
+    "dst": 2000044
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000045,
+    "dst": 2000045
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000046,
+    "dst": 2000046
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000047,
+    "dst": 2000047
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000048,
+    "dst": 2000048
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000049,
+    "dst": 2000049
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000050,
+    "dst": 2000050
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000051,
+    "dst": 2000051
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000052,
+    "dst": 2000052
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000053,
+    "dst": 2000053
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000054,
+    "dst": 2000054
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000055,
+    "dst": 2000055
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000056,
+    "dst": 2000056
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000057,
+    "dst": 2000057
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000058,
+    "dst": 2000058
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000059,
+    "dst": 2000059
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000060,
+    "dst": 2000060
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000061,
+    "dst": 2000061
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000062,
+    "dst": 2000062
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000063,
+    "dst": 2000063
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000064,
+    "dst": 2000064
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000065,
+    "dst": 2000065
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000066,
+    "dst": 2000066
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000067,
+    "dst": 2000067
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000068,
+    "dst": 2000068
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000069,
+    "dst": 2000069
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000070,
+    "dst": 2000070
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000071,
+    "dst": 2000071
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000072,
+    "dst": 2000072
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000073,
+    "dst": 2000073
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000074,
+    "dst": 2000074
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000075,
+    "dst": 2000075
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000076,
+    "dst": 2000076
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000077,
+    "dst": 2000077
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000078,
+    "dst": 2000078
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000079,
+    "dst": 2000079
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000080,
+    "dst": 2000080
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000081,
+    "dst": 2000081
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000082,
+    "dst": 2000082
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000083,
+    "dst": 2000083
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000084,
+    "dst": 2000084
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000085,
+    "dst": 2000085
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000086,
+    "dst": 2000086
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000087,
+    "dst": 2000087
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000088,
+    "dst": 2000088
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000089,
+    "dst": 2000089
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000090,
+    "dst": 2000090
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000091,
+    "dst": 2000091
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000092,
+    "dst": 2000092
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000093,
+    "dst": 2000093
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000094,
+    "dst": 2000094
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000095,
+    "dst": 2000095
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000096,
+    "dst": 2000096
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000097,
+    "dst": 2000097
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000098,
+    "dst": 2000098
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1000099,
+    "dst": 2000099
+   }
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "src",
+     "type": "i64"
+    },
+    {
+     "name": "dst",
+     "type": "i64"
+    }
+   ],
+   "name": "RelR"
+  },
+  {
+   "fields": [
+    {
+     "name": "node",
+     "type": "i64"
+    }
+   ],
+   "name": "MarkR"
+  },
+  {
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "i",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    },
+    {
+     "name": "z",
+     "type": "bool"
+    }
+   ],
+   "name": "QOut"
+  }
+ ]
+}

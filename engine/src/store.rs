@@ -306,6 +306,20 @@ pub struct FactStore {
     schemas: Vec<TypeSchema>,
     data: Vec<TypeData>,
     handles: Vec<HandleEntry>,
+    /// D-367: per-type handle index (insertion order, dead ids retained —
+    /// the same visible sequence the old full-handle walk filtered) so
+    /// `live_facts_of` is O(facts of the type), not O(every fact ever).
+    by_type: Vec<Vec<u32>>,
+    /// D-367: per-type mutation generation — bumped by insert/kill/
+    /// set_value of a fact of the type (NOT by mark_expired: expiration
+    /// changes neither liveness nor field values). Monotone; consumers
+    /// memoize pure functions of (live_facts_of, value) per type.
+    type_gen: Vec<u64>,
+    /// D-367: like `type_gen` but EXCLUDING inserts (kill/set_value
+    /// only). Unchanged mut-gen means existing facts' liveness and
+    /// values are untouched — a consumer's incremental path may treat
+    /// everything before its high-water mark as frozen.
+    type_mut_gen: Vec<u64>,
     /// D-141 (item 1b): each event fact's TEMPORAL position — its ts read at
     /// INSERT, fixed for the fact's life. A CEP event's stream position is
     /// immutable in Drools; the ts FIELD stays mutable (non-temporal reads see
@@ -337,8 +351,10 @@ impl FactStore {
                 rows: 0,
             })
             .collect();
+        let n = schemas.len();
         FactStore {
             expired: std::collections::HashSet::new(), schemas, data, handles: Vec::new(),
+            by_type: vec![Vec::new(); n], type_gen: vec![0; n], type_mut_gen: vec![0; n],
             event_ts: std::collections::HashMap::new() }
     }
 
@@ -355,6 +371,15 @@ impl FactStore {
         self.expired.clear();
         self.handles.clear();
         self.event_ts.clear(); // D-141 (item 1b): fixed positions die with the facts
+        for l in &mut self.by_type {
+            l.clear();
+        }
+        for g in &mut self.type_gen {
+            *g += 1; // never reuse a generation for different content
+        }
+        for g in &mut self.type_mut_gen {
+            *g += 1;
+        }
         for (s, d) in self.schemas.iter().zip(self.data.iter_mut()) {
             d.columns = s
                 .fields
@@ -374,6 +399,9 @@ impl FactStore {
             rows: 0,
         });
         self.schemas.push(schema);
+        self.by_type.push(Vec::new());
+        self.type_gen.push(0);
+        self.type_mut_gen.push(0);
         TypeId((self.schemas.len() - 1) as u32)
     }
 
@@ -418,6 +446,8 @@ impl FactStore {
         td.rows += 1;
         let id = FactId(self.handles.len() as u32);
         self.handles.push(HandleEntry { type_id: tid.0, row, alive: true });
+        self.by_type[tid.0 as usize].push(id.0);
+        self.type_gen[tid.0 as usize] += 1;
         Ok(id)
     }
 
@@ -444,12 +474,19 @@ impl FactStore {
     /// its retraction for rendering purposes.
     pub fn set_value(&mut self, id: FactId, field_idx: usize, v: Value) -> Result<(), String> {
         let h = self.handles[id.0 as usize];
+        self.type_gen[h.type_id as usize] += 1;
+        self.type_mut_gen[h.type_id as usize] += 1;
         self.data[h.type_id as usize].columns[field_idx].set(h.row as usize, v)
     }
 
     /// Retract: mark dead. Idempotent; the row's values remain readable.
     pub fn kill(&mut self, id: FactId) {
         self.expired.remove(&id);
+        if self.handles[id.0 as usize].alive {
+            let t = self.handles[id.0 as usize].type_id as usize;
+            self.type_gen[t] += 1;
+            self.type_mut_gen[t] += 1;
+        }
         self.handles[id.0 as usize].alive = false;
     }
 
@@ -489,13 +526,40 @@ impl FactStore {
             .map(|(i, _)| FactId(i as u32))
     }
 
-    /// All live facts of one type in handle (insertion) order.
+    /// All live facts of one type in handle (insertion) order. D-367:
+    /// served from the per-type index — the identical sequence the old
+    /// full-handle walk produced, without visiting other types' handles.
     pub fn live_facts_of(&self, tid: TypeId) -> impl Iterator<Item = FactId> + '_ {
-        self.handles
+        self.by_type[tid.0 as usize]
             .iter()
-            .enumerate()
-            .filter(move |(_, h)| h.alive && h.type_id == tid.0)
-            .map(|(i, _)| FactId(i as u32))
+            .filter(|&&i| self.handles[i as usize].alive)
+            .map(|&i| FactId(i))
+    }
+
+    /// D-367: the type's mutation generation (see `type_gen` field doc).
+    pub fn type_gen(&self, tid: TypeId) -> u64 {
+        self.type_gen[tid.0 as usize]
+    }
+
+    /// D-367: the insert-excluding generation (see `type_mut_gen` doc).
+    pub fn type_mut_gen(&self, tid: TypeId) -> u64 {
+        self.type_mut_gen[tid.0 as usize]
+    }
+
+    /// D-367: the type's total handle count (dead included) — the
+    /// high-water mark for `facts_of_since`.
+    pub fn by_type_len(&self, tid: TypeId) -> u32 {
+        self.by_type[tid.0 as usize].len() as u32
+    }
+
+    /// D-367: the type's handles from index `from` onward (insertion
+    /// order) — the incremental tail of `live_facts_of` when nothing
+    /// before `from` changed.
+    pub fn facts_of_since(&self, tid: TypeId, from: u32) -> impl Iterator<Item = FactId> + '_ {
+        self.by_type[tid.0 as usize][from as usize..]
+            .iter()
+            .filter(|&&i| self.handles[i as usize].alive)
+            .map(|&i| FactId(i))
     }
 
     pub fn render(&self, id: FactId) -> FactView {

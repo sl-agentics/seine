@@ -3022,6 +3022,12 @@ pub struct Engine {
     /// standalone call retracts its dquery and never arms (pre-Q2
     /// scenarios keep their one-batch drains — fz_7_546/fz_777_145).
     query_armed: Vec<bool>,
+    /// D-367: `query_linked` memo per query — (member-type generation
+    /// stamp, value). Linkedness is a pure function of the query's own
+    /// fact-pattern types' live sets and field values; the stamp is the
+    /// SUM of those types' generations (monotone: any member mutation
+    /// strictly raises it), so a stale hit is impossible.
+    query_linked_memo: Vec<Option<(u64, bool)>>,
     /// Deferred evaluation error (?query CE runtime backstops surface
     /// here because evaluate_rule has no error channel).
     pending_err: Option<String>,
@@ -3134,6 +3140,7 @@ impl Engine {
             query_mem: crate::queries::QueryMem::default(),
             query_pending: Vec::new(),
             query_armed: Vec::new(),
+            query_linked_memo: Vec::new(),
             pending_err: None,
             qce_children: HashMap::new(),
             tms: Tms::default(),
@@ -3159,6 +3166,7 @@ impl Engine {
         self.qce_children.clear();
         self.gb_state.clear();
             self.query_armed = vec![false; self.queries.len()];
+            self.query_linked_memo = vec![None; self.queries.len()];
             // Hidden row types for ?query CEs (D-056): fields = params.
             for q in &self.queries {
                 let tid = self.store.add_schema(TypeSchema {
@@ -6002,6 +6010,7 @@ impl Engine {
         self.qce_children.clear();
         self.gb_state.clear();
         self.query_armed = vec![false; self.queries.len()];
+        self.query_linked_memo = vec![None; self.queries.len()];
         self.pending_err = None;
         self.tms = Tms::default();
         // rebuild the network from the compiled rules (pattern keys are
@@ -8305,8 +8314,25 @@ impl Engine {
     /// (?query CE / getQueryResults) drain regardless of linking.
     fn mark_queries_pending(&mut self) {
         for qi in 0..self.queries.len() {
-            self.query_pending[qi] =
-                self.query_armed[qi] && crate::queries::query_linked(&self.store, &self.queries, qi);
+            if !self.query_armed[qi] {
+                self.query_pending[qi] = false;
+                continue;
+            }
+            // D-367: linkedness is a pure function of the query's own
+            // fact-pattern types (live sets + field values) — memoize on
+            // the summed member-type generation (monotone in every
+            // member mutation) so unrelated WM churn stops re-walking
+            // live facts per event.
+            let stamp = crate::queries::linked_stamp(&self.store, &self.queries, qi);
+            let linked = match self.query_linked_memo[qi] {
+                Some((s, v)) if s == stamp => v,
+                _ => {
+                    let v = crate::queries::query_linked(&self.store, &self.queries, qi);
+                    self.query_linked_memo[qi] = Some((stamp, v));
+                    v
+                }
+            };
+            self.query_pending[qi] = linked;
         }
     }
 
@@ -10440,7 +10466,9 @@ impl Engine {
                 .del
                 .iter()
                 .map(|(t, _, _)| t.clone())
-                .filter(|t| src.ins.iter().any(|(x, _, _)| x == t))
+                .filter(|t| src.ins.contains_key(t)) // D-367: the keyed
+                // probe is the exact predicate the old .any() scan
+                // computed (StagedList doc) — O(1), not O(|ins|)
                 .collect();
             for t in &cancelled {
                 src.ins.remove_first_by_key(t);
@@ -10576,14 +10604,34 @@ impl Engine {
                 }
             }
         }
-        let mut shares_before: HashMap<u32, u64> = HashMap::new();
-        for k in self.fact_prov.values().filter_map(|p| match p {
-            FactProv::Rhs(k) => Some(*k),
-            _ => None,
-        }) {
-            shares_before.entry(k).or_insert_with(|| {
-                self.firing_log[..k as usize].iter().filter(|r| share.contains(r)).count() as u64
-            });
+        // D-367: one ascending walk of firing_log replaces the per-k
+        // prefix scans (identical counts — shares_before[k] = share
+        // hits strictly before index k); O(F + K log K), not O(K x F).
+        let mut ks: Vec<u32> = self
+            .fact_prov
+            .values()
+            .filter_map(|p| match p {
+                FactProv::Rhs(k) => Some(*k),
+                _ => None,
+            })
+            .collect();
+        ks.sort_unstable();
+        ks.dedup();
+        let mut shares_before: HashMap<u32, u64> = HashMap::with_capacity(ks.len());
+        let mut cnt = 0u64;
+        let mut i = 0usize;
+        for (pos, r) in self.firing_log.iter().enumerate() {
+            while i < ks.len() && ks[i] as usize == pos {
+                shares_before.insert(ks[i], cnt);
+                i += 1;
+            }
+            if share.contains(r) {
+                cnt += 1;
+            }
+        }
+        while i < ks.len() {
+            shares_before.insert(ks[i], cnt);
+            i += 1;
         }
         let prov = |f: FactId| -> Option<(u64, i64)> {
             match self.fact_prov.get(&f) {
@@ -10652,14 +10700,34 @@ impl Engine {
                 }
             }
         }
-        let mut shares_before: HashMap<u32, u64> = HashMap::new();
-        for k in self.fact_prov.values().filter_map(|p| match p {
-            FactProv::Rhs(k) => Some(*k),
-            _ => None,
-        }) {
-            shares_before.entry(k).or_insert_with(|| {
-                self.firing_log[..k as usize].iter().filter(|r| share.contains(r)).count() as u64
-            });
+        // D-367: one ascending walk of firing_log replaces the per-k
+        // prefix scans (identical counts — shares_before[k] = share
+        // hits strictly before index k); O(F + K log K), not O(K x F).
+        let mut ks: Vec<u32> = self
+            .fact_prov
+            .values()
+            .filter_map(|p| match p {
+                FactProv::Rhs(k) => Some(*k),
+                _ => None,
+            })
+            .collect();
+        ks.sort_unstable();
+        ks.dedup();
+        let mut shares_before: HashMap<u32, u64> = HashMap::with_capacity(ks.len());
+        let mut cnt = 0u64;
+        let mut i = 0usize;
+        for (pos, r) in self.firing_log.iter().enumerate() {
+            while i < ks.len() && ks[i] as usize == pos {
+                shares_before.insert(ks[i], cnt);
+                i += 1;
+            }
+            if share.contains(r) {
+                cnt += 1;
+            }
+        }
+        while i < ks.len() {
+            shares_before.insert(ks[i], cnt);
+            i += 1;
         }
         let prov = |f: FactId| -> Option<(u64, i64)> {
             match self.fact_prov.get(&f) {

@@ -1,0 +1,651 @@
+{
+ "name": "qp_wave_100",
+ "drl": "rule \"R1\"\nwhen\n    $p1 : T0($b1 : f1)\nthen\n    insert(new T1($b1, \"beta\"));\n    insert(new T1($b1, \"a\"));\nend\nrule \"R4\"\nsalience($a4 - $b4)\nwhen\n    T1($a4 : f0)\n    T1(f0 == 777777, $b4 : f0)\n    exists(T1(f0 == 888888) and not(T1(f0 < -3)))\nthen\nend\nrule \"RD\"\nsalience -20\nwhen\n    $pd : T1(f0 < -3)\nthen\n    delete($pd);\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 0
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 1
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 2
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 3
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 4
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 5
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 6
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 7
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 8
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 9
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 10
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 11
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 12
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 13
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 14
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 15
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 16
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 17
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 18
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 19
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 20
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 21
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 22
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 23
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 24
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 25
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 26
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 27
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 28
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 29
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 30
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 31
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 32
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 33
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 34
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 35
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 36
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 37
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 38
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 39
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 40
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 41
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 42
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 43
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 44
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 45
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 46
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 47
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 48
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 49
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 50
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 51
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 52
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 53
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 54
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 55
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 56
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 57
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 58
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 59
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 60
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 61
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 62
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 63
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 64
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 65
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 66
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 67
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 68
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 69
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 70
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 71
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 72
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 73
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 74
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 75
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 76
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 77
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 78
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 79
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 80
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 81
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 82
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 83
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 84
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 85
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 86
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 87
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 88
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 89
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 90
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 91
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 92
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 93
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 94
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 95
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 96
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 97
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 98
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f1": 99
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 777777,
+    "f1": "s"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 888888,
+    "f1": "s"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": -5,
+    "f1": "s"
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    }
+   ]
+  }
+ ]
+}

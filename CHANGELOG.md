@@ -6,6 +6,25 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Recursive query workloads that enumerate large derivation
+  spaces now complete instead of hitting the evaluation backstop.**
+  A rule pulling an open recursive query once per activation
+  re-derived the same enumeration for every caller; the evaluator
+  now derives each distinct call once and replays the result for
+  every caller — validated at runtime against the machine's own
+  emission discipline, and falling back to full evaluation for any
+  call shape outside the validated class, so certified behavior is
+  byte-identical everywhere. Alongside it, a set of engine-side
+  scaling fixes: per-type fact indexing (pattern drains no longer
+  walk every fact ever inserted), change-tracked query memories
+  (unrelated working-memory churn no longer re-drains query
+  patterns), and linear-time provenance ranking in the ordering
+  laws. A stress scenario that previously could not finish at 200×
+  the step budget now completes in seconds and joins the certified
+  corpus, matching the oracle's 374,533 firings exactly. The
+  backstop's error message no longer guesses "cyclic data" — a
+  finite workload can legitimately exceed the budget.
+
 - **Rules pulling from a `?query` can now derive self-maintaining
   facts with `insertLogical`.** The last query wall is lifted:
   probing showed Drools treats the pull as a pure snapshot for
