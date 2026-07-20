@@ -19,14 +19,11 @@ ORACLE-NPE family (2) — ALREADY DISPOSED (correction 2026-07-19):
   BANKED as a pinned-oracle envelope limitation, adjudicable on
   a future oracle bump. NO WORK REMAINS in this family.
 
-ORACLE-FLAPPER (1):
-- fz_123_6887 (TMS-envelope era): passes a STANDALONE diff 4/4
-  today but FAILED once inside make diff's parallel run — the
-  ORACLE side flips (the engine-side drift bank has been stable
-  throughout; no gate hole). DO NOT graduate on standalone
-  passes; the round needs a 10x stability census (standalone AND
-  in-corpus-context), then either the D-131 undefined-class
-  treatment or a real decode of the flipping surface.
+ORACLE-FLAPPER (1) — CLOSED (D-365): 39-measurement census
+(10x sequential + 20x concurrent oracle byte-identical, 6x
+harness diff, 3x full make diff) — zero flaps on the current
+stack; the plausible cause was the pre-D-323/D-328 collect-order
+comparator era. Graduated pr_co_fz_123_6887.
 
 QUERY family (2) — CLOSED (D-361/D-362/D-363):
 - xf_fz_296001_1704: CLOSED (D-361, the qce same-eval delete

@@ -1542,3 +1542,21 @@ pytest 260; demo True; model_ird 31/31 + 26/26 + 39/39; IRD
 357001/357002 CLEAN + cep 3x300 357901-903 CLEAN. THE QUERY
 LEDGER IS EMPTY (walls: none; witnesses: none). The oldbank lane
 = records only.
+
+### D-365 — the fz_123_6887 flapper census (Bryan: "do the
+flapper census")
+
+CENSUS (2026-07-19, current stack): 10x sequential oracle
+byte-identical + 20x CONCURRENT (xargs -P 8, the original flap's
+contention context) byte-identical + 6x harness diff PASS + 3x
+full make diff clean = 39 measurements, ZERO flaps. DISPOSITION:
+the historical single flap (TMS-envelope era, "the oracle side
+flips") is unreproducible; the cell is an `ArrayList() from
+collect` shape, and the plausible cause is the pre-D-323/D-328
+collect-order comparator era (both the order laws and the
+comparator canonicalization landed since). GRADUATED as
+pr_co_fz_123_6887 (the collect-order family it belongs to);
+rebank 11 -> 10. If it ever flaps again the diff/fuzz gates
+surface it as a fresh find. THE OLD-BANK LEDGER now holds ONLY
+the qmut sibling OPEN_fz_9201_1660 and the two D-263
+pinned-oracle NPE cells (adjudicable on a future oracle bump).
