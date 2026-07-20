@@ -340,5 +340,6 @@
    "name": "QOut"
   }
  ],
- "open_divergence": true
+ "open_divergence": true,
+ "_finding": "D-366 (2026-07-19): BOTH-SIDES-BACKSTOP, error-kind asymmetric \u2014 a pinned-envelope limitation (the D-263 pattern). The workload is GENUINELY FINITE: with SEINE_FIRE_LIMIT=2000000 the oracle completes at 374,533 firings + 12 query outputs, 3x byte-stable (the RelR graph is a DAG \u2014 the engine's 'cyclic recursion data?' message text is a wrong guess here; the blow-up is the QR rules' cross-products x TWr's per-derivation-path multiplicities x epoch churn). Under the PINNED runner both sides error by design: oracle 'fire limit 100000 reached'; engine 'query evaluation step limit exceeded' (D-055's 1M-step backstop trips FIRST). Beneath that: an ENGINE-SIDE PERF WALL \u2014 with the step limit scratch-raised to 200M and the fire limit at 2M, the engine could not complete in 9.5 min (the D-055 evaluator re-derives unbound recursive pulls per activation; the oracle finishes in ~a minute) \u2014 a recorded performance item, not a semantic fork. Adjudicable if an error-parity contract extension (message-class-blind expect_error) or a query-eval memoization slab ever lands."
 }

@@ -1560,3 +1560,25 @@ rebank 11 -> 10. If it ever flaps again the diff/fuzz gates
 surface it as a fresh find. THE OLD-BANK LEDGER now holds ONLY
 the qmut sibling OPEN_fz_9201_1660 and the two D-263
 pinned-oracle NPE cells (adjudicable on a future oracle bump).
+
+### D-366 — OPEN_fz_9201_1660 (Bryan: "OPEN_fz_9201_1660")
+
+DISPOSED — both-sides-backstop, quarantined with the finding
+(the D-263 pattern): the workload is GENUINELY FINITE (oracle at
+SEINE_FIRE_LIMIT=2M completes: 374,533 firings + 12 query
+outputs, 3x byte-stable; the RelR graph is a DAG — the engine's
+'cyclic data?' message text is a wrong guess); under the PINNED
+runner the oracle trips 'fire limit 100000' and the engine trips
+the D-055 1M-step backstop FIRST — error-vs-error, kind-
+asymmetric. Beneath: an ENGINE PERF WALL (step limit scratch-
+raised to 200M + fire limit 2M -> no completion in 9.5 min; the
+D-055 evaluator re-derives unbound recursive pulls per
+activation) — recorded as a performance item, not a semantic
+fork. Moved to scenarios/xfail/xf_fz_9201_1660 (_finding
+in-file); the qmut lane is DELETED. Adjudicable on an
+error-parity contract extension or a query-eval memoization
+slab. THE OLD-BANK TRIAGE IS FULLY DISPOSED — every family
+closed or pinned; remaining banked-by-design: the D-263 NPE pair
++ this cell (envelope limitations), the latent order finds
+(cf355901x129, fz_356002_1512), and the accepted-undefined
+heaptie.
