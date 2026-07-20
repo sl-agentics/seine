@@ -1,0 +1,85 @@
+{
+ "name": "w5_two_upds",
+ "types": [
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400,
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule W3 salience 5 when accumulate( E2($t : tag) over window:time(100ms); $c : collectList($t) ) then  end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 25,
+    "tag": "y1",
+    "dur": 10
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 26,
+    "tag": "y2",
+    "dur": 10
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 201
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "y1"
+     }
+    },
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "tag": "y2"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 372,
+      "tag": "z",
+      "dur": 10
+     }
+    }
+   ]
+  }
+ ]
+}

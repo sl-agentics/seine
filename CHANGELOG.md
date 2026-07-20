@@ -6,6 +6,18 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Windowed-accumulate collections now append a queued update's
+  re-admission before a same-call fresh insert.** When an external
+  update revives an event whose window eviction was flushed in an
+  earlier epoch, and the same epoch then inserts a fresh event, Drools
+  drains the update queue FIFO ahead of the insert's own append; the
+  engine staged all three effects LIFO, reversing the collection's
+  element order (the corner D-327 recorded as open, surfaced by CEP
+  fuzzing as cf355901x129 — now a certified probe with a 7-cell law
+  battery). Same-epoch eviction+revival, boundary drains, and
+  in-window updates were already correct and are unchanged; aggregate
+  values and firing sets were never affected — element order only.
+
 - **Collect/accumulate re-firing order now honors Drools' persistent
   touch order on shrink and index-move deltas.** When a collection or
   accumulate result changes, every driver match re-fires; Drools walks

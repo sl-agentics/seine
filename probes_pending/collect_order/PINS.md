@@ -791,3 +791,95 @@ demo True; model_ird 31/31 + witnesses 26/26 + cells 39/39; IRD
 2×2000 seeds 359001/359002 CLEAN (0 xfail draws) + cep 3×300
 359901-903 CLEAN; NEXT seeds 360001+. Full narrative: DECISIONS
 D-368.
+
+## D-369 candidate: the ADMISSION-vs-INS append order — the D-327
+## recorded-open corner SURFACES (cf355901x129)
+
+The D-361-round quarantine cf355901x129 decodes to the corner the
+D-327 close-out explicitly left open ("admission-vs-ins append
+order may need its own pin round if fuzz surfaces it"). NOT the
+temporal-join-order class the D-361 bank note guessed: the CEP
+scaffolding (temporal joins, entry points, not-D) is inert — the
+fork is W3's windowed collectList element order, one adjacent
+swap, oracle 3× stable. Hand-minimized m129 = ONE rule
+(windowed collectList over E2) + ONE base fact + two epochs:
+evict y@25; then {update y (value-identical, queues per C′) +
+insert fresh z@372} in ONE epoch. ORACLE [y,z] — the queued
+update's re-admission appends BEFORE the same-call fresh insert;
+ENGINE [z,y]. (Both sides agree the evicted y RE-ENTERS on the
+tag-only update with ts still outside the window — the admission
+SEMANTICS are shared; only the append order forks.) Side note:
+tools/minimize.py's rule-splitter expects `rule "` and skips the
+CEP fuzzer's unquoted rule names — it minimized epochs only;
+m129 was hand-derived.
+
+### GRID (predictions registered 2026-07-20 BEFORE cells run)
+
+- **w2_upd_prev_epoch** — update y in its OWN epoch, insert z the
+  NEXT epoch. The boundary drain (ed9-certified) lands y before
+  the next epoch's insert. PREDICT [y,z] BOTH → MATCH.
+- **w3_ins_then_upd** — insert z, then update y in a LATER epoch
+  (no insert after): boundary drain appends y last. PREDICT [z,y]
+  BOTH → MATCH.
+- **w4_two_ins** — update y + insert z1,z2 in one epoch. ORACLE
+  [y,z1,z2] (drain at the FIRST insert call, before its effect).
+  ENGINE PREDICT [z1,y,z2] (y rides z1's call but lands AFTER
+  z1's own admission — the m129 mechanism localized to one call)
+  → DIVERGE (med-high; [z1,z2,y] instead would say the engine
+  defers the drain past ALL same-epoch inserts).
+- **w5_two_upds** — update y1, update y2, insert z (one epoch,
+  y1/y2 = two evicted events). ORACLE [y1,y2,z] (FIFO queue
+  drains before the insert). ENGINE PREDICT [z,y1,y2] → DIVERGE.
+- **w6_mask_change** — the update changes the tag (y→w), not
+  value-identical. Same class. PREDICT ORACLE [w,z] / ENGINE
+  [z,w] → DIVERGE (med-high).
+- **w7_inwindow_ctrl** — update an event still IN the window +
+  same-epoch insert (no revival). Certified surface. PREDICT
+  MATCH (the D-326 identity-fold/move-to-tail law).
+
+### GRID MEASUREMENTS (2026-07-20) — 6/6 oracle predictions HIT
+
+- w2/w3/w7 MATCH as predicted (boundary drains + in-window
+  updates = certified surface, untouched).
+- w4 DIVERGE: ORACLE [y,z1,z2] / ENGINE [z1,y,z2] — the exact
+  med-high engine prediction (the misorder is confined to the
+  drain's own call; z2's later call appends after).
+- w5 DIVERGE: ORACLE [y1,y2,z] / ENGINE [z,y2,y1] — the oracle
+  FIFO hit; the engine went FULLY LIFO (all three effects
+  push_front), sharpening the mechanism beyond the [z,y1,y2]
+  prediction.
+- w6 DIVERGE: [w,z] vs [z,w] — not value-identical-specific.
+
+THE MECHANISM (read after the grid): winacc_step's (false,true)
+admit arm staged add_ins_ph (push_front INS) whenever the
+eviction del was NOT still staged (reentry=false — eviction
+flushed in an EARLIER epoch). ed1/ed7 always passed because
+their same-epoch eviction leaves the del staged -> the D-326
+reentry fold stages add_upd_back -> folds at Phase C BEFORE the
+fresh insert's Phase E. THE PORT: the admission stages
+add_upd_back unconditionally (one arm), restoring queue-FIFO-
+before-insert. REGRESSION CAUGHT BY THE BYTE GATE + FIXED:
+xf_cep_acc_updel_flush_win (D-160 graduate) — the update-admit +
+same-epoch-delete annihilation checked s_right.ins only; an
+admission-upd (staged upd with NO stored match) now annihilates
+identically (upd removed, no del staged, net-zero re-emission
+forced); the certified in-window upd+del fold is distinguished
+by stored matches (acc_by_right non-empty). Final byte gate 2656
+= EXACTLY 5 intended movers (m129/w4/w5/w6/cf355901x129);
+first-gate iteration recorded: 6 movers incl. the updel break.
+
+### D-369 CLOSE-OUT (2026-07-20)
+
+EIGHT graduations: pr_co_cf355901x129 (from xfail) + pr_co_m129 +
+pr_co_w2..w7; rebank 9 -> 8 -> 9 (one fresh pre-existing
+quarantine fz_360001_381: COUNT fork engine 25 vs oracle 23,
+byte-identical across current/pre-369/pre-368 engines — neither
+port implicated; seed re-run 0 div + 1 xfail draw). make diff
+11/1653/414 + drift identical (one fz_123_6887 parallel-load
+flap, sequential PASS — the ruling's remedy); lint 2545/0/0;
+cargo 74; pytest 260; demo True; model_ird 31/31 + witnesses
+26/26 + cells 39/39; IRD 0-div ×5; SD 71 EXACT cell-for-cell;
+agenda_open ×10 identical ×3 binaries + reruns; fuzz 360002
+CLEAN + cep 3×300 360901-903 CLEAN; NEXT seeds 361001+.
+CHANGELOG Unreleased +1. The D-327 open-corner note is RESOLVED
+by this round.

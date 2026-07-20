@@ -1,0 +1,65 @@
+{
+ "name": "w7_inwindow_ctrl",
+ "types": [
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400,
+    "duration": "dur"
+   }
+  }
+ ],
+ "drl": "rule W3 salience 5 when accumulate( E2($t : tag) over window:time(100ms); $c : collectList($t) ) then  end\n",
+ "facts": [
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 25,
+    "tag": "y",
+    "dur": 10
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 50
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "tag": "y"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 80,
+      "tag": "z",
+      "dur": 10
+     }
+    }
+   ]
+  }
+ ]
+}

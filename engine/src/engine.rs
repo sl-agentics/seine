@@ -6812,10 +6812,14 @@ impl Engine {
                         self.trie[ni].node.s_right.del.iter().any(|(x, _, _)| *x == f);
                     if reentry {
                         let _ = self.trie[ni].node.s_right.del.remove_first_by_key(&f);
-                        self.trie[ni].node.s_right.add_upd_back(f, origin);
-                    } else {
-                        self.trie[ni].node.s_right.add_ins_ph(f, origin, 0);
                     }
+                    // D-369: the admission stages as a BACK upd whether or
+                    // not the eviction del is still staged — Phase C folds
+                    // it BEFORE a same-call fresh insert's Phase E append
+                    // (the queue's FIFO precedes the insert; an INS here
+                    // put the drained revival BEHIND the fresh insert —
+                    // m129/w4/w5/w6, the D-327 recorded-open corner).
+                    self.trie[ni].node.s_right.add_upd_back(f, origin);
                 } else if !detached {
                     self.trie[ni].clock_removed.insert(f); // rejected: RT plants
                 }
@@ -6961,8 +6965,33 @@ impl Engine {
                                 .ins
                                 .iter()
                                 .any(|(x, _, _)| *x == f);
-                            self.trie[ni].node.s_right.add_del(f, None);
-                            if had_pending_ins {
+                            // D-369: an in-drain ADMISSION now stages as a
+                            // BACK upd — annihilate it like the ins (no del
+                            // staged; the fact never materialized). A stored
+                            // match distinguishes the certified in-window
+                            // upd+del fold (matches exist -> normal del).
+                            let admission_upd = !had_pending_ins
+                                && self.trie[ni]
+                                    .acc_by_right
+                                    .get(&f)
+                                    .is_none_or(|v| v.is_empty())
+                                && self.trie[ni]
+                                    .node
+                                    .s_right
+                                    .upd
+                                    .iter()
+                                    .any(|(x, _, _)| *x == f);
+                            if admission_upd {
+                                let _ = self
+                                    .trie[ni]
+                                    .node
+                                    .s_right
+                                    .upd
+                                    .remove_first_by_key(&f);
+                            } else {
+                                self.trie[ni].node.s_right.add_del(f, None);
+                            }
+                            if had_pending_ins || admission_upd {
                                 // The del ANNIHILATED an in-drain staged ins:
                                 // Drools' two entries each dirtied the result —
                                 // force the net-value re-emission through every
