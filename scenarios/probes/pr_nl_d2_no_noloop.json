@@ -1,0 +1,41 @@
+{
+ "name": "pr_nl_d2_no_noloop",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ],
+ "drl": "rule \"R0\"\nwhen\n    $a0_0 : ArrayList() from collect( T1(f1 == false, f1 != true) )\nthen\nend\nrule \"R1\"\nwhen\n    accumulate( T0($s1_0 : f0); $a1_0 : average($s1_0) )\nthen\n    insertLogical(new T1(2 + 5, false));\nend\nrule \"R4\"\nsalience -6\nwhen\n    $p4_0 : T0()\nthen\n    delete($p4_0);\nend\nrule \"R5\"\nwhen\n    ( T0(f1 >= -2.0, $b5_0_0 : f1, $b5_0_1 : f1) )\n    or\n    ( T0(f1 >= -2.0, $b5_0_0 : f1, $b5_0_1 : f1) )\nthen\n    insertLogical(new T1($b5_0_0, false));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 1,
+    "f1": 8
+   },
+   "type": "T0"
+  }
+ ]
+}

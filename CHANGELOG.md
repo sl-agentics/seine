@@ -6,6 +6,20 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **A no-loop rule's accumulate-justified logical belief now retracts
+  in the same teardown wave as directly-justified beliefs.** When a
+  fact deletion kills both join matches and an accumulate result (the
+  aggregate re-derives to null), Drools lands the accumulate-path
+  retraction at the no-loop rule's firing-boundary evaluation — before
+  lower-priority rules fire — so an observer of the beliefs (e.g. a
+  collect) never sees the intermediate state. The engine deferred that
+  one retraction to the rule's own agenda pop, firing the observer once
+  on the intermediate collection (one extra firing; surfaced by fuzzing
+  as fz_336002_968, now a certified probe with a 7-cell law battery).
+  Without no-loop the intermediate firing is correct Drools behavior on
+  both sides, and the self-defeat retraction-timing laws (D-196/199/201)
+  are untouched.
+
 - **Logical beliefs justified by a starved agenda group's dead matches
   now survive to session end, matching Drools' lazy evaluation.** When
   a rule in an agenda group loses its justifying match after the group

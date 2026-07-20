@@ -13213,6 +13213,17 @@ impl Engine {
             let Some(di) = self.tms.deferred.iter().position(|(dri, _, fl)| {
                 *dri == ri
                     && (dyn_sal
+                        // D-371: a FOREIGN-origin death (no self-touch
+                        // bits 1|2|8) of an ACC-carrying rule lands at
+                        // the flush — the acc re-derivation death is the
+                        // only foreign class born INSIDE the evaluation
+                        // (join deaths process inline at the delete
+                        // propagation); Drools retracts it at the eager
+                        // evaluation (m968/d6). Non-acc pure-late lanes
+                        // keep their pop landing (min3783/k2lazy — the
+                        // first arm shape broke them, recorded).
+                        || ((*fl & 11) == 0
+                            && self.rules[ri].patterns.iter().any(|p| p.acc.is_some()))
                         || ((*fl & 2) != 0 && (*fl & 16) == 0)
                         || ((*fl & 1) != 0 && (run_live || (*fl & 4) == 0))
                         || ((*fl & 8) != 0 && run_live))

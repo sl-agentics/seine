@@ -1058,3 +1058,111 @@ draws) + cep 3x300 361901-903 CLEAN; NEXT seeds 362001+.
 CHANGELOG Unreleased +1 (now 3). Bank 8 = 6 ruled/walled +
 fz_336002_968 (Bryan's last actionable pick) + fz_360001_381
 (the un-triaged count fork).
+
+## D-371 candidate: fz_336002_968 — the ACC-PATH teardown wave
+## (the D-337-receipts "quiescence-vs-eager-eval" open item's cell)
+
+THE DECODE (build-up firings all MATCH; the fork is ONE extra R0
+firing): R4 deletes the lone T0 → all four logical T1s must
+retract. The DIRECT join-death beliefs (R3/R5's) land in wave 1;
+the ACC-path belief T1(7) (R1 no-loop: average(T0) → NULL → match
+death) lands engine-side at R1's ITEM POP — after R0's pop — so
+R0 fires an intermediate C[7] the oracle never shows (oracle: the
+whole cascade lands before R0's pop; count 15 vs 14). R1 is
+no-loop = EAGER-LISTED: its flush evaluation runs at the
+post-R4-firing boundary BOTH sides (MAIN, group-reachable — the
+D-370 gate does not apply); the difference is the TMS effect's
+landing: the engine's no-loop eager evaluations DEFER terminal
+dels (defer_mode, min3783/t20 calibration) and the deferred
+entry's flags don't qualify for the flush drains → it rides to
+the pop. Drools lands the removal AT the evaluation.
+
+### GRID (predictions registered 2026-07-20 BEFORE cells run)
+
+- **m968 anchor** — minimized (R0 collect + R1 no-loop acc + R4
+  delete + R5 or-justifier, 1 fact). DIVERGE (measured shape).
+- **d2_no_noloop** — R1 without no-loop: not eager-listed; the
+  acc re-derivation waits for R1's own pop on BOTH sides; R0
+  (declared first, equal salience) pops first and sees the
+  intermediate. PREDICT MATCH — oracle fires C[7] then C[] too
+  (the intermediate becomes CORRECT).
+- **d3_plain_justifier** — R5 as a plain (non-or) rule. PREDICT
+  DIVERGE unchanged (or-ness inert).
+- **d4_dynsal** — R1 with dynamic salience instead of no-loop
+  (still eager-listed; the engine's dyn-sal eager evaluations
+  process TMS dels INLINE — fz_999_3020). PREDICT MATCH (both
+  coalesce) — isolates the engine's no-loop-defers calibration
+  as the sole defect surface.
+- **d5_acc_only** — drop R5 (no wave-1 belief). PREDICT MATCH
+  (no intermediate state exists).
+
+### GRID MEASUREMENTS — 5/5 HITS — + round 2 (predictions first)
+
+m968 DIVERGE ✓; d2_no_noloop MATCH ✓ (the intermediate C[7] is
+CORRECT without no-loop — eager-list membership IS the
+discriminator); d3 DIVERGE ✓ (or-ness inert); d4_dynsal MATCH ✓
+(dyn-sal eager evals process TMS inline — both coalesce);
+d5_acc_only MATCH ✓. Flags decode: the R1 entry is
+FOREIGN-ORIGIN (R4's delete) → flags=0 → no flush-drain arm
+matches for non-dyn rules → rides to the pop. The D-196/199/201
+lattice is all OWN-ORIGIN (self-defeat) lanes — this is a NEW
+lane, not a re-calibration of those.
+
+- **d6_noloop_join** — R1 as a no-loop PLAIN JOIN justifier
+  (T0() => insertLogical), foreign R4 delete, R5 wave-1 belief,
+  R0 observer. Does the oracle coalesce here too (retract at the
+  eager flush — doLeftDelete is unconditional in Drools) or show
+  the intermediate (pop-landed)? PREDICT coalesce → DIVERGE
+  (med — if MATCH instead, the law is ACC-specific and the fix
+  narrows to acc-carrying rules).
+- **d7_static_join** — same, R1 static (not eager-listed).
+  PREDICT MATCH (intermediate correct both sides — the d2
+  analog).
+
+### Round-2 measurements — the asymmetry decodes
+
+- d7 MATCH ✓ (static join control).
+- **d6 MATCH — prediction MISS that completes the mechanism**:
+  the no-loop JOIN-path foreign death coalesces on BOTH sides
+  already. Join deaths land INLINE at the delete propagation
+  (outside evaluate_rule — defer_mode off); only the ACC
+  RE-DERIVATION death is evaluation-internal, so it alone gets
+  swept into the eager evaluation's defer_mode and rides
+  flags=0 (foreign-origin — no self-touch bits) to the pop.
+  Drools lands it at the evaluation (doLeftDelete).
+
+THE PORT (one drain-arm): tms_flush_drain admits flags==0
+(foreign-origin) entries at the flush sites — the entry still
+defers DURING the evaluation (in-eval staging order preserved)
+but lands before the next pop. The OWN-ORIGIN zombie lattice
+(D-196/199/201, flags!=0) is untouched by construction.
+
+### D-371 CLOSE-OUT (2026-07-20, the port landed)
+
+THREE byte-gate iterations, all recorded:
+1. arm `*fl == 0` — missed (the entry carries the LATE bit:
+   flags=4; SEINE_TMS_DEBUG pinned push + pop-drain).
+2. arm `(*fl & 11) == 0` — fixed the witness but BROKE four
+   cells: min3783 (fz_7_3783, the no-loop-defers calibration
+   graduate), pr_tms_k2lazy, fz_9004_214, fz_9105_5693 — pure-
+   late non-acc lanes' pop landing is load-bearing.
+3. FINAL: `(*fl & 11) == 0 && rule has an acc pattern` — the acc
+   re-derivation death is the only foreign class born inside the
+   evaluation; all four cells restored BYTE-IDENTICAL, final
+   gate 2697 = EXACTLY the 3 intended movers (m968/
+   d3_plain_justifier/fz_336002_968). fz_9004_214's tail-order
+   residual stays recorded-open (its rule is not acc-carrying —
+   the improvement seen under arm 2 did not survive the
+   narrowing; still the quiescence-vs-eager-eval item).
+
+RECEIPTS: EIGHT graduations (pr_nl_fz_336002_968 from xfail +
+pr_nl_m968 + pr_nl_d2..d7); rebank 8 -> 7; make diff 11/1675/414
++ drift 7 identical (one fz_123_6887 parallel-load flap,
+sequential PASS per the ruling); lint 2587/0/0; cargo 74; pytest
+260; demo True; model_ird 31/31 + witnesses 26/26 + cells 39/39;
+IRD 0-div x5; SD 71 EXACT cell-for-cell; agenda_open x10
+identical x3 binaries + reruns; fresh fuzz 2x2000 seeds
+362001/362002 CLEAN (0 xfail draws) + cep 3x300 362901-903
+CLEAN; NEXT seeds 363001+. CHANGELOG Unreleased +1 (now 4).
+Bank 7 = 6 ruled/walled + fz_360001_381 (the un-triaged count
+fork) — BRYAN'S ACTIONABLE TRIAGE LIST IS EMPTY.
