@@ -1166,3 +1166,88 @@ identical x3 binaries + reruns; fresh fuzz 2x2000 seeds
 CLEAN; NEXT seeds 363001+. CHANGELOG Unreleased +1 (now 4).
 Bank 7 = 6 ruled/walled + fz_360001_381 (the un-triaged count
 fork) — BRYAN'S ACTIONABLE TRIAGE LIST IS EMPTY.
+
+## D-372 candidate: fz_360001_381 — the epoch acc-rebirth skip
+
+m381 (3 rules, 1 fact, 1 epoch action-insert): initial round =
+R4 (insertLogical T1), R3 fires max=7, R5 deletes the T0 (T1
+retracts, max -> NULL, the acc-result tuple DIES). Epoch: a new
+T0 -> R4 -> T1(11) -> max reborn at 11. ENGINE fires R3(11) at
+its salience slot (-3, before R5's -10); ORACLE NEVER RE-FIRES
+R3 — despite firing it for the identical shape in the initial
+round. Firing-set fork (engine +2 in the full witness), final
+facts equal. Candidates: the acc NULL-GAP rebirth (tuple death +
+re-assert suppressed), the not(and) subnet, path linking.
+
+### GRID (predictions registered 2026-07-20 BEFORE cells run)
+
+- **p1_no_not** — R3 without the not(and) (acc only). If the
+  oracle STILL skips the epoch firing -> the acc rebirth is the
+  actor. PREDICT oracle skips -> DIVERGE persists (med-low —
+  genuinely uncertain).
+- **p3_no_nullgap** — a permanent stated T1(f0=5) so max never
+  NULLs (7 -> 5 -> 11; the result tuple never dies). PREDICT
+  oracle FIRES the epoch R3s -> MATCH (med) — isolates the
+  null-gap/tuple-death as the actor.
+- **p5_epoch_fact** — the epoch insert as an epoch FACT instead
+  of an action insert. PREDICT same as m381 (DIVERGE — the
+  insert路径 inert) (med).
+
+### THE GRAFT FINDING (AgendaDump, D-086 idiom) + round 2
+
+p-grid round 1: p1_no_not PASS (both FIRE — single-segment path
+notifies), p3_no_nullgap PASS (both fire; mid-population deltas
+7->5 notify normally), p5_epoch_fact FAIL (insert route inert).
+AgendaDump on m381: the epoch T1(11) insert reaches the acc but
+R3's RuleAgendaItem NEVER RE-QUEUES (queued=false dirty=false
+throughout; lmask=3/3 CONSTANT — not a linking loss). MECHANISM
+READ: the acc source's EMPTY<->NON-EMPTY transitions ride the
+link/unlink notification path — a no-op for the always-linked
+acc segment — so the dirty notification is SWALLOWED; the rule
+goes DEAF to the repopulation until another source notifies.
+The subnet-not's role = the SEGMENT SPLIT (seg1[IF+acc]
+seg2[not+RTN]); without it the RTN shares the acc's segment and
+the notification lands (p1).
+
+Round-2 boundary cells (predictions BEFORE run):
+- **p7_plain_follower** — acc followed by a PLAIN populated
+  pattern (T2(), one stated T2 fact) instead of the not. Plain
+  patterns do NOT split segments. PREDICT MATCH (both fire).
+- **p8_bare_not_follower** — acc followed by a bare `not T2()`
+  (no subnet; T2 never populated). Bare nots don't split
+  segments either. PREDICT MATCH (both fire).
+- **p9_inert_subnet** — acc followed by not(T2() and T2(f0==5))
+  with T2 NEVER populated (the subnet inert as data, present as
+  STRUCTURE). The deafness is about the acc's segment position.
+  PREDICT DIVERGE (oracle deaf) — if so, the law = "empty->
+  non-empty acc-source transitions do not re-queue a rule whose
+  acc sits in a non-terminal (subnet-split) segment".
+
+### Round-2 measurements + upstream check + DISPOSITION (Bryan's gate)
+
+p7 MATCH ✓, p8 MATCH ✓, p9 DIVERGE ✓ — 3/3 predicted. THE LAW:
+an empty->non-empty acc-source transition does NOT re-queue a
+rule whose accumulate sits in a subnet-split segment; the rule
+is DEAF to the repopulation. A DATA-INERT subnet reproduces it
+(p9), so `not T2()` vs `not(T2() and T2(f0==5))` with T2 never
+populated — semantically equivalent — FORK the firing set: the
+D-092/D-114 SELF-INCONSISTENCY signature. UPSTREAM (throwaway
+10.1.0 oracle, the D-263 scratch-pom pattern, 3x stable): m381
+and p9 firing sets IDENTICAL to 9.44 — the defect is LIVE in
+the current Drools line. The engine fires the reborn activation
+at its salience-correct slot (arguably MORE correct).
+
+NO ENGINE CHANGE this round (triage + law + graft only). NEW
+PERMANENT GRAFT: oracle/.../AgendaDump.java (AccDump + match
+lifecycle events + the epoch action-insert op). FOUR law-pin
+graduations: pr_nl_381p1/381p3/381p7/381p8 (the notification
+boundary, certified both sides). The witness fz_360001_381
+STAYS BANKED with the full finding (bank 7, count unchanged).
+Lane cells m381/p5/p9 = diverging recon records.
+
+DISPOSITION = BRYAN'S GATE: (a) WALL — correct-in-engine +
+expected-divergence witness + upstream report (the axis-2
+doctrine; p9 is the minimal filing repro); porting the deafness
+means modeling a permanent-deafness bug incl. its wake/backlog
+semantics — the stop-rule shape; or (b) PORT the deafness
+(axis-1 quirks-included).

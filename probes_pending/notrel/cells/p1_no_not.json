@@ -1,0 +1,66 @@
+{
+ "name": "p1_no_not",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "decimal(10,2)"
+    },
+    {
+     "name": "f2",
+     "type": "String"
+    }
+   ],
+   "name": "T1"
+  }
+ ],
+ "drl": "rule \"R3\"\nsalience -3\nwhen\n    accumulate( T1(f0 != 9, $s3_0 : f0); $a3_0 : max($s3_0) )\nthen\nend\nrule \"R4\"\nwhen\n    $p4_0 : T0()\nthen\n    insertLogical(new T1($p4_0.getF1(), $p4_0.getF0(), \"zz\"));\nend\nrule \"R5\"\nsalience -10\nwhen\n    $p5_0 : T0()\n    T1(f2 not in (\"ab\", \"ab\"))\n    T0()\nthen\n    delete($p5_0);\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": "0.00",
+    "f1": 7,
+    "f2": 0
+   },
+   "type": "T0"
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "insert",
+     "type": "T0",
+     "fields": {
+      "f0": "2.500",
+      "f1": 11,
+      "f2": 0
+     }
+    }
+   ],
+   "facts": []
+  }
+ ]
+}
