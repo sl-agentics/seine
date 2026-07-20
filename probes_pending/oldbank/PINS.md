@@ -771,6 +771,41 @@ class as m1020b's channel question; the two anchors may fall
 to ONE law (both are non-Term peer sinks of a shared join).
 Source targets: the sn-machine 0->1 left-walk order +
 peer_merge_left's ins-order semantics vs SegmentPropagator.
+
+### D-356 continuation — the trace + source round (the law)
+
+ENGINE TRACE (m123): the subnet lowers to a Not node holding
+3-tuples [l1, l2, innerT1] blocked by T1(-4); R5's delete
+unblocks ALL; the engine's term[2] consume order = gens LIFO
+(gen-2 pairs first), within-gen [beta, a]. The WITNESS's
+engine wave = gens FIFO, within-gen [a, beta] — TWO different
+engine compositions for near-identical shapes (R4 = 2nd sink
+in m123, 4th in the witness): the ENGINE'S PARITY FLIPS WITH
+SINK POSITION.
+
+DROOLS SOURCE (PhreakNotNode.doRightDeletes): the unblock
+walks rightTuple.getBlocked() from the HEAD = most-recently-
+blocked-first (SAME walk direction as the engine); its trg
+addInsert PREPEND + terminal head-first drain normalize the
+net order.
+
+THE LAW (both anchors + the witness, invariant): the
+not-unblock MASS EMISSION reaches every sink in FACT-INSERTION
+order (oldest generation first, insertion order within),
+INVARIANT to sink position/count — the oracle gives
+[beta-g1, a-g1, beta-g2, a-g2] in BOTH shapes while the engine
+flips parity with structure.
+
+PORT SKETCH (next slab — the D-031 surface, heavily pinned:
+blocked-list PREPEND, the D-127 exists-flush most-recently-
+blocked-first admit, sd_/tms parked lanes all ride it): a
+NORMALIZATION at the mass-unblock emission (the D-343 sort
+precedent) — emit the unblock batch in creation/insertion
+order rather than relying on parity composition; byte gate
+decides the blast radius. m1020b's channel question (upd-vs-
+ins class at the peer) is likely the SAME normalization seen
+from the update side. Both witnesses stay banked until the
+port round.
 (unprobed — BetaNode's delete path also flushes; no witness);
 left-side-modify flush behavior (unconstrained by data);
 RHS-driven re-entrants on multi-sink nodes (late pass retained
