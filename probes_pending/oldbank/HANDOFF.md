@@ -51,10 +51,11 @@ D-353/D-354; the flush-at-modify law, records in PINS.md):
   cells; the external modify-born re-entrant batch distribution.
 - xf_fz_141421_123: CLOSED (D-357) — the mass-unblock wave law
   (staged-accumulation order, no parking oracle-side); graduated
-  pr_mu_fz_141421_123 + pr_mu_p357d + pr_mu_p357e. RESIDUAL
-  surfaces spun off with lane witnesses: the lazy-merge
-  TERM-QUEUE order (m123 + p357a/b/c R0 tails; p357f = the
-  no-delete pure-lex contrast) — own round.
+  pr_mu_fz_141421_123 + pr_mu_p357d + pr_mu_p357e. The spun-off
+  TERM-QUEUE surface: CLOSED (D-359) — the when-B-vs-lex law
+  (join sink count) + the B' port with the Ria-guard class gate;
+  NINE pr_tq_* graduations (m123 + p357a/b/c/f + p359a/b/d/e).
+  The oldbank lane directory now holds records only.
 - xf_fz_8087_1020: still banked — D-358 attempt REVERTED (the
   wave law does not cover it); the channel round has a fresh
   two-eval staging map in PINS.md (one shared exists node, b1/b2

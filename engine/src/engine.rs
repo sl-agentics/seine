@@ -2581,6 +2581,12 @@ struct RuleNet {
     /// at the fire boundary.
     act_movable: HashMap<Tup, FactId>,
     queue: std::collections::VecDeque<Act>,
+    /// D-359: one-shot marker for the lazy term-queue reorder — the
+    /// first time this rule is selected to fire, a first-Term-sink
+    /// queue of a multi-sink join re-sorts to the oracle's
+    /// accumulation order B' (all-FIFO drains); set whether or not
+    /// the class gate engages.
+    termq_sorted: bool,
     /// STICKY RuleAgendaItem salience (D-043/fz_27182_862): dynamic
     /// items keep their last value across empty->removed->relinked
     /// cycles; updateSalience only rewrites it when the queue top
@@ -2970,6 +2976,10 @@ pub struct Engine {
     /// each fire_all exit so later epochs' external inserts rank as
     /// their own oracle flush batches.
     ext_batch_no: u32,
+    /// D-359 fence: TRUE once any external modify has occurred — its
+    /// call-time segment flush (D-353) breaks the single-lazy-flush
+    /// premise of the term-queue reorder.
+    ext_upd_seen: bool,
     /// The synthetic InitialFact (inserted before scenario facts once a
     /// CE-first rule compiles — Drools asserts it at session init).
     init_fact: Option<FactId>,
@@ -3111,6 +3121,7 @@ impl Engine {
             firing_log: Vec::new(),
             fact_prov: HashMap::new(),
             ext_batch_no: 0,
+            ext_upd_seen: false,
             init_fact: None,
             collect_vals: HashMap::new(),
             collect_scalar_vals: HashMap::new(),
@@ -3670,6 +3681,7 @@ impl Engine {
                 peer_live: HashSet::new(),
                 act_movable: HashMap::new(),
                 queue: std::collections::VecDeque::new(),
+                termq_sorted: false,
                 item_sal: 0,
                 act_num: HashMap::new(),
                 queued: false,
@@ -8023,6 +8035,20 @@ impl Engine {
                     "fire limit {limit} reached (non-terminating?){diag}"
                 )));
             }
+            // D-359 (the term-queue law, m123/p357a-c/p359b/p359e): a
+            // never-fired rule whose terminal is the FIRST-built Term
+            // sink of a multi-sink join holds a queue the oracle built
+            // in ONE lazy segment flush — accumulation order B' (the
+            // D-357 law with all-FIFO drains; single-sink joins fuse
+            // the term into the join's segment and are already
+            // correct). The engine accumulated eagerly per batch;
+            // re-sort once at first selection. Identity whenever the
+            // engine's partition matches the oracle's (split-batch
+            // cells), so certified cells stay byte-identical.
+            if !self.nets[ri].termq_sorted {
+                self.nets[ri].termq_sorted = true;
+                self.d359_termq_reorder(ri);
+            }
             // RuleExecutor.getNextTuple: static rules removeFirst (FIFO);
             // dynamic-salience rules pop the queue MAX — ties NEWEST
             // first (MatchConflictResolver, D-043).
@@ -9112,6 +9138,14 @@ impl Engine {
     }
 
     fn on_update(&mut self, f: FactId, mask: u64, origin: Origin) {
+        // D-359 fence: an EXTERNAL modify force-flushes its beta segment
+        // at call time (D-353), so no term queue accumulated across one
+        // is a single lazy-flush batch — the certified per-call
+        // composition stands (the 13 byte-gate movers that pinned this:
+        // the D-352 shared-prefix family + fz_42_890/fz_7_5773 peers).
+        if origin.is_none() {
+            self.ext_upd_seen = true;
+        }
         self.mark_queries_pending();
         let ftype = self.store.fact_type(f);
         let mut acc_defer = false; // D-154/D-160: external update of an acc source (evented)
@@ -10415,6 +10449,124 @@ impl Engine {
     /// rightDel (deliberately late), leftUpd (child UPDATE -> refire,
     /// mask-gated upstream; sn_b10). Counting subsumes handover:
     /// support 2->1 = no refire, no cancel (sn_b6).
+    /// D-359: re-sort a lazy first-Term-sink queue into the oracle's
+    /// accumulation order B' — the D-357 law with ALL drains FIFO
+    /// (p359b's S-block pinned the term surface's ext direction; the
+    /// subnet/wave chain carries one more net reversal, visible only in
+    /// the parked-S block). Gate: the rule has never fired, its
+    /// terminal is sinks[0] (Term) of a multi-sink non-temporal Join,
+    /// every queued activation is a 2-fact pair with known provenance
+    /// (setup-external or RHS-born). Verified:
+    /// tools/model_check_termq.py (m123-R0, p359b, p359e exact; the
+    /// witness's split-batch R0 = the identity check).
+    fn d359_termq_reorder(&mut self, ri: usize) {
+        if self.ext_upd_seen || self.firing_log.contains(&ri) {
+            return;
+        }
+        let Some(&parent) = self.nets[ri].path.last() else { return };
+        if self.trie[parent].node.kind != phreak::Kind::Join
+            || self.trie[parent].node.temporal
+            || self.trie[parent].sinks.len() < 2
+            || !matches!(self.trie[parent].sinks[0], Sink::Term(rb) if rb == ri)
+        {
+            return;
+        }
+        // Sibling chains that can FIRE during the accumulation (a Term
+        // reachable without crossing a Ria: or-twins, term-sharing
+        // rules, plain-join or accumulate chains — the D-352/D-071
+        // families; pr_or_a28/a29 + the fz_42/fz_123/fz_999 regressions
+        // pinned this at the byte gate) compose through the certified
+        // peer/flush machinery — out of class. A Ria-GUARDED chain (the
+        // m123 subnet shape) parks without firing, so the lazy premise
+        // holds: fence unless every sibling Term sits behind a Ria.
+        {
+            let mut stack: Vec<Sink> = self.trie[parent].sinks[1..].to_vec();
+            while let Some(s) = stack.pop() {
+                match s {
+                    Sink::Term(_) => return,
+                    Sink::Node(c) => {
+                        // A subnet counting node is exists-gated — its
+                        // term fires only via subnet emission (and any
+                        // such firing lands in firing_log as a batch
+                        // boundary), so it is guarded like the Ria.
+                        if !matches!(
+                            self.trie[c].node.kind,
+                            phreak::Kind::SubnetExists | phreak::Kind::SubnetNot
+                        ) {
+                            stack.extend(self.trie[c].sinks.iter().copied());
+                        }
+                    }
+                    Sink::Ria(_) => {} // parked subnet: cannot fire mid-accumulation
+                }
+            }
+        }
+        // The lazy premise needs the queue COMPLETE at first selection:
+        // this rule fires only once everything else has quiesced. A rule
+        // selected while any other queue holds work is interleaved with
+        // the accumulation (pr_or_a28/fz_123_3482 pinned this) — keep
+        // the engine's certified order.
+        if (0..self.nets.len()).any(|rj| rj != ri && !self.nets[rj].queue.is_empty()) {
+            return;
+        }
+        if self.nets[ri].queue.len() < 2
+            || !self.nets[ri].queue.iter().all(|a| a.t.len() == 2)
+        {
+            return;
+        }
+        let mut share: HashSet<usize> = HashSet::new();
+        let mut stack: Vec<Sink> = self.trie[parent]
+            .sinks
+            .iter()
+            .copied()
+            .filter(|s| !matches!(s, Sink::Term(rb) if *rb == ri))
+            .collect();
+        while let Some(s) = stack.pop() {
+            match s {
+                Sink::Term(rb) => {
+                    share.insert(rb);
+                }
+                Sink::Node(c) | Sink::Ria(c) => {
+                    stack.extend(self.trie[c].sinks.iter().copied());
+                }
+            }
+        }
+        let mut shares_before: HashMap<u32, u64> = HashMap::new();
+        for k in self.fact_prov.values().filter_map(|p| match p {
+            FactProv::Rhs(k) => Some(*k),
+            _ => None,
+        }) {
+            shares_before.entry(k).or_insert_with(|| {
+                self.firing_log[..k as usize].iter().filter(|r| share.contains(r)).count() as u64
+            });
+        }
+        let prov = |f: FactId| -> Option<(u64, i64)> {
+            match self.fact_prov.get(&f) {
+                Some(FactProv::Ext(0)) => Some((0, f.0 as i64)), // FIFO on the term surface
+                Some(FactProv::Rhs(k)) => Some((1 + shares_before[k], f.0 as i64)),
+                _ => None,
+            }
+        };
+        let mut keyed: Vec<((u64, u8, i64, u8, u64, i64), Act)> =
+            Vec::with_capacity(self.nets[ri].queue.len());
+        for a in self.nets[ri].queue.iter() {
+            let (Some((ba, ra)), Some((bb, rb))) = (prov(a.t[0]), prov(a.t[1])) else {
+                return; // fence: unknown/late-external provenance
+            };
+            let key = if ba >= bb {
+                if bb == ba {
+                    (ba, 0u8, ra, 0u8, 0u64, rb)
+                } else {
+                    (ba, 0u8, ra, 1u8, u64::MAX - bb, rb)
+                }
+            } else {
+                (bb, 1u8, rb, 0u8, u64::MAX - ba, ra)
+            };
+            keyed.push((key, a.clone()));
+        }
+        keyed.sort_by_key(|(k, _)| *k);
+        self.nets[ri].queue = keyed.into_iter().map(|(_, a)| a).collect();
+    }
+
     /// D-357: reorder a pure mass-release batch at a subnet-not into the
     /// oracle's staged-accumulation order B, then stable dyn-salience
     /// sorting downstream reproduces the wave. Key per released triple

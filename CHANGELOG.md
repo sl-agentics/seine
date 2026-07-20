@@ -6,6 +6,21 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **A low-priority rule whose matches piled up while higher-priority
+  rules ran now fires them in Drools' order.** When a rule shares
+  its leading patterns with an `exists`/`not` guard chain and, by
+  salience, fires only after everything else has quiesced, Drools
+  builds its activation queue in one lazy segment flush — merging
+  consequence-inserted facts across firings into a single batch
+  unless a rule sharing the same join evaluated between them. Seine
+  accumulated the queue eagerly per batch, which ordered those
+  activations differently whenever the batches merged. The queue now
+  re-sorts to the lazy accumulation order at the rule's first
+  firing, gated to shapes where the lazy premise provably holds
+  (sibling chains that cannot fire mid-accumulation, no external
+  modifies); all previously certified orderings are unchanged. Nine
+  scenarios graduated to the certified corpus.
+
 - **A delete that un-blocks many parked activations at once now
   releases them in Drools' order.** When a rule guards on
   `exists(... and not(...))` and a single delete flips that guard

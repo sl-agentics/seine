@@ -1026,3 +1026,97 @@ no late-external facts) + the rev(B) emission calibration.
 FUZZ RESULTS: 2x2000 seeds 352001/352002 CLEAN (0 divergences, 0
 xfail; 72s/67s) + fuzz_cep 3x300 seeds 352901/352902/352903 all 0
 divergences. THE BATTERY IS FULLY GREEN.
+
+### D-359 — the term-queue round (Bryan: "do the term-queue round")
+
+THE QUESTION (from D-357): a lazy Term sink's queue composes as B
+(m123's R0 = the accumulation law exactly) or as PURE
+INSERTION-LEX (p357f's R0 — rows and walks both in insertion
+order, ext included FIFO, no batch structure) — the flip
+condition is unextracted. Candidate ingredients: (i) a DELETE in
+the accumulated batch (m123 has R5's, p357f none); (ii) WHO
+drives the join flush (m123: R4's wave-eval flushes join1 before
+R0 pops; p357f: R0's own eval is first-and-only); (iii) an early
+separate LIA drain (m123: R5's firing-2 eval drains the T1-LIA
+before join1 flushes; p357f: one combined cascade at R0's eval);
+(iv) the InitialFact / subnet presence (CE-first compile).
+
+LADDER (all off p357f's chassis = m123's 4 facts + R0@-10 + R1;
+predictions registered BEFORE any cell runs, per best hypothesis
+= the flush-DRIVER/early-LIA-drain family, weakly held):
+- p359a = p357f + R5 (the delete, NO subnet). If the R0 tail
+  goes B-composed (ext-LIFO rows, batch structure, new-first
+  walks) the delete or its early-LIA-drain side effect drives
+  the flip. PREDICT: B-composition (forks vs current engine).
+- p359d = p357f + R5nd: "T1(f0 == -4) then end" (a T1-LIA rule
+  that FIRES but deletes nothing — drains the LIA early exactly
+  like R5's pop does, no delete staged). Discriminates
+  delete-in-batch vs early-LIA-drain. PREDICT (weakly): B-
+  composition if the early drain is the trigger; pure-lex if the
+  delete itself is.
+- p359b = p357f + R4 (the subnet, NO delete; R4 parks forever,
+  zero R4 firings). Discriminates the flush-driver/InitialFact
+  ingredient without any delete. PREDICT (weakly): pure-lex
+  (R4's item, having no activations, does not pop before R0).
+- p359e = m123 with R5 deleting T1(f0 == 2) instead (kills the
+  ab fact, NOT the blocker; R4 stays parked forever, no wave).
+  A delete WITHOUT a mass-unblock. PREDICT: B-composition on
+  the surviving pairs (the delete ingredient present).
+A miss anywhere is data; the law is extracted from the full
+quartet + the two existing points, then verified in the model
+before any edit.
+
+D-359 LADDER RESULTS (oracle 3x stable all four): p359a = PURE-LEX,
+engine MATCHES (registered prediction B — MISS: the delete does NOT
+flip the composition); p359d = PURE-LEX (kills the early-LIA-drain
+sub-hypothesis; the conditional prediction's delete arm was already
+dead via p359a); p359b = B-COMPOSITION, ENGINE FORKS (weak
+prediction lex — MISS: the flip is the SUBNET'S PRESENCE with zero
+R4 firings); p359e = B over survivors, engine forks (prediction
+HIT). THE EXTRACTED LAW: the composition flips on JOIN1'S SINK
+COUNT — single-sink (the term FUSED into the join's segment; p357f,
+p359a, p359d) = pure insertion-lex, engine already correct;
+multi-sink (segment split; the term accumulates per-flush COPIES;
+m123, p357a-c, p359b, p359e, the witness's R0) = the accumulation
+law. THE TERM-SURFACE VARIANT B': p359b's S-block = rows [1,2]
+FIFO, walks FIFO — B' = B with ALL drains FIFO (ext included; the
+first-sink term chain carries one fewer net reversal than the
+subnet/wave chain, visible only in the parked-S block since RHS
+blocks are FIFO on both surfaces). Hand-checked EXACT on m123-R0 +
+p359e; the witness's R0 (split batches, engine matches oracle) is
+the split-B' identity check for the model.
+
+D-359 PORT + THE FENCE ARC (byte-gate-driven, 4 iterations —
+each mover family named and each fence data-anchored):
+tools/model_check_termq.py green (m123-R0/p359b/p359e EXACT + the
+witness's split-R0 identity + 3 ablations); port = termq_sorted
+one-shot at first selection + d359_termq_reorder (B' key = the
+D-357 key with ext-FIFO ranks; ascending = queue order, no flip
+needed). Byte gate iteration 1: 19 movers incl. 13 CERTIFIED (the
+D-352 shared-prefix family + peers) -> fence 1 = ext_upd_seen (an
+external modify's call-time segment flush breaks the lazy
+premise; D-353). Iteration 2: or-twin and interleave fences
+(fz_42_890/fz_7_5773 = or-twins; pr_or_a28/fz_123_3482 = rules
+selected while other queues hold work). Iteration 3: the
+remaining pair (fz_999_6009 R2, fz_123_3482 R0) pinned the REAL
+class boundary: sibling chains that can FIRE during accumulation
+(any Term reachable without crossing a Ria — plain-join and
+accumulate chains included) are the certified peer/flush
+compositions; a Ria-GUARDED subnet chain parks without firing, so
+the lazy premise provably holds. Overshoot recorded: the first
+Ria-guard DFS also fenced the targets (join1 feeds the OUTER
+counting node its lefts DIRECTLY — Term(R4) reachable through
+Node(SubnetExists)); fix = subnet-kind nodes are exists-gated =
+guarded stops. FINAL: byte gate 2573 cells, movers EXACTLY the
+six intended (m123, p357a/b/c, p359b, p359e); all 12 law cells
+PASS engine-vs-oracle (incl. the three pr_mu_* graduates and the
+single-sink controls).
+D-359 RECEIPTS (all green, 2026-07-19): byte gate 2573 vs
+wt_pre359 (0ea912c) movers EXACTLY the six intended; NINE
+graduations pr_tq_{m123,p357a,p357b,p357c,p357f,p359a,p359b,
+p359d,p359e}; make diff 11/1590/414 + drift bank 12 identical;
+lint 2451/0/0; cargo 74; pytest 260; demo True; model_ird 31/31
++ 26/26 + 39/39; IRD 0-div x5; SD census 71 EXACT; agenda_open
+x10 identical x3; fuzz 2x2000 seeds 353001/353002 CLEAN +
+fuzz_cep 3x300 353901-903 CLEAN. THE OLDBANK LANE now holds only
+records + the channel-round anchors (m1020/m1020b).
