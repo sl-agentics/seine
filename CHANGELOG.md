@@ -6,6 +6,20 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Logical beliefs justified by a starved agenda group's dead matches
+  now survive to session end, matching Drools' lazy evaluation.** When
+  a rule in an agenda group loses its justifying match after the group
+  left the focus stack, Drools only retracts the logical insertion if
+  the rule's network evaluates again — via a refocus, or (for no-loop /
+  dynamic-salience rules on the eager list) a firing-boundary
+  evaluation that runs only while the rule's positive inputs are
+  populated (linked). The engine evaluated eager-listed rules
+  unconditionally, retracting beliefs Drools keeps (surfaced by
+  fuzzing as fz_337002_1104, now a certified probe with a 13-cell law
+  battery covering the full group × linking × salience matrix).
+  MAIN-group rules, refocused groups, and linked eager rules retract
+  exactly as before.
+
 - **Windowed-accumulate collections now append a queued update's
   re-admission before a same-call fresh insert.** When an external
   update revives an event whose window eviction was flushed in an

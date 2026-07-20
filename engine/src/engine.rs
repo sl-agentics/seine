@@ -8433,14 +8433,31 @@ impl Engine {
                 // last key rides drops[] to the pop (ip_a3's k0 entry
                 // has no bit2; unaffected).
                 self.tms_flush_drain(ri, dyn_sal, "flush-pre");
-                dbg_eval("eager", ri);
-                self.evaluate_rule(ri, false, true);
+                // D-370: the eager list evaluates LINKED networks only
+                // (evaluateEagerList; g-grid fz_337002_1104) — an
+                // UNLINKED rule in an UNREACHABLE group (not MAIN, not
+                // on the focus stack) has no evaluation site left, so
+                // its staged deletes stay frozen and its dead-match
+                // beliefs survive exactly as the oracle keeps them
+                // (dyn-sal g1, no-loop g11). Reachable-group rules keep
+                // the flush evaluation — it is the engine's site for
+                // Drools' at-pop pruning (the t20 self-defeat pins);
+                // not-blocked shapes stay linked via rule_eager_linked
+                // (fz_327002_1948).
+                let eager_evals = self.rule_eager_linked(ri) || {
+                    let g = self.rules[ri].def.agenda_group.as_deref().unwrap_or("MAIN");
+                    g == "MAIN" || self.focus_stack.iter().any(|s| s == g)
+                };
+                if eager_evals {
+                    dbg_eval("eager", ri);
+                    self.evaluate_rule(ri, false, true);
+                }
                 // D-201 (sdp7001x97, the eager decl-law): an entry
                 // pushed DURING ri's evaluation drains at ri's OWN
                 // eager-list slot — decl-AFTER deleters then receive
                 // the blocker ins+del FOLDED (gt6/x11 net-out) while
                 // decl-BEFORE ones, already evaluated, churn (x70).
-                if self.tms_flush_drain(ri, dyn_sal, "flush-mid") {
+                if self.tms_flush_drain(ri, dyn_sal, "flush-mid") && eager_evals {
                     self.evaluate_rule(ri, false, true);
                 }
             }
@@ -8458,7 +8475,11 @@ impl Engine {
                 || matches!(self.rules[ri].salience, EngineSalience::Dyn { .. })
             {
                 let dyn_sal = matches!(self.rules[ri].salience, EngineSalience::Dyn { .. });
-                if self.tms_flush_drain(ri, dyn_sal, "flush-post") {
+                let eager_evals = self.rule_eager_linked(ri) || {
+                    let g = self.rules[ri].def.agenda_group.as_deref().unwrap_or("MAIN");
+                    g == "MAIN" || self.focus_stack.iter().any(|s| s == g)
+                };
+                if self.tms_flush_drain(ri, dyn_sal, "flush-post") && eager_evals {
                     self.evaluate_rule(ri, false, true);
                 }
                 // removeRuleAgendaItemWhenEmpty applies to EAGER
@@ -9968,6 +9989,22 @@ impl Engine {
 
     fn rule_linked(&self, ri: usize) -> bool {
         (0..self.rules[ri].patterns.len()).all(|p| self.pos_linked(ri, p))
+    }
+
+    /// D-370: Drools' evaluateEagerList linking = POSITIVE-input
+    /// (segment) linking — a not's live blocker does NOT unlink the
+    /// segment. rule_linked's not-arm models agenda-item reachability
+    /// (D-084/D-091), a different concept: gating the eager flush on it
+    /// broke the not-closed shapes (fz_327002_1948 / the t20 pins),
+    /// whose eager evaluations Drools runs.
+    fn rule_eager_linked(&self, ri: usize) -> bool {
+        (0..self.rules[ri].patterns.len()).all(|p| {
+            let pat = &self.rules[ri].patterns[p];
+            if pat.ce == CeKind::Not && !matches!(pat.sub, SubRole::Outer { .. }) {
+                return true;
+            }
+            self.pos_linked(ri, p)
+        })
     }
 
     /// Dirty-notification: (re)queue the rule's agenda item if the rule

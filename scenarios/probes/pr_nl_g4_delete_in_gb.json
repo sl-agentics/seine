@@ -1,0 +1,70 @@
+{
+ "name": "pr_nl_g4_delete_in_gb",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "f64"
+    },
+    {
+     "name": "f2",
+     "type": "bool"
+    }
+   ],
+   "name": "T3"
+  }
+ ],
+ "drl": "rule \"R1\"\nagenda-group \"gb\"\nsalience -5\nwhen\n    $p1_0 : T2()\nthen\n    delete($p1_0);\nend\nrule \"R3\"\nwhen\n    T1()\n    $p3_1 : T2()\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R4\"\nsalience($b4_1_0 - 1)\nagenda-group \"gb\"\nwhen\n    T1()\n    $p4_1 : T2($b4_1_0 : f0, $b4_1_1 : f3)\nthen\n    insertLogical(new T3(false, 3.0, $b4_1_1));\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": 100
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 100,
+    "f1": 5,
+    "f2": 2,
+    "f3": false
+   },
+   "type": "T2"
+  }
+ ]
+}

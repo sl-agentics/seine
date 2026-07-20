@@ -879,3 +879,182 @@ pytest 257; demo True; model_ird 31/31; IRD 0-div x5; agenda_open
 x9 identical + the deliberate mover; fuzz 337001 clean, 337002 ->
 1 PRE-EXISTING quarantined (fz_337002_1104, worktree-bisected,
 seed re-run clean; bank 19); cep 3x300 clean.
+
+## D-370 candidate: fz_337002_1104 — the LAZY-SEGMENT unjustify law
+## (the D-337 drain's complementary witness)
+
+THE DECODE (all 26 firings IDENTICAL both sides; the fork is
+FINAL FACTS only — the oracle KEEPS two R4-justified T3 beliefs):
+Drools' logical unjustification for a dead justifier match lands
+when the justifying rule's SEGMENT NEXT EVALUATES (doLeftDelete →
+removeLogicalDependencies); if that evaluation never comes — the
+rule's agenda group starved to session end — the belief SURVIVES.
+The witness contains its own control: the BASE-round beliefs died
+oracle-side because the epoch's setFocus("gb") re-evaluated the
+segment (processing the earlier staged deletes); the EPOCH-round
+beliefs, with no later refocus, survive. D-337's fz_327002_1948
+is the complementary cell: there the no-loop EAGER FLUSH evaluated
+the segment (Drools unjustified) and only the engine's TMS-effect
+deferral starved — the quiescence drain fixed it. The drain is
+thus an APPROXIMATION that over-fires on the never-evaluated
+class: the engine unjustifies at quiescence what Drools never
+unjustifies at all. Minimized m1104 = 3 rules (R3 setFocus, R4
+gb/dyn-salience insertLogical, R1 sal-5 delete-all-T2), 2 facts,
+NO epochs.
+
+### GRID (predictions registered 2026-07-20 BEFORE cells run;
+### engine kills the belief in every cell — oracle-KEEPS = DIVERGE)
+
+- **g1_anchor** — m1104 verbatim. PREDICT DIVERGE (oracle keeps
+  T3; the witness's class, 3× stability check rides here).
+- **g0_static_sal** — R4 with `salience 1` instead of dynamic.
+  PREDICT DIVERGE (dynamic salience not load-bearing).
+- **g2_late_refocus** — + R5 (MAIN, salience -10): T1() →
+  setFocus("gb"), firing AFTER R1's deletes. The refocus
+  evaluates R4's segment → unjustify. PREDICT MATCH (no T3
+  either side) — the witness-internal control, isolated.
+- **g3_main_group** — R4 with no agenda-group. The dead match is
+  pop-reachable in MAIN → unjustify. PREDICT MATCH.
+- **g4_delete_in_gb** — R1 moved INTO "gb" (salience -5). The
+  deletes land while gb is focused; the segment evaluates in
+  focus. PREDICT MATCH.
+- **g5_eager_flush** — + epoch external MODIFY of the T1
+  (value-identical) after the deletes: D-353 — an external modify
+  flushes its beta segment AT CALL, group-independent → the
+  evaluation runs → unjustify. PREDICT MATCH (the 1948-boundary
+  pin: eager-flush evaluations DO unjustify).
+- **g6_two_groups** — R4 in "gb" + R4b (same shape, belief
+  T3(true,...)) in "gc"; a post-delete refocus of gb ONLY.
+  PREDICT DIVERGE with EXACTLY the gc belief surviving
+  oracle-side (per-group split — the law's strongest cell).
+
+### ROUND-1 MEASUREMENTS + THE MECHANISM SHARPENS (LINKING)
+
+- g1 DIVERGE ✓ (anchor; oracle keeps T3). g2/g4 MATCH ✓ (refocus
+  and in-focus deletes unjustify). g6 DIVERGE ✓ EXACTLY as
+  predicted (per-group split: only the un-refocused gc belief
+  survives). g3 = cell bug (setFocus at an undeclared group,
+  error-parity walls) — REPLACED by the g7/g8 pair below.
+- **g0_static_sal PASS — prediction MISS, the reframe**: with
+  STATIC salience the belief survives on BOTH sides. The engine
+  is already lazy here (no evaluation → no terminal-del → no
+  deferred entry). The defect is dyn-salience-specific.
+- **g5_eager_flush DIVERGE — prediction MISS**: an external
+  value-identical modify does NOT evaluate the starved segment
+  oracle-side (the D-353 flush law does not extend here).
+- SEINE_TMS_DEBUG on g1: R4's terminal-del processes INLINE with
+  deferred=0 — the kill site is eager_flush's dyn-salience
+  evaluation (evaluate_rule eager + dyn_sal → TMS dels inline,
+  the fz_999_3020 pin), which the engine runs UNCONDITIONALLY.
+  Drools' evaluateEagerList only evaluates LINKED networks —
+  deleting the LAST T2 UNLINKS R4's segment, so the staged
+  delete never processes (doLeftDelete never runs). The witness's
+  base round is the internal control: the epoch's fresh T2s
+  RELINKED the segment, so the refocus evaluation processed the
+  earlier staged deletes and those beliefs died.
+
+REVISED LAW: logical unjustification lands when the justifying
+rule's network next EVALUATES; eager-listed rules (no-loop /
+dyn-salience) evaluate at every firing boundary ONLY WHILE
+LINKED; an unlink (positive input emptied) freezes the staged
+deletes — beliefs survive unless a relink + evaluation later
+processes them.
+
+### Round-2 boundary cells (predictions BEFORE run)
+
+- **g7_partial_delete** — two T2s (f3 false/true), R1 deletes
+  only f3==false. Segment STAYS LINKED → the eager evaluation
+  processes the dead match. PREDICT MATCH: T3(...,false) dies,
+  T3(...,true) survives, BOTH sides.
+- **g8_relink_no_refocus** — full delete, then a late epoch
+  inserts a fresh T2 (NO refocus). Relink → the next firing
+  boundary's eager evaluation processes the old staged deletes.
+  PREDICT MATCH: the old belief dies both sides (no new belief —
+  gb never refocuses, the new activation never fires).
+
+### Round-2 measurements + round 3 (predictions BEFORE g3fix/g9 run)
+
+- g7 MATCH ✓ (linked-starved evaluates both sides).
+- g8 FAIL — the OLD belief died BOTH sides (the relink prediction
+  core HELD); the miss was cell design: R3 re-fired on the fresh
+  T2, refocused gb, and R4 minted a NEW belief whose T2 then died
+  post-unlink — a fresh instance of the anchor class (oracle
+  keeps T3(...,true)). The law composes; recorded as measured.
+- **g3fix_main_dynsal** (replaces the errored g3): R1 + R4 in
+  MAIN with DYNAMIC salience, no groups at all. If the law is
+  pure LINKING, the unlink freezes the staged delete regardless
+  of agenda groups. PREDICT DIVERGE pre-port (oracle keeps,
+  engine's unconditional eager flush kills) — the
+  groups-are-scaffolding pin.
+- **g9_main_static** — same with STATIC salience: not
+  eager-listed either side. PREDICT MATCH (both keep).
+
+### Round-3 measurements + the completed law + round 4 (predictions first)
+
+- g3fix PASS (both KILL) + g9 PASS (both KILL) — prediction MISS
+  that COMPLETES the law: MAIN rules' dead matches ALWAYS
+  evaluate before session end (pop/quiescence reach), static or
+  dynamic. The freezer is GROUP STARVATION; linking gates only
+  the eager-list route INTO a starved group:
+    MAIN                        -> unjustify (g3fix/g9)
+    group refocused / in-focus  -> unjustify (g2/g4/witness base)
+    starved + dyn-sal + LINKED  -> unjustify (g7; eager list
+                                   evaluates linked networks,
+                                   group-independent)
+    starved + dyn-sal + UNLINKED-> FROZEN, belief survives
+                                   (g1/witness/g8-new)
+    starved + static + UNLINKED -> FROZEN both (g0; engine
+                                   already faithful)
+  Engine's sole defect: the eager flush evaluates UNLINKED
+  networks (Drools' evaluateEagerList does not).
+- **g10_static_linked_starved**: R4 static in gb, partial delete
+  (stays linked), no refocus. Nothing evaluates (not eager-
+  listed, group starved). PREDICT MATCH — the dead-match belief
+  SURVIVES both sides. (Confirms static+linked is already
+  faithful; fences the port from touching it.)
+- **g11_noloop_unlinked_starved**: R4 no-loop STATIC in gb, full
+  delete, no refocus. No-loop shares the eager list; if the
+  linked gate is the list's (not dyn-sal's), the staged delete is
+  FROZEN oracle-side. PREDICT oracle KEEPS; engine = measure
+  (its no-loop eager evaluation defers the terminal-del into
+  tms.deferred, whose starved class the D-337 quiescence drain
+  kills → likely DIVERGE pre-port).
+
+### D-370 CLOSE-OUT (2026-07-20, the port landed)
+
+Round-4: g10 MATCH ✓ (static+linked+starved survives both — the
+port must not and does not touch it); g11 DIVERGE ✓ (no-loop
+shares the eager list's linked gate).
+
+THE PORT (eager_flush, 3 gate sites + one new predicate): an
+eager-listed rule's flush evaluation is SKIPPED iff the rule is
+NOT rule_eager_linked AND its agenda group is UNREACHABLE (not
+MAIN, not on the focus stack). rule_eager_linked = positive-input
+(segment) linking — Positive/Exists need non-empty inputs, a NOT
+never unlinks (rule_linked's not-arm is the D-084/D-091
+agenda-reachability concept, a DIFFERENT thing). TWO byte-gate
+iterations, both recorded:
+1. gate on rule_linked — BROKE fz_327002_1948 + both t20 pins
+   (not-closed shapes read as unlinked; Drools evaluates them).
+2. + rule_eager_linked — 1948 restored; the t20 SELF-DEFEAT pins
+   still broke: MAIN rules whose self-break EMPTIES their own
+   positive input are pop-reachable — Drools prunes at the pop,
+   the flush is the engine's site for that observable — hence
+   the group-reachability exemption.
+FINAL byte gate 2677 files = EXACTLY the 7 intended movers
+(g1/g5/g6/g8/g11/m1104/fz_337002_1104); the three pins
+byte-identical again.
+
+RECEIPTS: FOURTEEN graduations (pr_nl_fz_337002_1104 from xfail
++ pr_nl_m1104 + pr_nl_g0..g11 incl. g3fix); rebank 9 -> 8; make
+diff 11/1667/414 + drift 8 identical (one fz_123_6887
+parallel-load flap, sequential PASS per the ruling); lint
+2572/0/0; cargo 74; pytest 260; demo True; model_ird 31/31 +
+witnesses 26/26 + cells 39/39; IRD 0-div x5; SD 71 EXACT
+cell-for-cell; agenda_open x10 identical x3 binaries
+(debug/release/pre-edit — the sensitive lane this round) +
+reruns; fresh fuzz 2x2000 seeds 361001/361002 CLEAN (0 xfail
+draws) + cep 3x300 361901-903 CLEAN; NEXT seeds 362001+.
+CHANGELOG Unreleased +1 (now 3). Bank 8 = 6 ruled/walled +
+fz_336002_968 (Bryan's last actionable pick) + fz_360001_381
+(the un-triaged count fork).
