@@ -11132,12 +11132,30 @@ impl Engine {
         // the staged-left gate below — 25 round-2 regressions pinned
         // arrival order, scenarios/regressions/fz_{42,7,123,777,999}_*).
         for (f, o, _) in sr.del.iter() {
+            let fkey = self.trie[ni].node.right_key_pub(*f);
             self.trie[ni].node.remove_right(*f);
-            for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default() {
-                self.acc_remove_match(ni, spec.func, &l, *f);
-                if !sl_staged(&l, &src) {
+            let arrivals = self.trie[ni].acc_by_right.remove(f).unwrap_or_default();
+            for l in &arrivals {
+                self.acc_remove_match(ni, spec.func, l, *f);
+            }
+            // D-368: the re-pair children stage in LEFT-MEMORY order (the
+            // persistent touch order Phase E already walks — a modified
+            // left keeps its re_add seat across deltas); the FOLD above
+            // stays in arrival order (the pinned round-2 regressions).
+            let mut remaining: Vec<Tup> = Vec::new();
+            for l in &arrivals {
+                if !sl_staged(l, &src) {
+                    remaining.push(l.clone());
+                }
+            }
+            for l in self.trie[ni].node.lefts_bucket_pub(fkey.as_ref()) {
+                if let Some(i) = remaining.iter().position(|x| *x == l) {
+                    remaining.remove(i);
                     temp.add_upd(l, *o);
                 }
+            }
+            for l in remaining {
+                temp.add_upd(l, *o); // matches outside the bucket (safety)
             }
         }
 
@@ -11156,11 +11174,28 @@ impl Engine {
             let matched = self.trie[ni].acc_by_right.get(f).cloned().unwrap_or_default();
             if indexed && !matched.is_empty() && !bucket.contains(&matched[0]) {
                 // index moved: remove all previous matches (arrival order)
-                for l in self.trie[ni].acc_by_right.remove(f).unwrap_or_default() {
-                    self.acc_remove_match(ni, spec.func, &l, *f);
-                    if !sl_staged(&l, &src) {
+                let arrivals = self.trie[ni].acc_by_right.remove(f).unwrap_or_default();
+                for l in &arrivals {
+                    self.acc_remove_match(ni, spec.func, l, *f);
+                }
+                // D-368: stage in left-memory (touch) order — the OLD
+                // bucket, reached via the matches' own (unchanged) key;
+                // fold above stays arrival-order (mo12_idx_move).
+                let old_key = self.trie[ni].node.left_key_pub(&arrivals[0]);
+                let mut remaining: Vec<Tup> = Vec::new();
+                for l in &arrivals {
+                    if !sl_staged(l, &src) {
+                        remaining.push(l.clone());
+                    }
+                }
+                for l in self.trie[ni].node.lefts_bucket_pub(old_key.as_ref()) {
+                    if let Some(i) = remaining.iter().position(|x| *x == l) {
+                        remaining.remove(i);
                         temp.add_upd(l, *o);
                     }
+                }
+                for l in remaining {
+                    temp.add_upd(l, *o); // matches outside the bucket (safety)
                 }
             }
             for l in bucket {

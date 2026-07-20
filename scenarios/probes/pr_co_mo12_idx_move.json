@@ -1,0 +1,81 @@
+{
+ "name": "pr_co_mo12_idx_move",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "String"
+    },
+    {
+     "name": "g1",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"R0\"\nwhen\n    T0($k : f0, f1 != \"zz\")\n    accumulate( T1(g0 == $k, $s : g1); $a : count($s) )\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "k1",
+    "f1": "a1"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "k1",
+    "f1": "a2"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "g0": "k1",
+    "g1": 7
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "f0": "k1",
+      "f1": "a2t"
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 2,
+     "fields": {
+      "g0": "k9",
+      "g1": 7
+     }
+    }
+   ]
+  }
+ ]
+}

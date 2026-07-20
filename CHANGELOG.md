@@ -4,6 +4,21 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **Collect/accumulate re-firing order now honors Drools' persistent
+  touch order on shrink and index-move deltas.** When a collection or
+  accumulate result changes, every driver match re-fires; Drools walks
+  those re-firings in the beta memory's touch order, where a modified
+  driver keeps its re-seated position across ALL later deltas. The
+  engine already did this for growth deltas but reverted modified
+  drivers to insertion order when the collection shrank (or an indexed
+  accumulate's source moved between buckets) — an adjacent-swap
+  firing-order divergence surfaced by fuzzing (fz_356002_1512, now a
+  certified probe with a 13-cell law battery). Aggregate values,
+  firing sets, and final working memory were never affected — order
+  only.
+
 ## 0.4.45
 
 - **Recursive query workloads that enumerate large derivation

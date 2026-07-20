@@ -635,3 +635,159 @@ a74d345) — the release workflow loses the git context, so a
 shipped wheel cannot self-identify its commit. The one-move
 answer to "does this wheel carry fix X" doesn't work on PyPI
 artifacts until the workflow passes the commit through.
+
+## D-368 candidate: the DRIVER re-pair walk order (fz_356002_1512)
+
+The family reopens on a NEW axis. The banked D-363-round quarantine
+fz_356002_1512 (3× oracle-stable) forks NOT on the Collection's
+element order (in-list order AGREES both sides at every delta) but
+on the ORDER OF THE DRIVER-SIDE R0 RE-FIRINGS when a collect delta
+re-pairs all left tuples. Minimized (m1512: 2 rules, 3 facts —
+driver `T0(f1 in ...)` + `from collect`, plus a modify pump):
+
+- delta-1 walk h3,h2,h1 BOTH (newest-insert-first);
+- delta-2 (h2 just modified) walk h3,h1,h2 BOTH;
+- delta-3 (h3 just modified) walk ORACLE h1,h2,h3 — **h2 STAYS
+  displaced from delta-2** — vs ENGINE h2,h1,h3 (h2 reverts to its
+  insertion slot; only the current delta's modified tuple lands
+  last).
+
+MECHANICAL MODEL (fits all three deltas): the oracle's left memory
+is a list walked front-to-back where **insert = push-front**
+(newest-insert-first) and **modify = move-to-BACK, persistently**
+(a modify physically re-locates the tuple — the identity-model law
+family: Drools kills/re-adds the tuple object; the engine's
+value-keyed in-place update keeps the slot). The engine's delta-2
+agreement is an artifact: the modified tuple's own update staging
+orders after the right-delta walk, so ONE recent modify looks
+correct; the SECOND delta exposes the lost relocation.
+
+Uninformative corner noted: a modify of the tuple already at
+walk-back (m1512's h1) is positionally invisible — no relocation
+evidence either way.
+
+### THE GRID (predictions registered 2026-07-20 BEFORE cells run)
+
+Shared shape: drivers T0(a),T0(b),T0(c) [insert order], right/
+collect subject T1; driver pattern watches f0; walks read off R0's
+firing order per delta. Oracle 3× on any surprise.
+
+- **mo1_ctrl** — no modify; epoch inserts T1 j2 → delta walk.
+  PREDICT MATCH c,b,a both (high) — newest-insert-first.
+- **mo2_relocate** — update b (epoch), then insert j2 → walk.
+  THE LAW CELL. PREDICT ORACLE c,a,b / ENGINE c,b,a → DIVERGE
+  (high). Also behaviorally verifies epoch-update target indexing.
+- **mo3_ab** — update a (walk-back already: invisible), then
+  update b, then insert j2. PREDICT ORACLE c,a,b / ENGINE c,b,a →
+  DIVERGE (med-high); the a-update must NOT change the oracle walk
+  (move-to-back idempotent at back).
+- **mo4_ins_after_mod** — update b; insert T0 d; insert j2 → walk.
+  PREDICT ORACLE d,c,a,b / ENGINE d,c,b,a → DIVERGE (med-high) —
+  insert lands walk-FIRST even after a modify.
+- **mo5_vkeep** — update c with IDENTICAL fields; insert j2. Does a
+  value-identical external update relocate? PREDICT ORACLE b,a,c
+  (med-LOW — no value-diff check expected) vs stable c,b,a; ENGINE
+  c,b,a either way. MEASURE.
+- **mo6_plainjoin** — NO collect: driver + plain T1(g0=="on")
+  pattern; update b; insert T1 on → walk of the three join pairs.
+  PREDICT ORACLE c,a,b (med) — the law is generic beta-memory, not
+  accumulate-specific. A c,b,a MATCH here = the law is
+  collect-delta-specific (port site narrows).
+- **mo7_shrink** — update b; DELETE T1 j1 → empty-collection delta
+  → walk. PREDICT ORACLE c,a,b / ENGINE c,b,a → DIVERGE (med-high)
+  — delta direction (grow/shrink) is irrelevant.
+- **mo8_rhsmod** — the witness's confound bridge: RHS modify (rule
+  at salience 10 rewrites b→b2 at fire time) instead of an epoch
+  update; then insert j2 → walk. PREDICT ORACLE c,a,b2 / ENGINE
+  c,b2,a → DIVERGE (med).
+
+### GRID MEASUREMENTS (2026-07-20; oracle 3× on the DIVERGE cells)
+
+The naive move-to-back model died well — the real law is sharper:
+
+- mo1_ctrl MATCH c,b,a — predicted.
+- mo2_relocate MATCH **c,a,b2 BOTH** — prediction WRONG about the
+  engine: it reproduces the relocation on GROW deltas.
+- mo3_ab MATCH c,a2,b2 both (a's back-position update invisible —
+  predicted for the oracle, engine matches too).
+- mo4_ins_after_mod MATCH **c,a,b2,d both** — prediction WRONG
+  (insert lands walk-LAST, not first): an epoch insert is a TOUCH
+  like any other; the walk is least-recently-touched-first.
+- mo5_vkeep MATCH **b,a,c both** — a value-IDENTICAL external
+  update relocates (med-low "no relocation" alternative dead).
+- mo6_plainjoin MATCH a,b2,c — plain-join right-insert walks
+  INSERTION order on both sides; the law (and the fork) is
+  specific to the collect/acc delta path.
+- mo8_rhsmod MATCH c,b2,a — a pre-materialization RHS modify does
+  NOT displace (the D-323 pre-materialization lesson again).
+- **mo7_shrink DIVERGE** (3× stable): E c,b2,a / O c,a,b2.
+- **mo10_shrink_nonempty DIVERGE**: E ...,c,b2,a / O ...,c,a,b2 —
+  not empty-collection-specific.
+- **mo11_grow_then_shrink DIVERGE** — THE DEFINITIVE CELL: the
+  grow delta walks c,a,b2 correctly on BOTH sides, then the
+  immediately-following shrink walks E c,b2,a / O c,a,b2. The
+  engine HAS the touch order and uses it on grow; the shrink path
+  ignores it.
+
+THE LAW (final): on a collect/acc delta, re-paired driver children
+stage in PERSISTENT TOUCH ORDER — least-recently-touched driver
+fires first; any WM touch (external update incl. value-identical,
+insert) re-seats the driver at the walk's back; initial batch =
+newest-insert-first. Plain joins are a different (matching)
+sub-mechanism; pre-materialization RHS modifies don't displace.
+
+THE ENGINE SITE (read, not yet ported): eval_acc_node Phase E
+(right inserts) walks lefts_bucket_pub — the left memory where
+re_add_left_tuple has relocated touched lefts → touch order →
+grow deltas CORRECT. Phase B (right deletes) walks acc_by_right[f]
+— match-ARRIVAL order, never updated on left touches → shrink
+deltas lose every prior relocation. The witness's delta-3 rides
+Phase B too (the alpha-exit right update propagates as a right
+del). NOTE the Phase B comment: visit order pinned by 25 round-2
+regressions — those pin the accumulator FOLD order (in-list,
+remove-first-equal), separable from the temp.add_upd STAGING
+order that drives the firing walk; a port must reorder ONLY the
+staging (or two-loop it) and byte-gate against those 25. Phase
+C's index-moved arm also walks arrival order (untested corner —
+a right-UPDATE-delta cell would pin it if the port needs it).
+
+DISPOSITION: fz_356002_1512 is an ORDER fork (firing multiset AND
+final facts multiset equal; harness verdict = firing[17] adjacent
+swap) — the D-363 "value fork" label was wrong, corrected here.
+Minimized witness m1512 (2 rules, 3 facts) reproduces the class.
+Port = Bryan gate; expected byte movement on a port: mo7/mo10/
+mo11 + the witness flip PASS; the 25 arrival-order regressions
+must NOT move.
+
+### mo12_idx_move (the Phase C corner, port-scoping cell)
+
+`from collect` with a driver-bound source constraint is WALLED
+(subnetwork, D-041) — but indexed ACCUMULATE is in-subset, and the
+corner is reachable there. mo12: two same-key drivers (a1,a2) +
+accumulate(T1(g0 == $k); count); touch a2 (epoch f1 update); then
+move the T1's key OUT (g0 k1→k9 — an index-move right update).
+MEASURED (pre-port): initial + touch-refire AGREE; the index-move
+re-pair walks ORACLE a1,a2t (touch order — the mo-grid law
+verbatim) vs ENGINE a2t,a1 (arrival order) → DIVERGE, the Phase C
+index-moved arm confirmed as a second site. PREDICT: the port
+flips mo12 PASS alongside mo7/mo10/mo11/m1512/fz_356002_1512.
+
+### D-368 CLOSE-OUT (2026-07-20, the port landed)
+
+The 2-site port (eval_acc_node Phase B + Phase C/index-moved:
+fold arrival-order, stage bucket-order — Phase E's proven shape;
+staged-left gate untouched; safety sweep for out-of-bucket
+matches). Byte gate 2636 files vs the pre-edit binary: movers =
+EXACTLY the six intended (mo7/mo10/mo11/mo12/m1512/
+fz_356002_1512), zero others — the 25 pinned arrival-order
+regressions all held. All 14 cells + the witness PASS. FOURTEEN
+graduations (pr_co_fz_356002_1512 from xfail + pr_co_m1512 +
+pr_co_mo1..mo12); rebank 10 -> 9. make diff 11/1645/414 + drift
+9 (one fz_123_6887 parallel-load flap, sequential re-run PASS —
+the D-367 ruling's remedy); lint 2530/0/0; cargo 74; pytest 260;
+demo True; model_ird 31/31 + witnesses 26/26 + cells 39/39; IRD
+0-div ×5; SD 71 EXACT cell-for-cell; agenda_open ×10 identical
+×3 binaries (debug/release/pre-edit) + rerun ×3; fresh fuzz
+2×2000 seeds 359001/359002 CLEAN (0 xfail draws) + cep 3×300
+359901-903 CLEAN; NEXT seeds 360001+. Full narrative: DECISIONS
+D-368.

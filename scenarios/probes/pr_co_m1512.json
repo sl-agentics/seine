@@ -1,0 +1,55 @@
+{
+ "drl": "rule \"R0\"\nwhen\n    T0(f1 in (true, false))\n    $a0_1 : ArrayList() from collect( T0(f1 != true) )\nthen\nend\nrule \"R3\"\nno-loop\nwhen\n    $p3_0 : T0()\n    not(T0(f0 != \"beta\") and not(T0(f1 != true)))\nthen\n    modify($p3_0) { setF1(true) }\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "f0": "zz",
+    "f1": true
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": "a",
+    "f1": false
+   },
+   "type": "T0"
+  },
+  {
+   "fields": {
+    "f0": "",
+    "f1": false
+   },
+   "type": "T0"
+  }
+ ],
+ "name": "pr_co_m1512",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  }
+ ]
+}

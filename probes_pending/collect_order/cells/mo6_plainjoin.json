@@ -1,0 +1,67 @@
+{
+ "name": "mo6_plainjoin",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"R0\"\nwhen\n    T0(f0 != \"zz\", $b : f0)\n    T1(g0 == \"on\")\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "a"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "c"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "update",
+     "target": 1,
+     "fields": {
+      "f0": "b2"
+     }
+    }
+   ]
+  },
+  {
+   "facts": [
+    {
+     "type": "T1",
+     "fields": {
+      "g0": "on"
+     }
+    }
+   ]
+  }
+ ]
+}

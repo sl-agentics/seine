@@ -1,0 +1,62 @@
+{
+ "name": "pr_co_mo8_rhsmod",
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "g0",
+     "type": "String"
+    }
+   ]
+  }
+ ],
+ "drl": "rule \"R0\"\nwhen\n    T0(f0 != \"zz\", $b : f0)\n    $c : ArrayList() from collect( T1(g0 != \"off\") )\nthen\nend\nrule \"Rm\"\nsalience 10\nno-loop\nwhen\n    $p : T0(f0 == \"b\")\nthen\n    modify($p) { setF0(\"b2\") }\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "a"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "b"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": "c"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "g0": "j1"
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "facts": [
+    {
+     "type": "T1",
+     "fields": {
+      "g0": "j2"
+     }
+    }
+   ]
+  }
+ ]
+}
