@@ -49,6 +49,18 @@ pub(crate) const QROW_PREFIX: &str = "__qrow$";
 #[derive(Debug, Clone, PartialEq)]
 pub struct EngineError(pub String);
 
+/// D-357: fact birth provenance for the mass-unblock wave law. External
+/// inserts drain LIFO within their batch; RHS inserts drain FIFO within
+/// theirs, and consecutive RHS batches merge unless a rule sharing the
+/// prefix join evaluated between them.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum FactProv {
+    /// External insert; payload = external batch ordinal (0 = setup).
+    Ext(u32),
+    /// RHS-born; payload = global firing index at birth.
+    Rhs(u32),
+}
+
 impl std::fmt::Display for EngineError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "engine error: {}", self.0)
@@ -2946,6 +2958,18 @@ pub struct Engine {
     /// Per-rule agenda/terminal state.
     nets: Vec<RuleNet>,
     lists_built: bool,
+    /// D-357: rule index per firing, appended when a firing is recorded.
+    /// Batch reconstruction for the mass-unblock wave law counts
+    /// join-sharing-rule firings before a fact's birth firing.
+    firing_log: Vec<usize>,
+    /// D-357: per-fact birth provenance (external batch vs RHS firing).
+    /// Facts born outside these two funnels are absent — the wave sort
+    /// fences on absence.
+    fact_prov: HashMap<FactId, FactProv>,
+    /// D-357: external batch counter — 0 for setup inserts, bumped at
+    /// each fire_all exit so later epochs' external inserts rank as
+    /// their own oracle flush batches.
+    ext_batch_no: u32,
     /// The synthetic InitialFact (inserted before scenario facts once a
     /// CE-first rule compiles — Drools asserts it at session init).
     init_fact: Option<FactId>,
@@ -3084,6 +3108,9 @@ impl Engine {
             trie: Vec::new(),
             nets: Vec::new(),
             lists_built: false,
+            firing_log: Vec::new(),
+            fact_prov: HashMap::new(),
+            ext_batch_no: 0,
             init_fact: None,
             collect_vals: HashMap::new(),
             collect_scalar_vals: HashMap::new(),
@@ -8167,6 +8194,7 @@ impl Engine {
                 })
                 .collect();
             firings.push(Firing { rule: self.rules[ri].def.name.clone(), matches });
+            self.firing_log.push(ri); // D-357
         }
         self.in_fire_loop = false; // D-158
         if let Some(e) = self.pending_err.take() {
@@ -8210,6 +8238,7 @@ impl Engine {
             }
         }
         self.fire_no += 1; // D-102 cycle-4: fire boundary — between-fire inserts stamp the NEXT fire
+        self.ext_batch_no += 1; // D-357: later external inserts = a new flush batch
         eval_error_take()?; // D-310: overflow surfaces typed, never as a panic
         Ok(firings)
     }
@@ -8985,6 +9014,15 @@ impl Engine {
     /// link (e.g. a not node re-linking before a later join unlinks)
     /// transiently links the path and QUEUES its items (D-037/fz_7_2122).
     fn on_insert(&mut self, f: FactId, origin: Origin) {
+        // D-357: birth provenance (idempotent — the lists_built replay
+        // re-runs setup facts with the same Ext(0) value).
+        self.fact_prov.insert(
+            f,
+            match origin {
+                Some(_) => FactProv::Rhs(self.firing_log.len() as u32),
+                None => FactProv::Ext(self.ext_batch_no),
+            },
+        );
         self.pn_on_wm_insert(f); // D-158: plain-not blocker shadows
         self.px_on_wm_insert(f); // D-162: plain-exists witness shadows
         self.mark_queries_pending();
@@ -10192,6 +10230,29 @@ impl Engine {
                     self.fire_seq += 1;
                 }
             }
+            // D-357 (the mass-unblock wave law, m123/fz_141421_123): a
+            // subnet-not right-delete that releases the whole parked set
+            // emits, oracle-side, in the STAGED-ACCUMULATION order the
+            // lazy segment schedule would have produced (the pairs never
+            // park there — rightDel precedes leftIns in the wave-flush
+            // batch). The engine parks eagerly, so its release order is
+            // parity-composed and structure-dependent; reorder the pure
+            // release batch (all ph=2 ins, no del/upd) per the law:
+            // batch-FIFO (batches reconstructed from birth provenance +
+            // sharing-rule firings), rows-then-rightIns-born within a
+            // batch, ext-LIFO/RHS-FIFO drain, old blocks recent-first.
+            if self.trie[ni].node.kind == phreak::Kind::Not
+                && !self.trie[ni].node.temporal
+                && self.trie[ni].sinks.len() == 1
+                && matches!(self.trie[ni].sinks[0], Sink::Ria(_))
+                && trg.del.is_empty()
+                && trg.upd.is_empty()
+                && trg.norm_del.is_empty()
+                && trg.ins.len() > 1
+                && trg.ins.iter().all(|(t, _, ph)| *ph == 2 && t.len() == 3)
+            {
+                self.d357_wave_reorder(ni, &mut trg);
+            }
             // D-353/D-354 (the flush-at-modify law's observable): an
             // EXTERNAL batch (every ins-child origin None) through a
             // multi-sink plain join distributes to the FIRST-built sink
@@ -10354,6 +10415,84 @@ impl Engine {
     /// rightDel (deliberately late), leftUpd (child UPDATE -> refire,
     /// mask-gated upstream; sn_b10). Counting subsumes handover:
     /// support 2->1 = no refire, no cancel (sn_b6).
+    /// D-357: reorder a pure mass-release batch at a subnet-not into the
+    /// oracle's staged-accumulation order B, then stable dyn-salience
+    /// sorting downstream reproduces the wave. Key per released triple
+    /// (a = t[0], b = t[1]; the 2-fact prefix pair):
+    ///   batch(f): Ext(0) -> 0 (setup, LIFO rank); Rhs(k) -> 1 + count
+    ///     of prefix-join-SHARING rule firings before k (FIFO rank);
+    ///     merged RHS batches share the count. Later external epochs or
+    ///     unknown provenance FENCE the reorder (engine order stays).
+    ///   pair batch = max; a-in-batch -> leftIns ROW class (a drain
+    ///     rank, then b: same-batch first in drain order, then old
+    ///     blocks most-recent-first, drain order within); else
+    ///     rightIns-born class (b drain rank, then a old-blocks
+    ///     most-recent-first). Verified: tools/model_check_unblock.py
+    ///     (m123, xf_fz_141421_123, p357a-e; 8 ablations refuted).
+    fn d357_wave_reorder(&mut self, ni: usize, trg: &mut phreak::Staged<Tup>) {
+        let parent_of = |x: usize| -> Option<usize> {
+            (0..self.trie.len()).find(|&p| {
+                self.trie[p].sinks.iter().any(|s| matches!(s, Sink::Node(c) if *c == x))
+            })
+        };
+        let Some(sj) = parent_of(ni) else { return };
+        let Some(j1) = parent_of(sj) else { return };
+        let mut share: HashSet<usize> = HashSet::new();
+        let mut stack: Vec<Sink> = self.trie[j1]
+            .sinks
+            .iter()
+            .copied()
+            .filter(|s| !matches!(s, Sink::Node(c) if *c == sj))
+            .collect();
+        while let Some(s) = stack.pop() {
+            match s {
+                Sink::Term(rb) => {
+                    share.insert(rb);
+                }
+                Sink::Node(c) | Sink::Ria(c) => {
+                    stack.extend(self.trie[c].sinks.iter().copied());
+                }
+            }
+        }
+        let mut shares_before: HashMap<u32, u64> = HashMap::new();
+        for k in self.fact_prov.values().filter_map(|p| match p {
+            FactProv::Rhs(k) => Some(*k),
+            _ => None,
+        }) {
+            shares_before.entry(k).or_insert_with(|| {
+                self.firing_log[..k as usize].iter().filter(|r| share.contains(r)).count() as u64
+            });
+        }
+        let prov = |f: FactId| -> Option<(u64, i64)> {
+            match self.fact_prov.get(&f) {
+                Some(FactProv::Ext(0)) => Some((0, -(f.0 as i64))),
+                Some(FactProv::Rhs(k)) => Some((1 + shares_before[k], f.0 as i64)),
+                _ => None,
+            }
+        };
+        let mut keys: HashMap<Tup, (u64, u8, i64, u8, u64, i64)> = HashMap::new();
+        for (t, _, _) in trg.ins.iter() {
+            let (Some((ba, ra)), Some((bb, rb))) = (prov(t[0]), prov(t[1])) else {
+                return; // fence: unknown/late-external provenance
+            };
+            let key = if ba >= bb {
+                if bb == ba {
+                    (ba, 0u8, ra, 0u8, 0u64, rb)
+                } else {
+                    (ba, 0u8, ra, 1u8, u64::MAX - bb, rb)
+                }
+            } else {
+                (bb, 1u8, rb, 0u8, u64::MAX - ba, ra)
+            };
+            keys.insert(t.clone(), key);
+        }
+        // The chain from here to the terminal (Ria prepend staging + the
+        // counting hop) applies one net whole-list reversal (calibrated
+        // on m123: ascending emission arrived group-reversed), so emit
+        // rev(B) — the terminal then consumes B.
+        trg.ins.reorder_by_key(|(t, _, _)| std::cmp::Reverse(keys[t]));
+    }
+
     fn eval_subnet_node(
         &mut self,
         ni: usize,

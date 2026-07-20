@@ -1,0 +1,62 @@
+{
+ "name": "p357b",
+ "drl": "rule \"R0\"\nsalience -10\nwhen\n    T1($a0 : f0)\n    T1(!(f0 <= -1000000007), $b0 : f0)\nthen\nend\nrule \"R1\"\nwhen\n    $p1 : T0($b1 : f1)\nthen\n    insert(new T1($p1.getF1(), \"beta\"));\n    insert(new T1($b1, \"a\"));\nend\nrule \"R4\"\nsalience($a4 - $b4)\nwhen\n    T1($a4 : f0)\n    T1(!(f0 <= -1000000007), $b4 : f0)\n    exists(T1() and not(T1(f0 < -3)))\nthen\nend\nrule \"R5\"\nwhen\n    $p5 : T1(f0 < 2, $b5 : f0)\nthen\n    delete($p5);\nend\nrule \"R3b\"\nsalience 5\nwhen\n    T1(f1 == \"beta\")\n    T1(f1 == \"a\")\nthen\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": -4,
+    "f1": "beta"
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 2,
+    "f1": "ab"
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": false,
+    "f1": 11
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": true,
+    "f1": 11
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "bool"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    }
+   ]
+  }
+ ]
+}

@@ -1,6 +1,16 @@
 # HANDOFF — the mass-unblock normalization port round
 # (cold start; written 2026-07-19 at 9f3dc14, Bryan-directed.
 # Read this + PINS.md's D-355/D-356/D-356b sections first.)
+#
+# ROUND EXECUTED 2026-07-19 (D-357/D-358, records in PINS.md):
+# xf_fz_141421_123 CLOSED + graduated (with pr_mu_p357d/e); the
+# law here was SUPERSEDED by the richer D-357 accumulation law
+# (no parking oracle-side; tools/model_check_unblock.py). m123
+# graduation BLOCKED by a pre-existing second surface (the R0
+# lazy-merge term-queue order — m123/p357a-c stay as its
+# witnesses; p357f = the no-delete contrast). xf_fz_8087_1020
+# NOT covered by the wave law (D-358 revert) — the channel round
+# stands alone with a new two-eval staging map in PINS.md.
 
 ## THE TARGET
 

@@ -109,6 +109,21 @@ impl<T: Clone + PartialEq + Eq + std::hash::Hash> StagedList<T> {
         self.len() == 0
     }
 
+    /// D-357: stably reorder the live entries by a caller-computed key
+    /// (the subnet-not mass-unblock wave law). Tombstoned slots are
+    /// dropped from the order (iteration skips them anyway).
+    pub fn reorder_by_key<K: Ord>(&mut self, mut key: impl FnMut(&(T, Origin, u8)) -> K) {
+        let mut live: Vec<u32> = self
+            .order
+            .iter()
+            .copied()
+            .filter(|&i| self.arena[i as usize].is_some())
+            .collect();
+        live.sort_by_key(|&i| key(self.arena[i as usize].as_ref().unwrap()));
+        self.order = live.into();
+        self.dead = 0;
+    }
+
     pub fn iter(&self) -> StagedIter<'_, T> {
         StagedIter { order: self.order.iter(), arena: &self.arena }
     }

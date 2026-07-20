@@ -817,3 +817,212 @@ THE ORDER TRIO: 1 of 3 closed, 2 recorded. The D-082/D-083 late
 pass UNIFICATION (it is the coalesced approximation of
 flush-at-modify) stands as the arc's theory — full retirement =
 a future arc if ever needed.
+
+### D-357 — the mass-unblock port round (per HANDOFF-unblock.md)
+
+FULL-WAVE EXTRACTION (2026-07-19, logs regenerated, oracle 3x
+byte-stable all three cells): complete group tables for m123 (25
+pairs) + xf_fz_141421_123 (49 pairs) with recomputed dyn salience.
+THE FINDING THAT BREAKS D-356b'S MECHANISM READ: m123's oracle
+sal-0 group is MERGED across generations ((5,7) precedes (6,5) —
+causally impossible under per-batch parking + FIFO emission), while
+the witness's is BATCH-MAJOR; and the witness's sal -1 group has
+(1,3) before (3,21), killing row-major single-batch structure.
+D-356b's invariant ("fact-insertion order, invariant to sink
+position") survives only as the per-generation projection; the
+full law is richer. doRightDeletes/blocked-walk applies at most to
+the setup-parked S-pairs; the wave's G-batches NEVER PARK.
+
+THE LAW (D-357, verified EXACT on both cells,
+tools/model_check_unblock.py, 8 ablations refuted):
+the oracle's post-setup pairs accumulate as STAGED LEFTS at the
+R4-subnet join (lazy segment schedule — that segment evaluates
+only when R4's executor pops, post-delete); the delete's rightDel
+phase precedes leftIns, so the blocker is gone when the staged
+lefts flow through: NO parking, no blocked-walk for them. Wave
+order = stable-dyn-salience sort over the ACCUMULATION order B:
+  B = concat over join1-flush batches (FIFO), where a batch
+  boundary = an evaluation of a join1-SHARING rule with pending
+  staged facts (witness: R3's gb passes split S/G1/G2; m123: R0
+  sal -10 never pops pre-delete, so G1+G2 MERGE; setup S is its
+  own batch — t=0 sweep, forced by the witness's (1,3)<(3,21));
+  per batch, new facts N in drain order (external LIFO, RHS FIFO,
+  merged batches concatenated in firing order) over old facts O
+  (per-batch blocks, most-recent-batch-first, block-internal in
+  drain order):
+    B_batch = [(a,b) for a in N for b in N++O]   (leftIns rows)
+           ++ [(a,b) for b in N for a in O]      (rightIns-born)
+UNDERDETERMINED by the two cells: O-block order (most-recent-first
+vs oldest-first never co-occur in one salience group) — the
+recent-first form is the coherent extrapolation (new-block-first
+is pinned by both cells' row walks); p357c discriminates.
+
+PROBE PREDICTIONS (registered BEFORE any cell runs; cells to be
+authored as probes_pending/oldbank/p357{a,b,c}.json; predictions
+computed mechanically from the law; if a probe's PRE-WAVE timeline
+deviates from the assumed one, batches recompute from the observed
+timeline first — a timeline surprise is not by itself a law miss):
+- p357a = m123 with base T1(2,ab) -> T1(11,ab): all 25 pairs tie
+  at sal 0; the wave exposes B directly (merged form). PREDICT
+  oracle R4-wave = (2,2),(5,5),(5,6),(5,7),(5,8),(5,2),(6,5),
+  (6,6),(6,7),(6,8),(6,2),(7,5),(7,6),(7,7),(7,8),(7,2),(8,5),
+  (8,6),(8,7),(8,8),(8,2),(2,5),(2,6),(2,7),(2,8).
+- p357b = m123 + R3b (salience 5, T1(f1=="beta") T1(f1=="a"),
+  empty RHS — a join1-sharing rule that fires between R1's
+  firings; assumed timeline R1,R3b,R1,R3b x3,R5): batches become
+  [S],[G1],[G2] in the m123 chassis. PREDICT oracle R4-wave =
+  (5,2),(6,2),(7,2),(8,2),(2,2),(5,5),(5,6),(6,5),(6,6),(7,7),
+  (7,8),(7,5),(7,6),(8,7),(8,8),(8,5),(8,6),(5,7),(6,7),(5,8),
+  (6,8),(2,5),(2,6),(2,7),(2,8).
+- p357c = p357b + all-11 base: one sal group, split B fully
+  observable; discriminates O-block order AND S-separation.
+  PREDICT oracle R4-wave = (2,2),(5,5),(5,6),(5,2),(6,5),(6,6),
+  (6,2),(2,5),(2,6),(7,7),(7,8),(7,5),(7,6),(7,2),(8,7),(8,8),
+  (8,5),(8,6),(8,2),(5,7),(6,7),(2,7),(5,8),(6,8),(2,8).
+  (oldest-first O-blocks would instead give ...(7,2),(7,5),(7,6)
+  row order and (2,7),(5,7),(6,7) rIns order — the discriminator.)
+
+D-357 PROBE RESULTS (round 1): p357a HIT EXACT (oracle 3x stable;
+the merged-B form confirmed pair-for-pair, incl. new-block-first
+row walk and the rIns-born tail). p357b MISS + p357c MISS — BOTH
+DIAGNOSTIC: observed waves are the MERGED form (p357b == m123's
+original wave; p357c == p357a's predicted wave EXACTLY). R3b
+(T1(f1=="beta") x T1(f1=="a")) has different alpha constraints ->
+its own beta node, NOT join1: evaluating R3b never flushes join1's
+segment. THE SHARPENED CONDITION: a batch boundary requires an
+evaluation of a rule sharing THE JOIN NODE ITSELF (identical
+prefix patterns -> same beta node), not merely the fact type. With
+batches correctly computed under that condition ([S],[G12-merged]
+for both probes), the law fits p357b and p357c EXACTLY as well —
+4 of 4 probe waves are law-conformant; the misses are probe-design
+misses, recorded as such.
+
+ROUND 2 PREDICTIONS (registered before cells): p357d = m123 + R3c
+(salience 5, the EXACT join1 prefix T1($x : f0) x
+T1(!(f0 <= -1000000007)), empty RHS). R3c genuinely shares join1;
+assumed timeline R3c x4 (S-pairs), R1, R3c x12, R1, R3c x20, R5,
+wave, R0 x25 (89 firings). Batches [S],[G1],[G2]. PREDICT oracle
+R4-wave = the p357b-registered sequence: (5,2),(6,2),(7,2),(8,2),
+(2,2),(5,5),(5,6),(6,5),(6,6),(7,7),(7,8),(7,5),(7,6),(8,7),
+(8,8),(8,5),(8,6),(5,7),(6,7),(5,8),(6,8),(2,5),(2,6),(2,7),
+(2,8). p357e = p357d + all-11 base: PREDICT oracle R4-wave = the
+p357c-registered sequence: (2,2),(5,5),(5,6),(5,2),(6,5),(6,6),
+(6,2),(2,5),(2,6),(7,7),(7,8),(7,5),(7,6),(7,2),(8,7),(8,8),
+(8,5),(8,6),(8,2),(5,7),(6,7),(2,7),(5,8),(6,8),(2,8) — the
+O-block discriminator ((7,5),(7,6) before (7,2); (5,7),(6,7)
+before (2,7) = recent-first).
+
+D-357 PROBE RESULTS (round 2): p357d HIT EXACT + p357e HIT EXACT
+(oracle 3x stable, 89 firings each, timelines exactly as assumed:
+R3c x4 pre-R1, x12 between the R1 firings, x20 after, then R5).
+THE LAW IS FULLY PINNED — every convention now discriminated by
+data: (1) batch boundaries = evaluations of a rule sharing THE
+join node (p357d flips m123's chassis to batch-major; p357b's
+type-sharing R3b did NOT); (2) S always its own batch (p357e's
+(2,2)-first + witness (1,3)<(3,21)); (3) drain ext-LIFO/RHS-FIFO,
+merged batches concatenated in firing order (p357a); (4) row walk
+N-first then O-blocks MOST-RECENT-FIRST, block-internal drain
+order (p357e: (7,5),(7,6) before (7,2) and (5,7),(6,7) before
+(2,7) — oldest-first REFUTED); (5) leftIns rows before
+rightIns-born (witness G2 + p357e tail); (6) stable dyn-salience
+sort on top. ENGINE observations: p357d engine wave == m123
+engine wave and p357e == p357a (the engine's order is insensitive
+to the intervening sharer — its parity is structural, per
+D-356b). Law-conformant waves: 6/6 (m123, witness, p357a-e with
+correct batch partitions). tools/model_check_unblock.py carries
+the checks + ablations.
+
+D-357 PORT CALIBRATION + THE SECOND SURFACE: the release reorder
+(engine.rs d357_wave_reorder, phreak StagedList::reorder_by_key)
+landed with ONE direction flip (ascending emission arrived
+group-reversed at the terminal -> emit rev(B); the Ria/counting
+chain applies one net whole-list reversal). R4 WAVES now MATCH
+the oracle on m123 + p357a-e + xf_fz_141421_123 (handle-tagged
+full-log comparison). RESIDUAL: m123/p357a-e still fork on the
+R0 TAIL (salience -10, fires post-wave) — PRE-EXISTING (byte-
+identical pre/post port), invisible in the truncated D-356-era
+diff reads. Extracted: m123's oracle R0 sequence == B EXACTLY
+(the merged-batch accumulation law at the FIRST-BUILT Term sink,
+un-reversed); the engine's R0 sequence == SPLIT-B exactly (the
+eager per-batch composition — law-conformant per batch, wrong
+batch partition). The witness's R0 tail MATCHES both sides (R3's
+firings split the oracle's batches there = engine's eager
+partition). Same law, second surface: the lazy-merge term-queue
+order.
+
+MICRO-PROBE p357f (registered before run): m123 minus R5/R4
+(keep R0 sal -10 + R1 only; two T0s, base T1s) — does the
+merged-vs-split R0 fork need the delete/subnet context? PREDICT
+PASS (the certified corpus is dense in insert-RHS + low-salience
+all-pairs shapes; a bare fork here would have been fuzzer-caught
+long ago — so the engine's plain path must already compose
+merged-B, and m123's split-B R0 queue is a side effect of the
+delete/subnet context). A MISS = a broad uncovered surface, its
+own decision point.
+
+D-357 PROBE p357f RESULT: PASS (prediction HIT; the raw diff was
+the 0-based-handle artifact — no InitialFact without a CE rule).
+NOTE the composition finding: p357f's oracle R0 order is PURE
+INSERTION-LEX — a THIRD composition, different from the m123-
+context B-form. The B-form at a lazy term needs the delete
+context (rightDel-first mega-flush). The when-B-vs-lex law at
+lazy TERM sinks is UNEXTRACTED — that is the term-queue round's
+first question.
+
+D-357 FINAL STATE (the port): PASS FULL engine-vs-oracle
+(handle-tagged, artifact-aware): xf_fz_141421_123, p357d, p357e,
+p357f, m1020 (untouched). RESIDUAL R0-TAIL forks (merged-batch
+lazy-term surface, PRE-EXISTING): m123, p357a, p357b, p357c —
+these stay in the lane as the term-queue round's witnesses.
+
+D-358 ATTEMPT + REVERT (the m1020b/8087 channel element): the
+"same normalization from the update side" hypothesis is REFUTED
+at the mechanism level — the wave law does not cover it. Decode
+facts for the channel round (all from SEINE_TRACE on m1020b):
+the or-branches build ONE shared exists node (do_exist[1]); b1
+and b2 are its TERM sinks (peer_merge_term per-entry-prepend),
+and the join's other sink is R4-term (join sinks = 2, not 3 —
+the >= 3-sink stamp never engaged); the node evaluates TWICE per
+epoch flush (once per branch path) with DIFFERENT staged lists:
+eval-1 (b1) has [A,A] as sl.INS ph=2 near the tail; eval-2 (b2)
+has it sl.INS ph=0 AT the tail — [A,A] rides the leftIns arm in
+BOTH branches (never the leftUpd arm — an exists-eval deferral
+can never reposition it), and peer_merge_left's memory-clash
+rule (`t` already in node.lefts -> memory reorder, no staging)
+plus the shared s_left across branch evals are the machinery in
+play. The needed observable: [A,A] at the HEAD of eval-2's
+staged list (processed first -> consumed LAST at b2). The
+deferral edit never engaged and was REVERTED clean (byte-
+identical re-verified on m1020/m1020b/witness-123). fz_8087_1020
++ m1020b STAY BANKED for the channel round (D-355's original
+plan: source read of updateChildLeftTuple/peer same-kind + a
+b1-vs-b2 ladder), now with the two-eval staging map above.
+
+GRADUATION DECISION (this slab): graduate xf_fz_141421_123 +
+p357d + p357e (full-pass, law-certified); m123 + p357a/b/c/f
+stay in probes_pending/oldbank (term-queue round witnesses);
+m1020b + xf_fz_8087_1020 stay banked (channel round). Rebank
+13 -> 12.
+
+D-357 RECEIPTS (all green, 2026-07-19): byte gate 2569 cells vs
+wt_pre357 (HEAD bfe6734) — movers EXACTLY the 7 expected
+(xf_fz_141421_123, m123, p357a-e; p357f + m1020 + m1020b +
+xf_fz_8087_1020 + the D-352 regression 14 + jr11/jr17 all
+byte-identical); graduations pr_mu_fz_141421_123 +
+pr_mu_p357d + pr_mu_p357e; make diff 11/1581/414 + drift bank
+REBANKED 13 -> 12 identical; lint-probes 2447/0/0; cargo 74;
+pytest 260 (maturin rebuild, tracked .so restored); demo True;
+model_ird 31/31 + check_witnesses 26/26 + validate_cells 39/39;
+IRD 150x5 seeds 7001/7002/6001/6003/9001 all 0-div; SD census
+150x12 = 6,10,3,4,6,5,5,6,8,7,4,7 = 71 EXACT; agenda_open x10
+identical x3 binaries (release/debug/pre-edit); fresh fuzz
+2x2000 seeds 352001/352002 + fuzz_cep 3x300 seeds 352901-903 =
+(recorded below on completion). Engine deltas: phreak.rs
+StagedList::reorder_by_key; engine.rs FactProv provenance
+(on_insert funnel, firing_log at the firing record, ext_batch_no
+at fire_all exit) + d357_wave_reorder (gated: non-temporal Not,
+single Ria sink, pure ph=2 triple release, known provenance,
+no late-external facts) + the rev(B) emission calibration.
+FUZZ RESULTS: 2x2000 seeds 352001/352002 CLEAN (0 divergences, 0
+xfail; 72s/67s) + fuzz_cep 3x300 seeds 352901/352902/352903 all 0
+divergences. THE BATTERY IS FULLY GREEN.

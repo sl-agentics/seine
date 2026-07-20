@@ -6,6 +6,23 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **A delete that un-blocks many parked activations at once now
+  releases them in Drools' order.** When a rule guards on
+  `exists(... and not(...))` and a single delete flips that guard
+  for every waiting activation simultaneously (a mass un-block),
+  Drools emits the wave in the order its lazy segment flushes
+  accumulated the tuples: batch by batch in creation order —
+  setup facts as their own batch, consequence-inserted facts
+  merging into one batch unless a rule sharing the same join
+  evaluated between the insertions — with each batch walking
+  new-fact rows first and older facts most-recent-batch-first,
+  before dynamic salience orders the queue. Seine released the
+  parked set by blocked-list walk order, which flipped with
+  network shape. The release is now normalized to the accumulation
+  law (verified by an exact replay model over every extracted
+  wave). Three scenarios graduated to the certified corpus,
+  closing a long-quarantined fuzz witness.
+
 - **Rules sharing identical pattern prefixes now fire in Drools'
   order when an external update flips a shared fact out of a
   pattern and back.** When several rules (or `or` branches) share

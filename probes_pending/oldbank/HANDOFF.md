@@ -49,11 +49,16 @@ ORDER class (3) — ONE shared-prefix or-branch family (D-352/
 D-353/D-354; the flush-at-modify law, records in PINS.md):
 - xf_fz_7331_973: CLOSED (D-354) — graduated pr_ot_* + 4 probe
   cells; the external modify-born re-entrant batch distribution.
-- xf_fz_141421_123: still banked — a different-fact fork
-  (which R1-born T1 lands in the tuple); own decode.
-- xf_fz_8087_1020: still banked — the [A,A] refire rides the
-  oracle's upd channel at wave head (self-join + in-batch upd +
-  downstream exists); own decode.
+- xf_fz_141421_123: CLOSED (D-357) — the mass-unblock wave law
+  (staged-accumulation order, no parking oracle-side); graduated
+  pr_mu_fz_141421_123 + pr_mu_p357d + pr_mu_p357e. RESIDUAL
+  surfaces spun off with lane witnesses: the lazy-merge
+  TERM-QUEUE order (m123 + p357a/b/c R0 tails; p357f = the
+  no-delete pure-lex contrast) — own round.
+- xf_fz_8087_1020: still banked — D-358 attempt REVERTED (the
+  wave law does not cover it); the channel round has a fresh
+  two-eval staging map in PINS.md (one shared exists node, b1/b2
+  = its Term sinks, [A,A] rides the leftIns arm both branches).
 
 ## THE PLAN (one family per slab; commit-per-green-slab)
 
