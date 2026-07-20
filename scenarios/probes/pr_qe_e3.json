@@ -1,0 +1,123 @@
+{
+ "name": "e3",
+ "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0()\n    T0(f1 >= \"b\", f3 == true, $b0_1_0 : f1)\n    T0(f1 != $b0_1_0)\nthen\n    insert(new T1($p0_0.getF1(), true));\n    insert(new T1(\"beta\", true));\nend\nquery Q0(boolean $qa0_0, String $qa0_1)\n    $qp0_0 : T1(f1 == $qa0_0, f0 == $qa0_1)\nend\nquery TCr(String $a, String $b)\n    RelR($a, $b;)\nend\n\nrule QR0 salience 7\nwhen\n    T0(f1 >= \"beta\", $qr0_b0 : f2)\n    ?Q0(true, $qr0_x0;)\n    T1(f0 == $qr0_x0)\nthen\n    insert(new QOut(1, $qr0_b0, $qr0_b0, \"\", true));\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 0.5,
+    "f1": "",
+    "f2": 8,
+    "f3": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "ab",
+    "f1": true
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": -1.0,
+    "f1": "zz",
+    "f2": -2,
+    "f3": true
+   }
+  }
+ ],
+ "queries": [
+  {
+   "call": "Q0",
+   "args": [
+    null,
+    null
+   ]
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "src",
+     "type": "String"
+    },
+    {
+     "name": "dst",
+     "type": "String"
+    }
+   ],
+   "name": "RelR"
+  },
+  {
+   "fields": [
+    {
+     "name": "node",
+     "type": "String"
+    }
+   ],
+   "name": "MarkR"
+  },
+  {
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "i",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    },
+    {
+     "name": "z",
+     "type": "bool"
+    }
+   ],
+   "name": "QOut"
+  }
+ ]
+}

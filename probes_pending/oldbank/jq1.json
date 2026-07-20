@@ -49,5 +49,6 @@
     }
    ]
   }
- ]
+ ],
+ "engine_fenced": "insertLogical from ?query rules (D-076/D-312 wall; oracle RUNS it \u2014 liftable in a future revalidation round; D-361 records)"
 }

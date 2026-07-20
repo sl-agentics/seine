@@ -1337,3 +1337,51 @@ pytest 260; demo True; model_ird 31/31 + 26/26 + 39/39; IRD
 355001/355002 CLEAN; cep 355902/355903 CLEAN + 355901 = the one
 banked find. Lane: m1494f (the D-362 anchor) + jq1 (the
 justifiers seed) stay.
+
+### D-362 — the query-enumeration-order round (the 1494 half)
+
+EXPLORATORY MATRIX (the law is unknown — recorded as
+MEASUREMENTS, not predictions; three compositions already
+observed: m1494 no-pull two-spec-calls = [setup][f2][f1];
+m1494f early-pull one-call = [f2][f1][setup]; the engine's
+window continuation = [setup][f1][f2]-ish). Dimensions: pull
+timing (none / early@7 / after-inserts@-20), spec-call count
+(1 / 2), setup-T1 presence. Cells e1..e6 below; oracle 3x each;
+the fit follows the data.
+
+D-362 MATRIX RESULTS (oracle 3x stable throughout): e1-e10 ALL
+MATCH engine==oracle — the compositions: no-pull/late-pull =
+[setup][f1][f2] (insertion blocks FIFO); early-pull =
+[setup][f1][f2]-window-continuation (e3 — THE ORACLE USES THE
+WINDOW CONTINUATION TOO in the simple shape, certifying D-086's
+model beyond its prior envelope); the FLIP to [f2][f1][setup]
+(the witness/m1494f fork shape) needs the CONJUNCTION or-branch
+x false-setup-T1s (f5 = the minimal anchor: no TCr, pull-arg
+irrelevant — f1/f6 fork identically; singles e7/e8/e9/e10 all
+no-flip). The flip = a whole block-list REVERSAL of the window
+structure. Mechanism hypothesis (unverified): the shared query
+network's node LINK TIMING (a late-linking branch node refills
+from the OTN in a different order) — Drools dquery internals
+(QueryElementNode/link lifecycle), needs a source round.
+DISCRIMINATOR e11 (registered prediction per the
+populated-at-arm hypothesis): f5 with the false T1s inserted by
+a rule AFTER the pull (salience 5 < QR0's 7) -> PREDICT NO flip
+(branch-2 empty at arm time).
+D-362 e11 RESULT: FORKS — prediction MISS (recorded): the
+false-T1s inserted AFTER the pull still flip the oracle. The
+populated-at-arm hypothesis is REFUTED alongside the naive
+link-timing form: the conjunction (or-branch x false-T1s
+EXISTING, whenever born) flips the composition,
+timing-independent. ROUND DECISION (D-352 discipline): no port
+on a 3-positive/7-control phenomenological base with the
+mechanism unexplained — xf_fz_296002_1494 STAYS BANKED; the
+continuation needs a Drools source round (DroolsQuery /
+QueryElementNode / dquery node lifecycle — WHY does a sibling
+branch's alpha population reverse the shared T1 site's
+enumeration blocks). THE ROUND'S ENVELOPE WIN: e1-e10 all PASS
+engine==oracle and pin the enumeration laws (insertion-blocks
+for fresh calls, window-continuation for early-pull — the
+oracle CERTIFIES D-086's window model in the simple shapes) —
+GRADUATED as pr_qe_e1..e10. The fork quartet (f1, f5, f6, e11)
++ m1494f stay in the lane as the continuation's witnesses; f5 =
+the minimal anchor.
