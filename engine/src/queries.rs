@@ -899,7 +899,14 @@ enum Frame {
 /// pre-Q2 envelope) there is a single batch and the two models coincide.
 /// Keyed by (query, branch, node); deletes leave at the next drain.
 #[derive(Default)]
-pub struct QueryMem(HashMap<(usize, usize, usize), Vec<FactId>>);
+pub struct QueryMem(
+    HashMap<(usize, usize, usize), Vec<FactId>>,
+    /// D-363: per-site drain-window fact lists (one entry per drain
+    /// that appended fresh facts, in drain order). The top-level
+    /// full-walk reorder needs the window partition; fact-id lists
+    /// survive deletions (membership lookups filter to the live walk).
+    HashMap<(usize, usize, usize), Vec<Vec<FactId>>>,
+);
 
 /// One drain window for one pattern (qx8_statemem/3): staged deletes
 /// leave; staged alpha-passing inserts append NEWEST-FIRST after the
@@ -953,6 +960,9 @@ fn drain_pattern(
         })
         .collect();
     fresh.reverse();
+    if !fresh.is_empty() {
+        mem.1.entry(site).or_default().push(fresh.clone()); // D-363 window record
+    }
     m.extend(fresh);
     m.clone()
 }
@@ -1052,12 +1062,127 @@ struct Machine<'a> {
     level_cache: HashMap<(usize, usize, usize), (Vec<FactId>, Option<Table>, Option<Vec<FactId>>)>,
 }
 
+/// D-363 (xf_fz_296002_1494/f5/p363a): at a TOP-LEVEL call on a
+/// multi-branch query, when another branch is alpha-populated, a
+/// single-fact-pattern branch's rows re-partition by drain window:
+/// post-pull windows FIFO (within-window row order kept), the first
+/// (pull-time) window LAST. Every no-conjunction shape matches the
+/// engine's composition as-is (pr_qe_e1..e10, p363b, p363c), and
+/// indexed/join branches (bound-arg walks) are untouched — only the
+/// full-walk enumeration branch reorders. The qce pull path
+/// (run_site) never calls this.
+fn d363_reorder(
+    store: &FactStore,
+    queries: &[CompiledQuery],
+    mem: &QueryMem,
+    qi: usize,
+    args: &[Option<Value>],
+    single_pull_site: bool,
+    out: &mut [Env],
+) {
+    let q = &queries[qi];
+    // The law was extracted from single-pull-site histories; a query
+    // pulled from several rule sites accumulates windows the
+    // first-window-last reading mis-partitions (fz_9101_7133's
+    // queries[1] pinned this at the byte gate) — fenced.
+    if !single_pull_site || q.branches.len() < 2 {
+        return;
+    }
+    let alpha_live = |pat: &QPattern| -> bool {
+        store.live_facts_of(pat.tid).any(|f| {
+            pat.alpha.iter().all(|(fi, t)| {
+                let v = store.value(f, *fi);
+                match t {
+                    AlphaTest::Cmp { op, rhs } => eval_cmp_pub(&v, *op, rhs),
+                    AlphaTest::Matches(r) => matches!(&v, Value::Str(s) if r.accepts(s)),
+                    AlphaTest::Contains(n) => {
+                        matches!(&v, Value::Str(s) if s.contains(n.as_str()))
+                    }
+                    AlphaTest::InList { items, negated } => {
+                        let hit = items.iter().any(|i| eval_cmp_pub(&v, CmpOp::Eq, i));
+                        hit != *negated
+                    }
+                }
+            })
+        })
+    };
+    for b in 0..q.branches.len() {
+        let facts: Vec<(usize, &QPattern)> = q.branches[b]
+            .iter()
+            .enumerate()
+            .filter_map(|(ni, n)| match n {
+                CNode::Fact(p) => Some((ni, p)),
+                _ => None,
+            })
+            .collect();
+        let [(ni, pat)] = facts[..] else { continue }; // single-fact-pattern branches only
+        let Some(slot) = pat.fact_slot else { continue };
+        let Some(windows) = mem.1.get(&(qi, b, ni)) else { continue };
+        if windows.len() < 2 {
+            continue;
+        }
+        let populated = (0..q.branches.len()).any(|b2| {
+            b2 != b
+                && q.branches[b2].iter().any(|n| matches!(n, CNode::Fact(_)))
+                && q.branches[b2].iter().all(|n| match n {
+                    CNode::Fact(p) => alpha_live(p),
+                    _ => true,
+                })
+        });
+        if !populated {
+            continue;
+        }
+        // The walk is index-BUCKETED by the first indexed key (false
+        // bucket before true — p363a AND the witness both put the
+        // false facts at the head); within a bucket the post-pull
+        // windows go FIFO and the pull-window members last. Non-bool
+        // first keys are unprobed — fence.
+        let Some(&bi) = pat.index.first() else { continue };
+        let key_field = pat.beta[bi].field_idx;
+        // The law is a FULL-WALK law: a call binding the key argument
+        // is an indexed lookup with its own certified order
+        // (fz_9101_7133's Q0(true,..) call pinned this at the byte
+        // gate) — reorder only when the key's param is UNBOUND.
+        match pat.beta[bi].operand {
+            Operand::Param(s) => {
+                if args.get(s).map_or(true, |a| a.is_some()) {
+                    continue;
+                }
+            }
+            Operand::Binding(_) => continue,
+        }
+        let rank = |f: FactId| -> Option<(u8, usize)> {
+            let bucket = match store.value(f, key_field) {
+                Value::Bool(b) => b as u8,
+                _ => return None, // non-bool key: fence
+            };
+            windows.iter().position(|w| w.contains(&f)).map(|wi| {
+                (bucket, if wi == 0 { usize::MAX } else { wi })
+            })
+        };
+        let idx: Vec<usize> = (0..out.len())
+            .filter(|&i| matches!(out[i].slots.get(slot), Some(Some(EnvVal::Fact(_)))))
+            .collect();
+        let mut keyed: Vec<((u8, usize), Env)> = Vec::with_capacity(idx.len());
+        for &i in &idx {
+            let Some(Some(EnvVal::Fact(f))) = out[i].slots.get(slot) else { return };
+            let Some(r) = rank(*f) else { return }; // unknown fact/key: fence
+            keyed.push((r, out[i].clone()));
+        }
+        keyed.sort_by_key(|(r, _)| *r); // stable: within-window order kept
+        for (pos, (_, env)) in idx.iter().zip(keyed) {
+            out[*pos] = env;
+        }
+    }
+}
+
 pub fn run_query(
     store: &FactStore,
     queries: &[CompiledQuery],
     mem: &mut QueryMem,
     name: &str,
     args: &[Option<Value>],
+    single_pull_site: bool,
 ) -> Result<QueryOutput, EngineError> {
     let qi = queries
         .iter()
@@ -1106,9 +1231,11 @@ pub fn run_query(
         m.stack.push(Frame::Branch { q: qi, b, batch });
         m.drain()?;
     }
+    let mut out_envs = std::mem::take(&mut m.out);
+    drop(m);
+    d363_reorder(store, queries, mem, qi, args, single_pull_site, &mut out_envs);
     let idents = q.idents.clone();
-    let rows = m
-        .out
+    let rows = out_envs
         .iter()
         .map(|env| {
             idents
@@ -1634,7 +1761,7 @@ mod tests {
         }
         let qs = compile_all(&store, "query ByAge(long $a)\n    $p : Person(age == $a)\nend\n");
         let mut mem = QueryMem::default();
-        let out = run_query(&store, &qs, &mut mem, "ByAge", &[None]).unwrap();
+        let out = run_query(&store, &qs, &mut mem, "ByAge", &[None], false).unwrap();
         let pi = out.identifiers.iter().position(|i| i == "$p").unwrap();
         let names: Vec<String> = out
             .rows
@@ -1648,7 +1775,7 @@ mod tests {
             })
             .collect();
         assert_eq!(names, ["bob", "alice", "dave", "carol"]);
-        let out = run_query(&store, &qs, &mut mem, "ByAge", &[Some(Value::I64(30))]).unwrap();
+        let out = run_query(&store, &qs, &mut mem, "ByAge", &[Some(Value::I64(30))], false).unwrap();
         assert_eq!(out.rows.len(), 2);
     }
 
@@ -1688,10 +1815,11 @@ mod tests {
             &mut mem,
             "contained",
             &[Some(Value::Str("key".into())), Some(Value::Str("house".into()))],
+            false,
         )
         .unwrap();
         assert_eq!(out.rows.len(), 1);
-        let out = run_query(&store, &qs, &mut mem, "contained", &[None, None]).unwrap();
+        let out = run_query(&store, &qs, &mut mem, "contained", &[None, None], false).unwrap();
         assert_eq!(out.rows.len(), 15);
         // branch-2 local $z is not an identifier (params + first branch)
         assert_eq!(out.identifiers, vec!["$x", "$y"]);
@@ -1733,6 +1861,7 @@ mod tests {
             &mut mem,
             "contained",
             &[None, Some(Value::Str("a".into()))],
+            false,
         );
         match res {
             Err(EngineError(msg)) => {

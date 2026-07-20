@@ -28,12 +28,13 @@ ORACLE-FLAPPER (1):
   in-corpus-context), then either the D-131 undefined-class
   treatment or a real decode of the flipping surface.
 
-QUERY family (2) — VALUE forks on ?query outputs (ADJACENT to
-the ?query-justifiers unprobed wall; consider folding into that
-future round):
-- xf_fz_296001_1704: a QOut fact differs (engine-only rows,
-  d-field values fork).
-- xf_fz_296002_1494: queries[1] row[2] binding values differ.
+QUERY family (2) — CLOSED (D-361/D-362/D-363):
+- xf_fz_296001_1704: CLOSED (D-361, the qce same-eval delete
+  fold) + bonus fz_9103_4499; graduated pr_qc_*.
+- xf_fz_296002_1494: CLOSED (D-363, the bucketed full-walk
+  enumeration law after a mid-run pull; the D-362 envelope round
+  graduated pr_qe_e1..e10 first); graduated pr_qe_*. The
+  justifiers wall CONFIRMED + fenced (jq1).
 
 COUNT class (2) — CLOSED (both witnesses graduated):
 - xf_fz_296002_626: engine 7 vs oracle 5 — CLOSED (D-351): the

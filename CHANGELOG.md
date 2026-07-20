@@ -6,6 +6,19 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **A query called after the session quiesces now returns its rows
+  in Drools' order when a rule pulled the same query mid-run.** A
+  mid-run `?query` pull leaves the query's network memories
+  populated; a later top-level call on a multi-branch query then
+  enumerates an unbound branch bucketed by its first key, walking
+  the facts inserted after the pull ahead of the facts the pull saw.
+  Seine continued its accumulated window order instead. The reorder
+  applies exactly where the law was pinned — an unbound single-
+  pattern branch with a populated sibling, one pull site, a boolean
+  key — and every other shape keeps its certified order. Ten
+  scenarios graduated to the certified corpus, closing the last
+  banked witness of the query family.
+
 - **A rule pulling from a `?query` no longer fires for a fact
   deleted in the same evaluation.** A `?query` pull expands its
   matches directly at the rule's terminal, so when another rule

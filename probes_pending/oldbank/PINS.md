@@ -1385,3 +1385,99 @@ oracle CERTIFIES D-086's window model in the simple shapes) —
 GRADUATED as pr_qe_e1..e10. The fork quartet (f1, f5, f6, e11)
 + m1494f stay in the lane as the continuation's witnesses; f5 =
 the minimal anchor.
+
+### D-363 — the 1494 source round (Bryan: "do the 1494 source
+round")
+
+SOURCE FINDINGS (drools-core 9.44 + kiesession, extracted):
+getQueryResults = PropagationEntry.ExecuteQuery: agenda flush
+x2, insert a DroolsQuery handle at the query's LIA, then FOR
+EACH PathMemory (one per or-branch, list order) evaluate-and-
+fire — rows = arrival order at the query terminals, branch
+blocks in path order (matches the observed branch-1-then-
+branch-2 output). TupleList.add APPENDS (iteration = arrival);
+TupleIndexHashTable full-iterator = slot-major/chain/key-list —
+REFUTED as this fork's mechanism by ADJACENCY (equal-key facts
+would enumerate adjacently; observed rows interleave them in
+fact order — both sides do a per-fact window walk). The fork =
+the WINDOW-WALK DIRECTION: e3 = [pull-window][top-window] =
+oldest-first FIFO-within; f5/witness = newest-first FIFO-within.
+
+DISCRIMINATOR p363a (prediction registered per the full-window-
+reversal reading of f5's [f2][f1][setup]): f5's chassis with
+FIVE separate RHS T1-insert firings (five windows w1..w5, one
+distinct f0 value each: "q","r","s","t","u"). PREDICT the
+oracle's true-block = [w5][w4][w3][w2][w1][setup] — full window
+reversal, FIFO within each; a partial pattern (rotation,
+last-window promotion) = a different law, recorded either way.
+D-363 p363a RESULT: FORKS with a REFINEMENT — oracle =
+[q,r,s,t,u,ab] = post-pull windows FIFO, FIFO within, THE
+PULL-WINDOW BLOCK MOVED TO THE TAIL (my full-reversal prediction
+MISSED — recorded); engine = [u,t,s,r,q,ab] (windows LIFO +
+setup-tail — its own composition). Re-reading f5 under this law:
+R0 fires zz-first there (activation order), so f5's oracle
+[zz,beta]["",beta][ab] = the SAME law (post-windows FIFO,
+pull-window last). THE PHENOMENOLOGICAL LAW: at a top-level call
+on a MULTI-BRANCH query whose SIBLING branch produces rows at
+the call (equivalently: its patterns are alpha-populated — e8's
+empty branch-2 = no flip; e11's late-born rows = flip, so
+EXISTENCE at call time, not arm time), branch-1 enumerates
+[post-pull windows FIFO][the first (pull-time) window LAST];
+without the conjunction, [first window][post windows]
+(certified). FRESH PREDICTIONS (registered): p363b = p363a
+minus the false setup T1s (branch-2 empty) -> PREDICT NO flip,
+oracle [ab,q,r,s,t,u]; p363c = p363a with QR0 at salience -20
+(the pull AFTER all R0 firings; the first drain window =
+everything) -> PREDICT no observable flip (single window).
+D-363 FRESH DISCRIMINATORS: p363c HIT (late pull = single window
+= no flip, insertion FIFO both sides). p363b = NO FORK (the
+no-conjunction half held) but the SHAPE prediction MISSED
+(recorded): with interleaved per-firing windows the
+no-conjunction composition = [posts-LIFO][pull-tail] — matching
+the ENGINE's own composition; e3's [pull][posts-FIFO] is another
+engine-matching shape. THE SHARP LAW: the engine's (varying)
+composition tracks the oracle in EVERY no-conjunction shape; the
+FORK = the POST-WINDOW WALK DIRECTION under the conjunction
+only — oracle walks post-pull windows FIFO (FIFO within), the
+engine LIFO; the pull-window sits at the tail on BOTH sides
+(p363a: [q,r,s,t,u,ab] vs [u,t,s,r,q,ab]; f5 re-read under
+zz-first firing order = the same shape). Branch-2's rows match
+both sides because its bound-arg walk is INDEX-driven (not the
+full walk) — the port must touch only the top-level FULL-WALK
+enumeration. PORT DESIGN: QueryMem tracks per-site window
+boundaries; at the pub run_query path only (the qce pull/run_site
+path untouched), gate = >=2 branches AND >=2 windows AND some
+OTHER branch alpha-populated -> reorder the site walk so the
+emission = [post windows FIFO, FIFO within][pull window];
+direction calibrated on p363a (one flip constant if needed).
+D-363 PORT ROUNDS: the coarse window-reorder fixed e11 but left
+the rest forking; p363a's residual exposed THE BUCKET STRUCTURE:
+the top-call walk is index-BUCKETED by the first unification key
+(false bucket before true — p363a puts the pull-consumed ab-T at
+the tail of the TRUE bucket while the witness's false trio heads
+the FALSE bucket; the pull-consumed hypothesis died against the
+witness in the same step). FINAL LAW: under the gate (>=2
+branches, >=2 windows, another branch alpha-populated,
+single-fact-pattern branch, bool first key), the enumeration =
+buckets by key value (false<true), within-bucket [post-pull
+windows FIFO, FIFO within][pull-window members last]; every
+no-conjunction shape keeps the engine's certified composition.
+PORT: QueryMem window records (drain_pattern) + d363_reorder at
+the pub run_query path only (run_site untouched); non-bool keys
+and unknown facts FENCE. ALL NINE law cells PASS including
+xf_fz_296002_1494.
+D-363 RECEIPTS (all green, 2026-07-19): three data-pinned fences
+(call-boundness — fz_9101_7133's bound-arg call; single-pull-site
+— its queries[1] under multi-pull windows; bool-key), each
+anchored by a byte-gate counterexample. Byte gate 2599 vs
+wt_pre363 (2bf1fe0): final movers EXACTLY the seven law cells
+(fz_9101_7133 unmoved after the fences). TEN graduations
+pr_qe_{fz_296002_1494,f1,f5,f6,e11,m1494f,p363a,p363b,p363c};
+rebank 11 -> 10 -> 11 (NEW pre-existing quarantine
+fz_356002_1512: a collect-order-family value fork from the fresh
+seed, bisected vs 2bf1fe0). make diff 11/1620/414 + drift
+identical; lint 2479/0/0; cargo 74; pytest 260; demo True;
+model_ird 31/31 + 26/26 + 39/39; IRD 0-div x5; SD 71 EXACT;
+agenda_open x10 x3; fuzz 356001 CLEAN + 356002 = the banked
+find; cep 356901-903 CLEAN. THE QUERY FAMILY IS CLOSED
+(D-361/362/363); the oldbank lane = records + jq1 (fenced).

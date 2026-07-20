@@ -13286,12 +13286,22 @@ impl Engine {
         name: &str,
         args: &[Option<Value>],
     ) -> Result<crate::queries::QueryOutput, EngineError> {
+        let qi = self.queries.iter().position(|q| q.name == name);
+        let single_pull_site = qi.map_or(false, |qi| {
+            self.rules
+                .iter()
+                .flat_map(|r| r.patterns.iter())
+                .filter(|p| p.qce.as_ref().is_some_and(|q| q.qi == qi))
+                .count()
+                == 1
+        });
         crate::queries::run_query(
             &self.store,
             &self.queries,
             &mut self.query_mem,
             name,
             args,
+            single_pull_site,
         )
     }
 }

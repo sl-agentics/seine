@@ -1,0 +1,175 @@
+{
+ "name": "p363a",
+ "drl": "rule \"R0\"\nwhen\n    $d : T2($v : f0)\nthen\n    insert(new T1($v, true));\nend\nquery Q0(boolean $qa0_0, String $qa0_1, boolean $qa0_2)\n    ( $qp0_0 : T1(f1 == $qa0_0, f0 == $qa0_1) )\n    or\n    ( $qp0_1 : T1(f1 == $qa0_2, $qb0_0 : f1, $qb0_1 : f1) and $qp0_2 : T1(f0 == $qa0_1, f1 != true, $qb0_2 : f0, $qb0_3 : f1) )\nend\nquery TCr(String $a, String $b)\n    RelR($a, $b;)\nend\n\nrule QR0 salience 7\nwhen\n    T0(f1 >= \"beta\", $qr0_b0 : f2)\n    ?Q0(true, $qr0_x0, false;)\n    T1(f0 == $qr0_x0)\nthen\n    insert(new QOut(1, $qr0_b0, $qr0_b0, \"\", true));\nend\n",
+ "facts": [
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "ab",
+    "f1": true
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "",
+    "f1": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "beta",
+    "f1": false
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": "ab",
+    "f1": false
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": -1.0,
+    "f1": "zz",
+    "f2": -2,
+    "f3": true
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "q"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "r"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "s"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "t"
+   }
+  },
+  {
+   "type": "T2",
+   "fields": {
+    "f0": "u"
+   }
+  }
+ ],
+ "queries": [
+  {
+   "call": "Q0",
+   "args": [
+    null,
+    null,
+    false
+   ]
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "String"
+    },
+    {
+     "name": "f2",
+     "type": "i64"
+    },
+    {
+     "name": "f3",
+     "type": "bool"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    },
+    {
+     "name": "f1",
+     "type": "bool"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "src",
+     "type": "String"
+    },
+    {
+     "name": "dst",
+     "type": "String"
+    }
+   ],
+   "name": "RelR"
+  },
+  {
+   "fields": [
+    {
+     "name": "node",
+     "type": "String"
+    }
+   ],
+   "name": "MarkR"
+  },
+  {
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "i",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    },
+    {
+     "name": "z",
+     "type": "bool"
+    }
+   ],
+   "name": "QOut"
+  },
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "String"
+    }
+   ]
+  }
+ ]
+}
