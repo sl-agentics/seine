@@ -1,0 +1,207 @@
+{
+ "name": "cf355901x129",
+ "types": [
+  {
+   "name": "E0",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400
+   }
+  },
+  {
+   "name": "E1",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 100
+   }
+  },
+  {
+   "name": "E2",
+   "fields": [
+    {
+     "name": "ts",
+     "type": "i64"
+    },
+    {
+     "name": "dur",
+     "type": "i64"
+    },
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ],
+   "event": {
+    "timestamp": "ts",
+    "expires_ms": 400,
+    "duration": "dur"
+   }
+  },
+  {
+   "name": "P",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "D",
+   "fields": [
+    {
+     "name": "tag",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "P3",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "DW",
+   "fields": [
+    {
+     "name": "v",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "drl": "rule TJ0 when $a : E1() from entry-point \"S1\" $b : E1(this meets $a) from entry-point \"S1\" then end\nrule TJ1 salience 5 when $a : E0() $b : E1(this after[0ms,100ms] $a) from entry-point \"S1\" then end\nrule CH2 when $a : E0() $b : E1(this after[0ms,100ms] $a) from entry-point \"S1\" $c : E2(this before[0ms,100ms] $b) then end\nrule W3 salience 5 when accumulate( E2($t : tag) over window:time(100ms); $c : collectList($t) ) then  end\nrule J4 when $e : E2($t : tag) then insertLogical(new D($t)); end\nrule RD5 salience 5 when D() then end\nrule ND6 salience 2 when not D() P() then end\n",
+ "facts": [
+  {
+   "type": "P",
+   "fields": {
+    "v": 1
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 29,
+    "tag": "z",
+    "dur": 50
+   }
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 32,
+    "tag": "y",
+    "dur": 20
+   }
+  },
+  {
+   "type": "E1",
+   "fields": {
+    "ts": 14,
+    "tag": "z"
+   },
+   "entry_point": "S1"
+  },
+  {
+   "type": "E2",
+   "fields": {
+    "ts": 25,
+    "tag": "y",
+    "dur": 10
+   }
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 51
+    }
+   ],
+   "facts": [
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 64,
+      "tag": "x",
+      "dur": 0
+     }
+    }
+   ]
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 201
+    },
+    {
+     "op": "update",
+     "target": 0,
+     "fields": {
+      "v": 3
+     }
+    }
+   ],
+   "facts": []
+  },
+  {
+   "actions": [
+    {
+     "op": "advance",
+     "ms": 99
+    },
+    {
+     "op": "update",
+     "target": 4,
+     "fields": {
+      "tag": "y"
+     }
+    }
+   ],
+   "facts": [
+    {
+     "type": "E2",
+     "fields": {
+      "ts": 372,
+      "tag": "z",
+      "dur": 10
+     }
+    },
+    {
+     "type": "E1",
+     "fields": {
+      "ts": 376,
+      "tag": "z"
+     },
+     "entry_point": "S1"
+    }
+   ]
+  }
+ ]
+}

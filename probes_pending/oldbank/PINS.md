@@ -1207,3 +1207,133 @@ pytest 260; demo True; model_ird 31/31 + 26/26 + 39/39; IRD 0-div
 x5; SD 71 EXACT; agenda_open x10 x3; fuzz 2x2000 seeds
 354001/354002 CLEAN + cep 3x300 354901-903 CLEAN. THE ORDER TRIO
 3/3 CLOSED; the oldbank lane = records only.
+
+### D-361 — the query round (Bryan: "do the query round")
+
+RE-MEASURE (post-D-360 engine): both witnesses still fork.
+xf_fz_296001_1704 = MEMBERSHIP fork: engine 60 vs oracle 46
+firings; the 14 extras = EXACTLY the full 14-row ?TCr
+enumeration x the DELETED T1(11) (R3@-6 deletes it before
+QR0@-8 pops; pull-at-activation is the certified D-107
+semantics, so the activations legitimately existed — the DELETE
+CANCELLATION misses qce-rule queue entries). Suspect site:
+engine.rs ~10010 deactivation prune (positives filter excludes
+qce patterns; tuple layout [T1, row-synthetic] vs the D-056
+rendering order needs verification). xf_fz_296002_1494 = ORDER
+fork in the top-level Q0 enumeration: the f1==true block rows =
+engine [firing1-FIFO, firing2-FIFO, setup] vs oracle [firing2,
+firing1, setup] — ORACLE = blocks MOST-RECENT-FIRST,
+within-block FIFO, setup (oldest) last = THE SAME memory-block
+convention D-357 pinned for join right-memory walks; the false
+block (all setup) is identical both sides, confirming the
+within-block law.
+
+MINIMIZATION PREDICTIONS (registered before runs):
+- m1704 = R0 (T0 -> insert T1(11)) + R3 (the delete pair rule)
+  + QR0@-8 (T1 x ?TCr) + TCr + T0(f1=11) + T1(6) + RelR
+  {7->13, 7->16, 16->22} + MarkR {16} (closure = (7,13),(7,16),
+  (16,22),(7,22) = 4 rows). PREDICT: engine 4 extra QR0 firings
+  with the deleted T1(11) (8 vs 4), same class as the witness.
+- m1494 = R0 (two-firing T1 inserts) + Q0 (branch 1 only) + the
+  two T0s + one setup T1(ab,true); no R3/R4/TCr. PREDICT: the
+  Q0 true-block row order forks exactly as the witness (engine
+  [firing1, firing2, setup] vs oracle [firing2, firing1,
+  setup]).
+
+D-361 MINIMIZATION ROUND 1: BOTH MISSES (m1704 PASS, m1494 PASS
+after adding the queries input spec my first cut dropped).
+m1494's converged order (both sides) = [setup][firing2][firing1]
+— setup FIRST then blocks recent-first: a THIRD composition;
+the witness's oracle puts setup LAST. Iteration predictions
+(registered): m1494b = +the 3 extra setup T1s (the false block)
+-> weakly predict still-PASS (more setup facts alone); m1494c =
++R3 and its delete of T1("",false) -> PREDICT the fork returns
+(a T1 delete restructures the memory blocks); m1704b = +QRtwin
+(the second qce rule, salience 0, fires pre-delete) -> PREDICT
+the fork returns (the twin's earlier evaluation shares qce
+state; without it QR0's lazy pop composes correctly).
+D-361 ITERATION 2: m1704b FORKS (PREDICTION HIT — QRtwin, the
+second qce rule firing pre-delete, is the ingredient; engine 18
+vs oracle 14 = the 4-row closure x deleted T1(11) = the witness
+class exactly). THE m1704b ANCHOR STANDS (2 qce rules + R0 + R3
++ TCr, 6 facts). m1494b/c still PASS (misses recorded — extra
+setup T1s and the R3 delete are NOT the ingredients). Next
+prediction (registered): m1494d = full 3-arg Q0 with BOTH
+branches + the PRECEDING queries[0] call (Q0(false,null,false)
+before the forked Q0(null,null,false)) -> PREDICT the fork
+returns (query evaluation mutates drain-window state consumed by
+the next call, or the or-branch enumeration is the ingredient).
+D-361 ITERATION 3 (1494): m1494d PASS (miss — or-branch + the
+preceding spec call are not the ingredients). DELTA-DOWN found a
+rule the truncated decode read MISSED: QR0 salience 7 = T0 x
+?Q0(false, $x0, false) x ?TCr x T1(f0 == $x0) — a MID-RUN ?Q0
+pull. Registered prediction: m1494e = m1494d + QR0 + TCr + one
+RelR (v0->v3) -> PREDICT the fork returns (the salience-7 ?Q0
+pull consumes/advances the query drain-window state that the
+end-of-run enumeration then continues from — the engine's
+continuation order diverges).
+
+D-361 THE 1704 MECHANISM (trace-exact on m1704b): QRtwin's
+salience-0 firing materializes BOTH qce rules' expansions?? NO —
+per-net staging; the twin's role = R3's delete then lands as
+same-eval del+ins at QR0's LATER consume: the qce expansion
+stages child INSERTS directly at the terminal, so QR0's single
+post-delete eval consumes ins=[..(F6,row)..] AND
+del=[(F6,row)..] IN ONE BATCH — and the consume processes dels
+FIRST (queue-retain finds nothing; the acts are still in
+src.ins) then queues ALL ins: the deleted-parent children fire.
+Drools unstages the pending insert by tuple OBJECT identity
+(deleteChildLeftTuple); row fact-ids are mint-fresh per
+materialization, so VALUE identity == object identity for this
+class. THE FIX: at the terminal consume of a qce rule, a del
+whose tuple matches a still-staged ins CANCELS the pair
+(both removed; no queue-retain/TMS hooks for the never-queued
+act). Without the twin (m1704), QR0's acts materialize at its
+own post-delete eval where the staged del+ins annihilate
+upstream — PASS pre-port, the control cell.
+
+1494 DEFERRED TO ITS OWN ROUND (D-362): the enumeration-order
+law spans at least THREE observed compositions ([setup][f2][f1]
+in the no-pull minimal; blocks-recent-first setup-LAST in the
+pull context; the engine's window continuation) — an
+exploratory oracle matrix + Machine-pipeline decode is needed
+before any port; deferring per commit-per-green-slab.
+
+D-361 JUSTIFIERS-WALL CHECK (ledger item "?query justifiers,
+unprobed wall" vs the D-107 lift comments): probe jq1 = a rule
+with a ?query CE whose RHS insertLogical's a fact, plus a
+support-retraction path (the justifying premise deleted ->
+Drools retracts the belief). Registered prediction (per the
+D-107 qm5 lift note "TMS retraction composes with the pull"):
+the cell RUNS on both sides (no wall) and PASSES — the ledger
+item is either STALE or means a finer corner; a fork or a
+one-sided error names the real wall.
+D-361 JUSTIFIERS RESULT: prediction MISS (recorded) — the wall is
+REAL and PRECISE: the engine compile-walls "insertLogical from
+?query rules" (D-076/D-312 wording: revalidation over query pulls
+is unprobed) while the ORACLE RUNS the cell — the D-107 lift
+covered the OTHER direction (logically-inserted facts as pull
+targets, qm5). The surface is oracle-observable, so a lift is
+POSSIBLE but needs its own envelope round (belief revalidation
+when pull premises change). jq1 stays in the lane as the seed
+cell. The ledger item is CONFIRMED, sharpened from "?query
+justifiers" to "insertLogical FROM qce rules (revalidation
+semantics)".
+D-361 RECEIPTS (all green, 2026-07-19): port = the qce-gated
+del-cancels-staged-ins fold at the terminal consume; m1704 +
+m1704b + xf_fz_296001_1704 PASS first-shot, BONUS: the open qmut
+witness fz_9103_4499 flips FAIL->PASS (the same class — its
+quarantine round predates the fold). Byte gate 2590 vs wt_pre361
+(c69503c): movers = the witness + m1704b + the qmut cell (all
+intended/oracle-ward). FOUR graduations pr_qc_{fz_296001_1704,
+m1704,m1704b,fz_9103_4499}; rebank 11 -> 10 -> 11 (one NEW
+pre-existing quarantine: cf355901x129, a CEP temporal-join x
+window x not x acc ORDER latent from the fresh seed, bisected
+PRE-EXISTING vs c69503c; the cep fuzzer regenerates per-seed so
+the seed row stays a KNOWN-find record, not re-run-clean). make
+diff 11/1601/414 + drift 11 identical; lint 2460/0/0; cargo 74;
+pytest 260; demo True; model_ird 31/31 + 26/26 + 39/39; IRD
+0-div x5; SD 71 EXACT; agenda_open x10 x3; fuzz 2x2000
+355001/355002 CLEAN; cep 355902/355903 CLEAN + 355901 = the one
+banked find. Lane: m1494f (the D-362 anchor) + jq1 (the
+justifiers seed) stay.

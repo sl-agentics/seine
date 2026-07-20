@@ -6,6 +6,17 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **A rule pulling from a `?query` no longer fires for a fact
+  deleted in the same evaluation.** A `?query` pull expands its
+  matches directly at the rule's terminal, so when another rule
+  deletes the driving fact before the pulling rule's turn, the
+  children's inserts and deletes could meet in one evaluation —
+  and the doomed activations fired anyway, producing extra
+  consequences from a dead fact. Drools unstages the pending
+  activation outright; Seine now cancels the pair the same way.
+  Four scenarios graduated to the certified corpus, closing two
+  long-quarantined fuzz witnesses.
+
 - **An `or` branch that re-fires an updated match now fires it in
   Drools' position when the rule shares its patterns with a later
   rule.** When an external update revives a match whose activation

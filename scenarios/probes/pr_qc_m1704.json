@@ -1,0 +1,122 @@
+{
+ "name": "m1704",
+ "drl": "rule \"R0\"\nwhen\n    $p0_0 : T0()\nthen\n    insert(new T1($p0_0.getF1()));\nend\nrule \"R3\"\nsalience -6\nwhen\n    $p3_0 : T1(f0 >= 1.5, $b3_0_0 : f0)\n    T1(f0 not in (9, -5), f0 < $b3_0_0, $b3_1_0 : f0)\nthen\n    delete($p3_0);\nend\nquery TCr(long $a, long $b)\n    ( RelR(src == $a, dst == $b) )\n    or\n    ( RelR($m, $b;) and TCr($a, $m;) and MarkR(node == $m) )\nend\n\nrule QR0 salience -8\nwhen\n    T1(f0 > -2)\n    ?TCr($qr0_x0, $qr0_x1;)\nthen\n    insert(new QOut(1, $qr0_x1, $qr0_x0, \"beta\", true));\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 3.0,
+    "f1": 11,
+    "f2": 5.5
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 6
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 7,
+    "dst": 13
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 7,
+    "dst": 16
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 16,
+    "dst": 22
+   }
+  },
+  {
+   "type": "MarkR",
+   "fields": {
+    "node": 16
+   }
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "f64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    },
+    {
+     "name": "f2",
+     "type": "f64"
+    }
+   ],
+   "name": "T0"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "src",
+     "type": "i64"
+    },
+    {
+     "name": "dst",
+     "type": "i64"
+    }
+   ],
+   "name": "RelR"
+  },
+  {
+   "fields": [
+    {
+     "name": "node",
+     "type": "i64"
+    }
+   ],
+   "name": "MarkR"
+  },
+  {
+   "fields": [
+    {
+     "name": "tag",
+     "type": "i64"
+    },
+    {
+     "name": "i",
+     "type": "i64"
+    },
+    {
+     "name": "d",
+     "type": "f64"
+    },
+    {
+     "name": "s",
+     "type": "String"
+    },
+    {
+     "name": "z",
+     "type": "bool"
+    }
+   ],
+   "name": "QOut"
+  }
+ ]
+}

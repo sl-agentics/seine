@@ -1,0 +1,53 @@
+{
+ "name": "jq1",
+ "drl": "rule \"R0\"\nwhen\n    $p : T0(f0 > 0)\n    ?Q0($x;)\nthen\n    insertLogical(new T2($x));\nend\nrule \"R1\"\nsalience -5\nwhen\n    T0(f0 > 5)\n    $p : T0(f0 > 0, f0 < 3)\nthen\n    delete($p);\nend\nrule \"R2\"\nsalience -10\nwhen\n    $t : T2($v : f0)\nthen\nend\nquery Q0(long $q0)\n    T1(f0 == $q0, f0 > 1)\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 2
+   }
+  },
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 7
+   }
+  },
+  {
+   "type": "T1",
+   "fields": {
+    "f0": 4
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  }
+ ]
+}

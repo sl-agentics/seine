@@ -10421,6 +10421,28 @@ impl Engine {
         if std::env::var("SEINE_TRACE").is_ok() && !src.is_empty() {
             eprintln!("term[{ri}] consume ins={:?} upd={:?} del={:?}", src.ins, src.upd, src.del);
         }
+        // D-361 (fz_296001_1704/m1704b): a ?query-CE rule's expansion
+        // stages child INSERTS directly at this terminal, so a same-eval
+        // delete of the parent fact meets its still-staged children
+        // here — the del pass below runs first and its queue-retain
+        // finds nothing, then the ins pass would queue the dead
+        // children. Drools unstages the pending insert by tuple OBJECT
+        // identity (deleteChildLeftTuple); row fact-ids are mint-fresh
+        // per materialization, so value identity IS object identity for
+        // this class: cancel the pair, and the never-queued act sees no
+        // terminal-del processing.
+        if self.rules[ri].patterns.iter().any(|p| p.qce.is_some()) {
+            let cancelled: Vec<Tup> = src
+                .del
+                .iter()
+                .map(|(t, _, _)| t.clone())
+                .filter(|t| src.ins.iter().any(|(x, _, _)| x == t))
+                .collect();
+            for t in &cancelled {
+                src.ins.remove_first_by_key(t);
+                src.del.remove_first_by_key(t);
+            }
+        }
         for (t, o, _) in src.del.iter() {
             if t.iter().any(|x| self.tms.unstage_born.contains(x) && !self.store.is_alive(*x)) {
                 // ⚖ D-211/F2 THE DYNAMIC LAW (the general terminal
