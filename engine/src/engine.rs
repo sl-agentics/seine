@@ -5413,11 +5413,15 @@ impl Engine {
                         // just another result change riding the same
                         // stable act key + refire-supersede path
                         // (pr_jw1..jw5). Only ?query stays walled.
-                        if patterns.iter().any(|p| p.qce.is_some()) {
-                            return Err(err(
-                                "insertLogical from ?query rules is out of subset (D-076/D-312: revalidation over query pulls is unprobed)".into(),
-                            ));
-                        }
+                        // D-364 (the third lift at this wall): ?query
+                        // justifiers are IN-SUBSET — the pull is a PURE
+                        // SNAPSHOT for TMS exactly as for activations
+                        // (qm4 extends): pulled-premise deletes, updates,
+                        // and inserts never touch the belief (jq2/3/4/5/
+                        // 6/8), only DRIVING facts participate (jq7
+                        // retract, jq9 support counting), recursion
+                        // included (jq6). The engine already behaved
+                        // correctly on both sides of that line.
                         // D-089 extension (Bryan's ruling): group-CE
                         // justifiers are walled — revalidation over
                         // subnetworks is unprobed.

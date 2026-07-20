@@ -1481,3 +1481,64 @@ model_ird 31/31 + 26/26 + 39/39; IRD 0-div x5; SD 71 EXACT;
 agenda_open x10 x3; fuzz 356001 CLEAN + 356002 = the banked
 find; cep 356901-903 CLEAN. THE QUERY FAMILY IS CLOSED
 (D-361/362/363); the oldbank lane = records + jq1 (fenced).
+
+### D-364 — the insertLogical-from-?query lift (Bryan: "do the
+lift")
+
+THE GAP (source-grounded): the engine's driving-fact death
+already routes qce-tuple teardown through the terminal-del path
+(the D-361 fold certified that consume); PULLED-premise death
+produces no terminal del — the network does not know the row
+depends on the fact. Drools' ?query CE = an OPEN dquery
+(reactive rows). PORT SHAPE: record per-row supporting fids at
+materialization; on_delete(f) synthesizes the terminal del for
+affected qce tuples through the SAME consume path.
+
+LADDER (oracle-only until the wall drops; predictions per the
+open-reactive hypothesis, registered before any run):
+- jq2 premise DELETE post-establishment -> PREDICT the belief
+  retracts (final facts exclude T2).
+- jq3 premise UPDATE flipping out of the pull constraint ->
+  PREDICT retracts.
+- jq4 premise UPDATE on an irrelevant field -> PREDICT survives.
+- jq5 TWO premises yielding rows with the SAME bound value (two
+  justifiers, one belief value); delete one -> PREDICT survives
+  (support counting).
+- jq6 RECURSIVE callee (TCr); delete a mid-chain link ->
+  PREDICT pairs derived through the link retract (weakly held —
+  recursive reactivity may differ; a miss walls recursion).
+- jq7 DRIVING-fact delete (control) -> retracts (standard TMS).
+- jq8 premise dies then RE-INSERTED next epoch -> PREDICT the
+  belief re-derives (a fresh firing; count recorded).
+- jq9 two RULES pulling the same query, same belief value; one
+  driving fact dies -> PREDICT survives via the other justifier.
+D-364 LADDER RESULTS (oracle 3x stable all eight): THE
+OPEN-REACTIVE HYPOTHESIS IS REFUTED — jq2 (premise delete)
+SURVIVES, jq3 (flip-out update) SURVIVES, jq6 (recursive chain
+link delete) BOTH beliefs survive, jq8 (premise re-insert) NO
+re-fire (misses recorded, 4 of them); jq4 (irrelevant update)
+survives HIT, jq7 (driving-fact delete) RETRACTS HIT, jq9
+(multi-justifier) survives HIT, jq5 two-rows recorded. THE LAW:
+Drools' ?query CE pull is a PURE SNAPSHOT for TMS exactly as for
+activations (qm4 extends fully): pulled-premise changes NEVER
+touch the belief lifecycle; only DRIVING (network) facts
+participate in justification. THE ENGINE'S EXISTING BEHAVIOR IS
+ALREADY CORRECT ON BOTH SIDES OF THAT LINE (driving-fact death
+routes the terminal del through the D-361-certified consume;
+pulled facts route nothing). THE PORT = the wall removal alone —
+no row-support recording, no on_delete hook. The recursion scope
+lifts too (jq6 conforms).
+D-364 RECEIPTS (all green, 2026-07-19): the lift = the wall
+check removed + the d312_acc_justifier_walls pin flipped to a
+positive (the D-316 pattern) — ZERO new engine code; all NINE
+ladder cells PASS engine-vs-oracle first-shot (incl. jq1
+unfenced and jq6's recursion — the recursive scope lifts too).
+Byte gate 2608 vs wt_pre364 (96a53cb): movers = exactly the nine
+jq cells (error -> runs; zero certified movement). NINE
+graduations pr_jq1..pr_jq9 (corpus 11/1629/414); make diff
+11/1629/414 + drift 11 identical; lint 2487/0/0; cargo 74;
+pytest 260; demo True; model_ird 31/31 + 26/26 + 39/39; IRD
+0-div x5; SD 71 EXACT; agenda_open x10 x3; fuzz 2x2000 seeds
+357001/357002 CLEAN + cep 3x300 357901-903 CLEAN. THE QUERY
+LEDGER IS EMPTY (walls: none; witnesses: none). The oldbank lane
+= records only.

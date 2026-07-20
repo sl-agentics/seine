@@ -6,6 +6,18 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **Rules pulling from a `?query` can now derive self-maintaining
+  facts with `insertLogical`.** The last query wall is lifted:
+  probing showed Drools treats the pull as a pure snapshot for
+  truth maintenance exactly as it does for activations — changes
+  to the pulled facts (deletes, updates, later inserts, even links
+  of a recursive query's derivation chain) never touch the derived
+  belief, while the rule's own matched facts participate normally
+  (retraction on death, support counting across justifiers). The
+  engine already behaved this way on both sides of that line, so
+  the lift certifies with no behavioral change. Nine scenarios
+  graduated to the certified corpus.
+
 - **A query called after the session quiesces now returns its rows
   in Drools' order when a rule pulled the same query mid-run.** A
   mid-run `?query` pull leaves the query's network memories

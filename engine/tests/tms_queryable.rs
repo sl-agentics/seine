@@ -151,13 +151,13 @@ fn d312_acc_justifier_walls() {
     )
     .expect("the windowed justifier is in-subset (D-316)");
 
+    // D-364: the ?query justifier is IN-SUBSET — the pull is a pure
+    // TMS snapshot on both sides of the driving/pulled line
+    // (pr_jq1..jq9); the wall pin flips to a positive.
     let mut q = mk();
-    let err = q
-        .add_rules_drl(
-            "query pos(double $x) L($x;) end\n\
-             rule R when ?pos($x;) then insertLogical(new B($x)); end",
-        )
-        .expect_err("?query justifiers stay walled")
-        .0;
-    assert!(err.contains("?query"), "{err}");
+    q.add_rules_drl(
+        "query pos(double $x) L($x;) end\n\
+         rule R when ?pos($x;) then insertLogical(new B($x)); end",
+    )
+    .expect("the ?query justifier is in-subset (D-364)");
 }

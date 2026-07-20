@@ -34,7 +34,8 @@ QUERY family (2) — CLOSED (D-361/D-362/D-363):
 - xf_fz_296002_1494: CLOSED (D-363, the bucketed full-walk
   enumeration law after a mid-run pull; the D-362 envelope round
   graduated pr_qe_e1..e10 first); graduated pr_qe_*. The
-  justifiers wall CONFIRMED + fenced (jq1).
+  justifiers wall LIFTED (D-364): the pull is a pure TMS
+  snapshot; nine pr_jq* graduations, zero new engine code.
 
 COUNT class (2) — CLOSED (both witnesses graduated):
 - xf_fz_296002_626: engine 7 vs oracle 5 — CLOSED (D-351): the

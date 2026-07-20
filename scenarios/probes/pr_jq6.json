@@ -1,0 +1,83 @@
+{
+ "name": "jq6",
+ "drl": "rule \"R0\"\nwhen\n    T0(f0 > 0)\n    ?TCr($a, $b;)\nthen\n    insertLogical(new T2($b));\nend\nrule \"R2\"\nsalience -10\nwhen\n    $t : T2($v : f0)\nthen\nend\nquery TCr(long $a, long $b)\n    ( RelR(src == $a, dst == $b) )\n    or\n    ( RelR($m, $b;) and TCr($a, $m;) )\nend\n",
+ "facts": [
+  {
+   "type": "T0",
+   "fields": {
+    "f0": 1
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 1,
+    "dst": 2
+   }
+  },
+  {
+   "type": "RelR",
+   "fields": {
+    "src": 2,
+    "dst": 3
+   }
+  }
+ ],
+ "types": [
+  {
+   "name": "T0",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T1",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    },
+    {
+     "name": "f1",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "T2",
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "RelR",
+   "fields": [
+    {
+     "name": "src",
+     "type": "i64"
+    },
+    {
+     "name": "dst",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ]
+}
