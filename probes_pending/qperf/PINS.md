@@ -230,6 +230,9 @@ stack" census conclusion is FALSIFIED — the cell is a LIVE
 oracle-side load-sensitive flapper. Disposition (re-open vs
 accept rare flaps) is Bryan's call; the cell stays certified (a
 clean full diff 11/1631/414 was obtained this round).
+RULED (Bryan, 2026-07-20): ACCEPTED for now — the cell keeps its
+seat, rare parallel-load flaps are tolerated in make diff (a
+sequential re-run of the cell is the flap check); no re-open.
 
 ### THE PRE-OLDBANK VERDICT (the handoff's introduced-quadratics
 ### question, CLOSED)
