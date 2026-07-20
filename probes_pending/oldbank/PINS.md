@@ -716,6 +716,61 @@ m1020b, then the port. The open question is crisp: at the
 oracle's b2 [A,A]-refire to the ins-class-last channel while
 the engine keeps upd-first. fz_141421_123 NOT touched this
 round (deep different-fact fork; own decode).
+
+### fz_141421_123 — DECODE (D-356 round; Bryan: "you have room")
+
+Handle-tagged logs both sides (239 firings each — counts
+MATCH; the "different-fact" read was wrong, it is pure ORDER).
+The fork: firings 141-167 = R4's wave, which is the
+SUBNET-EXISTS MASS-UNBLOCK — R5 deletes T1(-4,"beta") at
+firing 140, flipping `exists(T1() and not(T1(f0 < -3)))` for
+ALL parked R4 tuples at once; the wave is stable-sorted by
+R4's dynamic salience ($a-$b), and WITHIN each equal-salience
+group the four f0=11 facts (two R1-firing generations x the
+beta-then-a RHS insert pair) order:
+  engine [a#22, beta#21, a#24, beta#23] = join-CREATION order
+    per generation (RHS staged LIFO: a processed first),
+    generations FIFO;
+  oracle [beta#21, a#22, beta#23, a#24] = INSERTION order per
+    generation, generations FIFO.
+ONE parity difference in the chain [R1-flush trg -> R4's sink
+(4th, peer) -> subnet-exists left arrival -> 0->1 emission ->
+queue -> dyn-salience stable sort]. R4's sink structure: the
+shared T1xT1 prefix (R0-term first-built, R3b1/b3 terms,
+R4-exists 4th); the same shared-prefix family as the rest of
+the trio.
+
+MINIMAL ANCHOR PREDICTION (registered before run) — m123:
+R0 (sal -10, the share) + R1 (T0 -> insert T1(f1,"beta");
+insert T1(f1,"a")) + R4 (salience($a-$b), T1 x
+T1(!(f0 <= -1000000007)) + exists(T1() and not(T1(f0 < -3))))
++ R5 (delete T1(f0 < 2)); base T1(-4,"beta") + T1(2,"ab") +
+TWO T0(f1=11). PREDICT the fork survives: engine fires
+[11,a] before [11,beta] within each generation in R4's wave;
+oracle the reverse. Contingency (the m1020 lesson): if the
+2-sink form passes, add R3-like or-twins to restore R4's
+4th-sink position.
+
+RESULT: HIT FIRST SHOT — m123 forks at firing[3] with the
+witness's exact shape (engine [11,a] vs oracle [11,beta]),
+oracle 3x byte-stable, 53 firings; the oracle wave = [beta#5,
+a#6, beta#7, a#8] x [2,ab] — INSERTION order per generation,
+generations FIFO, exactly the witness's law. The 2-sink form
+SUFFICES here (unlike m1020 — no contingency needed): four
+rules, four base facts. THE ANCHOR:
+probes_pending/oldbank/m123.json.
+
+NEXT SLAB: the subnet-exists mass-unblock emission-order
+round — the chain [RHS-flush trg -> R4's peer sink ->
+subnet-exists left arrival -> 0->1 emission -> queue ->
+dyn-salience stable sort] has ONE parity off engine-side
+(engine emits join-creation order per generation, oracle
+insertion order). Candidate mechanism: the sn/exists left
+arrival at a PEER (Node) sink — the same peer-chain-parity
+class as m1020b's channel question; the two anchors may fall
+to ONE law (both are non-Term peer sinks of a shared join).
+Source targets: the sn-machine 0->1 left-walk order +
+peer_merge_left's ins-order semantics vs SegmentPropagator.
 (unprobed — BetaNode's delete path also flushes; no witness);
 left-side-modify flush behavior (unconstrained by data);
 RHS-driven re-entrants on multi-sink nodes (late pass retained
