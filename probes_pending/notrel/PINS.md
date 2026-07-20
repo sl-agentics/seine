@@ -1251,3 +1251,21 @@ doctrine; p9 is the minimal filing repro); porting the deafness
 means modeling a permanent-deafness bug incl. its wake/backlog
 semantics — the stop-rule shape; or (b) PORT the deafness
 (axis-1 quirks-included).
+
+### D-372 addendum — the upstream draft (Bryan: "agreed. please
+### draft upstream bug report")
+
+WALL disposition confirmed by Bryan. Draft written:
+docs/drools-bug-acc-requeue-deafness.md (the drools-bug-stale-minmax
+format). Reproducer HARDENED to filing grade: a single
+self-contained KieHelper class, TWO variants in one run — A
+(subnet not) loses the max=11 firing, B (bare not, semantically
+identical) fires — verified on VANILLA 9.44.0.Final (classpath
+only, no vendored shadow) and 10.1.0, identical output. TWO new
+boundary facts measured for the report: (1) an ALPHA-EXCLUDED
+sentinel does NOT prevent the deafness — the emptiness that
+matters is the acc node's beta (right) memory, not type
+population; (2) an IN-AGGREGATION sentinel restores the firing
+(with sentinel-value side firings) — the verified workaround.
+Filing target: github.com/apache/incubator-kie-issues (the #2366
+precedent). Not yet filed — Bryan files or gives the word.
