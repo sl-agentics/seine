@@ -7927,6 +7927,26 @@ impl Engine {
             for ni in 0..self.trie.len() {
                 self.trie[ni].node.multi_sink = self.trie[ni].sinks.len() > 1;
             }
+            // D-360: peer sinks with a Term sink at a LATER index take
+            // the kept-kind reposition (m1020b/fz_8087_1020; the
+            // 2-sink, three-exists, and Term-first shapes keep the
+            // fz_999_3298 skip — p360b/c/d pinned the boundary).
+            let mut repos: Vec<usize> = Vec::new();
+            for ni in 0..self.trie.len() {
+                for si in 1..self.trie[ni].sinks.len() {
+                    if let Sink::Node(c) = self.trie[ni].sinks[si] {
+                        let term_later = self.trie[ni].sinks[si + 1..]
+                            .iter()
+                            .any(|s| matches!(s, Sink::Term(_)));
+                        if term_later {
+                            repos.push(c);
+                        }
+                    }
+                }
+            }
+            for c in repos {
+                self.trie[c].node.kept_ins_reposition = true;
+            }
             let initial: Vec<FactId> = self.store.live_facts().collect();
             for f in initial {
                 // D-102: STREAM sessions flush per pre-fire insert too

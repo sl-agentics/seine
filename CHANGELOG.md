@@ -6,6 +6,20 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **An `or` branch that re-fires an updated match now fires it in
+  Drools' position when the rule shares its patterns with a later
+  rule.** When an external update revives a match whose activation
+  was never consumed (its `exists` guard only became true in the
+  same batch), Drools moves the pending activation into the current
+  batch — so at the second `or` branch it fires after the batch's
+  new matches, not before. Seine's peer staging kept the stale
+  queue position. The reposition applies exactly when a further
+  rule's terminal follows the branch on the shared join — the
+  shapes without one (two-branch, three-branch, terminal-first,
+  or an already-consumed activation) keep their certified order
+  unchanged. Seven scenarios graduated to the certified corpus,
+  closing the last banked witness of the shared-prefix `or` family.
+
 - **A low-priority rule whose matches piled up while higher-priority
   rules ran now fires them in Drools' order.** When a rule shares
   its leading patterns with an `exists`/`not` guard chain and, by

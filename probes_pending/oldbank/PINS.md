@@ -1120,3 +1120,90 @@ lint 2451/0/0; cargo 74; pytest 260; demo True; model_ird 31/31
 x10 identical x3; fuzz 2x2000 seeds 353001/353002 CLEAN +
 fuzz_cep 3x300 353901-903 CLEAN. THE OLDBANK LANE now holds only
 records + the channel-round anchors (m1020/m1020b).
+
+### D-360 — the channel round (Bryan: "do the channel round")
+
+D-358 CORRECTION: the trace tag do_exist[1] is the PATTERN
+POSITION, not a trie index — m1020b builds TWO exists nodes
+(different alpha constraints per branch); the join's sinks =
+[Node(e_b1), Node(e_b2), Term(R4)] = THREE (m1020: two). The
+"one shared exists node" reading in the D-358 note is WRONG.
+
+THE MECHANISM (trace-exact, current engine): both exists nodes
+hold a STALE setup-era staged insert for (A,A) — R2 had no
+activations at setup (no T1s -> exists false), so the staging
+was never consumed. At the epoch, the join's leftUpd for (A,A)
+finds the first-sink pending insert -> kept-kind (child_upd
+D-071: re-staged as INS ph2 + peer_upd mark). e_b1 (first sink,
+append_into_pending) MERGES the kept-kind entry over the stale
+one -> creation position -> b1 = [AA,AB,BA,BB] = oracle. e_b2
+(peer_merge_left): the kept-kind arm's staged-clash SKIP leaves
+the STALE entry at its old tail position (ph0) -> eval-2 staged
+= [AB,BA,BB,AA] -> b2 consume = [AA,BB,BA,AB] = the fork. A
+plain prepend walk (= repositioning the stale insert into the
+current batch, exactly updateChildLeftTuple's "a child staged as
+INSERT moves into the current batch KEEPING its insert kind")
+gives staged [AA,AB,BA,BB] -> b2 consume [BB,BA,AB,AA] = THE
+ORACLE. m1020 (2-sink) passes BECAUSE OF the skip (D-355's
+recorded parity swap between the forms) -> the fix needs the
+third-sink discriminator.
+
+LADDER (predictions registered BEFORE cells run; hypothesis =
+reposition-on-kept-ins-clash gated on a Term sink AFTER the
+exists peers):
+- p360a = m1020b + R5 (another T0 f3,f3 x T0 f2 plain term,
+  declared after R4; 4th sink). PREDICT the fork persists
+  identically pre-port (engine b2 [AA] first, oracle [AA] last);
+  post-port both PASS (gate robust to more sinks).
+- p360c = m1020b with R4 replaced by a THIRD or-branch of R2
+  (exists T1(f0 != 1, ...) — three exists sinks, NO Term).
+  THE DISCRIMINATOR: Term-later gate predicts NO reposition
+  (oracle b2 = [AA]-first class, engine PASSES pre-port);
+  sink-COUNT gate predicts reposition (oracle b2 = [AA]-last,
+  engine forks). Registered prediction (weak, per the Term-later
+  hypothesis): oracle keeps [AA] FIRST at b2.
+- p360d = m1020b + setup T1(3) (exists TRUE at setup; R2 fires
+  its setup activations; no stale staged entry at the epoch).
+  PREDICT: the epoch's (A,A) rides the UPD channel at both
+  sinks (children exist -> child_upd, no kept-kind), and the
+  cell PASSES pre-port both sides (upd-of-existing-child order
+  is the certified surface).
+- p360b = m1020b with R4 declared FIRST (join sinks =
+  [Term(R4), e_b1, e_b2] — both exists = peers). The first-sink
+  assignment probe; NO registered prediction beyond "oracle 3x
+  stable" (unknown surface; the result seeds the law's
+  first-sink clause).
+
+D-360 LADDER RESULTS (oracle 3x stable all four): p360a HIT (the
+fork persists identically with a 4th sink); p360c HIT — THE
+DISCRIMINATOR: three exists sinks with NO Term = engine MATCHES
+(b1 = [BB,BA,AB,AA], peers = [AA,AB,BA,BB]) — Term-later
+CONFIRMED, sink-count REFUTED; p360d HIT (setup T1 consumes the
+staging; the epoch upd rides the certified upd channel; no
+surface); p360b recorded (R4-term declared FIRST: both exists =
+peers, both [AA,BB,BA,AB], engine matches — a Term BEFORE the
+exists does not flip). THE LAW: at a PEER exists sink with a
+Term sink at a LATER index of the same join, a kept-kind insert
+(peer_upd-marked) clashing with a STALE staged insert
+REPOSITIONS it into the current batch keeping its kind
+(updateChildLeftTuple verbatim) — head position; without the
+later Term (m1020, p360c) or without the stale entry (p360d) or
+with the Term first (p360b), current behavior is
+oracle-certified. PORT: node stamp kept_ins_reposition at
+lists_built (Sink::Node(c) at si with any Term sink at index >
+si) + the reposition arm in peer_merge_left's kept-kind branch
+(ins-clash only; upd/del-clash and no-clash keep the
+fz_999_3298 skip).
+D-360 RECEIPTS (all green, 2026-07-19): port = kept_ins_reposition
+stamp (Sink::Node peer with any Term sink at a later index) + the
+reposition arm in peer_merge_left's kept-kind branch (ins-clash
+only); ALL SEVEN law cells PASS first-shot (m1020, m1020b,
+xf_fz_8087_1020, p360a-d). Byte gate 2577 vs wt_pre360 (22423b4)
+movers EXACTLY the three expected (witness + m1020b + p360a;
+m1020/p360b/c/d byte-identical). SEVEN graduations pr_pc_{fz_8087_
+1020,m1020,m1020b,p360a,p360b,p360c,p360d}; rebank 12 -> 11; make
+diff 11/1597/414 + drift 11 identical; lint 2456/0/0; cargo 74;
+pytest 260; demo True; model_ird 31/31 + 26/26 + 39/39; IRD 0-div
+x5; SD 71 EXACT; agenda_open x10 x3; fuzz 2x2000 seeds
+354001/354002 CLEAN + cep 3x300 354901-903 CLEAN. THE ORDER TRIO
+3/3 CLOSED; the oldbank lane = records only.

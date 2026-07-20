@@ -819,6 +819,17 @@ pub struct Node {
     /// stays for single-sink nodes and RHS-born staging, where it is
     /// the certified coalesced composition.
     pub multi_sink: bool,
+    /// D-360 (fz_8087_1020/m1020b): TRUE for a node fed as a PEER
+    /// (2nd+ sink) of a join that has a Term sink at a LATER index.
+    /// There a kept-kind insert (peer_upd-marked) clashing with a
+    /// STALE staged insert REPOSITIONS it into the current batch
+    /// keeping its kind (updateChildLeftTuple) — head position — so
+    /// an update-born refire of a never-consumed child lands
+    /// consumed-LAST at the peer. Without the later Term (m1020,
+    /// p360c three-exists), with the Term first (p360b), or without
+    /// the stale entry (p360d), the fz_999_3298 staged-clash skip is
+    /// the certified behavior and stays.
+    pub kept_ins_reposition: bool,
     /// D-134 (§3B, temporal `not` firing-deferral): a satisfied temporal
     /// `not` left does NOT fire at insert (Drools defers to the pseudo-clock
     /// window close). `new_deferrals` carries (left, origin, fire_time) OUT
@@ -929,6 +940,7 @@ impl Node {
             right_sseq: HashMap::new(),
             shared: false,
             multi_sink: false,
+            kept_ins_reposition: false,
             new_deferrals: Vec::new(),
             pending_release: Vec::new(),
             tj_epoch: Vec::new(),
@@ -1199,6 +1211,19 @@ impl Node {
         }
         for (t, o, ph) in &fresh.ins {
             if fresh.peer_upd.contains(t) {
+                // D-360: with a Term sink later on the source join, a
+                // kept-kind insert clashing with a STALE staged insert
+                // moves into the current batch keeping its kind
+                // (updateChildLeftTuple) — head position, so the
+                // update-born refire consumes LAST at this peer.
+                if self.kept_ins_reposition {
+                    if let Some(i) = pending.ins.iter().position(|(x, _, _)| x == t) {
+                        if let Some(e) = pending.ins.remove(i) {
+                            pending.ins.push_front(e);
+                        }
+                        continue;
+                    }
+                }
                 // kept-kind insert (D-071): this peer's child was already
                 // consumed — stage as an UPDATE with the usual
                 // staged-clash skip (fz_999_3298 semantics).

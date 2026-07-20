@@ -56,10 +56,12 @@ D-353/D-354; the flush-at-modify law, records in PINS.md):
   (join sink count) + the B' port with the Ria-guard class gate;
   NINE pr_tq_* graduations (m123 + p357a/b/c/f + p359a/b/d/e).
   The oldbank lane directory now holds records only.
-- xf_fz_8087_1020: still banked — D-358 attempt REVERTED (the
-  wave law does not cover it); the channel round has a fresh
-  two-eval staging map in PINS.md (one shared exists node, b1/b2
-  = its Term sinks, [A,A] rides the leftIns arm both branches).
+- xf_fz_8087_1020: CLOSED (D-360) — the kept-kind reposition law
+  (updateChildLeftTuple: a stale staged insert moves into the
+  current batch at a peer with a LATER Term sink on the shared
+  join; the D-358 "one shared exists node" note was a trace-tag
+  misread, corrected). SEVEN pr_pc_* graduations (witness +
+  m1020/m1020b + p360a-d). THE ORDER TRIO: 3/3 CLOSED.
 
 ## THE PLAN (one family per slab; commit-per-green-slab)
 
