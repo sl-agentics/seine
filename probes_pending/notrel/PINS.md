@@ -1083,6 +1083,26 @@ group reachable and the law lands the unjustify. The QA guess
 was wrong in a load-bearing way: survival is frozen staged
 DELETES (unjustification never runs), not un-fired maintenance.
 Corpus 1680; lint 2599.
+
+ROUND 2 — THE ARITY BOUNDARY (the refocus-masquerade diagnosis
+REFUTED; recorded as the miss it was). The QA box re-ran the
+round-1 recipe and got retraction AT delete() (cascade [handle])
+in BOTH kick shapes, and correctly suspected a wheel delta. The
+wheel-delta reading was wrong by construction (fb26956/49748c9
+are records/docs-only — the HEAD engine IS the 074b605 engine)
+and so was round-1's refocus diagnosis: the real discriminator,
+isolated side-by-side on one box with one .so, is DERIVE ARITY.
+A 2-pattern JOIN derive freezes (cascade [], belief survives —
+g12); a 1-PATTERN (LIA-terminal) derive unjustifies AT the
+external delete, group-independent — and the ORACLE AGREES
+(qa/pr_nl_g13_extdel_1pat, diff PASS 3x, T3 dead both sides).
+COMPLETED external-delete law: the freeze lives in BETA-SEGMENT
+staging — no join segment, no place for the staged delete to
+park, eager unjustify. The QA construction was this faithful
+cell all along (their tours 1/10/12 all use 1-pattern logical
+rules — every external support-delete they ever saw retracted
+eagerly, consistently). g12/g13 = the pinned pair bracketing
+the boundary. Corpus 1681; lint 2600.
 ## (the D-337-receipts "quiescence-vs-eager-eval" open item's cell)
 
 THE DECODE (build-up firings all MATCH; the fork is ONE extra R0

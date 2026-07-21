@@ -1,0 +1,59 @@
+{
+ "_finding": "The ARITY BOUNDARY of the external-delete freeze (round 2 of the tour-QA question; this cell REFUTED the round-1 'refocus masquerade' diagnosis): a SINGLE-PATTERN (LIA-terminal) logical rule's belief unjustifies AT the external delete of its premise, group-independent, BOTH sides (T3 dead; the binding's delete-cascade includes it) - the starved-group freeze of pr_nl_g12 requires a JOIN segment for the staged delete to park in. The QA construction was this cell all along: same engine (074b605 == HEAD engine), the 2-vs-1-pattern derive was the only discriminator, measured side-by-side on one box before this oracle run. g12/g13 = the pinned pair bracketing the boundary.",
+ "drl": "rule \"R3\"\nwhen\n    T1()\n    T2()\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R4\"\nsalience 1\nagenda-group \"gb\"\nwhen\n    $p : T2($v : f0)\nthen\n    insertLogical(new T3($v));\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": 100
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 7
+   },
+   "type": "T2"
+  }
+ ],
+ "name": "pr_nl_g13_extdel_1pat",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}
