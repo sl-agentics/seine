@@ -1,6 +1,6 @@
 # Feature tours
 
-Five self-contained walkthroughs, one per major surface. Each is a plain
+Self-contained walkthroughs, one per major surface. Each is a plain
 script — run it, read the printed narrative top to bottom. They are
 examples, not regression tests: the certified corpus under
 `probes_pending/` is the regression net; these exist to show the API
@@ -22,6 +22,8 @@ Run with the repo venv (or any env with `seine_rs` installed):
 | `tour8_allen.py` | Allen interval algebra | All 13 relations against a `@duration` anchor `[100,200]` — one probe interval per relation, every operator fires for exactly its own probe (the full diagonal) |
 | `tour9_cascade.py` | Forward chaining | `new → validated → shipped → archived+deleted` in a single `fire()` via `then_modify`/`then_insert`/`then_delete`; the audit trail of the cascade |
 | `tour10_tms_edges.py` | TMS edges | Multi-support survival (a belief outliving one of two justifying rules) and the stated/logical interplay — see the order-sensitivity idiom below |
+| `tour13_collect.py` | collect CE | One firing gathering all matches into the audit-visible ArrayList (vs one-per-match for a plain pattern); fires once even over an empty match set; the alpha-only source wall |
+| `tour14_window_churn.py` | Windowed churn | `sum`/`count` over `window:length(3)` under update/delete churn — in-window updates recompute; deletes shrink the window below N with no backfill — see the idiom below |
 
 Probe scripts — deeper single-behavior investigations born from the QA
 lap, kept as a pair because the miss is part of the record:
@@ -58,6 +60,18 @@ Idioms worth stealing:
   Oracle-pinned (D-013/j03: match rendering lists facts in declaration
   order, values POST-RHS); match-time values are not recoverable from
   the trail by design.
+- **Length windows shrink, never backfill** (tour14): deleting an
+  in-window event drops the count below N even when ≥N facts are alive —
+  a previously-evicted event never returns (`pr_wl_d1_backfill`,
+  D-183/185), and no update can revive an evicted member
+  (`pr_cep_winacc_wa_count_norevive`). A threshold rule on a windowed
+  count can therefore flap under deletion churn; that is certified
+  stream-window semantics, not a bug.
+- **collect gathers newest-insert-first** (tour13): inserting 1,3,4
+  yields `[4,3,1]` — the initial batch walks newest-first, and the
+  fuller D-368 law governs order under deltas (modify = move-to-back,
+  re-inserts re-seat at the walk's back). Don't assert insertion order
+  on a collected list.
 - **Stated/logical cardinality is order-sensitive** (tour10):
   logical-then-stated mints a second fact (two coexist; deleting the
   justification retracts only the derived one), while
