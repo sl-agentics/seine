@@ -4,6 +4,31 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+The incognito cold-start review round (a fourth independent reviewer,
+Layer-1-first — raw DRL entry). Docs placement + one steering miss;
+no semantics.
+
+- **"Coming from Drools?" orientation** now at first contact — module
+  docstring, both READMEs: DRL here is rules-only (no `package`, no
+  `declare`); fact types live in Python and schemas are inferred. The
+  review's finding: the subset framing primes full Drools, and the
+  first two things a Drools user types by reflex were both
+  parse-rejected before any doc said why.
+
+- **The canonical `Rule` shape is now a runnable example in the class
+  docstring** (keep the rule in a variable; `when()` returns the MATCH
+  for bindings; rule methods live on the rule) — and guessing a rule
+  method on the match (`p.to_drl`, `p.then_insert`, …) now raises a
+  steering AttributeError instead of a bare name miss.
+
+- **`Session.update` / `Session.delete` have real docstrings** —
+  handle-only signatures spelled out (the review guessed a type
+  argument and ate a TypeError); `delete`'s return documented honestly
+  as the synchronous TMS cascade, with the lazy-unjustification
+  caveat (the D-370 law) and the pointer to the next fire's WM-delta.
+
 ## 0.4.51
 
 (0.4.50 was tagged but never published: its tag-run differential

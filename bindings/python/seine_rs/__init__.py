@@ -5,6 +5,11 @@ WM-delta results.
 Layer 2: Pythonic authoring that compiles to DRL text — the engine
 only ever sees the certified grammar.
 
+COMING FROM DROOLS? DRL here is RULES-ONLY. Don't write `package` or
+`declare` — fact types live in Python (`@fact` classes or the
+`facts=`/`schemas=` mappings), and the engine infers schemas from
+them. One source of truth for schema; DRL owns only the logic.
+
 The certification claim is interrogable: `seine_rs.certification()`
 reports the pinned Drools oracle, the differential corpus this build
 was stamped beside, and the source commit.
@@ -257,9 +262,19 @@ class Session:
         return self._native.insert_row(name, row)
 
     def update(self, handle, **fields):
+        """Update a live fact in place by HANDLE (no type argument —
+        the engine tracks types internally): ``sess.update(h,
+        balance=20.0)``. Only the named fields change. Takes effect at
+        the next fire(), where property reactivity decides what
+        re-evaluates."""
         return self._native.update(handle, **fields)
 
     def delete(self, handle):
+        """Delete a live fact by HANDLE. Returns the SYNCHRONOUS TMS
+        retraction cascade (handles of beliefs that died with their
+        support; often empty). Some unjustifications land lazily at
+        the justifying rule's next network evaluation instead — the
+        next fire()'s WM-delta is the complete record."""
         return self._native.delete(handle)
 
     def advance(self, ms):

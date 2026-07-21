@@ -79,3 +79,15 @@ def test_machinery_errors_steer():
     # dunders pass through untouched: hasattr/copy/pickle/inspect safe
     assert not hasattr(sess, "__deepcopy__")
     assert not hasattr(sess, "__wrapped__")
+
+
+def test_pattern_miss_steers_to_rule():
+    # the cold-start review's AttributeError: to_drl on when()'s return
+    r = s.Rule("x")
+    p = r.when(Account, Account.balance <= 0)
+    import pytest
+    with pytest.raises(AttributeError, match="lives on the Rule"):
+        p.to_drl
+    with pytest.raises(AttributeError, match="lives on the Rule"):
+        p.then_insert
+    assert p.balance is not None            # field access still works

@@ -1094,6 +1094,14 @@ class _Pattern:
                     "aggregate; use the aggregate's result instead"
                 )
             return BoundField(self, name, fields[name])
+        if name in ("to_drl", "then_insert", "then_insert_logical",
+                    "then_modify", "then_delete", "when", "when_not"):
+            raise AttributeError(
+                f"{name!r} lives on the Rule, not the match — when() "
+                "returns the MATCH so you can capture bindings. Keep the "
+                "rule in a variable: r = Rule('x'); p = r.when(...); "
+                "r.then_insert(...); r.to_drl()"
+            )
         raise AttributeError(name)
 
 
@@ -1228,7 +1236,16 @@ class _RhsAction:
 class Rule:
     """Builder for one rule. Patterns declare in order; `when` returns a
     pattern object whose attributes are usable in later constraints and
-    in the RHS. `to_drl()` shows exactly what the engine will run."""
+    in the RHS. `to_drl()` shows exactly what the engine will run.
+
+    The canonical shape — keep the rule in a variable, capture when()'s
+    return for bindings (rule methods live on the rule, NOT the match)::
+
+        r = Rule("adult")
+        p = r.when(Person, Person.age >= 18)   # p = the MATCH
+        r.then_insert(Adult, name=p.name)      # bindings via p.<field>
+        print(r.to_drl())                      # the DRL the engine runs
+    """
 
     def __init__(self, name: str, salience: Union[int, BoundField, SalExpr, None] = None,
                  no_loop: bool = False, agenda_group: "str | None" = None):

@@ -39,7 +39,9 @@ pl.DataFrame(res.firings)              # full audit trail
   Pydantic models) work too.
 - **Rules in Python or DRL**: the Python builder compiles to DRL text,
   so both paths run the identical certified engine. Anything outside
-  the certified grammar is a definition-time `CompileError`.
+  the certified grammar is a definition-time `CompileError`. Coming
+  from Drools: DRL here is rules-only — no `package`, no `declare`;
+  fact types live in Python and schemas are inferred from them.
 - **Full working-memory lifecycle**: `insert → fire → update/delete by
   handle → fire`, each certified differentially.
 - **No Python in the hot path**: conditions, aggregates and salience

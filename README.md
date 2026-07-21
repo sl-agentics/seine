@@ -45,6 +45,11 @@ print(sess.why(1))                       # the justification: rule + support tup
 sess.delete(h); sess.fire()              # support gone -> Eligible auto-retracts
 ```
 
+**Coming from Drools?** DRL here is **rules-only** — don't write
+`package` or `declare`. Fact types live in Python (`@fact` classes or
+the `facts=`/`schemas=` mappings) and the engine infers schemas from
+them; DRL owns only the logic.
+
 This block is pinned verbatim as `bindings/tests/test_quickstart.py`.
 Rules author in Python but compile to DRL text (`rule.to_drl()` shows
 it), so the differential certification covers Python-authored rules
