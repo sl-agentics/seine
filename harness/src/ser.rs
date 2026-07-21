@@ -173,7 +173,10 @@ impl Serialize for FieldsJson<'_> {
         // write per key, emit sorted by key.
         let fv = self.0;
         let mut pairs: Vec<(&str, FieldVal)> = Vec::with_capacity(fv.fields.len() + 2);
-        if handles_on() && fv.handle != u32::MAX {
+        // QueryArgs views suppress __h even when the handle is real
+        // (groupby composites) — the oracle emits none (D-056); must
+        // stay byte-identical to runner::fact_view_to_json.
+        if handles_on() && fv.handle != u32::MAX && fv.type_name != "QueryArgs" {
             pairs.push(("__h", FieldVal::Handle(fv.handle)));
         }
         for (name, v) in &fv.fields {

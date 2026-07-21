@@ -6,7 +6,7 @@ build-backend = "maturin"
 # PyPI distribution name (the "seine" name is taken). The import
 # package matches: `pip install seine-rs` -> `import seine_rs`.
 name = "seine-rs"
-version = "0.4.46"
+version = "0.4.47"
 description = "Differentially certified Drools-subset rule engine over Arrow dataframes"
 readme = "README.md"
 requires-python = ">=3.9"

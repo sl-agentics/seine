@@ -774,12 +774,16 @@ struct AuditRows {
 
 /// One JustificationView as a Python dict (Session.why /
 /// Session.justifications): handles as ints, field values native
-/// (decimals as decimal.Decimal), supports in seq order.
+/// (decimals as decimal.Decimal), supports in seq order. The subject's
+/// handle appears under BOTH "handle" (canonical — the same vocabulary
+/// as the result tables' handle column) and "fact" (the original key,
+/// kept for compatibility).
 fn justification_to_py<'py>(
     py: Python<'py>,
     v: &seine_engine::JustificationView,
 ) -> PyResult<Bound<'py, PyDict>> {
     let d = PyDict::new(py);
+    d.set_item("handle", v.fact.0 as i64)?;
     d.set_item("fact", v.fact.0 as i64)?;
     d.set_item("type", &v.rendering.type_name)?;
     let fields = PyDict::new(py);
@@ -1326,7 +1330,8 @@ impl PySession {
     }
 
     /// Why does this fact hold? For a justified (insertLogical-derived)
-    /// fact: a dict with its handle, type, field values, ordered
+    /// fact: a dict with its handle (under "handle", plus the legacy
+    /// "fact" key — same value), type, field values, ordered
     /// supports (each the justifying rule, its matched tuple as fact
     /// handles, and the firing seq), and any LIVE stated siblings of
     /// the same value. Returns None for stated facts, dead handles, and
@@ -1346,12 +1351,18 @@ impl PySession {
 
     /// Which facts fed this aggregation result? For a LIVE
     /// accumulate/groupby RESULT fact — the hidden fact a firing's
-    /// match tuple carries, visible via on_fire as (type, handle) —
-    /// returns the (source handle, stored contribution) pairs in match
-    /// order, snapshotted at the computation that produced the
-    /// result's current value (so the contributions always account for
-    /// that value). An aggregation over an empty source answers [].
-    /// None for dead or non-result handles — never fabricates.
+    /// match tuple carries. Its handle is visible via on_fire and the
+    /// firings audit: inline accumulate as a (type, handle) pair;
+    /// groupby as the ("QueryArgs", handle) composite element, whose
+    /// handle is the group's result fact. (why()'s support tuple also
+    /// reaches it.) Returns the (source handle, stored contribution)
+    /// pairs in match order, snapshotted at the computation that
+    /// produced the result's current value (so the contributions
+    /// always account for that value). An aggregation over an empty
+    /// source answers []. None for dead or non-result handles — never
+    /// fabricates. Post-quiescence only: on_fire observers cannot call
+    /// back into the session — collect handles there, call this after
+    /// fire() returns.
     fn acc_sources<'py>(
         &self,
         py: Python<'py>,
@@ -1417,7 +1428,10 @@ impl PySession {
     /// Sessions are multi-fire: insert more facts afterwards and
     /// fire again. `on_fire(rule, matches)` is an OBSERVER invoked per
     /// firing after the run completes, in firing order; matches is a
-    /// list of (type, handle) pairs. The run itself releases the GIL.
+    /// list of (type, handle) pairs. Observers receive plain data and
+    /// cannot call back into the session (any session method raises
+    /// "already mutably borrowed") — collect what you need and query
+    /// after fire() returns. The run itself releases the GIL.
     #[pyo3(signature = (fire_limit=100_000, on_fire=None))]
     fn fire(
         &mut self,

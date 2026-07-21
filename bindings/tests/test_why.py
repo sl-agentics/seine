@@ -24,6 +24,10 @@ def test_why_supports_and_retraction_contract():
     assert len(js) == 1
     j = js[0]
     assert j["type"] == "LK" and j["fields"] == {"v": 9}
+    # "handle" is the canonical key (the result tables' vocabulary);
+    # "fact" stays as the compatibility alias — same value
+    assert j["handle"] == j["fact"] and isinstance(j["handle"], int)
+    assert s.why(j["handle"])["handle"] == j["handle"]
     assert [x["rule"] for x in j["supports"]] == ["J1", "J2"]
     assert all(isinstance(h, int) for x in j["supports"] for h in x["tuple"])
     assert s.why(j["fact"]) is not None

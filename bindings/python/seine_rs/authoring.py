@@ -157,6 +157,29 @@ def _reject_callable(x: Any, where: str) -> None:
         )
 
 
+def _reject_fieldref_rhs(rule: "Rule", where: str, v: Any) -> None:
+    """Fail a bare class-field reference in an RHS value at DEFINITION
+    time with vocabulary guidance (previously it died at to_drl with
+    'unsupported literal type FieldRef'). The group_by hint covers the
+    shape that actually prompts this: trying to carry the group key on
+    the result fact."""
+    if not isinstance(v, FieldRef):
+        return
+    msg = (
+        f"{where}={v!r}: class field references are LHS vocabulary — "
+        "RHS values are literals, matched bindings (fields of the "
+        "object returned by rule.when(...)), or aggregate results"
+    )
+    if any(getattr(p, "group_key", None) is not None for p in rule.patterns):
+        msg += (
+            ". The group_by KEY has no RHS binding (Drools rejects it "
+            "in the RHS), so a result fact cannot carry its own key — "
+            "recover group membership from the result handle via "
+            "Session.acc_sources()/why()"
+        )
+    raise CompileError(msg)
+
+
 def _ambiguous_bool(kind: str):
     """A raising __bool__ for expression-AST nodes (the numpy/pandas/
     SQLAlchemy move): Python's `and`/`or` and chained comparisons
@@ -726,6 +749,16 @@ class AccResult(BoundField):
     def _guard_opaque(self, use: str):
         if self.opaque:
             raise CompileError(self._why.format(use=use))
+
+    def __repr__(self):
+        # the internal binding name (__acc_<func>) is plumbing — show
+        # the aggregate the user wrote
+        arg = (
+            f"{self.pattern.type_name}.{self.arg.name}"
+            if self.arg is not None
+            else ""
+        )
+        return f"<{self.func}({arg}) of pattern {self.pattern.index}>"
 
     def _arith(self, op, other, reflected=False):
         raise CompileError(
@@ -1496,6 +1529,7 @@ class Rule:
             )
         for k, v in field_values.items():
             _reject_callable(v, f"insert {cls.__name__}.{k}")
+            _reject_fieldref_rhs(self, f"insert {cls.__name__}.{k}", v)
             if isinstance(v, AccResult):
                 v._guard_opaque("an insert argument")
         self.actions.append(_RhsAction("insert", cls=cls, values=field_values))
@@ -1529,6 +1563,7 @@ class Rule:
             )
         for k, v in field_values.items():
             _reject_callable(v, f"insertLogical {cls.__name__}.{k}")
+            _reject_fieldref_rhs(self, f"insertLogical {cls.__name__}.{k}", v)
             if isinstance(v, AccResult):
                 v._guard_opaque("an insertLogical argument")
         self.actions.append(_RhsAction("insert_logical", cls=cls, values=field_values))
@@ -1541,6 +1576,7 @@ class Rule:
             if k not in pattern.cls.__seine_fields__:
                 raise CompileError(f"{pattern.type_name} has no field {k}")
             _reject_callable(v, f"modify {pattern.type_name}.{k}")
+            _reject_fieldref_rhs(self, f"modify {pattern.type_name}.{k}", v)
             if isinstance(v, AccResult):
                 v._guard_opaque("a modify argument")
         self.actions.append(_RhsAction("modify", pattern=pattern, values=field_values))

@@ -1327,6 +1327,47 @@ def test_group_by_key_never_exposed():
         r.patterns[0].k  # noqa: B018
 
 
+def test_group_by_result_handle_in_on_fire():
+    # the groupby firing's composite element carries the REAL result
+    # handle (previously the u32::MAX sentinel): acc_sources answers on
+    # it directly — no why()-support-tuple detour
+    r = Rule("G")
+    tot = r.group_by(GT, key=GT.k, agg=sum_(GT.v))
+    r.then_insert(GOut, g=0, total=tot)
+    s = seine_rs.Session([r], {GT: {"k": [1, 1, 2], "v": [10, 20, 5]}, GOut: []})
+    caught = []
+    s.fire(on_fire=lambda rule, matches: caught.append(matches))
+    handles = [h for m in caught for (t, h) in m if t == "QueryArgs"]
+    assert len(handles) == 2 and all(h != 4294967295 for h in handles)
+    sums = sorted(sum(v for (_, v) in s.acc_sources(h)) for h in handles)
+    assert sums == [5, 30]
+
+
+def test_acc_result_repr_names_the_aggregate():
+    # the internal __acc_<func> binding name is plumbing — repr shows
+    # the aggregate the user wrote
+    r = Rule("G")
+    tot = r.group_by(GT, key=GT.k, agg=sum_(GT.v))
+    assert repr(tot) == "<sum(GT.v) of pattern 0>"
+    assert "__acc" not in repr(tot)
+
+
+def test_fieldref_rhs_rejected_at_definition():
+    # a bare class-field reference as an RHS value fails at then_insert
+    # time with vocabulary guidance (previously an 'unsupported literal
+    # type FieldRef' at to_drl); with a groupby present, the message
+    # adds the key-recovery pointer (acc_sources)
+    r = Rule("G")
+    tot = r.group_by(GT, key=GT.k, agg=sum_(GT.v))
+    with pytest.raises(CompileError, match="acc_sources"):
+        r.then_insert(GOut, g=GT.k, total=tot)
+    plain = Rule("P")
+    plain.when(GT)
+    with pytest.raises(CompileError, match="LHS vocabulary") as ei:
+        plain.then_insert(GOut, g=GT.k, total=0)
+    assert "acc_sources" not in str(ei.value)  # hint is groupby-scoped
+
+
 def test_collect_list_set_fire_only():
     r = Rule("C")
     lst = r.accumulate(GT, agg=seine_rs.collect_list(GT.v))

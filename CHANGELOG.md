@@ -4,6 +4,46 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## 0.4.47
+
+API-surface smoothing round — the four rough edges surfaced by the
+0.4.46 test drive. No engine-semantics changes; certified corpus
+byte-identical.
+
+- **`group_by` firing tuples now carry the real aggregate-result
+  handle.** A groupby match element renders as the
+  `("QueryArgs", handle)` `[result, key]` composite; the handle was
+  previously the `u32::MAX` sentinel (4294967295), so the only route
+  from a firing to `acc_sources()` for a group result was `why()`'s
+  support tuple. The composite's handle now IS the group's result
+  fact — capture it in an `on_fire` observer (or read it off the
+  firings audit) and call `acc_sources(handle)` directly. Corpus-inert
+  by construction: the harness's canonical serialization emits no
+  handle for composite views (oracle parity, D-056), verified
+  byte-identical in both default and `SEINE_HANDLES` modes.
+
+- **`why()` / `justifications()` dicts gained a canonical `handle`
+  key** — same value as the original `fact` key, which stays as a
+  compatibility alias. The justification graph and the result tables
+  now share handle vocabulary.
+
+- **RHS class-field references fail at definition time with vocabulary
+  guidance.** `then_insert(Out, v=Type.field)` previously died at DRL
+  generation with `unsupported literal type FieldRef`; it now raises
+  `CompileError` at the `then_insert`/`then_insert_logical`/
+  `then_modify` call, explaining that RHS values are literals, matched
+  bindings, or aggregate results — and, when the rule carries a
+  `group_by`, that the group key has no RHS binding (the documented
+  Drools wall) with a pointer to `acc_sources()`/`why()` for group
+  recovery.
+
+- **`AccResult` repr names the aggregate** (`<sum(LineItem.amount) of
+  pattern 0>`) instead of leaking the internal `__acc_sum` binding
+  name. Docstrings for `fire()` and `acc_sources()` now state the
+  observer contract explicitly: `on_fire` callbacks receive plain data
+  and cannot re-enter the session — collect handles in the callback,
+  query after `fire()` returns.
+
 ## 0.4.46
 
 - **A no-loop rule's accumulate-justified logical belief now retracts

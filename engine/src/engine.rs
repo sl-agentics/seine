@@ -8266,12 +8266,18 @@ impl Engine {
                             Some(vals.iter().map(|v| Some(scalar_view(v.clone()))).collect());
                     }
                     // D-108 groupby rows render as the [res, key]
-                    // composite (ga3 raw: QueryArgs)
+                    // composite (ga3 raw: QueryArgs). Unlike ?query-CE
+                    // rows there IS a real result fact behind the
+                    // composite — carry its handle so audit consumers
+                    // (on_fire, the firings table) can reach
+                    // acc_sources()/why() without the support-tuple
+                    // detour. The harness still suppresses __h on
+                    // QueryArgs views (the oracle emits none, D-056).
                     if self.gbrow_tids.contains(&self.store.fact_type(f)) {
                         fv = FactView {
                             type_name: "QueryArgs".into(),
                             fields: Vec::new(),
-                            handle: u32::MAX,
+                            handle: fv.handle,
                             elems: Some(vec![
                                 Some(scalar_view(self.store.value(f, 0))),
                                 Some(scalar_view(self.store.value(f, 1))),

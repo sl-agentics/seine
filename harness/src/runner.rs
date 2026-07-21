@@ -480,8 +480,13 @@ pub(crate) fn f64_to_json(n: f64) -> J {
 pub(crate) fn fact_view_to_json(fv: &FactView) -> J {
     let mut fields = Map::new();
     // u32::MAX marks synthetic views (QueryArgs arrays, boxed scalars) —
-    // the oracle emits no __h for those either (D-056).
-    if std::env::var("SEINE_HANDLES").is_ok() && fv.handle != u32::MAX {
+    // the oracle emits no __h for those either (D-056). Groupby
+    // composites carry a REAL result handle (for the Python audit
+    // surface) but render as QueryArgs, so gate on the type too.
+    if std::env::var("SEINE_HANDLES").is_ok()
+        && fv.handle != u32::MAX
+        && fv.type_name != "QueryArgs"
+    {
         fields.insert("__h".into(), json!(fv.handle));
     }
     for (name, v) in &fv.fields {
