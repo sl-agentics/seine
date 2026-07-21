@@ -121,3 +121,32 @@ def test_jvm_type_aliases_and_colon_eq_steer():
     with pytest.raises(ValueError, match=r"D-051.*== \$var"):
         s.Session('query "q" (String $who)\n    Person($who := name)\nend\n',
                   schemas={"Person": {"name": "String"}})
+
+
+def test_handle_panic_fixed_and_next_tier_steers():
+    # D-382 GATE: a fabricated handle was a Rust PanicException
+    # (BaseException — slips `except Exception`); now a ValueError steer.
+    # Plus the next-tier scan's cheap pair: field-typo steer on @fact
+    # classes and the insert-shape steer.
+    import pytest
+    rule = s.Rule("e3")
+    acc = rule.when(Account, Account.balance <= 0)
+    rule.then_insert_logical(Eligible, account_id=acc.id)
+    sess = s.Session([rule])
+    h = sess.insert_row(Account(id=1, balance=0))
+    sess.fire()
+    for op in (lambda: sess.update(999, balance=5), lambda: sess.delete(999),
+               lambda: sess.update(-1, balance=5)):
+        with pytest.raises(ValueError, match=r"no fact was ever created.*live handles"):
+            op()
+    # in-range DEAD handles keep certified semantics (D-047)
+    sess.delete(h)
+    sess.fire()
+    assert sess.delete(h) == []                    # delete-of-dead no-op
+    # field typo on the @fact class steers with the field list
+    with pytest.raises(AttributeError, match=r"has no field 'blance'.*did you mean 'balance'"):
+        Account.blance
+    assert not hasattr(Account, "__origin__")      # dunders pass through
+    # insert-shape: dict of scalars steers to insert_row
+    with pytest.raises(TypeError, match=r"COLUMN lists.*insert_row"):
+        sess.insert("Account", {"id": 1, "balance": 0})

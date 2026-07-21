@@ -5963,6 +5963,14 @@ impl Engine {
         Some(self.store.schema(self.store.fact_type(id)).name.clone())
     }
 
+    /// Was this handle ever allocated? The binding boundary's
+    /// input-validation check (D-382): a fabricated/out-of-range int is
+    /// a caller error to steer on, not an engine invariant to panic on.
+    /// In-range dead handles keep their certified semantics (D-047).
+    pub fn handle_known(&self, id: FactId) -> bool {
+        (id.0 as usize) < self.store.handle_count()
+    }
+
     /// Nth VISIBLE inserted fact (D-047): the global insertion sequence
     /// excluding synthetics (InitialFact, accumulate results) — the same
     /// sequence Drools' objectInserted listener observes, so scenario

@@ -807,6 +807,36 @@ fn justification_to_py<'py>(
     Ok(d)
 }
 
+/// D-382: a fabricated/negative/out-of-range handle is a Python input
+/// error — steer with the live handles instead of letting the store's
+/// unchecked indexing panic (PanicException subclasses BaseException
+/// and slips a normal `except Exception`). In-range dead handles pass
+/// through to their certified semantics (D-047 delete-of-dead no-op;
+/// update's clean dead-fact error).
+fn check_handle(engine: &seine_engine::Engine, handle: i64, op: &str) -> PyResult<()> {
+    if handle >= 0 && engine.handle_known(seine_engine::FactId(handle as u32)) {
+        return Ok(());
+    }
+    let live: Vec<u32> = engine.facts().iter().map(|f| f.handle).collect();
+    let shown = if live.is_empty() {
+        "(none)".to_string()
+    } else if live.len() <= 20 {
+        format!("{live:?}")
+    } else {
+        format!(
+            "{} live, {}..={}",
+            live.len(),
+            live.iter().min().unwrap(),
+            live.iter().max().unwrap()
+        )
+    };
+    Err(PyValueError::new_err(format!(
+        "{op}({handle}): no fact was ever created with that handle; live handles: \
+         {shown}. Handles come from insert()/insert_row() returns and the result \
+         tables' 'handle' column, and die at delete/retract"
+    )))
+}
+
 fn fact_json(fv: &FactView) -> String {
     let mut m = serde_json::Map::new();
     for (k, v) in &fv.fields {
@@ -1183,6 +1213,7 @@ impl PySession {
             .as_ref()
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
         self.require_fired("update()")?;
+        check_handle(engine, handle, "update")?;
         let fields = fields
             .filter(|d| !d.is_empty())
             .ok_or_else(|| PyValueError::new_err("update: no fields given"))?;
@@ -1404,6 +1435,7 @@ impl PySession {
             .engine
             .as_mut()
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
+        check_handle(engine, handle, "delete")?;
         // TMS: deleting a premise synchronously retracts the facts it
         // justified. Capture that cascade so it reaches the WM-delta —
         // returned here AND merged into the next fire's deleted_handles.

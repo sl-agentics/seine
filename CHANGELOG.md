@@ -4,6 +4,44 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+The next-tier scan (post-hello-world authoring errors, probed
+empirically on 0.4.53).
+
+- **GATE FIX: a fabricated handle no longer panics the engine.**
+  `update(999, ...)`/`delete(999)` (or a negative handle) hit
+  unchecked store indexing and surfaced as `pyo3_runtime.
+  PanicException` — which subclasses `BaseException` and slips a
+  normal `except Exception`, with a Rust backtrace as the only
+  message. Both now raise a `ValueError` steer naming the live
+  handles ("no fact was ever created with that handle; live handles:
+  [0, 1]…") and where handles come from. In-range dead handles keep
+  their certified semantics untouched (D-047 delete-of-dead no-op;
+  update's clean "update of dead handle" error).
+
+- **Field typos on `@fact` classes steer.** `Account.blance` was a
+  bare `AttributeError`; `@fact` classes now carry a metaclass whose
+  class-level misses answer with the field list and a did-you-mean
+  ("Account has no field 'blance'; fields: id, balance — did you mean
+  'balance'?"). Dunder/private lookups pass through untouched.
+
+- **The `insert()` shape error steers instead of leaking the columnar
+  internal.** A dict of scalars ("expected a list of values") now
+  answers: column lists or a list of `@fact` instances — for one row,
+  `insert_row(...)`.
+
+- Deferred with reasons: promoting the fire-time constraint
+  type-mismatch (`I64 Le Str`) to authoring time — the fire-time
+  error is honest and the authoring-time check needs care around the
+  certified comparison matrix; the steer families above close the
+  high-frequency lanes first.
+
+- **`Session` attribute-miss steers name a REAL registered type**
+  (`sess.fire().facts['Account'] (types here: 'Account',
+  'Eligible')`) instead of a placeholder — the literal-next-call bar
+  applied uniformly across both steer families.
+
 ## 0.4.53
 
 - **`schemas=` accepts the JVM type spellings** — `long`/`double`/

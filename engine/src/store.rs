@@ -459,6 +459,13 @@ impl FactStore {
         self.handles[id.0 as usize].alive
     }
 
+    /// Handles ever allocated — the binding boundary's input-validation
+    /// bound (D-382): fabricated ints are rejected there, so internal
+    /// unchecked indexing never sees them.
+    pub fn handle_count(&self) -> usize {
+        self.handles.len()
+    }
+
     /// D-102: expiration FLAG (eager) vs retraction (quiescence-lazy).
     /// A flagged event is skipped as a fresh JOIN partner but keeps its
     /// existing network effects (not/exists blocking) until deletion.

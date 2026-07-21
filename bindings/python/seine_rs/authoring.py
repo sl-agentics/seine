@@ -400,6 +400,31 @@ class Event:
         self.expires_ms = expires_ms
 
 
+class _FactMeta(type):
+    """Class-level attribute misses on @fact classes steer with the
+    field list (field typos are a top-frequency authoring error; a
+    plain __getattr__ only covers instances). Dunder/private lookups
+    pass through untouched."""
+
+    def __getattr__(cls, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        flds = next(
+            (k.__dict__["__seine_fields__"] for k in cls.__mro__
+             if "__seine_fields__" in k.__dict__),
+            None,
+        )
+        if flds:
+            import difflib
+            close = difflib.get_close_matches(name, list(flds), n=1)
+            hint = f" — did you mean {close[0]!r}?" if close else ""
+            raise AttributeError(
+                f"{cls.__name__} has no field {name!r}; fields: "
+                f"{', '.join(flds)}{hint}"
+            )
+        raise AttributeError(name)
+
+
 def fact(cls: type = None, *, event: "Event | None" = None) -> type:
     """Declare a fact type from an annotated class:
 
@@ -461,6 +486,10 @@ def fact(cls: type = None, *, event: "Event | None" = None) -> type:
                     f"{event.duration!r} must be int (ms), it is {dur_t}"
                 )
         dc.__seine_event__ = (event.timestamp, event.expires_ms, event.duration)
+    # rebuild under _FactMeta BEFORE FieldRef attachment so refs own the
+    # returned class (owner-identity checks compare `is`)
+    ns = {k: v for k, v in dc.__dict__.items() if k not in ("__dict__", "__weakref__")}
+    dc = _FactMeta(dc.__name__, dc.__bases__, ns)
     for name, st in fields.items():
         setattr(dc, name, FieldRef(dc, name, st))
     return dc

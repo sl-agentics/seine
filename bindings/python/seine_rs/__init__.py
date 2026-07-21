@@ -246,6 +246,15 @@ class Session:
                 )
             type_or_name, data = type(rows[0]), rows
         name = type_or_name if isinstance(type_or_name, str) else type_or_name.__name__
+        if isinstance(data, dict) and any(
+            v is None or isinstance(v, (int, float, str, bool)) for v in data.values()
+        ):
+            raise TypeError(
+                f"insert({name!r}, ...) takes COLUMN lists "
+                f"({{'field': [v1, v2, ...]}}) or a list of @fact instances — "
+                f"for one row use insert_row({name}(...)) or "
+                f"insert_row({name!r}, {{...}})"
+            )
         if is_row_list(data):
             data = rows_to_columns(type_or_name, data)
         return self._native.insert(name, data)
