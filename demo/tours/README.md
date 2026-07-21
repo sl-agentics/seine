@@ -45,6 +45,11 @@ lap, kept as a pair because the miss is part of the record:
 
 Idioms worth stealing:
 
+- **`when()` returns the MATCH, not the rule** (every tour): keep the
+  rule in a variable, capture `when()`'s return for bindings, pass the
+  RULE to `Session`. Both wrong turns steer: `p.to_drl` names the
+  shape, and `Session([p])` names the fix.
+
 - **Aggregate → threshold chain** (tour2): the certified way to act on an
   aggregate is to insert it as a fact and match it downstream.
 - **Provenance walk** (tour3): a `group_by` firing's match element

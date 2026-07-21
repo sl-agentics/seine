@@ -2209,7 +2209,14 @@ def compile_rules(rules) -> str:
     rules = list(rules)
     for r in rules:
         if not isinstance(r, Rule):
-            raise CompileError(f"expected seine_rs.Rule, got {type(r).__name__}")
+            msg = f"expected seine_rs.Rule, got {type(r).__name__}"
+            if isinstance(r, _Pattern):
+                msg += (
+                    " — that's when()'s return (the MATCH, kept for "
+                    "bindings). Pass the rule itself: r = Rule('x'); "
+                    "p = r.when(...); Session([r])"
+                )
+            raise CompileError(msg)
         if r.name in seen:
             raise CompileError(f"duplicate rule name {r.name!r}")
         seen.add(r.name)

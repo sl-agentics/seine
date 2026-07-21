@@ -4,6 +4,16 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **The `Session([r.when(...)])` wall now steers.** UAT round 2's one
+  gotcha: passing `when()`'s return (the match) where a Rule belongs
+  was caught with a clear type error but didn't name the fix — it now
+  does ("that's when()'s return (the MATCH, kept for bindings). Pass
+  the rule itself: r = Rule('x'); p = r.when(...); Session([r])").
+  The quickstart's two load-bearing lines gained the comments that
+  make the shape self-narrating.
+
 ## 0.4.52
 
 The incognito cold-start review round (a fourth independent reviewer,

@@ -33,8 +33,8 @@ class Eligible:             # insertLogical: auto-retracts with its support
     account_id: int
 
 rule = s.Rule("eligible")
-acc = rule.when(Account, Account.balance <= 0)
-rule.then_insert_logical(Eligible, account_id=acc.id)
+acc = rule.when(Account, Account.balance <= 0)   # when() returns the MATCH (bindings)
+rule.then_insert_logical(Eligible, account_id=acc.id)  # rule methods stay on `rule`
 
 sess = s.Session([rule])                 # schemas auto-registered from the rule
 h = sess.insert_row(Account(id=42, balance=0))

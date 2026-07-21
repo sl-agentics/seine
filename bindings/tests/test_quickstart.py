@@ -19,8 +19,8 @@ class Eligible:             # insertLogical: auto-retracts with its support
 
 def test_quickstart_block():
     rule = s.Rule("eligible")
-    acc = rule.when(Account, Account.balance <= 0)
-    rule.then_insert_logical(Eligible, account_id=acc.id)
+    acc = rule.when(Account, Account.balance <= 0)   # when() returns the MATCH (bindings)
+    rule.then_insert_logical(Eligible, account_id=acc.id)  # rule methods stay on `rule`
 
     sess = s.Session([rule])                 # schemas auto-registered from the rule
     h = sess.insert_row(Account(id=42, balance=0))
@@ -91,3 +91,13 @@ def test_pattern_miss_steers_to_rule():
     with pytest.raises(AttributeError, match="lives on the Rule"):
         p.then_insert
     assert p.balance is not None            # field access still works
+
+
+def test_pattern_in_session_steers():
+    # UAT #2's gotcha: Session([r.when(...)]) passes the MATCH where a
+    # Rule belongs — the wall now names the fix, not just the type
+    import pytest
+    r = s.Rule("y")
+    p = r.when(Account)
+    with pytest.raises(s.CompileError, match=r"when\(\)'s return.*Session\(\[r\]\)"):
+        s.Session([p])
