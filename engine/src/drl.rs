@@ -674,6 +674,17 @@ fn lex(src: &str) -> Result<(Vec<Tok>, Vec<u32>), DrlError> {
                 ">=" => ">=",
                 "&&" => "&&",
                 "||" => "||",
+                // Drools' unification operator is not subset grammar; the
+                // certified semantics already unify query params by
+                // equality (D-051) — steer to the certified spelling.
+                ":=" => {
+                    return Err(lerr(
+                        i,
+                        "':=' unification is outside the subset grammar — query \
+                         parameters unify by equality (D-051); write the certified \
+                         form: field == $var",
+                    ))
+                }
                 _ => match c {
                     '!' => "!",
                     '(' => "(",

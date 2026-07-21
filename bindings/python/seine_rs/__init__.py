@@ -220,7 +220,11 @@ class Session:
         f, sch = _facts_arg(facts)
         # auto-register schemas for every @fact class the rules
         # reference — explicit facts=/schemas= entries take precedence
-        sch = {**_collect_schemas(rules), **(sch or {}), **(schemas or {})}
+        sch = {
+            **_collect_schemas(rules),
+            **(sch or {}),
+            **(_normalize_schemas(schemas) or {}),
+        }
         events = _collect_events(rules, facts)
         self._native = _NativeSession(_drl_arg(rules), f, sch or None, events or None)
 
@@ -383,6 +387,37 @@ class Session:
         raise AttributeError(f"Session has no attribute {name!r}{hint}")
 
 
+_JVM_TYPE_ALIASES = {"long": "i64", "double": "f64", "boolean": "bool"}
+_AMBIGUOUS_JVM_TYPES = {"int", "float", "short", "byte", "char"}
+
+
+def _normalize_schemas(schemas):
+    """schemas= accepts the JVM spellings for the unambiguous types —
+    long/double/boolean alias to i64/f64/bool ("String" was always
+    shared with the DRL side), so Layer-1 DRL and schemas= no longer
+    switch vocabulary mid-file. Width-ambiguous JVM names (int, float,
+    …) steer to the subset's numerics instead of guessing."""
+    if not schemas:
+        return schemas
+    out = {}
+    for tname, fields in schemas.items():
+        nf = {}
+        for fname, t in fields.items():
+            if not isinstance(t, str):
+                nf[fname] = t
+                continue
+            base, opt = (t[:-1], "?") if t.endswith("?") else (t, "")
+            if base in _AMBIGUOUS_JVM_TYPES:
+                raise CompileError(
+                    f"{tname}.{fname}: {base!r} is width-ambiguous — the "
+                    "subset's numerics are i64/f64 (the JVM long/double); "
+                    "use those, or 'bool'/'String'/'decimal(p,s)'"
+                )
+            nf[fname] = _JVM_TYPE_ALIASES.get(base, base) + opt
+        out[tname] = nf
+    return out
+
+
 def _collect_schemas(rules):
     """Schemas of every @fact class the rule objects reference
     (patterns and actions) — the same walk as _collect_events. Lets
@@ -434,7 +469,7 @@ def run(rules, facts, fire_limit=100_000, on_fire=None, schemas=None):
     """Build, insert, fire once, return the :class:`SessionResult`."""
     f, sch = _facts_arg(facts)
     if schemas:
-        sch = {**(sch or {}), **schemas}
+        sch = {**(sch or {}), **_normalize_schemas(schemas)}
     sch = {**_collect_schemas(rules), **(sch or {})}
     events = _collect_events(rules, facts)
     return SessionResult(

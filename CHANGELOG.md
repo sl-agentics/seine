@@ -6,6 +6,22 @@ recorded in DECISIONS.md.
 
 ## Unreleased
 
+- **`schemas=` accepts the JVM type spellings** — `long`/`double`/
+  `boolean` alias to `i64`/`f64`/`bool` (`String` was always shared),
+  so Layer-1 DRL and `schemas=` no longer switch vocabulary mid-file
+  (UAT round 3's finding: query params declare JVM names while
+  schemas wanted Rust names). Width-ambiguous JVM names (`int`,
+  `float`, `short`, …) steer to the subset's numerics instead of
+  silently guessing a width.
+
+- **`:=` unification now steers at parse time.** Drools' `$who :=
+  name` is outside the subset grammar; instead of "unexpected
+  character '='" the tokenizer answers: query parameters unify by
+  equality (D-051) — write the certified form `field == $var`. (Full
+  `:=` grammar support declined: it would need its own oracle
+  certification round; the steer closes the turn at zero semantic
+  risk.)
+
 - **The `Session([r.when(...)])` wall now steers.** UAT round 2's one
   gotcha: passing `when()`'s return (the match) where a Rule belongs
   was caught with a clear type error but didn't name the fix — it now

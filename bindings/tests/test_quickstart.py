@@ -101,3 +101,21 @@ def test_pattern_in_session_steers():
     p = r.when(Account)
     with pytest.raises(s.CompileError, match=r"when\(\)'s return.*Session\(\[r\]\)"):
         s.Session([p])
+
+
+def test_jvm_type_aliases_and_colon_eq_steer():
+    # UAT #3's two findings: (a) schemas= accepts JVM long/double/boolean
+    # (no more mid-file vocabulary switch with Layer-1 DRL); width-
+    # ambiguous names steer. (b) ':=' unification steers to the D-051 form.
+    import pytest
+    drl = 'query "adults" (long $min)\n    Person(age == $min, $n : name)\nend\n'
+    sess = s.Session(drl, schemas={"Person": {"name": "String", "age": "long", "score": "double", "vip": "boolean"}})
+    assert s._normalize_schemas({"T": {"v": "double?"}}) == {"T": {"v": "f64?"}}
+    sess.insert_row("Person", {"name": "ada", "age": 36, "score": 91.5, "vip": True})
+    sess.fire()
+    assert [r["$n"] for r in sess.query("adults", 36)] == ["ada"]
+    with pytest.raises(s.CompileError, match="width-ambiguous"):
+        s.Session(drl, schemas={"Person": {"age": "int"}})
+    with pytest.raises(ValueError, match=r"D-051.*== \$var"):
+        s.Session('query "q" (String $who)\n    Person($who := name)\nend\n',
+                  schemas={"Person": {"name": "String"}})
