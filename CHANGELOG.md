@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.46
 
 - **A no-loop rule's accumulate-justified logical belief now retracts
   in the same teardown wave as directly-justified beliefs.** When a
