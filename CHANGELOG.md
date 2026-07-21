@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.54
 
 The next-tier scan (post-hello-world authoring errors, probed
 empirically on 0.4.53).
