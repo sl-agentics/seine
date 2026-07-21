@@ -600,7 +600,11 @@ fn compile_query(
                                 let operand = if slot < params.len() {
                                     if *op != CmpOp::Eq {
                                         return err(format!(
-                                            "param {v} used with a non-== operator (unification is == only, D-051)"
+                                            "param {v} used with a non-== operator (unification is == only, \
+                                             D-051). For threshold/range filtering, put the value in a FACT \
+                                             and join: Threshold($t : value) then Account(balance > $t) — \
+                                             certified, and the threshold updates like any fact. Or return \
+                                             the rows and filter in Python"
                                         ));
                                     }
                                     if params[slot].1 != ft {

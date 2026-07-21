@@ -170,3 +170,20 @@ def test_on_fire_raise_crosses_ffi_cleanly():
         sess.fire(on_fire=boom)
     res = sess.fire()
     assert [x["account_id"] for x in res.facts[Eligible].to_pylist()] == [5]
+
+
+def test_d051_intent_steer_and_param_as_fact():
+    # the Sonnet-UAT round: the D-051 wall now steers the INTENT (the
+    # certified parameter-as-fact idiom, oracle-pinned as
+    # pr_qi_threshold_fact), not just the syntax
+    import pytest
+    with pytest.raises(ValueError, match=r"D-051.*put the value in a FACT.*balance > \$t"):
+        s.Session('query "over" (double $th)\n    T(v > $th)\nend\n',
+                  schemas={"T": {"v": "double"}})
+    sess = s.Session(
+        'query "over"\n    Th($t : value)\n    T(v > $t, $x : v)\nend\n',
+        schemas={"Th": {"value": "double"}, "T": {"v": "double"}})
+    sess.insert_row("T", {"v": 500.0}); sess.insert_row("T", {"v": 50.0})
+    sess.insert_row("Th", {"value": 100.0})
+    sess.fire()
+    assert [r["$x"] for r in sess.query("over")] == [500.0]

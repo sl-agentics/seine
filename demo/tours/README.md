@@ -45,6 +45,12 @@ lap, kept as a pair because the miss is part of the record:
 
 Idioms worth stealing:
 
+- **Threshold queries: reify the parameter as a FACT** (the Sonnet-UAT
+  idiom, `pr_qi_threshold_fact`): D-051 walls inequality on query
+  params (`==`-unification only, faithful Drools), so "balance over a
+  runtime threshold" is written as a cross-pattern join —
+  `Threshold($t : value)` then `Account(balance > $t)` — certified,
+  and the threshold updates like any fact.
 - **`when()` returns the MATCH, not the rule** (every tour): keep the
   rule in a variable, capture `when()`'s return for bindings, pass the
   RULE to `Session`. Both wrong turns steer: `p.to_drl` names the

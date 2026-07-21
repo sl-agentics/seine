@@ -346,9 +346,14 @@ class Session:
         produced the result's current value — the contributions always
         account for that value. An aggregation over an empty source
         answers ``[]``. Returns None for dead or non-result handles —
-        the audit never fabricates. Closes the aggregation gap in the
-        :meth:`why` chain: walk why() through the logical layer, then
-        acc_sources() through the summation to the line-item leaves."""
+        the audit never fabricates. THE CLASSIC WRONG GUESS: a fact you
+        derived FROM the aggregate (``then_insert(Total, ...)``) is not
+        the result fact — its handle answers None. Capture the hidden
+        result handle from the firing's match (``on_fire`` / the
+        firings audit), or reach it via why()'s support tuple. Closes
+        the aggregation gap in the :meth:`why` chain: walk why()
+        through the logical layer, then acc_sources() through the
+        summation to the line-item leaves."""
         return self._native.acc_sources(handle)
 
     def query(self, name, *args):

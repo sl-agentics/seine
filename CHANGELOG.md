@@ -4,6 +4,29 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+The mid-model UAT round (Sonnet, frozen-prompt benchmark run on
+0.4.54): 7 of 9 steps first-try, zero suspected bugs, "the error text
+directly told me" — the steering thesis validated below the frontier
+tier. Two findings:
+
+- **The D-051 wall now steers the INTENT, not just the syntax.** A
+  threshold-as-parameter query is impossible by design (params unify
+  by `==` only, faithful Drools) — the mid model burned its full
+  retry budget mapping the wall. The error now names the certified
+  route: reify the value as a fact and cross-pattern-join
+  (`Threshold($t : value)` then `Account(balance > $t)`) — verified
+  against the oracle and pinned as `pr_qi_threshold_fact`
+  (corpus 1,681) — or filter the returned rows in Python.
+
+- **`acc_sources`' classic wrong guess is now named in the
+  docstring**: a fact you derived FROM the aggregate is not the
+  result fact — its handle answers None (the never-fabricate
+  contract, unchanged and pinned); the result handle is the hidden
+  one in the firing's match. The silent None cost the run its only
+  organic retry; the contract stays, the doc now pre-empts.
+
 ## 0.4.54
 
 The next-tier scan (post-hello-world authoring errors, probed

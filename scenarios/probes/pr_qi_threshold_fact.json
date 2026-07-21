@@ -1,0 +1,57 @@
+{
+ "_finding": "THE PARAMETER-AS-FACT IDIOM, oracle-pinned (the Sonnet-UAT round, 2026-07-21): D-051 walls inequality on query PARAMS (unification is == only, faithful Drools), which makes 'threshold as a parameter' impossible as literally asked \u2014 the mid-model UAT burned its full retry budget mapping that wall. The certified route: reify the value as a FACT and cross-pattern-join with the inequality (Threshold($t : value) then Account(balance > $t)) \u2014 in-subset, oracle diff PASS 3x, and the threshold updates like any fact. This probe backs the D-051 error's intent clause; if the message names the idiom, the corpus must pin it.",
+ "drl": "query \"over\"\n    Threshold($t : value)\n    Account(balance > $t, $id : id)\nend\n",
+ "facts": [
+  {
+   "fields": {
+    "balance": 500.0,
+    "id": 1
+   },
+   "type": "Account"
+  },
+  {
+   "fields": {
+    "balance": 50.0,
+    "id": 2
+   },
+   "type": "Account"
+  },
+  {
+   "fields": {
+    "value": 100.0
+   },
+   "type": "Threshold"
+  }
+ ],
+ "name": "pr_qi_threshold_fact",
+ "queries": [
+  {
+   "args": [],
+   "call": "over"
+  }
+ ],
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "value",
+     "type": "f64"
+    }
+   ],
+   "name": "Threshold"
+  },
+  {
+   "fields": [
+    {
+     "name": "id",
+     "type": "i64"
+    },
+    {
+     "name": "balance",
+     "type": "f64"
+    }
+   ],
+   "name": "Account"
+  }
+ ]
+}
