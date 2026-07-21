@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.52
 
 The incognito cold-start review round (a fourth independent reviewer,
 Layer-1-first — raw DRL entry). Docs placement + one steering miss;
