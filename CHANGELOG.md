@@ -4,6 +4,23 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+- **Machinery-level errors now steer like the semantic ones.** The
+  cold-start transcript showed the turns lost were not to the rule
+  compiler's errors (those already teach) but to bare Python
+  container/attribute errors during object-model exploration:
+  `res.derived[0]` → naked `KeyError: 0`; guessed `query_facts` /
+  `query_all` → naked `AttributeError`. Now: result-table misses
+  explain the map-not-sequence model and list the types present;
+  `Session` attribute misses in the read-facts guess family
+  (`query_facts`, `query_all`, `live`, `facts`, …) steer to the
+  certified path (`fire().facts[...]`) — the guess still 404s, by
+  design, because a live mid-epoch WM read has no certified
+  semantics; other misses get a did-you-mean; `SessionResult` misses
+  enumerate the surface. `.get()` on absent types stays silently
+  None — that's the deliberate probing path.
+
 ## 0.4.49
 
 Cold-start round — the first-fifteen-minutes papercuts from a

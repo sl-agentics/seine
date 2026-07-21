@@ -129,11 +129,27 @@ def _drl_arg(rules):
 class _TypeTables(dict):
     """Result tables keyed by type NAME, also readable by @fact class —
     ``res.facts[Person]`` == ``res.facts["Person"]``. In/out symmetry
-    with the ``facts=`` argument, which accepts both key kinds too."""
+    with the ``facts=`` argument, which accepts both key kinds too.
+    A miss raises a STEERING KeyError (this is a map, not a sequence;
+    machinery errors should teach like the semantic ones do)."""
 
     @staticmethod
     def _key(k):
         return k if isinstance(k, str) else getattr(k, "__name__", k)
+
+    def __missing__(self, k):
+        have = ", ".join(sorted(self)) or "(none)"
+        if isinstance(k, int):
+            raise KeyError(
+                f"result tables are MAPS keyed by type name or @fact class, "
+                f"not sequences — res.facts['Person'] or res.facts[Person]; "
+                f"types in this result: {have}"
+            )
+        raise KeyError(
+            f"no '{k}' table in this result; types here: {have} "
+            f"(keys are type names or @fact classes; .get() returns None "
+            f"for absent types)"
+        )
 
     def __getitem__(self, k):
         return super().__getitem__(self._key(k))
@@ -158,7 +174,15 @@ class SessionResult:
         self.derived = _TypeTables(native.derived)
 
     def __getattr__(self, name):
-        return getattr(self._native, name)
+        try:
+            return getattr(self._native, name)
+        except AttributeError:
+            raise AttributeError(
+                f"SessionResult has no attribute {name!r}. The surface: "
+                "facts (ALL live) / derived (this fire's delta) — "
+                "type->Table maps keyed by name or @fact class — plus "
+                "fired, firings, deleted_handles from the native result"
+            ) from None
 
     def __repr__(self):
         return repr(self._native)
@@ -302,6 +326,32 @@ class Session:
         ?query conditions, whose cross-fire ordering is certified; the
         cross-CALL ordering under churn is not yet oracle-pinned."""
         return self._native.query(name, *args)
+
+    # The names an API explorer reaches for on the statistical prior
+    # "read facts from the session." They 404 ON PURPOSE — a live
+    # mid-epoch WM read has no certified semantics — but the miss
+    # STEERS to the certified path instead of a bare AttributeError.
+    _READ_GUESSES = frozenset({
+        "query_facts", "query_all", "get_facts", "all_facts",
+        "facts", "derived", "live", "live_facts", "get_all",
+    })
+
+    def __getattr__(self, name):
+        if name in self._READ_GUESSES:
+            raise AttributeError(
+                f"Session has no {name!r} — working-memory state is read "
+                "off fire() results, not the session: res = sess.fire(); "
+                "res.facts['T'] / res.facts[T] (ALL live facts), "
+                "res.derived (THIS fire's new facts). The session side "
+                "holds mutators (insert/update/delete) and the audit "
+                "channels (why/justifications/acc_sources/query)"
+            )
+        import difflib
+        close = difflib.get_close_matches(
+            name, [m for m in dir(type(self)) if not m.startswith("_")], n=2
+        )
+        hint = f"; did you mean {' or '.join(close)}?" if close else ""
+        raise AttributeError(f"Session has no attribute {name!r}{hint}")
 
 
 def _collect_schemas(rules):

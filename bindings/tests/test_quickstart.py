@@ -47,3 +47,28 @@ def test_builder_chains_and_single_arg_insert():
     assert len(hs) == 2
     res = sess.fire()
     assert [x["account_id"] for x in res.derived[Eligible].to_pylist()] == [1]
+
+
+def test_machinery_errors_steer():
+    # the machinery-level errors steer like the semantic ones do
+    # (cold-start round 2: bare KeyError/AttributeError cost probes)
+    rule = s.Rule("e2")
+    acc = rule.when(Account, Account.balance <= 0)
+    rule.then_insert_logical(Eligible, account_id=acc.id)
+    sess = s.Session([rule])
+    sess.insert_row(Account(id=1, balance=0))
+    res = sess.fire()
+
+    import pytest
+    with pytest.raises(KeyError, match="not sequences"):
+        res.derived[0]
+    with pytest.raises(KeyError, match="types here"):
+        res.facts["Nope"]
+    assert res.facts.get("Nope") is None      # probing stays silent
+    for guess in ("query_facts", "query_all", "live"):
+        with pytest.raises(AttributeError, match=r"fire\(\) results"):
+            getattr(sess, guess)
+    with pytest.raises(AttributeError, match="did you mean"):
+        sess.inserf_row
+    with pytest.raises(AttributeError, match="facts"):
+        res.no_such_attr
