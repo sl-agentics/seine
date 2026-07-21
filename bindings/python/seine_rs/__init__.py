@@ -226,6 +226,9 @@ class Session:
             **(_normalize_schemas(schemas) or {}),
         }
         events = _collect_events(rules, facts)
+        # retained so attribute-miss steers can name a REAL type
+        # (the literal-next-call bar, applied to both steer families)
+        self._schema_types = sorted(sch) if sch else []
         self._native = _NativeSession(_drl_arg(rules), f, sch or None, events or None)
 
     def insert(self, type_or_name, data=None):
@@ -368,12 +371,15 @@ class Session:
         if name.startswith("_"):
             raise AttributeError(name)
         if name in self._READ_GUESSES:
+            types = self.__dict__.get("_schema_types") or []
+            ex = f"sess.fire().facts[{types[0]!r}]" if types else "sess.fire().facts['TypeName']"
+            have = f" (types here: {', '.join(repr(t) for t in types)})" if types else ""
             raise AttributeError(
                 f"Session has no {name!r}. To read live facts, fire and "
-                "index the result: sess.fire().facts['TypeName'] (ALL "
-                "live) / .derived (this fire's new facts). To run a DRL "
-                "query: sess.query(name, *args). The session holds "
-                "mutators (insert/update/delete) and audit channels "
+                f"index the result: {ex} (ALL live) / .derived (this "
+                f"fire's new facts){have}. To run a DRL query: "
+                "sess.query(name, *args). The session holds mutators "
+                "(insert/update/delete) and audit channels "
                 "(why/justifications/acc_sources)"
             )
         import difflib

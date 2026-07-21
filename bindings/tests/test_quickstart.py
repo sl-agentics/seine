@@ -68,7 +68,9 @@ def test_machinery_errors_steer():
         res.facts["Nope"]
     assert res.facts.get("Nope") is None      # probing stays silent
     for guess in ("query_facts", "query_all", "live", "working_memory", "wm"):
-        with pytest.raises(AttributeError, match=r"sess\.fire\(\)\.facts\['TypeName'\]"):
+        # the steer names a REAL registered type, not a placeholder —
+        # the same literal-next-call bar as the KeyError family
+        with pytest.raises(AttributeError, match=r"sess\.fire\(\)\.facts\['Account'\]"):
             getattr(sess, guess)
     with pytest.raises(AttributeError, match="did you mean"):
         sess.inserf_row
