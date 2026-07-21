@@ -22,6 +22,8 @@ Run with the repo venv (or any env with `seine_rs` installed):
 | `tour8_allen.py` | Allen interval algebra | All 13 relations against a `@duration` anchor `[100,200]` — one probe interval per relation, every operator fires for exactly its own probe (the full diagonal) |
 | `tour9_cascade.py` | Forward chaining | `new → validated → shipped → archived+deleted` in a single `fire()` via `then_modify`/`then_insert`/`then_delete`; the audit trail of the cascade |
 | `tour10_tms_edges.py` | TMS edges | Multi-support survival (a belief outliving one of two justifying rules) and the stated/logical interplay — see the order-sensitivity idiom below |
+| `tour11_salience_strings.py` | Dynamic salience + strings | `set_salience(bound field)` — the agenda fires priority-desc by data; `matches` (full-string, Java-style) / `contains` / `in_` / `is_null`, with SQL-3VL nulls correctly excluded from `contains` |
+| `tour12_agenda.py` | Agenda groups + focus | A never-focused group is starved; `then_set_focus` grants its turn; plus the g13 boundary cell — a 1-pattern derive's belief retracts eagerly at the external delete (see `probe_d370_arity.py` for the survival cell) |
 | `tour13_collect.py` | collect CE | One firing gathering all matches into the audit-visible ArrayList (vs one-per-match for a plain pattern); fires once even over an empty match set; the alpha-only source wall |
 | `tour14_window_churn.py` | Windowed churn | `sum`/`count` over `window:length(3)` under update/delete churn — in-window updates recompute; deletes shrink the window below N with no backfill — see the idiom below |
 
