@@ -4,7 +4,20 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## 0.4.50
+## 0.4.51
+
+(0.4.50 was tagged but never published: its tag-run differential
+flapped seven consecutive times on `fz_123_6887` — quarantined below —
+so the release re-cut as 0.4.51 from the flap-proof tree and the
+phantom tag was removed.)
+
+- **`fz_123_6887` quarantined as oracle-side load nondeterminism
+  (D-377).** ~17 CI flaps in one night, identical signature every
+  time, oracle's quiet answer always matching the engine. The
+  engine-side pin survives in full via the xfail-drift bank; only the
+  oracle-parity claim for this one scenario is dropped. Certified
+  corpus: 11 baseline / 1,680 probes / 414 regressions;
+  quarantine_xfail 8.
 
 - **Machinery-level errors now steer like the semantic ones.** The
   cold-start transcript showed the turns lost were not to the rule
