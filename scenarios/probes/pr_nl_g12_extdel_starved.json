@@ -1,0 +1,59 @@
+{
+ "_finding": "The EXTERNAL-DELETE axis of the D-370 lazy-segment unjustify law (probed 2026-07-21 after the tour-QA session built this shape API-side and saw retraction in a refocus-contaminated variant): an external delete of the LAST justifying premise lands as the same frozen staged delete as the RHS-delete g-cells - static + starved + unlinked keeps the belief on BOTH sides (T3(7) survives to session end; the binding's synchronous delete-cascade correctly excludes it). Extends the g-grid (pr_nl_g0..g11) to the external-op landing. API-side flip matrix measured the same session: no_loop+unlinked survives (g11 arm); a fresh premise that re-activates the setFocus kick refocuses the group and drains the old staged delete (g2/g8 arm - the shape that masquerades as 'D-370 not reproduced'); linked+static+starved keeps both beliefs (g10 arm).",
+ "drl": "rule \"R3\"\nwhen\n    T1()\n    T2()\nthen\n    drools.setFocus(\"gb\");\nend\nrule \"R4\"\nsalience 1\nagenda-group \"gb\"\nwhen\n    T1()\n    $p : T2($v : f0)\nthen\n    insertLogical(new T3($v));\nend\n",
+ "epochs": [
+  {
+   "actions": [
+    {
+     "op": "delete",
+     "target": 1
+    }
+   ],
+   "facts": []
+  }
+ ],
+ "facts": [
+  {
+   "fields": {
+    "f0": 100
+   },
+   "type": "T1"
+  },
+  {
+   "fields": {
+    "f0": 7
+   },
+   "type": "T2"
+  }
+ ],
+ "name": "pr_nl_g12_extdel_starved",
+ "types": [
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T1"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T2"
+  },
+  {
+   "fields": [
+    {
+     "name": "f0",
+     "type": "i64"
+    }
+   ],
+   "name": "T3"
+  }
+ ]
+}

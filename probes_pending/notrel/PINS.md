@@ -1059,7 +1059,30 @@ CHANGELOG Unreleased +1 (now 3). Bank 8 = 6 ruled/walled +
 fz_336002_968 (Bryan's last actionable pick) + fz_360001_381
 (the un-triaged count fork).
 
-## D-371 candidate: fz_336002_968 — the ACC-PATH teardown wave
+### D-370 ADDENDUM: the EXTERNAL-DELETE axis (2026-07-21, the
+### tour-QA question routed back)
+
+The second-machine QA sweep built a starved-group belief-survival
+check API-side and saw RETRACTION — reported honestly as "my
+construction doesn't hit the trigger; what does?". The g-grid had
+only RHS-delete cells; the external-op landing was unprobed.
+Measured (pr_nl_g12_extdel_starved, oracle diff PASS 3x): an
+EXTERNAL delete of the last justifying premise freezes exactly
+like the g0/g1 RHS cells — static+starved+unlinked KEEPS the
+belief on both sides; the Python binding's synchronous
+delete-cascade correctly excludes it (cascade []). API flip
+matrix, same session: no_loop+unlinked+starved survives (g11
+arm); linked+static+starved keeps both beliefs (g10 arm); a
+FRESH PREMISE whose insert re-activates the setFocus kick
+REFOCUSES the group and drains the old staged delete — old
+belief dies, new one minted (g2/g8 arm). That last shape is the
+one that masquerades as "D-370 not reproduced": any fire that
+re-grants focus (or any still-matchable kick rule) makes the
+group reachable and the law lands the unjustify. The QA guess
+("the starved group can't fire to CORRECT the stale belief")
+was wrong in a load-bearing way: survival is frozen staged
+DELETES (unjustification never runs), not un-fired maintenance.
+Corpus 1680; lint 2599.
 ## (the D-337-receipts "quiescence-vs-eager-eval" open item's cell)
 
 THE DECODE (build-up firings all MATCH; the fork is ONE extra R0
