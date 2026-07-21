@@ -23,6 +23,22 @@ Run with the repo venv (or any env with `seine_rs` installed):
 | `tour9_cascade.py` | Forward chaining | `new → validated → shipped → archived+deleted` in a single `fire()` via `then_modify`/`then_insert`/`then_delete`; the audit trail of the cascade |
 | `tour10_tms_edges.py` | TMS edges | Multi-support survival (a belief outliving one of two justifying rules) and the stated/logical interplay — see the order-sensitivity idiom below |
 
+Probe scripts — deeper single-behavior investigations born from the QA
+lap, kept as a pair because the miss is part of the record:
+
+- `probe_d370_grid.py` — the original starved-agenda-group belief-survival
+  check. Both of its cases retract, which read as "D-370 not reproduced";
+  the construction was in fact a different certified cell (both derives
+  are single-pattern — see below). The honest-negative that started the
+  investigation.
+- `probe_d370_arity.py` — the resolution, both cells on one `.so`: a
+  2-pattern JOIN derive freezes the external premise delete in its beta
+  segment (`delete()` cascade `[]`, belief survives the starved group —
+  `pr_nl_g12_extdel_starved`), while a 1-pattern LIA-terminal derive has
+  no segment to park it in and unjustifies eagerly at the delete
+  (cascade `[handle]` — `pr_nl_g13_extdel_1pat`). Verified identical on
+  linux and Intel mac; both cells oracle-pinned.
+
 Idioms worth stealing:
 
 - **Aggregate → threshold chain** (tour2): the certified way to act on an
