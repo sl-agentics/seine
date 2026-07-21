@@ -60,15 +60,22 @@ def test_machinery_errors_steer():
     res = sess.fire()
 
     import pytest
-    with pytest.raises(KeyError, match="not sequences"):
+    # the steering bar: each message contains the LITERAL next call,
+    # built from actual state (attribute name + a type really present)
+    with pytest.raises(KeyError, match=r"not a sequence.*Try res\.derived\['Account'\]"):
         res.derived[0]
-    with pytest.raises(KeyError, match="types here"):
+    with pytest.raises(KeyError, match=r"no fact type 'Nope'.*'Eligible'.*Try res\.facts\['Account'\]"):
         res.facts["Nope"]
     assert res.facts.get("Nope") is None      # probing stays silent
-    for guess in ("query_facts", "query_all", "live"):
-        with pytest.raises(AttributeError, match=r"fire\(\) results"):
+    for guess in ("query_facts", "query_all", "live", "working_memory", "wm"):
+        with pytest.raises(AttributeError, match=r"sess\.fire\(\)\.facts\['TypeName'\]"):
             getattr(sess, guess)
     with pytest.raises(AttributeError, match="did you mean"):
         sess.inserf_row
+    with pytest.raises(AttributeError, match="methods: "):
+        sess.zzz_nothing_close
     with pytest.raises(AttributeError, match="facts"):
         res.no_such_attr
+    # dunders pass through untouched: hasattr/copy/pickle/inspect safe
+    assert not hasattr(sess, "__deepcopy__")
+    assert not hasattr(sess, "__wrapped__")

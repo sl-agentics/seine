@@ -130,25 +130,31 @@ class _TypeTables(dict):
     """Result tables keyed by type NAME, also readable by @fact class —
     ``res.facts[Person]`` == ``res.facts["Person"]``. In/out symmetry
     with the ``facts=`` argument, which accepts both key kinds too.
-    A miss raises a STEERING KeyError (this is a map, not a sequence;
-    machinery errors should teach like the semantic ones do)."""
+    A miss raises a STEERING KeyError containing the literal next call
+    (registered-but-empty types return an empty Table, never raise —
+    so a miss is always a category error or an unknown/typo'd name)."""
+
+    def __init__(self, data, label="facts"):
+        super().__init__(data)
+        self._label = label
 
     @staticmethod
     def _key(k):
         return k if isinstance(k, str) else getattr(k, "__name__", k)
 
     def __missing__(self, k):
-        have = ", ".join(sorted(self)) or "(none)"
-        if isinstance(k, int):
+        types = sorted(self)
+        have = "[" + ", ".join(repr(t) for t in types) + "]" if types else "(none)"
+        ex = f"res.{self._label}[{types[0]!r}]" if types else f"res.{self._label}['TypeName']"
+        if not isinstance(k, str):
             raise KeyError(
-                f"result tables are MAPS keyed by type name or @fact class, "
-                f"not sequences — res.facts['Person'] or res.facts[Person]; "
-                f"types in this result: {have}"
+                f"result tables are keyed by fact type name (str) or @fact "
+                f"class, not position — a map, not a sequence. Types in "
+                f"this result: {have}. Try {ex}"
             )
         raise KeyError(
-            f"no '{k}' table in this result; types here: {have} "
-            f"(keys are type names or @fact classes; .get() returns None "
-            f"for absent types)"
+            f"no fact type {k!r} in this result. Types here: {have}. "
+            f"Try {ex} (or .get({k!r}) for None-if-absent)"
         )
 
     def __getitem__(self, k):
@@ -170,8 +176,8 @@ class SessionResult:
 
     def __init__(self, native):
         self._native = native
-        self.facts = _TypeTables(native.facts)
-        self.derived = _TypeTables(native.derived)
+        self.facts = _TypeTables(native.facts, "facts")
+        self.derived = _TypeTables(native.derived, "derived")
 
     def __getattr__(self, name):
         try:
@@ -334,23 +340,31 @@ class Session:
     _READ_GUESSES = frozenset({
         "query_facts", "query_all", "get_facts", "all_facts",
         "facts", "derived", "live", "live_facts", "get_all",
+        "working_memory", "wm",
     })
 
     def __getattr__(self, name):
+        # dunders/privates pass through untouched — intercepting them
+        # would quietly break hasattr/copy/pickle/inspect
+        if name.startswith("_"):
+            raise AttributeError(name)
         if name in self._READ_GUESSES:
             raise AttributeError(
-                f"Session has no {name!r} — working-memory state is read "
-                "off fire() results, not the session: res = sess.fire(); "
-                "res.facts['T'] / res.facts[T] (ALL live facts), "
-                "res.derived (THIS fire's new facts). The session side "
-                "holds mutators (insert/update/delete) and the audit "
-                "channels (why/justifications/acc_sources/query)"
+                f"Session has no {name!r}. To read live facts, fire and "
+                "index the result: sess.fire().facts['TypeName'] (ALL "
+                "live) / .derived (this fire's new facts). To run a DRL "
+                "query: sess.query(name, *args). The session holds "
+                "mutators (insert/update/delete) and audit channels "
+                "(why/justifications/acc_sources)"
             )
         import difflib
-        close = difflib.get_close_matches(
-            name, [m for m in dir(type(self)) if not m.startswith("_")], n=2
+        methods = sorted(m for m in dir(type(self)) if not m.startswith("_"))
+        close = difflib.get_close_matches(name, methods, n=2)
+        hint = (
+            f"; did you mean {' or '.join(close)}?"
+            if close
+            else f"; methods: {', '.join(methods)}"
         )
-        hint = f"; did you mean {' or '.join(close)}?" if close else ""
         raise AttributeError(f"Session has no attribute {name!r}{hint}")
 
 
