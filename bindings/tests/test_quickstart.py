@@ -150,3 +150,23 @@ def test_handle_panic_fixed_and_next_tier_steers():
     # insert-shape: dict of scalars steers to insert_row
     with pytest.raises(TypeError, match=r"COLUMN lists.*insert_row"):
         sess.insert("Account", {"id": 1, "balance": 0})
+
+
+def test_on_fire_raise_crosses_ffi_cleanly():
+    # the last FFI-boundary probe: an observer raising propagates AS
+    # ITSELF (no PanicException, no swallow); the run already completed
+    # so effects persist and the session stays usable
+    import pytest
+    rule = s.Rule("e4")
+    acc = rule.when(Account, Account.balance <= 0)
+    rule.then_insert_logical(Eligible, account_id=acc.id)
+    sess = s.Session([rule])
+    sess.insert_row(Account(id=5, balance=0))
+
+    def boom(rule_name, matches):
+        raise RuntimeError("observer exploded")
+
+    with pytest.raises(RuntimeError, match="observer exploded"):
+        sess.fire(on_fire=boom)
+    res = sess.fire()
+    assert [x["account_id"] for x in res.facts[Eligible].to_pylist()] == [5]

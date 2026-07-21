@@ -314,7 +314,11 @@ class Session:
         two arguments: the rule name and the match tuple as a list of
         (type, handle) pairs. Observers receive plain data and cannot
         call back into the session; collect handles there, query after
-        fire() returns."""
+        fire() returns. An exception raised by the observer propagates
+        from fire() AS ITSELF — but the rules have already fired (the
+        run completes before observers are invoked): this call's delta
+        object is lost, the session stays consistent, and the next
+        fire()'s result reads the state."""
         return SessionResult(self._native.fire(fire_limit, on_fire))
 
     def why(self, handle):
