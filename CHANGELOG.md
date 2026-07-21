@@ -4,6 +4,46 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## 0.4.49
+
+Cold-start round — the first-fifteen-minutes papercuts from a
+zero-familiarity drive of 0.4.48. Python layer + docs only.
+
+- **Schemas auto-register from the rules.** `Session([rule])` with no
+  `facts=` at all now works: every `@fact` class the rules' patterns,
+  actions, and or-branches reference contributes its schema
+  automatically (the same walk that already collects event
+  declarations). Explicit `facts=`/`schemas=` entries take precedence.
+  Previously `Session(rules=[r], facts={})` died with "unknown type"
+  and the cure was unguessable.
+
+- **`insert_row(Account(id=42, balance=0))`** — a `@fact` instance
+  knows its own type, so the type argument is no longer required;
+  same for `insert([row, row, ...])`. The 2-arg forms remain for dict
+  rows and name-based insertion.
+
+- **The builder chains where it can.** `when_not` / `when_exists` /
+  `when_any` / `collect` now return the `Rule`; `when` /
+  `accumulate` / `group_by` still return the match/result handles —
+  that's where bindings come from, and the docstrings now state the
+  canonical shape (imperative with captured patterns) explicitly.
+
+- **A verified quickstart** now opens the repo README (ten lines:
+  two facts, one rule, insert, fire, read `res.facts[Class]`, call
+  `why()`, watch the auto-retract) — pinned verbatim as
+  `bindings/tests/test_quickstart.py` so it can never rot. Stale
+  README status lines refreshed (v0.4.1 → current; the import name;
+  corpus figures). `Session`/`SessionResult` docstrings now state the
+  state model up front: state reads off fire() results (one result
+  object — `facts`/`derived` maps plus everything else by
+  delegation); the session holds mutators and audit channels.
+
+- Declined for now, reasons on record: a session-level live-WM read
+  (`sess.facts(...)`) — the certified read path is the WM-delta at
+  fire boundaries; what a mid-epoch peek should show (pending
+  inserts, staged deletes, mid-cascade TMS) deserves its own probe
+  round rather than a drive-by accessor.
+
 ## 0.4.48
 
 Friendliness round 2 — the output-side papercuts from the full-surface

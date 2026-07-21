@@ -146,10 +146,11 @@ class _TypeTables(dict):
 
 
 class SessionResult:
-    """A fire()/run() result. ``facts`` (all live) and ``derived``
-    (this fire's new facts) are per-type Arrow tables readable by type
-    name OR @fact class; ``firings`` is the audit table; everything
-    else delegates to the native result."""
+    """A fire()/run() result — ONE object, two layers: ``facts`` (all
+    live) and ``derived`` (this fire's new facts) are per-type Arrow
+    table MAPS (not sequences) readable by type name OR @fact class;
+    ``fired`` / ``firings`` / ``deleted_handles`` and every other
+    native Result attribute reach through by delegation."""
 
     def __init__(self, native):
         self._native = native
@@ -164,29 +165,61 @@ class SessionResult:
 
 
 class Session:
-    """seine_rs.Session(rules, facts): `rules` is a DRL string, a Rule, or
-    a list of Rules; `facts` maps type names OR @fact classes to Arrow
-    tables, dicts of column lists, or lists of row objects. Thin
-    delegating wrapper over the native session — the row sugar reshapes
-    into the certified column path, nothing more."""
+    """seine_rs.Session(rules, facts=None): `rules` is a DRL string, a
+    Rule, or a list of Rules; `facts` (optional) maps type names OR
+    @fact classes to Arrow tables, dicts of column lists, or lists of
+    row objects. Schemas for every @fact class the rules reference are
+    registered automatically — ``Session([rule])`` alone works;
+    ``facts=``/``schemas=`` entries take precedence.
+
+    THE STATE MODEL: working-memory state is read off fire() results,
+    not the session — ``res = sess.fire()`` then ``res.facts`` (ALL
+    live facts) / ``res.derived`` (THIS fire's new facts), both
+    per-type Arrow-table maps keyed by name or @fact class. The
+    session side holds the mutators (insert/update/delete by handle)
+    and the audit channels (why/justifications/acc_sources/query).
+    Thin delegating wrapper over the native session — the row sugar
+    reshapes into the certified column path, nothing more."""
 
     def __init__(self, rules, facts=None, schemas=None):
         f, sch = _facts_arg(facts)
-        if schemas:
-            sch = {**(sch or {}), **schemas}
+        # auto-register schemas for every @fact class the rules
+        # reference — explicit facts=/schemas= entries take precedence
+        sch = {**_collect_schemas(rules), **(sch or {}), **(schemas or {})}
         events = _collect_events(rules, facts)
-        self._native = _NativeSession(_drl_arg(rules), f, sch, events or None)
+        self._native = _NativeSession(_drl_arg(rules), f, sch or None, events or None)
 
-    def insert(self, type_or_name, data):
+    def insert(self, type_or_name, data=None):
         """Insert a batch: Arrow table, dict of column lists, or a list
-        of row objects. Returns the new facts' handles."""
+        of row objects. Returns the new facts' handles. With a list of
+        @fact instances the type argument may be omitted —
+        ``insert([Account(...), Account(...)])``."""
+        if data is None:
+            rows = type_or_name
+            if not (isinstance(rows, list) and rows
+                    and hasattr(type(rows[0]), "__seine_fields__")):
+                raise TypeError(
+                    "insert(rows) needs a non-empty list of @fact instances; "
+                    "otherwise call insert(type_or_name, data)"
+                )
+            type_or_name, data = type(rows[0]), rows
         name = type_or_name if isinstance(type_or_name, str) else type_or_name.__name__
         if is_row_list(data):
             data = rows_to_columns(type_or_name, data)
         return self._native.insert(name, data)
 
-    def insert_row(self, type_or_name, row):
-        """Insert one fact: a dict or a row object. Returns its handle."""
+    def insert_row(self, type_or_name, row=None):
+        """Insert one fact; returns its handle. A @fact instance knows
+        its own type, so ``insert_row(Account(id=42, balance=0))``
+        suffices; the 2-arg form remains for dict rows and name-based
+        insertion."""
+        if row is None:
+            if not hasattr(type(type_or_name), "__seine_fields__"):
+                raise TypeError(
+                    "insert_row(row) needs a @fact instance; otherwise call "
+                    "insert_row(type_or_name, row)"
+                )
+            type_or_name, row = type(type_or_name), type_or_name
         name = type_or_name if isinstance(type_or_name, str) else type_or_name.__name__
         if not isinstance(row, dict):
             row = rows_to_columns(type_or_name, [row])
@@ -271,6 +304,30 @@ class Session:
         return self._native.query(name, *args)
 
 
+def _collect_schemas(rules):
+    """Schemas of every @fact class the rule objects reference
+    (patterns and actions) — the same walk as _collect_events. Lets
+    Session([rule]) work with no facts= at all: authoring a rule
+    BEFORE having data is the normal first move, and the rule already
+    holds the class objects."""
+    out = {}
+    rlist = rules if isinstance(rules, (list, tuple)) else [rules]
+    for r in rlist:
+        for p in getattr(r, "patterns", []):
+            cls = getattr(p, "cls", None)
+            if hasattr(cls, "__seine_fields__"):
+                out[cls.__name__] = dict(cls.__seine_fields__)
+        for a in getattr(r, "actions", []):
+            c = a.kw.get("cls") if hasattr(a, "kw") else None
+            if hasattr(c, "__seine_fields__"):
+                out[c.__name__] = dict(c.__seine_fields__)
+        for grp in getattr(r, "or_groups", []):
+            for cls, _ in grp:
+                if hasattr(cls, "__seine_fields__"):
+                    out[cls.__name__] = dict(cls.__seine_fields__)
+    return out
+
+
 def _collect_events(rules, facts):
     """Event declarations from @fact(event=...) classes reachable via
     the Rule objects' patterns and the facts mapping's class keys."""
@@ -299,7 +356,8 @@ def run(rules, facts, fire_limit=100_000, on_fire=None, schemas=None):
     f, sch = _facts_arg(facts)
     if schemas:
         sch = {**(sch or {}), **schemas}
+    sch = {**_collect_schemas(rules), **(sch or {})}
     events = _collect_events(rules, facts)
     return SessionResult(
-        _native_run(_drl_arg(rules), f, fire_limit, on_fire, sch, events or None)
+        _native_run(_drl_arg(rules), f, fire_limit, on_fire, sch or None, events or None)
     )

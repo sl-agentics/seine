@@ -44,8 +44,17 @@ pl.DataFrame(res.firings)              # full audit trail
   handle → fire`, each certified differentially.
 - **No Python in the hot path**: conditions, aggregates and salience
   are native; callbacks are observers over immutable results.
+- **The why-machine**: `sess.why(handle)` answers with the justifying
+  rule, matched tuple and firing seq; `justifications()` walks the
+  whole graph; `acc_sources()` walks an aggregate to the exact source
+  facts that sum to its value. The audit surface is certified
+  alongside the semantics.
+- **Schemas auto-register** from the `@fact` classes your rules
+  reference — `Session([rule])` alone works; `insert_row(Account(...))`
+  needs no type argument.
 
 Install: `pip install seine-rs` — the import is `import seine_rs`.
 
-Source, scenario corpus, and the full decision log (D-001…D-048):
+Source, scenario corpus, the guided tours (`demo/tours/`), and the
+full decision log (D-001 onward):
 https://github.com/sl-agentics/seine

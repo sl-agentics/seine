@@ -6,8 +6,8 @@ against real Drools** (pinned: **9.44.0.Final+p1** — stock 9.44.0.Final
 plus exactly one vendored upstream-merged fix for a defect Seine
 reported; see `NOTICE` and DECISIONS D-163) as a live oracle.
 
-> **Status: v0.4.1 on PyPI** (`pip install seine-rs`, import `seine`).
-> The certified corpus is **11 baseline / 1,075 probe / 302 regression
+> **Status: v0.4.48 on PyPI** (`pip install seine-rs`, import `seine_rs`).
+> The certified corpus is **11 baseline / 1,681 probe / 414 regression
 > scenarios, byte-identical against real Drools** across joins, node
 > sharing, property reactivity, `not`/`exists` (incl. nested CE groups),
 > `accumulate`/`collect`/`groupby`, recursive + pull queries, truth
@@ -17,6 +17,43 @@ reported; see `NOTICE` and DECISIONS D-163) as a live oracle.
 > to graft-derived replays of Drools' internal propagation. The coverage
 > matrix lives in `FEATURES.md`; every semantic is pinned by an
 > oracle-probe D-entry in `DECISIONS.md`.
+
+## Quickstart
+
+```python
+import seine_rs as s
+
+@s.fact
+class Account:
+    id: int
+    balance: int            # cents; <= 0 == paid off
+
+@s.fact
+class Eligible:             # insertLogical: auto-retracts with its support
+    account_id: int
+
+rule = s.Rule("eligible")
+acc = rule.when(Account, Account.balance <= 0)
+rule.then_insert_logical(Eligible, account_id=acc.id)
+
+sess = s.Session([rule])                 # schemas auto-registered from the rule
+h = sess.insert_row(Account(id=42, balance=0))
+res = sess.fire()
+
+print(res.facts[Eligible].to_pylist())   # [{'handle': 1, 'account_id': 42}]
+print(sess.why(1))                       # the justification: rule + support tuple
+sess.delete(h); sess.fire()              # support gone -> Eligible auto-retracts
+```
+
+This block is pinned verbatim as `bindings/tests/test_quickstart.py`.
+Rules author in Python but compile to DRL text (`rule.to_drl()` shows
+it), so the differential certification covers Python-authored rules
+with no translation gap — and anything outside the certified grammar
+is a definition-time `CompileError` that names the fix. For a tool or
+an LLM driving the API, that wall is the headline property: **you
+cannot emit a wrong-but-accepted rule** — it compiles to certified
+semantics or it errors with the correction. Guided walkthroughs of
+every surface live in `demo/tours/`.
 
 ## What this is
 

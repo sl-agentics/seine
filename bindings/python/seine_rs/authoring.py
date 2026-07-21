@@ -1369,10 +1369,15 @@ class Rule:
         return p
 
     def when(self, cls: type, *constraints) -> _Pattern:
-        """Positive pattern; returns the match for later use."""
+        """Positive pattern; returns the MATCH (not the rule) — that's
+        where bindings come from (p.field in later patterns and RHS
+        args). The canonical authoring shape is imperative: keep the
+        rule in a variable, capture when()'s return where you need
+        bindings; when_not/when_exists/when_any/collect return the rule
+        and chain."""
         return self._add_pattern(cls, constraints, "")
 
-    def when_any(self, *branches) -> None:
+    def when_any(self, *branches) -> "Rule":
         """OR across patterns: `( A(...) or B(...) )` — each branch is a
         tuple (Class, *constraints). The certified DNF expansion (each
         branch becomes a subrule). v1 keeps branches ALPHA-ONLY: same-
@@ -1423,12 +1428,15 @@ class Rule:
                 rendered.append(c)
             parts.append((cls, rendered))
         self.or_groups.append(parts)
+        return self
 
-    def when_not(self, cls: type, *constraints) -> None:
+    def when_not(self, cls: type, *constraints) -> "Rule":
         self._add_pattern(cls, constraints, "not")
+        return self
 
-    def when_exists(self, cls: type, *constraints) -> None:
+    def when_exists(self, cls: type, *constraints) -> "Rule":
         self._add_pattern(cls, constraints, "exists")
+        return self
 
     def accumulate(
         self, cls: type, *constraints, agg: _Agg, window: "_Window | None" = None
@@ -1514,16 +1522,16 @@ class Rule:
         arg_bf = BoundField(p, agg.arg.name, agg.arg.subset_type) if agg.arg is not None else None
         return AccResult(p, agg.func, arg_bf, getattr(agg, "avgx", None))
 
-    def collect(self, cls: type, *constraints) -> None:
-        """`List() from collect(...)`. Returns None BY DESIGN: no
-        certified field type can carry a collection downstream, so the
-        gathered list is not bindable — it is OBSERVABLE in the
-        firing's match (the `on_fire` Collection element and the
-        firings audit's values array, gathered newest-insert-first).
-        The rule fires once per collection state, including empty.
-        The source must be ALPHA-only: a collect source referencing
-        other patterns builds an RIA subnetwork, which is outside the
-        certified subset."""
+    def collect(self, cls: type, *constraints) -> "Rule":
+        """`List() from collect(...)`. Returns the rule (for chaining),
+        NOT the collection: no certified field type can carry a
+        collection downstream, so the gathered list is not bindable —
+        it is OBSERVABLE in the firing's match (the `on_fire`
+        Collection element and the firings audit's values array,
+        gathered newest-insert-first). The rule fires once per
+        collection state, including empty. The source must be
+        ALPHA-only: a collect source referencing other patterns builds
+        an RIA subnetwork, which is outside the certified subset."""
         for c in constraints:
             if isinstance(c, _Constraint) and isinstance(c.rhs, BoundField):
                 raise CompileError(
@@ -1532,6 +1540,7 @@ class Rule:
                     "use accumulate() for joined aggregation"
                 )
         self._add_pattern(cls, constraints, "collect")
+        return self
 
     # -- RHS ------------------------------------------------------------
     def then_insert(self, cls: type, **field_values) -> "Rule":
