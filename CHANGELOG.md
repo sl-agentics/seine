@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.55
 
 The mid-model UAT round (Sonnet, frozen-prompt benchmark run on
 0.4.54): 7 of 9 steps first-try, zero suspected bugs, "the error text
