@@ -1477,3 +1477,14 @@ def test_expires_lint_scoped_to_after_before():
     a = r.when(IvA)
     r.when(IvB, seine_rs.this_includes(a))
     assert "this includes" in r.to_drl()
+
+
+def test_acc_result_not_comparable_steers_downstream():
+    # c >= 3 was a bare TypeError (the QA lap's papercut #4) — now a
+    # CompileError naming the certified downstream-threshold idiom
+    r = Rule("G")
+    c = r.accumulate(GT, agg=sum_(GT.v))
+    for op in (lambda: c >= 3, lambda: c < 3, lambda: c == 3, lambda: c != 3):
+        with pytest.raises(CompileError, match="DOWNSTREAM"):
+            op()
+    assert {c: 1}  # defining __eq__ must not cost hashability

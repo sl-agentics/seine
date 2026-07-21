@@ -760,6 +760,18 @@ class AccResult(BoundField):
         )
         return f"<{self.func}({arg}) of pattern {self.pattern.index}>"
 
+    def _no_compare(self, other):
+        raise CompileError(
+            f"{self!r} is not comparable — there is no certified guard "
+            "on an aggregate result inside its own rule. Threshold it "
+            "DOWNSTREAM: insert the result as a fact and match that "
+            "(r1.then_insert(WindowCount, n=c); "
+            "r2.when(WindowCount, WindowCount.n >= 3))"
+        )
+
+    __lt__ = __le__ = __gt__ = __ge__ = __eq__ = __ne__ = _no_compare
+    __hash__ = object.__hash__  # defining __eq__ must not cost hashability
+
     def _arith(self, op, other, reflected=False):
         raise CompileError(
             "accumulate results in salience expressions are not certified "
@@ -1503,9 +1515,15 @@ class Rule:
         return AccResult(p, agg.func, arg_bf, getattr(agg, "avgx", None))
 
     def collect(self, cls: type, *constraints) -> None:
-        """`List() from collect(...)`. The source must be ALPHA-only:
-        a collect source referencing other patterns builds an RIA
-        subnetwork, which is outside the certified subset."""
+        """`List() from collect(...)`. Returns None BY DESIGN: no
+        certified field type can carry a collection downstream, so the
+        gathered list is not bindable — it is OBSERVABLE in the
+        firing's match (the `on_fire` Collection element and the
+        firings audit's values array, gathered newest-insert-first).
+        The rule fires once per collection state, including empty.
+        The source must be ALPHA-only: a collect source referencing
+        other patterns builds an RIA subnetwork, which is outside the
+        certified subset."""
         for c in constraints:
             if isinstance(c, _Constraint) and isinstance(c.rhs, BoundField):
                 raise CompileError(

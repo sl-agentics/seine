@@ -4,6 +4,31 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## 0.4.48
+
+Friendliness round 2 — the output-side papercuts from the full-surface
+QA lap (14 tours, two machines). Python layer only; no engine changes.
+
+- **Result tables accept `@fact` classes as keys.** `fire()`/`run()`
+  now return a `SessionResult` whose `facts`/`derived` read by type
+  name OR class — `res.facts[Person]` == `res.facts["Person"]` —
+  restoring in/out symmetry with the `facts=` argument. Everything
+  else delegates to the native result unchanged (`fired`, `firings`,
+  `deleted_handles`, repr).
+
+- **Aggregate results now steer instead of TypeError-ing on
+  comparison.** `c >= 3` on an accumulate result was a bare Python
+  `TypeError`; it is now a `CompileError` naming the certified idiom:
+  insert the result as a fact and threshold it downstream
+  (`r2.when(WindowCount, WindowCount.n >= 3)`).
+
+- **`collect()`'s contract is documented** — it returns None by
+  design (no certified field type carries a collection); the gathered
+  list is observable in the firing's match and the firings audit,
+  newest-insert-first; the rule fires once per collection state,
+  including empty. The `fire()` wrapper docstring now also spells out
+  the `on_fire(rule, matches)` observer signature.
+
 ## 0.4.47
 
 API-surface smoothing round — the four rough edges surfaced by the

@@ -100,3 +100,27 @@ def test_row_sugar_equals_column_path():
     a1 = pl.DataFrame(r1.firings)
     a2 = pl.DataFrame(r2.firings)
     assert a1["values_json"].to_list() == a2["values_json"].to_list()
+
+
+def test_result_tables_accept_class_keys():
+    # in/out symmetry: facts= accepts @fact classes as keys, so the
+    # result tables read by class too — res.facts[Person] == ["Person"]
+    rows = [Person("ada", 36, 91.5), Person("kurt", 17, 99.0)]
+    res = seine_rs.run(_rules(), {Person: rows, Flagged: []})
+    assert res.facts[Person].to_pylist() == res.facts["Person"].to_pylist()
+    assert res.derived[Flagged].to_pylist() == res.derived["Flagged"].to_pylist()
+    assert Person in res.facts and "Person" in res.facts
+    assert res.facts.get(Flagged) is not None
+    assert res.facts.get("NoSuchType") is None
+    with pytest.raises(KeyError):
+        res.facts["NoSuchType"]
+    # the proxy delegates everything else to the native result
+    assert isinstance(res.fired, int)
+
+
+def test_session_fire_returns_class_keyed_tables():
+    s = seine_rs.Session(_rules(), {Person: [], Flagged: []})
+    s.insert_row(Person, {"name": "ada", "age": 36, "score": 91.5})
+    r = s.fire()
+    assert [x["name"] for x in r.facts[Person].to_pylist()] == ["ada"]
+    assert r.derived[Flagged].to_pylist() == r.derived["Flagged"].to_pylist()

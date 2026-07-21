@@ -71,6 +71,7 @@ __all__ = [
     "Result",
     "Rule",
     "Session",
+    "SessionResult",
     "Table",
     "average",
     "average_exact",
@@ -125,6 +126,43 @@ def _drl_arg(rules):
     return compile_rules(rules)
 
 
+class _TypeTables(dict):
+    """Result tables keyed by type NAME, also readable by @fact class —
+    ``res.facts[Person]`` == ``res.facts["Person"]``. In/out symmetry
+    with the ``facts=`` argument, which accepts both key kinds too."""
+
+    @staticmethod
+    def _key(k):
+        return k if isinstance(k, str) else getattr(k, "__name__", k)
+
+    def __getitem__(self, k):
+        return super().__getitem__(self._key(k))
+
+    def get(self, k, default=None):
+        return super().get(self._key(k), default)
+
+    def __contains__(self, k):
+        return super().__contains__(self._key(k))
+
+
+class SessionResult:
+    """A fire()/run() result. ``facts`` (all live) and ``derived``
+    (this fire's new facts) are per-type Arrow tables readable by type
+    name OR @fact class; ``firings`` is the audit table; everything
+    else delegates to the native result."""
+
+    def __init__(self, native):
+        self._native = native
+        self.facts = _TypeTables(native.facts)
+        self.derived = _TypeTables(native.derived)
+
+    def __getattr__(self, name):
+        return getattr(self._native, name)
+
+    def __repr__(self):
+        return repr(self._native)
+
+
 class Session:
     """seine_rs.Session(rules, facts): `rules` is a DRL string, a Rule, or
     a list of Rules; `facts` maps type names OR @fact classes to Arrow
@@ -176,7 +214,14 @@ class Session:
         return self._native.reset()
 
     def fire(self, fire_limit=100_000, on_fire=None):
-        return self._native.fire(fire_limit, on_fire)
+        """Run the rules to quiescence; returns a :class:`SessionResult`
+        (this fire's WM-delta). ``on_fire(rule, matches)`` is a
+        post-quiescence OBSERVER invoked per firing in firing order —
+        two arguments: the rule name and the match tuple as a list of
+        (type, handle) pairs. Observers receive plain data and cannot
+        call back into the session; collect handles there, query after
+        fire() returns."""
+        return SessionResult(self._native.fire(fire_limit, on_fire))
 
     def why(self, handle):
         """Why does this fact hold? For a fact derived by
@@ -250,9 +295,11 @@ def _collect_events(rules, facts):
 
 
 def run(rules, facts, fire_limit=100_000, on_fire=None, schemas=None):
-    """Build, insert, fire once, return the Result."""
+    """Build, insert, fire once, return the :class:`SessionResult`."""
     f, sch = _facts_arg(facts)
     if schemas:
         sch = {**(sch or {}), **schemas}
     events = _collect_events(rules, facts)
-    return _native_run(_drl_arg(rules), f, fire_limit, on_fire, sch, events or None)
+    return SessionResult(
+        _native_run(_drl_arg(rules), f, fire_limit, on_fire, sch, events or None)
+    )
