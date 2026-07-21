@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.50
 
 - **Machinery-level errors now steer like the semantic ones.** The
   cold-start transcript showed the turns lost were not to the rule
@@ -19,7 +19,12 @@ recorded in DECISIONS.md.
   design, because a live mid-epoch WM read has no certified
   semantics; other misses get a did-you-mean; `SessionResult` misses
   enumerate the surface. `.get()` on absent types stays silently
-  None — that's the deliberate probing path.
+  None — that's the deliberate probing path. The steering bar: each
+  message contains the LITERAL next call, built from actual state
+  ("Types in this result: ['Account', 'Eligible']. Try
+  res.derived['Account']") — enforced by regex in
+  `test_quickstart.py`. Dunder/private lookups pass through
+  untouched, so hasattr/copy/pickle/inspect are unaffected.
 
 ## 0.4.49
 
