@@ -2112,11 +2112,12 @@ fn do_join_node<E: JoinEnv>(
     }
     // --- reorder left memory: remove all staged, re-add at the END in
     // staged-list order; children reAddRight ---
-    for (l, _, _) in &sl.upd {
-        if let Some(i) = node.lefts.iter().position(|(x, _)| x == l) {
-            node.lefts.remove(i);
-        }
-    }
+    // D-385: one retain pass replaces the per-upd position+remove walk
+    // (O(lefts) per staged upd = O(U²) under bulk churn). Left tuples
+    // are unique in memory, so removing every staged tuple in one
+    // order-preserving sweep lands the identical survivor sequence.
+    let lupd_set: HashSet<Tup> = sl.upd.iter().map(|(x, _, _)| x.clone()).collect();
+    node.lefts.retain(|(x, _)| !lupd_set.contains(x));
     for (l, _, _) in &sl.upd {
         node.lefts.push((l.clone(), env.key_of_left(node_idx, l)));
         if let Some(ids) = node.by_left.get(l).cloned() {
@@ -2137,7 +2138,7 @@ fn do_join_node<E: JoinEnv>(
         }
     }
 
-    let staged_left_upd = |l: &Tup| sl.upd.iter().any(|(x, _, _)| x == l);
+    let staged_left_upd = |l: &Tup| lupd_set.contains(l);
 
     // --- right updates ---
     for (f, o, _) in &sr.upd {
@@ -2247,8 +2248,36 @@ fn do_join_node<E: JoinEnv>(
         }
     }
     // --- left updates ---
+    // D-385: one-shot transient views for this drain loop — both
+    // memories are STATIC across it (the reorder already ran; the body
+    // mutates children only), so the four per-upd O(memory) scans
+    // (membership, left_key, rights_bucket, rp_key) answer from maps
+    // built once. Same exactness contract as the D-266 index: identical
+    // answers, byte for byte (first-occurrence entries mirror the
+    // scans' find-first). Small batches keep the direct scans — the
+    // drip case must not pay an O(memory) build per action.
+    let lu_big = sl.upd.len() >= 16;
+    let lu_lefts: Option<HashMap<Tup, Option<Vec<Value>>>> = lu_big.then(|| {
+        let mut m: HashMap<Tup, Option<Vec<Value>>> = HashMap::new();
+        for (t, k) in &node.lefts {
+            m.entry(t.clone()).or_insert_with(|| k.clone());
+        }
+        m
+    });
+    let lu_ridx = if lu_big { node.build_rights_eq_idx() } else { None };
+    let lu_rkeys: Option<HashMap<FactId, Option<Vec<Value>>>> = lu_big.then(|| {
+        let mut m: HashMap<FactId, Option<Vec<Value>>> = HashMap::new();
+        for (f, k) in &node.rights {
+            m.entry(*f).or_insert_with(|| k.clone());
+        }
+        m
+    });
     for (l, o, _) in &sl.upd {
-        if !node.lefts.iter().any(|(x, _)| x == l) {
+        let present = match &lu_lefts {
+            Some(m) => m.contains_key(l),
+            None => node.lefts.iter().any(|(x, _)| x == l),
+        };
+        if !present {
             continue; // was removed (invalid prefix upstream)
         }
         // D-170 (T6, temporal): the A' refire — an anchor's in-place
@@ -2272,8 +2301,11 @@ fn do_join_node<E: JoinEnv>(
             }
             continue;
         }
-        let lkey = node.left_key(l).cloned();
-        let bucket = node.rights_bucket(lkey.as_ref());
+        let lkey = match &lu_lefts {
+            Some(m) => m.get(l).cloned().flatten(),
+            None => node.left_key(l).cloned(),
+        };
+        let bucket = node.rights_bucket_idx(lu_ridx.as_ref(), lkey.as_ref());
         // stale-children pass (indexed only): drop children whose right
         // parent sits in a different bucket now
         if node.eq_indexed() {
@@ -2283,8 +2315,14 @@ fn do_join_node<E: JoinEnv>(
                         continue;
                     }
                     let rp = node.children[c].right.expect("join child has a right parent");
-                    let rp_key =
-                        node.rights.iter().find(|(x, _)| *x == rp).and_then(|(_, k)| k.clone());
+                    let rp_key = match &lu_rkeys {
+                        Some(m) => m.get(&rp).cloned().flatten(),
+                        None => node
+                            .rights
+                            .iter()
+                            .find(|(x, _)| *x == rp)
+                            .and_then(|(_, k)| k.clone()),
+                    };
                     let same = match (&rp_key, &lkey) {
                         (Some(rk), Some(lk)) => Node::keys_match(rk, lk),
                         _ => false,

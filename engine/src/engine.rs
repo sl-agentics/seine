@@ -2564,6 +2564,14 @@ struct RuleNet {
     /// OLDEST-first (pr08/pr04). Folds apply across windows (one staged
     /// entry per fact, TupleSets semantics).
     s0: Vec<Staged<FactId>>,
+    /// D-385: net-level D-267 superset — holds every element staged into
+    /// ANY s0 window (stale positives allowed, same contract as the
+    /// window seens). A miss proves f unstaged in every window, so the
+    /// per-window pre-check walk (O(#windows) per external action — the
+    /// churn quadratic: one window per action, D-047) collapses to one
+    /// hash probe. Maintained at the three s0_add tails + the k1_stash
+    /// restore; cleared at the k=1 window drain.
+    s0_seen: HashSet<FactId>,
     /// This rule's LIA and trie path (one node per pattern 1..k-1).
     lia: usize,
     path: Vec<usize>,
@@ -2672,20 +2680,25 @@ impl RuleNet {
         // D-267: a seen-miss on every window PROVES f is unstaged (the
         // cross-window walk was O(staged) per insert = O(N²) per flush,
         // the 78% flamegraph box); a stale-positive hit falls back to
-        // the exact scan.
-        if self.s0.iter().any(|w| w.maybe_contains(&f))
+        // the exact scan. D-385: the net-level seen short-circuits the
+        // per-window walk itself (O(#windows) per action — the churn
+        // quadratic); a miss there proves every window-seen misses too.
+        if self.s0_seen.contains(&f)
+            && self.s0.iter().any(|w| w.maybe_contains(&f))
             && self.s0.iter().any(|w| {
                 w.ins.iter().any(|(x, _, _)| *x == f) || w.upd.iter().any(|(x, _, _)| *x == f)
             })
         {
             return;
         }
+        self.s0_seen.insert(f);
         self.s0.last_mut().unwrap().add_ins(f, o);
     }
 
     fn s0_add_upd(&mut self, f: FactId, o: Origin) {
-        // D-267: same seen-miss fast path as s0_add_ins.
-        if self.s0.iter().any(|w| w.maybe_contains(&f))
+        // D-267: same seen-miss fast path as s0_add_ins (+ D-385 net level).
+        if self.s0_seen.contains(&f)
+            && self.s0.iter().any(|w| w.maybe_contains(&f))
             && self.s0.iter().any(|w| {
                 w.ins.iter().any(|(x, _, _)| *x == f)
                     || w.upd.iter().any(|(x, _, _)| *x == f)
@@ -2694,13 +2707,14 @@ impl RuleNet {
         {
             return;
         }
+        self.s0_seen.insert(f);
         self.s0.last_mut().unwrap().add_upd(f, o);
     }
 
     fn s0_add_del(&mut self, f: FactId, o: Origin) {
         // D-267: same seen-miss fast path — a miss everywhere skips all
         // three cancel/dedup walks (the lists provably hold no f).
-        if self.s0.iter().any(|w| w.maybe_contains(&f)) {
+        if self.s0_seen.contains(&f) && self.s0.iter().any(|w| w.maybe_contains(&f)) {
             for w in self.s0.iter_mut() {
                 if let Some(i) = w.ins.iter().position(|(x, _, _)| *x == f) {
                     w.ins.remove(i); // never materialized: cancel
@@ -2716,6 +2730,7 @@ impl RuleNet {
                 return;
             }
         }
+        self.s0_seen.insert(f);
         self.s0.last_mut().unwrap().add_del(f, o);
     }
 
@@ -2997,6 +3012,13 @@ pub struct Engine {
     qrow_tids: Vec<TypeId>,
     /// D-108: hidden per-pattern groupby row types ([res, key]).
     gbrow_tids: Vec<TypeId>,
+    /// D-385: lazy cursor for `nth_inserted` — the visible insertion
+    /// sequence is append-only (the hidden/gbrow filter is per-type and
+    /// a fact's type is immutable), so the scan extends incrementally
+    /// instead of walking every handle per external action (the
+    /// harness-glue side of the churn quadratic). Cleared on reset.
+    nth_vis: Vec<FactId>,
+    nth_upto: usize,
     /// D-108: per-node groupby groups (leading-position only), keyed by
     /// the canonicalized key value.
     gb_state: HashMap<usize, HashMap<String, GbGroup>>,
@@ -3133,6 +3155,8 @@ impl Engine {
             queries: Vec::new(),
             qrow_tids: Vec::new(),
             gbrow_tids: Vec::new(),
+            nth_vis: Vec::new(),
+            nth_upto: 0,
             gb_state: HashMap::new(),
             acc_provenance: HashMap::new(),
             query_mem: crate::queries::QueryMem::default(),
@@ -3349,6 +3373,10 @@ impl Engine {
     /// per depth, ne_s10; a never-linked first sink still holds the
     /// preserved copy, ne_t5).
     fn build_network(&mut self, keys: &[Vec<String>]) {
+        // D-385: the nth_inserted filter reads gbrow_tids, which this
+        // rebuild may extend — drop the cached prefix.
+        self.nth_vis.clear();
+        self.nth_upto = 0;
         let mut lia_index: HashMap<String, usize> = HashMap::new();
         let mut trie_index: HashMap<String, usize> = HashMap::new();
         for ri in 0..self.rules.len() {
@@ -3681,6 +3709,7 @@ impl Engine {
             };
             self.nets.push(RuleNet {
                 s0: vec![Staged::default()],
+                s0_seen: HashSet::new(),
                 lia,
                 path,
                 term_pending: Staged::default(),
@@ -5982,6 +6011,8 @@ impl Engine {
     /// oracle re-fires not-CE rules, probe rs_r7).
     pub fn reset(&mut self) -> Result<(), EngineError> {
         self.clock_ms = 0;
+        self.nth_vis.clear(); // D-385: handles restart at 0
+        self.nth_upto = 0;
         self.deadlines.clear();
         self.pending_expirations.clear();
         // D-110/D-112: window deadline queue clears; acc_nodes is
@@ -6044,17 +6075,22 @@ impl Engine {
         Ok(())
     }
 
-    pub fn nth_inserted(&self, n: usize) -> Option<FactId> {
+    pub fn nth_inserted(&mut self, n: usize) -> Option<FactId> {
         let hidden: Vec<TypeId> =
             [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_SETCOLLECTION, ACC_DECIMAL]
             .iter()
             .filter_map(|t| self.store.type_id(t))
             .collect();
-        self.store
-            .all_facts_in_insertion_order()
-            .filter(|f| !hidden.contains(&self.store.fact_type(*f)))
-            .filter(|f| !self.gbrow_tids.contains(&self.store.fact_type(*f)))
-            .nth(n)
+        // D-385: extend the append-only visible sequence just far enough.
+        while self.nth_vis.len() <= n && self.nth_upto < self.store.handle_count() {
+            let f = FactId(self.nth_upto as u32);
+            self.nth_upto += 1;
+            let t = self.store.fact_type(f);
+            if !hidden.contains(&t) && !self.gbrow_tids.contains(&t) {
+                self.nth_vis.push(f);
+            }
+        }
+        self.nth_vis.get(n).copied()
     }
 
     /// EXTERNAL working-memory update by handle (D-047): set the given
@@ -7399,6 +7435,15 @@ impl Engine {
         }
         for (ri, per) in k1_stash.into_iter().enumerate() {
             for (wi, dels, upds) in per {
+                // D-385: an evaluated k=1 rule drained its windows (and
+                // cleared s0_seen) between the stash and this restore —
+                // re-register so the net-level superset invariant holds.
+                for (f, _, _) in &dels {
+                    self.nets[ri].s0_seen.insert(*f);
+                }
+                for (f, _, _) in &upds {
+                    self.nets[ri].s0_seen.insert(*f);
+                }
                 if wi < self.nets[ri].s0.len() {
                     self.nets[ri].s0[wi].del.extend(dels);
                     self.nets[ri].s0[wi].upd.extend(upds);
@@ -10167,6 +10212,8 @@ impl Engine {
             // phases apply and staging is consumed OLDEST-first
             // (pr08/pr04 pin).
             let windows = std::mem::replace(&mut self.nets[ri].s0, vec![Staged::default()]);
+            self.nets[ri].s0_seen.clear(); // D-385: all windows die here
+
             self.tms.left_touched = windows
                 .iter()
                 .flat_map(|w| w.upd.iter().chain(w.del.iter()))
@@ -10174,6 +10221,14 @@ impl Engine {
                 .collect();
             self.tms.right_touched.clear(); // no CE side on LIA->terminal
             self.tms.joinr_touched.clear();
+            // D-385: exact queue-membership mirror for the upd loop's
+            // "pending keeps position" test — the per-upd queue scan was
+            // O(queue) per staged upd = O(U²) per drain (push_activation's
+            // D-267 fix was the same box on the push side). Maintained at
+            // this consume's only queue mutations (the del retain + the
+            // two push sites); the tms_* helpers are queue-inert.
+            let mut queued_t0: HashSet<FactId> =
+                self.nets[ri].queue.iter().map(|a| a.t[0]).collect();
             for s0 in windows {
                 for (f, o, _) in s0.del.iter().rev() {
                     if self.tms.unstage_born.contains(f) {
@@ -10194,6 +10249,7 @@ impl Engine {
                     let pre = self.queue_top_sal(ri).unwrap_or(0);
                     let n0 = self.nets[ri].queue.len();
                     self.nets[ri].queue.retain(|a| a.t[0] != *f);
+                    queued_t0.remove(f);
                     if self.nets[ri].queue.len() != n0 {
                         self.update_item_salience(ri, pre);
                     }
@@ -10201,8 +10257,7 @@ impl Engine {
                     self.tms_parked_del(ri, &smallvec![*f], *o);
                 }
                 for (f, o, _) in s0.upd.iter().rev() {
-                    let queued = self.nets[ri].queue.iter().any(|a| a.t[0] == *f);
-                    if queued {
+                    if queued_t0.contains(f) {
                         continue; // pending: keep position AND salience (se3)
                     }
                     if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
@@ -10210,6 +10265,7 @@ impl Engine {
                     }
                     self.tms_unpark_upd(ri, &smallvec![*f]);
                     self.push_activation(ri, smallvec![*f]);
+                    queued_t0.insert(*f);
                 }
                 for (f, o, _) in s0.ins.iter().rev() {
                     if no_loop && o.is_some_and(|oi| self.rule_parents[oi] == parent) {
@@ -10219,6 +10275,7 @@ impl Engine {
                         continue;
                     }
                     self.push_activation(ri, smallvec![*f]);
+                    queued_t0.insert(*f);
                 }
             }
             self.nets[ri].dirty = false; // evaluateNetwork -> setDirty(false)
@@ -11715,8 +11772,20 @@ impl Engine {
         parent: usize,
     ) {
         let mut reloc: Vec<Tup> = Vec::new();
+        // D-385: exact queue-membership snapshot — the k>=2 twin of the
+        // k=1 consume's per-upd queue scan (O(queue) per staged upd =
+        // O(U²) per drain). Staged dedup means each tuple appears once,
+        // so pushes for other tuples never change a later answer; the
+        // reloc pass moves tuples without changing membership. Small
+        // batches keep the direct scan.
+        let queued_set: Option<HashSet<Tup>> = (src.upd.len() >= 16)
+            .then(|| self.nets[ri].queue.iter().map(|a| a.t.clone()).collect());
         for (t, o, _) in src.upd.iter() {
-            if self.nets[ri].queue.iter().any(|a| a.t == *t) {
+            let queued = match &queued_set {
+                Some(s) => s.contains(t),
+                None => self.nets[ri].queue.iter().any(|a| a.t == *t),
+            };
+            if queued {
                 if let Some((tf, _, _)) = self.tj_trigger {
                     if self.tj_entered.contains(&ri)
                         && self.nets[ri].act_movable.get(t) == Some(&tf)

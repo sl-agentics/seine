@@ -96,6 +96,29 @@ def bench(files, repeats, label):
     print("  smallest gaps:")
     for r, k in ratios[-3:]:
         print(f"    {k:36s} engine {e_warm[k]:9.3f}ms  oracle {o_warm[k]:9.1f}ms  ({r:,.0f}x)")
+    slopes = list(_slope_lines(e_warm))
+    if slopes:
+        print("  engine growth ratios (doubling sizes: ~2 linear, ~4 quadratic):")
+        for line in slopes:
+            print(line)
+
+
+def _slope_lines(warm):
+    """Per-workload consecutive-growth ratios over a size ladder — only
+    meaningful when --sizes doubles (the D-385 quadratic detector)."""
+    import collections
+    import re
+    fam = collections.defaultdict(list)
+    for k, ms in warm.items():
+        m = re.fullmatch(r"(.+)_(\d+)", k)
+        if m:
+            fam[m.group(1)].append((int(m.group(2)), ms))
+    for name in sorted(fam):
+        pts = sorted(fam[name])
+        if len(pts) < 3:
+            continue
+        rs = ["%.2f" % (b / a) for (_, a), (_, b) in zip(pts, pts[1:]) if a > 0]
+        yield f"    {name:12s} " + "  ".join(rs)
 
 
 # ------------------------------------------------------------ scale suite
@@ -129,7 +152,32 @@ def gen_scale(outdir, sizes):
                 [T0, T1],
                 [{"type": "T0", "fields": {"k": i, "v": i}} for i in range(n)]
                 + [{"type": "T1", "fields": {"k": 0, "w": 0}}]),
+            # D-297/298 lane: logical chain to depth n, then the seed
+            # delete tears the whole belief chain down in one wave.
+            f"tms_{n}": _scn(
+                f"tms_{n}",
+                (f'rule "Grow"\nwhen\n    T($n : n, n < {n})\nthen\n'
+                 '    insertLogical(new T($n + 1));\nend\n'
+                 'rule "WGone"\nwhen\n    P(tag == "e1")\n    not T()\nthen\nend\n'),
+                [{"name": "T", "fields": [{"name": "n", "type": "i64"}]},
+                 {"name": "P", "fields": [{"name": "tag", "type": "String"}]}],
+                [{"type": "T", "fields": {"n": 1}}]),
+            # D-385 lane: n updates in ONE epoch through a join — the
+            # shape where the window/queue/join-drain quadratics lived.
+            f"churn_{n}": _scn(
+                f"churn_{n}",
+                'rule "R0"\nwhen\n    T0($k : k)\n    T1(k == $k)\nthen\nend\n',
+                [T0, T1],
+                [{"type": "T0", "fields": {"k": i, "v": i}} for i in range(n)]
+                + [{"type": "T1", "fields": {"k": i, "w": i}} for i in range(n)]),
         }
+        cases[f"tms_{n}"]["epochs"] = [
+            {"actions": [{"op": "delete", "target": 0}],
+             "facts": [{"type": "P", "fields": {"tag": "e1"}}]}]
+        cases[f"churn_{n}"]["epochs"] = [
+            {"actions": [{"op": "update", "target": i, "fields": {"k": i, "v": i + 1}}
+                         for i in range(n)],
+             "facts": []}]
         for name, scn in cases.items():
             p = os.path.join(outdir, f"{name}.json")
             json.dump(scn, open(p, "w"))
@@ -160,6 +208,9 @@ def main():
         with tempfile.TemporaryDirectory() as d:
             files = gen_scale(d, sizes)
             bench(files, args.repeats, f"scale suite (n = {args.sizes})")
+        # Doubling ladders (e.g. --sizes 2000,4000,8000,16000,32000)
+        # read the growth exponent directly: consecutive ratio ~2 =
+        # linear, ~4 = quadratic (how D-385's churn quadratic was found).
     if args.paths:
         bench(args.paths, args.repeats, "explicit files")
 
