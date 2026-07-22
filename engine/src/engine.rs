@@ -1839,7 +1839,7 @@ struct EqKeyEntry {
 /// (amortized, live*2 < len) rebuilds all three in live order.
 #[derive(Default)]
 struct ByAct {
-    slots: Vec<Option<((usize, Tup), Vec<(TypeId, KeyVec)>)>>,
+    slots: Vec<Option<((usize, Tup), Vec<u32>)>>,
     idx: HashMap<(usize, Tup), usize>,
     fact_slots: HashMap<FactId, Vec<usize>>,
     live: usize,
@@ -1854,20 +1854,20 @@ impl ByAct {
         self.idx.contains_key(act)
     }
 
-    fn get(&self, act: &(usize, Tup)) -> Option<&Vec<(TypeId, KeyVec)>> {
+    fn get(&self, act: &(usize, Tup)) -> Option<&Vec<u32>> {
         self.idx
             .get(act)
             .map(|&i| &self.slots[i].as_ref().expect("idx points at live slot").1)
     }
 
-    fn get_mut(&mut self, act: &(usize, Tup)) -> Option<&mut Vec<(TypeId, KeyVec)>> {
+    fn get_mut(&mut self, act: &(usize, Tup)) -> Option<&mut Vec<u32>> {
         let i = *self.idx.get(act)?;
         Some(&mut self.slots[i].as_mut().expect("idx points at live slot").1)
     }
 
     /// The tms_add site: append `key` to the act's list (dedup'd), or
     /// append a fresh entry — insertion order = the old Vec push.
-    fn add_key(&mut self, act: (usize, Tup), key: (TypeId, KeyVec)) {
+    fn add_key(&mut self, act: (usize, Tup), key: u32) {
         match self.idx.get(&act) {
             Some(&i) => {
                 let ks = &mut self.slots[i].as_mut().expect("idx points at live slot").1;
@@ -1890,7 +1890,7 @@ impl ByAct {
         }
     }
 
-    fn remove(&mut self, act: &(usize, Tup)) -> Option<Vec<(TypeId, KeyVec)>> {
+    fn remove(&mut self, act: &(usize, Tup)) -> Option<Vec<u32>> {
         let i = self.idx.remove(act)?;
         let (_, ks) = self.slots[i].take().expect("idx points at live slot");
         self.live -= 1;
@@ -1913,10 +1913,10 @@ impl ByAct {
 
     /// The route-delete sweep: drop `key` from every act's list, then
     /// drop entries whose list emptied (the old retain pair).
-    fn sweep_key(&mut self, key: &(TypeId, KeyVec)) {
+    fn sweep_key(&mut self, key: u32) {
         for i in 0..self.slots.len() {
             let Some((_, ks)) = self.slots[i].as_mut() else { continue };
-            ks.retain(|k| k != key);
+            ks.retain(|k| *k != key);
             if ks.is_empty() {
                 let (act, _) = self.slots[i].take().expect("checked live");
                 self.idx.remove(&act);
@@ -1959,10 +1959,20 @@ struct Tms {
     /// machine is heap-bounded and a legitimate fixpoint teardown
     /// reaches ~100k deep (pr_ub_deep_99k).
     cascade_collect: Option<Vec<(usize, Tup)>>,
+    /// D-388 (the TMS arena): equality keys are INTERNED — one deep
+    /// hash per sighting, then a Copy u32 KeyId everywhere. The arena
+    /// and intern table are append-only (ids stable for the session;
+    /// value recurrence after a key death reuses the id with a fresh
+    /// entry — the same observable as the old remove+recreate, incl.
+    /// the fz_42_1395 had_justified fresh start); entries live in a
+    /// parallel Vec indexed DIRECTLY (no hashing on access). reset()
+    /// rebuilds Tms wholesale, clearing all three.
+    key_arena: Vec<(TypeId, KeyVec)>,
+    key_ids: HashMap<(TypeId, KeyVec), u32>,
     /// Value-equality keys over ALL declared fields (D-066).
-    keys: HashMap<(TypeId, KeyVec), EqKeyEntry>,
+    key_entries: Vec<Option<EqKeyEntry>>,
     /// Every live fact of a logical type -> its key.
-    by_fact: HashMap<FactId, (TypeId, KeyVec)>,
+    by_fact: HashMap<FactId, u32>,
     /// Activation -> keys it currently supports, in support order
     /// (D-297: indexed, order-preserving — see ByAct).
     by_act: ByAct,
@@ -1990,7 +2000,7 @@ struct Tms {
     /// refire-supersede pass (fz_7777_112/74: Drools removes an
     /// activation's previous-firing deps that the new firing did not
     /// re-establish; dump-c's stable belief count is replace-not-keep).
-    firing_keys: Vec<(TypeId, KeyVec)>,
+    firing_keys: Vec<u32>,
     /// PARKED tuples (the self-defeat quirk, t10/t11/t15): Drools
     /// leaks the dead blocker, so the tuple ignores right-side churn
     /// entirely; only LEFT-side events (tuple-fact update / death /
@@ -2055,6 +2065,37 @@ struct Tms {
     /// them (the relay diagnosis Drools never gives; message keeps the
     /// certified "fire limit" prefix, the D-013/j21 parity substring).
     self_defeats: std::collections::HashSet<usize>,
+}
+
+impl Tms {
+    /// D-388: one deep hash per key sighting; arena slot on first sight.
+    fn intern(&mut self, key: (TypeId, KeyVec)) -> u32 {
+        if let Some(&id) = self.key_ids.get(&key) {
+            return id;
+        }
+        let id = self.key_arena.len() as u32;
+        self.key_arena.push(key.clone());
+        self.key_ids.insert(key, id);
+        self.key_entries.push(None);
+        id
+    }
+    fn kval(&self, id: u32) -> &(TypeId, KeyVec) {
+        &self.key_arena[id as usize]
+    }
+    fn kget(&self, id: u32) -> Option<&EqKeyEntry> {
+        self.key_entries[id as usize].as_ref()
+    }
+    fn kget_mut(&mut self, id: u32) -> Option<&mut EqKeyEntry> {
+        self.key_entries[id as usize].as_mut()
+    }
+    /// The old `keys.entry(key).or_default()`: recreate-at-same-id is
+    /// observably the old recreate-at-same-value.
+    fn kentry(&mut self, id: u32) -> &mut EqKeyEntry {
+        self.key_entries[id as usize].get_or_insert_with(Default::default)
+    }
+    fn kremove(&mut self, id: u32) {
+        self.key_entries[id as usize] = None;
+    }
 }
 
 /// Queryable justification view (D-076): what supports this fact, and
@@ -12030,7 +12071,7 @@ impl Engine {
         // prior support keys; deps not re-established by THIS firing are
         // removed in the epilogue (fz_7777_112/74, dump-c).
         let tms_act = (ri, Tup::from_slice(tuple));
-        let tms_prev: Vec<(TypeId, KeyVec)> = self
+        let tms_prev: Vec<u32> = self
             .tms
             .by_act
             .get(&tms_act)
@@ -12207,10 +12248,10 @@ impl Engine {
         // D-076 refire-supersede epilogue: previous-firing deps this
         // firing did not re-establish are removed; emptied belief sets
         // retract their justified facts (nested actions + fixpoint).
-        let stale: Vec<(TypeId, KeyVec)> = tms_prev
+        let stale: Vec<u32> = tms_prev
             .iter()
             .filter(|k| !self.tms.firing_keys.contains(k))
-            .cloned()
+            .copied()
             .collect();
         if !stale.is_empty() {
             let mut to_retract: Vec<FactId> = Vec::new();
@@ -12220,8 +12261,8 @@ impl Engine {
                     self.tms.by_act.remove(&tms_act);
                 }
             }
-            for key in &stale {
-                if let Some(e) = self.tms.keys.get_mut(key) {
+            for &key in &stale {
+                if let Some(e) = self.tms.key_entries[key as usize].as_mut() {
                     e.beliefs.retain(|j| !(j.ri == tms_act.0 && j.tuple == tms_act.1));
                     if e.beliefs.is_empty() {
                         if let Some(jf) = e.justified.take() {
@@ -12237,12 +12278,12 @@ impl Engine {
                                 self.tms.by_fact.remove(&sb);
                                 self.tms.orphans.insert(sb);
                             }
-                            self.tms.keys.remove(key);
+                            self.tms.key_entries[key as usize] = None;
                         } else if e.pending_vals.is_some() {
                             // ⚖ D-211 pending-clear (c2/c3/c4 law).
                             e.pending_vals = None;
                             if e.stated.is_empty() {
-                                self.tms.keys.remove(key);
+                                self.tms.key_entries[key as usize] = None;
                             }
                         }
                     }
@@ -12264,9 +12305,9 @@ impl Engine {
             let mut wake_facts: Vec<FactId> = Vec::new();
             if has_new && !to_retract.is_empty() {
                 wake_facts.extend(to_retract.iter().copied());
-                for k in &self.tms.firing_keys {
-                    if !tms_prev.contains(k) {
-                        if let Some(e) = self.tms.keys.get(k) {
+                for &k in &self.tms.firing_keys {
+                    if !tms_prev.contains(&k) {
+                        if let Some(e) = self.tms.key_entries[k as usize].as_ref() {
                             if let Some(jf) = e.justified {
                                 wake_facts.push(jf);
                             }
@@ -12449,11 +12490,12 @@ impl Engine {
             return;
         }
         let key = self.tms_key_of(tid, f);
-        self.tms.keys.entry(key.clone()).or_default().stated.push(f);
+        let kid = self.tms.intern(key);
+        self.tms.kentry(kid).stated.push(f);
         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-            eprintln!("TMS key[stated-note] f{f:?} key={key:?}");
+            eprintln!("TMS key[stated-note] f{f:?} key={:?}", self.tms.kval(kid));
         }
-        self.tms.by_fact.insert(f, key);
+        self.tms.by_fact.insert(f, kid);
     }
 
     /// ⚖ D-211: TMS activation — the first insertLogical backfills the
@@ -12472,15 +12514,17 @@ impl Engine {
             }
             let tid = self.store.fact_type(f);
             let key = self.tms_key_of(tid, f);
-            let e = self.tms.keys.entry(key.clone()).or_default();
-            for prev in e.stated.drain(..) {
+            let kid = self.tms.intern(key);
+            let e = self.tms.kentry(kid);
+            let prevs: Vec<FactId> = e.stated.drain(..).collect();
+            e.stated.push(f);
+            for prev in prevs {
                 self.tms.by_fact.remove(&prev);
             }
-            e.stated.push(f);
             if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-                eprintln!("TMS key[backfill] f{f:?} key={key:?}");
+                eprintln!("TMS key[backfill] f{f:?} key={:?}", self.tms.kval(kid));
             }
-            self.tms.by_fact.insert(f, key);
+            self.tms.by_fact.insert(f, kid);
         }
     }
 
@@ -12495,11 +12539,11 @@ impl Engine {
         values: Vec<Value>,
     ) -> Result<(), EngineError> {
         self.tms_activate();
-        let key = (tid, key_vals(&values));
+        let kid = self.tms.intern((tid, key_vals(&values)));
         let act = (ri, tuple.clone());
         let seq = self.tms.seq;
         self.tms.seq += 1;
-        let entry = self.tms.keys.entry(key.clone()).or_default();
+        let entry = self.tms.kentry(kid);
         let need_insert = entry.justified.is_none() && entry.stated.is_empty();
         if entry.justified.is_some() || !entry.stated.is_empty() {
             if !entry.beliefs.iter().any(|j| j.ri == ri && j.tuple == *tuple) {
@@ -12512,22 +12556,22 @@ impl Engine {
         let mut inserted = None;
         if need_insert {
             let f = self.store.insert(tid, values).map_err(EngineError)?;
-            let e = self.tms.keys.get_mut(&key).expect("key just created");
+            let e = self.tms.kget_mut(kid).expect("key just created");
             e.justified = Some(f);
             e.had_justified = true;
             e.beliefs.push(Justif { ri, tuple: tuple.clone(), seq });
-            self.tms.by_fact.insert(f, key.clone());
+            self.tms.by_fact.insert(f, kid);
             inserted = Some(f);
         }
         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-            let e = self.tms.keys.get(&key).expect("key");
+            let e = self.tms.kget(kid).expect("key");
             eprintln!(
                 "TMS key[logical] key={:?} need_insert={} pending={} beliefs={} stated={:?} justified={:?}",
-                key, need_insert, e.pending_vals.is_some(), e.beliefs.len(),
+                self.tms.kval(kid), need_insert, e.pending_vals.is_some(), e.beliefs.len(),
                 e.stated, e.justified
             );
         }
-        self.tms.firing_keys.push(key.clone());
+        self.tms.firing_keys.push(kid);
         // ⚖ D-195/D-196 (the RHS-order race, engine translation): a
         // MUTFIRST consequence mutated its own tuple BEFORE this
         // insertLogical — a tuple member's alpha already fails on the
@@ -12553,7 +12597,7 @@ impl Engine {
         if late && !self.tms.late_acts.iter().any(|a| *a == act) {
             self.tms.late_acts.push(act.clone());
         }
-        self.tms.by_act.add_key(act, key);
+        self.tms.by_act.add_key(act, kid);
         if let Some(f) = inserted {
             self.on_insert(f, Some(ri));
         }
@@ -12581,10 +12625,10 @@ impl Engine {
             }
             return (None, None);
         }
-        let Some(key) = self.tms.by_fact.get(&f).cloned() else {
+        let Some(kid) = self.tms.by_fact.get(&f).copied() else {
             return (Some(f), None); // not a logical-type fact: normal delete
         };
-        let Some(e) = self.tms.keys.get_mut(&key) else {
+        let Some(e) = self.tms.key_entries[kid as usize].as_mut() else {
             return (Some(f), None);
         };
         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
@@ -12611,8 +12655,8 @@ impl Engine {
                 self.tms.by_fact.remove(&sb);
                 self.tms.orphans.insert(sb);
             }
-            self.tms.by_act.sweep_key(&key);
-            self.tms.keys.remove(&key);
+            self.tms.by_act.sweep_key(kid);
+            self.tms.kremove(kid);
             return (Some(jf), None);
         }
         if e.had_justified {
@@ -12640,9 +12684,10 @@ impl Engine {
                 self.tms.by_fact.remove(sb);
                 self.tms.orphans.insert(*sb);
             }
-            self.tms.by_act.sweep_key(&key);
-            self.tms.keys.remove(&key);
-            return (Some(f), Some((key.0, vals)));
+            self.tms.by_act.sweep_key(kid);
+            let ktid = self.tms.key_arena[kid as usize].0;
+            self.tms.kremove(kid);
+            return (Some(f), Some((ktid, vals)));
         }
         e.stated.retain(|x| *x != f);
         self.tms.by_fact.remove(&f);
@@ -12654,7 +12699,7 @@ impl Engine {
                 if std::env::var("SEINE_TMS_DEBUG").is_ok() {
                     eprintln!("TMS key[route-del/unstage] f{f:?} vals={vals:?}");
                 }
-                return (Some(f), Some((key.0, vals)));
+                return (Some(f), Some((self.tms.key_arena[kid as usize].0, vals)));
             }
         }
         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
@@ -12668,9 +12713,9 @@ impl Engine {
         // stated deletes and starved the unstage gate.
         if e.stated.is_empty() {
             e.beliefs.clear(); // stated-only key dies with its handles (tms_e6)
-            self.tms.by_act.sweep_key(&key);
-            if self.tms.keys.get(&key).map(|e| e.justified.is_none() && e.stated.is_empty()).unwrap_or(false) {
-                self.tms.keys.remove(&key);
+            self.tms.by_act.sweep_key(kid);
+            if self.tms.kget(kid).map(|e| e.justified.is_none() && e.stated.is_empty()).unwrap_or(false) {
+                self.tms.kremove(kid);
             }
         }
         (Some(f), None)
@@ -12679,10 +12724,10 @@ impl Engine {
     /// Materialize an unstaged justified belief (dump7): insert the
     /// pending values as the key's justified handle.
     fn tms_materialize(&mut self, tid: TypeId, vals: Vec<Value>) -> Result<(), EngineError> {
-        let key = (tid, key_vals(&vals));
+        let kid = self.tms.intern((tid, key_vals(&vals)));
         let f = self.store.insert(tid, vals).map_err(EngineError)?;
         if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-            eprintln!("TMS key[materialize] key={key:?} f{f:?}");
+            eprintln!("TMS key[materialize] key={:?} f{f:?}", self.tms.kval(kid));
         }
         // ⚖ D-211: the unstage-born handle is fully TMS-DROPPED (the
         // oracle dumps show @5 leaving the map — 4048/d1); no entry
@@ -12690,10 +12735,10 @@ impl Engine {
         // and (the dynamic law, F2) must not cancel queued acts.
         self.tms.unstage_born.insert(f);
         self.tms.force_eval.push(f);
-        if let Some(e) = self.tms.keys.get_mut(&key) {
+        if let Some(e) = self.tms.kget_mut(kid) {
             e.justified = Some(f);
             e.had_justified = true;
-            self.tms.by_fact.insert(f, key);
+            self.tms.by_fact.insert(f, kid);
         }
         self.on_insert(f, None);
         Ok(())
@@ -13219,8 +13264,8 @@ impl Engine {
             return Vec::new();
         };
         let mut out = Vec::new();
-        for key in keys {
-            let Some(e) = self.tms.keys.get(key) else { continue };
+        for &key in keys {
+            let Some(e) = self.tms.kget(key) else { continue };
             let survives = e
                 .beliefs
                 .iter()
@@ -13408,7 +13453,7 @@ impl Engine {
                     };
                     let mut to_retract: Vec<(u64, FactId)> = Vec::new();
                     for key in keys {
-                        let Some(e) = self.tms.keys.get_mut(&key) else { continue };
+                        let Some(e) = self.tms.key_entries[key as usize].as_mut() else { continue };
                         e.beliefs.retain(|j| !(j.ri == act.0 && j.tuple == act.1));
                         if e.beliefs.is_empty() {
                             if let Some(jf) = e.justified.take() {
@@ -13424,20 +13469,20 @@ impl Engine {
                                     self.tms.by_fact.remove(&sb);
                                     self.tms.orphans.insert(sb);
                                     if std::env::var("SEINE_TMS_DEBUG").is_ok() {
-                                        eprintln!("TMS key[l6-orphan] f{sb:?} key={key:?}");
+                                        eprintln!("TMS key[l6-orphan] f{sb:?} key={:?}", self.tms.key_arena[key as usize]);
                                     }
                                 }
-                                self.tms.keys.remove(&key);
+                                self.tms.key_entries[key as usize] = None;
                             } else if e.pending_vals.is_some() {
                                 // ⚖ D-211 PENDING-CLEAR (c2/c3/c4): deps-empty on a
                                 // NON-WM pending belief clears the bookkeeping; the
                                 // key survives as pure stated.
                                 e.pending_vals = None;
                                 if e.stated.is_empty() {
-                                    self.tms.keys.remove(&key);
+                                    self.tms.key_entries[key as usize] = None;
                                 }
                             } else if e.stated.is_empty() {
-                                self.tms.keys.remove(&key); // fz_42_1395: fresh start
+                                self.tms.key_entries[key as usize] = None; // fz_42_1395: fresh start
                             }
                         }
                     }
@@ -13472,7 +13517,7 @@ impl Engine {
     /// with its supports and stated siblings — the why-engine substrate.
     pub fn justifications(&self) -> Vec<JustificationView> {
         let mut out: Vec<JustificationView> = Vec::new();
-        for ((_, _), e) in self.tms.keys.iter().map(|(k, e)| (k, e)) {
+        for e in self.tms.key_entries.iter().flatten() {
             let Some(jf) = e.justified else { continue };
             let mut supports: Vec<SupportView> = e
                 .beliefs
