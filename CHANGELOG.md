@@ -4,6 +4,35 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## 0.4.56
+
+The performance round (D-384..D-389) — engine-only; every change
+byte-gate-certified against the full corpus (no observable behavior
+moved). Found by re-running the comparative benches with doubling
+sizes between runs, then profiling what the ladder flagged.
+
+- **Bulk update churn is now linear.** n updates in one epoch through
+  a join was quadratic (five stacked O(n)-per-event scans: the
+  per-action staging-window walk, the activation-queue membership
+  scans at both terminal arities, the join drain's four per-update
+  memory scans, and a harness-side target-lookup walk). At 32k
+  updates: 8.1s → 340ms (24×), from 35× slower than warm Drools to
+  parity-or-better through 16k.
+- **The TMS lane is ~10% faster and its remaining gap is mapped.**
+  Equality keys are interned behind a copyable id (one deep hash per
+  key sighting, direct indexing after); the per-firing support
+  snapshot is now an int memcpy. The residual 3× vs warm Drools on
+  deep logical chains is measured allocator economics, with the
+  negative results recorded alongside the wins.
+- **Diagnostics probes no longer scan the environment per operation**
+  (`SEINE_TMS_DEBUG`/`SEINE_FLUSH_DEBUG` are read once per process).
+- **The quadratic detector is a standing tool**:
+  `tools/bench_oracle.py --scale` gained TMS-teardown and
+  update-churn workloads plus a growth-ratio table — doubling sizes
+  read the exponent directly.
+- Workspace compiles with zero warnings (dead-code pass; the one
+  write-only flag mechanism deleted).
+
 ## 0.4.55
 
 The mid-model UAT round (Sonnet, frozen-prompt benchmark run on
