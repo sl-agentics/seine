@@ -1758,6 +1758,15 @@ impl PxShadow {
 use crate::phreak::{self, Origin, Staged, Tup};
 use smallvec::smallvec;
 
+/// D-386 (the TMS alloc diet): the eq-key field-list type, aliased so
+/// the representation is swappable in one line. MEASURED: the SmallVec
+/// inline variant ([KeyVal; 2] — 88B by value with the i128 decimal
+/// arm) LOST ~12% on the TMS ladder — the teardown's map moves and
+/// retains memcpy the fat key everywhere, outweighing the saved
+/// per-key heap alloc. Vec's 24B header wins; the alias stays as the
+/// experiment record.
+type KeyVec = smallvec::SmallVec<[KeyVal; 2]>;
+
 /// TMS equality-key value: Value with Java-equals semantics for doubles
 /// (Double.equals = bit comparison: NaN==NaN, +0.0 != -0.0 — tms_u6).
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -1777,7 +1786,7 @@ enum KeyVal {
     D(i128, u8),
 }
 
-fn key_vals(vals: &[Value]) -> Vec<KeyVal> {
+fn key_vals(vals: &[Value]) -> KeyVec {
     vals.iter()
         .map(|v| match v {
             Value::I64(n) => KeyVal::I(*n),
@@ -1830,7 +1839,7 @@ struct EqKeyEntry {
 /// (amortized, live*2 < len) rebuilds all three in live order.
 #[derive(Default)]
 struct ByAct {
-    slots: Vec<Option<((usize, Tup), Vec<(TypeId, Vec<KeyVal>)>)>>,
+    slots: Vec<Option<((usize, Tup), Vec<(TypeId, KeyVec)>)>>,
     idx: HashMap<(usize, Tup), usize>,
     fact_slots: HashMap<FactId, Vec<usize>>,
     live: usize,
@@ -1845,20 +1854,20 @@ impl ByAct {
         self.idx.contains_key(act)
     }
 
-    fn get(&self, act: &(usize, Tup)) -> Option<&Vec<(TypeId, Vec<KeyVal>)>> {
+    fn get(&self, act: &(usize, Tup)) -> Option<&Vec<(TypeId, KeyVec)>> {
         self.idx
             .get(act)
             .map(|&i| &self.slots[i].as_ref().expect("idx points at live slot").1)
     }
 
-    fn get_mut(&mut self, act: &(usize, Tup)) -> Option<&mut Vec<(TypeId, Vec<KeyVal>)>> {
+    fn get_mut(&mut self, act: &(usize, Tup)) -> Option<&mut Vec<(TypeId, KeyVec)>> {
         let i = *self.idx.get(act)?;
         Some(&mut self.slots[i].as_mut().expect("idx points at live slot").1)
     }
 
     /// The tms_add site: append `key` to the act's list (dedup'd), or
     /// append a fresh entry — insertion order = the old Vec push.
-    fn add_key(&mut self, act: (usize, Tup), key: (TypeId, Vec<KeyVal>)) {
+    fn add_key(&mut self, act: (usize, Tup), key: (TypeId, KeyVec)) {
         match self.idx.get(&act) {
             Some(&i) => {
                 let ks = &mut self.slots[i].as_mut().expect("idx points at live slot").1;
@@ -1881,7 +1890,7 @@ impl ByAct {
         }
     }
 
-    fn remove(&mut self, act: &(usize, Tup)) -> Option<Vec<(TypeId, Vec<KeyVal>)>> {
+    fn remove(&mut self, act: &(usize, Tup)) -> Option<Vec<(TypeId, KeyVec)>> {
         let i = self.idx.remove(act)?;
         let (_, ks) = self.slots[i].take().expect("idx points at live slot");
         self.live -= 1;
@@ -1904,7 +1913,7 @@ impl ByAct {
 
     /// The route-delete sweep: drop `key` from every act's list, then
     /// drop entries whose list emptied (the old retain pair).
-    fn sweep_key(&mut self, key: &(TypeId, Vec<KeyVal>)) {
+    fn sweep_key(&mut self, key: &(TypeId, KeyVec)) {
         for i in 0..self.slots.len() {
             let Some((_, ks)) = self.slots[i].as_mut() else { continue };
             ks.retain(|k| k != key);
@@ -1951,9 +1960,9 @@ struct Tms {
     /// reaches ~100k deep (pr_ub_deep_99k).
     cascade_collect: Option<Vec<(usize, Tup)>>,
     /// Value-equality keys over ALL declared fields (D-066).
-    keys: HashMap<(TypeId, Vec<KeyVal>), EqKeyEntry>,
+    keys: HashMap<(TypeId, KeyVec), EqKeyEntry>,
     /// Every live fact of a logical type -> its key.
-    by_fact: HashMap<FactId, (TypeId, Vec<KeyVal>)>,
+    by_fact: HashMap<FactId, (TypeId, KeyVec)>,
     /// Activation -> keys it currently supports, in support order
     /// (D-297: indexed, order-preserving — see ByAct).
     by_act: ByAct,
@@ -1981,7 +1990,7 @@ struct Tms {
     /// refire-supersede pass (fz_7777_112/74: Drools removes an
     /// activation's previous-firing deps that the new firing did not
     /// re-establish; dump-c's stable belief count is replace-not-keep).
-    firing_keys: Vec<(TypeId, Vec<KeyVal>)>,
+    firing_keys: Vec<(TypeId, KeyVec)>,
     /// PARKED tuples (the self-defeat quirk, t10/t11/t15): Drools
     /// leaks the dead blocker, so the tuple ignores right-side churn
     /// entirely; only LEFT-side events (tuple-fact update / death /
@@ -12021,7 +12030,7 @@ impl Engine {
         // prior support keys; deps not re-established by THIS firing are
         // removed in the epilogue (fz_7777_112/74, dump-c).
         let tms_act = (ri, Tup::from_slice(tuple));
-        let tms_prev: Vec<(TypeId, Vec<KeyVal>)> = self
+        let tms_prev: Vec<(TypeId, KeyVec)> = self
             .tms
             .by_act
             .get(&tms_act)
@@ -12029,8 +12038,10 @@ impl Engine {
             .unwrap_or_default();
         // D-336: the supersede-pair wake reads "new key this firing"
         // against the prologue snapshot.
-        let tms_prev_set: std::collections::HashSet<(TypeId, Vec<KeyVal>)> =
-            tms_prev.iter().cloned().collect();
+        // D-386: membership below tests against tms_prev DIRECTLY — the
+        // support list is bounded by the RHS's insertLogical count
+        // (source-code small), so the per-firing HashSet was pure
+        // allocation churn for a 1-3 element linear scan.
         self.tms.firing_keys.clear();
         self.tms.current_act = Some(tms_act.clone());
         // Declaration snapshot: binding values are extracted once when the
@@ -12196,9 +12207,10 @@ impl Engine {
         // D-076 refire-supersede epilogue: previous-firing deps this
         // firing did not re-establish are removed; emptied belief sets
         // retract their justified facts (nested actions + fixpoint).
-        let stale: Vec<(TypeId, Vec<KeyVal>)> = tms_prev
-            .into_iter()
+        let stale: Vec<(TypeId, KeyVec)> = tms_prev
+            .iter()
             .filter(|k| !self.tms.firing_keys.contains(k))
+            .cloned()
             .collect();
         if !stale.is_empty() {
             let mut to_retract: Vec<FactId> = Vec::new();
@@ -12248,12 +12260,12 @@ impl Engine {
                 .tms
                 .firing_keys
                 .iter()
-                .any(|k| !tms_prev_set.contains(k));
+                .any(|k| !tms_prev.contains(k));
             let mut wake_facts: Vec<FactId> = Vec::new();
             if has_new && !to_retract.is_empty() {
                 wake_facts.extend(to_retract.iter().copied());
                 for k in &self.tms.firing_keys {
-                    if !tms_prev_set.contains(k) {
+                    if !tms_prev.contains(k) {
                         if let Some(e) = self.tms.keys.get(k) {
                             if let Some(jf) = e.justified {
                                 wake_facts.push(jf);
@@ -12413,7 +12425,7 @@ impl Engine {
     // from the graph (belief set empties -> justified handle retracts).
     // ------------------------------------------------------------------
 
-    fn tms_key_of(&self, tid: TypeId, f: FactId) -> (TypeId, Vec<KeyVal>) {
+    fn tms_key_of(&self, tid: TypeId, f: FactId) -> (TypeId, KeyVec) {
         let n = self.store.schema(tid).fields.len();
         let vals: Vec<Value> = (0..n).map(|i| self.store.value(f, i)).collect();
         (tid, key_vals(&vals))
