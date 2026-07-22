@@ -55,6 +55,16 @@ pl.DataFrame(res.firings)              # full audit trail
   reference — `Session([rule])` alone works; `insert_row(Account(...))`
   needs no type argument.
 
+- **Linear where it counts**: alpha, joins, aggregates, TMS
+  chains/teardowns, and bulk update churn all measure linear under a
+  doubling-size ladder run through this public API
+  (`tools/bench_wheel.py` in the repo). The headline: 32k updates
+  through a join took 712 s on the 0.4.55 wheel (quadratic — engine
+  and bindings each contributed a lane) and 219 ms on 0.4.57.
+  Honest counterpoint: deep logical-chain TMS still runs ~3× behind
+  warm real-Drools on the same box — the decomposition is in the
+  repo's commit record.
+
 Install: `pip install seine-rs` — the import is `import seine_rs`.
 
 Source, scenario corpus, the guided tours (`demo/tours/`), and the

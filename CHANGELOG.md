@@ -4,6 +4,20 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## 0.4.57
+
+The wheel-verification catch (D-390). Running 0.4.56's doubling
+ladder **against the published wheel through the public Python API**
+showed bulk update churn still quadratic (32k updates: 682 s) — the
+engine lane was fixed, but `update()`/`delete()` captured
+TMS-cascade retractions by **rendering the full store twice per
+call** and diffing handle sets. The capture now drains an opt-in
+retraction log at the store's single death chokepoint (same
+observable cascade, including the materialize-then-die transient
+exclusion): 32k updates 682 s → **219 ms**, all five API-ladder
+workloads linear. The ladder graduates as `tools/bench_wheel.py`;
+both READMEs gain the measured performance table.
+
 ## 0.4.56
 
 The performance round (D-384..D-389) — engine-only; every change

@@ -135,6 +135,33 @@ min/max stale-extremum defect (apache/incubator-kie-issues#2366) —
 Seine computes the correct value; the fix was merged upstream
 (kie-drools#6796) and graduates here at the next oracle bump.
 
+## Performance
+
+Measured through the **public Python API on published wheels**
+(`tools/bench_wheel.py`: five workloads at doubling sizes 2k→32k;
+a consecutive-doubling ratio ~2 reads linear, ~4 reads quadratic).
+Absolute numbers are one Linux box and move with hardware; the
+*ratios* and the *relative* columns are the claim.
+
+| workload (32k scale) | 0.4.55 wheel | 0.4.57 wheel | growth |
+|---|---|---|---|
+| alpha filter, 32k facts | 61 ms | 64 ms | linear |
+| indexed join, 32k×32k | 171 ms | 172 ms | linear |
+| accumulate sum over 32k | 29 ms | 28 ms | linear |
+| 32k-deep logical chain + full TMS teardown | 156 ms | 123 ms | linear |
+| **32k updates through a join** | **712,000 ms** (quadratic) | **219 ms** | **linear** |
+
+The bulk-update lane was quadratic twice over — five stacked
+O(n)-per-event scans in the engine (fixed in 0.4.56) and a
+full-store render per `update()`/`delete()` in the bindings' cascade
+capture (fixed in 0.4.57, caught by running this very ladder against
+the published 0.4.56 wheel). Against warm real-Drools on the same
+workloads via the harness lane, the engine is ahead on alpha/join/
+accumulate at every measured size and behind (~3×) on deep logical-
+chain TMS, where the JVM's nursery allocator genuinely earns its
+keep — the decomposition and the negative results are in the
+commit record (D-385..D-390).
+
 ## Explicit non-goals (hard walls)
 
 The full ledger with per-row rationale is `FEATURES.md` §3 (can't) and
