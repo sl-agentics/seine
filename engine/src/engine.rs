@@ -1786,6 +1786,21 @@ enum KeyVal {
     D(i128, u8),
 }
 
+/// D-389: the SEINE_TMS_DEBUG env probe, cached — std::env::var walks
+/// the whole environ with strncmp per call (3.65% of TMS-lane profile
+/// samples at 32k). Read ONCE per process; setting the var after
+/// startup no longer enables mid-run (diagnostics-only contract).
+fn tms_debug() -> bool {
+    static D: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *D.get_or_init(|| std::env::var("SEINE_TMS_DEBUG").is_ok())
+}
+
+/// D-389: same caching for the flush-loop probe.
+fn flush_debug() -> bool {
+    static D: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *D.get_or_init(|| std::env::var("SEINE_FLUSH_DEBUG").is_ok())
+}
+
 fn key_vals(vals: &[Value]) -> KeyVec {
     vals.iter()
         .map(|v| match v {
@@ -7470,7 +7485,7 @@ impl Engine {
                 self.nets[ri].s0.iter().map(|w| w.ins.len() + w.del.len() + w.upd.len()).sum();
             let is_touched = s0_now > pre.1[ri]
                 || self.nets[ri].path.iter().any(|&ni| touched_node[ni]);
-            if std::env::var("SEINE_FLUSH_DEBUG").is_ok() && (self.nets[ri].queued || is_touched) {
+            if flush_debug() && (self.nets[ri].queued || is_touched) {
                 eprintln!("flush: r{ri} queued={} touched={is_touched}", self.nets[ri].queued);
             }
             // D-102 cycle-4 (u1c/987, if_flush=pair_unless_held): a
@@ -7721,7 +7736,7 @@ impl Engine {
                 if self.nets[ri].path.iter().any(|ni| touched.contains(ni))
                     && self.rule_linked(ri)
                 {
-                    if std::env::var("SEINE_FLUSH_DEBUG").is_ok() {
+                    if flush_debug() {
                         eprintln!("flush: REQUEUE r{ri}");
                     }
                     self.nets[ri].queued = true;
@@ -8707,7 +8722,7 @@ impl Engine {
                         self.tms.exp_deferred.iter().position(|(ri, _)| *ri == l)
                     {
                         let (_, tuple) = self.tms.exp_deferred.remove(i);
-                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                        if tms_debug() {
                             eprintln!("TMS drain[post-fire-exp] r{l} {tuple:?}");
                         }
                         self.tms_on_terminal_del(l, &tuple);
@@ -8728,7 +8743,7 @@ impl Engine {
                             && !(eq_decl_preempt && (*fl & 2) != 0)
                     }) {
                         let (_, tuple, fl) = self.tms.deferred.remove(i);
-                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                        if tms_debug() {
                             eprintln!("TMS drain[post-fire-continue] r{l} {tuple:?}");
                         }
                     // D-198 (sd_b4): an or-twin's SIBLING branch must
@@ -9079,7 +9094,7 @@ impl Engine {
                     // (cf11x24: ND4@2 before NE5@0).
                     let pending = std::mem::take(&mut self.tms.exp_deferred);
                     for (dri, tuple) in pending {
-                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                        if tms_debug() {
                             eprintln!("TMS drain[quiescence-exp] r{dri} {tuple:?}");
                         }
                         self.tms_on_terminal_del(dri, &tuple);
@@ -9093,7 +9108,7 @@ impl Engine {
                 if !self.tms.exp_deferred.is_empty() {
                     let pending = std::mem::take(&mut self.tms.exp_deferred);
                     for (dri, tuple) in pending {
-                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                        if tms_debug() {
                             eprintln!("TMS drain[quiescence-bare] r{dri} {tuple:?}");
                         }
                         self.tms_on_terminal_del(dri, &tuple);
@@ -9114,7 +9129,7 @@ impl Engine {
                 if !self.tms.deferred.is_empty() {
                     let pending = std::mem::take(&mut self.tms.deferred);
                     for (dri, tuple, _fl) in pending {
-                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                        if tms_debug() {
                             eprintln!("TMS drain[quiescence-starved] r{dri} {tuple:?}");
                         }
                         self.tms_on_terminal_del(dri, &tuple);
@@ -9177,7 +9192,7 @@ impl Engine {
                 self.tms.deferred.iter().position(|(dri, _, _)| *dri == ri)
             {
                 let (_, tuple, _) = self.tms.deferred.remove(i);
-                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                if tms_debug() {
                     eprintln!("TMS drain[pop] r{ri} {tuple:?}");
                 }
                     // D-198 (sd_b4): an or-twin's SIBLING branch must
@@ -9866,7 +9881,7 @@ impl Engine {
                 if !alphas {
                     continue;
                 }
-                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                if tms_debug() {
                     eprintln!("TMS sweep-revive r{rj} {pt:?} (death f{f:?})");
                 }
                 self.push_activation(rj, pt);
@@ -9976,7 +9991,7 @@ impl Engine {
                 if !open {
                     continue; // leak broken; the normal release re-activates later
                 }
-                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                if tms_debug() {
                     eprintln!("TMS churn-revive r{rj} {pt:?} (churn f{f:?})");
                 }
                 self.push_activation(rj, pt);
@@ -10290,7 +10305,7 @@ impl Engine {
                         // exist on a TMS-dropped handle). k>=2
                         // observers of unstage-born facts are outside
                         // the pinned envelope (ird-port-plan.md).
-                        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                        if tms_debug() {
                             eprintln!("TMS key[del-survive] f{f:?} r{ri}");
                         }
                         continue;
@@ -10656,7 +10671,7 @@ impl Engine {
                 // consume twin of the k=1 site): a retraction caused
                 // by a dead UNSTAGE-BORN member leaves the queued act
                 // to fire with the dead handle's values.
-                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                if tms_debug() {
                     eprintln!("TMS key[del-survive/term] r{ri} {t:?}");
                 }
                 continue;
@@ -12483,7 +12498,7 @@ impl Engine {
             // ⚖ D-211 activation-backfill: pre-activation stateds are
             // keyless until the first insertLogical (d1/d2 dumps: two
             // keys, one value — only the LAST backfills into the map).
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!("TMS key[stated-note/pre] f{f:?}");
             }
             self.tms.pre_stated.push(f);
@@ -12492,7 +12507,7 @@ impl Engine {
         let key = self.tms_key_of(tid, f);
         let kid = self.tms.intern(key);
         self.tms.kentry(kid).stated.push(f);
-        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+        if tms_debug() {
             eprintln!("TMS key[stated-note] f{f:?} key={:?}", self.tms.kval(kid));
         }
         self.tms.by_fact.insert(f, kid);
@@ -12521,7 +12536,7 @@ impl Engine {
             for prev in prevs {
                 self.tms.by_fact.remove(&prev);
             }
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!("TMS key[backfill] f{f:?} key={:?}", self.tms.kval(kid));
             }
             self.tms.by_fact.insert(f, kid);
@@ -12563,7 +12578,7 @@ impl Engine {
             self.tms.by_fact.insert(f, kid);
             inserted = Some(f);
         }
-        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+        if tms_debug() {
             let e = self.tms.kget(kid).expect("key");
             eprintln!(
                 "TMS key[logical] key={:?} need_insert={} pending={} beliefs={} stated={:?} justified={:?}",
@@ -12620,7 +12635,7 @@ impl Engine {
         if self.tms.orphans.contains(&f) {
             // ⚖ D-211 (x1/r1/c5 events): an orphaned handle is
             // UNDELETABLE — the delete silently no-ops.
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!("TMS key[route-del/orphan-noop] f{f:?}");
             }
             return (None, None);
@@ -12631,7 +12646,7 @@ impl Engine {
         let Some(e) = self.tms.key_entries[kid as usize].as_mut() else {
             return (Some(f), None);
         };
-        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+        if tms_debug() {
             eprintln!(
                 "TMS key[route-del] f{:?} rhs={} stated={:?} beliefs={} pending={} justified={:?} had_justified={}",
                 f, rhs, e.stated, e.beliefs.len(), e.pending_vals.is_some(),
@@ -12660,7 +12675,7 @@ impl Engine {
             return (Some(jf), None);
         }
         if e.had_justified {
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!("TMS key[route-del/dump3-noop] f{f:?}");
             }
             return (None, None); // dump3: undeletable stated sibling
@@ -12674,7 +12689,7 @@ impl Engine {
         if rhs && e.stated.contains(&f) && e.pending_vals.is_some() && !e.beliefs.is_empty() {
             let vals = e.pending_vals.take().expect("gated Some");
             let sibs: Vec<FactId> = e.stated.iter().copied().filter(|x| *x != f).collect();
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!(
                     "TMS key[route-del/r1-event] f{f:?} orphans={sibs:?} vals={vals:?}"
                 );
@@ -12696,13 +12711,13 @@ impl Engine {
                 // unstage (dump7): the pending justified belief becomes
                 // a live fact after the stated handle dies; its deps
                 // are already in place.
-                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                if tms_debug() {
                     eprintln!("TMS key[route-del/unstage] f{f:?} vals={vals:?}");
                 }
                 return (Some(f), Some((self.tms.key_arena[kid as usize].0, vals)));
             }
         }
-        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+        if tms_debug() {
             eprintln!(
                 "TMS key[route-del/plain] f{:?} beliefs-cleared={} stated-remainder={:?} pending-still={}",
                 f, e.beliefs.len(), e.stated, e.pending_vals.is_some()
@@ -12726,7 +12741,7 @@ impl Engine {
     fn tms_materialize(&mut self, tid: TypeId, vals: Vec<Value>) -> Result<(), EngineError> {
         let kid = self.tms.intern((tid, key_vals(&vals)));
         let f = self.store.insert(tid, vals).map_err(EngineError)?;
-        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+        if tms_debug() {
             eprintln!("TMS key[materialize] key={:?} f{f:?}", self.tms.kval(kid));
         }
         // ⚖ D-211: the unstage-born handle is fully TMS-DROPPED (the
@@ -12818,7 +12833,7 @@ impl Engine {
             })
             .collect();
         for act in broken {
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!("TMS eager-break act r{} {:?} expiring={}", act.0, act.1, act.1.iter().any(|x| self.tms.expiring.contains(x)));
             }
             // D-101 (a7c/a7d/cf5x0): an EXPIRING justifier's teardown is
@@ -12860,7 +12875,7 @@ impl Engine {
     /// stays parked until a left-side event re-propagates it (t15's
     /// revival by property-relevant update; t10/t11 fire once).
     fn tms_on_terminal_del(&mut self, ri: usize, tuple: &Tup) {
-        if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+        if tms_debug() {
             eprintln!(
                 "TMS terminal-del r{ri} {tuple:?} expiring={:?} exp_deferred={:?} deferred={}",
                 self.tms.expiring,
@@ -12955,7 +12970,7 @@ impl Engine {
                         flags |= 16;
                     }
                 }
-                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                if tms_debug() {
                     eprintln!("TMS defer-push r{} {:?} flags={}", act.0, act.1, flags);
                 }
                 self.tms.deferred.push((act.0, act.1, flags));
@@ -12996,7 +13011,7 @@ impl Engine {
                 }
             });
             if self_blocker {
-                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                if tms_debug() {
                     eprintln!("TMS park-own r{ri} {tuple:?}");
                 }
                 self.tms.parked.push((ri, tuple.clone()));
@@ -13058,7 +13073,7 @@ impl Engine {
                             self.nets[ri].queue.retain(|a| !a.t.starts_with(&lt));
                             self.nets[ri].act_num.retain(|t, _| !t.starts_with(&lt));
                             if !self.tms.parked.iter().any(|(r, t)| *r == ri && *t == lt) {
-                                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                                if tms_debug() {
                                     eprintln!("TMS park-leak r{ri} {lt:?} (blocker f{f:?})");
                                 }
                                 self.tms.parked.push((ri, lt));
@@ -13157,7 +13172,7 @@ impl Engine {
             return false;
         };
         if pt_len < t.len() && !self.tms.parked.iter().any(|(pri, pt)| *pri == ri && pt == t) {
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!("TMS park-record r{ri} {t:?} (prefix-suppressed ins)");
             }
             self.tms.parked.push((ri, t.clone()));
@@ -13180,7 +13195,7 @@ impl Engine {
         };
         let left_death = self.tms_left_death(ri, t);
         if left_death {
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!("TMS park-del r{ri} {t:?} (left-death, origin {origin:?})");
             }
             self.tms.parked.remove(i);
@@ -13245,7 +13260,7 @@ impl Engine {
                 revived.into_iter().rev().collect()
             };
             for rt in revived {
-                if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                if tms_debug() {
                     eprintln!("TMS park-revive r{ri} {rt:?}");
                 }
                 self.tms.parked.retain(|(pri, pt)| !(*pri == ri && *pt == rt));
@@ -13357,7 +13372,7 @@ impl Engine {
             };
             drained = true;
             let (_, tuple, fl) = self.tms.deferred.remove(di);
-            if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+            if tms_debug() {
                 eprintln!("TMS drain[{site}] r{ri} {tuple:?}");
             }
             // D-198 (sd_b4): the or-twin's SIBLING branch consumes the
@@ -13468,7 +13483,7 @@ impl Engine {
                                 for sb in sibs {
                                     self.tms.by_fact.remove(&sb);
                                     self.tms.orphans.insert(sb);
-                                    if std::env::var("SEINE_TMS_DEBUG").is_ok() {
+                                    if tms_debug() {
                                         eprintln!("TMS key[l6-orphan] f{sb:?} key={:?}", self.tms.key_arena[key as usize]);
                                     }
                                 }
