@@ -2890,7 +2890,6 @@ pub struct Engine {
     /// (df_* pins; model_check_accdefer survivor: acc EAGER, not-CE LAZY).
     acc_nodes: Vec<(usize, TypeId, Option<i64>, Option<i64>)>,
     in_expiration_drain: bool,
-    in_stream_flush: bool,
     /// D-158: inside fire_all's activation loop — PnShadow D events arriving
     /// here (TMS churns, expiry cascades) evaluate immediately when queued;
     /// external-phase ones wait for the boundary eval.
@@ -3094,7 +3093,6 @@ impl Engine {
             fire_seq: 0,
             acc_nodes: Vec::new(),
             in_expiration_drain: false,
-            in_stream_flush: false,
             in_fire_loop: false,
             pn_seq: 0,
             px_explicit_victim: None,
@@ -5837,7 +5835,7 @@ impl Engine {
     pub fn insert(
         &mut self,
         type_name: &str,
-        mut fields: Vec<(String, Value)>,
+        fields: Vec<(String, Value)>,
     ) -> Result<FactId, EngineError> {
         self.insert_into(type_name, fields, None)
     }
@@ -5993,7 +5991,6 @@ impl Engine {
         self.fire_deadlines.clear(); // D-134 (§3B)
         self.fire_seq = 0;
         self.in_expiration_drain = false;
-        self.in_stream_flush = false;
         self.in_fire_loop = false;
         self.pn_seq = 0;
         self.px_explicit_victim = None;
@@ -6782,7 +6779,7 @@ impl Engine {
                     let env = JoinEnvImpl {
                         store: &self.store,
                         rule: &self.rules[ri],
-                        flush: self.in_stream_flush,
+                       
                         fire_no: self.fire_no,
                         not_releasing: false,
                     };
@@ -6834,7 +6831,7 @@ impl Engine {
             }
             (false, false) => {}
         }
-        self.note_link_effects_ex(was, Some(f));
+        self.note_link_effects(was);
     }
 
     /// D-160: the plain (non-windowed) accumulate analog of `winacc_step` —
@@ -6882,7 +6879,7 @@ impl Engine {
                     let env = JoinEnvImpl {
                         store: &self.store,
                         rule: &self.rules[ri],
-                        flush: self.in_stream_flush,
+                       
                         fire_no: self.fire_no,
                         not_releasing: false,
                     };
@@ -6892,7 +6889,7 @@ impl Engine {
             }
             (false, false) => {}
         }
-        self.note_link_effects_ex(was, Some(f));
+        self.note_link_effects(was);
     }
 
     /// D-154/D-160: execute the queued external acc-source entries FIFO
@@ -7018,7 +7015,7 @@ impl Engine {
                                 }
                             }
                         }
-                        self.note_link_effects_ex(&mut was, Some(f));
+                        self.note_link_effects(&mut was);
                     }
                 }
             }
@@ -7397,9 +7394,7 @@ impl Engine {
             // pop (where pre-LIFO rights precede the IF re-pairs).
             if self.nets[ri].queued && is_touched && !rule_held_pre[ri] {
                 dbg_eval("flush", ri);
-                self.in_stream_flush = true;
                 self.evaluate_rule(ri, false, false);
-                self.in_stream_flush = false;
             }
         }
         for (ri, per) in k1_stash.into_iter().enumerate() {
@@ -7458,7 +7453,7 @@ impl Engine {
                 );
                 let mut trg: Staged<Tup> = Staged::default();
                 node.flush_ins_delta(
-                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false },
+                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], fire_no: self.fire_no, not_releasing: false },
                     nidx,
                     s0_folds,
                     &mut trg,
@@ -7536,7 +7531,7 @@ impl Engine {
                 );
                 let mut trg: Staged<Tup> = Staged::default();
                 node.flush_ins_delta(
-                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false },
+                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], fire_no: self.fire_no, not_releasing: false },
                     nidx,
                     s0_folds,
                     &mut trg,
@@ -7574,7 +7569,7 @@ impl Engine {
                     phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, true),
                 );
                 node.self_drain_delta(
-                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false },
+                    &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], fire_no: self.fire_no, not_releasing: false },
                     nidx,
                 );
                 self.trie[ni].node = node;
@@ -7853,7 +7848,7 @@ impl Engine {
         let mut was: Vec<bool> =
             (0..self.rules.len()).map(|ri| self.rule_linked(ri)).collect();
         self.trie[ni].node.s_right.add_del(id, None);
-        self.note_link_effects_ex(&mut was, Some(id));
+        self.note_link_effects(&mut was);
         true
     }
 
@@ -7933,12 +7928,9 @@ impl Engine {
                     })
                     .collect();
                 if !affected.is_empty() {
-                    let saved = self.in_stream_flush;
-                    self.in_stream_flush = true;
                     for ri in affected {
                         self.evaluate_rule(ri, true, false);
                     }
-                    self.in_stream_flush = saved;
                 }
             }
         }
@@ -9181,7 +9173,7 @@ impl Engine {
                     self.trie[c].node.left_sseq.insert(smallvec![f], self.stage_seq);
                     self.trie[c].s0_in.add_ins(f, origin);
                 }
-                self.note_link_effects_ex(&mut was, Some(f));
+                self.note_link_effects(&mut was);
             }
         }
         for ni in 0..self.trie.len() {
@@ -9234,7 +9226,7 @@ impl Engine {
                 } else {
                     self.trie[ni].node.s_right.add_ins(f, origin);
                 }
-                self.note_link_effects_ex(&mut was, Some(f));
+                self.note_link_effects(&mut was);
             }
         }
         self.tms_parked_not_churn(f); // D-330: foreign churn breaks the leak
@@ -9390,7 +9382,7 @@ impl Engine {
                     }
                 }
             }
-            self.note_link_effects_ex(&mut was, Some(f));
+            self.note_link_effects(&mut was);
         }
         // D-347: exit-only notifies of alpha-terminal rules do not arm
         // the peek-liveness (no Drools item-queue on exits) — restore.
@@ -9580,7 +9572,7 @@ impl Engine {
                         // existential variant: blocked lefts re-search
                         // and unmatched ones stay DETACHED (D-031,
                         // NotNode.reorderRightTuple's null sink).
-                        let env = JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                        let env = JoinEnvImpl { store: &self.store, rule: &self.rules[ri], fire_no: self.fire_no, not_releasing: false };
                         if pat.ce == CeKind::Not {
                             self.trie[ni].node.not_mask_miss_re_add(&env, pos - 1, f);
                         } else {
@@ -9591,7 +9583,7 @@ impl Engine {
                 }
                 (false, false) => {}
             }
-            self.note_link_effects_ex(&mut was, Some(f));
+            self.note_link_effects(&mut was);
         }
         }
         if acc_defer {
@@ -9661,7 +9653,7 @@ impl Engine {
                     let c = self.lias[li].children[i];
                     self.trie[c].s0_in.add_del(f, origin);
                 }
-                self.note_link_effects_ex(&mut was, Some(f));
+                self.note_link_effects(&mut was);
             }
         }
         for ni in 0..self.trie.len() {
@@ -9677,7 +9669,7 @@ impl Engine {
             }
             if self.trie[ni].active.remove(&f) {
                 self.trie[ni].node.s_right.add_del(f, origin);
-                self.note_link_effects_ex(&mut was, Some(f));
+                self.note_link_effects(&mut was);
             }
         }
         self.tms_p_death_sweep(f, origin);
@@ -9876,7 +9868,7 @@ impl Engine {
                         .find(|&&n| self.trie[n].env.1 == np)
                         .map(|&n| self.trie[n].active.iter().copied().collect())
                         .unwrap_or_default();
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[rj], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[rj], fire_no: self.fire_no, not_releasing: false };
                     let blocked = cands.into_iter().any(|g| {
                         self.store.is_alive(g)
                             && phreak::JoinEnv::allowed(&env, np - 1, &left, g)
@@ -9907,10 +9899,6 @@ impl Engine {
     /// action queues the item even if a later node unlinks the path
     /// again (D-037/fz_7_2122).
     fn note_link_effects(&mut self, was: &mut [bool]) {
-        self.note_link_effects_ex(was, None);
-    }
-
-    fn note_link_effects_ex(&mut self, was: &mut [bool], cur: Option<FactId>) {
         for ri in 0..self.rules.len() {
             let now = self.rule_linked(ri);
             if was[ri] && !now {
@@ -9937,7 +9925,7 @@ impl Engine {
                             phreak::Node::new_ex(phreak::Index::None, phreak::Kind::Join, false),
                         );
                         node.drain_staged_rights_to_memory_if(
-                            &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false },
+                            &JoinEnvImpl { store: &self.store, rule: &self.rules[ri], fire_no: self.fire_no, not_releasing: false },
                             nidx,
                             None,
                             &|f| self.store.is_alive(f),
@@ -10371,7 +10359,7 @@ impl Engine {
             ) {
                 trg = self.eval_subnet_node(ni, src, &mut first_pending);
             } else {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: releasing };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: releasing };
                 phreak::do_node(
                     &env,
                     env_pos - 1,
@@ -10963,7 +10951,7 @@ impl Engine {
         let kf = spec.key_field.unwrap();
         let mut trg: Staged<Tup> = Staged::default();
         let mut touched: Vec<String> = Vec::new();
-        let mut touch = |k: String, touched: &mut Vec<String>| {
+        let touch = |k: String, touched: &mut Vec<String>| {
             if !touched.contains(&k) {
                 touched.push(k);
             }
@@ -11055,7 +11043,7 @@ impl Engine {
         // right inserts: fold into the key's group
         for (f, _o, _) in sr.ins.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_right(&env, env_pos - 1, *f)
             };
             self.trie[ni].node.push_right(*f, key);
@@ -11078,7 +11066,7 @@ impl Engine {
         // this same batch's rights — they emit below)
         for (l, o, _) in src.ins.iter() {
             let lkey = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_left(&env, env_pos - 1, l)
             };
             self.trie[ni].node.push_left(l.clone(), lkey);
@@ -11243,7 +11231,7 @@ impl Engine {
         // reverse(stored)+accumulate(new) per still/newly allowed left.
         for (f, _, _) in sr.upd.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_right(&env, node_idx, *f)
             };
             self.trie[ni].node.re_add_right_tuple(*f, key);
@@ -11280,7 +11268,7 @@ impl Engine {
             }
             for l in bucket {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                     phreak::JoinEnv::allowed(&env, node_idx, &l, *f)
                 };
                 let had = self.trie[ni].acc_by_right.get(f).is_some_and(|v| v.contains(&l));
@@ -11307,7 +11295,7 @@ impl Engine {
         // functions take no left declarations, D-038/acc11).
         for (l, _, _) in src.upd.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_left(&env, node_idx, l)
             };
             self.trie[ni].node.re_add_left_tuple(l, key);
@@ -11334,7 +11322,7 @@ impl Engine {
             }
             for f in bucket {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                     phreak::JoinEnv::allowed(&env, node_idx, l, f)
                 };
                 let had = self.trie[ni]
@@ -11354,13 +11342,13 @@ impl Engine {
         // Phase E: right inserts (before left inserts).
         for (f, o, _) in sr.ins.iter() {
             let key = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_right(&env, node_idx, *f)
             };
             self.trie[ni].node.push_right(*f, key.clone());
             for l in self.trie[ni].node.lefts_bucket_pub(key.as_ref()) {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                     phreak::JoinEnv::allowed(&env, node_idx, &l, *f)
                 };
                 if allowed {
@@ -11376,14 +11364,14 @@ impl Engine {
         // Phase F: left inserts — init context, fold the matching bucket.
         for (l, o, _) in src.ins.iter() {
             let lkey = {
-                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                 phreak::JoinEnv::key_of_left(&env, node_idx, l)
             };
             self.trie[ni].node.push_left(l.clone(), lkey.clone());
             self.trie[ni].acc.insert(l.clone(), AccCtx::new());
             for f in self.trie[ni].node.rights_bucket_pub(lkey.as_ref()) {
                 let allowed = {
-                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                    let env = JoinEnvImpl { store: &self.store, rule: &self.rules[env_ri], fire_no: self.fire_no, not_releasing: false };
                     phreak::JoinEnv::allowed(&env, node_idx, l, f)
                 };
                 if allowed {
@@ -12105,12 +12093,9 @@ impl Engine {
                                 })
                                 .collect();
                             if !affected.is_empty() {
-                                let saved = self.in_stream_flush;
-                                self.in_stream_flush = true;
                                 for rj in affected {
                                     self.evaluate_rule(rj, true, false);
                                 }
-                                self.in_stream_flush = saved;
                             }
                         }
                     }
@@ -12859,7 +12844,7 @@ impl Engine {
             let self_blocker = self.rules[ri].patterns.iter().enumerate().any(|(pos, pat)| {
                 pat.ce == CeKind::Not && pat.type_id == ftid && {
                     let rule = &self.rules[ri];
-                    let env = JoinEnvImpl { store: &self.store, rule, flush: self.in_stream_flush, fire_no: self.fire_no, not_releasing: false };
+                    let env = JoinEnvImpl { store: &self.store, rule, fire_no: self.fire_no, not_releasing: false };
                     pat.cmps.iter().all(|c| {
                         if let Test::Group { g, cross_var, .. } = &c.test {
                             return *cross_var
@@ -13678,7 +13663,6 @@ fn check_cmp_types(
 struct JoinEnvImpl<'a> {
     store: &'a FactStore,
     rule: &'a CompiledRule,
-    flush: bool,
     fire_no: u64,
     /// D-134 (§3B): TRUE while a temporal-`not` deferral RELEASE propagates.
     /// A released not-left logically fires at its window-close fire_time, when
@@ -13693,9 +13677,6 @@ struct JoinEnvImpl<'a> {
 impl phreak::JoinEnv for JoinEnvImpl<'_> {
     fn fire_no(&self) -> u64 {
         self.fire_no
-    }
-    fn in_flush(&self) -> bool {
-        self.flush
     }
     fn two_pattern(&self) -> bool {
         self.rule.patterns.len() == 2

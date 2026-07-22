@@ -1765,7 +1765,7 @@ impl Machine<'_> {
         let mut trg: Vec<Env> = Vec::new();
         for env in &src {
             self.bump()?;
-            let mut owned: Vec<FactId> = Vec::new();
+            let owned: Vec<FactId>;
             let candidates: &[FactId] = match (&table, pat.unification_join) {
                 (None, _) => &arrival,
                 (Some(t), true) => {

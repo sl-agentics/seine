@@ -912,10 +912,6 @@ impl Node {
         }
     }
 
-    pub fn new(index: Index, kind: Kind) -> Node {
-        Self::new_ex(index, kind, false)
-    }
-
     pub fn new_ex(index: Index, kind: Kind, temporal: bool) -> Node {
         Node {
             kind,
@@ -1027,15 +1023,6 @@ impl Node {
     /// D-101: drain staged right INSERTS into memory in ARRIVAL order
     /// (reverse of the prepend list), creating no children — the
     /// link-moment memory fill (model-check survivor family).
-    pub fn drain_staged_rights_to_memory<E: JoinEnv>(
-        &mut self,
-        env: &E,
-        node_idx: usize,
-        exclude: Option<FactId>,
-    ) {
-        self.drain_staged_rights_to_memory_if(env, node_idx, exclude, &|_| true)
-    }
-
     /// D-102/a3: the drain runs from LIA-loop link effects — BEFORE the
     /// trie loop stages the dying fact's delete — so DEAD facts' held
     /// ins must stay staged for the del-annihilation to find them.
@@ -1154,10 +1141,6 @@ impl Node {
 
     pub fn lefts_is_empty(&self) -> bool {
         self.lefts.is_empty()
-    }
-
-    pub fn rights_is_empty(&self) -> bool {
-        self.rights.is_empty()
     }
 
     pub fn lefts_snapshot(&self) -> Vec<Tup> {
@@ -1638,12 +1621,6 @@ pub trait JoinEnv {
     fn fire_no(&self) -> u64 {
         0
     }
-    /// D-102 (cf101x134): TRUE during a stream-flush evaluation —
-    /// temporal nodes then FILL lefts without pairing (children are
-    /// created only at pop-time evaluations).
-    fn in_flush(&self) -> bool {
-        false
-    }
     /// D-170 (T6): TRUE when the owning rule is the 2-pattern shape the
     /// mixed-batch replay is certified for (model_tjupd_v4's world).
     fn two_pattern(&self) -> bool {
@@ -1748,14 +1725,6 @@ impl<'a> Out<'a> {
         }
         self.pending.remove_upd(&t);
         self.trg.add_del(t, o);
-    }
-}
-
-/// D-101: timestamp from a temporal node's stored key (i64 ms).
-fn key_ts(k: &Option<Vec<Value>>) -> i64 {
-    match k.as_ref().and_then(|v| v.first()) {
-        Some(Value::I64(n)) => *n,
-        _ => i64::MIN,
     }
 }
 
