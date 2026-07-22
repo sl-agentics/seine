@@ -6140,6 +6140,19 @@ impl Engine {
         Ok(())
     }
 
+    /// D-390: opt-in retraction log passthroughs (the bindings' cascade
+    /// capture — the old capture rendered the full store twice per
+    /// external action = the API-lane churn quadratic).
+    pub fn set_log_deaths(&mut self, on: bool) {
+        self.store.set_log_deaths(on);
+    }
+    pub fn drain_deaths(&mut self) -> Vec<FactId> {
+        self.store.drain_deaths()
+    }
+    pub fn handle_count(&self) -> usize {
+        self.store.handle_count()
+    }
+
     pub fn nth_inserted(&mut self, n: usize) -> Option<FactId> {
         let hidden: Vec<TypeId> =
             [INITIAL_FACT, ACC_LONG, ACC_DOUBLE, ACC_COLLECTION, ACC_SETCOLLECTION, ACC_DECIMAL]

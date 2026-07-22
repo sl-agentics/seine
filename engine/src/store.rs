@@ -303,6 +303,9 @@ struct HandleEntry {
 
 pub struct FactStore {
     expired: std::collections::HashSet<FactId>,
+    /// D-390: opt-in retraction log (see kill/set_log_deaths).
+    log_deaths: bool,
+    death_log: Vec<FactId>,
     schemas: Vec<TypeSchema>,
     data: Vec<TypeData>,
     handles: Vec<HandleEntry>,
@@ -355,6 +358,7 @@ impl FactStore {
         FactStore {
             expired: std::collections::HashSet::new(), schemas, data, handles: Vec::new(),
             by_type: vec![Vec::new(); n], type_gen: vec![0; n], type_mut_gen: vec![0; n],
+            log_deaths: false, death_log: Vec::new(),
             event_ts: std::collections::HashMap::new() }
     }
 
@@ -493,8 +497,27 @@ impl FactStore {
             let t = self.handles[id.0 as usize].type_id as usize;
             self.type_gen[t] += 1;
             self.type_mut_gen[t] += 1;
+            // D-390: the opt-in death log — this is the SOLE alive→dead
+            // flip, so a drain here sees every retraction exactly once
+            // (handles never revive). Off by default: the harness never
+            // drains and must not accumulate.
+            if self.log_deaths {
+                self.death_log.push(id);
+            }
         }
         self.handles[id.0 as usize].alive = false;
+    }
+
+    /// D-390: enable the death log (the bindings' cascade capture — the
+    /// old capture rendered the full store TWICE per external action).
+    pub fn set_log_deaths(&mut self, on: bool) {
+        self.log_deaths = on;
+        self.death_log.clear();
+    }
+
+    /// D-390: take the deaths logged since the last drain.
+    pub fn drain_deaths(&mut self) -> Vec<FactId> {
+        std::mem::take(&mut self.death_log)
     }
 
     pub fn value(&self, id: FactId, field_idx: usize) -> Value {

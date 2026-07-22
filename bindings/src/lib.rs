@@ -980,6 +980,10 @@ impl PySession {
         engine
             .add_rules_drl(&self.drl)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        // D-390: cascade capture via the engine's death log — the old
+        // per-action full-store double-render was quadratic in bulk
+        // update/delete loops (the API-lane churn box).
+        engine.set_log_deaths(true);
         self.engine = Some(engine);
         self.built = true;
         Ok(())
@@ -1237,17 +1241,19 @@ impl PySession {
             .ok_or_else(|| PyRuntimeError::new_err("session has no declared types"))?;
         // same TMS-cascade capture as delete(): an update that breaks a
         // justification can retract facts synchronously
-        let pre: std::collections::HashSet<u32> =
-            engine.facts().iter().map(|f| f.handle).collect();
+        // D-390: deaths of THIS action, from the engine's log (facts
+        // born mid-action are excluded below — the old pre-set diff
+        // never saw them: the dump8 materialize-then-die transient).
+        let pre_hc = engine.handle_count() as u32;
+        engine.drain_deaths(); // discard accumulated fire-time noise
         engine
             .update_fact(seine_engine::FactId(handle as u32), vals)
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let post: std::collections::HashSet<u32> =
-            engine.facts().iter().map(|f| f.handle).collect();
-        let mut cascade: Vec<i64> = pre
-            .iter()
-            .filter(|h| !post.contains(h) && **h as i64 != handle)
-            .map(|&h| h as i64)
+        let mut cascade: Vec<i64> = engine
+            .drain_deaths()
+            .into_iter()
+            .filter(|f| f.0 < pre_hc && f.0 as i64 != handle)
+            .map(|f| f.0 as i64)
             .collect();
         cascade.sort_unstable();
         self.pending_retracted.extend(cascade.iter().copied());
@@ -1440,17 +1446,19 @@ impl PySession {
         // TMS: deleting a premise synchronously retracts the facts it
         // justified. Capture that cascade so it reaches the WM-delta —
         // returned here AND merged into the next fire's deleted_handles.
-        let pre: std::collections::HashSet<u32> =
-            engine.facts().iter().map(|f| f.handle).collect();
+        // D-390: deaths of THIS action, from the engine's log (facts
+        // born mid-action are excluded below — the old pre-set diff
+        // never saw them: the dump8 materialize-then-die transient).
+        let pre_hc = engine.handle_count() as u32;
+        engine.drain_deaths(); // discard accumulated fire-time noise
         engine
             .delete_fact(seine_engine::FactId(handle as u32))
             .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let post: std::collections::HashSet<u32> =
-            engine.facts().iter().map(|f| f.handle).collect();
-        let mut cascade: Vec<i64> = pre
-            .iter()
-            .filter(|h| !post.contains(h) && **h as i64 != handle)
-            .map(|&h| h as i64)
+        let mut cascade: Vec<i64> = engine
+            .drain_deaths()
+            .into_iter()
+            .filter(|f| f.0 < pre_hc && f.0 as i64 != handle)
+            .map(|f| f.0 as i64)
             .collect();
         cascade.sort_unstable();
         self.pending_retracted.extend(cascade.iter().copied());
