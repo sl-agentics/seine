@@ -4,7 +4,7 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
-## Unreleased
+## 0.4.58
 
 Decision tables (D-391). `seine_rs.decision_table()` compiles Drools'
 CSV RuleTable and RuleMatrix formats to DRL — a Python port of
