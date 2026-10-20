@@ -1,0 +1,27 @@
+package org.drools.decisiontable;
+//generated from Decision Table
+import org.drools.decisiontable.Person;
+// rule values at A11, header at A6
+rule "Age change_11"
+	when
+		person:Person(age == 0)
+	then
+		person.setAge(1);
+end
+
+// rule values at A12, header at A6
+rule "Age change_12"
+	when
+		person:Person(age == 1)
+	then
+		person.setAge(2);
+end
+
+// rule values at A13, header at A6
+rule "Age change_13"
+	when
+		person:Person(age == 2)
+	then
+		person.setAge(3);
+end
+

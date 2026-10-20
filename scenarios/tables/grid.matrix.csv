@@ -1,0 +1,9 @@
+AgendaGroup,grid
+Precondition,$p : Person()
+HorizontalCondition,Tier(name == "$param")
+VerticalCondition,Age(band == "$param")
+Action,insert(new Discount($param));
+RuleTable Grid,gold,silver,bronze
+young,10,5,
+adult,8,,2
+senior,15,10,5

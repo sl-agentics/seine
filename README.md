@@ -179,9 +179,9 @@ The full ledger with per-row rationale is `FEATURES.md` §3 (can't) and
   product**; same inputs → same firing log, byte-for-byte.
 - KIE platform, BPM/ruleflow, DMN, persistence, marshalling,
   listeners-as-API, alternate engine modes/config knobs — one certified
-  semantics, no configuration matrix. (Decision tables are on the
-  roadmap as an authoring frontend that compiles to DRL; see
-  FEATURES.md §2.)
+  semantics, no configuration matrix. (Decision tables are supported
+  as an authoring frontend that compiles to DRL: `decision_table()`,
+  Drools' CSV RuleTable and RuleMatrix formats; see FEATURES.md §1.)
 - Anything requiring network calls or external state at rule-fire time.
 
 ## Running the harness

@@ -18139,3 +18139,85 @@ messages: a9fe2c4, 8dca2b8, bd27071, 05fd74a, e76a3ec).
 Arc scorecard: 10 exact prediction hits, 7 recorded misses — the
 misses eliminated stream-flush, firing-drain, transient-dip,
 del-notify, and single-op-wake in turn; what survived is the law.
+
+## D-391: decision tables — Drools' CSV RuleTable and RuleMatrix as an
+## authoring frontend, certified by DRL-text parity (2026-10-19)
+
+Bryan's ruling: decision tables leave WONT (FEATURES §4, 77a54ad) —
+real rulebases are mostly conjunction-of-marker rows and pairwise
+compatibility grids, which read and review better as tables. They are
+an AUTHORING frontend exactly as in Drools: SpreadsheetCompiler
+expands the sheet to DRL text and the engine never sees a table, so
+match semantics and the differential surface do not move.
+
+The port: bindings/python/seine_rs/tables.py, line for line from
+drools-decisiontables 9.44.0 (DefaultRuleSheetListener,
+RuleMatrixSheetListener, LhsBuilder, RhsBuilder, ActionType,
+RuleSheetParserUtil, PropertiesSheetListener, CsvParser/CsvLineParser)
+and the drools-templates DRL model (Package, Rule, SnippetBuilder,
+AttributedDRLElement). CSV only; XLS is not ported. Faithfulness
+details that the text depends on: Java HashMap ITERATION ORDER
+(attribute lines; property-row flush order; forall replacements),
+String.trim() (<= U+0020 only), BufferedReader line splitting, the
+UTF-8 reader keeping a BOM as a character, replaceOutOfQuotes'
+scan step, the 256-substitution cap, StringTokenizer.
+
+The oracle: oracle-tables/ (its own pom, so the pinned engine
+oracle's classpath never changes) wraps SpreadsheetCompiler —
+TableDump rules|matrix|batch. Parse errors are part of the
+contract: "ERROR <class>: <message>", byte-identical for
+DecisionTableParseException; for Drools' own crashes (NPE on a
+RuleMatrix without AgendaGroup or Precondition) the class must match
+and the port refuses the table too.
+
+Receipts: scenarios/tables — 32 tables (Drools' 10 CSV test inputs +
+22 feature/error cases), byte-identical; tools/table_oracle.py fuzz —
+24,000 random tables (8 seeds x 3,000; ~40% Drools errors, ~47% DRL,
+~13% RuleMatrix) all equal the live oracle, coverage counted per
+feature (2+ attributes, sequential salience, forall joins, from,
+eval, @watch, metadata, descriptions, escaped quotes, globals,
+imports, matrix rules); bindings pytest test_tables.py (corpus
+parity + engine runs); probes dt_ruletable / dt_sequential /
+dt_matrix pass engine == oracle on the generated rules.
+
+Two Drools behaviours kept as found, documented in the corpus: a CSV
+merged object cell needs every cell of the range to repeat the text
+with "..." (a bare "..." reads as blank — merged_bare_dots); a column
+header's FIRST LETTER picks the kind when the word is unknown
+("BOGUS" is ENABLED — header_first_letter_wins).
+
+THE ERROR CONTRACT (Bryan's ruling, same day: "we can't have input
+crash Seine ... as close to enterprise level as possible"): no input
+makes decision_table() raise anything but DecisionTableError (a
+CompileError). Where Drools REJECTS a table the message is Drools'
+own, byte for byte. Where Drools CRASHES (NullPointerException on a
+RuleMatrix without AgendaGroup or Precondition, "Script template is
+null" without Action/HorizontalCondition/VerticalCondition, index
+errors on a grid cell past the headers) Seine names the missing
+property and the cell (drools_crashes=True). Where Drools builds
+SILENTLY WRONG rules — a RuleMatrix with a blank column header
+(every later column shifts onto the wrong condition) or a blank row
+header (the previous row's condition is reused) — Seine refuses the
+grid: the one deliberate departure from text parity, counted
+separately by the fuzzer. Unreadable files are DecisionTableErrors
+with .source; any defect in the port itself still surfaces as a
+located "internal error ... please report" DecisionTableError, never
+a stray exception. Drools-compatible surprises that do not change
+the DRL — an unknown header read by its first letter, a bare "..."
+that merges nothing — are DecisionTable.warnings. Receipts:
+tools/table_oracle.py robust — 33,000 hostile inputs (random bytes,
+200k-char cells, ragged fragment soup, NULs, lone surrogates, BOMs)
+x RuleTable/RuleMatrix: 0 crashes, 0 internal errors; the oracle fuzz
+splits as same text / Drools-crash -> located error / Drools-wrong ->
+refused (seed 31: 2706 / 292 / 2 of 3000, 0 mismatches).
+
+Surface: seine_rs.decision_table(path | text= (str or bytes),
+matrix=, trim_cells=) -> DecisionTable(.drl = Drools' text, .rules =
+engine DRL, .warnings); run()/Session() accept a DecisionTable.
+Command line: python -m seine_rs table [--matrix] [--rules]
+TABLE.csv — DRL on stdout, warnings and "error: FILE: message" on
+stderr, exit 0 / 1 (table error) / 2 (usage). Seine DRL is
+rules-only, so .rules drops the package/import header and REFUSES
+(CompileError) what has no Seine form instead of dropping it:
+globals, functions, queries, declares, units, a non-java dialect,
+ruleset-wide attributes.

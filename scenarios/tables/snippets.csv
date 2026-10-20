@@ -1,0 +1,8 @@
+RuleTable Snippets
+CONDITION,CONDITION,CONDITION,CONDITION,CONDITION,CONDITION,CONDITION,ACTION
+Person,Person,Person,Person,,eval,Person() from $list,
+name,age >,flag?,"age in ($1, $2)","forall(||){Tag(name == ""$"")}",$param,size > $param,"modify($p){ setN($1), setM($2) }"
+a,b,c,d,e,f,g,h
+"""bob""",18,true,"1, 2","x, y, z",a > b,3,"4, 5"
+ann,,,,,,,
+“curly”,21,false,"(1, 2), 3",solo,,0,

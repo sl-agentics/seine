@@ -1,0 +1,35 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A6, header at A1
+rule "Snippets_6"
+	when
+		Person(name == "bob")
+		Person(age > "18")
+		Person(flag)
+		Person(age in (1, 2))
+		Tag(name == "x") || Tag(name == "y") || Tag(name == "z")
+		eval(a > b)
+		Person(size > 3) from $list
+	then
+		modify($p){ setN(4), setM(5) }
+end
+
+// rule values at A7, header at A1
+rule "Snippets_7"
+	when
+		Person(name == "ann")
+	then
+end
+
+// rule values at A8, header at A1
+rule "Snippets_8"
+	when
+		Person(name == "curly")
+		Person(age > "21")
+		Person(flag)
+		Person(age in ((1, 2), 3))
+		Tag(name == "solo")
+		Person(size > 0) from $list
+	then
+end
+

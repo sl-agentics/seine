@@ -1,0 +1,73 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A11, header at A6
+rule "rule_6_1"
+	agenda-group "grid"
+	when
+		$p : Person()
+		Age(band == "young")
+		Tier(name == "gold")
+	then
+		insert(new Discount(10));
+end
+
+rule "rule_6_2"
+	agenda-group "grid"
+	when
+		$p : Person()
+		Age(band == "young")
+		Tier(name == "silver")
+	then
+		insert(new Discount(5));
+end
+
+rule "rule_7_1"
+	agenda-group "grid"
+	when
+		$p : Person()
+		Age(band == "adult")
+		Tier(name == "gold")
+	then
+		insert(new Discount(8));
+end
+
+rule "rule_7_3"
+	agenda-group "grid"
+	when
+		$p : Person()
+		Age(band == "adult")
+		Tier(name == "bronze")
+	then
+		insert(new Discount(2));
+end
+
+rule "rule_8_1"
+	agenda-group "grid"
+	when
+		$p : Person()
+		Age(band == "senior")
+		Tier(name == "gold")
+	then
+		insert(new Discount(15));
+end
+
+rule "rule_8_2"
+	agenda-group "grid"
+	when
+		$p : Person()
+		Age(band == "senior")
+		Tier(name == "silver")
+	then
+		insert(new Discount(10));
+end
+
+rule "rule_8_3"
+	agenda-group "grid"
+	when
+		$p : Person()
+		Age(band == "senior")
+		Tier(name == "bronze")
+	then
+		insert(new Discount(5));
+end
+

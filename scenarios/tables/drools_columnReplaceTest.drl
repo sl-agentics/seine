@@ -1,0 +1,18 @@
+package org.drools.decisiontable;
+//generated from Decision Table
+// rule values at A9, header at A4
+rule "lockOnActiveRule"
+	lock-on-active true
+	when
+		String(this == "lockOnActiveRule")
+	then
+end
+
+// rule values at A10, header at A4
+rule "autoFocusRule"
+	auto-focus true
+	when
+		String(this == "autoFocusRule")
+	then
+end
+

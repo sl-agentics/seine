@@ -1,0 +1,6 @@
+RuleTable Bad
+C,A
+age > $param,
+Person,insert($param);
+l,l
+1,2

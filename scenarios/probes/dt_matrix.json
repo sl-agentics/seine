@@ -1,0 +1,74 @@
+{
+ "name": "dt_matrix",
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "age",
+     "type": "i64"
+    },
+    {
+     "name": "tier",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Membership",
+   "fields": [
+    {
+     "name": "tier",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Discount",
+   "fields": [
+    {
+     "name": "pct",
+     "type": "i64"
+    }
+   ]
+  },
+  {
+   "name": "Store",
+   "fields": [
+    {
+     "name": "open",
+     "type": "bool"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "age": 70,
+    "tier": "gold"
+   }
+  },
+  {
+   "type": "Membership",
+   "fields": {
+    "tier": "gold"
+   }
+  },
+  {
+   "type": "Membership",
+   "fields": {
+    "tier": "silver"
+   }
+  },
+  {
+   "type": "Store",
+   "fields": {
+    "open": true
+   }
+  }
+ ],
+ "drl": "rule \"focus\"\nwhen\n    Store()\nthen\n    drools.setFocus(\"grid\");\nend\n// rule values at A11, header at A6\nrule \"rule_6_1\"\n\tagenda-group \"grid\"\n\twhen\n\t\tStore(open == true)\n\t\tPerson(age > 60)\n\t\tMembership(tier == \"gold\")\n\tthen\n\t\tinsert(new Discount(15));\nend\n\nrule \"rule_6_2\"\n\tagenda-group \"grid\"\n\twhen\n\t\tStore(open == true)\n\t\tPerson(age > 60)\n\t\tMembership(tier == \"silver\")\n\tthen\n\t\tinsert(new Discount(10));\nend\n\nrule \"rule_7_1\"\n\tagenda-group \"grid\"\n\twhen\n\t\tStore(open == true)\n\t\tPerson(age > 18)\n\t\tMembership(tier == \"gold\")\n\tthen\n\t\tinsert(new Discount(5));\nend\n\n",
+ "_finding": "D-391 decision tables: RuleMatrix: one rule per filled cell in agenda-group grid, focused from MAIN. The DRL is seine_rs.decision_table(...).rules, byte-identical (modulo the package/import header) to Drools' SpreadsheetCompiler output."
+}

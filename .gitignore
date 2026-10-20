@@ -8,3 +8,6 @@ __pycache__/
 .venv/
 .seine-commit
 .mcp.json
+oracle-tables/target/
+scenarios/tables/fuzz_work/
+scenarios/tables/fuzz_fail/

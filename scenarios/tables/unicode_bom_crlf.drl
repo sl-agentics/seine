@@ -1,0 +1,10 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A7, header at A2
+rule "Ünicode_7"
+	when
+		Person(name == "Renée")
+	then
+		insert(é);
+end
+

@@ -1,0 +1,44 @@
+package org.drools.decisiontable;
+//generated from Decision Table
+import org.drools.decisiontable.UnicodeInCSVTest.Člověk;
+global java.util.List dospělí;
+// rule values at A10, header at A5
+rule "přidej k dospělým"
+	when
+		$člověk : Člověk(věk > 18)
+	then
+		dospělí.add($člověk);
+end
+
+// rule values at A11, header at A5
+rule "привет мир"
+	when
+		$člověk : Člověk(věk > 18)
+	then
+		dospělí.add($člověk);
+end
+
+// rule values at A12, header at A5
+rule "你好世界"
+	when
+		$člověk : Člověk(věk > 18)
+	then
+		dospělí.add($člověk);
+end
+
+// rule values at A13, header at A5
+rule "hallå världen"
+	when
+		$člověk : Člověk(věk > 18)
+	then
+		dospělí.add($člověk);
+end
+
+// rule values at A14, header at A5
+rule "مرحبا العالم"
+	when
+		$člověk : Člověk(věk > 18)
+	then
+		dospělí.add($člověk);
+end
+

@@ -1,0 +1,6 @@
+RuleTable Objects
+C,C,C,C,A
+$p : Person @watch(age),p: /people,Cheese(type == x),Person(),
+age > $param,age < $param,price > $param,name == "$param",update($p);
+a,b,c,d,e
+1,2,3,x,

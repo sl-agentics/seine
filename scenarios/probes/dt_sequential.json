@@ -1,0 +1,68 @@
+{
+ "name": "dt_sequential",
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "age",
+     "type": "i64"
+    },
+    {
+     "name": "tier",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Membership",
+   "fields": [
+    {
+     "name": "tier",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Discount",
+   "fields": [
+    {
+     "name": "pct",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "age": 70,
+    "tier": "gold"
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "age": 40,
+    "tier": "silver"
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "age": 20,
+    "tier": "gold"
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "age": 65,
+    "tier": "bronze"
+   }
+  }
+ ],
+ "drl": "// rule values at A7, header at A2\nrule \"Seq_7\"\n\tsalience 65535\n\twhen\n\t\tPerson(age >= 65)\n\tthen\n\t\tinsert(new Discount(3));\nend\n\n// rule values at A8, header at A2\nrule \"Seq_8\"\n\tsalience 65534\n\twhen\n\t\tPerson(age >= 40)\n\tthen\n\t\tinsert(new Discount(2));\nend\n\n// rule values at A9, header at A2\nrule \"Seq_9\"\n\tsalience 65533\n\twhen\n\t\tPerson(age >= 18)\n\tthen\n\t\tinsert(new Discount(1));\nend\n\n",
+ "_finding": "D-391 decision tables: Sequential RuleTable: rows get salience 65535, 65534, ... in table order. The DRL is seine_rs.decision_table(...).rules, byte-identical (modulo the package/import header) to Drools' SpreadsheetCompiler output."
+}

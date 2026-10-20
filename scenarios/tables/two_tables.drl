@@ -1,0 +1,27 @@
+package rule_table;
+//generated from Decision Table
+import a.B;
+// rule values at A6, header at A1
+rule "First_6"
+	when
+		Person(age > 1)
+	then
+		insert(a);
+end
+
+// rule values at A7, header at A1
+rule "First_7"
+	when
+		Person(age > 2)
+	then
+		insert(b);
+end
+
+// rule values at A15, header at A10
+rule "Second_15"
+	when
+		Cheese(price < 5)
+	then
+		insert(c);
+end
+

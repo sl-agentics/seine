@@ -1,0 +1,9 @@
+package org.drools.decisiontable;
+//generated from Decision Table
+declare Smurf name : String end
+// rule values at A9, header at A4
+rule "declares_9"
+	when
+	then
+end
+

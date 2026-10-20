@@ -1,0 +1,5 @@
+HorizontalCondition,Tier(name == "$param")
+VerticalCondition,Age(band == "$param")
+Action,insert(new Discount($param));
+RuleTable Grid,gold
+young,10

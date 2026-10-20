@@ -1,0 +1,22 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A6, header at A1
+rule "adult check"
+/* Checks adults */
+	@author("bob")
+	@version(1)
+	when
+		Person(age > 18)
+	then
+		insert(x);
+end
+
+// rule values at A7, header at A1
+rule "say \"q\""
+	@author("ann")
+	when
+		Person(age > 21)
+	then
+		insert(y);
+end
+

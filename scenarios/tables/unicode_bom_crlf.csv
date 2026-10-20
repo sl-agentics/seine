@@ -1,0 +1,7 @@
+﻿RuleSet,bom set
+RuleTable Ünicode
+C,A
+Person,
+"name == ""$param""",insert($param);
+l,l
+Renée,é

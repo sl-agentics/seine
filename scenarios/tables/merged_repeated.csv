@@ -1,0 +1,7 @@
+RuleTable Merged
+CONDITION,CONDITION,CONDITION,ACTION
+Person...,Person...,Person...,
+age > $param,"name == ""$param""",tier == $param,insert($param);
+a,b,c,d
+1,bob,,x
+,ann,2,y

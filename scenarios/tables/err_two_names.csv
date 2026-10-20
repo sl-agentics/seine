@@ -1,0 +1,6 @@
+RuleTable Bad
+NAME,NAME,C
+,,Person
+,,age > $param
+l,l,l
+a,b,1

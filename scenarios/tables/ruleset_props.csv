@@ -1,0 +1,17 @@
+RuleSet,full set
+Variables,java.util.List list, java.util.Map map
+Functions,function int f() { return 1; }
+Queries,query q() end
+Declare,declare T x : int end
+Unit,U
+Dialect,java
+NO-LOOP,true
+PRIORITY,5
+AGENDA-GROUP,g
+TIMER,int: 1s
+RuleTable R
+C,A
+Person,
+age > $param,list.add($param);
+l,l
+1,a

@@ -3,7 +3,9 @@
 Layer 1: `run(drl, {type: table})` — DRL strings over Arrow batches,
 WM-delta results.
 Layer 2: Pythonic authoring that compiles to DRL text — the engine
-only ever sees the certified grammar.
+only ever sees the certified grammar. Decision tables (Drools' CSV
+RuleTable / RuleMatrix, `decision_table()`) are the same kind of
+frontend: they expand to DRL, byte-identical to Drools' compiler.
 
 COMING FROM DROOLS? DRL here is RULES-ONLY. Don't write `package` or
 `declare` — fact types live in Python (`@fact` classes or the
@@ -24,6 +26,7 @@ from seine_rs._native import (
 )
 
 from . import derive
+from .tables import DecisionTable, DecisionTableError, decision_table
 from ._rows import is_row_list, rows_to_columns
 from .authoring import (
     CompileError,
@@ -59,6 +62,8 @@ from .authoring import (
 
 __all__ = [
     "CompileError",
+    "DecisionTable",
+    "DecisionTableError",
     "Event",
     "this_after",
     "this_before",
@@ -82,6 +87,7 @@ __all__ = [
     "average_exact",
     "compile_rules",
     "count",
+    "decision_table",
     "derive",
     "fact",
     "max_",
@@ -123,11 +129,13 @@ def _facts_arg(facts):
 
 
 def _drl_arg(rules):
-    """Accept a DRL string, a Rule, or a list of Rules."""
+    """Accept a DRL string, a Rule, a list of Rules, or a DecisionTable (its engine DRL, `.rules`)."""
     if isinstance(rules, str):
         return rules
     if isinstance(rules, Rule):
         return rules.to_drl()
+    if isinstance(rules, DecisionTable):
+        return rules.rules
     return compile_rules(rules)
 
 

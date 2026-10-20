@@ -1,0 +1,6 @@
+RuleTable Bad
+PRIORITY,C
+,Person
+,age > $param
+l,l
+high,1

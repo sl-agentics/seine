@@ -1,0 +1,10 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A6, header at A1
+rule "Bad_6"
+	enabled false
+	when
+		Person(age > 1)
+	then
+end
+

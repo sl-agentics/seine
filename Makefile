@@ -17,7 +17,7 @@ BASELINE    := $(shell find scenarios/baseline -name '*.json' 2>/dev/null | sort
 PROBES      := $(shell find scenarios/probes scenarios/phase0 scenarios/phase1 scenarios/phase2 scenarios/demo scenarios/failures -name '*.json' 2>/dev/null | sort)
 REGRESSIONS := $(shell find scenarios/regressions -name '*.json' 2>/dev/null | sort)
 
-.PHONY: diff diff-baseline diff-probes diff-regressions test oracle fuzz all xfail-drift xfail-rebank lint-book
+.PHONY: diff diff-baseline diff-probes diff-regressions test oracle fuzz all xfail-drift xfail-rebank lint-book tables tables-bank tables-fuzz
 
 all: test diff
 
@@ -75,6 +75,15 @@ SEED ?= 42
 CASES ?= 10000
 fuzz: oracle
 	cargo run -q -p seine-harness -- fuzz $(CASES) $(SEED)
+
+# D-391 decision tables: the port vs the banked SpreadsheetCompiler output
+# (no JVM), re-banking from the oracle, and fuzzing against the live oracle.
+tables:
+	python3 tools/table_oracle.py diff
+tables-bank:
+	python3 tools/table_oracle.py bank
+tables-fuzz:
+	python3 tools/table_oracle.py fuzz $(CASES) $(SEED)
 
 # Build the Java reference runner (Drools pinned in oracle/pom.xml).
 oracle: oracle/target/classpath.txt

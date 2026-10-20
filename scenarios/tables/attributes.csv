@@ -1,0 +1,8 @@
+RuleTable Attrs
+CONDITION,PRIORITY,NO-LOOP,AGENDA-GROUP,ACTIVATION-GROUP,LOCK-ON-ACTIVE,AUTO-FOCUS,DURATION,ENABLED,ACTION
+Person,,,,,,,,,
+age > $param,,,,,,,,,insert(new Hit($param));
+a,b,c,d,e,f,g,h,i,j
+1,10,true,pricing,"""xor""",y,on,100,false,1
+2,(5 + 1),no,"""quoted""",g,,,,,2
+3,-4,,,,,,,,3

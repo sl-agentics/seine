@@ -1,0 +1,7 @@
+RuleTable Named
+NAME,DESCRIPTION,METADATA,METADATA,C,A
+,,,,Person,
+,,author("$param"),version($param),age > $param,insert($param);
+n,d,m,v,c,a
+adult check,Checks adults,bob,1,18,x
+say "q",,ann,,21,y

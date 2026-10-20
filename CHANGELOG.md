@@ -4,6 +4,20 @@ A rules engine whose pitch is auditability keeps an auditable release
 history. Entries start at the why-machine arc; earlier releases are
 recorded in DECISIONS.md.
 
+## Unreleased
+
+Decision tables (D-391). `seine_rs.decision_table()` compiles Drools'
+CSV RuleTable and RuleMatrix formats to DRL — a Python port of
+drools-decisiontables 9.44 whose `.drl` is byte-identical to Drools'
+SpreadsheetCompiler (32 banked tables, errors included; 24,000 fuzzed
+tables against the live oracle in `oracle-tables/`). `.rules` is the
+engine DRL, and `run()`/`Session()` take a table directly. No input
+crashes it: every failure is a `DecisionTableError` naming the cell —
+Drools' own message where Drools rejects a table, a Seine message
+where Drools would crash or silently build wrong rules (a RuleMatrix
+with a blank header). `python -m seine_rs table FILE.csv` prints the
+DRL or `error: FILE: message` (exit 1). CSV only.
+
 ## 0.4.57
 
 The wheel-verification catch (D-390). Running 0.4.56's doubling

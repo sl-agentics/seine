@@ -1,0 +1,20 @@
+package full_set;
+unit U;
+dialect "java"
+//generated from Decision Table
+global java.util.List list;
+function int f() { return 1; }
+query q() end
+declare T x : int end
+	salience 5
+	timer (int: 1s)
+	no-loop true
+	agenda-group "g"
+// rule values at A17, header at A12
+rule "R_17"
+	when
+		Person(age > 1)
+	then
+		list.add(a);
+end
+

@@ -1,0 +1,29 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A9, header at A4
+rule "Seq_9"
+	salience 50
+	when
+		Person(age > 1)
+	then
+		insert(a);
+end
+
+// rule values at A10, header at A4
+rule "Seq_10"
+	salience 49
+	when
+		Person(age > 2)
+	then
+		insert(b);
+end
+
+// rule values at A11, header at A4
+rule "Seq_11"
+	salience 48
+	when
+		Person(age > 3)
+	then
+		insert(c);
+end
+

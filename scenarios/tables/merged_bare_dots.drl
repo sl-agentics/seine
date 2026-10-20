@@ -1,0 +1,11 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A6, header at A1
+rule "Merged_6"
+	when
+		Person(age > 1)
+		name == "bob"
+	then
+		insert(x);
+end
+

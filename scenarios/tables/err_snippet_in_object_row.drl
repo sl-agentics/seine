@@ -1,0 +1,1 @@
+ERROR DecisionTableParseException: It looks like you have snippets in the row that is meant for object declarations. Please insert an additional row before the snippets, at cell A3

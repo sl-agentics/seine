@@ -1,0 +1,7 @@
+EscapeQuotes,false
+RuleTable Quotes
+CONDITION,ACTION
+Person,
+name == $param,log($param);
+a,b
+say "hi",she said "no"

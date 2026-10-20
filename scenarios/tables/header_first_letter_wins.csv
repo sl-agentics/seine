@@ -1,0 +1,6 @@
+RuleTable Bad
+CONDITION,BOGUS
+Person,
+age > $param,
+l,l
+1,2

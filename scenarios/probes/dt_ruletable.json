@@ -1,0 +1,68 @@
+{
+ "name": "dt_ruletable",
+ "types": [
+  {
+   "name": "Person",
+   "fields": [
+    {
+     "name": "age",
+     "type": "i64"
+    },
+    {
+     "name": "tier",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Membership",
+   "fields": [
+    {
+     "name": "tier",
+     "type": "String"
+    }
+   ]
+  },
+  {
+   "name": "Discount",
+   "fields": [
+    {
+     "name": "pct",
+     "type": "i64"
+    }
+   ]
+  }
+ ],
+ "facts": [
+  {
+   "type": "Person",
+   "fields": {
+    "age": 70,
+    "tier": "gold"
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "age": 40,
+    "tier": "silver"
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "age": 20,
+    "tier": "gold"
+   }
+  },
+  {
+   "type": "Person",
+   "fields": {
+    "age": 65,
+    "tier": "bronze"
+   }
+  }
+ ],
+ "drl": "// rule values at A6, header at A1\nrule \"Discounts_6\"\n\tsalience 5\n\tno-loop true\n\twhen\n\t\tPerson(age > 30, tier == \"gold\")\n\tthen\n\t\tinsert(new Discount(10));\nend\n\n// rule values at A7, header at A1\nrule \"Discounts_7\"\n\twhen\n\t\tPerson(tier == \"silver\")\n\tthen\n\t\tinsert(new Discount(5));\nend\n\n// rule values at A8, header at A1\nrule \"Discounts_8\"\n\tsalience (1 + 1)\n\twhen\n\t\tPerson(age > 60)\n\tthen\n\t\tinsert(new Discount(15));\nend\n\n",
+ "_finding": "D-391 decision tables: RuleTable with merged object cells, a blank cell, PRIORITY (literal and expression) and NO-LOOP columns. The DRL is seine_rs.decision_table(...).rules, byte-identical (modulo the package/import header) to Drools' SpreadsheetCompiler output."
+}

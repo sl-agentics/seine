@@ -1,0 +1,11 @@
+RuleSet,pricing rules
+Import,org.acme.Person, org.acme.Discount
+
+RuleTable Discounts
+CONDITION,CONDITION,ACTION
+Person,Person,
+age > $param,"tier == ""$param""",insert(new Discount($param));
+Age over,Tier,Discount
+30,gold,10
+,silver,5
+65,,15

@@ -1,0 +1,12 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A6, header at A1
+rule "Objects_6"
+	when
+		$p : Person(age > 1) @watch(age)
+		p: /people[age < 2]
+		Cheese(type == x)price > 3
+		Person(name == "x")
+	then
+end
+

@@ -1,0 +1,39 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A6, header at A1
+rule "Attrs_6"
+	salience 10
+	duration 100
+	activation-group "xor"
+	no-loop true
+	auto-focus true
+	lock-on-active true
+	enabled false
+	agenda-group "pricing"
+	when
+		Person(age > 1)
+	then
+		insert(new Hit(1));
+end
+
+// rule values at A7, header at A1
+rule "Attrs_7"
+	salience (5 + 1)
+	activation-group "g"
+	no-loop false
+	agenda-group "quoted"
+	when
+		Person(age > 2)
+	then
+		insert(new Hit(2));
+end
+
+// rule values at A8, header at A1
+rule "Attrs_8"
+	salience -4
+	when
+		Person(age > 3)
+	then
+		insert(new Hit(3));
+end
+

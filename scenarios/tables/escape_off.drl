@@ -1,0 +1,10 @@
+package rule_table;
+//generated from Decision Table
+// rule values at A7, header at A2
+rule "Quotes_7"
+	when
+		Person(name == say "hi")
+	then
+		log(she said "no");
+end
+

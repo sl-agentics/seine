@@ -1,0 +1,59 @@
+package data;
+//generated from Decision Table
+// rule values at B10, header at B5
+rule "- Mine_10"
+	when
+		Foo(myObject.getColour().equals(red), myObject.size () > 1)
+		myObject.size() < 3
+	then
+		myObject.setIsValid(TRUE)
+		myObject.setIsValid(1, 2)
+end
+
+// rule values at B11, header at B5
+rule "- Mine_11"
+	when
+		Foo(myObject.getColour().equals(yellow), myObject.size () > 2)
+		myObject.size() < 6
+	then
+		myObject.setIsValid(FALSE)
+		myObject.setIsValid(1, 2)
+end
+
+// rule values at B12, header at B5
+rule "- Mine_12"
+	when
+		Foo(myObject.getColour().equals(blue), myObject.size () > 7)
+		myObject.size() < 9
+	then
+		myObject.setIsValid(N)
+		myObject.setIsValid(1, 3)
+end
+
+// rule values at A19, header at A14
+rule "- freddy2_19"
+	when
+		myObject.getColour().equals(red)
+		myObject.size () > 10
+		myObject.size() < 20
+	then
+		myObject.setIsValid(Y)
+end
+
+// rule values at A20, header at A14
+rule "- freddy2_20"
+	when
+		myObject.getColour().equals(yellow)
+	then
+		myObject.setIsValid(Y)
+end
+
+// rule values at A21, header at A14
+rule "- freddy2_21"
+	when
+		myObject.size () > 50
+		myObject.size() < 60
+	then
+		myObject.setIsValid(Y)
+end
+

@@ -1,0 +1,15 @@
+RuleTable First
+C,A
+Person,
+age > $param,insert($param);
+l,l
+1,a
+2,b
+
+Import,a.B
+RuleTable Second
+C,A
+Cheese,
+price < $param,insert($param);
+l,l
+5,c
