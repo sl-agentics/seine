@@ -63,7 +63,7 @@ Explicitly **not** in scope, regardless of how easy they look or how tempting mi
 - **MVEL dialect** (only the minimal Java-like expression subset needed for the operators above).
 - **DMN, CEP / temporal operators, complex event processing.**
 - **Backward chaining, query support, truth maintenance beyond what Phase 2 mutation requires.**
-- **Workbench / KIE authoring tooling / DRL6 full grammar / decision tables / rule templates.**
+- **Workbench / KIE authoring tooling / DRL6 full grammar / rule templates.** (Decision tables lifted 2026-10-19: an authoring frontend that expands to DRL, FEATURES.md §2 ROADMAP.)
 - **Persistence, marshalling, sessions clustering, multithreaded firing.**
 - **Beyond-RAM / disk-backed / external-store working memory** (RocksDB/LMDB-backed match state, mmap spill, hot/cold tiering, partition-sharding). The Phase-0 layout constraint keeps these *reachable later*, but building any of them is out of scope: every viable path either assumes fact partitioning or requires diverging from Drools' matching algorithm, which would break the differential oracle. Bank the in-RAM constant-factor win now; park beyond-RAM with the algorithmic-divergence ideas.
 - Anything requiring network calls or external state at rule-fire time.
